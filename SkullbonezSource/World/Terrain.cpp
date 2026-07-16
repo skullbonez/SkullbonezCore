@@ -18,7 +18,9 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - A degenerate accumulated render normal falls back to world +Y; terrain
+    mesh construction never publishes NaN normals.
 
 Related:
   - SkullbonezSource/World/Terrain.h
@@ -1283,8 +1285,11 @@ void Terrain::GenerateNormals()
                 }
             }
 
-            // finally, normalise the m_normal
-            m_postData[postingIndex].vNormal.Normalise();
+            // A fully degenerate neighborhood can cancel every weighted face.
+            if ( !m_postData[postingIndex].vNormal.TryNormalise() )
+            {
+                m_postData[postingIndex].vNormal = Vector3( 0.0f, 1.0f, 0.0f );
+            }
         }
     }
 }

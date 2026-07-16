@@ -131,8 +131,14 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
     // Invariant: replay target identity resolves through body handles before
     // markers read store rows. This avoids scanning the legacy object record mirror just
     // to recover a stable ReplayBodyId that PhysicsBodyStore already owns.
-    const float radius = (std::max)( 1.0f, (std::max)( body->boundingRadius, collider->boundingRadius ) ) * 1.18f;
-    tracer.AddReplayTargetMarker( body->position, body->orientation, collider->shape, radius );
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const auto hotFields = bodyStore.HotFields();
+    const float radius =
+        (std::max)( 1.0f, (std::max)( hotFields.boundingRadius[bodyIndex], collider->boundingRadius ) ) * 1.18f;
+    tracer.AddReplayTargetMarker( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                  PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                  collider->shape,
+                                  radius );
     return true;
 }
 
@@ -168,7 +174,29 @@ bool TryReserveReplayPathRibbonSegment( ReplayRibbonDrawQuota* quota )
 
 // Invariant: traversal continues after quota exhaustion. Every later logical
 // segment is cheap to inspect and must be counted in its lane even though no
-// vertex payload is emitted.
+// vertex payload is emitted. Ordinary and baseline paths share this accounting
+// contract; only their final tracer record shapes differ.
+bool TryAccountReplayPathSegment( RunEditorTracer& tracer,
+                                  ReplayRibbonDrawQuota* quota,
+                                  SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane )
+{
+    if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
+    {
+        if ( quota )
+        {
+            quota->remainingRibbonSegments = 0;
+        }
+        tracer.RecordReplayRibbonDroppedSegments( lane );
+        return false;
+    }
+    if ( !TryReserveReplayPathRibbonSegment( quota ) )
+    {
+        tracer.RecordReplayRibbonDroppedSegments( lane );
+        return false;
+    }
+    return true;
+}
+
 void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
                                     ReplayRibbonDrawQuota* quota,
                                     const Vector3& start,
@@ -179,18 +207,8 @@ void AddOrAccountReplayPathSegment( RunEditorTracer& tracer,
                                     SkullbonezCore::Core::MainMemoryReplayTrajectoryLane lane,
                                     float emphasis = 0.0f )
 {
-    if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
+    if ( !TryAccountReplayPathSegment( tracer, quota, lane ) )
     {
-        if ( quota )
-        {
-            quota->remainingRibbonSegments = 0;
-        }
-        tracer.RecordReplayRibbonDroppedSegments( lane );
-        return;
-    }
-    if ( !TryReserveReplayPathRibbonSegment( quota ) )
-    {
-        tracer.RecordReplayRibbonDroppedSegments( lane );
         return;
     }
 
@@ -205,18 +223,10 @@ void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
                                             float g,
                                             float b )
 {
-    if ( tracer.ReplayPathRibbonSegmentCapacityRemaining() < REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT )
+    if ( !TryAccountReplayPathSegment( tracer,
+                                       quota,
+                                       SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot ) )
     {
-        if ( quota )
-        {
-            quota->remainingRibbonSegments = 0;
-        }
-        tracer.RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
-        return;
-    }
-    if ( !TryReserveReplayPathRibbonSegment( quota ) )
-    {
-        tracer.RecordReplayRibbonDroppedSegments( SkullbonezCore::Core::MainMemoryReplayTrajectoryLane::BaselineRoot );
         return;
     }
 

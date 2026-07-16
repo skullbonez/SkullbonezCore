@@ -35,15 +35,6 @@
     <Filter Include="Source Files\Assets">
       <UniqueIdentifier>{0C8A9D4B-751B-42A4-B88A-AE3370B5F0D2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Maths">
-      <UniqueIdentifier>{9D54DB4F-A0BB-4351-8CC6-F9F76CF3C4BB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\GameObjects">
-      <UniqueIdentifier>{7A9E59BA-4C36-4D31-8F89-45A343079C9A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Physics">
-      <UniqueIdentifier>{7CEB98A0-75E7-40AD-91E5-E4075BE077F5}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{D96252B2-F91C-4D79-B28C-66CB9E6E7C2B}</UniqueIdentifier>
     </Filter>
@@ -61,12 +52,6 @@
     </Filter>
     <Filter Include="Header Files\Assets">
       <UniqueIdentifier>{6A6E00A4-473F-4992-A78A-5B18F4D3E767}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Maths">
-      <UniqueIdentifier>{7A9FA734-4718-4E61-870D-F1683365AEB2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Physics">
-      <UniqueIdentifier>{A5899E12-4DBE-4DCA-810A-B68F7BDE8517}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Rendering">
       <UniqueIdentifier>{1541386D-A2BA-4E01-92CF-2922814D47F4}</UniqueIdentifier>
@@ -140,6 +125,9 @@
     <Filter Include="Header Files\Runtime\UI">
       <UniqueIdentifier>{A88A8D21-67C3-4E5D-865E-94A1A2C9893F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\UI">
+      <UniqueIdentifier>{2B851D7A-7D92-4C8E-A564-37D881D4E232}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\World">
       <UniqueIdentifier>{7B1F33A5-5D6A-2875-88A4-7ABBFD2038D8}</UniqueIdentifier>
     </Filter>
@@ -152,19 +140,73 @@
     <Filter Include="Header Files\Runtime\Debug">
       <UniqueIdentifier>{31078CA6-457D-4C5C-8AB7-5EAC93A44543}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Lifecycle">
+      <UniqueIdentifier>{61828B66-A328-4451-906F-07C18EC84E02}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Lifecycle">
+      <UniqueIdentifier>{1335C2CA-AFB9-4F5D-ACB1-627997512618}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Startup">
+      <UniqueIdentifier>{8E2590BE-216D-49E6-B0C8-15DB26EDC7F2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Startup">
+      <UniqueIdentifier>{60BB2815-8CE7-46D3-A44C-351DA261890D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Camera">
+      <UniqueIdentifier>{23B562F1-2F3E-4805-AF2A-F56D7BC55440}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Camera">
+      <UniqueIdentifier>{A94597C9-144A-4DDA-99AF-A88CE6009EAB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Capture">
+      <UniqueIdentifier>{44D53128-CAEA-492C-B7AA-07D9E7C36FDA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Capture">
+      <UniqueIdentifier>{85973A1A-B115-419E-9EA6-15C40CD0BBCF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Demo">
+      <UniqueIdentifier>{23DB9925-59B3-4FF7-ACD9-DE3AEE542220}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Demo">
+      <UniqueIdentifier>{A870ED93-FF41-45FC-931E-C65CDB5066CD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Input">
+      <UniqueIdentifier>{0D3EFB5E-F850-4F5C-96DC-A3EAA38A9093}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Input">
+      <UniqueIdentifier>{046A679D-5739-4B8F-A763-B03B407084BF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Automation">
+      <UniqueIdentifier>{2AC740BB-3212-4DD7-BF77-EC173C64E690}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Automation">
+      <UniqueIdentifier>{3FF62334-8325-4EAE-A76D-3E493A8FDB50}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Interaction">
+      <UniqueIdentifier>{5459D853-A746-4213-AEC7-6BB56A78487E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Interaction">
+      <UniqueIdentifier>{7BD933F8-CDEE-4EC7-8DB4-216FBF504D1A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Settings">
+      <UniqueIdentifier>{F6DDDBD7-E005-4403-848D-6F41C4424C4F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Runtime\Settings">
+      <UniqueIdentifier>{390594DA-B658-41AE-ACAE-6515787B6C69}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
       <Filter>Source Files\Assets</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
@@ -221,7 +263,7 @@
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
@@ -250,6 +292,12 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.Probes.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.Automation.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringCauseTree.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
@@ -269,13 +317,13 @@
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp">
       <Filter>Source Files\Core</Filter>
@@ -284,10 +332,22 @@
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Input.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Log.cpp">
       <Filter>Source Files\Core</Filter>
@@ -296,7 +356,7 @@
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Run.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTools.cpp">
       <Filter>Source Files\Runtime\Editor</Filter>
@@ -329,43 +389,43 @@
       <Filter>Source Files\Runtime\Editor</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputFrame.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InputFrameExecution.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DiagnosticsController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Input</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
@@ -386,25 +446,31 @@
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunRender.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeValidationHarness.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
@@ -413,13 +479,13 @@
       <Filter>Source Files\Runtime\Audio</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Interaction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickGeometry.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Interaction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickService.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Interaction</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp">
       <Filter>Source Files\World</Filter>
@@ -440,7 +506,7 @@
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Window.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
       <Filter>Source Files\Core</Filter>
@@ -539,10 +605,10 @@
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp">
-      <Filter>Source Files\Runtime</Filter>
+      <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.cpp">
       <Filter>Source Files\Runtime\Debug</Filter>
@@ -678,15 +744,18 @@
       <Filter>Header Files\Assets</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\CameraCollection.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\DemoDirector.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\Common.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\FloatingPointContract.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\PlatformWin32.h">
@@ -723,37 +792,43 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.h">
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\RuntimeValidationHarness.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Input.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\InputController.Bindings.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\InputController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\InputRouter.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\InputFrame.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Input</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\LiveStyleController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\DiagnosticsController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Editor\EditorTools.h">
       <Filter>Header Files\Runtime\Editor</Filter>
@@ -783,49 +858,64 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Run.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Debug</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupCrashLogging.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.h">
+      <Filter>Header Files\Runtime\Startup</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayValidation.Internal.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunTimerState.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeCameraMode.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RenderDefaultsStore.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionCommands.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeDiagnostics.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.Renderer.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
@@ -834,19 +924,19 @@
       <Filter>Header Files\Runtime\Audio</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h">
       <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickService.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h">
       <Filter>Header Files\Runtime\Render</Filter>
@@ -864,7 +954,7 @@
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h">
       <Filter>Header Files\Runtime\Scene</Filter>
@@ -990,7 +1080,7 @@
       <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFileWriter.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Tools</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\World\SkyBox.h">
       <Filter>Header Files\World</Filter>
@@ -1011,10 +1101,10 @@
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Window.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h">
       <Filter>Header Files\Core</Filter>
@@ -1137,13 +1227,13 @@
       <Filter>Header Files\Runtime\Allocation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Capture</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h">
-      <Filter>Header Files\Runtime</Filter>
+      <Filter>Header Files\Runtime\Capture</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Debug\CollisionVisualizer.h">
       <Filter>Header Files\Runtime\Debug</Filter>

@@ -95,7 +95,8 @@ bool CapturePrimitiveRecipe( const SceneController& collection,
     {
         return false;
     }
-    const PhysicsBodyRecord* body = collection.BodyStore().RecordForModelIndex( modelIndex );
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderForModelIndex( collection.Colliders(), modelIndex );
     if ( !body || !collider || body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, outRecipe.shape ) )
@@ -111,21 +112,23 @@ bool CapturePrimitiveRecipe( const SceneController& collection,
     strcpy_s( outRecipe.entity.displayName, entity.displayName );
     // Invariant: recreation facts exclude the live handle, transient impulses,
     // replay id, and borrowed terrain pointer from PhysicsBodyRecord.
-    outRecipe.body.position = body->position;
-    outRecipe.body.orientation = body->orientation;
-    outRecipe.body.linearVelocity = body->linearVelocity;
-    outRecipe.body.angularVelocity = body->angularVelocity;
+    const PhysicsBodyHotState hotState =
+        LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( modelIndex ) );
+    outRecipe.body.position = hotState.position;
+    outRecipe.body.orientation = hotState.orientation;
+    outRecipe.body.linearVelocity = hotState.linearVelocity;
+    outRecipe.body.angularVelocity = hotState.angularVelocity;
     outRecipe.body.rotationalInertia = body->rotationalInertia;
     outRecipe.body.mass = body->mass;
-    outRecipe.body.boundingRadius = body->boundingRadius;
+    outRecipe.body.boundingRadius = hotState.boundingRadius;
     outRecipe.body.volume = body->volume;
     outRecipe.body.projectedSurfaceArea = body->projectedSurfaceArea;
     outRecipe.body.dragCoefficient = body->dragCoefficient;
     outRecipe.body.contactReleaseImpulseThreshold = body->contactReleaseImpulseThreshold;
     outRecipe.body.angularVelocityLimit = body->angularVelocityLimit;
     outRecipe.body.contactEpsilon = body->contactEpsilon;
-    outRecipe.body.isFixed = body->isFixed;
-    outRecipe.body.isSleeping = body->isSleeping;
+    outRecipe.body.isFixed = hotState.fixed;
+    outRecipe.body.isSleeping = !hotState.awake;
     outRecipe.body.releasesFromFixedOnContact = body->releasesFromFixedOnContact;
     outRecipe.body.usesWorldInertia = body->usesWorldInertia;
     outRecipe.restitution = collider->restitution;
@@ -338,8 +341,10 @@ void RuntimeTools::RecordEditorTransformHistory( SceneController& collection,
         item.sceneObjectId = body->sceneObjectId;
         item.before.position = m_editor.gizmoDragStartPosition;
         item.before.orientation = m_editor.gizmoDragStartOrientation;
-        item.after.position = body->position;
-        item.after.orientation = body->orientation;
+        const std::size_t bodyIndex = static_cast<std::size_t>( selectedModelIndex );
+        const auto hotFields = bodies.HotFields();
+        item.after.position = PhysicsBodyPosition( hotFields, bodyIndex );
+        item.after.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         item.before.hasShape = TryCaptureEditorPrimitiveShape( m_editor.gizmoDragStartShape, item.before.shape );
         item.after.hasShape = TryCaptureEditorPrimitiveShape( collider->shape, item.after.shape );
         if ( !item.before.hasShape || !item.after.hasShape || !PosesDiffer( item.before, item.after ) )
@@ -378,8 +383,10 @@ void RuntimeTools::RecordEditorTransformHistory( SceneController& collection,
             item.before.orientation =
                 groupCount > 0 ? m_editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )]
                                : m_editor.gizmoDragStartOrientation;
-            item.after.position = body->position;
-            item.after.orientation = body->orientation;
+            const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+            const auto hotFields = bodies.HotFields();
+            item.after.position = PhysicsBodyPosition( hotFields, bodyIndex );
+            item.after.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
             if ( PosesDiffer( item.before, item.after ) )
             {
                 ++entry.transformCount;

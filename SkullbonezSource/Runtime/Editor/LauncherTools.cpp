@@ -129,11 +129,12 @@ bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
 
     // Concept: Repro target picking approximates each model as a bounding
     // sphere around its current physics body position, then chooses the nearest
-    // sphere pierced by the camera ray. legacy object record remains only the cold identity
-    // table for the eventual snapshot row.
+    // sphere pierced by the camera ray. The body record remains only the cold
+    // identity table for the eventual snapshot row.
     const ColliderStore& colliderStore = collection.Colliders();
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const auto colliders = colliderStore.Records();
+    const auto hotFields = bodyStore.HotFields();
     for ( const ColliderRecord& collider : colliders )
     {
         const PhysicsBodyRecord* body = LauncherReproBodyForCollider( bodyStore, collider );
@@ -148,7 +149,7 @@ bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
             continue;
         }
 
-        Vector3 toModel = body->position - camPos;
+        Vector3 toModel = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) ) - camPos;
         float rayT = toModel * rayDir;
         if ( rayT <= 0.0f )
         {
@@ -218,6 +219,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     {
         return LauncherReproSnapshotStatus::NoTarget;
     }
+    const PhysicsBodyHotState hotState =
+        LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( targetIndex ) );
 
     CreateDirectoryA( "Debug", nullptr );
     FILE* rawFile = nullptr;
@@ -228,13 +231,13 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
     FILE* f = file.get();
 
-    const Vector3& pos = body->position;
-    const Vector3& vel = body->linearVelocity;
-    const Vector3& omega = body->angularVelocity;
+    const Vector3& pos = hotState.position;
+    const Vector3& vel = hotState.linearVelocity;
+    const Vector3& omega = hotState.angularVelocity;
     const Vector3& inertia = body->rotationalInertia;
-    const Vector3& invInertia = body->invRotationalInertia;
+    const Vector3& invInertia = hotState.inverseRotationalInertia;
     float qx = 0.0f, qy = 0.0f, qz = 0.0f, qw = 1.0f;
-    Quaternion orientation = body->orientation;
+    Quaternion orientation = hotState.orientation;
     orientation.GetComponents( qx, qy, qz, qw );
 
     const CollisionShape& shape = collider->shape;
@@ -328,7 +331,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     if ( std::holds_alternative<BoundingBox>( shape ) && context.terrain )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
-        Quaternion qCopy = body->orientation;
+        Quaternion qCopy = hotState.orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
         const BoxTerrainVertexSupportProbe supportProbe =
             ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, context.contactEpsilon, false );

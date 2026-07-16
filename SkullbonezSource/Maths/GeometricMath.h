@@ -21,6 +21,8 @@ Invariants:
     to be unit length.
   - NO_COLLISION marks ray/plane misses and must not be confused with a valid
     collision time.
+  - Caller-contract violations assert in Debug; Release math helpers do not
+    terminate the process.
 
 Related:
   - SkullbonezSource/Maths/GeometricMath.cpp
@@ -97,9 +99,9 @@ class GeometricMath
     // plane.distance = dot( normal, v1 )  (satisfies the plane equation for any point on it).
     static Geometry::Plane ComputePlane( const Geometry::Triangle& triangle );
 
-    // Fatal invariant if the supplied ray does not reach the plane/triangle
-    // segment within [0,1]; call CalculateIntersectionTime first for missable
-    // queries.
+    // Debug contract: the supplied ray reaches the plane/triangle segment
+    // within [0,1]. Call CalculateIntersectionTime first for missable queries;
+    // Release extrapolates instead of terminating.
     static Vector::Vector3 ComputeIntersectionPoint( const Geometry::Plane& plane, const Geometry::Ray& ray );
     static Vector::Vector3 ComputeIntersectionPoint( const Geometry::Ray& ray, float fCollisionTime );
 

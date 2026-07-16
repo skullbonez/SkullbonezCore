@@ -10,11 +10,16 @@
 #   Native stamp: The integer version field/directive owned by one file format.
 #   Check mode: Read-only CI/editor probe that reports files needing migration.
 #   Legacy v0: An asset library or engine config written before version stamps.
+#   Config v2: Adds the enabled-by-default deterministic mutual-gravity worker
+#     key after the sibling apply-forces execution key.
+#   Config v3: Adds the default-off pinned SIMD-kernel key after the integration
+#     execution key; old content remains on the byte-exact scalar path.
 #
 # Invariants:
 #   - Rewriting an already-current file is byte-idempotent.
 #   - Future versions fail and are never downgraded.
 #   - Scene/style JSON is outside this tool; its v1->v2 path remains parser-owned.
+#   - Config migrations insert only their owned key and preserve existing rows.
 #
 # Related:
 #   - tools/bake_hulls.py
@@ -34,7 +39,7 @@ import bake_hulls
 
 
 ASSET_LIBRARY_VERSION = 1
-CONFIG_VERSION = 1
+CONFIG_VERSION = 3
 ASSET_FORMAT = "skullbonez.asset_library.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
 
@@ -92,12 +97,36 @@ def migrate_config_text(text: str, path: Path) -> str:
             raise MigrationError(f"{path}: format_version must be non-negative")
         if version > CONFIG_VERSION:
             raise MigrationError(f"{path}: config version {version} is newer than current version {CONFIG_VERSION}")
+        source_version = version
         lines[index] = f"{match.group('indent')}format_version = {CONFIG_VERSION}{match.group('tail')}"
     else:
         # Named v0->v1 step: preserve the established key/value grammar and
         # place the stamp after the introductory comment block.
+        source_version = 0
         insert_at = next((index for index, line in enumerate(lines) if not line.startswith("#")), len(lines))
         lines.insert(insert_at, f"format_version = {CONFIG_VERSION}")
+
+    # Named v1->v2 step: make the new worker lane explicit while preserving the
+    # v1 runtime default. Place it beside the existing physics execution keys.
+    mutual_gravity_key = "physics_parallel_mutual_gravity"
+    if source_version < 2 and not any(line.partition("=")[0].strip() == mutual_gravity_key for line in lines):
+        apply_forces_row = next(
+            (index for index, line in enumerate(lines) if line.partition("=")[0].strip() == "physics_parallel_apply_forces"),
+            None,
+        )
+        insert_at = apply_forces_row + 1 if apply_forces_row is not None else len(lines)
+        lines.insert(insert_at, f"{mutual_gravity_key} = 1")
+
+    # Named v2->v3 step: keep legacy content on the certified scalar path and
+    # place the dark-kernel switch beside its integration execution owner.
+    simd_kernel_key = "physics_simd_kernels"
+    if source_version < 3 and not any(line.partition("=")[0].strip() == simd_kernel_key for line in lines):
+        integrate_row = next(
+            (index for index, line in enumerate(lines) if line.partition("=")[0].strip() == "physics_parallel_integrate"),
+            None,
+        )
+        insert_at = integrate_row + 1 if integrate_row is not None else len(lines)
+        lines.insert(insert_at, f"{simd_kernel_key} = 0")
 
     return "\n".join(lines) + "\n"
 
@@ -153,12 +182,14 @@ def self_test() -> None:
 
     config_path = Path("engine.cfg")
     config = migrate_config_text("# config\nscreen_x = 1\n", config_path)
-    assert "format_version = 1\n" in config
+    assert "format_version = 3\n" in config
+    assert "physics_parallel_mutual_gravity = 1\n" in config
+    assert "physics_simd_kernels = 0\n" in config
     assert migrate_config_text(config, config_path) == config
     try:
-        migrate_config_text("format_version = 2\n", config_path)
+        migrate_config_text("format_version = 4\n", config_path)
     except MigrationError as exc:
-        assert "newer than current version 1" in str(exc)
+        assert "newer than current version 3" in str(exc)
     else:
         raise AssertionError("future config version must fail")
 

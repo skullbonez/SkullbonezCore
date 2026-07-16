@@ -27,7 +27,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
-  - SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
+  - SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
 */
 #pragma once
 
@@ -218,6 +218,9 @@ class ReplayProbeRunner
         return m_startup;
     }
 #ifdef _DEBUG
+    // Installs Debug-only CLI probe state after Configure has copied the
+    // product load request and capability bit.
+    void ConfigureDebug( const ReplayStartupRequest& request );
     SkullbonezCore::Core::SbResult TickScrubProbe( const ReplayRestoreTransaction& transaction,
                                                    const ReplayTimeline& timeline,
                                                    ReplayPresentation& presentation );

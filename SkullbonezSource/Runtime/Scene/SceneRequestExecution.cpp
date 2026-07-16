@@ -29,6 +29,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
+#include "../RuntimeOverlayDiagnostics.h"
+#include "../RuntimeValidationHarness.h"
 #include "../InputFrame.h"
 #include "SceneRuntimeCreate.h"
 
@@ -60,11 +62,10 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                                       SimulationSystem& m_simulation,
                                       ReplayRuntime& m_replayRuntime,
                                       SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                                      SkullbonezCore::UI::InGameUI& m_UI,
-                                      RunDebugState& m_debug,
-                                      GraphicsStressController& m_graphicsStress,
+                                      UI::InGameUI& operatorUi,
+                                      RuntimeOverlayDiagnostics& overlays,
+                                      RuntimeValidationHarness& validationHarness,
                                       RuntimeTools& m_runtimeTools,
-                                      Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                                       const RuntimeRenderBackendView& m_renderBackendView,
                                       RuntimeRenderer& m_renderer )
 {
@@ -93,11 +94,10 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                    m_simulation,
                    m_replayRuntime,
                    m_contactAudio,
-                   m_UI,
-                   m_debug,
-                   m_graphicsStress,
+                   operatorUi,
+                   overlays,
+                   validationHarness,
                    m_runtimeTools,
-                   m_physicsDebugVisualizer,
                    m_renderBackendView,
                    m_renderer )
             .ok;
@@ -144,8 +144,9 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const SkullbonezCore::Core::SbResult saveResult =
-                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ m_debug, m_renderer, m_camera } );
+                const RunDebugState presentation = overlays.PresentationSnapshot();
+                const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
+                    SceneDefaultsSaveView{ presentation, m_renderer, m_camera } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );

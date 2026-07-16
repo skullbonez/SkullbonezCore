@@ -1931,19 +1931,47 @@ std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchive
 {
     std::vector<uint8_t> bytes;
     AppendPod( bytes, CheckedU32( samples.size() ) );
+    std::vector<uint32_t> publishedTopologyVersions;
+    publishedTopologyVersions.reserve( samples.size() );
     for ( const ReplayVisualArchiveSample& sample : samples )
     {
+        uint32_t canonicalTopologyVersion = 0u;
+        if ( sample.topologyVersion != 0u )
+        {
+            const auto found =
+                std::find( publishedTopologyVersions.begin(), publishedTopologyVersions.end(), sample.topologyVersion );
+            if ( found == publishedTopologyVersions.end() )
+            {
+                publishedTopologyVersions.push_back( sample.topologyVersion );
+                canonicalTopologyVersion = CheckedU32( publishedTopologyVersions.size() );
+            }
+            else
+            {
+                canonicalTopologyVersion = CheckedU32(
+                    static_cast<std::size_t>( std::distance( publishedTopologyVersions.begin(), found ) ) + 1u );
+            }
+        }
+        constexpr uint64_t canonicalReplayReserveGrowthEvents = 0u;
+        // Concept: live semantic telemetry contains raw schedule counters. RVIS
+        // instead hashes the unchanged visual/exact content with the same
+        // canonical topology and reserve values written into this row.
+        const uint64_t canonicalSemanticHash =
+            ReplayVisualPacketOperations::BuildCanonicalReplayVisualArchiveSemanticHash(
+                sample.visualStateHash,
+                sample.exactPacketHash,
+                canonicalTopologyVersion,
+                canonicalReplayReserveGrowthEvents );
 #define SB_APPEND_REPLAY_VISUAL_FIELD( member ) AppendPod( bytes, sample.member )
         SB_APPEND_REPLAY_VISUAL_FIELD( sourceFrame );
         SB_APPEND_REPLAY_VISUAL_FIELD( revealFrame );
-        SB_APPEND_REPLAY_VISUAL_FIELD( semanticHash );
+        AppendPod( bytes, canonicalSemanticHash );
         SB_APPEND_REPLAY_VISUAL_FIELD( visualStateHash );
         SB_APPEND_REPLAY_VISUAL_FIELD( exactPacketHash );
         SB_APPEND_REPLAY_VISUAL_FIELD( schemaVersion );
         SB_APPEND_REPLAY_VISUAL_FIELD( targetId );
         SB_APPEND_REPLAY_VISUAL_FIELD( branchId );
         SB_APPEND_REPLAY_VISUAL_FIELD( eventCursor );
-        SB_APPEND_REPLAY_VISUAL_FIELD( topologyVersion );
+        AppendPod( bytes, canonicalTopologyVersion );
         SB_APPEND_REPLAY_VISUAL_FIELD( publishedFrameCount );
         SB_APPEND_REPLAY_VISUAL_FIELD( predictionEnabled );
         SB_APPEND_REPLAY_VISUAL_FIELD( predictionBuilding );
@@ -1964,7 +1992,7 @@ std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchive
         SB_APPEND_REPLAY_VISUAL_FIELD( expandedVertexHash );
         SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryExpandedVertexHash );
         SB_APPEND_REPLAY_VISUAL_FIELD( droppedSegmentCount );
-        SB_APPEND_REPLAY_VISUAL_FIELD( replayReserveGrowthEvents );
+        AppendPod( bytes, canonicalReplayReserveGrowthEvents );
         SB_APPEND_REPLAY_VISUAL_FIELD( combinedLineBytes );
         SB_APPEND_REPLAY_VISUAL_FIELD( ordinaryLineBytes );
         SB_APPEND_REPLAY_VISUAL_FIELD( priorityLineBytes );

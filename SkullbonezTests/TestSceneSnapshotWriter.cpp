@@ -102,26 +102,26 @@ void AppendEntity( SceneEntityStore& entities,
 {
     // Invariant: handles are assigned by the stores, while the stable scene id
     // is copied into all three owner rows before the entity becomes visible.
-    PhysicsBodyRecord body;
-    body.sceneObjectId = PhysicsSceneObjectId{ id };
-    body.replayBodyId = id;
-    body.position = position;
-    body.orientation = Quaternion( 0.11f, -0.22f, 0.33f, 0.91f );
-    body.orientation.Normalise();
-    body.linearVelocity = velocity;
-    body.angularVelocity = angularVelocity;
-    body.rotationalInertia = inertia;
-    body.mass = mass;
-    body.invMass = fixed ? 0.0f : 1.0f / mass;
-    body.isFixed = fixed;
-    body.isSleeping = sleeping;
-    body.releasesFromFixedOnContact = assetPartIndex == 2;
-    body.contactReleaseImpulseThreshold = 4.25f;
+    PhysicsBodyCreateRecord body;
+    body.cold.sceneObjectId = PhysicsSceneObjectId{ id };
+    body.cold.replayBodyId = id;
+    body.hot.position = position;
+    body.hot.orientation = Quaternion( 0.11f, -0.22f, 0.33f, 0.91f );
+    body.hot.orientation.Normalise();
+    body.hot.linearVelocity = velocity;
+    body.hot.angularVelocity = angularVelocity;
+    body.cold.rotationalInertia = inertia;
+    body.cold.mass = mass;
+    body.hot.inverseMass = fixed ? 0.0f : 1.0f / mass;
+    body.hot.fixed = fixed;
+    body.hot.awake = !sleeping;
+    body.cold.releasesFromFixedOnContact = assetPartIndex == 2;
+    body.cold.contactReleaseImpulseThreshold = 4.25f;
     const PhysicsBodyHandle bodyHandle = bodies.CreateBodyRecord( body );
 
     ColliderRecord collider;
     collider.body = bodyHandle;
-    collider.sceneObjectId = body.sceneObjectId;
+    collider.sceneObjectId = body.cold.sceneObjectId;
     collider.replayBodyId = id;
     collider.shape = shape;
     collider.restitution = restitution;
@@ -129,7 +129,7 @@ void AppendEntity( SceneEntityStore& entities,
     (void)colliders.CreateColliderRecord( collider );
 
     SceneEntityCreateDesc entity;
-    entity.sceneObjectId = body.sceneObjectId;
+    entity.sceneObjectId = body.cold.sceneObjectId;
     entity.SetName( displayName );
     entity.SetRenderTint( 0.1f * static_cast<float>( assetPartIndex + 1u ), 0.4f, 0.7f, 1.0f );
     Rendering::RenderMaterial completeMaterial = entity.GetRenderMaterial();
@@ -260,14 +260,22 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
         const PhysicsBodyRecord* recreatedBody = recreatedBodies.RecordForHandle( recreatedEntity.body );
         REQUIRE( sourceBody );
         REQUIRE( recreatedBody );
-        CheckVector( recreatedBody->position, sourceBody->position );
-        CheckOrientation( recreatedBody->orientation, sourceBody->orientation );
-        CheckVector( recreatedBody->linearVelocity, sourceBody->linearVelocity );
-        CheckVector( recreatedBody->angularVelocity, sourceBody->angularVelocity );
+        const int sourceBodyIndex = sourceBodies.ModelIndexForHandle( sourceEntity.body );
+        const int recreatedBodyIndex = recreatedBodies.ModelIndexForHandle( recreatedEntity.body );
+        REQUIRE( sourceBodyIndex >= 0 );
+        REQUIRE( recreatedBodyIndex >= 0 );
+        const PhysicsBodyHotState sourceHot = LoadPhysicsBodyHotState(
+            sourceBodies.HotFields(), static_cast<std::size_t>( sourceBodyIndex ) );
+        const PhysicsBodyHotState recreatedHot = LoadPhysicsBodyHotState(
+            recreatedBodies.HotFields(), static_cast<std::size_t>( recreatedBodyIndex ) );
+        CheckVector( recreatedHot.position, sourceHot.position );
+        CheckOrientation( recreatedHot.orientation, sourceHot.orientation );
+        CheckVector( recreatedHot.linearVelocity, sourceHot.linearVelocity );
+        CheckVector( recreatedHot.angularVelocity, sourceHot.angularVelocity );
         CheckVector( recreatedBody->rotationalInertia, sourceBody->rotationalInertia );
         CHECK( recreatedBody->mass == doctest::Approx( sourceBody->mass ) );
-        CHECK( recreatedBody->isFixed == sourceBody->isFixed );
-        CHECK( recreatedBody->isSleeping == sourceBody->isSleeping );
+        CHECK( recreatedHot.fixed == sourceHot.fixed );
+        CHECK( recreatedHot.awake == sourceHot.awake );
         CHECK( recreatedBody->releasesFromFixedOnContact == sourceBody->releasesFromFixedOnContact );
         if ( sourceBody->releasesFromFixedOnContact )
         {
@@ -353,20 +361,20 @@ void AppendParsedEntity( SceneEntityStore& entities,
                          float releaseThreshold,
                          const SceneObjectGroupMetadata* group )
 {
-    PhysicsBodyRecord body;
-    body.sceneObjectId = id;
-    body.replayBodyId = id.value;
-    body.position = position;
-    body.orientation = orientation;
-    body.linearVelocity = velocity;
-    body.angularVelocity = angularVelocity;
-    body.rotationalInertia = inertia;
-    body.mass = mass;
-    body.invMass = fixed ? 0.0f : 1.0f / mass;
-    body.isFixed = fixed;
-    body.isSleeping = sleeping;
-    body.releasesFromFixedOnContact = releasesOnContact;
-    body.contactReleaseImpulseThreshold = releaseThreshold;
+    PhysicsBodyCreateRecord body;
+    body.cold.sceneObjectId = id;
+    body.cold.replayBodyId = id.value;
+    body.hot.position = position;
+    body.hot.orientation = orientation;
+    body.hot.linearVelocity = velocity;
+    body.hot.angularVelocity = angularVelocity;
+    body.cold.rotationalInertia = inertia;
+    body.cold.mass = mass;
+    body.hot.inverseMass = fixed ? 0.0f : 1.0f / mass;
+    body.hot.fixed = fixed;
+    body.hot.awake = !sleeping;
+    body.cold.releasesFromFixedOnContact = releasesOnContact;
+    body.cold.contactReleaseImpulseThreshold = releaseThreshold;
     const PhysicsBodyHandle bodyHandle = bodies.CreateBodyRecord( body );
 
     ColliderRecord collider;

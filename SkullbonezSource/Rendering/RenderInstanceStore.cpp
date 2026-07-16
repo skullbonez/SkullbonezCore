@@ -17,6 +17,8 @@ Glossary:
   Replay body id: Stable per-scene id shared with physics/replay records.
   Contact highlight: Render-only feedback alpha copied from presentation state
     after gameplay/physics feedback has advanced.
+  Shadow caster stream: Scene-owner bin copied unchanged into the draw record so
+    render submission does not reinterpret material content.
 
 Invariants:
   - Records stay in scene model order and render handles mirror model indices
@@ -48,6 +50,9 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyHotState;
+using SkullbonezCore::Physics::PhysicsBodyOrientation;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Rendering::RenderInstanceHandle;
@@ -72,11 +77,6 @@ Matrix4 BuildRenderModelMatrix( const Vector3& position, const Quaternion& orien
     return GetShapeModelMatrix( collider.shape, position, rotation );
 }
 
-Matrix4 BuildPhysicsModelMatrix( const PhysicsBodyRecord& body, const ColliderRecord& collider )
-{
-    return BuildRenderModelMatrix( body.position, body.orientation, collider );
-}
-
 RenderInstanceShapeKind ShapeKindFromCollider( ColliderShapeKind shapeKind )
 {
     switch ( shapeKind )
@@ -96,10 +96,12 @@ float ContactAlpha( float seconds, float fadeSeconds )
     return fadeSeconds > 0.0f ? std::clamp( seconds / fadeSeconds, 0.0f, 1.0f ) : 0.0f;
 }
 
-bool PoseMatchesCurrentEndpoint( const RenderInstanceRecord& record, const PhysicsBodyRecord& body )
+bool PoseMatchesCurrentEndpoint( const RenderInstanceRecord& record,
+                                 const Vector3& position,
+                                 const Quaternion& orientation )
 {
-    if ( record.currentPosition.x != body.position.x || record.currentPosition.y != body.position.y ||
-         record.currentPosition.z != body.position.z )
+    if ( record.currentPosition.x != position.x || record.currentPosition.y != position.y ||
+         record.currentPosition.z != position.z )
     {
         return false;
     }
@@ -113,16 +115,16 @@ bool PoseMatchesCurrentEndpoint( const RenderInstanceRecord& record, const Physi
     float bodyZ = 0.0f;
     float bodyW = 1.0f;
     record.currentOrientation.GetComponents( recordX, recordY, recordZ, recordW );
-    body.orientation.GetComponents( bodyX, bodyY, bodyZ, bodyW );
+    orientation.GetComponents( bodyX, bodyY, bodyZ, bodyW );
     return recordX == bodyX && recordY == bodyY && recordZ == bodyZ && recordW == bodyW;
 }
 
-void ResetPoseHistory( RenderInstanceRecord& record, const PhysicsBodyRecord& body )
+void ResetPoseHistory( RenderInstanceRecord& record, const Vector3& position, const Quaternion& orientation )
 {
-    record.previousPosition = body.position;
-    record.currentPosition = body.position;
-    record.previousOrientation = body.orientation;
-    record.currentOrientation = body.orientation;
+    record.previousPosition = position;
+    record.currentPosition = position;
+    record.previousOrientation = orientation;
+    record.currentOrientation = orientation;
     record.poseHistoryValid = true;
 }
 
@@ -171,6 +173,7 @@ bool RenderInstanceStore::CanAppendCreationRow( int expectedCount ) const
 
 void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRecord& presentation,
                                              const PhysicsBodyRecord& body,
+                                             const PhysicsBodyHotState& hotState,
                                              const ColliderRecord& collider,
                                              int expectedIndex )
 {
@@ -194,14 +197,15 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
     RenderInstanceRecord record;
     record.handle = MakeRenderInstanceHandleForModelIndex( modelIndex );
     record.replayBodyId = body.replayBodyId;
-    record.modelMatrix = BuildPhysicsModelMatrix( body, collider );
+    record.modelMatrix = BuildRenderModelMatrix( hotState.position, hotState.orientation, collider );
     record.material = presentation.material;
     record.boundingRadius = collider.boundingRadius;
     record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
-    record.isFixed = body.isFixed;
+    record.shadowCasterStream = presentation.shadowCasterStream;
+    record.isFixed = hotState.fixed;
     record.fixedContactAlpha = presentation.fixedContactAlpha;
     record.audioContactAlpha = presentation.audioContactAlpha;
-    ResetPoseHistory( record, body );
+    ResetPoseHistory( record, hotState.position, hotState.orientation );
 
     // Invariant: CanAppendCreationRow proves all three pushes reuse existing
     // reservations, so no partial render row can result from allocation failure.
@@ -333,6 +337,7 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
     }
 
     const auto bodies = bodyStore.Records();
+    const auto hotFields = bodyStore.HotFields();
     for ( int index = 0; index < bodyStore.Count(); ++index )
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
@@ -340,10 +345,12 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
         // Hazard: input/editor/replay commands can teleport a body between
         // fixed ticks. Collapse both endpoints before stepping so presentation
         // never blends across that discontinuity.
+        const Vector3 position = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) );
+        const Quaternion orientation = PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) );
         if ( !record.poseHistoryValid || record.replayBodyId != body.replayBodyId ||
-             !PoseMatchesCurrentEndpoint( record, body ) )
+             !PoseMatchesCurrentEndpoint( record, position, orientation ) )
         {
-            ResetPoseHistory( record, body );
+            ResetPoseHistory( record, position, orientation );
         }
     }
 }
@@ -360,19 +367,22 @@ void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore
     }
 
     const auto bodies = bodyStore.Records();
+    const auto hotFields = bodyStore.HotFields();
     for ( int index = 0; index < bodyStore.Count(); ++index )
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( index )];
         if ( !record.poseHistoryValid || record.replayBodyId != body.replayBodyId )
         {
-            ResetPoseHistory( record, body );
+            ResetPoseHistory( record,
+                              PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) ),
+                              PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) ) );
             continue;
         }
         record.previousPosition = record.currentPosition;
         record.previousOrientation = record.currentOrientation;
-        record.currentPosition = body.position;
-        record.currentOrientation = body.orientation;
+        record.currentPosition = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) );
+        record.currentOrientation = PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) );
     }
 }
 
@@ -417,6 +427,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
     assert( presentation != nullptr || presentationCount == 0 );
 
     const auto bodies = bodyStore.Records();
+    const auto hotFields = bodyStore.HotFields();
     const auto colliders = colliderStore.Records();
 
     // Invariant: render instance handles intentionally mirror model slots until
@@ -437,9 +448,12 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         // A mismatch here did not pass through the fixed-step capture boundary:
         // scene load, spawn, teleport, replay restore, or scrub changed the pose.
         // Collapse history so the discontinuity is visible immediately.
-        if ( !record.poseHistoryValid || bodyIdentityChanged || !PoseMatchesCurrentEndpoint( record, body ) )
+        const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, index );
+        const Quaternion bodyOrientation = PhysicsBodyOrientation( hotFields, index );
+        if ( !record.poseHistoryValid || bodyIdentityChanged ||
+             !PoseMatchesCurrentEndpoint( record, bodyPosition, bodyOrientation ) )
         {
-            ResetPoseHistory( record, body );
+            ResetPoseHistory( record, bodyPosition, bodyOrientation );
         }
         // Why: deterministic/fixed-step and capture frames intentionally use
         // alpha 1. Avoid quaternion normalization across every row on that
@@ -456,7 +470,8 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         record.material = presentationRecord.material;
         record.boundingRadius = collider.boundingRadius;
         record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
-        record.isFixed = body.isFixed;
+        record.shadowCasterStream = presentationRecord.shadowCasterStream;
+        record.isFixed = hotFields.fixed[index] != 0u;
         record.fixedContactAlpha = presentationRecord.fixedContactAlpha;
         record.audioContactAlpha = presentationRecord.audioContactAlpha;
         m_modelInstanceHandles[index] = record.handle;

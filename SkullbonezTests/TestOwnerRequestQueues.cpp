@@ -17,6 +17,8 @@ Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
     deliberate fatal owner-budget violation.
   - Replay owner codes are compatibility values and must not be renumbered.
+  - Render-default saves reject config versions newer than the engine-owned
+    schema before rewriting any bytes.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
@@ -65,7 +67,8 @@ class FailingCaptureBackend final : public SkullbonezCore::Rendering::IRenderCap
         return true;
     }
 
-    SkullbonezCore::Core::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
+    SkullbonezCore::Core::SbResult
+    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
     {
         outPixels.assign( 4, 0xff );
         outWidth = 1;
@@ -309,7 +312,8 @@ TEST_CASE( "RenderDefaultsStore excludes failed writes from accepted events" )
     RenderDefaultsStore store;
     store.SubmitOrdinarySave();
     const RenderDefaultsSaveBatchResult result =
-        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{}, SkullbonezCore::Core::CinematicRenderConfig{} );
+        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{},
+                                      SkullbonezCore::Core::CinematicRenderConfig{} );
 
     fs::current_path( originalPath, filesystemError );
     CHECK_FALSE( filesystemError );
@@ -357,7 +361,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
-    CHECK( configText.find( "format_version = 1" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 3" ) != std::string::npos );
 
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
@@ -387,7 +391,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     const fs::path dataRoot = testRoot / "SkullbonezData";
     fs::create_directories( dataRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const std::string originalText = "format_version = 2\nordinary_sun_intensity = 1.00\n";
+    const std::string originalText = "format_version = 4\nordinary_sun_intensity = 1.00\n";
     {
         std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
         REQUIRE( configFile.is_open() );
@@ -400,7 +404,8 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     fs::current_path( testRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
     const RenderDefaultsSaveBatchResult result =
-        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{}, SkullbonezCore::Core::CinematicRenderConfig{} );
+        store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{},
+                                      SkullbonezCore::Core::CinematicRenderConfig{} );
     fs::current_path( originalPath, filesystemError );
     REQUIRE_FALSE( filesystemError );
 

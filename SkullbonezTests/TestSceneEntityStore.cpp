@@ -17,6 +17,7 @@ Invariants:
   - Successful commits retain exact identity, material, affiliation, and group values.
   - Clear and commit reuse the pre-scene reservation without growing storage.
   - Render creation publishes presentation, instance, and handle rows together.
+  - Owner-prepared shadow stream identity survives render-row publication.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneEntityStore.h
@@ -131,12 +132,14 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     RenderInstanceStore renderStore;
     RenderInstancePresentationRecord presentation;
     presentation.material.baseColor[0] = 0.25f;
+    presentation.shadowCasterStream = ShadowCasterStream::Pine;
     strcpy_s( presentation.displayName, "transaction_entity" );
 
     PhysicsBodyRecord body;
     body.handle = PhysicsBodyHandle{ 7u, 1u };
     body.sceneObjectId = PhysicsSceneObjectId{ 77u };
     body.replayBodyId = 77u;
+    PhysicsBodyHotState hotState;
 
     ColliderRecord collider;
     collider.handle = PhysicsColliderHandle{ 9u, 1u };
@@ -149,13 +152,14 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     collider.boundingRadius = 1.5f;
 
     REQUIRE( renderStore.CanAppendCreationRow( 0 ) );
-    renderStore.CommitCreationRow( presentation, body, collider, 0 );
+    renderStore.CommitCreationRow( presentation, body, hotState, collider, 0 );
 
     CHECK( renderStore.PresentationCount() == 1 );
     CHECK( renderStore.Count() == 1 );
     CHECK( renderStore.HandleForModelIndex( 0 ).IsValid() );
     CHECK( renderStore.Records()[0].replayBodyId == 77u );
     CHECK( renderStore.Records()[0].material.baseColor[0] == doctest::Approx( 0.25f ) );
+    CHECK( renderStore.Records()[0].shadowCasterStream == ShadowCasterStream::Pine );
     CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
 }
 
@@ -168,19 +172,19 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
 
     static PhysicsBodyStore bodyStore;
     bodyStore.Clear();
-    PhysicsBodyRecord body;
-    body.sceneObjectId = PhysicsSceneObjectId{ 901u };
-    body.replayBodyId = 901u;
-    body.position = Vector3( 0.0f, 0.0f, 0.0f );
-    const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( body );
+    PhysicsBodyCreateRecord createRecord;
+    createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 901u };
+    createRecord.cold.replayBodyId = 901u;
+    createRecord.hot.position = Vector3( 0.0f, 0.0f, 0.0f );
+    const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( createRecord );
     REQUIRE( bodyHandle.IsValid() );
 
     static ColliderStore colliderStore;
     colliderStore.Clear();
     ColliderRecord collider;
     collider.body = bodyHandle;
-    collider.sceneObjectId = body.sceneObjectId;
-    collider.replayBodyId = body.replayBodyId;
+    collider.sceneObjectId = createRecord.cold.sceneObjectId;
+    collider.replayBodyId = createRecord.cold.replayBodyId;
     collider.shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, ZERO_VECTOR );
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = 1.0f;
@@ -188,12 +192,12 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
 
     RenderInstanceStore renderStore;
     RenderInstancePresentationRecord presentation;
-    renderStore.CommitCreationRow( presentation, bodyStore.Records()[0], colliderStore.Records()[0], 0 );
+    renderStore.CommitCreationRow(
+        presentation, bodyStore.Records()[0], LoadPhysicsBodyHotState( bodyStore.HotFields(), 0u ), colliderStore.Records()[0], 0 );
 
     renderStore.BeginPhysicsStepPoseCapture( bodyStore );
-    PhysicsBodyRecord* mutableBody = bodyStore.MutableRecordForModelIndex( 0 );
-    REQUIRE( mutableBody != nullptr );
-    mutableBody->position = Vector3( 8.0f, 0.0f, 0.0f );
+    auto hotFields = bodyStore.MutableHotFields();
+    hotFields.positionX[0] = 8.0f;
     renderStore.CompletePhysicsStepPoseCapture( bodyStore );
 
     Vector3 presentedPosition;
@@ -203,7 +207,7 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
 
     // A teleport between ticks is a discontinuity. Refresh must publish it
     // exactly instead of blending from the previous physics endpoint.
-    mutableBody->position = Vector3( 100.0f, 0.0f, 0.0f );
+    hotFields.positionX[0] = 100.0f;
     renderStore.Refresh( bodyStore, colliderStore, 0.25f );
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 100.0f ) );
@@ -211,9 +215,9 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     // Input can teleport a body immediately before a solver tick. The begin
     // capture detects that endpoint break, so the next legitimate tick blends
     // from the teleported pose instead of resurrecting the old path.
-    mutableBody->position = Vector3( 200.0f, 0.0f, 0.0f );
+    hotFields.positionX[0] = 200.0f;
     renderStore.BeginPhysicsStepPoseCapture( bodyStore );
-    mutableBody->position = Vector3( 208.0f, 0.0f, 0.0f );
+    hotFields.positionX[0] = 208.0f;
     renderStore.CompletePhysicsStepPoseCapture( bodyStore );
     REQUIRE( renderStore.TryGetPresentationPose( 0, 0.25f, presentedPosition, presentedOrientation ) );
     CHECK( presentedPosition.x == doctest::Approx( 202.0f ) );
@@ -271,6 +275,7 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
         body.handle = PhysicsBodyHandle{ static_cast<uint32_t>( index ), 1u };
         body.sceneObjectId = PhysicsSceneObjectId{ sceneId };
         body.replayBodyId = sceneId;
+        PhysicsBodyHotState hotState;
         ColliderRecord collider;
         collider.handle = PhysicsColliderHandle{ static_cast<uint32_t>( index ), 1u };
         collider.body = body.handle;
@@ -280,7 +285,7 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
             SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
         collider.shapeKind = ColliderShapeKind::Sphere;
         collider.boundingRadius = 1.0f;
-        renderStore.CommitCreationRow( presentation, body, collider, index );
+        renderStore.CommitCreationRow( presentation, body, hotState, collider, index );
     };
 
     commitRenderRow( 0, 101u );
@@ -298,16 +303,16 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
 
     static PhysicsBodyStore bodyStore;
     bodyStore.Clear();
-    PhysicsBodyRecord body;
-    body.sceneObjectId = PhysicsSceneObjectId{ 202u };
-    body.replayBodyId = 202u;
-    const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( body );
+    PhysicsBodyCreateRecord createRecord;
+    createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 202u };
+    createRecord.cold.replayBodyId = 202u;
+    const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( createRecord );
     static ColliderStore colliderStore;
     colliderStore.Clear();
     ColliderRecord collider;
     collider.body = bodyHandle;
-    collider.sceneObjectId = body.sceneObjectId;
-    collider.replayBodyId = body.replayBodyId;
+    collider.sceneObjectId = createRecord.cold.sceneObjectId;
+    collider.replayBodyId = createRecord.cold.replayBodyId;
     collider.shape =
         SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collider.shapeKind = ColliderShapeKind::Sphere;

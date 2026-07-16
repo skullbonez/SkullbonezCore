@@ -95,6 +95,26 @@ def replay_visual_byte_hash(payload: bytes) -> int:
     return value
 
 
+def canonical_archive_semantic_hash(
+    visual_state_hash: int,
+    exact_packet_hash: int,
+    topology_version: int,
+    replay_reserve_growth_events: int,
+) -> int:
+    """Mirror the RVIS writer's content-sensitive canonical semantic digest."""
+    value = visual_state_hash
+    payload = struct.pack(
+        "<IQQ",
+        topology_version,
+        replay_reserve_growth_events,
+        exact_packet_hash,
+    )
+    for byte in payload:
+        value ^= byte
+        value = (value * REPLAY_VISUAL_FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
 def load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
@@ -394,14 +414,12 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
     visual_fields = (
         ("source_frame", "sourceFrame"),
         ("reveal_frame", "revealFrame"),
-        ("semantic_hash", "semanticHash"),
         ("visual_state_hash", "visualStateHash"),
         ("exact_packet_hash", "exactPacketHash"),
         ("schema_version", "schemaVersion"),
         ("target_id", "targetId"),
         ("branch_id", "branchId"),
         ("event_cursor", "eventCursor"),
-        ("topology_version", "topologyVersion"),
         ("published_frame_count", "publishedFrameCount"),
         ("prediction_enabled", "predictionEnabled"),
         ("prediction_building", "predictionBuilding"),
@@ -416,7 +434,6 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
         ("expanded_vertex_hash", "vertexHash"),
         ("ordinary_expanded_vertex_hash", "ordinaryVertexHash"),
         ("dropped_segment_count", "droppedSegmentCount"),
-        ("replay_reserve_growth_events", "replayReserveGrowthEvents"),
         ("combined_line_bytes", "combinedLineBytes"),
         ("ordinary_line_bytes", "ordinaryLineBytes"),
         ("priority_line_bytes", "priorityLineBytes"),
@@ -452,7 +469,38 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
         "vertexHash",
         "ordinaryVertexHash",
     }
+    published_topology_versions: list[int] = []
     for index, (saved_packet, report_tick) in enumerate(zip(artifact.visual_packets, visual_ticks_report)):
+        live_topology_version = int(report_tick.get("topologyVersion", 0))
+        if live_topology_version == 0:
+            canonical_topology_version = 0
+        elif live_topology_version in published_topology_versions:
+            canonical_topology_version = published_topology_versions.index(live_topology_version) + 1
+        else:
+            published_topology_versions.append(live_topology_version)
+            canonical_topology_version = len(published_topology_versions)
+        # R4b keeps live report telemetry raw while the durable row carries an
+        # explicit first-publication topology token, zero reserve telemetry,
+        # and a content-sensitive semantic digest of canonical row values.
+        # Verify them directly; omitting these fields from the raw report
+        # equality loop must not make them unchecked.
+        expected_semantic_hash = canonical_archive_semantic_hash(
+            int(report_tick["visualStateHash"], 16),
+            int(report_tick["exactPacketHash"], 16),
+            canonical_topology_version,
+            0,
+        )
+        canonical_bookkeeping = {
+            "semanticHash": (saved_packet.semantic_hash, expected_semantic_hash),
+            "topologyVersion": (saved_packet.topology_version, canonical_topology_version),
+            "replayReserveGrowthEvents": (saved_packet.replay_reserve_growth_events, 0),
+        }
+        for field, (saved_value, expected_value) in canonical_bookkeeping.items():
+            if saved_value != expected_value:
+                raise ValueError(
+                    f"saved/load canonical bookkeeping divergence at ticks[{index}].{field}: "
+                    f"expected={expected_value!r} actual={saved_value!r}"
+                )
         archived_camera = (
             saved_packet.camera_eye_x,
             saved_packet.camera_eye_y,

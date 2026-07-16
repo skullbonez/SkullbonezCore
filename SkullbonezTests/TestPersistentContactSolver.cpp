@@ -58,18 +58,20 @@ using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::ColliderShapeKind;
-using SkullbonezCore::Physics::BuildObjectContactManifold;
 using SkullbonezCore::Physics::ObjectContactBodyView;
 using SkullbonezCore::Physics::ObjectContactManifold;
 using SkullbonezCore::Physics::PersistentContactCacheEntry;
 using SkullbonezCore::Physics::PersistentContactSolver;
 using SkullbonezCore::Physics::PersistentContactSolverContext;
 using SkullbonezCore::Physics::PersistentContactSolverSideEffects;
-using SkullbonezCore::Physics::PhysicsBodyRecord;
-using SkullbonezCore::Physics::PhysicsBodyRecordList;
+using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyOrientation;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsDebugContact;
 using SkullbonezCore::Physics::PhysicsWorld;
 using SkullbonezCore::Physics::SolverBodyState;
@@ -79,13 +81,13 @@ namespace
 {
 constexpr float kSolverDt = PHYSICS_FIXED_DT;
 
-PhysicsBodyRecordList& TestBodyRecords()
+PhysicsBodyStore& TestBodyStore()
 {
     // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS rows. Static storage matches
     // runtime ownership and keeps this focused fixture off the doctest stack.
-    static PhysicsBodyRecordList records( "TestPersistentContactSolver.bodyRecords" );
-    records.clear();
-    return records;
+    static PhysicsBodyStore store;
+    store.Clear();
+    return store;
 }
 
 ColliderRecordList& TestColliderRecords()
@@ -99,7 +101,7 @@ ColliderRecordList& TestColliderRecords()
 
 struct SolverFixture
 {
-    PhysicsBodyRecordList& bodyRecords;
+    PhysicsBodyStore& bodyStore;
     ColliderRecordList& colliderRecords;
     std::vector<std::pair<int, int>> candidatePairs;
     std::vector<uint8_t> sleepState;
@@ -118,7 +120,7 @@ struct SolverFixture
     SkullbonezCore::Core::EngineConfig config;
     PersistentContactSolver solver;
 
-    SolverFixture() : bodyRecords( TestBodyRecords() ), colliderRecords( TestColliderRecords() )
+    SolverFixture() : bodyStore( TestBodyStore() ), colliderRecords( TestColliderRecords() )
     {
         config.physicsExecution.parallel = false;
         config.worldForces.gravity = -30.0f;
@@ -136,15 +138,15 @@ struct SolverFixture
         const float mass = 2.0f;
         const float inertia = 0.4f * mass * radius * radius;
 
-        PhysicsBodyRecord body;
-        body.position = position;
-        body.linearVelocity = linearVelocity;
-        body.rotationalInertia = Vector3( inertia, inertia, inertia );
-        body.invRotationalInertia = Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
-        body.mass = mass;
-        body.invMass = 1.0f / mass;
-        body.boundingRadius = radius;
-        bodyRecords.push_back( body );
+        PhysicsBodyCreateRecord body;
+        body.hot.position = position;
+        body.hot.linearVelocity = linearVelocity;
+        body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
+        body.hot.inverseRotationalInertia = Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.cold.mass = mass;
+        body.hot.inverseMass = 1.0f / mass;
+        body.hot.boundingRadius = radius;
+        (void)bodyStore.CreateBodyRecord( body );
 
         ColliderRecord collider;
         collider.shape = CollisionShape( BoundingSphere( radius, Vector3( 0.0f, 0.0f, 0.0f ), 0.0f ) );
@@ -154,8 +156,8 @@ struct SolverFixture
         collider.friction = config.physicsMaterial.frictionCoeff;
         colliderRecords.push_back( collider );
 
-        sleepState.assign( bodyRecords.size(), 0u );
-        sleepSupportedThisFrame.assign( bodyRecords.size(), 0u );
+        sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
+        sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
     void AddBox( const Vector3& position, float xRotationRadians, bool isFixed )
@@ -166,32 +168,33 @@ struct SolverFixture
         constexpr float inertia = 4.0f / 3.0f;
         const Vector3 halfExtents( halfExtent, halfExtent, halfExtent );
 
-        PhysicsBodyRecord body;
-        body.position = position;
-        body.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), xRotationRadians );
-        body.rotationalInertia = Vector3( inertia, inertia, inertia );
-        body.invRotationalInertia = isFixed ? Vector3() : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
-        body.mass = mass;
-        body.invMass = isFixed ? 0.0f : 1.0f / mass;
-        body.boundingRadius = sqrtf( 3.0f );
-        body.isFixed = isFixed;
-        body.usesWorldInertia = true;
-        bodyRecords.push_back( body );
+        PhysicsBodyCreateRecord body;
+        body.hot.position = position;
+        body.hot.orientation.RotateAboutAxis( Vector3( 1.0f, 0.0f, 0.0f ), xRotationRadians );
+        body.cold.rotationalInertia = Vector3( inertia, inertia, inertia );
+        body.hot.inverseRotationalInertia =
+            isFixed ? Vector3() : Vector3( 1.0f / inertia, 1.0f / inertia, 1.0f / inertia );
+        body.cold.mass = mass;
+        body.hot.inverseMass = isFixed ? 0.0f : 1.0f / mass;
+        body.hot.boundingRadius = sqrtf( 3.0f );
+        body.hot.fixed = isFixed;
+        body.cold.usesWorldInertia = true;
+        (void)bodyStore.CreateBodyRecord( body );
 
         ColliderRecord collider;
         collider.shape = CollisionShape( BoundingBox( halfExtents, Vector3() ) );
         collider.shapeKind = ColliderShapeKind::Box;
-        collider.boundingRadius = body.boundingRadius;
+        collider.boundingRadius = body.hot.boundingRadius;
         collider.friction = config.physicsMaterial.frictionCoeff;
         colliderRecords.push_back( collider );
 
-        sleepState.assign( bodyRecords.size(), 0u );
-        sleepSupportedThisFrame.assign( bodyRecords.size(), 0u );
+        sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
+        sleepSupportedThisFrame.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
     }
 
     void AddTerrainContact( int bodyIndex, uint32_t featureId, float penetration )
     {
-        const PhysicsBodyRecord& body = bodyRecords[bodyIndex];
+        const auto hotFields = bodyStore.HotFields();
         TerrainContactManifold manifold;
         manifold.bodyA = bodyIndex;
         manifold.bodyB = -1;
@@ -202,8 +205,9 @@ struct SolverFixture
         manifold.supportsRestingPolicy = true;
         manifold.allowsTangentFriction = true;
         manifold.points[0].featureId = featureId;
-        manifold.points[0].rA = Vector3( 0.0f, -body.boundingRadius, 0.0f );
-        manifold.points[0].point = body.position + manifold.points[0].rA;
+        manifold.points[0].rA = Vector3( 0.0f, -hotFields.boundingRadius[static_cast<std::size_t>( bodyIndex )], 0.0f );
+        manifold.points[0].point =
+            PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) ) + manifold.points[0].rA;
         manifold.points[0].penetration = penetration;
         terrainContactManifolds.push_back( manifold );
     }
@@ -224,9 +228,11 @@ struct SolverFixture
                                                terrainRestApplied,
                                                sleepSupportedThisFrame,
                                                sideEffects,
-                                               { bodyRecords.data(), bodyRecords.size() },
+                                               bodyStore,
+                                               bodyStore.MutableRecords(),
+                                               bodyStore.MutableHotFields(),
                                                { colliderRecords.data(), colliderRecords.size() },
-                                               static_cast<int>( bodyRecords.size() ),
+                                               bodyStore.Count(),
                                                0,
                                                false,
                                                config };
@@ -283,7 +289,7 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     const PersistentContactCacheEntry& cached = fixture.persistentContactCache[0];
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
     const float terrainWarmStart =
-        fixture.bodyRecords[0].mass * fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
+        fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
     const float frictionLimit = fixture.config.physicsMaterial.frictionCoeff *
                                 ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
     CHECK( tangentMagnitude > 0.0f );
@@ -301,27 +307,28 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     REQUIRE( fixture.debugContacts.size() == 1u );
     CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.bodySimulation.contactRestitutionThreshold );
     CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
-    CHECK( fixture.bodyRecords[0].linearVelocity.y > 0.0f );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
 }
 
 
 TEST_CASE( "Persistent contact solver: a box gains sleep support only after toppling from its edge" )
 {
-    constexpr float edgeRotation = 0.70f;
+    constexpr float edgeRotation = 0.75f;
     constexpr float contactOverlap = 0.02f;
-    constexpr float edgeContactHeight = 1.5f;
+    const float edgeContactHeight = 1.0f + cosf( edgeRotation ) + sinf( edgeRotation ) - contactOverlap;
 
     SolverFixture edge;
     edge.AddBox( Vector3( 0.0f, 0.0f, 0.0f ), 0.0f, true );
-    // Why: a deliberate overlap keeps this regression away from clipped-manifold
-    // floating-point boundaries while retaining the two-row edge footprint.
+    // Why: derive the center height from the tilted cube's vertical support so
+    // the requested overlap is real; a fixed low center deeply interpenetrates
+    // the boxes and lets tiny code-generation shifts select a four-point face.
     edge.AddBox( Vector3( 0.0f, edgeContactHeight, -0.5f ), edgeRotation, false );
     ObjectContactBodyView lowerView;
-    lowerView.position = edge.bodyRecords[0].position;
-    lowerView.orientation = edge.bodyRecords[0].orientation;
+    lowerView.position = PhysicsBodyPosition( edge.bodyStore.HotFields(), 0u );
+    lowerView.orientation = PhysicsBodyOrientation( edge.bodyStore.HotFields(), 0u );
     ObjectContactBodyView upperView;
-    upperView.position = edge.bodyRecords[1].position;
-    upperView.orientation = edge.bodyRecords[1].orientation;
+    upperView.position = PhysicsBodyPosition( edge.bodyStore.HotFields(), 1u );
+    upperView.orientation = PhysicsBodyOrientation( edge.bodyStore.HotFields(), 1u );
     ObjectContactManifold edgeManifold;
     REQUIRE( BuildObjectContactManifold( lowerView,
                                          edge.colliderRecords[0].shape,

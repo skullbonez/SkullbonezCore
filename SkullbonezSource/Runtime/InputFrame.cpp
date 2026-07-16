@@ -32,6 +32,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "InputFrame.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "AttachedCameraController.h"
 #include "ApplicationExitState.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -511,7 +512,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     RunTimerState& timers = sceneOwners.timers;
     SceneController& sceneController = sceneOwners.sceneController;
     Window& window = host.window;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame;
     result.frameActive = true;
@@ -617,7 +618,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RunTimerState& timers = sceneOwners.timers;
-    RunDebugState& debug = sceneOwners.debug;
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& debug = presentationEdit.State();
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& sceneController = sceneOwners.sceneController;
@@ -660,17 +662,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                    : RunInternal::SetEditorPlacementMode( editorContext, true, false );
         inputRouter.SetWorldInteractionOwner( placementMode.worldOwner,
                                               InteractionExitReason::EnterEdit,
+                                              interactionOwners,
+                                              sceneOwners,
                                               replayRuntime,
-                                              runtimeTools,
-                                              interaction,
-                                              sceneController.Cameras(),
-                                              sceneController.Terrain().Get(),
-                                              sceneController,
-                                              sceneController.Physics(),
-                                              camera,
-                                              facts.replayRestoreCameraMode,
-                                              attachedCamera.State().activeFollow,
-                                              camera.director.grabbed );
+                                              facts.replayRestoreCameraMode );
         if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter,
                                                                                  runtimeTools.Editor(),
                                                                                  replayRuntime.BuildInputView() ) ) )
@@ -689,17 +684,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         {
             const RuntimeInteractionTransition editorTransition = interaction.EnterEdit();
             inputRouter.ApplyInteractionTransition( editorTransition,
+                                                    interactionOwners,
+                                                    sceneOwners,
                                                     replayRuntime,
-                                                    runtimeTools,
-                                                    interaction,
-                                                    sceneController.Cameras(),
-                                                    sceneController.Terrain().Get(),
-                                                    sceneController,
-                                                    sceneController.Physics(),
-                                                    camera,
-                                                    facts.replayRestoreCameraMode,
-                                                    attachedCamera.State().activeFollow,
-                                                    camera.director.grabbed );
+                                                    facts.replayRestoreCameraMode );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
@@ -732,17 +720,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                             facts.cameraModeEnabledMask );
             const RuntimeInteractionTransition restoreTransition = interaction.EnterCameraMode( restoreMode );
             inputRouter.ApplyInteractionTransition( restoreTransition,
+                                                    interactionOwners,
+                                                    sceneOwners,
                                                     replayRuntime,
-                                                    runtimeTools,
-                                                    interaction,
-                                                    sceneController.Cameras(),
-                                                    sceneController.Terrain().Get(),
-                                                    sceneController,
-                                                    sceneController.Physics(),
-                                                    camera,
-                                                    facts.replayRestoreCameraMode,
-                                                    attachedCamera.State().activeFollow,
-                                                    camera.director.grabbed );
+                                                    facts.replayRestoreCameraMode );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
@@ -777,15 +758,12 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     const RunCameraModeUICommandResult cameraModeCommand = DecodeRunCameraModeUICommand( uiCommands.run );
     if ( cameraModeCommand.accepted )
     {
-        inputRouter.ApplyCameraMode( camera,
-                                     cameraModeCommand.mode,
+        inputRouter.ApplyCameraMode( cameraModeCommand.mode,
                                      RuntimeInputActionSource::UI,
-                                     runtimeInput,
-                                     interaction,
-                                     runtimeTools,
+                                     interactionOwners,
+                                     sceneOwners,
                                      replayRuntime,
-                                     attachedCamera,
-                                     sceneController );
+                                     runtimeInput );
     }
     const RunInternal::EditorGizmoContext editorGizmoContext{ runtimeTools.Editor(),
                                                               sceneController,
@@ -1070,7 +1048,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SceneController& sceneController = sceneOwners.sceneController;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     // Invariant: pointer ownership is finalized only after UI mutations and
     // stress actions succeed; failure leaves later world routing untouched.
     if ( !result.frameActive || !result.status.ok )

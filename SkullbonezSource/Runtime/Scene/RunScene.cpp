@@ -34,12 +34,13 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
+#include "../RuntimeOverlayDiagnostics.h"
+#include "../RuntimeValidationHarness.h"
 #include "../WindowConstants.h"
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../RuntimeTuning.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../AttachedCameraController.h"
-#include "../GraphicsStressController.h"
 #include "../InputRouter.h"
 #include "../Replay/ReplayRuntime.h"
 #include "../Audio/ContactAudioService.h"
@@ -50,7 +51,6 @@ Related:
 #include "../Render/RuntimeRenderer.h"
 #include "SceneRuntimeCoordinator.h"
 #include "../../Physics/SimulationSystem.h"
-#include "../Debug/PhysicsDebugVisualizer.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
@@ -67,6 +67,7 @@ Related:
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Scene/SceneSnapshotWriter.h"
+#include "../../UI/UI.h"
 #include "../../Scene/TestScene.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -536,14 +537,15 @@ SceneController::Load( const SceneLoadRequest& request,
                        SimulationSystem& m_simulation,
                        ReplayRuntime& m_replayRuntime,
                        SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                       SkullbonezCore::UI::InGameUI& m_UI,
-                       RunDebugState& m_debug,
-                       GraphicsStressController& m_graphicsStress,
+                       UI::InGameUI& m_UI,
+                       RuntimeOverlayDiagnostics& overlays,
+                       RuntimeValidationHarness& validationHarness,
                        RuntimeTools& m_runtimeTools,
-                       Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                        const RuntimeRenderBackendView& m_renderBackendView,
                        RuntimeRenderer& m_renderer )
 {
+    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
+    RunDebugState& m_debug = presentationEdit.State();
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
     const bool retainedPhysicsSleepEnabled = Physics().IsSleepEnabled();
@@ -672,7 +674,6 @@ SceneController::Load( const SceneLoadRequest& request,
     m_runtimeTools.ClearRayCastTestLines();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools );
     m_debug.ResetForSceneLoad();
-    m_physicsDebugVisualizer.SetFlags( PHYSICS_DEBUG_NONE );
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
     m_timers.ResetSceneMeasurements();
 
@@ -1066,7 +1067,6 @@ SceneController::Load( const SceneLoadRequest& request,
                                           m_renderer,
                                           m_debug,
                                           m_camera,
-                                          m_physicsDebugVisualizer,
                                           resetSnapshot,
                                           suppressExitOnComplete );
     }
@@ -1153,9 +1153,7 @@ SceneController::Load( const SceneLoadRequest& request,
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.
-        m_graphicsStress.ResumeAfterSceneLoad( m_launchOptions.graphicsStressSeed,
-                                               m_launchOptions.graphicsStressActions,
-                                               m_launchOptions.graphicsStressSceneIntervalFrames );
+        validationHarness.ResumeGraphicsStressAfterSceneLoad( m_launchOptions );
         SceneState().isInteractiveRun = true;
         SceneState().targetFrameCount = 0;
         SceneState().isTestComplete = false;

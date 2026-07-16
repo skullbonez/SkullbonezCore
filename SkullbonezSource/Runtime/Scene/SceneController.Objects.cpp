@@ -29,6 +29,8 @@ Glossary:
     when a related fixed part is hit strongly enough.
   Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
     restore paths can reject stale model slots.
+  Shadow caster stream: Opaque render bin resolved while scene material and
+    collider facts are both available at the instance-build boundary.
 
 Invariants:
   - SceneEntityStore order remains the scene alignment key for physics stores,
@@ -75,7 +77,9 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::LoadPhysicsBodyHotState;
 using SkullbonezCore::Physics::MakeModelRowHint;
 using SkullbonezCore::Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt;
 using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
@@ -84,20 +88,50 @@ using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration;
+using SkullbonezCore::Physics::PhysicsBodyAngularVelocity;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyLinearVelocity;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCount;
 using SkullbonezCore::Physics::PhysicsColliderCreateDesc;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
+using SkullbonezCore::Rendering::RenderMaterial;
+using SkullbonezCore::Rendering::RenderMaterialKind;
+using SkullbonezCore::Rendering::ShadowCasterStream;
 
 namespace
 {
 constexpr const char* SCENE_ENTITY_CREATION_OWNER = "Scene/EntityCreation";
+constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
+
+ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& collider, const RenderMaterial& material )
+{
+    switch ( collider.shapeKind )
+    {
+    case ColliderShapeKind::Sphere:
+        return ShadowCasterStream::Sphere;
+    case ColliderShapeKind::ConvexHull:
+        return ShadowCasterStream::ConvexHull;
+    case ColliderShapeKind::Box:
+        // Why: the data-driven-shadow-caster-streams plan confines legacy pine
+        // content knowledge to this scene-owner instance-build boundary. Frame
+        // submission consumes only the resulting opaque stream id.
+        if ( material.kind == RenderMaterialKind::Pine ||
+             ( material.textureMode > 1.25f &&
+               static_cast<int>( material.textureMode + 0.5f ) == PINE_VISUAL_MATERIAL_MODE ) )
+        {
+            return ShadowCasterStream::Pine;
+        }
+        return ShadowCasterStream::Box;
+    }
+    return ShadowCasterStream::None;
+}
 
 template <typename T> uint64_t VectorCapacityBytes( const T& values )
 {
@@ -341,8 +375,15 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
         // preflight and cannot safely enter physics or render snapshots.
         SB_FATAL( "GameObjects/SceneController", "Failed to register newly authored physics collider record." );
     }
+    renderPresentation.shadowCasterStream =
+        ResolveRegisteredShadowCasterStream( *colliderRecord, renderPresentation.material );
     SceneEntities().CommitAppend( entity, bodyHandle );
-    m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, *colliderRecord, modelIndex );
+    m_renderInstanceStore.CommitCreationRow(
+        renderPresentation,
+        *bodyRecord,
+        LoadPhysicsBodyHotState( BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) ),
+        *colliderRecord,
+        modelIndex );
     AssertSceneCreationTopology( modelIndex + 1 );
     return { SkullbonezCore::Core::SbResult::Success(), bodyHandle };
 }
@@ -473,7 +514,7 @@ bool SceneController::TryGetModelPosition( int index, Vector3& outPosition ) con
         SB_FATAL( "GameObjects/SceneController",
                   "No physics body exists at the specified index.  (SceneController::TryGetModelPosition)" );
     }
-    outPosition = record->position;
+    outPosition = PhysicsBodyPosition( bodyStore.HotFields(), static_cast<std::size_t>( index ) );
     return true;
 }
 
@@ -786,15 +827,17 @@ double SceneController::GetSceneKineticEnergy()
     double totalEnergy = 0.0;
     const PhysicsBodyStore& bodyStore = BodyStore();
     const auto bodies = bodyStore.Records();
-    for ( const PhysicsBodyRecord& body : bodies )
+    const auto hotFields = bodyStore.HotFields();
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
     {
-        if ( body.isFixed )
+        const PhysicsBodyRecord& body = bodies[bodyIndex];
+        if ( hotFields.fixed[bodyIndex] != 0u )
         {
             continue;
         }
 
-        const Vector3& vel = body.linearVelocity;
-        const Vector3& omega = body.angularVelocity;
+        const Vector3 vel = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+        const Vector3 omega = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
         const double speedSq = static_cast<double>( vel.x ) * vel.x + static_cast<double>( vel.y ) * vel.y +
                                static_cast<double>( vel.z ) * vel.z;
         const double omegaSq = static_cast<double>( omega.x ) * omega.x + static_cast<double>( omega.y ) * omega.y +
@@ -848,6 +891,7 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
     // Owner boundary: model material and highlight values still live in
     // SceneController, but the render-facing presentation rows belong to
     // RenderInstanceStore before store projection creates draw records.
+    const auto colliderRecords = Colliders().Records();
     for ( int i = 0; i < modelCount; ++i )
     {
         Rendering::RenderInstancePresentationRecord* presentation =
@@ -859,6 +903,9 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
         }
         const SceneEntityRecord& entity = SceneEntities().At( i );
         presentation->material = entity.renderMaterial;
+        presentation->shadowCasterStream =
+            ResolveRegisteredShadowCasterStream( colliderRecords[static_cast<std::size_t>( i )],
+                                                 presentation->material );
         strncpy_s( presentation->displayName, sizeof( presentation->displayName ), entity.displayName, _TRUNCATE );
         presentation->simpleRagdollPart = IsSimpleRagdollPart( i );
     }
@@ -894,8 +941,9 @@ void SceneController::NotifyFixedContact( int modelIndex, float highlightSeconds
     // Why: fixed-contact events come from the solver. The presentation timer
     // should trust the same dense body row instead of reopening legacy
     // model-side physics state to decide whether a body is fixed.
-    const PhysicsBodyRecord* body = BodyStore().RecordForModelIndex( modelIndex );
-    if ( body && body->isFixed )
+    const PhysicsBodyStore& bodyStore = BodyStore();
+    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+    if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( modelIndex )] != 0u )
     {
         m_renderInstanceStore.NotifyFixedContact( modelIndex, highlightSeconds );
     }

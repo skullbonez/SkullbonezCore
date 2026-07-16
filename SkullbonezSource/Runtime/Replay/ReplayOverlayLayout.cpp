@@ -345,38 +345,30 @@ void BuildReplayScrubberSurface( const ReplayScrubberSurfaceInput& input, Replay
     }
 }
 
-ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayScrubberView& scrubber,
-                                                          const ReplayRecorderStats& solverStats,
-                                                          bool loadedPresentation,
-                                                          bool pathTargetAvailable,
-                                                          bool predictionTimelineAvailable,
-                                                          bool currentPresentationAvailable,
-                                                          bool currentSolverAvailable,
-                                                          bool scenePhysicsEnabled,
-                                                          bool uiBlocksMouse,
-                                                          int screenW,
-                                                          int screenH,
-                                                          RuntimeInteractionGestureKind gesture )
+ReplayScrubberSurfaceInput DescribeReplayScrubberSurface( const ReplayScrubberSurfaceDesc& desc )
 {
+    const ReplayScrubberView& scrubber = desc.scrubber;
+    const ReplayRecorderStats& solverStats = desc.solverStats;
     ReplayScrubberSurfaceInput input;
-    input.screenW = screenW;
-    input.screenH = screenH;
-    input.gesture = gesture;
-    input.loadedPresentation = loadedPresentation;
+    input.screenW = desc.screenW;
+    input.screenH = desc.screenH;
+    input.gesture = desc.gesture;
+    input.loadedPresentation = desc.loadedPresentation;
     input.track = input.loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
     const bool solverReplayEnabled = solverStats.enabled;
     const bool solverReplayAvailable = solverReplayEnabled && solverStats.sampleCount >= 2;
     input.solverToolsEnabled = !input.loadedPresentation && solverReplayAvailable;
-    input.predictionToolsEnabled = !input.loadedPresentation && solverReplayEnabled && scenePhysicsEnabled;
-    input.pastPathToolsEnabled = input.solverToolsEnabled && pathTargetAvailable;
+    input.predictionToolsEnabled = !input.loadedPresentation && solverReplayEnabled && desc.scenePhysicsEnabled;
+    input.pastPathToolsEnabled = input.solverToolsEnabled && desc.pathTargetAvailable;
     input.scrubTrackDragEnabled = input.loadedPresentation || input.solverToolsEnabled ||
-                                  ( input.predictionToolsEnabled && predictionTimelineAvailable );
+                                  ( input.predictionToolsEnabled && desc.predictionTimelineAvailable );
     input.branchTargetAvailable =
         scrubber.historicalSamplePaused &&
         ( ( input.loadedPresentation && scrubber.activeTrack == RunReplayTrack::Presentation &&
-            currentPresentationAvailable ) ||
-          ( input.solverToolsEnabled && scrubber.activeTrack == RunReplayTrack::Solver && currentSolverAvailable ) );
-    input.hotZoneEnabled = !uiBlocksMouse;
+            desc.currentPresentationAvailable ) ||
+          ( input.solverToolsEnabled && scrubber.activeTrack == RunReplayTrack::Solver &&
+            desc.currentSolverAvailable ) );
+    input.hotZoneEnabled = !desc.uiBlocksMouse;
     return input;
 }
 

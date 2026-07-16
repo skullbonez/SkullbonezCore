@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp
 Purpose:
   Coordinates render passes for the active scene.
 
-Mental model:
+Summary:
   Renderer-facing code builds one frame context and runs named passes in
   the same order the image is produced.
 
@@ -44,6 +44,7 @@ Related:
 #include "../RunCameraState.h"
 #include "../RunTimerState.h"
 #include "../RuntimeDiagnostics.h"
+#include "../RuntimeOverlayDiagnostics.h"
 #include "../Window.h"
 #include "../Scene/SceneController.h"
 #include "../Tools/RuntimeTools.h"
@@ -66,6 +67,7 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderPipeline.h"
+#include "../../UI/UI.h"
 #include "../../World/SkyBox.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -630,34 +632,6 @@ void WriteCinematicPostGraphEvidence(
         out << "  [" << i << "] resource=" << resource.name << " pool_slot=" << allocation.poolSlot
             << " first_pass=" << allocation.firstPass << " last_pass=" << allocation.lastPass << "\n";
     }
-}
-
-RuntimeRenderInputs BuildRuntimeRenderInputs( SkullbonezCore::Assets::AssetSystem& assets,
-                                              SkullbonezCore::Textures::TextureCollection& textures,
-                                              SkullbonezCore::Geometry::Terrain* terrain,
-                                              SkullbonezCore::Environment::CameraCollection& cameras,
-                                              Window& window,
-                                              SkullbonezCore::Geometry::SkyBox* skyBox,
-                                              const RuntimeRenderModelFrameView& models,
-                                              SkullbonezCore::Environment::WorldEnvironment& world,
-                                              SkullbonezCore::UI::InGameUI& ui,
-                                              RuntimeTools& runtimeTools,
-                                              const ReplayRenderFrameView& replayFrame,
-                                              const RenderToolOverlayView& toolOverlay,
-                                              const RuntimeRenderFramePolicy& framePolicy,
-                                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
-                                              SkullbonezCore::Rendering::IRenderResourceFactory& renderResources,
-                                              SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
-                                              SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing,
-                                              const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                              bool cinematicEnabled,
-                                              bool renderReady )
-{
-    return RuntimeRenderInputs{ RuntimeRenderServices{
-        assets,           textures,   models,           world,          terrain,         cameras,
-        window,           ui,         runtimeTools,     replayFrame,    toolOverlay,     framePolicy,
-        skyBox,           cinematic,  cinematicEnabled, renderCommands, renderResources, renderDiagnostics,
-        renderRayTracing, renderReady } };
 }
 
 SkullbonezCore::Rendering::RenderGraphResourceHandle AddFrameColorTarget( SkullbonezCore::Rendering::RenderGraph& graph,
@@ -1515,8 +1489,9 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
     : m_lifecycleLog( backend.deviceLifecycle, scene.sceneController.State() ), m_assets( world.assets ),
       m_cameras( world.cameras ), m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ),
       m_world( world.worldEnvironment ), m_primitiveBatches( std::in_place, backend.renderResources ),
-      m_collisionVisualizer( world.collisionVisualizer ), m_broadphaseVisualizer( world.broadphaseVisualizer ),
-      m_physicsDebugVisualizer( world.physicsDebugVisualizer ), m_profiler( world.profiler ),
+      m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
+      m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
+      m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
       m_fullscreenQuadPass( m_passResources.fullscreen ),
       m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config ),
       m_sceneTargetPass( m_passResources.cinematicScene ),
@@ -2326,24 +2301,27 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 
     const bool cinematicRender =
         ( context.cinematicRequested || m_consequenceGradeStrength > 0.01f ) && renderReady && !policy.textOnly;
-    return RenderFrame( BuildRuntimeRenderInputs( m_assets,
-                                                  m_textures,
-                                                  m_terrain.Get(),
-                                                  m_cameras,
-                                                  m_window,
-                                                  m_skyBox.get(),
-                                                  context.renderModels,
-                                                  m_world,
-                                                  context.ui,
-                                                  runtimeTools,
-                                                  replayFrame,
-                                                  context.toolOverlay,
-                                                  policy,
-                                                  *renderCommands,
-                                                  *renderResources,
-                                                  *renderDiagnostics,
-                                                  renderRayTracing,
-                                                  frameCinematic,
-                                                  cinematicRender,
-                                                  renderReady ) );
+    // Why: this call constructs the one-frame render record directly. Field
+    // labels keep every live borrow visible and prevent positional drift when
+    // RuntimeRenderServices changes; RenderFrame does not retain the record.
+    return RenderFrame( RuntimeRenderInputs{ .services = RuntimeRenderServices{ .assets = m_assets,
+                                                                                .textures = m_textures,
+                                                                                .models = context.renderModels,
+                                                                                .world = m_world,
+                                                                                .terrain = m_terrain.Get(),
+                                                                                .cameras = m_cameras,
+                                                                                .window = m_window,
+                                                                                .ui = context.ui,
+                                                                                .runtimeTools = runtimeTools,
+                                                                                .replayFrame = replayFrame,
+                                                                                .toolOverlay = context.toolOverlay,
+                                                                                .framePolicy = policy,
+                                                                                .skyBox = m_skyBox.get(),
+                                                                                .cinematic = frameCinematic,
+                                                                                .cinematicEnabled = cinematicRender,
+                                                                                .renderCommands = *renderCommands,
+                                                                                .renderResources = *renderResources,
+                                                                                .renderDiagnostics = *renderDiagnostics,
+                                                                                .renderRayTracing = renderRayTracing,
+                                                                                .renderReady = renderReady } } );
 }

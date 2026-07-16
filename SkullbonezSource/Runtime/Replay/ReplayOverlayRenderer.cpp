@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayOverlayRenderer.cpp
 Purpose:
   Draws replay scrubber and cause-tree overlays from replay-owned state.
 
-Mental model:
+Summary:
   Replay overlay rendering is a late UI pass. Keep the same screen-space layout
   and pointer eligibility as replay input by rebuilding the same fixed-capacity
   surfaces from ReplayOverlayLayout.
@@ -114,19 +114,19 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
     }
 
     const RunReplayTrack activeTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
-    const ReplayScrubberSurfaceInput surfaceInput =
-        DescribeReplayScrubberSurface( scrubber,
-                                       solverReplayStats,
-                                       loadedPresentation,
-                                       context.pathVisualizer.hasTarget,
-                                       context.predictionTimelineAvailable,
-                                       context.currentPresentation != nullptr,
-                                       context.currentSolver != nullptr,
-                                       context.scenePhysicsEnabled,
-                                       false,
-                                       screenW,
-                                       screenH,
-                                       context.gesture );
+    const ReplayScrubberSurfaceInput surfaceInput = DescribeReplayScrubberSurface(
+        ReplayScrubberSurfaceDesc{ .scrubber = scrubber,
+                                   .solverStats = solverReplayStats,
+                                   .loadedPresentation = loadedPresentation,
+                                   .pathTargetAvailable = context.pathVisualizer.hasTarget,
+                                   .predictionTimelineAvailable = context.predictionTimelineAvailable,
+                                   .currentPresentationAvailable = context.currentPresentation != nullptr,
+                                   .currentSolverAvailable = context.currentSolver != nullptr,
+                                   .scenePhysicsEnabled = context.scenePhysicsEnabled,
+                                   .uiBlocksMouse = false,
+                                   .screenW = screenW,
+                                   .screenH = screenH,
+                                   .gesture = context.gesture } );
     ReplayScrubberSurface surface;
     BuildReplayScrubberSurface( surfaceInput, surface );
     surface.ResolvePointer( scrubber.mouseX, scrubber.mouseY );

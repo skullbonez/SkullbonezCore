@@ -16,6 +16,8 @@ Invariants:
   - Matrix storage is column-major and must match shader constant upload layout.
   - DX12 projection callers use the ZeroToOne variants so clip-space depth is
     in [0,1].
+  - LookAt rejects a coincident eye/target and replaces a zero or parallel up
+    vector with a deterministic orthogonal basis.
 
 Related:
   - SkullbonezSource/Maths/Matrix4.h
@@ -154,7 +156,12 @@ Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector
     f.Normalise();
 
     Vector3 u = up;
-    u.Normalise();
+    if ( !u.TryNormalise() )
+    {
+        // Fallback: authored cameras may omit up; world +Y is deterministic
+        // and the parallel-axis branch below still handles a top-down view.
+        u = Vector3( 0.0f, 1.0f, 0.0f );
+    }
 
     Vector3 s = CrossProduct( f, u );
     // f and u are parallel (e.g. top-down camera) — pick arbitrary perpendicular

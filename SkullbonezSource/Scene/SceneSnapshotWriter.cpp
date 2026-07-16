@@ -71,6 +71,8 @@ using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::LoadPhysicsBodyHotState;
+using SkullbonezCore::Physics::PhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Runtime::RuntimeFileWriter;
@@ -198,6 +200,7 @@ struct LiveSceneRow
 {
     const SceneEntityRecord& entity;
     const PhysicsBodyRecord& body;
+    PhysicsBodyHotState hotState;
     const ColliderRecord& collider;
 };
 
@@ -205,9 +208,10 @@ LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
 {
     const SceneEntityRecord& entity = scene.entities.At( entityIndex );
     const PhysicsBodyRecord* body = scene.bodies.RecordForHandle( entity.body );
+    const int bodyIndex = scene.bodies.ModelIndexForHandle( entity.body );
     const ColliderRecord* collider =
         body ? scene.colliders.RecordForHandle( scene.colliders.HandleForBodyHandle( body->handle ) ) : nullptr;
-    if ( !body || !collider || collider->body != body->handle ||
+    if ( !body || bodyIndex < 0 || !collider || collider->body != body->handle ||
          body->sceneObjectId.value != entity.sceneObjectId.value ||
          collider->sceneObjectId.value != entity.sceneObjectId.value )
     {
@@ -216,7 +220,10 @@ LiveSceneRow ResolveLiveSceneRow( const SceneSaveView& scene, int entityIndex )
                   entityIndex,
                   entity.sceneObjectId.value );
     }
-    return { entity, *body, *collider };
+    return { entity,
+             *body,
+             LoadPhysicsBodyHotState( scene.bodies.HotFields(), static_cast<std::size_t>( bodyIndex ) ),
+             *collider };
 }
 
 Json BuildLiveStateJson( const SceneSaveView& scene, int entityIndex )
@@ -227,20 +234,20 @@ Json BuildLiveStateJson( const SceneSaveView& scene, int entityIndex )
     Json state = {
         { "sceneObjectId", row.entity.sceneObjectId.value },
         { "name", row.entity.displayName },
-        { "position", Vec3Json( row.body.position ) },
-        { "velocity", Vec3Json( row.body.linearVelocity ) },
-        { "angularVelocity", Vec3Json( row.body.angularVelocity ) },
-        { "orientation", OrientationJson( row.body.orientation ) },
+        { "position", Vec3Json( row.hotState.position ) },
+        { "velocity", Vec3Json( row.hotState.linearVelocity ) },
+        { "angularVelocity", Vec3Json( row.hotState.angularVelocity ) },
+        { "orientation", OrientationJson( row.hotState.orientation ) },
         { "mass", row.body.mass },
         { "restitution", row.collider.restitution },
         { "contactMaterial", contactMaterial },
         { "inertia", Vec3Json( row.body.rotationalInertia ) },
-        { "fixed", row.body.isFixed },
+        { "fixed", row.hotState.fixed },
     };
     // Invariant: part state overrides asset-recipe defaults in both
     // directions. Explicit false values are required so a live awake/release-
     // disabled body cannot inherit stale true authoring on reparse.
-    state["sleeping"] = row.body.isSleeping;
+    state["sleeping"] = !row.hotState.awake;
 
     const auto& shape = row.collider.shape;
     if ( std::holds_alternative<BoundingSphere>( shape ) )

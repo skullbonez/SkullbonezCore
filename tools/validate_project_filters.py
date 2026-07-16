@@ -8,16 +8,19 @@
 #   The .vcxproj controls what Visual Studio builds or displays, while the
 #   .vcxproj.filters file controls where those items appear in Solution
 #   Explorer. This check keeps source, headers, scenes, shaders, and style data
-#   in predictable filters so project edits do not slowly drift. The default
-#   production gate validates the app and any extracted production libraries as
-#   a set, because library layering deliberately moves files out of the app
-#   project without removing them from the solution build.
+#   in predictable semantic filters so project edits do not slowly drift or
+#   accumulate flat subsystem roots. The default production gate validates the
+#   app and any extracted production libraries as a set, because library
+#   layering deliberately moves files out of the app project without removing
+#   them from the solution build.
 #
 # Glossary:
 #   Filter: A Visual Studio virtual folder stored in .vcxproj.filters.
 #   Project item: A build or content entry such as ClCompile, ClInclude, or None.
 #   Production project set: The app plus extracted static libraries that
 #     together own SkullbonezSource build/header coverage.
+#   Semantic filter: A virtual folder named for responsibility rather than the
+#     source file's physical directory alone.
 #
 # Invariants:
 #   - Every project item that belongs in Solution Explorer has one expected
@@ -25,6 +28,8 @@
 #   - Every SkullbonezSource build/header file appears in exactly one production
 #     project in default mode.
 #   - Source and header pairs stay in matching source/header filter categories.
+#   - Runtime and Physics items resolve to named semantic descendants instead
+#     of collecting directly under their subsystem roots.
 #   - Project paths use the exact casing of the file on disk.
 #
 # Related:
@@ -103,42 +108,71 @@ GAME_OBJECT_PREFIXES = (
     "GameModel",
 )
 
-PHYSICS_PREFIXES = (
-    "BoundingBox",
-    "BoundingSphere",
-    "BuoyancySystem",
-    "CollisionShape",
-    "ColliderStore",
-    "ContactSolverCommon",
-    "ConvexHullShape",
-    "DisjointSet",
-    "ObjectContactManifold",
-    "PersistentContactSolver",
+PHYSICS_CORE_PREFIXES = (
     "PhysicsApi",
-    "PhysicsBodyStore",
-    "PhysicsDiagnosticsModel",
-    "PhysicsDebugData",
-    "PhysicsDiagnosticsSink",
     "PhysicsEngine",
-    "PhysicsFixedList",
-    "PhysicsHandles",
-    "PhysicsMass",
-    "PhysicsModelAccess",
-    "PhysicsObjectPolicy",
-    "PhysicsTimestep",
-    "Ragdoll",
     "PhysicsScene",
     "PhysicsWorld",
-    "PhysicsWorldForces",
-    "ResponseInformation",
-    "RigidBody",
     "SimulationSystem",
-    "SleepIslandSystem",
-    "SolverBroadphaseStage",
+)
+
+PHYSICS_BODY_PREFIXES = (
+    "PhysicsBodyStore",
+    "PhysicsHandles",
+    "PhysicsMass",
+    "PhysicsObjectPolicy",
+    "Ragdoll",
+)
+
+PHYSICS_COLLISION_PREFIXES = (
+    "BoundingBox",
+    "BoundingSphere",
+    "ColliderStore",
+    "CollisionShape",
+    "ConvexHullShape",
+    "ObjectContactManifold",
     "SpatialGrid",
     "TerrainContactManifold",
+)
+
+PHYSICS_FORCE_PREFIXES = (
+    "BuoyancySystem",
+    "PhysicsWorldForces",
     "TornadoField",
     "TornadoGameplay",
+)
+
+PHYSICS_SOLVER_PREFIXES = (
+    "ContactSolverCommon",
+    "DisjointSet",
+    "PersistentContactSolver",
+    "SleepIslandSystem",
+    "SolverBroadphaseStage",
+)
+
+PHYSICS_STAGE_PREFIXES = (
+    "BroadphaseKernel",
+    "ForceKernel",
+    "IntegrationKernel",
+    "PhysicsBroadphaseStage",
+    "PhysicsContactSolverStage",
+    "PhysicsForceStage",
+    "PhysicsNarrowphaseStage",
+    "PhysicsSleepController",
+    "PhysicsStageContexts",
+    "PhysicsStepDiagnostics",
+    "PhysicsTerrainStage",
+)
+
+PHYSICS_DIAGNOSTICS_PREFIXES = (
+    "PhysicsDebugData",
+    "PhysicsDiagnosticsModel",
+    "PhysicsDiagnosticsSink",
+)
+
+PHYSICS_SUPPORT_PREFIXES = (
+    "PhysicsFixedList",
+    "PhysicsTimestep",
 )
 
 PHYSICS_DEBUG_PREFIXES = (
@@ -149,7 +183,7 @@ PHYSICS_DEBUG_PREFIXES = (
 
 # Why: the visualizer filenames still describe physics overlays, but render
 # submission now lives under Runtime\Debug after the physics project split.
-RUNTIME_DEBUG_PREFIXES = PHYSICS_DEBUG_PREFIXES
+RUNTIME_DEBUG_PREFIXES = (*PHYSICS_DEBUG_PREFIXES, "RunDebugState")
 
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
@@ -217,50 +251,74 @@ WORLD_PREFIXES = (
     "WorldEnvironment",
 )
 
-RUNTIME_PREFIXES = (
+RUNTIME_LIFECYCLE_PREFIXES = (
     "ApplicationExitState",
+    "Init",
+    "Run",
+    "RunFrame",
+    "RunLaunchOptions",
+    "RunStartupState",
+    "RunTimerState",
+    "RuntimeFrameViews",
+    "RuntimeOverlayDiagnostics",
+    "Window",
+    "WindowConstants",
+)
+
+# Startup units are process-entry policy owners rather than Run lifecycle
+# implementations. Keep their physical directory and Solution Explorer filter
+# aligned as the Init decomposition adds each planned unit.
+RUNTIME_STARTUP_PREFIXES = (
+    "StartupCommandLine",
+    "StartupCrashLogging",
+    "StartupLaunchResolution",
+    "StartupProbeHarnesses",
+)
+
+RUNTIME_CAMERA_PREFIXES = (
     "AttachedCameraController",
     "Camera",
     "CameraCollection",
+    "RunCameraState",
+    "RuntimeCameraMode",
+)
+
+RUNTIME_CAPTURE_PREFIXES = (
     "CaptureController",
     "CaptureSystem",
+)
+
+RUNTIME_DEMO_PREFIXES = (
     "DemoDirector",
-    "DiagnosticsController",
-    "GraphicsStressController",
-    "Init",
+    "RunDemoDirector",
+)
+
+RUNTIME_INPUT_PREFIXES = (
     "Input",
     "InputController",
     "InputFrame",
     "InputFrameExecution",
     "InputRouter",
-    "InteractionAutomationController",
-    "LiveStyleController",
-    "Run",
-    "RunDemoDirector",
-    "RunDebugState",
-    "RunFrame",
     "RunInput",
-    "RunCameraState",
-    "RunPasses",
-    "RunLaunchOptions",
-    "RunRender",
-    "RunStartupState",
-    "RunTimerState",
-    "RunUiTextPass",
-    "RenderDefaultsStore",
-    "RuntimeCameraMode",
-    "RuntimeDiagnostics",
-    "RuntimeFrameViews",
-    "RuntimeFileWriter",
+)
+
+RUNTIME_AUTOMATION_PREFIXES = (
+    "GraphicsStressController",
+    "InteractionAutomationController",
+    "RuntimeStressController",
+    "RuntimeValidationHarness",
+)
+
+RUNTIME_INTERACTION_PREFIXES = (
     "RuntimeInteractionCommands",
     "RuntimeInteractionController",
     "RuntimePickGeometry",
     "RuntimePickService",
-    "RuntimeStressController",
+)
+
+RUNTIME_SETTINGS_PREFIXES = (
+    "LiveStyleController",
     "RuntimeTuning",
-    "RuntimeViewModel",
-    "WindowConstants",
-    "Window",
 )
 
 RUNTIME_SCENE_PREFIXES = (
@@ -328,7 +386,9 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "RenderDefaultsStore",
     "RenderPresentationSettings",
+    "RunRender",
     "RuntimeRenderHost",
     "RuntimeRenderInputs",
     "RuntimeRenderPasses",
@@ -355,16 +415,21 @@ RUNTIME_EDITOR_PREFIXES = (
 )
 
 RUNTIME_TOOLS_PREFIXES = (
+    "RuntimeFileWriter",
     "RuntimeTools",
 )
 
 RUNTIME_DIAGNOSTICS_PREFIXES = (
+    "DiagnosticsController",
     "DiagnosticsRuntime",
+    "RuntimeDiagnostics",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution
 # Explorer filter; keeping this explicit prevents them drifting into Runtime.
 RUNTIME_UI_PREFIXES = (
+    "RunUiTextPass",
+    "RuntimeViewModel",
     "RuntimeUiSurface",
 )
 
@@ -374,6 +439,7 @@ CORE_PREFIXES = (
     "Config",
     "FatalError",
     "Fence",
+    "FloatingPointContract",
     "LockOrderValidator",
     "Log",
     "MainMemoryStats",
@@ -388,6 +454,14 @@ CORE_PREFIXES = (
 
 AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
+    ("Physics\\Core", PHYSICS_CORE_PREFIXES),
+    ("Physics\\Bodies", PHYSICS_BODY_PREFIXES),
+    ("Physics\\Collision", PHYSICS_COLLISION_PREFIXES),
+    ("Physics\\Forces", PHYSICS_FORCE_PREFIXES),
+    ("Physics\\Solver", PHYSICS_SOLVER_PREFIXES),
+    ("Physics\\Stages", PHYSICS_STAGE_PREFIXES),
+    ("Physics\\Diagnostics", PHYSICS_DIAGNOSTICS_PREFIXES),
+    ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Runtime\\Allocation", RUNTIME_ALLOCATION_PREFIXES),
     ("Runtime\\Audio", RUNTIME_AUDIO_PREFIXES),
@@ -398,15 +472,22 @@ AREA_PREFIXES = (
     ("Runtime\\Diagnostics", RUNTIME_DIAGNOSTICS_PREFIXES),
     ("Runtime\\Debug", RUNTIME_DEBUG_PREFIXES),
     ("Runtime\\UI", RUNTIME_UI_PREFIXES),
+    ("Runtime\\Lifecycle", RUNTIME_LIFECYCLE_PREFIXES),
+    ("Runtime\\Startup", RUNTIME_STARTUP_PREFIXES),
+    ("Runtime\\Camera", RUNTIME_CAMERA_PREFIXES),
+    ("Runtime\\Capture", RUNTIME_CAPTURE_PREFIXES),
+    ("Runtime\\Demo", RUNTIME_DEMO_PREFIXES),
+    ("Runtime\\Input", RUNTIME_INPUT_PREFIXES),
+    ("Runtime\\Automation", RUNTIME_AUTOMATION_PREFIXES),
+    ("Runtime\\Interaction", RUNTIME_INTERACTION_PREFIXES),
+    ("Runtime\\Settings", RUNTIME_SETTINGS_PREFIXES),
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
-    ("Physics", PHYSICS_PREFIXES),
     ("World", WORLD_PREFIXES),
     ("GameObjects", GAME_OBJECT_PREFIXES),
     ("Assets", ASSET_PREFIXES),
     ("Maths", MATH_PREFIXES),
     ("Scene", SCENE_PREFIXES),
-    ("Runtime", RUNTIME_PREFIXES),
     ("Core", CORE_PREFIXES),
 )
 
@@ -481,6 +562,29 @@ def read_declared_filters(root: ET.Element, namespace: str) -> set[str]:
         if include:
             filters.add(include)
     return filters
+
+
+def unused_declared_filter_errors(
+    declared_filters: set[str],
+    filter_items: list[ProjectItem],
+    filters_label: str,
+) -> list[str]:
+    used_filters = {item.filter_name for item in filter_items if item.filter_name}
+    errors: list[str] = []
+    for declared_filter in sorted(declared_filters, key=str.lower):
+        # Why: a parent filter is useful when a descendant owns items, but an
+        # entirely empty subtree is a stale Solution Explorer folder. Item
+        # destination checks alone cannot detect that shell.
+        subtree_prefix = f"{declared_filter}\\"
+        if any(
+            used_filter == declared_filter or used_filter.startswith(subtree_prefix)
+            for used_filter in used_filters
+        ):
+            continue
+        errors.append(
+            f"{filters_label}: declared filter '{declared_filter}' has no project items in its subtree."
+        )
+    return errors
 
 
 def read_source_files_on_disk(repo: Path) -> list[ProjectItem]:
@@ -598,6 +702,13 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
             return EXTERNAL_FILTER
         if area == project_flat_area:
             return SOURCE_FILTER_ROOT
+        # Why: extracted library projects omit their redundant owner name from
+        # Solution Explorer while retaining semantic descendants. For example,
+        # Physics\Collision becomes Source Files\Collision inside the Physics
+        # project, rather than Source Files\Physics\Collision.
+        flat_prefix = f"{project_flat_area}\\" if project_flat_area else None
+        if flat_prefix and area.startswith(flat_prefix):
+            area = area.removeprefix(flat_prefix)
         return f"{SOURCE_FILTER_ROOT}\\{area}"
 
     if item.item_type == "ClInclude":
@@ -608,6 +719,9 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
             return EXTERNAL_FILTER
         if area == project_flat_area:
             return HEADER_FILTER_ROOT
+        flat_prefix = f"{project_flat_area}\\" if project_flat_area else None
+        if flat_prefix and area.startswith(flat_prefix):
+            area = area.removeprefix(flat_prefix)
         return f"{HEADER_FILTER_ROOT}\\{area}"
 
     if item.item_type == "None":
@@ -721,6 +835,13 @@ def validate_project_filters(
 
     errors.extend(duplicate_item_errors("project", project_items))
     errors.extend(duplicate_item_errors("filters", filter_items))
+    errors.extend(
+        unused_declared_filter_errors(
+            declared_filters,
+            filter_items,
+            repo_relative(repo, filters_path),
+        )
+    )
 
     project_by_key = {item.key: item for item in project_items}
     filter_by_key = {item.key: item for item in filter_items}

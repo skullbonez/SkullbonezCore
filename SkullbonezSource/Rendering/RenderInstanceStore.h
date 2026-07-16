@@ -21,6 +21,8 @@ Glossary:
   Bounds radius: Conservative sphere radius used by shadow fitting and other
     render culling without borrowing the physics/model body stream.
   Shape kind: Cheap render-facing discriminator copied from collider metadata.
+  Shadow caster stream: Opaque prepared bin selecting the sphere, box, pine, or
+    convex-hull submission stream without interpreting content in the renderer.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
   Replay body id: Stable per-scene id shared with physics/replay records.
   Pose history: Previous/current completed solver endpoints stored in the
@@ -65,6 +67,7 @@ namespace Physics
 class ColliderStore;
 class PhysicsBodyStore;
 struct ColliderRecord;
+struct PhysicsBodyHotState;
 struct PhysicsBodyRecord;
 } // namespace Physics
 
@@ -109,6 +112,15 @@ enum class RenderInstanceShapeKind : uint8_t
     ConvexHull
 };
 
+enum class ShadowCasterStream : uint8_t
+{
+    None,
+    Sphere,
+    Box,
+    Pine,
+    ConvexHull
+};
+
 struct RenderInstanceRecord
 {
     RenderInstanceHandle handle;                                         // Stable render handle paired with the model slot.
@@ -117,6 +129,7 @@ struct RenderInstanceRecord
     RenderMaterial material;                                             // Backend-neutral material intent.
     float boundingRadius = 0.0f;                                         // Conservative render/shadow bounds radius.
     RenderInstanceShapeKind shapeKind = RenderInstanceShapeKind::Sphere; // Cheap draw-path shape discriminator.
+    ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Owner-prepared opaque submission bin.
     bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
     float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
@@ -133,6 +146,7 @@ struct RenderInstanceRecord
 struct RenderInstancePresentationRecord
 {
     RenderMaterial material;                                             // Backend-neutral material intent.
+    ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Scene-owner stream choice copied into the draw row.
     char displayName[64] = {};                                           // Presentation/debug label paired with the model slot.
     bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
@@ -150,6 +164,7 @@ class RenderInstanceStore
     bool CanAppendCreationRow( int expectedCount ) const;
     void CommitCreationRow( const RenderInstancePresentationRecord& presentation,
                             const Physics::PhysicsBodyRecord& body,
+                            const Physics::PhysicsBodyHotState& hotState,
                             const Physics::ColliderRecord& collider,
                             int expectedIndex );
     // Scene deletion compacts presentation, instance, and handle rows together.

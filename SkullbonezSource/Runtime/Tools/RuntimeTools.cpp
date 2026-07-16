@@ -495,17 +495,20 @@ bool RuntimeTools::TryRayCastTestHit( const Physics::PhysicsBodyStore& bodyStore
     // mesh intersections. The broad deterministic hit result is enough for
     // impulse placement and visual feedback, and it stays on store records.
     const int hitCount = (std::min)( bodyStore.Count(), colliderStore.Count() );
-    const auto bodies = bodyStore.Records();
+    const auto hotFields = bodyStore.HotFields();
     const auto colliders = colliderStore.Records();
     for ( int i = 0; i < hitCount; ++i )
     {
         const std::size_t index = static_cast<std::size_t>( i );
-        const Physics::PhysicsBodyRecord& body = bodies[index];
         const Physics::ColliderRecord& collider = colliders[index];
         const float radius = (std::max)( collider.boundingRadius, 1.0f );
         float rayT = 0.0f;
-        if ( IntersectRaySphere( rayOrigin, rayDirection, body.position, radius, rayT ) && rayT <= maxDistance &&
-             rayT < outT )
+        if ( IntersectRaySphere( rayOrigin,
+                                 rayDirection,
+                                 Physics::PhysicsBodyPosition( hotFields, index ),
+                                 radius,
+                                 rayT ) &&
+             rayT <= maxDistance && rayT < outT )
         {
             outIndex = i;
             outT = rayT;
@@ -728,17 +731,17 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
         return;
     }
 
-    const Physics::PhysicsBodyHandle body =
-        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).HandleForModelIndex( modelHitIndex );
-    const Physics::PhysicsBodyRecord* bodyRecord =
-        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ).RecordForHandle( body );
+    const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
+    const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelHitIndex );
+    const Physics::PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
     if ( !bodyRecord )
     {
         return;
     }
 
     const Math::Vector::Vector3 hitPoint = rayOrigin + rayDirection * hitT;
-    const Math::Vector::Vector3 localApplicationPoint = hitPoint - bodyRecord->position;
+    const Math::Vector::Vector3 localApplicationPoint =
+        hitPoint - Physics::PhysicsBodyPosition( bodyStore.HotFields(), static_cast<std::size_t>( modelHitIndex ) );
     const float mass = (std::max)( 0.001f, bodyRecord->mass );
     const float releaseSpeed = std::clamp( m_rayCastTest.impulseStrength / mass, 1.5f, 36.0f );
     if ( !physics.ReleaseFixedBodyAndAttachedTreeParts( body,

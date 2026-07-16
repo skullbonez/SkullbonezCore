@@ -1,12 +1,11 @@
 /*
 File: SkullbonezSource/Maths/Vector3.h
 Purpose:
-  Declares the engine 3D vector type and vector math operations.
+  Defines the engine 3D vector type and its inline hot-path operations.
 
 Summary:
-  Vector3.h declares the engine 3D vector type and vector math operations. As
-  a public header, keep edits anchored on units, basis conventions, and
-  numerical assumptions and on the glossary/invariants below.
+  Vector3 keeps three public float components and defines basic arithmetic at
+  the call site so Debug physics does not pay cross-translation-unit calls.
 
 Glossary:
   Component-wise: Operation applied independently to x, y, and z.
@@ -15,22 +14,32 @@ Glossary:
   Cross product: Vector perpendicular to two input directions; used to build
   tangent bases and angular directions.
   Normalized vector: Direction-only vector with length 1.0.
-  POD (Plain Old Data): Simple public data layout used here so old math and
-  physics paths can pass vectors cheaply without accessor overhead.
+  Trivially copyable: Copy construction/assignment can move the three-float
+    object representation directly without user-authored copy behavior.
 
 Invariants:
-  - Vector3 is a public-component POD-style math type; hot paths read and write
-    x, y, and z directly.
+  - Vector3 is a public-component math type; hot paths read and write x, y, and
+    z directly.
+  - The object representation remains exactly three floats (12 bytes), and copy
+    construction/assignment remain trivial.
+  - Debug default construction poisons components with NaN; callers must assign
+    a value before reading them.
+  - Try normalization/division leaves the source and any output untouched on
+    failure; plain operations assert only in Debug and propagate IEEE values in
+    Release.
   - ZERO_VECTOR is a shared value sentinel, not mutable global state.
 
 Related:
-  - SkullbonezSource/Maths/Vector3.cpp
+  - SkullbonezTests/TestVector3.cpp
+  - SkullbonezSource/Maths/MathsCommon.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
-
 #include "MathsCommon.h"
+#include <cassert>
+#include <limits>
+#include <type_traits>
 
 namespace SkullbonezCore
 {
@@ -49,33 +58,248 @@ class Vector3
   public:
     float x, y, z;                                            // Public POD-style components; math hot paths access them directly.
 
-    Vector3();
-    Vector3( const Vector3& v );
-    Vector3( float fX, float fY, float fZ );
-    void Zero();
-    void Normalise();                                         // Fatal if zero; scales direction vectors to unit length.
-    void Absolute();                                          // Component-wise absolute value; mutates this vector.
-    bool IsCloseToZero() const;                               // Tolerance check for float noise near zero.
-    void Simplify();                                          // Components within the engine epsilon snap to 0.0f.
-    void SetAll( float nx, float ny, float nz );
-    Vector3& operator=( const Vector3& v );                   // Copies all three components.
-    Vector3& operator+=( const Vector3& v );                  // Component-wise addition into this vector.
-    Vector3& operator-=( const Vector3& v );                  // Component-wise subtraction into this vector.
-    Vector3& operator*=( float f );                           // Uniform scalar scale into this vector.
-    Vector3& operator/=( float f );                           // Fatal on zero; uniform scalar divide into this vector.
-    Vector3& operator/=( const Vector3& );                    // Fatal on zero components; axis-specific divide.
-    Vector3 operator-() const;                                // Unary minus returns the negative of the vector
-    Vector3 operator+( const Vector3& v ) const;              // Binary add vectors
-    Vector3 operator-( const Vector3& v ) const;              // Binary subtract vectors
-    Vector3 operator*( float f ) const;                       // Multiplication by scalar
-    Vector3 operator/( float f ) const;                       // Fatal on zero divisor; scalar divide
-    Vector3 operator/( const Vector3& v ) const;              // Fatal on zero components; component-wise divide
-    bool operator==( const Vector3& v ) const;
-    bool operator!=( const Vector3& v ) const;
-    float operator*( const Vector3& v ) const;                // Vector dot product
+    Vector3()
+    {
+#ifdef _DEBUG
+        // Hazard: poison default-constructed components so use-before-init
+        // propagates visibly through Debug math instead of mimicking a valid zero.
+        x = std::numeric_limits<float>::quiet_NaN();
+        y = std::numeric_limits<float>::quiet_NaN();
+        z = std::numeric_limits<float>::quiet_NaN();
+#endif
+    }
+
+    Vector3( const Vector3& v ) = default;
+    Vector3( float fX, float fY, float fZ ) : x( fX ), y( fY ), z( fZ )
+    {
+    }
+
+    void Zero()
+    {
+        x = y = z = 0.0f;
+    }
+
+    void Normalise()                                          // Debug-asserts on zero; Release propagates IEEE inf/NaN.
+    {
+        float magSq = x * x + y * y + z * z;
+        // Why: a zero direction is a caller-reachable numeric edge, not a
+        // lane-F engine invariant. TryNormalise reports it; the plain hot API
+        // keeps only a Debug misuse tripwire and Release IEEE propagation.
+        assert( magSq != 0.0f && "Vector3::Normalise requires a non-zero vector" );
+        const float oneOverMag = 1.0f / sqrtf( magSq );
+        x *= oneOverMag;
+        y *= oneOverMag;
+        z *= oneOverMag;
+    }
+
+    bool TryNormalise()
+    {
+        const float magSq = x * x + y * y + z * z;
+        if ( magSq == 0.0f )
+        {
+            return false;
+        }
+        const float oneOverMag = 1.0f / sqrtf( magSq );
+        x *= oneOverMag;
+        y *= oneOverMag;
+        z *= oneOverMag;
+        return true;
+    }
+
+    bool TryNormalised( Vector3& out ) const
+    {
+        Vector3 candidate = *this;
+        if ( !candidate.TryNormalise() )
+        {
+            return false;
+        }
+        out = candidate;
+        return true;
+    }
+
+    void Absolute()                                           // Component-wise absolute value; mutates this vector.
+    {
+        x = fabsf( x );
+        y = fabsf( y );
+        z = fabsf( z );
+    }
+
+    bool IsCloseToZero() const                                // Tolerance check for float noise near zero.
+    {
+        return x < TOLERANCE && x > ZERO_TAKE_TOLERANCE && y < TOLERANCE && y > ZERO_TAKE_TOLERANCE && z < TOLERANCE &&
+               z > ZERO_TAKE_TOLERANCE;
+    }
+
+    void Simplify()                                           // Components within the engine epsilon snap to 0.0f.
+    {
+        if ( x < TOLERANCE && x > ZERO_TAKE_TOLERANCE )
+        {
+            x = 0.0f;
+        }
+        if ( y < TOLERANCE && y > ZERO_TAKE_TOLERANCE )
+        {
+            y = 0.0f;
+        }
+        if ( z < TOLERANCE && z > ZERO_TAKE_TOLERANCE )
+        {
+            z = 0.0f;
+        }
+    }
+
+    void SetAll( float nx, float ny, float nz )
+    {
+        x = nx;
+        y = ny;
+        z = nz;
+    }
+
+    Vector3& operator=( const Vector3& v ) = default;
+
+    Vector3& operator+=( const Vector3& v )
+    {
+        x += v.x;
+        y += v.y;
+        z += v.z;
+        return *this;
+    }
+
+    Vector3& operator-=( const Vector3& v )
+    {
+        x -= v.x;
+        y -= v.y;
+        z -= v.z;
+        return *this;
+    }
+
+    Vector3& operator*=( float f )
+    {
+        x *= f;
+        y *= f;
+        z *= f;
+        return *this;
+    }
+
+    Vector3& operator/=( float f )
+    {
+        assert( f != 0.0f && "Vector3 scalar divide-assign requires a non-zero divisor" );
+        const float oneOverA = 1.0f / f;
+        x *= oneOverA;
+        y *= oneOverA;
+        z *= oneOverA;
+        return *this;
+    }
+
+    Vector3& operator/=( const Vector3& v )
+    {
+        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f &&
+                "Vector3 component divide-assign requires non-zero divisors" );
+        x /= v.x;
+        y /= v.y;
+        z /= v.z;
+        return *this;
+    }
+
+    bool TryDivide( float f )
+    {
+        if ( f == 0.0f )
+        {
+            return false;
+        }
+        const float oneOverA = 1.0f / f;
+        x *= oneOverA;
+        y *= oneOverA;
+        z *= oneOverA;
+        return true;
+    }
+
+    bool TryDivide( const Vector3& v )
+    {
+        if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
+        {
+            return false;
+        }
+        x /= v.x;
+        y /= v.y;
+        z /= v.z;
+        return true;
+    }
+
+    Vector3 operator-() const
+    {
+        return Vector3( -x, -y, -z );
+    }
+
+    Vector3 operator+( const Vector3& v ) const
+    {
+        return Vector3( x + v.x, y + v.y, z + v.z );
+    }
+
+    Vector3 operator-( const Vector3& v ) const
+    {
+        return Vector3( x - v.x, y - v.y, z - v.z );
+    }
+
+    Vector3 operator*( float f ) const
+    {
+        return Vector3( x * f, y * f, z * f );
+    }
+
+    Vector3 operator/( float f ) const
+    {
+        assert( f != 0.0f && "Vector3 scalar division requires a non-zero divisor" );
+        const float oneOverA = 1.0f / f;
+        return Vector3( x * oneOverA, y * oneOverA, z * oneOverA );
+    }
+
+    Vector3 operator/( const Vector3& v ) const
+    {
+        assert( v.x != 0.0f && v.y != 0.0f && v.z != 0.0f && "Vector3 component division requires non-zero divisors" );
+        return Vector3( x / v.x, y / v.y, z / v.z );
+    }
+
+    bool TryDivided( float f, Vector3& out ) const
+    {
+        if ( f == 0.0f )
+        {
+            return false;
+        }
+        const float oneOverA = 1.0f / f;
+        out = Vector3( x * oneOverA, y * oneOverA, z * oneOverA );
+        return true;
+    }
+
+    bool TryDivided( const Vector3& v, Vector3& out ) const
+    {
+        if ( v.x == 0.0f || v.y == 0.0f || v.z == 0.0f )
+        {
+            return false;
+        }
+        out = Vector3( x / v.x, y / v.y, z / v.z );
+        return true;
+    }
+
+    bool operator==( const Vector3& v ) const
+    {
+        return x == v.x && y == v.y && z == v.z;
+    }
+
+    bool operator!=( const Vector3& v ) const
+    {
+        return x != v.x || y != v.y || z != v.z;
+    }
+
+    float operator*( const Vector3& v ) const
+    {
+        return x * v.x + y * v.y + z * v.z;
+    }
 };
 
-const Vector3 ZERO_VECTOR = Vector3( 0.0f, 0.0f, 0.0f );      // Shared origin/no-motion sentinel.
+// Why: vector3-inline-hot-math promises memcpy-safe copies and preserves the
+// three-float ABI used by physics/render stores; fail compilation on drift.
+static_assert( std::is_trivially_copyable_v<Vector3> );
+static_assert( sizeof( Vector3 ) == 12 );
+
+inline const Vector3 ZERO_VECTOR{ 0.0f, 0.0f, 0.0f };         // Shared origin/no-motion sentinel.
 
 // Reflect incident about a normalized surface normal; callers own normalization.
 inline Vector3 VectorReflect( const Vector3& incident, const Vector3& normal )

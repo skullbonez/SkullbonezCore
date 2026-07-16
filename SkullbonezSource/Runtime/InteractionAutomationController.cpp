@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/InteractionAutomationController.cpp
 Purpose:
   Drives deterministic runtime interaction scripts through the normal input path.
 
-Mental model:
+Summary:
   Interaction automation is a validation driver. It asks the same picking,
   replay, camera, director-shot, and world-input code that an operator would
   use, then writes a compact JSON report for the test harness.
@@ -34,6 +34,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayCoordination.h
 */
 #include "InteractionAutomationController.h"
+#include "RuntimeOverlayDiagnostics.h"
 #include "AttachedCameraController.h"
 #include "CaptureController.h"
 #include "InputRouter.h"
@@ -234,6 +235,8 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     {
         return fingerprint;
     }
+    const Physics::PhysicsBodyHotState hotState =
+        Physics::LoadPhysicsBodyHotState( scene.BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) );
 
     uint64_t& hash = fingerprint.hash;
     HashPredictionScalar( hash, entity.sceneObjectId.value );
@@ -258,29 +261,29 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
     HashPredictionFloat( hash, entity.renderMaterial.contactFlashAlpha );
     HashPredictionScalar( hash, entity.renderMaterial.flags );
 
-    HashPredictionVector( hash, body->position );
+    HashPredictionVector( hash, hotState.position );
     float orientationX = 0.0f;
     float orientationY = 0.0f;
     float orientationZ = 0.0f;
     float orientationW = 1.0f;
-    body->orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
+    hotState.orientation.GetComponents( orientationX, orientationY, orientationZ, orientationW );
     HashPredictionFloat( hash, orientationX );
     HashPredictionFloat( hash, orientationY );
     HashPredictionFloat( hash, orientationZ );
     HashPredictionFloat( hash, orientationW );
-    HashPredictionVector( hash, body->linearVelocity );
-    HashPredictionVector( hash, body->angularVelocity );
+    HashPredictionVector( hash, hotState.linearVelocity );
+    HashPredictionVector( hash, hotState.angularVelocity );
     HashPredictionVector( hash, body->rotationalInertia );
     HashPredictionFloat( hash, body->mass );
-    HashPredictionFloat( hash, body->boundingRadius );
+    HashPredictionFloat( hash, hotState.boundingRadius );
     HashPredictionFloat( hash, body->volume );
     HashPredictionFloat( hash, body->projectedSurfaceArea );
     HashPredictionFloat( hash, body->dragCoefficient );
     HashPredictionFloat( hash, body->contactReleaseImpulseThreshold );
     HashPredictionFloat( hash, body->angularVelocityLimit );
     HashPredictionFloat( hash, body->contactEpsilon );
-    HashPredictionScalar( hash, static_cast<uint8_t>( body->isFixed ) );
-    HashPredictionScalar( hash, static_cast<uint8_t>( body->isSleeping ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( hotState.fixed ) );
+    HashPredictionScalar( hash, static_cast<uint8_t>( !hotState.awake ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->releasesFromFixedOnContact ) );
     HashPredictionScalar( hash, static_cast<uint8_t>( body->usesWorldInertia ) );
     fingerprint.hasTerrain = body->terrain != nullptr;
@@ -1255,9 +1258,10 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         const Physics::PhysicsBodyHandle body =
             bodyStore.HandleForReplayBodyId( replay.path.targetId.value, replay.path.targetModelRow.value );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
+        const int bodyIndex = bodyStore.ModelIndexForHandle( body );
         const bool hasTarget = replay.path.hasTarget && replay.path.targetId.value != 0;
         bool applied = false;
-        if ( hasTarget && record )
+        if ( hasTarget && record && bodyIndex >= 0 )
         {
             if ( !PrepareReplayVelocityMutationBaseline( replay, replayIntent ) )
             {
@@ -1268,8 +1272,10 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
                 // Why: automation needs the same old-vs-new future proof as a
                 // mouse drag, but without depending on pixel-perfect axis hit
                 // testing. Capture is still deferred to the visualizer.
-                const Vector3 nextLinearVelocity = record->linearVelocity + action.vectorValue;
-                applied = physics.SetBodyVelocity( body, nextLinearVelocity, record->angularVelocity, true );
+                const Physics::PhysicsBodyHotState hotState =
+                    Physics::LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( bodyIndex ) );
+                const Vector3 nextLinearVelocity = hotState.linearVelocity + action.vectorValue;
+                applied = physics.SetBodyVelocity( body, nextLinearVelocity, hotState.angularVelocity, true );
                 if ( applied )
                 {
                     CommitReplayVelocityMutation( replayIntent );
@@ -2470,7 +2476,26 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     return evaluation;
 }
 
-ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick )
+// Concept: durable topology ids are dense first-publication tokens. The vector
+// is ordered capture state, not an iterated map, so RVIS and offline projection
+// derive the same value without retaining the live schedule counter.
+uint32_t CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion, std::vector<uint32_t>& publishedVersions )
+{
+    if ( liveVersion == 0u )
+    {
+        return 0u;
+    }
+    const auto found = std::find( publishedVersions.begin(), publishedVersions.end(), liveVersion );
+    if ( found == publishedVersions.end() )
+    {
+        publishedVersions.push_back( liveVersion );
+        return static_cast<uint32_t>( publishedVersions.size() );
+    }
+    return static_cast<uint32_t>( std::distance( publishedVersions.begin(), found ) + 1 );
+}
+
+ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick,
+                                                          uint32_t canonicalTopologyVersion )
 {
     ReplayVisualArchiveSample packet;
     packet.sourceFrame = tick.sourceFrame;
@@ -2482,7 +2507,7 @@ ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFide
     packet.targetId = tick.targetId;
     packet.branchId = tick.branchId;
     packet.eventCursor = tick.eventCursor;
-    packet.topologyVersion = tick.topologyVersion;
+    packet.topologyVersion = canonicalTopologyVersion;
     packet.publishedFrameCount = tick.publishedFrameCount;
     packet.predictionEnabled = tick.predictionEnabled ? 1u : 0u;
     packet.predictionBuilding = tick.predictionBuilding ? 1u : 0u;
@@ -2499,7 +2524,9 @@ ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFide
     packet.expandedVertexHash = tick.vertexHash;
     packet.ordinaryExpandedVertexHash = tick.ordinaryVertexHash;
     packet.droppedSegmentCount = tick.droppedSegmentCount;
-    packet.replayReserveGrowthEvents = tick.replayReserveGrowthEvents;
+    // Concept: reserve growth is process telemetry. The report retains the live
+    // counter; RVIS and offline reconstruction use the durable zero constant.
+    packet.replayReserveGrowthEvents = 0u;
     packet.combinedLineBytes = tick.combinedLineBytes;
     packet.ordinaryLineBytes = tick.ordinaryLineBytes;
     packet.priorityLineBytes = tick.priorityLineBytes;
@@ -2569,9 +2596,13 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
     SceneController& scene = sceneOwners.sceneController;
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
     trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
+    std::vector<uint32_t> publishedTopologyVersions;
+    publishedTopologyVersions.reserve( state.replayVisualFidelityTicks.size() );
     for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
     {
-        const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick );
+        const uint32_t canonicalTopologyVersion =
+            CanonicalReplayArtifactTopologyVersion( tick.topologyVersion, publishedTopologyVersions );
+        const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion );
         offlinePrediction.SetVerificationRevealFrame( expected.revealFrame );
         tracer.Clear();
         const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
@@ -2859,7 +2890,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    UI::InGameUI& ui = interactionOwners.ui;
+    UI::InGameUI& ui = interactionOwners.operatorUi;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
@@ -3214,7 +3245,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     InputRouter& inputRouter = interactionOwners.inputRouter;
     RunCameraState& camera = interactionOwners.camera;
-    UI::InGameUI& ui = interactionOwners.ui;
+    UI::InGameUI& ui = interactionOwners.operatorUi;
     InteractionAutomationFrameResult result;
     if ( !state.enabled || state.finished )
     {
@@ -3528,9 +3559,13 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         replayArtifactPath += ".skreplay";
         std::vector<ReplayVisualArchiveSample> visualPackets;
         visualPackets.reserve( state.replayVisualFidelityTicks.size() );
+        std::vector<uint32_t> publishedTopologyVersions;
+        publishedTopologyVersions.reserve( state.replayVisualFidelityTicks.size() );
         for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
         {
-            visualPackets.push_back( BuildReplayVisualArchiveSample( tick ) );
+            const uint32_t canonicalTopologyVersion =
+                CanonicalReplayArtifactTopologyVersion( tick.topologyVersion, publishedTopologyVersions );
+            visualPackets.push_back( BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion ) );
         }
         // Lane R: the artifact is cold validation IO. Its failure belongs in
         // the machine-readable automation result, never in runtime ownership.

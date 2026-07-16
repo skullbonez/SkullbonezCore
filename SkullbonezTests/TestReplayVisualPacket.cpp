@@ -34,6 +34,36 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
 
+TEST_CASE( "Replay visual archive semantic hash stays canonical and content-sensitive" )
+{
+    constexpr uint64_t visualStateHash = 0x0123456789ABCDEFull;
+    constexpr uint64_t exactPacketHash = 0xFEDCBA9876543210ull;
+    constexpr uint32_t topologyVersion = 3u;
+    constexpr uint64_t reserveGrowthEvents = 0u;
+    const uint64_t expected = BuildCanonicalReplayVisualArchiveSemanticHash( visualStateHash,
+                                                                             exactPacketHash,
+                                                                             topologyVersion,
+                                                                             reserveGrowthEvents );
+
+    CHECK( expected == 0x5F1B931D0EE4051Cull );
+    CHECK( expected == BuildCanonicalReplayVisualArchiveSemanticHash( visualStateHash,
+                                                                      exactPacketHash,
+                                                                      topologyVersion,
+                                                                      reserveGrowthEvents ) );
+    CHECK( expected != BuildCanonicalReplayVisualArchiveSemanticHash( visualStateHash ^ 1u,
+                                                                      exactPacketHash,
+                                                                      topologyVersion,
+                                                                      reserveGrowthEvents ) );
+    CHECK( expected != BuildCanonicalReplayVisualArchiveSemanticHash( visualStateHash,
+                                                                      exactPacketHash ^ 1u,
+                                                                      topologyVersion,
+                                                                      reserveGrowthEvents ) );
+    CHECK( expected != BuildCanonicalReplayVisualArchiveSemanticHash( visualStateHash,
+                                                                      exactPacketHash,
+                                                                      topologyVersion + 1u,
+                                                                      reserveGrowthEvents ) );
+}
+
 TEST_CASE( "Replay visual packet reports semantic divergence before buffer bytes" )
 {
     const std::array<float, 4> expectedFloats = { 1.0f, 2.0f, 3.0f, 4.0f };
@@ -115,14 +145,11 @@ TEST_CASE( "Replay visual fingerprint hashes renderer spans instead of stale sub
 
     std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
     std::vector<ReplayVisualTrajectoryDigestState> miswiredDigests;
-    const ReplayVisualPacketFingerprint expectedHash =
-        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
-    const ReplayVisualPacketFingerprint miswiredHash =
-        BuildReplayVisualPacketFingerprint( miswired, miswiredDigests );
+    const ReplayVisualPacketFingerprint expectedHash = BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint miswiredHash = BuildReplayVisualPacketFingerprint( miswired, miswiredDigests );
 
     const char* expectedMismatch = FindReplayVisualPacketSubmissionSpanMismatch( expected );
-    INFO( "unexpected expected-packet mismatch: ",
-          std::string_view( expectedMismatch ? expectedMismatch : "none" ) );
+    INFO( "unexpected expected-packet mismatch: ", std::string_view( expectedMismatch ? expectedMismatch : "none" ) );
     CHECK( expectedMismatch == nullptr );
     REQUIRE( FindReplayVisualPacketSubmissionSpanMismatch( miswired ) != nullptr );
     CHECK( std::string_view( FindReplayVisualPacketSubmissionSpanMismatch( miswired ) ) ==
@@ -326,8 +353,7 @@ TEST_CASE( "Replay visual fingerprint excludes the completed prediction worker b
     std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
     std::vector<ReplayVisualTrajectoryDigestState> actualDigests;
 
-    const ReplayVisualPacketFingerprint expectedHash =
-        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint expectedHash = BuildReplayVisualPacketFingerprint( expected, expectedDigests );
     const ReplayVisualPacketFingerprint inactiveMutationHash =
         BuildReplayVisualPacketFingerprint( actual, actualDigests );
     CHECK( expectedHash.visualStateHash == inactiveMutationHash.visualStateHash );
@@ -360,8 +386,7 @@ TEST_CASE( "Replay visual fingerprint covers ghost semantics before submission b
     std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
     std::vector<ReplayVisualTrajectoryDigestState> actualDigests;
 
-    const ReplayVisualPacketFingerprint expectedHash =
-        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint expectedHash = BuildReplayVisualPacketFingerprint( expected, expectedDigests );
     const ReplayVisualPacketFingerprint actualHash = BuildReplayVisualPacketFingerprint( actual, actualDigests );
     CHECK( expectedHash.semanticHash != actualHash.semanticHash );
     CHECK( expectedHash.exactHash != actualHash.exactHash );
@@ -380,8 +405,7 @@ TEST_CASE( "Replay visual and exact fingerprints exclude process-local diagnosti
     std::vector<ReplayVisualTrajectoryDigestState> expectedDigests;
     std::vector<ReplayVisualTrajectoryDigestState> actualDigests;
 
-    const ReplayVisualPacketFingerprint expectedHash =
-        BuildReplayVisualPacketFingerprint( expected, expectedDigests );
+    const ReplayVisualPacketFingerprint expectedHash = BuildReplayVisualPacketFingerprint( expected, expectedDigests );
     const ReplayVisualPacketFingerprint actualHash = BuildReplayVisualPacketFingerprint( actual, actualDigests );
     CHECK( expectedHash.visualStateHash == actualHash.visualStateHash );
     CHECK( expectedHash.semanticHash != actualHash.semanticHash );

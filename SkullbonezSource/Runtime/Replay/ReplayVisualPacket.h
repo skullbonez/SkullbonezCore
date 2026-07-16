@@ -82,6 +82,29 @@ inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noe
     }
     return hash;
 }
+
+// Concept: the durable RVIS semantic hash keeps the live visual/exact content
+// sensitivity while replacing schedule-local bookkeeping with its serialized
+// values. Explicit little-endian bytes make the hash agree with the file ABI.
+inline uint64_t BuildCanonicalReplayVisualArchiveSemanticHash( uint64_t visualStateHash,
+                                                               uint64_t exactPacketHash,
+                                                               uint32_t topologyVersion,
+                                                               uint64_t replayReserveGrowthEvents ) noexcept
+{
+    uint64_t hash = visualStateHash;
+    const auto appendLittleEndian = [&hash]( uint64_t value, std::size_t byteCount )
+    {
+        for ( std::size_t byteIndex = 0; byteIndex < byteCount; ++byteIndex )
+        {
+            hash ^= static_cast<uint8_t>( value >> ( byteIndex * 8u ) );
+            hash *= REPLAY_VISUAL_BUFFER_FNV_PRIME;
+        }
+    };
+    appendLittleEndian( topologyVersion, sizeof( topologyVersion ) );
+    appendLittleEndian( replayReserveGrowthEvents, sizeof( replayReserveGrowthEvents ) );
+    appendLittleEndian( exactPacketHash, sizeof( exactPacketHash ) );
+    return hash;
+}
 } // namespace ReplayVisualPacketOperations
 
 // These records live here because both ReplayPresentation's mutable caches and

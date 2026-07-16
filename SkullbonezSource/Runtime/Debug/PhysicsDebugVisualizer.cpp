@@ -257,16 +257,17 @@ void PhysicsDebugVisualizer::EmitRingXZ( const Vector3& center,
 void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugFrameView& view )
 {
     const auto& bodies = view.bodies.Records();
+    const auto hotFields = view.bodies.HotFields();
     const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
-        Vector3 center = body.position;
-        Quaternion orientation = body.orientation;
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex );
+        Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
         Vector3 axes[3] = {
             rot * Vector3( 1.0f, 0.0f, 0.0f ),
@@ -283,13 +284,13 @@ void PhysicsDebugVisualizer::EmitObjectAxes( const PhysicsDebugFrameView& view )
 void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameView& view )
 {
     const auto& bodies = view.bodies.Records();
+    const auto hotFields = view.bodies.HotFields();
     const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
         const ConvexHullShape* hull = std::get_if<ConvexHullShape>( &collider.shape );
         if ( !hull )
@@ -297,9 +298,10 @@ void PhysicsDebugVisualizer::EmitConvexHullWireframes( const PhysicsDebugFrameVi
             continue;
         }
 
-        Quaternion orientation = body.orientation;
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        Quaternion orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         RotationMatrix rot = orientation.GetOrientationMatrix();
-        const Vector3 center = body.position + rot * hull->GetPosition();
+        const Vector3 center = PhysicsBodyPosition( hotFields, bodyIndex ) + rot * hull->GetPosition();
         for ( uint16_t edgeIndex = 0; edgeIndex < hull->GetEdgeCount(); ++edgeIndex )
         {
             const ConvexHullEdge& edge = hull->GetEdge( edgeIndex );
@@ -327,11 +329,12 @@ void PhysicsDebugVisualizer::EmitContacts( const PhysicsDebugFrameView& view )
         EmitLine( contact.point, contact.point + contact.tangent1 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
         EmitLine( contact.point, contact.point + contact.tangent2 * 1.25f, 1.0f * fade, 0.45f * fade, 0.05f * fade );
         const auto& bodies = view.bodies.Records();
+        const auto hotFields = view.bodies.HotFields();
         if ( contact.bodyA >= 0 && contact.bodyB >= 0 && contact.bodyA < static_cast<int>( bodies.size() ) &&
              contact.bodyB < static_cast<int>( bodies.size() ) )
         {
-            Vector3 a = bodies[static_cast<std::size_t>( contact.bodyA )].position;
-            Vector3 b = bodies[static_cast<std::size_t>( contact.bodyB )].position;
+            Vector3 a = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( contact.bodyA ) );
+            Vector3 b = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( contact.bodyB ) );
             EmitLine( a, b, 0.45f * fade, 0.45f * fade, 0.45f * fade );
         }
     }
@@ -346,15 +349,15 @@ void PhysicsDebugVisualizer::EmitSleepState( const PhysicsDebugFrameView& view )
     const auto supportedStates = view.sleepSupportedStates;
     const auto inhibitedStates = view.sleepInhibitedStates;
     const auto& bodies = view.bodies.Records();
+    const auto hotFields = view.bodies.HotFields();
     const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
-        Vector3 center = body.position;
+        Vector3 center = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( i ) );
         float radius = (std::max)( 1.0f, collider.boundingRadius * 1.15f );
         bool sleeping = i < static_cast<int>( sleepStates.size() ) && sleepStates[i] != 0;
         bool supported = i < static_cast<int>( supportedStates.size() ) && supportedStates[i] != 0;
@@ -402,6 +405,7 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& vie
 
     int emitted = 0;
     const auto& bodies = view.bodies.Records();
+    const auto hotFields = view.bodies.HotFields();
     for ( const PhysicsPipelineRecord& record : records )
     {
         if ( record.stage != selectedStage )
@@ -413,15 +417,15 @@ void PhysicsDebugVisualizer::EmitPipelineStage( const PhysicsDebugFrameView& vie
         const bool hasB = record.bodyB >= 0 && record.bodyB < static_cast<int>( bodies.size() );
         if ( hasA && hasB )
         {
-            Vector3 a = bodies[static_cast<std::size_t>( record.bodyA )].position;
-            Vector3 bPos = bodies[static_cast<std::size_t>( record.bodyB )].position;
+            Vector3 a = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( record.bodyA ) );
+            Vector3 bPos = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( record.bodyB ) );
             EmitLine( a, bPos, r * 0.55f, g * 0.55f, b * 0.55f );
         }
 
         Vector3 p = record.point;
         if ( hasA && VectorMagSquared( p ) <= TOLERANCE * TOLERANCE )
         {
-            p = bodies[static_cast<std::size_t>( record.bodyA )].position;
+            p = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( record.bodyA ) );
         }
         const float scale = 0.24f + (std::min)( fabsf( record.scalarA ), 4.0f ) * 0.05f;
         EmitCross( p, scale, r, g, b );
@@ -448,20 +452,20 @@ void PhysicsDebugVisualizer::EmitTerrainContactProbe( const PhysicsDebugFrameVie
     }
 
     const auto& bodies = view.bodies.Records();
+    const auto hotFields = view.bodies.HotFields();
     const auto& colliders = view.colliders.Records();
     const int count =
         (std::min)( view.modelCount,
                     (std::min)( static_cast<int>( bodies.size() ), static_cast<int>( colliders.size() ) ) );
     for ( int i = 0; i < count; ++i )
     {
-        const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( i )];
         const ColliderRecord& collider = colliders[static_cast<std::size_t>( i )];
         if ( !std::holds_alternative<BoundingSphere>( collider.shape ) )
         {
             continue;
         }
 
-        const Vector3 center = body.position;
+        const Vector3 center = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( i ) );
         if ( !terrain->IsInBounds( center.x, center.z ) )
         {
             continue;

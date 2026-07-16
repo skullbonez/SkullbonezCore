@@ -40,8 +40,12 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "RuntimeOverlayDiagnostics.h"
+#include "RuntimeValidationHarness.h"
+#include "RuntimeFrameViews.h"
+#include "RuntimeViewModel.h"
+#include "Window.h"
 #include "../Core/WorkerPool.h"
-#include "RuntimeStressController.h"
 #include "InputFrame.h"
 #include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayOverlayRenderer.h"
@@ -67,6 +71,7 @@ Related:
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../UI/UI.h"
 
 #include <cmath>
 #include <cstdarg>
@@ -97,6 +102,17 @@ void PrintRuntimeExitReason( const char* reason )
 {
     printf( "[runtime-exit] %s\n", reason );
     fflush( stdout );
+}
+
+float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config,
+                                bool capturePresentationPinned,
+                                float simulationPresentationAlpha )
+{
+    if ( !config.runtimeRender.presentationInterpolation || capturePresentationPinned )
+    {
+        return 1.0f;
+    }
+    return std::clamp( simulationPresentationAlpha, 0.0f, 1.0f );
 }
 
 bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
@@ -131,13 +147,14 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     RuntimeRenderer& renderer = presentationOwners.renderer;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
-    RunDebugState& debug = sceneOwners.debug;
+    RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
+    RunDebugState& debug = presentationEdit.State();
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SkullbonezCore::Environment::WorldEnvironment& worldEnvironment = sceneController.World();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.ui;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
     RunCameraState& camera = interactionOwners.camera;
     SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
@@ -262,79 +279,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
 }
 
 
-template <typename UpdateRequiredBroadphaseXCells, typename UpdateRequiredContacts>
-void TickExecutePostPhysicsVisualizers( RunDebugState& debug,
-                                        SkullbonezCore::Runtime::SceneController& models,
-                                        BroadphaseVisualizer& broadphaseVisualizer,
-                                        CollisionVisualizer& collisionVisualizer,
-                                        PhysicsDebugVisualizer& physicsDebugVisualizer,
-                                        double secondsPerFrame,
-                                        UpdateRequiredBroadphaseXCells updateRequiredBroadphaseXCells,
-                                        UpdateRequiredContacts updateRequiredContacts )
-{
-    PROFILE_BEGIN( "Frame/PostPhysics" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
-    // Why: broadphase visualizer state runs even when the overlay is hidden so
-    // cell fades and scene-gate checks stay coherent across toggles.
-    {
-        broadphaseVisualizer.SetEnabled( debug.isBroadphaseOverlay );
-        PhysicsEngine& physics = models.Physics();
-        const SpatialGrid& grid = PhysicsEngine::ReadSpatialGrid( physics );
-        broadphaseVisualizer.SetCellSize( grid.GetCellSize() );
-        SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
-        int activeCellCount = grid.GetActiveCellCount();
-        grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
-        const std::vector<int64_t>& collisionKeys = PhysicsEngine::ReadCollisionCellKeys( physics );
-        broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ),
-                                     activeCellBuf,
-                                     activeCellCount,
-                                     collisionKeys.data(),
-                                     static_cast<int>( collisionKeys.size() ) );
-        updateRequiredBroadphaseXCells( activeCellBuf, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
-    }
-    PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
-    collisionVisualizer.SetEnabled( debug.isCollisionVisualizer );
-    const CollisionVisualizerFrameView collisionView{
-        models.BodyStore(),
-        models.Colliders(),
-        models.RenderInstances(),
-        PhysicsEngine::ReadCollisionVisualContacts( models.Physics() ),
-        PhysicsEngine::ReadSleepStates( models.Physics() ),
-        PhysicsEngine::ReadSleepIslandVisualIds( models.Physics() ),
-        models.BodyStore().Count(),
-    };
-    collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), collisionView );
-    PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-    physicsDebugVisualizer.SetFlags( debug.physicsDebugFlags );
-    physicsDebugVisualizer.SetContactLingerSeconds( debug.physicsDebugContactLinger );
-    physicsDebugVisualizer.SetPipelineStageCursor( debug.physicsDebugPipelineStageCursor );
-    const PhysicsDebugFrameView physicsDebugView{
-        models.BodyStore(),
-        models.Colliders(),
-        PhysicsEngine::ReadSleepStates( models.Physics() ),
-        PhysicsEngine::ReadSleepSupportedStates( models.Physics() ),
-        PhysicsEngine::ReadSleepInhibitedStates( models.Physics() ),
-        PhysicsEngine::ReadDebugContacts( models.Physics() ),
-        PhysicsEngine::ReadPipelineTrace( models.Physics() ),
-        models.BodyStore().Count(),
-    };
-    physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
-    updateRequiredContacts();
-    PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
-
-    PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
-    models.Physics().EndCollisionVisualFrame();
-    PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
-
-    PROFILE_END( "Frame/PostPhysics" );
-}
-
-
 } // namespace
 
 namespace
@@ -371,21 +315,24 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         // did a dynamic body experience enough mass-scaled linear velocity
         // change to be heard? Motion comes from PhysicsBodyStore and contact
         // material comes from the paired ColliderStore row.
-        const auto bodyRecords = models.BodyStore().Records();
+        const PhysicsBodyStore& bodyStore = models.BodyStore();
+        const auto bodyRecords = bodyStore.Records();
+        const auto hotFields = bodyStore.HotFields();
         const int simpleBodyCount = static_cast<int>(
             bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
         contactAudio.BeginSimpleLinearStep( simpleBodyCount );
         for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
         {
             const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
-            if ( body.isFixed )
+            const std::size_t hotIndex = static_cast<std::size_t>( bodyIndex );
+            if ( hotFields.fixed[hotIndex] != 0u )
             {
                 continue;
             }
             contactAudio.SubmitLinearMotion( bodyIndex,
                                              colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
-                                             body.position,
-                                             body.linearVelocity,
+                                             PhysicsBodyPosition( hotFields, hotIndex ),
+                                             PhysicsBodyLinearVelocity( hotFields, hotIndex ),
                                              body.mass );
         }
     }
@@ -490,7 +437,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
     const RunSceneState& scene = models.State();
     RunTimerState& timers = sceneOwners.timers;
-    const RunDebugState& debug = sceneOwners.debug;
+    const RunDebugState debug = sceneOwners.overlays.PresentationSnapshot();
     SkullbonezCore::Environment::CameraCollection& cameras = models.Cameras();
     SkullbonezCore::Environment::WorldEnvironment& world = models.World();
     PhysicsEngine& physics = models.Physics();
@@ -525,32 +472,38 @@ SkullbonezCore::Core::SbResult Run::Execute()
     }
     MSG msg;
     int messageExitCode = 0;
+    constexpr int kMaxMessagesPerFrame = 256;
 
     for ( ;; )
     {
-        if ( PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
+        bool quitRequested = false;
+        int messagesDrained = 0;
+        // Hazard: a device or window can flood the thread queue faster than
+        // frame work consumes it. The cap keeps rendering responsive by
+        // deferring excess messages to the next frame; reaching it is not an
+        // error and preserves FIFO order in the Win32 queue.
+        while ( messagesDrained < kMaxMessagesPerFrame && PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
         {
+            ++messagesDrained;
             if ( msg.message == WM_QUIT )
             {
-                if ( m_graphicsStress.IsEnabled() )
-                {
-                    printf( "[graphics-stress] WM_QUIT received at frame=%d scene_frame=%d scene_loads=%d\n",
-                            m_graphicsStress.FramesRun(),
-                            m_sceneController.State().currentFrame,
-                            m_graphicsStress.SceneLoadsRequested() );
-                    fflush( stdout );
-                }
+                m_validationHarness->PrintGraphicsStressExitSummary( m_sceneController.State().currentFrame );
                 // Concept: WM_QUIT is the platform's stop notification, not the
                 // process result by itself. Preserve a Run-owned failure when
                 // one already exists; otherwise translate the posted integer.
                 m_applicationExit.RequestNormalExit();
                 messageExitCode = static_cast<int>( msg.wParam );
+                quitRequested = true;
                 break;
             }
             TranslateMessage( &msg );
             DispatchMessage( &msg );
         }
-        else
+        if ( quitRequested )
+        {
+            break;
+        }
+
         {
             RuntimeAllocation::RuntimeAllocationScope frameAllocationScope(
                 RuntimeAllocation::RuntimeAllocationPhase::SteadyGameplay );
@@ -584,20 +537,19 @@ SkullbonezCore::Core::SbResult Run::Execute()
             RuntimeFrameInteractionView frameInteraction{ m_inputRouter,
                                                           m_interaction,
                                                           m_attachedCamera,
-                                                          m_UI,
+                                                          *m_operatorUi,
                                                           m_runtimeTools,
                                                           m_camera };
             RuntimeFrameSceneView frameScene{ m_config,
                                               m_launchOptions,
                                               m_startup,
                                               m_timers,
-                                              m_debug,
+                                              *m_overlayDiagnostics,
                                               m_simulation,
                                               m_contactAudio,
                                               m_sceneController };
             RuntimeFramePresentationView framePresentation{ m_renderDefaults,
-                                                            m_graphicsStress,
-                                                            m_physicsDebugVisualizer,
+                                                            *m_validationHarness,
                                                             m_renderBackendView,
                                                             m_renderer };
             frameRenderDiagnostics.ResetFrameDrawCalls();
@@ -614,15 +566,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                       automationReplayView );
             if ( automationBeforeInput.applyCameraMode )
             {
-                m_inputRouter.ApplyCameraMode( m_camera,
-                                               automationBeforeInput.cameraMode,
+                m_inputRouter.ApplyCameraMode( automationBeforeInput.cameraMode,
                                                RuntimeInputActionSource::Runtime,
-                                               m_inputRouter.RuntimeContext(),
-                                               m_interaction,
-                                               m_runtimeTools,
+                                               frameInteraction,
+                                               frameScene,
                                                m_replayRuntime,
-                                               m_attachedCamera,
-                                               m_sceneController );
+                                               m_inputRouter.RuntimeContext() );
             }
             // Automation publishes replay mutations as a value packet. Apply
             // it once at the frame composition boundary before normal input
@@ -633,19 +582,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_inputRouter.SetWorldInteractionOwner(
                     automationBeforeInput.worldInteractionOwner,
                     automationBeforeInput.worldInteractionReason,
+                    frameInteraction,
+                    frameScene,
                     m_replayRuntime,
-                    m_runtimeTools,
-                    m_interaction,
-                    m_sceneController.Cameras(),
-                    m_sceneController.Terrain().Get(),
-                    m_sceneController,
-                    m_sceneController.Physics(),
-                    m_camera,
                     NormalizeRuntimeCameraMode( automationReplayInput.restoreCameraMode,
                                                 m_sceneController.State().isSceneMode,
-                                                RuntimeCameraModeEnabledMask( m_sceneController ) ),
-                    m_attachedCamera.State().activeFollow,
-                    m_camera.director.grabbed );
+                                                RuntimeCameraModeEnabledMask( m_sceneController ) ) );
             }
             if ( !automationBeforeInput.status.ok )
             {
@@ -657,7 +599,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
 #endif
             ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation, m_replayRuntime );
-            m_liveStyle.Tick(
+            m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
                                           m_sceneController.Browser(),
@@ -678,18 +620,21 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // Invariant: decide capture determinism before physics/camera update.
             // The frame rendered for a scheduled screenshot must use exact
             // current solver poses even when live presentation interpolation is on.
-            m_capturePresentationPinned =
+            const bool capturePresentationPinned =
                 m_diagnosticsRuntime.Capture().RequiresDeterministicPresentation( captureContext ) ||
-                ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) || m_liveStyle.HasPendingCapture()
+                ( captureContext.isSceneMode && m_camera.autoCycleInterval > 0.0f ) ||
+                m_validationHarness->HasPendingLiveStyleCapture()
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
                 || InteractionAutomationWillCaptureAfterRender( m_interactionAutomation,
                                                                 m_sceneController.State().currentFrame )
 #endif
                 ;
+            float simulationPresentationAlpha = 1.0f;
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Physics );
-                TickPhysics( secondsPerFrame, frameInteraction, frameScene );
+                simulationPresentationAlpha =
+                    TickPhysics( secondsPerFrame, frameInteraction, frameScene, capturePresentationPinned );
             }
 
             {
@@ -708,27 +653,22 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                   m_timers.simulationTimer.GetTotalTime() );
             }
 
-            TickExecutePostPhysicsVisualizers(
-                m_debug,
-                m_sceneController,
-                m_broadphaseVisualizer,
-                m_collisionVisualizer,
-                m_physicsDebugVisualizer,
-                secondsPerFrame,
-                [this]( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
-                { m_sceneController.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount ); },
-                [this]() { m_sceneController.UpdateRequiredContacts( m_config.bodySimulation.contactEpsilon ); } );
+            m_overlayDiagnostics->UpdatePostPhysics( m_sceneController,
+                                                     m_config.bodySimulation.contactEpsilon,
+                                                     secondsPerFrame );
 
             // Concept: graphics stress is render/runtime churn, not UI command
             // processing. Tick it once per rendered frame so headless and
             // overnight launches keep mutating DX12 state even when the UI
             // command panel is not producing control messages.
-            ExecuteGraphicsStressFrame( frameHost,
-                                        frameInteraction,
-                                        frameScene,
-                                        framePresentation,
-                                        m_replayRuntime,
-                                        frameRenderDiagnostics );
+            m_validationHarness->ExecuteGraphicsStressFrame( frameHost,
+                                                             frameInteraction,
+                                                             frameScene,
+                                                             framePresentation,
+                                                             m_replayRuntime,
+                                                             frameRenderDiagnostics );
+            const float presentationAlpha =
+                ResolvePresentationAlpha( m_config, capturePresentationPinned, simulationPresentationAlpha );
 
             if ( m_renderer.PipelineSyncEnabled() )
             {
@@ -759,7 +699,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
-                Render( renderModels, PresentationAlphaForFrame() );
+                Render( renderModels, presentationAlpha );
             }
             PROFILE_END( "Frame/Render" );
 
@@ -770,8 +710,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                        m_runtimeTools.LauncherFireModeLabel(),
                                                        RunCameraModeUsesLauncher( m_camera.mode ),
                                                        m_interaction.Gesture(),
-                                                       PresentationAlphaForFrame(),
-                                                       m_capturePresentationPinned,
+                                                       presentationAlpha,
+                                                       capturePresentationPinned,
                                                        secondsPerFrame };
             RenderExecuteUiTextFrame( frameHost,
                                       frameInteraction,
@@ -787,8 +727,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Capture );
-                m_liveStyle.SavePendingCapture( m_diagnosticsRuntime.Capture(),
-                                                m_renderBackendView.RequireCaptureBackend() );
+                m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(),
+                                                                  m_renderBackendView.RequireCaptureBackend() );
             }
             PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
@@ -872,27 +812,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
 }
 
 
-float Run::PresentationAlphaForFrame() const
-{
-    if ( !m_config.runtimeRender.presentationInterpolation || m_capturePresentationPinned )
-    {
-        return 1.0f;
-    }
-    return std::clamp( m_presentationAlpha, 0.0f, 1.0f );
-}
-
-
-void Run::TickPhysics( double secondsPerFrame,
-                       RuntimeFrameInteractionView& interactionOwners,
-                       RuntimeFrameSceneView& sceneOwners )
+float Run::TickPhysics( double secondsPerFrame,
+                        RuntimeFrameInteractionView& interactionOwners,
+                        RuntimeFrameSceneView& sceneOwners,
+                        bool capturePresentationPinned )
 {
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     if ( replayInput.scrubPaused )
     {
-        m_presentationAlpha = 1.0f;
         PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
-        UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ) );
-        return;
+        UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ), 1.0f );
+        return 1.0f;
     }
 
     const bool replayLiveAdvanceHeld = replayInput.liveAdvanceHeld;
@@ -939,7 +869,8 @@ void Run::TickPhysics( double secondsPerFrame,
                                                                               policy.physicsAdvance,
                                                                               stepRequested,
                                                                               canStepPhysics } );
-    m_presentationAlpha = tick.presentationAlpha;
+    const float presentationAlpha =
+        ResolvePresentationAlpha( m_config, capturePresentationPinned, tick.presentationAlpha );
     if ( tick.committedPhysicsTicks > 0 && canStepPhysics )
     {
         PROFILE_BEGIN( "Frame/Physics" );
@@ -969,7 +900,7 @@ void Run::TickPhysics( double secondsPerFrame,
 
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
             {
-                AfterPhysicsStep( interactionOwners, sceneOwners );
+                AfterPhysicsStep( interactionOwners, sceneOwners, presentationAlpha );
             }
         }
         PROFILE_END( "Frame/Physics" );
@@ -978,7 +909,7 @@ void Run::TickPhysics( double secondsPerFrame,
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
     if ( tick.shouldUpdateLogic )
     {
-        UpdateLogic( tick.simulationDt, tick.cameraDt );
+        UpdateLogic( tick.simulationDt, tick.cameraDt, presentationAlpha );
     }
     else
     {
@@ -1010,10 +941,13 @@ void Run::TickPhysics( double secondsPerFrame,
             (void)m_replayRuntime.ApplyFrameIntent( intent );
         }
     }
+    return tick.presentationAlpha;
 }
 
 
-void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
+void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
+                            RuntimeFrameSceneView& sceneOwners,
+                            float presentationAlpha )
 {
     m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController,
                                                       m_sceneController.Physics(),
@@ -1029,7 +963,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
         {
             (void)m_attachedCamera.TryGetPresentationListenerPosition( m_sceneController,
                                                                        m_sceneController.Cameras(),
-                                                                       PresentationAlphaForFrame(),
+                                                                       presentationAlpha,
                                                                        listenerPosition );
         }
         ExecuteContactAudioPostStep( m_contactAudio,
@@ -1047,6 +981,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
 #ifdef _DEBUG
     if ( replayCaptured )
     {
+        RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
         const ReplaySceneTimelineResetInput timelineReset =
             DescribeReplaySceneTimeline( m_sceneController,
                                          m_sceneController.State(),
@@ -1056,7 +991,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, Runt
                                                       m_sceneController,
                                                       m_sceneController.State(),
                                                       m_renderer,
-                                                      m_debug,
+                                                      presentationEdit.State(),
                                                       m_runtimeTools };
         const ReplaySceneTimelineResetOwners timelineOwners{
             m_inputRouter,
@@ -1184,11 +1119,10 @@ bool Run::TickScreenshots()
                                                               m_simulation,
                                                               m_replayRuntime,
                                                               m_contactAudio,
-                                                              m_UI,
-                                                              m_debug,
-                                                              m_graphicsStress,
+                                                              *m_operatorUi,
+                                                              *m_overlayDiagnostics,
+                                                              *m_validationHarness,
                                                               m_runtimeTools,
-                                                              m_physicsDebugVisualizer,
                                                               m_renderBackendView,
                                                               m_renderer )
                                                        .ok;
@@ -1314,11 +1248,10 @@ bool Run::TickSceneAdvance()
                                    m_simulation,
                                    m_replayRuntime,
                                    m_contactAudio,
-                                   m_UI,
-                                   m_debug,
-                                   m_graphicsStress,
+                                   *m_operatorUi,
+                                   *m_overlayDiagnostics,
+                                   *m_validationHarness,
                                    m_runtimeTools,
-                                   m_physicsDebugVisualizer,
                                    m_renderBackendView,
                                    m_renderer )
                             .ok;
@@ -1339,7 +1272,7 @@ bool Run::TickSceneAdvance()
 }
 
 
-void Run::UpdateLogic( float simulationDt, float cameraDt )
+void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha )
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
     m_camera.TickControls( m_sceneController.Cameras(),
@@ -1351,7 +1284,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt )
                            m_runtimeTools.Editor().viewportLookActive,
                            m_sceneController.State().isSceneMode,
                            cameraDt,
-                           PresentationAlphaForFrame() );
+                           presentationAlpha );
     DemoDirectorPredictionView directorPrediction;
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     directorPrediction.revealAvailable = replayInput.predictionRevealAvailable;

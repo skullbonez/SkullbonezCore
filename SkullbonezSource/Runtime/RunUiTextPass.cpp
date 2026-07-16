@@ -30,6 +30,8 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "RuntimeFrameViews.h"
+#include "RuntimeViewModel.h"
 #include "Scene/SceneRuntime.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
@@ -40,6 +42,8 @@ Related:
 #include "../Core/Profiler.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
+#include "../Rendering/Text.h"
+#include "../UI/UI.h"
 #include "../UI/UIDraw.h"
 #include "../UI/UIStyle.h"
 
@@ -591,39 +595,24 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                 return false;
             };
 
-            auto addMarkerOption = [&]( const char* name,
-                                        const char* leafName,
-                                        uint32_t hash,
-                                        float cpuMs,
-                                        float cpuAverageMs,
-                                        float gpuMs,
-                                        float colorR,
-                                        float colorG,
-                                        float colorB,
-                                        bool hasGpu,
-                                        bool sampleValid,
-                                        bool isFrameTotal )
+            // Why: callers label one complete profiler option; this bounded
+            // append only normalizes nullable names and non-negative timings.
+            auto addMarkerOption = [&]( const SkullbonezCore::UI::UIProfilerMarkerOption& input )
             {
                 if ( UIData.profilerMarkerOptionCount >= SkullbonezCore::UI::UI_PROFILER_MARKER_OPTION_MAX ||
-                     markerOptionExists( hash, isFrameTotal ) )
+                     markerOptionExists( input.hash, input.isFrameTotal ) )
                 {
                     return;
                 }
 
                 SkullbonezCore::UI::UIProfilerMarkerOption& option =
                     UIData.profilerMarkerOptions[UIData.profilerMarkerOptionCount++];
-                option.name = name ? name : "";
-                option.leafName = leafName ? leafName : option.name;
-                option.hash = hash;
-                option.cpuMs = (std::max)( 0.0f, cpuMs );
-                option.cpuAverageMs = (std::max)( 0.0f, cpuAverageMs );
-                option.gpuMs = (std::max)( 0.0f, gpuMs );
-                option.colorR = colorR;
-                option.colorG = colorG;
-                option.colorB = colorB;
-                option.hasGpu = hasGpu;
-                option.sampleValid = sampleValid;
-                option.isFrameTotal = isFrameTotal;
+                option = input;
+                option.name = input.name ? input.name : "";
+                option.leafName = input.leafName ? input.leafName : option.name;
+                option.cpuMs = (std::max)( 0.0f, input.cpuMs );
+                option.cpuAverageMs = (std::max)( 0.0f, input.cpuAverageMs );
+                option.gpuMs = (std::max)( 0.0f, input.gpuMs );
             };
 
             float frameAverageMs = UIData.cpuFrameMs;
@@ -642,18 +631,19 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             }
 #endif
             const SkullbonezCore::UI::Style::UIColor& mainColor = SkullbonezCore::UI::Style::Palette().accent;
-            addMarkerOption( "Frame Total",
-                             "Frame Total",
-                             SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
-                             UIData.cpuFrameMs,
-                             frameAverageMs,
-                             UIData.gpuFrameMs,
-                             mainColor.r,
-                             mainColor.g,
-                             mainColor.b,
-                             true,
-                             true,
-                             true );
+            addMarkerOption(
+                SkullbonezCore::UI::UIProfilerMarkerOption{ .name = "Frame Total",
+                                                            .leafName = "Frame Total",
+                                                            .hash = SkullbonezCore::UI::UI_PROFILER_FRAME_TOTAL_HASH,
+                                                            .cpuMs = UIData.cpuFrameMs,
+                                                            .cpuAverageMs = frameAverageMs,
+                                                            .gpuMs = UIData.gpuFrameMs,
+                                                            .colorR = mainColor.r,
+                                                            .colorG = mainColor.g,
+                                                            .colorB = mainColor.b,
+                                                            .hasGpu = true,
+                                                            .sampleValid = true,
+                                                            .isFrameTotal = true } );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             auto addProfilerMarker = [&]( const SkullbonezCore::Core::Profiler::Marker& marker )
@@ -661,18 +651,19 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                 const SkullbonezCore::Core::Profiler::BarColor& color =
                     SkullbonezCore::Core::Profiler::BAR_PALETTE[marker.colorIndex %
                                                                 SkullbonezCore::Core::Profiler::BAR_PALETTE_SIZE];
-                addMarkerOption( marker.name,
-                                 marker.leafName,
-                                 marker.hash,
-                                 marker.lastFrameMs,
-                                 marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
-                                 marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
-                                 color.r,
-                                 color.g,
-                                 color.b,
-                                 marker.hasGpu,
-                                 true,
-                                 false );
+                addMarkerOption( SkullbonezCore::UI::UIProfilerMarkerOption{
+                    .name = marker.name,
+                    .leafName = marker.leafName,
+                    .hash = marker.hash,
+                    .cpuMs = marker.lastFrameMs,
+                    .cpuAverageMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs,
+                    .gpuMs = marker.hasGpu ? marker.gpuLastFrameMs : 0.0f,
+                    .colorR = color.r,
+                    .colorG = color.g,
+                    .colorB = color.b,
+                    .hasGpu = marker.hasGpu,
+                    .sampleValid = true,
+                    .isFrameTotal = false } );
             };
 
             static constexpr uint32_t kPinnedMarkerHashes[] = {

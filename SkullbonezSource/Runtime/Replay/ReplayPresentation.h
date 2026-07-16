@@ -422,8 +422,6 @@ class ReplayPresentation
     void AppendPredictionGhostDrawRequest( const ReplayPredictionGhostDrawRequest& request );
     bool HasPredictionGhostDrawRequests() const noexcept;
     bool PrepareRenderPoseBodyMatch( int modelCount ) noexcept;
-    void MarkRenderPoseBodyMatched( int modelIndex ) noexcept;
-    bool RenderPoseBodyMatched( int modelIndex ) const noexcept;
     void ClearLauncherVisualBackup();
     void ResetTrajectoryVisualStats() noexcept;
     void RecordTrajectoryFrameStats( const SkullbonezCore::Core::MainMemoryReplayTrajectoryStats& frameStats );

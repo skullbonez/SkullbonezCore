@@ -36,6 +36,7 @@ Related:
 #include "EditorHullAssets.h"
 #include "../Tools/RuntimeTools.h"
 #include "../InputRouter.h"
+#include "../RuntimeFrameViews.h"
 #include "../CameraCollection.h"
 #include "../Window.h"
 #include "../../Assets/AssetSystem.h"
@@ -143,20 +144,24 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
         return false;
     }
 
-    const PhysicsBodyRecord* body = collection.BodyStore().RecordForModelIndex( modelIndex );
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
         return false;
     }
 
-    if ( !replayEvents.Append( ReplayEventCommandOperations::BuildEditorTransform( modelIndex,
-                                                                                   changedFlags,
-                                                                                   body->replayBodyId,
-                                                                                   body->position,
-                                                                                   body->orientation,
-                                                                                   collection.SceneEntityCount(),
-                                                                                   scaleAxis,
-                                                                                   scaleFactor ) ) )
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const auto hotFields = bodyStore.HotFields();
+    if ( !replayEvents.Append(
+             ReplayEventCommandOperations::BuildEditorTransform( modelIndex,
+                                                                 changedFlags,
+                                                                 body->replayBodyId,
+                                                                 PhysicsBodyPosition( hotFields, bodyIndex ),
+                                                                 PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                                                 collection.SceneEntityCount(),
+                                                                 scaleAxis,
+                                                                 scaleFactor ) ) )
     {
         SB_FATAL( "Runtime/EditorTools", "Replay editor-event batch capacity exhausted." );
     }
@@ -450,8 +455,8 @@ bool TryGetEditorSelectionFrame( const SceneController& collection,
     // Invariant: editor selection may group by legacy object record name metadata, but the
     // interactive frame itself must use live body/collider rows so stale
     // presentation poses do not steer hit testing or drag math.
-    std::array<const PhysicsBodyRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> bodies = {};
     std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
+    const auto hotFields = bodyStore.HotFields();
     Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     for ( int i = 0; i < count; ++i )
     {
@@ -473,18 +478,19 @@ bool TryGetEditorSelectionFrame( const SceneController& collection,
         {
             return false;
         }
-        bodies[static_cast<std::size_t>( i )] = body;
         colliders[static_cast<std::size_t>( i )] = collider;
-        origin += body->position;
+        origin += PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) );
     }
     origin /= static_cast<float>( count );
 
     float radius = 1.0f;
     for ( int i = 0; i < count; ++i )
     {
-        const PhysicsBodyRecord& body = *bodies[static_cast<std::size_t>( i )];
         const ColliderRecord& collider = *colliders[static_cast<std::size_t>( i )];
-        radius = (std::max)( radius, Distance( body.position, origin ) + EditorColliderRadius( collider ) );
+        const std::size_t bodyIndex = static_cast<std::size_t>( indices[static_cast<std::size_t>( i )] );
+        radius = (std::max)( radius,
+                             Distance( PhysicsBodyPosition( hotFields, bodyIndex ), origin ) +
+                                 EditorColliderRadius( collider ) );
     }
 
     outOrigin = origin;
@@ -512,8 +518,8 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneController& collection
 
     // Invariant: overlay tracing uses bounded pointer scratch only. Do not copy
     // CollisionShape values or allocate per selected body just to draw lines.
-    std::array<const PhysicsBodyRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> bodies = {};
     std::array<const ColliderRecord*, RunEditorPlacementState::GIZMO_DRAG_GROUP_CAPACITY> colliders = {};
+    const auto hotFields = bodyStore.HotFields();
     Vector3 origin = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     for ( int i = 0; i < count; ++i )
     {
@@ -535,9 +541,8 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneController& collection
         {
             return false;
         }
-        bodies[static_cast<std::size_t>( i )] = body;
         colliders[static_cast<std::size_t>( i )] = collider;
-        origin += body->position;
+        origin += PhysicsBodyPosition( hotFields, static_cast<std::size_t>( modelIndex ) );
     }
     origin /= static_cast<float>( count );
 
@@ -547,10 +552,11 @@ bool TryTraceEditorSelectionOverlayFromStores( const SceneController& collection
     float radius = 1.0f;
     for ( int i = 0; i < count; ++i )
     {
-        const PhysicsBodyRecord& body = *bodies[static_cast<std::size_t>( i )];
         const ColliderRecord& collider = *colliders[static_cast<std::size_t>( i )];
-        radius = (std::max)( radius, Distance( body.position, origin ) + EditorColliderRadius( collider ) );
-        tracer.AddSelectionOutline( body.position, body.orientation, collider.shape );
+        const std::size_t bodyIndex = static_cast<std::size_t>( indices[static_cast<std::size_t>( i )] );
+        const Vector3 position = PhysicsBodyPosition( hotFields, bodyIndex );
+        radius = (std::max)( radius, Distance( position, origin ) + EditorColliderRadius( collider ) );
+        tracer.AddSelectionOutline( position, PhysicsBodyOrientation( hotFields, bodyIndex ), collider.shape );
     }
 
     outOrigin = origin;
@@ -598,8 +604,12 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
             editor.gizmoDragGroupIndices.fill( -1 );
             return;
         }
-        editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( i )] = body->position;
-        editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( i )] = body->orientation;
+        const std::size_t bodyIndex = static_cast<std::size_t>( index );
+        const auto hotFields = bodyStore.HotFields();
+        editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( i )] =
+            PhysicsBodyPosition( hotFields, bodyIndex );
+        editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( i )] =
+            PhysicsBodyOrientation( hotFields, bodyIndex );
     }
 }
 
@@ -695,10 +705,11 @@ bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& co
     {
         return false;
     }
-    const PhysicsBodyRecord* body = collection.BodyStore().RecordForHandle( bodyHandle );
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     // Why: the explicit edit just refreshed the physics row; wake eligibility
     // should now follow PhysicsBodyStore, not legacy model-side body state.
-    if ( body && !body->isFixed )
+    if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] == 0u )
     {
         WakeEditorPhysicsBody( collection, physics, index );
     }
@@ -724,8 +735,9 @@ bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& co
     {
         return false;
     }
-    const PhysicsBodyRecord* body = collection.BodyStore().RecordForHandle( bodyHandle );
-    if ( body && !body->isFixed )
+    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+    if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] == 0u )
     {
         WakeEditorPhysicsBody( collection, physics, index );
     }
@@ -1318,15 +1330,17 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
                     {
                         continue;
                     }
+                    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+                    const auto hotFields = bodyStore.HotFields();
                     uint32_t changedFlags = 0;
                     changedFlags |= EditorPositionsDiffer(
-                                        groupBody->position,
+                                        PhysicsBodyPosition( hotFields, bodyIndex ),
                                         m_editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] )
                                         ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
                                         : 0u;
                     changedFlags |=
                         EditorOrientationsDiffer(
-                            groupBody->orientation,
+                            PhysicsBodyOrientation( hotFields, bodyIndex ),
                             m_editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )] )
                             ? REPLAY_EDITOR_TRANSFORM_ROTATE
                             : 0u;
@@ -1344,14 +1358,17 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
                     TryResolveEditorBodyRecord( bodyStore, m_editor.selectedBody, input.selectedModelIndex );
                 if ( selectedBody )
                 {
+                    const std::size_t bodyIndex = static_cast<std::size_t>( input.selectedModelIndex );
+                    const auto hotFields = bodyStore.HotFields();
                     uint32_t changedFlags = 0;
-                    changedFlags |= EditorPositionsDiffer( selectedBody->position, m_editor.gizmoDragStartPosition )
+                    changedFlags |= EditorPositionsDiffer( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                                           m_editor.gizmoDragStartPosition )
                                         ? REPLAY_EDITOR_TRANSFORM_TRANSLATE
                                         : 0u;
-                    changedFlags |=
-                        EditorOrientationsDiffer( selectedBody->orientation, m_editor.gizmoDragStartOrientation )
-                            ? REPLAY_EDITOR_TRANSFORM_ROTATE
-                            : 0u;
+                    changedFlags |= EditorOrientationsDiffer( PhysicsBodyOrientation( hotFields, bodyIndex ),
+                                                              m_editor.gizmoDragStartOrientation )
+                                        ? REPLAY_EDITOR_TRANSFORM_ROTATE
+                                        : 0u;
                     RecordEditorTransformEventFromBodyStore( result.replayEvents,
                                                              collection,
                                                              input.selectedModelIndex,
@@ -1432,8 +1449,10 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
         outPlan.axis = m_editor.hotGizmoAxis;
         outPlan.axisParameter = axisParameter;
         outPlan.startShape = selectedCollider->shape;
-        outPlan.startPosition = selectedBody->position;
-        outPlan.startOrientation = selectedBody->orientation;
+        const std::size_t bodyIndex = static_cast<std::size_t>( selectedModelIndex );
+        const auto hotFields = bodyStore.HotFields();
+        outPlan.startPosition = PhysicsBodyPosition( hotFields, bodyIndex );
+        outPlan.startOrientation = PhysicsBodyOrientation( hotFields, bodyIndex );
         return true;
     }
 
@@ -1459,7 +1478,8 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
             outPlan.axis = m_editor.hotRotationAxis;
             outPlan.axisParameter = startAngle;
             outPlan.startPosition = selectionOrigin;
-            outPlan.startOrientation = selectedBody->orientation;
+            outPlan.startOrientation =
+                PhysicsBodyOrientation( bodyStore.HotFields(), static_cast<std::size_t>( selectedModelIndex ) );
             return true;
         }
     }
@@ -1498,7 +1518,8 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
     outPlan.axis = m_editor.hotGizmoAxis;
     outPlan.axisParameter = axisParameter;
     outPlan.startPosition = selectionOrigin;
-    outPlan.startOrientation = selectedBody->orientation;
+    outPlan.startOrientation =
+        PhysicsBodyOrientation( bodyStore.HotFields(), static_cast<std::size_t>( selectedModelIndex ) );
     outPlan.dragPlaneNormal = planeNormal;
     return true;
 }
@@ -1605,15 +1626,18 @@ RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
 
 
 EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRouteInput& input,
-                                                          RuntimeTools& runtimeTools,
-                                                          RuntimeInteractionController& interaction,
-                                                          Runtime::SceneController& models,
-                                                          PhysicsEngine& physics,
-                                                          RunSceneState& scene,
-                                                          Environment::WorldEnvironment& world,
-                                                          Geometry::Terrain* terrain,
-                                                          Assets::AssetSystem& assets )
+                                                          RuntimeFrameHostView& host,
+                                                          RuntimeFrameInteractionView& interactionOwners,
+                                                          RuntimeFrameSceneView& sceneOwners )
 {
+    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
+    RuntimeInteractionController& interaction = interactionOwners.interaction;
+    SceneController& models = sceneOwners.sceneController;
+    PhysicsEngine& physics = models.Physics();
+    RunSceneState& scene = models.State();
+    Environment::WorldEnvironment& world = models.World();
+    Geometry::Terrain* terrain = models.Terrain().Get();
+    Assets::AssetSystem& assets = host.assets;
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
     {

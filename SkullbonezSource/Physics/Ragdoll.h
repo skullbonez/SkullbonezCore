@@ -35,6 +35,7 @@ Related:
 
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <vector>
 
 #include "PhysicsHandles.h"
@@ -169,7 +170,7 @@ class Ragdoll
                                  float b );
     static bool SolvePointJoints( PhysicsBodyStore& bodyStore,
                                   const std::vector<PointJointConstraint>& constraints,
-                                  const std::vector<uint8_t>& sleepState,
+                                  std::span<const uint8_t> sleepState,
                                   float dt );
 };
 } // namespace Physics

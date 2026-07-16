@@ -44,16 +44,17 @@ namespace Physics
 struct BroadphaseCandidateFilterContext
 {
     std::span<const PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     int modelCount = 0;
     float dt = 0.0f;
     float contactSkin = 0.0f;
 };
 
-inline const Math::Vector::Vector3& BroadphaseCandidateBodyPosition( std::span<const PhysicsBodyRecord> bodyRecords,
-                                                                     int bodyIndex )
+inline Math::Vector::Vector3 BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields,
+                                                              int bodyIndex )
 {
-    return bodyRecords[static_cast<std::size_t>( bodyIndex )].position;
+    return PhysicsBodyPosition( hotFields, static_cast<std::size_t>( bodyIndex ) );
 }
 
 inline float BroadphaseCandidateBodyRadius( std::span<const ColliderRecord> colliderRecords, int bodyIndex )
@@ -88,11 +89,11 @@ inline bool BroadphaseCandidateCanTouch( const BroadphaseCandidateFilterContext*
         return true;
     }
 
-    const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( context.bodyRecords, a ) -
-                                                BroadphaseCandidateBodyPosition( context.bodyRecords, b );
+    const Math::Vector::Vector3 relativeStart = BroadphaseCandidateBodyPosition( context.hotFields, a ) -
+                                                BroadphaseCandidateBodyPosition( context.hotFields, b );
     const Math::Vector::Vector3 relativeDisplacement =
-        ( context.bodyRecords[static_cast<std::size_t>( a )].linearVelocity -
-          context.bodyRecords[static_cast<std::size_t>( b )].linearVelocity ) *
+        ( PhysicsBodyLinearVelocity( context.hotFields, static_cast<std::size_t>( a ) ) -
+          PhysicsBodyLinearVelocity( context.hotFields, static_cast<std::size_t>( b ) ) ) *
         context.dt;
     const float contactRadius = radiusA + radiusB + context.contactSkin;
     const float contactRadiusSq = contactRadius * contactRadius;

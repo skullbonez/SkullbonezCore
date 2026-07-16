@@ -35,7 +35,6 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
-#include "../../UI/UI.h"
 #include "../Replay/ReplayPresentation.h"
 #include "../Tools/RuntimeTools.h"
 
@@ -48,6 +47,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class Profiler;
+class EngineConfig;
 struct CinematicRenderConfig;
 } // namespace Core
 namespace Assets
@@ -93,6 +93,7 @@ namespace Runtime
 class Window;
 class LauncherLaser;
 class RuntimeInputContext;
+class RuntimeOverlayRenderResources;
 class SceneController;
 class SceneTerrain;
 enum class RunCameraMode;
@@ -124,9 +125,7 @@ struct RenderWorldView
     Window& window;
     SkullbonezCore::Core::EngineConfig& config;
     Environment::WorldEnvironment& worldEnvironment;
-    Physics::CollisionVisualizer& collisionVisualizer;
-    Physics::BroadphaseVisualizer& broadphaseVisualizer;
-    Physics::PhysicsDebugVisualizer& physicsDebugVisualizer;
+    RuntimeOverlayRenderResources& overlayResources;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 };
 

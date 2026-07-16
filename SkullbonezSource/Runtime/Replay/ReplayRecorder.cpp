@@ -1336,6 +1336,7 @@ bool BuildReplayPresentationBodySample( int modelIndex,
 
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[bodyIndex];
+    const auto hotFields = bodyStore.HotFields();
     const ColliderRecord& colliderRecord = colliderStore.Records()[bodyIndex];
 
     outBody = ReplayBodyPresentationSample{};
@@ -1347,15 +1348,16 @@ bool BuildReplayPresentationBodySample( int modelIndex,
         strncpy_s( outBody.name, sizeof( outBody.name ), modelName, _TRUNCATE );
     }
     outBody.shapeKind = ShapeKindForCollider( colliderRecord );
-    outBody.position = bodyRecord.position;
-    outBody.linearVelocity = bodyRecord.linearVelocity;
-    outBody.angularVelocity = bodyRecord.angularVelocity;
-    bodyRecord.orientation.GetComponents( outBody.orientation[0],
-                                          outBody.orientation[1],
-                                          outBody.orientation[2],
-                                          outBody.orientation[3] );
+    outBody.position = Physics::PhysicsBodyPosition( hotFields, bodyIndex );
+    outBody.linearVelocity = Physics::PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+    outBody.angularVelocity = Physics::PhysicsBodyAngularVelocity( hotFields, bodyIndex );
+    Physics::PhysicsBodyOrientation( hotFields, bodyIndex )
+        .GetComponents( outBody.orientation[0],
+                        outBody.orientation[1],
+                        outBody.orientation[2],
+                        outBody.orientation[3] );
     outBody.mass = bodyRecord.mass;
-    outBody.fixed = bodyRecord.isFixed;
+    outBody.fixed = hotFields.fixed[bodyIndex] != 0u;
     return true;
 }
 
@@ -1371,7 +1373,9 @@ bool BuildReplaySolverBodySample( int modelIndex,
         return false;
     }
 
-    const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( modelIndex )];
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    const Physics::PhysicsBodyRecord& bodyRecord = bodyStore.Records()[bodyIndex];
+    const auto hotFields = bodyStore.HotFields();
 
     outBody = ReplaySolverBodySample{};
     outBody.id = presentationBody.id;
@@ -1386,9 +1390,9 @@ bool BuildReplaySolverBodySample( int modelIndex,
     outBody.orientation[2] = presentationBody.orientation[2];
     outBody.orientation[3] = presentationBody.orientation[3];
     outBody.mass = presentationBody.mass;
-    outBody.inverseMass = bodyRecord.invMass;
+    outBody.inverseMass = hotFields.inverseMass[bodyIndex];
     outBody.rotationalInertia = bodyRecord.rotationalInertia;
-    outBody.inverseRotationalInertia = bodyRecord.invRotationalInertia;
+    outBody.inverseRotationalInertia = Physics::PhysicsBodyInverseInertia( hotFields, bodyIndex );
     outBody.fixed = presentationBody.fixed;
     return true;
 }

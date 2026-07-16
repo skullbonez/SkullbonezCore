@@ -27,8 +27,11 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Run.h"
+#include "RuntimeOverlayDiagnostics.h"
+#include "RuntimeValidationHarness.h"
 #include "RuntimeCameraMode.h"
 #include "InputFrame.h"
+#include "Window.h"
 #include "WindowConstants.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
@@ -43,6 +46,7 @@ Related:
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../UI/UI.h"
 #include "../World/Terrain.h"
 
 #include <cmath>
@@ -59,7 +63,6 @@ using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
 using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
-using SkullbonezCore::Geometry::SkyBox;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUITab;
@@ -69,6 +72,14 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 namespace
 {
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
+
+std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup()
+{
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
+    // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
+    // the public composition-root header does not republish the UI graph.
+    return std::make_unique<SkullbonezCore::UI::InGameUI>();
+}
 
 SkullbonezCore::Environment::CameraMovementSettings
 BuildCameraMovementSettings( const SkullbonezCore::Core::EngineConfig& cfg )
@@ -168,36 +179,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
 }
 
 
-void ApplyStressLaunchPolicy( const RunLaunchOptions& launch,
-                              RunLaunchOptions& target,
-                              GraphicsStressController& graphicsStress )
-{
-    if ( launch.uiStress )
-    {
-        target.uiStress = true;
-        target.uiStressSeed = launch.uiStressSeed > 0 ? launch.uiStressSeed : 0x7F4A7C15u;
-        target.uiStressActions = std::clamp( launch.uiStressActions, 1, 32 );
-    }
-    if ( !launch.graphicsStress )
-    {
-        return;
-    }
-
-    const unsigned int resolvedSeed = launch.graphicsStressSeed > 0 ? launch.graphicsStressSeed : 0xC11E2026u;
-    target.graphicsStress = true;
-    target.graphicsStressSeed = resolvedSeed;
-    target.graphicsStressActions = std::clamp( launch.graphicsStressActions, 1, 64 );
-    target.graphicsStressSceneIntervalFrames = std::clamp( launch.graphicsStressSceneIntervalFrames, 1, 600 );
-    target.graphicsStressMemoryIntervalFrames = std::clamp( launch.graphicsStressMemoryIntervalFrames, 0, 36000 );
-    target.interactiveSceneRun = true;
-
-    graphicsStress.Configure( resolvedSeed,
-                              target.graphicsStressActions,
-                              target.graphicsStressSceneIntervalFrames,
-                              target.graphicsStressMemoryIntervalFrames );
-}
-
-
 bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                                       ReplayRuntime& replayRuntime,
                                       int gameModelCapacity )
@@ -235,73 +216,6 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                 replayConfig.solverConfig.hashLogPath.empty() ? "" : replayConfig.solverConfig.hashLogPath.c_str() );
     }
     return replayActivation.exitInspectionCamera;
-}
-
-
-void ApplyStartupPresentationPolicy( const RunStartupOverrides& overrides,
-                                     RunLaunchOptions& launchOptions,
-                                     RunDebugState& debug,
-                                     SkullbonezCore::UI::InGameUI& ui )
-{
-    const RunLaunchOptions& launch = overrides.launch;
-    if ( overrides.hasInitialOverlayMode )
-    {
-        debug.overlayMode = overrides.initialOverlayMode;
-        if ( overrides.initialOverlayMode != OverlayMode::None )
-        {
-            ui.SetVisible( true );
-        }
-        switch ( overrides.initialOverlayMode )
-        {
-        case OverlayMode::SceneStats:
-            ui.SetActiveTab( InGameUITab::Scene );
-            break;
-        case OverlayMode::Keys:
-            ui.SetActiveTab( InGameUITab::Keys );
-            break;
-        case OverlayMode::BarsNormalized:
-        case OverlayMode::BarsAbsolute:
-        case OverlayMode::Timers:
-            ui.SetActiveTab( InGameUITab::Profiler );
-            break;
-        default:
-            break;
-        }
-    }
-    if ( overrides.hideTopText )
-    {
-        debug.isTopTextHidden = true;
-    }
-    if ( overrides.showBroadphaseVisualizer )
-    {
-        debug.isBroadphaseOverlay = true;
-    }
-    if ( launch.generatedObjectTypeOverride != GeneratedObjectTypeOverride::Mixed )
-    {
-        launchOptions.generatedObjectTypeOverride = launch.generatedObjectTypeOverride;
-    }
-    if ( launch.hasPhysicsDebugFlagsOverride )
-    {
-        launchOptions.hasPhysicsDebugFlagsOverride = true;
-        launchOptions.physicsDebugFlagsOverride = launch.physicsDebugFlagsOverride & PHYSICS_DEBUG_ALL;
-    }
-    if ( launch.hasPhysicsDebugTransparentOverride )
-    {
-        launchOptions.hasPhysicsDebugTransparentOverride = true;
-        launchOptions.physicsDebugTransparentOverride = launch.physicsDebugTransparentOverride;
-    }
-    if ( launch.hasPhysicsDebugAlphaOverride )
-    {
-        launchOptions.hasPhysicsDebugAlphaOverride = true;
-        launchOptions.physicsDebugAlphaOverride =
-            (std::max)( 0.05f, (std::min)( launch.physicsDebugAlphaOverride, 1.0f ) );
-    }
-    if ( launch.hasPhysicsDebugContactLingerOverride )
-    {
-        launchOptions.hasPhysicsDebugContactLingerOverride = true;
-        launchOptions.physicsDebugContactLingerOverride =
-            (std::max)( 0.0f, (std::min)( launch.physicsDebugContactLingerOverride, 5.0f ) );
-    }
 }
 
 
@@ -345,7 +259,9 @@ Run::Run( Window& window,
           SkullbonezCore::Core::Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
-      m_renderBackendView( renderBackendView ),
+      m_operatorUi( CreateOperatorUiForStartup() ),
+      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
+      m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_assets,
                                    m_sceneController.Cameras(),
@@ -353,9 +269,7 @@ Run::Run( Window& window,
                                    window,
                                    m_config,
                                    m_sceneController.World(),
-                                   m_collisionVisualizer,
-                                   m_broadphaseVisualizer,
-                                   m_physicsDebugVisualizer,
+                                   m_overlayDiagnostics->RenderResources(),
                                    profiler },
                   RenderSceneView{ m_sceneController, m_sceneController.Browser() } )
 {
@@ -421,7 +335,7 @@ Run::~Run()
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
                                                         m_renderBackendView.deviceLifecycle,
                                                         m_renderBackendView.renderResources,
-                                                        m_UI,
+                                                        *m_operatorUi,
                                                         m_runtimeTools } );
     if ( !releaseResult.ok )
     {
@@ -445,17 +359,13 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     const RunLaunchOptions& launch = overrides.launch;
 
     ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController, m_contactAudio );
-    if ( overrides.liveStyleControlDirectory && overrides.liveStyleControlDirectory[0] != '\0' )
+    if ( m_validationHarness->ConfigureStartup( overrides, m_launchOptions ) )
     {
-        if ( m_liveStyle.ConfigureDirectory( overrides.liveStyleControlDirectory ) )
-        {
-            m_launchOptions.interactiveSceneRun = true;
-            m_sceneController.EnterInteractiveRun();
-            m_diagnosticsRuntime.Capture().DisableAutomationExit();
-            m_liveStyle.MarkReady();
-        }
+        m_launchOptions.interactiveSceneRun = true;
+        m_sceneController.EnterInteractiveRun();
+        m_diagnosticsRuntime.Capture().DisableAutomationExit();
+        m_validationHarness->MarkLiveStyleReady();
     }
-    ApplyStressLaunchPolicy( launch, m_launchOptions, m_graphicsStress );
     if ( overrides.mainMemoryDumpPath && overrides.mainMemoryDumpPath[0] != '\0' )
     {
         m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
@@ -489,7 +399,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                                      overrides.replaySaveProbePath
 #endif
     } );
-    ApplyStartupPresentationPolicy( overrides, m_launchOptions, m_debug, m_UI );
+    m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions, *m_operatorUi );
 #ifdef _DEBUG
     ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController );
 #endif
@@ -509,7 +419,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                 m_replayRuntime.BuildAutomationView(),
                                                 m_interaction,
                                                 m_camera,
-                                                m_UI );
+                                                *m_operatorUi );
     }
     return result;
 #else
@@ -630,11 +540,10 @@ void Run::Initialise()
                                                     m_simulation,
                                                     m_replayRuntime,
                                                     m_contactAudio,
-                                                    m_UI,
-                                                    m_debug,
-                                                    m_graphicsStress,
+                                                    *m_operatorUi,
+                                                    *m_overlayDiagnostics,
+                                                    *m_validationHarness,
                                                     m_runtimeTools,
-                                                    m_physicsDebugVisualizer,
                                                     m_renderBackendView,
                                                     m_renderer );
     if ( !m_lastSceneLoadResult.ok )
@@ -667,11 +576,12 @@ void Run::Initialise()
                                     RuntimeCameraModeEnabledMask( m_sceneController ) ),
         timelineOwners };
 #ifdef _DEBUG
+    RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
     ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
                                                   m_sceneController,
                                                   m_sceneController.State(),
                                                   m_renderer,
-                                                  m_debug,
+                                                  presentationEdit.State(),
                                                   m_runtimeTools };
     const ReplayRestoreTransaction probeTransaction{ probeSample, m_diagnosticsRuntime, timelineReset, timelineOwners };
     const ReplayArtifactTopologyOwners probeTopology{ m_simulation,
@@ -745,6 +655,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                       m_sceneController.World().GetFluidSurfaceHeight(),
                                       m_sceneController.World().GetFluidDensity(),
                                       m_sceneController.World().GetMutualGravitySettings() };
+        const RunDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
         const SceneSaveRequest saveRequest{ snapshotOutPath,
                                             m_sceneController.Cameras().GetCameraTranslation(),
                                             m_sceneController.Cameras().GetCameraView(),
@@ -753,8 +664,8 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                             m_sceneController.State().isSceneText,
                                             m_sceneController.State().isEditableScene,
                                             m_sceneController.State().isFixedStep,
-                                            m_debug.isWaterHidden,
-                                            m_debug.isTerrainHidden,
+                                            presentation.isWaterHidden,
+                                            presentation.isTerrainHidden,
                                             m_sceneController.State().hasFlatSlope,
                                             m_sceneController.State().flatBaseY,
                                             m_sceneController.State().flatSlopeX,
@@ -786,11 +697,10 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                     m_simulation,
                                     m_replayRuntime,
                                     m_contactAudio,
-                                    m_UI,
-                                    m_debug,
-                                    m_graphicsStress,
+                                    *m_operatorUi,
+                                    *m_overlayDiagnostics,
+                                    *m_validationHarness,
                                     m_runtimeTools,
-                                    m_physicsDebugVisualizer,
                                     m_renderBackendView,
                                     m_renderer );
         if ( !loadResult.ok )

@@ -18,15 +18,16 @@ Invariants:
     to be unit length.
   - Triangle normal direction follows the engine's counter-clockwise winding
     convention; callers depend on signed distance polarity.
-  - Degenerate planes, out-of-segment intersection points, and collinear
-    barycentric triangles are fatal caller invariant failures.
+  - Degenerate planes and collinear triangles are caller-contract failures:
+    Debug asserts diagnose misuse while Release never terminates in Maths.
 
 Related:
   - SkullbonezSource/Maths/GeometricMath.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "GeometricMath.h"
-#include "../Core/FatalError.h"
+
+#include <cassert>
 
 
 using namespace SkullbonezCore::Math;
@@ -53,8 +54,12 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 
     Vector3 m_normal = Vector::CrossProduct( edge1, edge2 );
 
-    // normalise and return
-    m_normal.Normalise();
+    if ( !m_normal.TryNormalise() )
+    {
+        // Fallback: a degenerate triangle has no direction-bearing plane; a
+        // zero normal lets missable queries report NO_COLLISION deterministically.
+        return ZERO_VECTOR;
+    }
     return m_normal;
 }
 
@@ -188,11 +193,10 @@ float GeometricMath::GetHeightFromPlane( const Triangle& triangle, float xCoord,
 // dot(n, direction) = 0 → ray is parallel to plane → no intersection
 float GeometricMath::CalculateIntersectionTime( const Plane& plane, const Ray& ray )
 {
-    // ensure data is valid
-    if ( plane.m_normal == ZERO_VECTOR )
-    {
-        SB_FATAL( "GeometricMath", "CalculateIntersectionTime requires a non-zero plane normal." );
-    }
+    // Why: malformed query geometry is caller-reachable input, not lane F.
+    // Debug diagnoses misuse; Release falls through to the ordinary parallel
+    // denominator path and reports NO_COLLISION.
+    assert( plane.m_normal != ZERO_VECTOR && "CalculateIntersectionTime requires a non-zero plane normal" );
 
     // if the ray doesnt go anywhere then no collision will occur
     if ( ray.vector3.IsCloseToZero() )
@@ -222,13 +226,10 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane, const Ray& 
 {
     float collisionTime = GeometricMath::CalculateIntersectionTime( plane, ray );
 
-    // ensure the ray intersects with the plane
-    if ( collisionTime > 1.0f || collisionTime < 0.0f )
-    {
-        SB_FATAL( "GeometricMath",
-                  "ComputeIntersectionPoint requires a collision time in [0,1]. time=%f",
-                  collisionTime );
-    }
+    // Missable callers should query time first. Keep a Debug contract check,
+    // while Release preserves the mathematical extrapolation instead of dying.
+    assert( collisionTime <= 1.0f && collisionTime >= 0.0f &&
+            "ComputeIntersectionPoint requires a collision time in [0,1]" );
 
     // translate from the origin of the ray along the ray until the collision
     // occurs, and return this vector
@@ -397,12 +398,9 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle, 
     // pre-calculate the denominator
     float denominator = v2_v0_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_v0_axis1;
 
-    // check for a division by zero (this would imply the supplied triangle
-    // was co-linear)
-    if ( !denominator )
-    {
-        SB_FATAL( "GeometricMath", "ComputeBarycentricCoordinates requires a non-collinear triangle." );
-    }
+    // Degenerate triangles are caller input. Debug exposes misuse; Release
+    // keeps IEEE propagation for this private calculation and never exits.
+    assert( denominator != 0.0f && "ComputeBarycentricCoordinates requires a non-collinear triangle" );
 
     Vector3 barycentricResult = Vector3( ( v2_p_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1 ) / denominator,
                                          ( v0_p_axis2 * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1 ) / -denominator,

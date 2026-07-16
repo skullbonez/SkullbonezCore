@@ -16,6 +16,8 @@ Glossary:
   bounded contact impulses.
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
   output and local queries.
+  Parallel mutual gravity: Execution policy for building exact pair forces on
+    workers before model-order accumulation on the physics owner thread.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -24,6 +26,8 @@ Invariants:
     accepted range, dump position, and every validation-sensitive consumer.
   - `terrainRaw` selects both render and collision geometry; an asset-path move
     must still receive physics validation at the formal gate.
+  - Format version 2 adds only the mutual-gravity execution toggle; legacy
+    version-1 files select its true default and do not change physics results.
 
 Related:
   - SkullbonezSource/Core/Config.cpp
@@ -44,7 +48,7 @@ namespace SkullbonezCore
 namespace Core
 {
 
-inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 1;
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 3;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -223,10 +227,14 @@ struct PhysicsExecutionConfig
 {
     bool parallel = true;
     bool parallelApplyForces = true;
+    bool parallelMutualGravity = true;
     bool parallelTornadoField = false;
     bool parallelNarrowphase = false;
     bool parallelTerrainDetect = true;
     bool parallelIntegrate = true;
+    // Dark until the S7 cutover. Enabled binaries use the pinned AVX2/FMA
+    // integration kernels; no runtime CPU dispatch or feature probing occurs.
+    bool simdKernels = false;
 };
 
 // Heightfield scale and sampling policy shared by rendered terrain and

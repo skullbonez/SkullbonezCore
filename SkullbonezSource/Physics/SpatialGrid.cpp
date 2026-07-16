@@ -419,6 +419,43 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 }
 
 
+void SpatialGrid::InsertPreparedBounds( int index,
+                                        const Vector3& position,
+                                        const Vector3& displacement,
+                                        float radius,
+                                        const Vector3& minBounds,
+                                        const Vector3& maxBounds,
+                                        bool swept )
+{
+    if ( swept )
+    {
+        // Why: most swept rows fit the exact-AABB budget and can consume the
+        // vector-prepared bounds without repeating endpoint arithmetic. Only
+        // an oversized sweep re-enters InsertSwept so its capped traversal and
+        // tie policy remain owned here rather than leaking into the kernel.
+        ValidateBroadphaseBounds( index, minBounds, maxBounds, inverseCellSize );
+        const int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
+        const int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
+        const int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
+        const int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
+        const int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
+        const int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
+        const int64_t cellCountX = int64_t( maxX ) - int64_t( minX ) + 1;
+        const int64_t cellCountY = int64_t( maxY ) - int64_t( minY ) + 1;
+        const int64_t cellCountZ = int64_t( maxZ ) - int64_t( minZ ) + 1;
+        const bool exactAabbFits = cellCountX <= MAX_SWEPT_AABB_CELLS && cellCountY <= MAX_SWEPT_AABB_CELLS &&
+                                   cellCountZ <= MAX_SWEPT_AABB_CELLS &&
+                                   cellCountX * cellCountY * cellCountZ <= MAX_SWEPT_AABB_CELLS;
+        if ( !exactAabbFits )
+        {
+            InsertSwept( index, position, displacement, radius );
+            return;
+        }
+    }
+    InsertBounds( index, minBounds, maxBounds );
+}
+
+
 // Collect all candidate collision pairs from the grid.
 // For each bucket with 2+ objects, generate all (i,j) pairs from that cell.
 // Uses a bitset to deduplicate (a ball in multiple cells would otherwise

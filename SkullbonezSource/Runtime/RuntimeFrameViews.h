@@ -49,27 +49,24 @@ namespace Threading
 {
 class WorkerPool;
 }
-namespace Physics
+namespace UI
 {
-class PhysicsDebugVisualizer;
+class InGameUI;
 }
 namespace Runtime::Audio
 {
 class ContactAudioService;
-}
-namespace UI
-{
-class InGameUI;
 }
 namespace Runtime
 {
 class ApplicationExitState;
 class AttachedCameraController;
 class DiagnosticsRuntime;
-class GraphicsStressController;
 class InputRouter;
 class RenderDefaultsStore;
 class RuntimeInteractionController;
+class RuntimeOverlayDiagnostics;
+class RuntimeValidationHarness;
 class RuntimeRenderer;
 class RuntimeTools;
 class SceneController;
@@ -118,18 +115,18 @@ struct RuntimeFrameInteractionView
     InputRouter& inputRouter;
     RuntimeInteractionController& interaction;
     AttachedCameraController& attachedCamera;
-    UI::InGameUI& ui;
+    UI::InGameUI& operatorUi;
     RuntimeTools& runtimeTools;
     RunCameraState& camera;
 
     RuntimeFrameInteractionView( InputRouter& inputRouterValue,
                                  RuntimeInteractionController& interactionValue,
                                  AttachedCameraController& attachedCameraValue,
-                                 UI::InGameUI& uiValue,
+                                 UI::InGameUI& operatorUiValue,
                                  RuntimeTools& runtimeToolsValue,
                                  RunCameraState& cameraValue )
         : inputRouter( inputRouterValue ), interaction( interactionValue ), attachedCamera( attachedCameraValue ),
-          ui( uiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
+          operatorUi( operatorUiValue ), runtimeTools( runtimeToolsValue ), camera( cameraValue )
     {
     }
     RuntimeFrameInteractionView( const RuntimeFrameInteractionView& ) = delete;
@@ -145,7 +142,7 @@ struct RuntimeFrameSceneView
     RunLaunchOptions& launchOptions;
     const RunStartupState& startup;
     RunTimerState& timers;
-    RunDebugState& debug;
+    RuntimeOverlayDiagnostics& overlays;
     SimulationSystem& simulation;
     Runtime::Audio::ContactAudioService& contactAudio;
     SceneController& sceneController;
@@ -154,12 +151,12 @@ struct RuntimeFrameSceneView
                            RunLaunchOptions& launchOptionsValue,
                            const RunStartupState& startupValue,
                            RunTimerState& timersValue,
-                           RunDebugState& debugValue,
+                           RuntimeOverlayDiagnostics& overlaysValue,
                            SimulationSystem& simulationValue,
                            Runtime::Audio::ContactAudioService& contactAudioValue,
                            SceneController& sceneControllerValue )
         : config( configValue ), launchOptions( launchOptionsValue ), startup( startupValue ), timers( timersValue ),
-          debug( debugValue ), simulation( simulationValue ), contactAudio( contactAudioValue ),
+          overlays( overlaysValue ), simulation( simulationValue ), contactAudio( contactAudioValue ),
           sceneController( sceneControllerValue )
     {
     }
@@ -173,19 +170,16 @@ struct RuntimeFrameSceneView
 struct RuntimeFramePresentationView
 {
     RenderDefaultsStore& renderDefaults;
-    GraphicsStressController& graphicsStress;
-    Physics::PhysicsDebugVisualizer& physicsDebugVisualizer;
+    RuntimeValidationHarness& validationHarness;
     RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 
     RuntimeFramePresentationView( RenderDefaultsStore& renderDefaultsValue,
-                                  GraphicsStressController& graphicsStressValue,
-                                  Physics::PhysicsDebugVisualizer& physicsDebugVisualizerValue,
+                                  RuntimeValidationHarness& validationHarnessValue,
                                   RuntimeRenderBackendView& renderBackendViewValue,
                                   RuntimeRenderer& rendererValue )
-        : renderDefaults( renderDefaultsValue ), graphicsStress( graphicsStressValue ),
-          physicsDebugVisualizer( physicsDebugVisualizerValue ), renderBackendView( renderBackendViewValue ),
-          renderer( rendererValue )
+        : renderDefaults( renderDefaultsValue ), validationHarness( validationHarnessValue ),
+          renderBackendView( renderBackendViewValue ), renderer( rendererValue )
     {
     }
     RuntimeFramePresentationView( const RuntimeFramePresentationView& ) = delete;

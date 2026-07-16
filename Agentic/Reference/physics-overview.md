@@ -21,6 +21,51 @@ contacts. Terrain support classification remains explicit metadata: stable
 terrain support may seed sleep, while edge/point terrain contacts inhibit sleep
 and do not receive rest-only warm-start or damping policy.
 
+## Fixed-Step Ownership
+
+`PhysicsWorld` is the composition root and deterministic sequencer. Concrete
+owners retain their own state and accept only typed values or synchronous
+borrows; no owner stores a pointer or reference back to `PhysicsWorld` or to a
+sibling stage.
+
+```text
+mirror sleep flags
+  -> force stage (+ facade-sequenced tornado forces)
+  -> broadphase
+  -> narrowphase and ordered event commit
+  -> terrain detection and ordered commit
+  -> persistent contact solver
+  -> point-joint solve
+  -> force-stage integration of remaining CCD time
+  -> sleep-island transitions
+  -> diagnostic views/output at the caller boundary
+```
+
+| Owner | Retained authority |
+|---|---|
+| `PhysicsForceStage` | Bounded mutual-gravity rows, force dispatch, and remaining-time integration |
+| `PhysicsBroadphaseStage` | Spatial grid, candidate-pair order, and collision-cell keys |
+| `PhysicsNarrowphaseStage` | Pair/island scratch and typed ordered events |
+| `PhysicsTerrainStage` | Detection candidates, terrain manifolds, and rest-policy rows |
+| `PhysicsContactSolverStage` | Persistent contacts/cache, solver scratch/statistics, and consequence queues |
+| `PhysicsSleepController` | Sleep/wake state, support graphs, island transitions, and traversal scratch |
+| `PhysicsStepDiagnostics` | Collision visuals, debug contacts, pipeline trace, and output sink |
+
+Four values deliberately stay on the facade. `m_timeRemaining` is the shared
+CCD clock written by narrowphase, terrain, and integration. Point-joint rows are
+a top-level constraint lane borrowed by contact/sleep sequencing.
+`TornadoGameplay` is already a cohesive sibling owner sequenced with forces.
+The Debug-only suppression flag is a scoped facade override; it owns no
+diagnostic rows. Public forwarding is accepted only where it terminates at one
+of these concrete owners.
+
+Immediate wake-up cannot be deferred out of narrowphase because a later pair
+in the same deterministic pass must observe the newly awake body. Narrowphase
+and tornado therefore receive a scoped `PhysicsNarrowphaseWakeAccess` value
+containing only the body/sleep rows required for that transition. Sleep receives
+a similarly narrow contact-cache invalidation capability. Neither value exposes
+or retains a concrete sibling owner.
+
 ## Time Step
 
 The physics clock runs at a fixed 120 Hz:
@@ -54,11 +99,26 @@ Physics CSV baselines live in `TestOutput/baselines/` and are byte-exact. A sing
 
 ## Determinism Envelope
 
-Physics baselines are guaranteed only for the repository's Windows x64 MSVC
-v143 toolset contract. Every production project and every Debug, Profile, Release,
-and Profile-WPO configuration explicitly uses `/fp:precise`; changing the
-floating-point model, compiler/toolset, x64 target, fixed-step ordering, or
-worker reduction order is a physics behavior change.
+Byte-exact physics is certified for one binary built inside the repository's
+pinned Windows x64 MSVC toolchain envelope and run against the gated content
+committed with it. It is not an unconditional source-level promise across
+binaries or compiler versions. Every project and configuration explicitly uses
+`/fp:precise` and force-includes `FloatingPointContract.h`, which applies
+`#pragma fp_contract(off)` before each translation unit. Changing the compiler,
+toolset, floating-point flags, x64 instruction policy, fixed-step ordering,
+worker reduction order, scenes, config, or baselines changes the certified
+envelope and requires the mapped gates.
+
+Inlining, compiler, flag, and SIMD changes can alter instruction selection and
+flip knife-edge contact or feature-selection branches even when the source
+formula looks equivalent. The byte-exact gates detect that drift; the compiler
+settings do not prevent every possible drift. Physics fixtures must therefore
+be constructed away from floating-point selection boundaries. If a fixture is
+moved away from a boundary, its nearby comment and owning report must record
+the observed flip that motivated the move. The ff6e780e persistent-contact
+fixture is the historical example: Profile changed from a two-point to a
+four-point face after Vector3 inlining, while other configurations were already
+on different sides of that fixture's boundary.
 
 The 2026-07-12 worker audit found no thread-count-sensitive floating-point
 accumulation: physics/replay/tornado workers write independent indexed slots and
@@ -103,5 +163,6 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson pipeline --frames 0:1000
 | Shared row solver | `SkullbonezSource/Physics/PhysicsBodyStore*`, `SkullbonezSource/Physics/PersistentContactSolver*` |
 | Terrain support policy | `SkullbonezSource/World/TerrainSupportClassifier.h` |
 | Shapes | `SkullbonezSource/Physics/BoundingSphere*`, `SkullbonezSource/Physics/BoundingBox*`, `SkullbonezSource/Physics/ConvexHullShape*`, `SkullbonezSource/Physics/CollisionShape.h` |
-| Broadphase | `SkullbonezSource/Physics/SpatialGrid*` |
-| Main physics loop | `SkullbonezSource/Runtime/Scene/SceneController.Objects*`, `SkullbonezSource/Physics/PhysicsWorld*`, `SkullbonezSource/Physics/SimulationSystem*` |
+| Broadphase | `SkullbonezSource/Physics/SpatialGrid*`, `SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage*` |
+| Fixed-step owners | `SkullbonezSource/Physics/Stages/PhysicsForceStage*`, `PhysicsNarrowphaseStage*`, `PhysicsTerrainStage*`, `PhysicsContactSolverStage*`, `PhysicsSleepController*`, `PhysicsStepDiagnostics*` |
+| Main physics sequence | `SkullbonezSource/Runtime/Scene/SceneController.Objects*`, `SkullbonezSource/Physics/PhysicsWorld*`, `SkullbonezSource/Physics/SimulationSystem*` |

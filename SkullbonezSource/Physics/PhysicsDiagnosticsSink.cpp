@@ -80,15 +80,18 @@ bool SkullbonezCore::Physics::TryBuildPhysicsDiagnosticsModelRecord( int index,
 
     const PhysicsBodyRecord& bodyRecord = bodyStore.Records()[static_cast<std::size_t>( index )];
     const ColliderRecord& colliderRecord = colliderStore.Records()[static_cast<std::size_t>( index )];
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const std::size_t bodyIndex = static_cast<std::size_t>( index );
     outRecord = PhysicsDiagnosticsModelRecord{};
     outRecord.name = names.NameFor( index );
-    outRecord.position = bodyRecord.position;
-    outRecord.velocity = bodyRecord.linearVelocity;
-    outRecord.angularVelocity = bodyRecord.angularVelocity;
+    outRecord.position = PhysicsBodyPosition( hotFields, bodyIndex );
+    outRecord.velocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+    outRecord.angularVelocity = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
     outRecord.rotationalInertia = bodyRecord.rotationalInertia;
-    bodyRecord.orientation.GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
+    PhysicsBodyOrientation( hotFields, bodyIndex )
+        .GetComponents( outRecord.qx, outRecord.qy, outRecord.qz, outRecord.qw );
     outRecord.mass = bodyRecord.mass;
-    outRecord.inverseMass = bodyRecord.invMass;
+    outRecord.inverseMass = hotFields.inverseMass[bodyIndex];
 
     // Why: regression CSV diagnostics are emitted after the solver, so body and
     // shape state must come from the stores just written by the step. The

@@ -98,10 +98,11 @@ class InGameUI;
 namespace Runtime
 {
 class DiagnosticsRuntime;
-class GraphicsStressController;
 class InputRouter;
 class ReplayRuntime;
 class RuntimeInteractionController;
+class RuntimeOverlayDiagnostics;
+class RuntimeValidationHarness;
 class RuntimeRenderer;
 class RuntimeTools;
 class SimulationSystem;
@@ -234,11 +235,10 @@ class SceneController
                                          SimulationSystem& m_simulation,
                                          ReplayRuntime& m_replayRuntime,
                                          Runtime::Audio::ContactAudioService& m_contactAudio,
-                                         UI::InGameUI& m_UI,
-                                         RunDebugState& m_debug,
-                                         GraphicsStressController& m_graphicsStress,
+                                         UI::InGameUI& operatorUi,
+                                         RuntimeOverlayDiagnostics& overlays,
+                                         RuntimeValidationHarness& validationHarness,
                                          RuntimeTools& m_runtimeTools,
-                                         Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                                          const RuntimeRenderBackendView& m_renderBackendView,
                                          RuntimeRenderer& m_renderer );
     // Executes the fixed pending batch inside the scene owner. Replay records
@@ -259,11 +259,10 @@ class SceneController
                          SimulationSystem& m_simulation,
                          ReplayRuntime& m_replayRuntime,
                          Runtime::Audio::ContactAudioService& m_contactAudio,
-                         UI::InGameUI& m_UI,
-                         RunDebugState& m_debug,
-                         GraphicsStressController& m_graphicsStress,
+                         UI::InGameUI& operatorUi,
+                         RuntimeOverlayDiagnostics& overlays,
+                         RuntimeValidationHarness& validationHarness,
                          RuntimeTools& m_runtimeTools,
-                         Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer,
                          const RuntimeRenderBackendView& m_renderBackendView,
                          RuntimeRenderer& m_renderer );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;

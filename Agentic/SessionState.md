@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-15
+Date: 2026-07-16
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,16 +10,169 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `claude/night-runner-code-review-8gw5g6` (from the `nightrunner-14th-july` merge, PR #120) |
-| Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the six round-4 adversarial-review remediation plans (2026-07-15 owner rulings): message-pump drain, data-driven shadow streams, Vector3 inlining, math fatal removal, deterministic parallel mutual gravity, runtime signature decomposition |
-| Active/future progress | 0 / 22 tasks = 0% overall (round-4 remediation plans only; completed past plans and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed on 2026-07-15: mandatory CPU lanes, zero-warning Profile/Debug builds, DX12 screenshots with zero InfoQueue errors, standalone physics, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Spline T1-T7 closed at 7/7. Focused T1-T6 build/test/visual evidence passed, including five-mode stability, zero drops, no steady-state reserve growth, and selected-root-only glow. After the final critique reset generic marker emphasis to zero, the rebuilt 1,485-frame visual passed in 9.22 s with 1,578 stable segments, zero drops, and reserve growth 224 -> 224. From that final source, T7 `validate_full` passed in 123.31 s; `validate_dx12_renderer` passed in 56.60 s with zero errors and matching baselines; one-minute graphics stress passed in 62.14 s with 12,818 frames, 352 scene loads, empty stderr, zero upload drops/flushes, and reconciled memory; scrub failure propagation returned required exit 37 in 0.06 s without an engine. Comment audit is 18/18 checked, zero deferred. Owner-approved replay golden reconciliation used one engine / one prediction in 453.03 s; refreshed comparison passed at 2,401 ticks and all offline false-pass/determinism controls passed in 39.68 s. |
+| Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
+| Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
+| Current objective | S6: add dark narrowphase-prune and solver-row preparation AVX2/FMA kernels with the same A/B and OFF-path proof. After S6, an owner-commissioned pre-cutover adversarial review of all dark-kernel evidence precedes any S7 approval (S5's enabled-path Profile finding is negative; the 0.80 ms budget is the cutover precondition) |
+| Active/future progress | 6 / 19 tasks = 32% overall (SoA/SIMD 6/9 active + unit-test coverage 0/10 registered future, blocked behind S8) |
+| Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
+| Validation for current edits | S5 fast/physics/performance gates passed; chaotic and mutual-gravity A/B oracles passed with zero non-finite values; the paired enabled-path performance finding is negative and remains a binding S7 concern; no baseline/golden refresh |
 
 ## Live Queue
 
-0. Round-4 adversarial-review remediation is the active lane (2026-07-15).
+0000000. `unit-test-coverage-campaign` is registered at 0/10 as the NEXT
+         campaign, blocked behind SoA/SIMD S8 (2026-07-16 owner ordering).
+         Do not start any U task while the SoA/SIMD campaign is open. On
+         activation, begin at U0(b): OpenCppCoverage bring-up,
+         `validate_coverage` lane shipped report-only, measured per-subsystem
+         baseline, tier-map/floors ratification (defaults: Tier 1 85%,
+         Tier 2 70%, Tier 3 50%, Tier 4 excluded), and the governance ruling
+         that quality-gate floors are not the banned migration-debt ratchet.
+         U5 (adversarial artifact decode) owns the campaign's single
+         mega-gate invocation and runs after the other tiers if any conflict
+         arises. Behavioral assertions only; fixed seeds; ~60 s
+         `validate_tests` budget; floors armed at U9 with a final measured
+         report and independent anti-gaming review.
+000000. `physics-soa-simd-1000-bodies` is active at 6/9. S0 registered the
+        campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
+        measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
+        does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
+        Step budget at 1,000 bodies against the 0.9978 ms reference. S0 passed
+        performance, byte-exact physics, full, and the single reference replay
+        mega gate without refreshing any baseline or golden. S1 added 20
+        fixed-capacity aligned hot component arrays with a bit-exact two-way
+        compatibility seam. All arrays are 32-byte aligned in focused coverage;
+        normal/deep physics, 204 tests, format, and allocation policy passed.
+        S2 migrated all stage/replay/presentation/diagnostics/editor/automation
+        consumers to direct hot-field views, made records cold-only, and deleted
+        the compatibility seam. Final full, 44,401-line byte-exact physics,
+        allocation, and the sole one-process replay mega gate passed with zero
+        baseline/golden refresh. S3 diagnosed by-value copies of 20-span hot
+        views plus full-row traffic in narrow scalar store kernels, removed
+        both without changing arithmetic or stored values, and restored the
+        1,000-body Physics average to 0.9795 ms versus S0's 0.9978 ms. The full
+        performance gate and 44,401-line byte-exact physics oracle passed. S4
+        added the default-OFF v3 config/migration, a dedicated per-file AVX2/FMA
+        integration kernel, deterministic masked tails, and a streaming A/B
+        oracle. The pilot marker improved 4.5%, aggregate 1,000-tick stability
+        stayed inside the explicit 1% outcome envelope, and final full/perf plus
+        44,401-line byte-exact OFF gates passed. S5 added dark universal-gravity,
+        mutual-pair, and broadphase-bounds kernels. Its 2,000,000-row chaotic
+        and 72,000-row mutual-gravity oracles passed without non-finite values;
+        pre/post-optimization ON captures were byte-identical. Paired Profile
+        evidence was negative, so the S7 cutover budget remains binding. S6
+        adds narrowphase-prune and solver-row preparation kernels.
+00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
+       33,783-line census, D1-D8 duplication dispositions, Release/Profile
+       map-attributed baselines (498,264/456,044 bytes), owner ratification,
+       and reference gates. R1 proved the fingerprint boundary. R2 moved the
+       legacy probes into a Debug-only TU and the RVPD verifier into an
+       Automation-only TU; the 1,949-line product restore TU and product codec
+       remain in every configuration, while the final Release map has zero
+       probe/verifier/fingerprint rows. R3 retained the distinct RVPD/V2 codec
+       owners and recorder hashing, formally found schedule-sensitive
+       topology/trajectory/reserve bookkeeping in complete artifact bytes, and
+       proved the honestly gate-covered projection identical across three
+       artifacts. R3-F1 is separately ruled and requires its own artifact-
+       compatibility plan; no fix occurred in R3. R4 unified D4 quota and D7
+       pose mechanics with no callback/allocation/order change, retained D5's
+       policy-distinct loops, and passed tests, DX12, stress, and the one-process
+       mega. R5 audited 99 header callables, deleted only two true
+       zero-caller accessors, and retained all production, test-seam,
+       CLI/config, and supported migration paths under individual rulings.
+       R4b closed R3-F1 with a complete writer/reader inventory, dense durable
+       tokens, zero reserve telemetry, a content-sensitive canonical semantic
+       hash, and a no-version-bump ruling. Both original R3 artifacts and the
+       real review-fix encoder are byte-identical after canonicalization at SHA
+       `F916DED3...B24`; the R3 gate-covered SHA is unchanged. The first zero
+       sentinel was correctly rejected and the
+       owner approved one additional same-tip invocation, for three total;
+       the final gate passed. R6 then recorded KEEP-cohesive rulings for the
+       four oversized/near-threshold TUs; no source or project move was made.
+       R7 then closed the final census, exact original-mismatch/final-encoder
+       proof, and independent review: product compilation is down one TU and
+       2,354 lines, map attribution honestly changes +364/+1,988 bytes, and
+       the same reviewer confirmed the reopened R4b semantic/governance fixes
+       with no remaining material blocker. R8 passed tests, full, performance,
+       allocation policy, and the sole final mega gate. Product compilation is
+       -1 TU/-2,354 lines; linked map bytes are honestly +364/+1,988; both
+       original mismatches and both final gates are byte exact at
+       `F916DED3...B24`. The plan is deleted and no active local replay step
+       remains. Binding rules throughout were: exactly one
+       `tools\validate_replay_visual_fidelity.bat` invocation (one engine
+       process, one prediction generation, zero golden refresh,
+       revert-on-diff); link-level diagnostics boundary, never `#ifdef`
+       scatter; no artifact-format or probe-schema changes; no ownership
+       re-decomposition; deletions only via R5 owner rulings; owner-TU
+       partitions only in R6; reserve-allocator registrations move
+       unchanged. R4 adds DX12+stress gates; R8
+       closes with full/perf/allocation gates and the final census against
+       R0's measured numbers.
+0000. Runtime mass-reduction campaign completed at 16/16 on 2026-07-16. Binding
+      order and closure state:
+      `init-startup-decomposition` is complete at 5/5 after independent review
+      remediation restored generic CLI policy to its parser owner. Continue with
+      `run-member-and-include-shrink` is complete at 6/6 after its clear repeat
+      ownership review and full/DX12/stress closure gates. Finally,
+      `wide-call-desc-struct-pass` is complete at 5/5: ten record-construction
+      names are 0–2 arguments, all 31 surviving ≥12-argument names have current
+      individual reasons, and its replay/full/comment/review gates are closed. Owner
+      rulings: Init's round-3 parking is lifted and a free-function file
+      split by responsibility is the approved shape; the Run shrink allows
+      at most two cohesive owners, bans a services bag, and requires one
+      end-of-plan independent ownership review; wide-call conversion applies
+      only to ≥12-argument rows using designated-initializer desc structs,
+      and replay-touching work runs the one-invocation 200-box mega gate per
+      MASTER rule 11. Zero baseline, golden, or screenshot refresh anywhere
+      in the campaign; move-only semantics with identical strings, exit
+      codes, and call positions.
+000. `physicsworld-stage-owner-decomposition` completed at 11/11.
+     Broadphase owns its grid/candidate/diagnostic storage;
+     force owns exact mutual-gravity preparation, bounded gravity scratch, and
+     force dispatch without retaining borrowed frame state. Narrowphase owns
+     bounded pair/island scratch and terrain owns detection/manifold/rest rows.
+     The contact-solver stage owns persistent state, bounded solve scratch,
+     replay transfer, and typed consequence queues;
+     sleep ownership now includes all wake/seed/support/island/underwater rows
+     and scratch. Diagnostics owns collision visuals, debug contacts, pipeline
+     trace, and cold sink output. P10's first independent review found three
+     blockers; remediation removed the forbidden TU split, concrete sibling
+     references, and facade-owned sleep policy. Repeat review found zero
+     credible blockers and all full/perf/allocation/comment gates passed.
+     Binding rules:
+     stage owners with value contexts and no
+     reach-back (never a `PhysicsWorld` TU split), one owner per task per
+     commit, byte-exact physics gate after every task with revert-on-diff,
+     zero baseline refresh campaign-wide, allowlist rows move with their
+     vectors, P7 added one `validate_physics_deep`, P10 is the mandatory
+     independent ownership review.
+0. Round-5 adversarial-review remediation completed 10/10 (2026-07-15,
+    from the owner-commissioned review of round-4 claims). Binding order:
+    `mutual-gravity-large-scene-fallback` → `fp-envelope-hardening` →
+    `math-fatal-survey-restoration` (the last two are mutually independent;
+    the survey waits on FP hardening only if both touch the same Maths
+    files). Owner rulings: FP work is layers 1-3 only — diagnose the
+    ff6e780e inline knife-edge flip, pin `/fp:contract-`/`fp_contract(off)`
+    across all four projects, and re-scope the determinism docs to the
+    certified binary+envelope+content contract; manifold hysteresis is
+    deferred to the future SIMD lane. Gravity restores the pre-round-4
+    8,192-body envelope with an exact serial fallback above the 512-body
+    pair-scratch cap. The survey plan retro-commits the missing round-4
+    math-fatal T2 classification evidence. Zero baseline refresh is
+    authorized anywhere in this round.
+    `mutual-gravity-large-scene-fallback` is complete at 3/3: body counts
+    above 512 bypass triangular pair scratch and run the pre-parallel exact
+    serial accumulation; a 520-body fixture is byte-identical across 0/1/4
+    workers, and the unchanged physics baseline passed.
+    `fp-envelope-hardening` is complete at 4/4: the historical fixture's
+    Profile-only flip is diagnosed as an inline/packed-SSE optimizer-boundary
+    change; all four projects force contraction off, the certified determinism
+    envelope is documented honestly, and full/perf gates passed with the
+    44,401-line physics baseline unchanged.
+    `math-fatal-survey-restoration` is complete at 3/3: the fresh report
+    reconciles every Vector3 named/division call and every Quaternion spelling
+    match, finds no migration gap, and closes documentation-only after an
+    independent completeness review.
+1. Round-4 adversarial-review remediation completed 22/22 (2026-07-15).
    Six plans registered in MASTER with a binding order: `win32-message-pump-
    drain` → `data-driven-shadow-caster-streams` → `vector3-inline-hot-math` →
    `math-fatal-removal` → `deterministic-parallel-mutual-gravity` →
@@ -30,6 +183,29 @@ plan inventory.
    only from the god-object finding (PhysicsWorld/Init splits and Run member
    shrink deferred). Every plan requires unchanged committed baselines — no
    refresh is authorized by this round.
+   `win32-message-pump-drain` is complete at 3/3: the outer loop drains up to
+   256 FIFO messages before each frame, preserves `WM_QUIT` ownership/exit-code
+   semantics, and passed the interactive input/quit smoke plus full gate.
+   `data-driven-shadow-caster-streams` is complete at 3/3: scene-owner instance
+   build resolves one opaque stream id, render submission no longer inspects
+   pine material content, and unchanged renderer baselines plus stress passed.
+   `vector3-inline-hot-math` is complete at 3/3: all member operations are
+   header-inline, copy/assignment are trivial, the ABI remains 12 bytes, the
+   44,401-line physics baseline is unchanged, and the perf gate found no
+   regression.
+   `math-fatal-removal` is complete at 4/4: Try normalization/division APIs
+   cover reachable degeneracy, plain operators retain Debug-only assertions,
+   deterministic caller fallbacks are classified, Maths has zero `SB_FATAL`,
+   and the physics baseline remains byte-exact.
+   `deterministic-parallel-mutual-gravity` is complete at 4/4: fixed row
+   chunks compute unique triangular pair slots on workers, the owner replays
+   those slots in the original serial order, 0/1/4-worker CSVs are byte-exact,
+   pair construction is about 48% faster with four workers, and all mapped
+   gates pass without a baseline refresh.
+   `runtime-signature-decomposition` is complete at 5/5: eleven repeated-owner
+   calls now use the existing stack-only frame views at 4–6 arguments; a
+   208-row persistent inventory gives every remaining wide call an individual
+   keep reason; independent review is clear; and the unchanged full gate passed.
 1. `replay-visual-fidelity-mega-probe` is complete at 7/7 on
    `nightrunner-13th-july`. It uses one generation and one presented reveal,
    then only non-presenting CPU/artifact verification.
@@ -149,10 +325,11 @@ plan inventory.
 
 ## Next Handoff
 
-The 2026-07-15 hostile review of the `nightrunner-14th-july` merge produced
-six owner-ruled remediation plans, registered in MASTER as round 4 with a
-binding execution order and a 0/22 ledger. Start with
-`Plans/TODO/win32-message-pump-drain.md`. No source changes have been made
-yet for this round; every plan carries a zero-baseline-refresh requirement.
-Prior decomposition/spline closure evidence from `nightrunner-14th-july`
-remains preserved in git history and the reports listed above.
+Physics SoA/SIMD is active at 6/9 after S5 added default-OFF force,
+mutual-gravity, and broadphase AVX2/FMA kernels, passed the chaotic-scale and
+focused mutual-gravity A/B oracles, and retained 44,401-line byte-exact
+OFF-path proof. Its paired enabled-path performance evidence is negative, so
+the S7 budget remains a hard cutover precondition. Continue with S6's dark
+narrowphase-prune and solver-row preparation kernels. Replay mass reduction remains closed at 9/9 plus R8;
+the externally administered validation-gate V3 lane remains blocked and
+excluded from the ledger.

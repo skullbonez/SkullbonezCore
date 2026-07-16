@@ -9,12 +9,18 @@ Summary:
   boundaries and call direction and on the glossary/invariants below.
 
 Glossary:
+  Look-at target: World point the camera faces; subtracting the eye produces
+    the view direction.
+  Basis fallback: Stable world axis used when authored eye/view/up data cannot
+    form a direction.
 
 Invariants:
   - m_view is a look-at target, not a direction vector; movement updates both
     eye and target when the camera translates.
   - m_viewMagnitude tracks the eye-to-target distance when orbit-style updates
     need to preserve the current zoom.
+  - Degenerate authored poses use deterministic forward/right fallbacks and
+    never terminate inside vector math.
 
 Related:
   - SkullbonezSource/Runtime/Camera.h
@@ -49,11 +55,11 @@ void Camera::SetAll( const Vector3& vPosition, const Vector3& vView, const Vecto
 
     m_movementBuffer.Zero();
 
-    // normalise this in case it was not supplied as a unit vector
-    // (do not normalise the zero vector though)
-    if ( m_upVector != Vector::ZERO_VECTOR )
+    // A zero authored up vector stays zero here; downstream camera queries own
+    // their deterministic basis fallback rather than terminating in math.
+    if ( !m_upVector.TryNormalise() )
     {
-        m_upVector.Normalise();
+        m_upVector = Vector::ZERO_VECTOR;
     }
 
     m_isLockedMode = false;
@@ -448,8 +454,12 @@ Vector3 Camera::GetRightVector()
 {
     Vector3 vRight = Vector::CrossProduct( GetViewVectorNormalised(), m_upVector );
 
-    // Normalise
-    vRight.Normalise();
+    if ( !vRight.TryNormalise() )
+    {
+        // Fallback: coincident/parallel camera axes use world +X as a stable
+        // right direction until the next valid pose arrives.
+        vRight = Vector3( 1.0f, 0.0f, 0.0f );
+    }
 
     return vRight;
 }
@@ -509,7 +519,12 @@ Vector3 Camera::GetViewVectorNormalised()
 
     Vector3 vView = m_view - m_position;
 
-    vView.Normalise();
+    if ( !vView.TryNormalise() )
+    {
+        // Fallback: a camera looking at its own position keeps the engine's
+        // conventional forward direction instead of publishing NaNs.
+        vView = Vector3( 0.0f, 0.0f, -1.0f );
+    }
 
     return vView;
 }

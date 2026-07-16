@@ -28,6 +28,7 @@ Related:
   - SkullbonezSource/Physics/TornadoField.cpp
 */
 #include "TornadoGameplay.h"
+#include "Stages/PhysicsSleepController.h"
 
 #include "../Core/Config.h"
 #include "../Core/Profiler.h"
@@ -72,7 +73,7 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float maxMagnitude )
     return value * ( maxMagnitude / sqrtf( magSq ) );
 }
 
-bool IsUnderwaterSleepLocked( const std::vector<uint8_t>& underwaterSleepLocked, int bodyCount, int index )
+bool IsUnderwaterSleepLocked( std::span<const uint8_t> underwaterSleepLocked, int bodyCount, int index )
 {
     if ( index < 0 || index >= bodyCount || index >= static_cast<int>( underwaterSleepLocked.size() ) )
     {
@@ -203,18 +204,23 @@ const std::vector<int>& TornadoGameplay::ReleaseFixedBodies( const TornadoGamepl
         return m_releaseWakeBodies;
     }
 
-    const auto bodyRecords = bodyStore.MutableRecords();
+    const auto bodyRecords = bodyStore.Records();
+    const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
+    const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
     for ( int i = 0; i < bodyStore.Count(); ++i )
     {
-        PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
-        if ( !record.isFixed || !record.releasesFromFixedOnContact )
+        const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( i )];
+        if ( hotFields.fixed[static_cast<size_t>( i )] == 0u || !record.releasesFromFixedOnContact )
         {
             continue;
         }
 
         TornadoFieldConfig bestConfig;
         float bestAccelerationSq = 0.0f;
-        const Vector3 acceleration = SampleAcceleration( stepState, record.position, bestConfig, bestAccelerationSq );
+        const Vector3 acceleration = SampleAcceleration( stepState,
+                                                         PhysicsBodyPosition( hotRead, static_cast<size_t>( i ) ),
+                                                         bestConfig,
+                                                         bestAccelerationSq );
         const float releaseAcceleration = (std::max)( 16.0f, record.contactReleaseImpulseThreshold * 32.0f );
         if ( bestAccelerationSq < releaseAcceleration * releaseAcceleration )
         {
@@ -227,7 +233,7 @@ const std::vector<int>& TornadoGameplay::ReleaseFixedBodies( const TornadoGamepl
         // Why: fixed-tree release must happen before broadphase so later fixed
         // checks see dynamic rows. PhysicsWorld applies the ordered wake output
         // immediately after this release stage.
-        PhysicsBodyStore::ReleaseFixedRecord( record, seedLinearVelocity, seedAngularVelocity );
+        bodyStore.ReleaseFixedBody( i, seedLinearVelocity, seedAngularVelocity );
         m_releaseWakeBodies.push_back( i );
 
         bodyStore.ReleaseAttachedFixedTreeParts(
@@ -251,7 +257,9 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
         return;
     }
 
-    const auto bodyRecords = context.bodyStore.MutableRecords();
+    const auto bodyRecords = context.bodyStore.Records();
+    const PhysicsBodyHotFieldsView hotFields = context.bodyStore.MutableHotFields();
+    const PhysicsBodyHotFieldsConstView hotRead = ConstPhysicsBodyHotFields( hotFields );
     const int modelCount = (std::min)( { context.bodyStore.Count(),
                                          static_cast<int>( bodyRecords.size() ),
                                          context.colliderStore.Count() } );
@@ -259,15 +267,16 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
 
     const auto applyTornadoAt = [&]( int i )
     {
-        PhysicsBodyRecord& bodyRecord = bodyRecords[static_cast<size_t>( i )];
-        if ( bodyRecord.isFixed || IsUnderwaterSleepLocked( context.underwaterSleepLocked, modelCount, i ) )
+        const size_t bodyIndex = static_cast<size_t>( i );
+        if ( hotFields.fixed[bodyIndex] != 0u ||
+             IsUnderwaterSleepLocked( context.underwaterSleepLocked, modelCount, i ) )
         {
             m_captureSeconds[static_cast<size_t>( i )] = 0.0f;
             m_ejectCooldownSeconds[static_cast<size_t>( i )] = 0.0f;
             return;
         }
 
-        const Vector3 position = bodyRecord.position;
+        const Vector3 position = PhysicsBodyPosition( hotRead, bodyIndex );
         TornadoFieldConfig bestConfig;
         float bestAccelerationSq = 0.0f;
         Vector3 acceleration = SampleAcceleration( stepState, position, bestConfig, bestAccelerationSq );
@@ -287,15 +296,10 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
 
         if ( context.sleepState[i] )
         {
-            context.sleepState[i] = 0;
-            context.sleepCounter[i] = 0;
-            context.sleepIslandVisualId[i] = 0;
-            context.timeRemaining[i] = context.dt;
-            bodyRecord.isSleeping = false;
-            (void)context.bodyStore.ApplyForces( context.worldForces, context.colliderStore, i, context.dt );
+            context.wakeAccess.WakeBody( i );
         }
 
-        Vector3 velocity = bodyRecord.linearVelocity;
+        Vector3 velocity = PhysicsBodyLinearVelocity( hotRead, bodyIndex );
         m_captureSeconds[static_cast<size_t>( i )] += stepState.stepSeconds;
         m_ejectCooldownSeconds[static_cast<size_t>( i )] =
             (std::max)( 0.0f, m_ejectCooldownSeconds[static_cast<size_t>( i )] - stepState.stepSeconds );
@@ -345,7 +349,9 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
         }
 
         velocity += ClampVectorMagnitude( acceleration * stepState.stepSeconds, maxDeltaVelocity );
-        bodyRecord.linearVelocity = velocity;
+        hotFields.linearVelocityX[bodyIndex] = velocity.x;
+        hotFields.linearVelocityY[bodyIndex] = velocity.y;
+        hotFields.linearVelocityZ[bodyIndex] = velocity.z;
     };
 
     if ( context.runtimeConfig.physicsExecution.parallel &&
