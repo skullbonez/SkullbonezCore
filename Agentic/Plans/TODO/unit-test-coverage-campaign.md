@@ -1,14 +1,17 @@
 # Unit Test Coverage Campaign — Tiered Floors Over A Measured Baseline
 
 Date: 2026-07-16
-Status: Registered future campaign — added to the `MASTER-PLAN.md` ledger by
-the 2026-07-16 ordering governance commit. 0/10 tasks complete. Binding
-order: execution starts ONLY after `physics-soa-simd-1000-bodies` closes at
-S8 (its S7 cutover regenerates every baseline/golden; unit tests written here
-must be authored against the post-cutover certified behavior, and U5's
-mega-gate invocation must not double-book the replay gate with a live
-campaign). U0's registration sub-step (a) is already satisfied by that
-governance commit; U0 begins at the tooling bring-up (b).
+Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
+owner instruction ("we need to make the unit tests first"). 0/10 tasks
+complete; begin at U0(b). The SoA/SIMD campaign is PAUSED at 6/9 until this
+campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
+verify behavior across the S7 regeneration (the cutover redefines the
+goldens), but the behavioral/property suites built here are tolerance-based
+and survive it — authored against today's scalar path, they become the only
+independent oracle for the SIMD kernels, and S7's preconditions now include
+these suites passing in BOTH toggle states. U5's single mega-gate invocation
+cannot collide with SoA/SIMD while it is paused. U0's registration sub-step
+(a) is satisfied; U0 begins at the tooling bring-up (b).
 Impact area: `SkullbonezTests/*`, `tools/` (new coverage lane), coverage
 tooling bring-up, `FIRST_TIME_SETUP.md`, per-subsystem unit coverage across
 Maths/Core/Physics/Startup/Runtime logic owners

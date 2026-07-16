@@ -12,17 +12,20 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | S6: add dark narrowphase-prune and solver-row preparation AVX2/FMA kernels with the same A/B and OFF-path proof. After S6, an owner-commissioned pre-cutover adversarial review of all dark-kernel evidence precedes any S7 approval (S5's enabled-path Profile finding is negative; the 0.80 ms budget is the cutover precondition) |
-| Active/future progress | 6 / 19 tasks = 32% overall (SoA/SIMD 6/9 active + unit-test coverage 0/10 registered future, blocked behind S8) |
+| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. Begin at U0(b): coverage tooling, measured baseline, tier-map ratification, governance ruling |
+| Active/future progress | 6 / 19 tasks = 32% overall (unit-test coverage 0/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
 | Validation for current edits | S5 fast/physics/performance gates passed; chaotic and mutual-gravity A/B oracles passed with zero non-finite values; the paired enabled-path performance finding is negative and remains a binding S7 concern; no baseline/golden refresh |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is registered at 0/10 as the NEXT
-         campaign, blocked behind SoA/SIMD S8 (2026-07-16 owner ordering).
-         Do not start any U task while the SoA/SIMD campaign is open. On
-         activation, begin at U0(b): OpenCppCoverage bring-up,
+0000000. `unit-test-coverage-campaign` is ACTIVE at 0/10 (2026-07-16 owner
+         reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
+         the tolerance-based behavioral/property suites are the only oracle
+         that survives the golden regeneration, and S7 now requires them to
+         pass in both SIMD toggle states). SoA/SIMD is paused at 6/9 and
+         resumes at S6 only after U9 closes; do not start any S task.
+         Begin at U0(b): OpenCppCoverage bring-up,
          `validate_coverage` lane shipped report-only, measured per-subsystem
          baseline, tier-map/floors ratification (defaults: Tier 1 85%,
          Tier 2 70%, Tier 3 50%, Tier 4 excluded), and the governance ruling

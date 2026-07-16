@@ -1,8 +1,13 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Active — registered in `MASTER-PLAN.md`; S0-S5 are complete and S6 is
-next. 6/9 tasks complete.
+Status: PAUSED at 6/9 (S0-S5 complete) by the 2026-07-16 owner reorder: the
+`unit-test-coverage-campaign` runs to completion FIRST so tolerance-based
+behavioral/property suites exist before the S7 cutover redefines every
+golden. S6 resumes only after that campaign closes at U9. S7's preconditions
+now additionally include: the unit/property suites pass with the SIMD toggle
+OFF and ON, and the owner-commissioned pre-cutover adversarial review is
+complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden

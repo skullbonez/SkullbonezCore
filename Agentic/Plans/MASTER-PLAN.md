@@ -94,15 +94,18 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physics-soa-simd-1000-bodies | 6 | 9 | 67% |
-| unit-test-coverage-campaign (future; starts after SoA/SIMD S8) | 0 | 10 | 0% |
+| unit-test-coverage-campaign (ACTIVE) | 0 | 10 | 0% |
+| physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
 | **Active/future total** | **6** | **19** | **32%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
-unit-test coverage campaign as the next campaign in the portfolio (rule 4:
-new plans update the ledger and denominator in the same commit). It is a
-future plan: no coverage task may start until the SoA/SIMD campaign closes
-at S8.
+unit-test coverage campaign. Later the same day the owner REORDERED it ahead
+of the SoA/SIMD cutover ("unit tests first"): the coverage campaign is now
+active and the SoA/SIMD campaign is paused at 6/9. Rationale: byte-exact
+gates cannot verify behavior across the S7 golden regeneration, but the
+tolerance-based behavioral/property suites built by the coverage campaign
+survive it — they must exist BEFORE the cutover and pass in both SIMD toggle
+states as an added S7 precondition.
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -143,17 +146,23 @@ proof. Paired Profile evidence is negative rather than a claimed speedup, so
 the S7 cutover budget remains binding. S6 is next: add dark narrowphase-prune
 and solver-row preparation kernels.
 
-Portfolio ordering after SoA/SIMD (2026-07-16 owner decision): the
-`unit-test-coverage-campaign` (0/10, registered future plan) begins at U0
-immediately after S8 closes — deliberately after the S7 cutover so its tests
-are authored against the post-cutover certified behavior and its single U5
-mega-gate invocation cannot collide with a live campaign's rule-11 budget.
-Standing note for the S7 approval decision: S5's enabled-path Profile
-finding is negative (force/gravity/broadphase kernels currently cost more
-than they save); the 0.80 ms ratified budget is the cutover precondition and
-S7 may not proceed on integration-pilot wins alone. An owner-commissioned
-pre-cutover adversarial review of the complete dark-kernel evidence is the
-expected step between S6 closure and any S7 approval.
+Portfolio ordering (2026-07-16 owner reorder, superseding the same-day
+"after S8" decision): the `unit-test-coverage-campaign` is ACTIVE NOW and
+runs U0 → U9 to completion while the SoA/SIMD campaign is PAUSED at 6/9.
+Reason: the S7 cutover regenerates every golden, so byte-gates cannot verify
+the SIMD kernels' semantics across it — the coverage campaign's
+tolerance-based behavioral/property suites (momentum symmetry, orthonormality,
+bounds, grid round-trips, stage-contract cases) are authored against today's
+scalar behavior and become the independent oracle that survives regeneration.
+U5's single mega-gate invocation cannot collide with rule-11 budgets while
+SoA/SIMD is paused. After U9 closes, SoA/SIMD resumes at S6; then the
+owner-commissioned pre-cutover adversarial review; then and only then may S7
+be considered, with THREE preconditions now binding: (1) the ratified
+0.80 ms combined toggle-ON budget met (S5's enabled-path Profile finding is
+negative — force/gravity/broadphase kernels currently cost more than they
+save; S7 may not proceed on integration-pilot wins alone); (2) the unit and
+property suites pass with the SIMD toggle OFF and ON; (3) fresh explicit
+owner approval recorded at the time.
 
 The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
 order. R0–R5 closed the census and implementation work: the
@@ -522,7 +531,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active | 6/9 | S6: add dark narrowphase-prune and solver-row preparation kernels |
+| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 6/9 (2026-07-16 owner reorder) | 6/9 | Resumes at S6 after the coverage campaign closes at U9; S7 gains the both-toggle-states test precondition |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Unit Test Coverage Campaign (2026-07-16, registered future)
@@ -547,7 +556,7 @@ mega-gate invocation. Execution begins only after SoA/SIMD S8 closes.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | Future — blocked behind SoA/SIMD S8 | 0/10 | U0(b): coverage tooling bring-up, measured baseline, tier-map ratification, governance ruling |
+| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 0/10 | U0(b): coverage tooling bring-up, measured baseline, tier-map ratification, governance ruling |
 
 ## Features
 
