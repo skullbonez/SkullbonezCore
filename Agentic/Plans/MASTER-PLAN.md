@@ -475,7 +475,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 6/8 | R6: split oversized replay TUs into cohesive same-owner partitions with moves only, or record explicit cohesion rulings |
+| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 8/9 | R7: finalize the census/maps and close the independent campaign review after the content-sensitive RVIS semantic repair |
 
 ## Features
 

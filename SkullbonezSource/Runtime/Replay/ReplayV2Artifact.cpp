@@ -1951,12 +1951,16 @@ std::vector<uint8_t> BuildVisualPacketChunk( std::span<const ReplayVisualArchive
                     static_cast<std::size_t>( std::distance( publishedTopologyVersions.begin(), found ) ) + 1u );
             }
         }
-        // Concept: RVIS retains the deterministic visual/exact hashes below.
-        // The broader semantic hash and reserve counter intentionally include
-        // process-local schedule telemetry, so their durable representation is
-        // a documented constant instead of a false determinism claim.
-        constexpr uint64_t canonicalSemanticHash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
         constexpr uint64_t canonicalReplayReserveGrowthEvents = 0u;
+        // Concept: live semantic telemetry contains raw schedule counters. RVIS
+        // instead hashes the unchanged visual/exact content with the same
+        // canonical topology and reserve values written into this row.
+        const uint64_t canonicalSemanticHash =
+            ReplayVisualPacketOperations::BuildCanonicalReplayVisualArchiveSemanticHash(
+                sample.visualStateHash,
+                sample.exactPacketHash,
+                canonicalTopologyVersion,
+                canonicalReplayReserveGrowthEvents );
 #define SB_APPEND_REPLAY_VISUAL_FIELD( member ) AppendPod( bytes, sample.member )
         SB_APPEND_REPLAY_VISUAL_FIELD( sourceFrame );
         SB_APPEND_REPLAY_VISUAL_FIELD( revealFrame );

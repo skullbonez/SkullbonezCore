@@ -7,13 +7,13 @@ Task: `replay-mass-reduction` R4b
 ## Outcome
 
 R4b closes finding R3-F1. Live prediction counters remain raw; the RVPD and
-RVIS encoders now publish deterministic bookkeeping values. Two artifacts from
-the final encoder are whole-file byte-identical, and applying the same encoder
-rules to the two original R3 artifacts also produces that exact file.
+RVIS encoders now publish deterministic bookkeeping values. Applying the final
+encoder rules to both original R3 artifacts produces the exact file emitted by
+the repaired encoder.
 
-Whole-file SHA-256:
+Final content-sensitive whole-file SHA-256:
 
-`BF1B9C5B4D152C968ACF7C2C4C2020349B21B70A5507753931F28EF346DF04C8`
+`F916DED3AB5CE52EB0A2AA99FBAD846512F9B4EFEE6D49CC6DAD1F825ABC0B24`
 
 The artifact is 36,564,003 bytes. The unchanged gate-covered content oracle is:
 
@@ -31,7 +31,7 @@ No golden, baseline, provenance, scene, config, or simulation value changed.
 | RVPD inactive worker-bank lane 2/3 records at branch ordinal 240+ | `ReplayPredictionArchive.cpp:403-423` | Each retained record slot becomes the same excluded child-bank key with zero version, values, and point count. |
 | RVIS `topologyVersion` | `InteractionAutomationController.cpp:2477-2505`; `ReplayV2Artifact.cpp:1938-1970` | Dense first-publication ordinal, applied identically to offline expected packets and durable rows. |
 | RVIS `replayReserveGrowthEvents` | `InteractionAutomationController.cpp:2519`; `ReplayV2Artifact.cpp:1959,1991` | Durable constant `0`; the live report retains the raw counter. |
-| RVIS `semanticHash` | `ReplayV2Artifact.cpp:1958,1963` | Stable nonzero FNV offset sentinel; deterministic `visualStateHash` and `exactPacketHash` remain unchanged and fully checked. |
+| RVIS `semanticHash` | `ReplayVisualPacket.h`; `ReplayV2Artifact.cpp:1954-1971` | Content-sensitive FNV digest seeded by `visualStateHash` and extended with the canonical topology token, zero reserve telemetry, and `exactPacketHash`. |
 | MANI `visualPredictionBytes` / `visualPredictionHash` | `ReplayV2Artifact.cpp:2326-2337` | Consequence of the canonical RVPD payload; no special-case manifest write is required. |
 
 This covers every normalized field family in the R3 full binary diff. The
@@ -55,9 +55,10 @@ consequences and become stable automatically.
   240. The schedule-selected lane 2/3 bank at 240+ is explicitly excluded from
   visual/exact hashes; retaining fixed inert slots preserves record-count and
   reader layout contracts.
-- Reserve growth and the broader semantic hash are process diagnostics.
-  Durable visual and exact packet hashes, topology content, geometry bytes,
-  counts, and all lane hashes remain checked.
+- Reserve growth and the live semantic hash retain process diagnostics. The
+  durable semantic hash remains content-sensitive by hashing the unchanged
+  visual/exact packet digests with the serialized topology/reserve values.
+  Topology content, geometry bytes, counts, and all lane hashes remain checked.
 
 No reader depends on an absolute canonicalized value.
 
@@ -75,15 +76,27 @@ unchanged.
 
 | Artifact | Source bytes | Canonical/final bytes | Final SHA-256 |
 |---|---:|---:|---|
-| Original R3 before | 46,104,063 | 36,564,003 | `BF1B9C5B4D152C968ACF7C2C4C2020349B21B70A5507753931F28EF346DF04C8` |
-| Original R3 after | 46,104,064 | 36,564,003 | `BF1B9C5B4D152C968ACF7C2C4C2020349B21B70A5507753931F28EF346DF04C8` |
-| Final encoder artifact B | 36,564,003 | 36,564,003 | `BF1B9C5B4D152C968ACF7C2C4C2020349B21B70A5507753931F28EF346DF04C8` |
-| Final encoder artifact C | 36,564,003 | 36,564,003 | `BF1B9C5B4D152C968ACF7C2C4C2020349B21B70A5507753931F28EF346DF04C8` |
+| Original R3 before | 46,104,063 | 36,564,003 | `F916DED3AB5CE52EB0A2AA99FBAD846512F9B4EFEE6D49CC6DAD1F825ABC0B24` |
+| Original R3 after | 46,104,064 | 36,564,003 | `F916DED3AB5CE52EB0A2AA99FBAD846512F9B4EFEE6D49CC6DAD1F825ABC0B24` |
+| Review-fix encoder artifact | 36,564,003 | 36,564,003 | `F916DED3AB5CE52EB0A2AA99FBAD846512F9B4EFEE6D49CC6DAD1F825ABC0B24` |
 
-`TestOutput/agent_logs/replay-r4b-four-way-gate-oracle.json` proves all four
-artifacts retain the R3 gate-covered oracle SHA. The original-pair transform is
-recorded in
-`TestOutput/agent_logs/replay-r4b-original-mismatch-canonicalized-result.json`.
+The final direct byte comparison between each transformed original and the
+review-fix encoder artifact returned true. The proof is recorded in
+`TestOutput/agent_logs/replay-r4b-review-fix-original-canonicalized-result.json`;
+the emitted artifact is preserved as
+`TestOutput/agent_logs/replay-r4b-review-fix-final-encoder.skreplay`. The
+gate-covered projection remains the R3 SHA recorded above.
+
+## Independent-Review Reopen And Repair
+
+R7's mandatory independent review found that the first R4b implementation's
+fixed nonzero semantic sentinel erased a content-sensitive diagnostic contract.
+That finding reopened R4b. The repair adds one shared little-endian canonical
+semantic-hash primitive, uses it in RVIS serialization, mirrors it independently
+in the Python reader/checker, and adds an exact-vector plus mutation regression
+test. The row layout and supported reader versions remain unchanged, so the
+no-version-bump ruling still holds; the field now preserves strictly more of its
+existing meaning than the rejected sentinel implementation.
 
 ## Invocation Accounting And Validation
 
@@ -105,8 +118,16 @@ canonical values explicitly. Invocation C was the final full passing gate.
   CPU-revalidated successfully.
 - Mega C: 430.45 s; one engine/generation; 2,401 ticks, 200 moved bricks,
   187 toppled bricks, 199 causal nodes, and every negative control passed.
+- R7 pre-remediation mega: 433.42 s and PASS, but invalidated when the concurrent
+  independent review reopened R4b; it is not final-source R7 evidence.
+- Review-fix `tools\validate_tests.bat`: 7.45 s; 203/203 cases and
+  12,600/12,600 assertions, including canonical semantic hash sensitivity.
+- Review-fix original-pair transform: 17.55 s; both originals and the emitted
+  encoder artifact are byte-exact at the final SHA above.
+- Review-fix mega: 433.34 s; one engine/generation; unchanged 2,401/200/187/199
+  results and every negative control passed.
 
-Touched-source comment audit: 3/3 source-bearing files inspected against the
-comment-style guide; the serialization token, worker-bank exclusion, and
-cross-side comparison hazards have local teaching comments. The Python checker
-also documents why excluded raw fields remain explicitly verified.
+Touched-source comment audit: the original 3/3 files plus all four review-fix
+source/tool/test files were inspected against the comment-style guide; the
+serialization token, worker-bank exclusion, content-sensitive semantic digest,
+and cross-side comparison hazards have local teaching comments.

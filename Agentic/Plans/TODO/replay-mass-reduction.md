@@ -251,15 +251,18 @@ every single task.
       R4b therefore runs next, before R6.
       Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r4b-artifact-bookkeeping-determinism.md`
       inventories every writer/reader and records the no-version-bump ruling.
-      Live counters remain raw; RVPD/RVIS encode dense topology/record tokens
-      and explicit telemetry constants. The owner approved one additional
+      Live counters remain raw; RVPD/RVIS encode dense topology/record tokens,
+      zero reserve telemetry, and a content-sensitive canonical semantic hash.
+      The owner approved one additional
       same-tip invocation after the first run's zero sentinel was correctly
       rejected, for three total. Final artifacts B/C and both canonicalized
-      R3 originals are 36,564,003 bytes with whole-file SHA
-      `BF1B9C5B4D152C968ACF7C2C4C2020349B21B70A5507753931F28EF346DF04C8`;
+      R3 originals and the review-fix encoder artifact are 36,564,003 bytes
+      with whole-file SHA
+      `F916DED3AB5CE52EB0A2AA99FBAD846512F9B4EFEE6D49CC6DAD1F825ABC0B24`;
       all retain gate-covered SHA
       `363841634C50DB68D0C5CCF582A8BC07EFFC7FFED8DBF69D4444C6B3127DA2FA`.
-      Tests passed 202/202, fast tooling passed, and the final 430.45 s mega
+      The R7 independent review reopened and repaired the initial fixed
+      semantic sentinel. Tests now pass 203/203; the 433.34 s remediation mega
       passed one process/generation with unchanged 2,401/200/187/199 results.
 - [x] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
       reachability pass over the replay surface (public functions with zero
@@ -319,15 +322,13 @@ every single task.
   Release/Profile.
 - The deferred SoA/SIMD lane is unaffected; nothing here touches physics or
   the FP envelope.
-- **R3-F1 separately ruled follow-up:** complete artifact bytes are
-  run-to-run nondeterministic because wall-clock-bounded worker publication
-  changes transient topology/store versions, retained inactive worker records,
-  and reserve-growth diagnostics. Owner: replay. Reason: fixing it requires an
-  explicit artifact/compatibility decision, not a codec-mass side effect.
-  Completion condition: repeated same-tip whole artifacts compare equal with
-  legacy/current reader coverage. Review evidence: the R3 report's complete
-  binary inventory and three-way oracle. This follow-up is outside R3 and the
-  current eight-task campaign; it requires its own plan before implementation.
+- **R3-F1 ruled follow-up is closed by R4b:** R3 correctly recorded the
+  wall-clock-sensitive topology/store/inactive-bank/reserve fields without
+  changing them. The owner then added R4b to this campaign and grew the ledger
+  denominator 8 -> 9. R4b canonicalizes those values only at serialization;
+  the independent R7 review additionally required the durable semantic hash to
+  remain content-sensitive. The final original-pair and encoder byte proof is
+  recorded in the R4b report.
 
 ## Acceptance
 

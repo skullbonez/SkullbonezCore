@@ -15,7 +15,7 @@ plan inventory.
 | Current objective | Execute replay mass-reduction R7 → R8 strictly in order, beginning with the final census, binary proof, and independent whole-campaign review |
 | Active/future progress | 8 / 9 tasks = 89% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 121.33 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R6 is documentation-only: tests passed 202/202 in 2.22 s and its sole 431.54 s mega passed one process/generation with unchanged 2,401/200/187/199 results; no source/project/build/golden/baseline change |
+| Validation for current edits | R7 review reopened R4b's fixed semantic sentinel. The content-sensitive repair passes 203/203 tests in 7.45 s; both original mismatches and the real encoder are byte-exact at SHA `F916DED3...B24`; the 433.34 s remediation mega passed unchanged 2,401/200/187/199 results |
 
 ## Live Queue
 
@@ -38,10 +38,11 @@ plan inventory.
        zero-caller accessors, and retained all production, test-seam,
        CLI/config, and supported migration paths under individual rulings.
        R4b closed R3-F1 with a complete writer/reader inventory, dense durable
-       tokens, fixed telemetry constants, and a no-version-bump ruling. Both
-       original R3 artifacts and final artifacts B/C are byte-identical after
-       canonicalization at SHA `BF1B9C...04C8`; the R3 gate-covered SHA is
-       unchanged. The first zero sentinel was correctly rejected and the
+       tokens, zero reserve telemetry, a content-sensitive canonical semantic
+       hash, and a no-version-bump ruling. Both original R3 artifacts and the
+       real review-fix encoder are byte-identical after canonicalization at SHA
+       `F916DED3...B24`; the R3 gate-covered SHA is unchanged. The first zero
+       sentinel was correctly rejected and the
        owner approved one additional same-tip invocation, for three total;
        the final gate passed. R6 then recorded KEEP-cohesive rulings for the
        four oversized/near-threshold TUs; no source or project move was made.
@@ -275,9 +276,8 @@ plan inventory.
 
 ## Next Handoff
 
-Replay mass-reduction R0 is complete at 1/8. Continue with R1's single
-fingerprint pilot: Automation+Debug retain diagnostics, Release/Profile lose
-the object and expose no probe seam. R0's one-process oracle and unit gate are
-already committed evidence; R1 must run its own single mega-gate invocation
-and `validate_tests`. The externally administered validation-gate V3 lane
-remains blocked and excluded from the ledger.
+Replay mass-reduction is active at 8/9. R7's census/maps are measured; finish
+the same independent review after the content-sensitive RVIS semantic repair,
+then commit R7 and run R8's full/perf/allocation/final-mega closure gates. The
+externally administered validation-gate V3 lane remains blocked and excluded
+from the ledger.

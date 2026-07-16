@@ -95,6 +95,26 @@ def replay_visual_byte_hash(payload: bytes) -> int:
     return value
 
 
+def canonical_archive_semantic_hash(
+    visual_state_hash: int,
+    exact_packet_hash: int,
+    topology_version: int,
+    replay_reserve_growth_events: int,
+) -> int:
+    """Mirror the RVIS writer's content-sensitive canonical semantic digest."""
+    value = visual_state_hash
+    payload = struct.pack(
+        "<IQQ",
+        topology_version,
+        replay_reserve_growth_events,
+        exact_packet_hash,
+    )
+    for byte in payload:
+        value ^= byte
+        value = (value * REPLAY_VISUAL_FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return value
+
+
 def load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as stream:
         return json.load(stream)
@@ -460,11 +480,18 @@ def validate_artifact_roundtrip(report: dict[str, Any]) -> dict[str, Any]:
             published_topology_versions.append(live_topology_version)
             canonical_topology_version = len(published_topology_versions)
         # R4b keeps live report telemetry raw while the durable row carries an
-        # explicit first-publication topology token and fixed diagnostic
-        # sentinels. Verify those values directly; omitting these fields from
-        # the raw report equality loop must not make them unchecked.
+        # explicit first-publication topology token, zero reserve telemetry,
+        # and a content-sensitive semantic digest of canonical row values.
+        # Verify them directly; omitting these fields from the raw report
+        # equality loop must not make them unchecked.
+        expected_semantic_hash = canonical_archive_semantic_hash(
+            int(report_tick["visualStateHash"], 16),
+            int(report_tick["exactPacketHash"], 16),
+            canonical_topology_version,
+            0,
+        )
         canonical_bookkeeping = {
-            "semanticHash": (saved_packet.semantic_hash, REPLAY_VISUAL_FNV_OFFSET),
+            "semanticHash": (saved_packet.semantic_hash, expected_semantic_hash),
             "topologyVersion": (saved_packet.topology_version, canonical_topology_version),
             "replayReserveGrowthEvents": (saved_packet.replay_reserve_growth_events, 0),
         }
