@@ -1,10 +1,14 @@
 # Unit Test Coverage Campaign — Tiered Floors Over A Measured Baseline
 
 Date: 2026-07-16
-Status: Draft — NOT yet registered in `MASTER-PLAN.md` (task U0 performs
-registration when the owner activates this plan; do not start while another
-campaign owns the active ledger slot without an explicit owner instruction).
-0/10 tasks complete.
+Status: Registered future campaign — added to the `MASTER-PLAN.md` ledger by
+the 2026-07-16 ordering governance commit. 0/10 tasks complete. Binding
+order: execution starts ONLY after `physics-soa-simd-1000-bodies` closes at
+S8 (its S7 cutover regenerates every baseline/golden; unit tests written here
+must be authored against the post-cutover certified behavior, and U5's
+mega-gate invocation must not double-book the replay gate with a live
+campaign). U0's registration sub-step (a) is already satisfied by that
+governance commit; U0 begins at the tooling bring-up (b).
 Impact area: `SkullbonezTests/*`, `tools/` (new coverage lane), coverage
 tooling bring-up, `FIRST_TIME_SETUP.md`, per-subsystem unit coverage across
 Maths/Core/Physics/Startup/Runtime logic owners

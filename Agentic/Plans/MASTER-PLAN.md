@@ -95,7 +95,14 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | physics-soa-simd-1000-bodies | 6 | 9 | 67% |
-| **Active/future total** | **6** | **9** | **67%** |
+| unit-test-coverage-campaign (future; starts after SoA/SIMD S8) | 0 | 10 | 0% |
+| **Active/future total** | **6** | **19** | **32%** |
+
+The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
+unit-test coverage campaign as the next campaign in the portfolio (rule 4:
+new plans update the ledger and denominator in the same commit). It is a
+future plan: no coverage task may start until the SoA/SIMD campaign closes
+at S8.
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -135,6 +142,18 @@ chaotic-scale and focused mutual-gravity A/B oracles, and unchanged OFF-path
 proof. Paired Profile evidence is negative rather than a claimed speedup, so
 the S7 cutover budget remains binding. S6 is next: add dark narrowphase-prune
 and solver-row preparation kernels.
+
+Portfolio ordering after SoA/SIMD (2026-07-16 owner decision): the
+`unit-test-coverage-campaign` (0/10, registered future plan) begins at U0
+immediately after S8 closes — deliberately after the S7 cutover so its tests
+are authored against the post-cutover certified behavior and its single U5
+mega-gate invocation cannot collide with a live campaign's rule-11 budget.
+Standing note for the S7 approval decision: S5's enabled-path Profile
+finding is negative (force/gravity/broadphase kernels currently cost more
+than they save); the 0.80 ms ratified budget is the cutover precondition and
+S7 may not proceed on integration-pilot wins alone. An owner-commissioned
+pre-cutover adversarial review of the complete dark-kernel evidence is the
+expected step between S6 closure and any S7 approval.
 
 The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
 order. R0–R5 closed the census and implementation work: the
@@ -505,6 +524,30 @@ reconciliation.
 |---|---|---:|---|
 | [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active | 6/9 | S6: add dark narrowphase-prune and solver-row preparation kernels |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
+
+## Unit Test Coverage Campaign (2026-07-16, registered future)
+
+Source: the 2026-07-16 owner discussion on unit coverage. The engine has
+strong system oracles over an ~4% unit layer; twice in one week the gap was
+demonstrated (the ff6e780e knife-edge flip passed the byte-exact baseline;
+R3-F1's artifact nondeterminism was invisible until the first byte-compare).
+Owner direction: NO global percentage target — tiered per-subsystem floors
+ratified from a measured baseline (defaults: Tier 1 Maths/core 85%, Tier 2
+physics stores/stages/codecs/startup/config 70%, Tier 3 runtime logic owners
+50%, Tier 4 render/UI/platform excluded and left to the system gates), with
+the global number reported as an output only.
+
+Standing rules: behavioral assertions only, never golden-mirror tests; fixed
+seeds; `validate_tests` stays under ~60 s; coverage floors measure product
+lines with versioned exclusions; floors are a quality gate, not the banned
+migration-debt ratchet (U0 records that ruling); a new gate lane
+(`validate_coverage` via OpenCppCoverage) ships report-only at U0 and is
+armed at U9; U5's adversarial artifact decode is the campaign's single
+mega-gate invocation. Execution begins only after SoA/SIMD S8 closes.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | Future — blocked behind SoA/SIMD S8 | 0/10 | U0(b): coverage tooling bring-up, measured baseline, tier-map ratification, governance ruling |
 
 ## Features
 

@@ -12,13 +12,26 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | S6: add dark narrowphase-prune and solver-row preparation AVX2/FMA kernels with the same A/B and OFF-path proof |
-| Active/future progress | `physics-soa-simd-1000-bodies` 6 / 9 = 67% |
+| Current objective | S6: add dark narrowphase-prune and solver-row preparation AVX2/FMA kernels with the same A/B and OFF-path proof. After S6, an owner-commissioned pre-cutover adversarial review of all dark-kernel evidence precedes any S7 approval (S5's enabled-path Profile finding is negative; the 0.80 ms budget is the cutover precondition) |
+| Active/future progress | 6 / 19 tasks = 32% overall (SoA/SIMD 6/9 active + unit-test coverage 0/10 registered future, blocked behind S8) |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
 | Validation for current edits | S5 fast/physics/performance gates passed; chaotic and mutual-gravity A/B oracles passed with zero non-finite values; the paired enabled-path performance finding is negative and remains a binding S7 concern; no baseline/golden refresh |
 
 ## Live Queue
 
+0000000. `unit-test-coverage-campaign` is registered at 0/10 as the NEXT
+         campaign, blocked behind SoA/SIMD S8 (2026-07-16 owner ordering).
+         Do not start any U task while the SoA/SIMD campaign is open. On
+         activation, begin at U0(b): OpenCppCoverage bring-up,
+         `validate_coverage` lane shipped report-only, measured per-subsystem
+         baseline, tier-map/floors ratification (defaults: Tier 1 85%,
+         Tier 2 70%, Tier 3 50%, Tier 4 excluded), and the governance ruling
+         that quality-gate floors are not the banned migration-debt ratchet.
+         U5 (adversarial artifact decode) owns the campaign's single
+         mega-gate invocation and runs after the other tiers if any conflict
+         arises. Behavioral assertions only; fixed seeds; ~60 s
+         `validate_tests` budget; floors armed at U9 with a final measured
+         report and independent anti-gaming review.
 000000. `physics-soa-simd-1000-bodies` is active at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
