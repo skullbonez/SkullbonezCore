@@ -94,16 +94,17 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physics-soa-simd-1000-bodies (PAUSED at S5; owner hold remains in force) | 6 | 9 | 67% |
-| **Active/future total** | **6** | **9** | **67%** |
+| physics-soa-simd-1000-bodies (PAUSED after S6; S7 forbidden pending review and decision) | 7 | 9 | 78% |
+| **Active/future total** | **7** | **9** | **78%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign, then returned to 9 on 2026-07-17 when U0-U9
 closed and the completed campaign left the active/future ledger under rule 4.
 The tolerance-based behavioral/property suites now exist before the S7 golden
-regeneration and remain a binding cutover precondition. The SoA/SIMD campaign
-stays paused at 6/9 under the owner's current hold; closing U9 did not authorize
-starting S6 or S7.
+regeneration and remain a binding cutover precondition. The owner authorized
+exactly S6 on 2026-07-17; completion returns the campaign to a hard pause at
+7/9. An owner-commissioned adversarial review and explicit decision are next;
+S7 remains forbidden.
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -118,7 +119,7 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The owner-paused 2026-07-16 physics SoA/SIMD campaign has completed S0-S5. Its fixed-seed
+The owner-paused 2026-07-16 physics SoA/SIMD campaign has completed S0-S6. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
 body Physics Step averages 0.9978 ms on the Threadripper 3970X and the ratified
 final-cutover budget is no more than 0.80 ms. Capacity reaches 2,000 without
@@ -140,24 +141,36 @@ oracle. The pilot marker is 4.5% faster; the OFF path remains 44,401 lines
 byte-exact and full/performance gates pass. S5 added dark universal-gravity,
 mutual-pair, and broadphase-bounds kernels with masked-tail tests, passing
 chaotic-scale and focused mutual-gravity A/B oracles, and unchanged OFF-path
-proof. Paired Profile evidence is negative rather than a claimed speedup, so
-the S7 cutover budget remains binding. S6 is the next defined task, but the
-current owner hold forbids starting it.
+proof. S6 added dedicated narrowphase-prune and solver-row preparation kernels,
+masked-tail tests, a full toggle-ON doctest pass, and the combined scale matrix.
+At 1,000 bodies the enabled set measures 1.0666 ms against the binding 0.80 ms
+budget; the scalar solver core retains only 0.0092 ms (0.86% of step), so its
+follow-up trigger is not met. The campaign is paused at 7/9: adversarial review
+and an explicit owner decision come next, and S7 must not start.
 
 Portfolio ordering (2026-07-16 owner reorder, superseding the same-day
 "after S8" decision): `unit-test-coverage-campaign` completed U0-U9 on
 2026-07-17 before the SoA/SIMD cutover. Its tolerance-based momentum,
 orthonormality, bounds, grid, and stage-contract cases are the independent
 oracle that survives golden regeneration. U5 consumed the campaign's single
-mega-gate invocation. SoA/SIMD remains paused at 6/9 until a new owner
-instruction permits S6; then the owner-commissioned pre-cutover adversarial
-review follows, and only then may S7 be considered, with THREE preconditions
+mega-gate invocation. The owner authorized exactly S6 on 2026-07-17; SoA/SIMD
+is now paused at 7/9. The owner-commissioned pre-cutover adversarial review
+follows, and only then may S7 be considered, with THREE preconditions
 binding: (1) the ratified
 0.80 ms combined toggle-ON budget met (S5's enabled-path Profile finding is
 negative — force/gravity/broadphase kernels currently cost more than they
 save; S7 may not proceed on integration-pilot wins alone); (2) the unit and
 property suites pass with the SIMD toggle OFF and ON; (3) fresh explicit
 owner approval recorded at the time.
+
+U5 provenance governance (2026-07-17 owner ratification): the two replay
+golden provenance hashes changed only because S4's v3 SIMD-toggle config bump
+changed the mechanically verified `engine.cfg` hash and its direct causal
+binding. The owner retroactively ratified that content-free reconciliation and
+adopted the standing `AGENTS.md` rule: config format/version bumps
+automatically authorize provenance-hash-only reconciliation, recorded per
+instance; payload, tolerance, or non-provenance changes still require explicit
+approval.
 
 The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
 order. R0–R5 closed the census and implementation work: the
@@ -526,7 +539,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 6/9 (2026-07-16 owner reorder) | 6/9 | Resumes at S6 after the coverage campaign closes at U9; S7 gains the both-toggle-states test precondition |
+| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 7/9 after the one-step S6 authorization | 7/9 | Owner adversarial review, then explicit decision; do not start S7 |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Unit Test Coverage Campaign (2026-07-16, active)

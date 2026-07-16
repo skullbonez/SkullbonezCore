@@ -194,6 +194,12 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\BroadphaseKernel.cpp">
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\NarrowphasePruneKernel.cpp">
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\SolverRowKernel.cpp">
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.Execution.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp" />
@@ -243,6 +249,8 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\IntegrationKernel.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\ForceKernel.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\BroadphaseKernel.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\NarrowphasePruneKernel.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\SolverRowKernel.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h" />

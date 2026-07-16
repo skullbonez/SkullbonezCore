@@ -7,8 +7,9 @@ Summary:
   The stage rebuilds the spatial grid, preserves conservative fast-projectile
   augmentation, prunes fixed/joint/sleep-only pairs in their original order,
   and records the same bounded pipeline evidence as the certified facade code.
-  The default-OFF dark path can prepare eight conservative bounds at a time;
-  SpatialGrid still owns cell traversal, capacity, and pair order.
+  The default-OFF dark path can prepare eight conservative bounds and prune
+  eight deduplicated candidate pairs at a time; SpatialGrid still owns cell
+  traversal, capacity, and pair order.
 
 Glossary:
   Broadphase filter: Shape-aware cheap predicate applied while grid pairs form.
@@ -325,6 +326,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         context.modelCount,
         context.dt,
         context.contactSkin,
+        context.config.physicsExecution.simdKernels,
     };
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild" );
@@ -396,7 +398,16 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                 }
             }
         }
-        m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
+        if ( context.config.physicsExecution.simdKernels )
+        {
+            PROFILE_SCOPED( "Frame/Physics/Broadphase/NarrowphasePruneSimd" );
+            m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
+        }
+        else
+        {
+            PROFILE_SCOPED( "Frame/Physics/Broadphase/NarrowphasePruneScalar" );
+            m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
+        }
     }
 
     {

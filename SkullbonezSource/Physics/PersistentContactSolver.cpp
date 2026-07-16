@@ -51,6 +51,7 @@ Related:
 #include "ObjectContactManifold.h"
 #include "PhysicsBodyStore.h"
 #include "Stages/PhysicsContactSolverStage.h"
+#include "Stages/Kernels/SolverRowKernel.h"
 #include "../Core/Profiler.h"
 
 #include <algorithm>
@@ -974,8 +975,22 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // limits, and pulls the previous frame's accumulated impulses from the cache.
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
-        for ( PersistentContact& c : m_persistentContacts )
+        Kernels::SolverRowPrepBlock simdPrep;
+        for ( size_t rowIndex = 0; rowIndex < m_persistentContacts.size(); ++rowIndex )
         {
+            const int rowLane = static_cast<int>( rowIndex % Kernels::SOLVER_ROW_LANE_COUNT );
+            if ( config.physicsExecution.simdKernels && rowLane == 0 )
+            {
+                Kernels::PrepareSolverRowsAvx2( m_persistentContacts,
+                                                m_solverBodies,
+                                                static_cast<int>( rowIndex ),
+                                                invDt,
+                                                contactSlop,
+                                                baumgarteBeta,
+                                                maxBaumgarteBias,
+                                                simdPrep );
+            }
+            PersistentContact& c = m_persistentContacts[rowIndex];
             const SolverBodyState& bodyA = m_solverBodies[c.bodyA];
             const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
 
@@ -986,50 +1001,61 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             //   Skullbonez stores Catto's u1/u2 basis as c.tangent1/c.tangent2.
             //   The normal covers push-apart motion; the two tangent axes cover
             //   sideways sliding in the contact plane.
-            Physics::ContactSolver::BuildContactTangents( c.normal, c.tangent1, c.tangent2 );
+            if ( !config.physicsExecution.simdKernels )
+            {
+                Physics::ContactSolver::BuildContactTangents( c.normal, c.tangent1, c.tangent2 );
 
-            // CATTO REF:
-            //   Catto 2005, PDF p. 17, Algorithm 4 computes d_i = J_i*B_i. With
-            //   B = M^-1*J^T from PDF p. 14, Equations 34-35, this becomes the
-            //   familiar point-contact effective mass:
-            //       axis dot ((I^-1 * (r cross axis)) cross r) plus invMass terms.
-            // Effective mass says how stubborn this contact is. A light body pushed
-            // through its center moves easily; a heavy or off-center body resists more
-            // because some of the push also has to rotate it.
-            auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3 { return applyInvInertia( c.bodyA, v ); };
-            auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
-            { return c.isTerrain ? ZERO_VECTOR : applyInvInertia( c.bodyB, v ); };
-            c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass,
-                                                                                bodyB.invMass,
-                                                                                c.normal,
-                                                                                c.rA,
-                                                                                c.rB,
-                                                                                applyInvInertiaA,
-                                                                                applyInvInertiaB );
-            c.tangentMass1 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass,
-                                                                                  bodyB.invMass,
-                                                                                  c.tangent1,
-                                                                                  c.rA,
-                                                                                  c.rB,
-                                                                                  applyInvInertiaA,
-                                                                                  applyInvInertiaB );
-            c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass,
-                                                                                  bodyB.invMass,
-                                                                                  c.tangent2,
-                                                                                  c.rA,
-                                                                                  c.rB,
-                                                                                  applyInvInertiaA,
-                                                                                  applyInvInertiaB );
+                // CATTO REF:
+                //   Catto 2005, PDF p. 17, Algorithm 4 computes d_i = J_i*B_i. With
+                //   B = M^-1*J^T from PDF p. 14, Equations 34-35, this becomes the
+                //   familiar point-contact effective mass:
+                //       axis dot ((I^-1 * (r cross axis)) cross r) plus invMass terms.
+                // Effective mass says how stubborn this contact is. A light body pushed
+                // through its center moves easily; a heavy or off-center body resists more
+                // because some of the push also has to rotate it.
+                auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3 { return applyInvInertia( c.bodyA, v ); };
+                auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
+                { return c.isTerrain ? ZERO_VECTOR : applyInvInertia( c.bodyB, v ); };
+                c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass,
+                                                                                    bodyB.invMass,
+                                                                                    c.normal,
+                                                                                    c.rA,
+                                                                                    c.rB,
+                                                                                    applyInvInertiaA,
+                                                                                    applyInvInertiaB );
+                c.tangentMass1 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass,
+                                                                                      bodyB.invMass,
+                                                                                      c.tangent1,
+                                                                                      c.rA,
+                                                                                      c.rB,
+                                                                                      applyInvInertiaA,
+                                                                                      applyInvInertiaB );
+                c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass( bodyA.invMass,
+                                                                                      bodyB.invMass,
+                                                                                      c.tangent2,
+                                                                                      c.rA,
+                                                                                      c.rB,
+                                                                                      applyInvInertiaA,
+                                                                                      applyInvInertiaB );
+            }
             if ( !c.allowsTangentFriction )
             {
                 c.tangentMass1 = 0.0f;
                 c.tangentMass2 = 0.0f;
             }
 
-            Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
-            Vector3 velB =
-                c.isTerrain ? ZERO_VECTOR : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
-            float vn = ( velB - velA ) * c.normal;
+            float vn = 0.0f;
+            if ( config.physicsExecution.simdKernels )
+            {
+                vn = simdPrep.normalSpeed[rowLane];
+            }
+            else
+            {
+                Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
+                Vector3 velB = c.isTerrain ? ZERO_VECTOR
+                                           : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
+                vn = ( velB - velA ) * c.normal;
+            }
 
             // CATTO REF:
             //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -1086,8 +1112,9 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 float penetrationError = c.penetration - contactSlop;
                 if ( penetrationError > 0.0f )
                 {
-                    c.bias = baumgarteBeta * penetrationError * invDt;
-                    if ( maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
+                    c.bias = config.physicsExecution.simdKernels ? simdPrep.penetrationBias[rowLane]
+                                                                 : baumgarteBeta * penetrationError * invDt;
+                    if ( !config.physicsExecution.simdKernels && maxBaumgarteBias > 0.0f && c.bias > maxBaumgarteBias )
                     {
                         c.bias = maxBaumgarteBias;
                     }

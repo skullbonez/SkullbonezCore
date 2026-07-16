@@ -27,14 +27,16 @@
 //     authority over malformed or transitional shape data.
 //   - Integration-kernel activity masks exclude fixed, sleeping, and zero-time
 //     rows and preserve masked-tail bounds.
-//   - Force and broadphase kernels report valid/active lanes without horizontal
-//     reductions or out-of-range tail access.
+//   - Force, broadphase, narrowphase-prune, and solver-row kernels report
+//     valid/active lanes without horizontal reductions or tail over-read.
 //
 // Related:
 //   - SkullbonezSource/Physics/SolverBroadphaseStage.h
 //   - SkullbonezSource/Physics/Stages/Kernels/IntegrationKernel.h
 //   - SkullbonezSource/Physics/Stages/Kernels/ForceKernel.h
 //   - SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.h
+//   - SkullbonezSource/Physics/Stages/Kernels/NarrowphasePruneKernel.h
+//   - SkullbonezSource/Physics/Stages/Kernels/SolverRowKernel.h
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
@@ -49,6 +51,8 @@
 #include "../SkullbonezSource/Physics/Stages/Kernels/IntegrationKernel.h"
 #include "../SkullbonezSource/Physics/Stages/Kernels/ForceKernel.h"
 #include "../SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.h"
+#include "../SkullbonezSource/Physics/Stages/Kernels/NarrowphasePruneKernel.h"
+#include "../SkullbonezSource/Physics/Stages/Kernels/SolverRowKernel.h"
 
 #include <array>
 #include <cmath>
@@ -370,4 +374,85 @@ TEST_CASE( "Broadphase AVX2 kernel: swept and static AABB lanes keep masked tail
                                                                  0.0f,
                                                                  bounds );
     CHECK( bounds.validBits == 0x03u );
+}
+
+
+TEST_CASE( "Narrowphase prune AVX2 kernel: every partial block matches the scalar oracle" )
+{
+    PhysicsBodyStore& bodyStore = TestBodyStore();
+    ColliderRecordList& colliderRecords = TestColliderRecords();
+    for ( int index = 0; index < 9; ++index )
+    {
+        AddCandidateBody( bodyStore,
+                          colliderRecords,
+                          Vector3( static_cast<float>( index ) * 3.0f, 0.0f, 0.0f ),
+                          Vector3( index == 0 ? 8.0f : 0.0f, 0.0f, 0.0f ),
+                          1.0f );
+    }
+    std::array<std::pair<int, int>, 8> pairs = {};
+    for ( int lane = 0; lane < 8; ++lane )
+    {
+        pairs[static_cast<size_t>( lane )] = { 0, lane + 1 };
+    }
+    BroadphaseCandidateFilterContext scalarContext{ bodyStore.Records(),
+                                                     bodyStore.HotFields(),
+                                                     { colliderRecords.data(), colliderRecords.size() },
+                                                     9,
+                                                     0.5f,
+                                                     0.0f };
+    for ( int laneCount = 1; laneCount <= 8; ++laneCount )
+    {
+        uint32_t expected = 0u;
+        for ( int lane = 0; lane < laneCount; ++lane )
+        {
+            if ( BroadphaseCandidateCanTouch( &scalarContext, pairs[static_cast<size_t>( lane )].first,
+                                              pairs[static_cast<size_t>( lane )].second ) )
+            {
+                expected |= 1u << lane;
+            }
+        }
+        const uint32_t actual = SkullbonezCore::Physics::Kernels::PruneNarrowphasePairsAvx2(
+            bodyStore.HotFields(),
+            { colliderRecords.data(), colliderRecords.size() },
+            { pairs.data(), static_cast<size_t>( laneCount ) },
+            9,
+            0.5f,
+            0.0f );
+        CHECK( actual == expected );
+    }
+}
+
+
+TEST_CASE( "Solver row AVX2 kernel: masses anchor speed and bias preserve a two-row tail" )
+{
+    std::array<SkullbonezCore::Physics::SolverBodyState, 11> bodies = {};
+    for ( auto& body : bodies )
+    {
+        body.invMass = 1.0f;
+        body.invInertia = Vector3( 1.0f, 1.0f, 1.0f );
+    }
+    bodies[0].linearVelocity = Vector3( 1.0f, 0.0f, 0.0f );
+    std::array<SkullbonezCore::Physics::PersistentContact, 10> contacts = {};
+    for ( int row = 0; row < 10; ++row )
+    {
+        auto& contact = contacts[static_cast<size_t>( row )];
+        contact.bodyA = 0;
+        contact.bodyB = row + 1;
+        contact.normal = Vector3( 1.0f, 0.0f, 0.0f );
+        contact.penetration = 0.2f;
+    }
+
+    SkullbonezCore::Physics::Kernels::SolverRowPrepBlock block;
+    SkullbonezCore::Physics::Kernels::PrepareSolverRowsAvx2(
+        contacts, bodies, 0, 120.0f, 0.01f, 0.2f, 10.0f, block );
+    CHECK( block.validBits == 0xffu );
+    CHECK( contacts[0].normalMass == doctest::Approx( 0.5f ).epsilon( 1.0e-6 ) );
+    CHECK( contacts[0].tangentMass1 == doctest::Approx( 0.5f ).epsilon( 1.0e-6 ) );
+    CHECK( block.normalSpeed[0] == doctest::Approx( -1.0f ).epsilon( 1.0e-6 ) );
+    CHECK( block.penetrationBias[0] == doctest::Approx( 4.56f ).epsilon( 1.0e-5 ) );
+
+    SkullbonezCore::Physics::Kernels::PrepareSolverRowsAvx2(
+        contacts, bodies, 8, 120.0f, 0.01f, 0.2f, 10.0f, block );
+    CHECK( block.validBits == 0x03u );
+    CHECK( contacts[9].normalMass == doctest::Approx( 0.5f ).epsilon( 1.0e-6 ) );
 }

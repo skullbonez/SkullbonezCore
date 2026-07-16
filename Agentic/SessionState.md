@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (unit-test coverage campaign closed) |
+| Branch | `nightrunner-16th-july` (SoA/SIMD S6 complete; hard stop before S7) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Unit-test coverage U0 → U9 is complete. SoA/SIMD remains PAUSED at 6/9 under the owner's current hold — do not start S6 or S7 without a new instruction. |
-| Active/future progress | 6 / 9 tasks = 67% overall (completed unit-test coverage campaign excluded; SoA/SIMD 6/9 owner-paused) |
-| Last broad local gate | U9 final `tools\\validate_full.bat` passed in 153.88 s: CPU umbrella, zero-warning Automation/Debug builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and the 44,401-line byte-exact physics baseline passed |
-| Validation for current edits | U9 armed coverage passes all required-source checks and floors: Tier 1 ≥85%, Tier 2 ≥70%, Tier 3 ≥50%; final doctest count is 282 cases / 21,388 assertions |
+| Current objective | SoA/SIMD S6 is complete under the one-step owner authorization. Pause at 7/9; next is the owner adversarial review, then an explicit decision. Do not start S7. |
+| Active/future progress | 7 / 9 tasks = 78% overall (completed unit-test coverage campaign excluded; SoA/SIMD paused after S6) |
+| Last broad local gate | S6 `tools\\validate_full.bat` passed in 115.20 s: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and the 44,401-line byte-exact default-OFF physics baseline passed |
+| Validation for current edits | Fast, tests, armed coverage, physics, performance, and full gates pass; 284 cases / 21,403 assertions and physics stages/solver coverage 71.34% ≥70% |
 
 ## Live Queue
 
@@ -25,8 +25,8 @@ plan inventory.
          reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
          the tolerance-based behavioral/property suites are the only oracle
          that survives the golden regeneration, and S7 now requires them to
-         pass in both SIMD toggle states). SoA/SIMD is paused at 6/9 under the
-         owner's current hold; do not start S6 or S7 without a new instruction.
+         pass in both SIMD toggle states). SoA/SIMD is paused at 7/9 after the
+         S6-only authorization; do not start S7.
          U0 shipped OpenCppCoverage 0.9.9.0 and the report-only
          `validate_coverage` lane, measured the per-subsystem baseline,
          ratified the default floors (Tier 1 85%,
@@ -54,7 +54,7 @@ plan inventory.
          contracts, and raised every Tier-3 subsystem above 50%. U9 armed the
          ratified floors, added positive translation-unit scope
          checks, resolved the independent review, and closed the campaign.
-000000. `physics-soa-simd-1000-bodies` is PAUSED at 6/9. S0 registered the
+000000. `physics-soa-simd-1000-bodies` is PAUSED at 7/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
         does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
@@ -82,7 +82,11 @@ plan inventory.
         and 72,000-row mutual-gravity oracles passed without non-finite values;
         pre/post-optimization ON captures were byte-identical. Paired Profile
         evidence was negative, so the S7 cutover budget remains binding. S6
-        adds narrowphase-prune and solver-row preparation kernels.
+        added narrowphase-prune and solver-row preparation kernels, passed all
+        284 doctests with the toggle ON, and measured the complete enabled
+        matrix. The 1,000-body step is 1.0666 ms versus the 0.80 ms budget; the
+        retained scalar solver core is 0.0092 ms (0.86% of step). Next is the
+        owner adversarial review and explicit S7 decision; do not start S7.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -351,8 +355,9 @@ Unit-test coverage is complete at 10/10. All required translation units are
 present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
 Closure evidence, baseline deltas, the independent review, the three-file
 comment audit, and final validation live in
-`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD
-remains owner-paused at 6/9; do not begin S6 or S7 without a new instruction.
+`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD S6
+is complete and the campaign is paused at 7/9. Next is the owner-commissioned
+adversarial review and an explicit decision; do not begin S7.
 Replay mass reduction remains closed at 9/9 plus R8; the externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.

@@ -49,6 +49,7 @@ struct BroadphaseCandidateFilterContext
     int modelCount = 0;
     float dt = 0.0f;
     float contactSkin = 0.0f;
+    bool simdKernels = false;
 };
 
 inline Math::Vector::Vector3 BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields,

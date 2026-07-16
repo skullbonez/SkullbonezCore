@@ -1,10 +1,10 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: PAUSED at 6/9 (S0-S5 complete) by the 2026-07-16 owner reorder: the
-`unit-test-coverage-campaign` runs to completion FIRST so tolerance-based
-behavioral/property suites exist before the S7 cutover redefines every
-golden. S6 resumes only after that campaign closes at U9. S7's preconditions
+Status: PAUSED at 7/9 (S0-S6 complete). The owner lifted the hold for S6 only
+on 2026-07-17 and reinstated a hard stop before S7. The completed
+`unit-test-coverage-campaign` supplies tolerance-based behavioral/property
+suites before the S7 cutover redefines every golden. S7's preconditions
 now additionally include: the unit/property suites pass with the SIMD toggle
 OFF and ON, and the owner-commissioned pre-cutover adversarial review is
 complete.
@@ -206,13 +206,17 @@ path) until S7 flips the default in one owner-approved ceremony.
       mutual-gravity oracle, byte-identical pre/post-optimization ON artifacts,
       and green fast/physics/performance gates. The paired Profile evidence is
       honestly negative, so S7's 0.80 ms cutover precondition remains binding.
-- [ ] **S6 — Narrowphase prune + solver row-prep kernels (dark).**
+- [x] **S6 — Narrowphase prune + solver row-prep kernels (dark).**
       Sphere-sphere/AABB rejection kernel in the narrowphase front-end and
       vectorized solver row preparation (mass/anchor/bias precompute). The
       solver core iteration explicitly stays scalar; the report records the
       measured share of step time it retains and the follow-up trigger
       ("convert if solver core exceeds X% of budget at 1,000 bodies").
       Same evidence set; toggle OFF byte-exact.
+      Evidence: `Agentic/Reports/2026-07-17/soa-simd-s6-narrowphase-solver.md`
+      records two dedicated AVX2/FMA TUs, masked-tail coverage, the 2,000,000-
+      row A/B envelope, an all-284 toggle-ON doctest pass, the complete enabled
+      200/520/1,000/2,000 matrix, and the retained scalar-core measurement.
 - [ ] **S7 — The cutover ceremony (the one radioactive day).** Preconditions:
       replay-mass-reduction closed; S0 budget met or beaten with toggle ON
       on the benchmark matrix; all dark-kernel A/B reports reviewed. Then,

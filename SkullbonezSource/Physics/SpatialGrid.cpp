@@ -40,6 +40,7 @@ Related:
 
 #include "SpatialGrid.h"
 #include "SolverBroadphaseStage.h"
+#include "Stages/Kernels/NarrowphasePruneKernel.h"
 #include "../Core/FatalError.h"
 #include <algorithm>
 #include <cfloat>
@@ -484,6 +485,40 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     }
     memset( pairSeen, 0, wordsNeeded * sizeof( uint64_t ) );
 
+    std::pair<int, int> pendingPairs[SkullbonezCore::Physics::Kernels::NARROWPHASE_PRUNE_LANE_COUNT] = {};
+    int pendingPairCount = 0;
+    auto appendPair = [&]( int a, int b )
+    {
+        assert( outPairs.size() < outPairs.capacity() && "SpatialGrid candidate pair reserve exhausted" );
+        if ( outPairs.size() >= outPairs.capacity() )
+        {
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair reserve exhausted" );
+        }
+        outPairs.emplace_back( a, b );
+    };
+    auto flushPendingPairs = [&]()
+    {
+        if ( pendingPairCount == 0 )
+        {
+            return;
+        }
+        const std::span<const std::pair<int, int>> pairs( pendingPairs, static_cast<size_t>( pendingPairCount ) );
+        const uint32_t accepted = SkullbonezCore::Physics::Kernels::PruneNarrowphasePairsAvx2( filter->hotFields,
+                                                                                               filter->colliderRecords,
+                                                                                               pairs,
+                                                                                               filter->modelCount,
+                                                                                               filter->dt,
+                                                                                               filter->contactSkin );
+        for ( int lane = 0; lane < pendingPairCount; ++lane )
+        {
+            if ( ( accepted & ( 1u << lane ) ) != 0u )
+            {
+                appendPair( pendingPairs[lane].first, pendingPairs[lane].second );
+            }
+        }
+        pendingPairCount = 0;
+    };
+
     // Iterate only buckets that were actually touched this frame.
     for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
     {
@@ -567,19 +602,29 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                 if ( !( pairSeen[word] & bit ) )
                 {
                     pairSeen[word] |= bit;
+                    if ( filter && filter->simdKernels )
+                    {
+                        pendingPairs[pendingPairCount++] = std::pair<int, int>( a, bIdx );
+                        if ( pendingPairCount == SkullbonezCore::Physics::Kernels::NARROWPHASE_PRUNE_LANE_COUNT )
+                        {
+                            flushPendingPairs();
+                        }
+                        continue;
+                    }
                     if ( filter && !SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, bIdx ) )
                     {
                         continue;
                     }
-                    assert( outPairs.size() < outPairs.capacity() && "SpatialGrid candidate pair reserve exhausted" );
-                    if ( outPairs.size() >= outPairs.capacity() )
-                    {
-                        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair reserve exhausted" );
-                    }
-                    outPairs.emplace_back( a, bIdx );
+                    appendPair( a, bIdx );
                 }
             }
         }
+    }
+    // Invariant: the final partial block still runs the AVX2 masked-lane path;
+    // it is flushed only after all grid buckets so candidate order is unchanged.
+    if ( filter && filter->simdKernels )
+    {
+        flushPendingPairs();
     }
 }
 
