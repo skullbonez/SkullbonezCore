@@ -1,10 +1,10 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 7/9 tasks complete. R4b closed finding R3-F1: both original
-R3 artifacts and two final-encoder artifacts are whole-file byte-identical
-under canonical serialization while gate-covered content retains its R3 SHA.
-Continue at R6's move-only oversized-TU partition/cohesion pass.
+Status: Active — 8/9 tasks complete. R6 recorded explicit cohesion rulings for
+all four oversized/near-threshold translation units and rejected cosmetic or
+new-interface splits. Continue at R7's final census, binary proof, and
+independent campaign review.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -276,13 +276,20 @@ every single task.
       CLI, v2-v4 artifact, and internal snapshot migration branches remain
       reachable/supported. Profile/tests passed and the single 472.76 s mega
       passed unchanged; no golden/schema/baseline change.
-- [ ] **R6 — Oversized-TU partition pass.** Remaining TUs over ~2,000 lines
+- [x] **R6 — Oversized-TU partition pass.** Remaining TUs over ~2,000 lines
       (`ReplayPrediction.cpp` 4,424 is the primary target; `ReplayRecorder`
       as post-R3 size dictates) split into cohesive owner partitions
       (`ReplayPrediction.Simulation.cpp` / `.Trails.cpp` style — same owner,
       rule 5), or the closure review records why the remaining mass is one
       cohesive concern. No logic edits in this task — moves only, verified by
       the mega gate.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r6-cohesion-rulings.md`
+      records KEEP-cohesive rulings for `ReplayPrediction.cpp` (4,424 lines),
+      `ReplayRecorder.cpp` (3,488), `ReplayV2Artifact.cpp` (2,913), and
+      `ReplayPredictionDrawing.cpp` (2,061). Every physical split would need a
+      new internal API, duplicate a byte/order contract, or become a cosmetic
+      include fragment. No source/project/build change occurred. Tests passed
+      202/202 and the sole 431.54 s mega passed unchanged.
 - [ ] **R7 — Final census, binary proof, and independent review.** Re-run the
       R0 census and map-file measurement from the final tree: report
       product-config replay line/object deltas, automation-config totals, and

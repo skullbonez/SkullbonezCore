@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute replay mass-reduction R6 → R8 strictly in order, beginning with the move-only oversized-TU partition/cohesion pass |
-| Active/future progress | 7 / 9 tasks = 78% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
+| Current objective | Execute replay mass-reduction R7 → R8 strictly in order, beginning with the final census, binary proof, and independent whole-campaign review |
+| Active/future progress | 8 / 9 tasks = 89% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 121.33 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R4b tests passed 202/202; fast tooling passed in 54.00 s; original R3 artifacts and final B/C artifacts are byte-identical at SHA `BF1B9C...04C8`; the final 430.45 s mega passed one process/generation with unchanged 2,401/200/187/199 results; zero baseline/golden/provenance change |
+| Validation for current edits | R6 is documentation-only: tests passed 202/202 in 2.22 s and its sole 431.54 s mega passed one process/generation with unchanged 2,401/200/187/199 results; no source/project/build/golden/baseline change |
 
 ## Live Queue
 
-00000. `replay-mass-reduction` is active at 7/9. R0 closed the 42-file,
+00000. `replay-mass-reduction` is active at 8/9. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
        and reference gates. R1 proved the fingerprint boundary. R2 moved the
@@ -43,8 +43,10 @@ plan inventory.
        canonicalization at SHA `BF1B9C...04C8`; the R3 gate-covered SHA is
        unchanged. The first zero sentinel was correctly rejected and the
        owner approved one additional same-tip invocation, for three total;
-       the final gate passed. NEXT TASK IS R6's move-only oversized-TU
-       partition/cohesion pass. Binding rules for every other
+       the final gate passed. R6 then recorded KEEP-cohesive rulings for the
+       four oversized/near-threshold TUs; no source or project move was made.
+       NEXT TASK IS R7's final census, binary proof, and independent campaign
+       review. Binding rules for every other
        task: exactly one
        `tools\validate_replay_visual_fidelity.bat` invocation (one engine
        process, one prediction generation, zero golden refresh,

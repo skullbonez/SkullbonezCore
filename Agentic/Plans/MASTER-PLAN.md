@@ -98,8 +98,8 @@ validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 7 | 9 | 78% |
-| **Active/future total** | **7** | **9** | **78%** |
+| replay-mass-reduction | 8 | 9 | 89% |
+| **Active/future total** | **8** | **9** | **89%** |
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -133,8 +133,11 @@ same 36,564,003-byte file and whole-file SHA; the gate-covered projection SHA
 remains unchanged. The initial zero semantic sentinel was correctly rejected;
 the owner explicitly approved one additional same-tip invocation, making
 three R4b invocations total, and the final invocation passed. This exception
-is closed and inherited by no other task. The next task is R6's move-only
-owner-TU partition/cohesion pass.
+is closed and inherited by no other task. R6 then ruled the remaining four
+oversized/near-threshold replay translation units cohesive: a moves-only split
+would require a new internal API, duplicate byte/order contracts, or create a
+cosmetic include fragment. The next task is R7's final census, binary proof,
+and independent whole-campaign review.
 MASTER rule 11 (one mega-gate invocation, one engine process, no golden
 refresh, revert-on-diff) binds every other task.
 
