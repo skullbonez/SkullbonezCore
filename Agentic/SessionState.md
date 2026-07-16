@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-16
+Date: 2026-07-17
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-16th-july` (unit-test coverage campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U4 is complete; begin U5 replay artifact codec coverage |
-| Active/future progress | 11 / 19 tasks = 58% overall (unit-test coverage 5/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
+| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U5 is complete; begin U6 startup command-line and launch-resolution coverage |
+| Active/future progress | 12 / 19 tasks = 63% overall (unit-test coverage 6/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | U4 `validate_fast` passed, `validate_tests` passed 249 cases / 19,052 assertions, `validate_coverage` instrumented every case at 12,223 / 21,120 whole-product lines (57.87%), and `validate_physics` passed standalone smoke plus the 44,401-line byte-exact varied baseline; no baseline/golden refresh |
+| Validation for current edits | U5 `validate_tests` passed 252 cases / 19,153 assertions in 6.2 s; `validate_coverage` passed report-only at 12,955 / 22,764 whole-product lines (56.91%); the campaign's sole replay mega invocation produced one fresh engine artifact and every visual, causal, artifact, prediction, and determinism control passed after a provenance-only manifest correction; physics baselines untouched |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is ACTIVE at 5/10 (2026-07-16 owner
+0000000. `unit-test-coverage-campaign` is ACTIVE at 6/10 (2026-07-16 owner
          reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
          the tolerance-based behavioral/property suites are the only oracle
          that survives the golden regeneration, and S7 now requires them to
@@ -30,9 +30,8 @@ plan inventory.
          ratified the default floors (Tier 1 85%,
          Tier 2 70%, Tier 3 50%, Tier 4 excluded), and the governance ruling
          that quality-gate floors are not the banned migration-debt ratchet.
-         U5 (adversarial artifact decode) owns the campaign's single
-         mega-gate invocation and runs after the other tiers if any conflict
-         arises. Behavioral assertions only; fixed seeds; ~60 s
+         U5 (adversarial artifact decode) consumed the campaign's single
+         mega-gate invocation successfully. Behavioral assertions only; fixed seeds; ~60 s
          `validate_tests` budget; floors armed at U9 with a final measured
          report and independent anti-gaming review. U1 raised Maths to 86.41%
          and core primitives to 88.34% through behavioral contracts. U2 mapped
@@ -40,7 +39,9 @@ plan inventory.
          store, grid, broadphase, force, and terrain-stage boundaries. U4 locked
          sleep/support/underwater transitions, parallel island ordering,
          friction/restitution bounds, and repeated manifold feature stability.
-         Continue with U5's replay artifact codec adversarial matrix.
+         U5 locked canonical replay writes, malformed-table rejection, optional
+         track absence, and all full-artifact false-pass controls. Continue with
+         U6's startup command-line and launch-resolution matrix.
 000000. `physics-soa-simd-1000-bodies` is PAUSED at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
@@ -334,13 +335,15 @@ plan inventory.
 
 ## Next Handoff
 
-Unit-test coverage is active at 5/10. U0 established the Debug
+Unit-test coverage is active at 6/10. U0 established the Debug
 OpenCppCoverage lane and U1 raised Maths/core primitives above the ratified
 85% Tier-1 floor with behavioral contracts. U2 completed the 12-row Try-API
 matrix and bidirectional survey links. U3 covered store identity/refresh,
 grid boundaries, gravity receive flags, and terrain candidate ordering. U4
 locked sleep/narrowphase/contact-solver state transitions and deterministic
-feature/pair ordering. Continue with U5 replay artifact codec coverage. Physics SoA/SIMD remains
+feature/pair ordering. U5 covered replay artifact codec round-trip and
+adversarial decode, and consumed the campaign's single replay mega invocation.
+Continue with U6 startup seams. Physics SoA/SIMD remains
 paused at 6/9; do not begin S6 or
 S7 before U9 closes. Replay mass reduction remains closed at 9/9 plus R8;
 the externally administered validation-gate V3 lane remains blocked and

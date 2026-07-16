@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 5/10 tasks
-complete; begin at U5. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 6/10 tasks
+complete; begin at U6. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -227,7 +227,7 @@ skip it.
       than the stale/static-heavy 0x7C046000). `validate_coverage` passed with
       all cases participating and 12,223 / 21,120 whole-product lines (57.87%);
       `validate_fast` also passed after the wrapper change.
-- [ ] **U5 — Artifact codec round-trips and adversarial decode.** CPU-only
+- [x] **U5 — Artifact codec round-trips and adversarial decode.** CPU-only
       encode→decode round-trips for the replay artifact writer/readers:
       chunk-table integrity, every chunk tag present/absent combination the
       manifest schema allows, then adversarial inputs — truncated chunk,
@@ -242,6 +242,23 @@ skip it.
       `tools\validate_replay_visual_fidelity.bat` invocation (TestReplay*
       mapping row) — see Dependencies for sequencing against the replay
       campaign.
+      Complete 2026-07-17: `TestReplayArtifact` now drives the production v4
+      writer/reader through byte-canonical two-encode output, presentation
+      round-trip, all-optional-chunks-absent cleanup, empty-recorder rejection,
+      truncated payload, future version, past-EOF chunk range, duplicate BODY
+      tag, zero BODY count mismatch, and header file-size mismatch. The one
+      permitted mega invocation produced one fresh 2,401-tick/200-body artifact
+      and all causal, semantic-packet, byte-mutation, prediction-state, and ten
+      determinism false-pass controls succeeded offline. Its first fresh check
+      exposed S4's previously unrefreshed default-OFF `physics_simd_kernels`
+      config provenance; only `configSha256` and the dependent visual-manifest
+      hash were updated after proving every behavioral golden value unchanged.
+      `validate_tests` passed 252 cases / 19,153 assertions in 6.2 s;
+      `validate_coverage` passed report-only at 12,955 / 22,764 whole-product
+      lines (56.91%), with replay artifact codecs newly measured at 643 / 1,644
+      (39.11%) and explicitly remaining U9 floor work. The engine run took
+      about 6m26s after a 23.25 s zero-warning Automation build; no physics
+      baseline, tick, visual, causal, scene, shader, or authored value changed.
 - [ ] **U6 — Startup command line and launch resolution.** The Init-split
       payoff: exhaustive table-driven cases over `StartupCommandLine`
       (tokenizer quoting/whitespace edges, every flag/value directive family,
