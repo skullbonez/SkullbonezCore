@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 7/10 tasks
-complete; begin at U7. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 8/10 tasks
+complete; begin at U8. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -282,7 +282,7 @@ skip it.
       cases / 19,467 assertions in 7.4 s; `validate_coverage` passed with
       startup at 1,155 / 1,257 lines (91.89%, above the 70% Tier-2 floor) and
       whole-product output at 14,120 / 24,167 lines (58.43%).
-- [ ] **U7 — Config, schema migration, and property invariants.** (a)
+- [x] **U7 — Config, schema migration, and property invariants.** (a)
       `Config`/`engine.cfg` parse: every physics default clamped/validated
       path, v1→v2 migration determinism (already partially covered — fill to
       the Tier-2 floor), unknown-key and out-of-range handling. (b) The
@@ -294,7 +294,19 @@ skip it.
       insert/query round-trip under random AABBs including degenerate
       zero-extent boxes; restitution/friction outputs bounded for random
       contact configurations. Each property names its invariant and seed.
-      Gate: `validate_tests` + `validate_physics` byte-exact.
+      Gate: `validate_tests` + `validate_physics` byte-exact. Completed
+      2026-07-17: added deterministic v1 config loading/dump evidence with
+      unknown and out-of-range physics rows, plus named fixed-seed properties
+      for pair momentum, quaternion/matrix orthonormality, Newton-pair force
+      antisymmetry, prepared AABB round-trips (including zero extent), and
+      friction/restitution bounds. The property fixture explicitly initializes
+      zero vectors because `Vector3()` is intentionally uninitialized outside
+      Debug. Final `validate_tests` passed 268 cases / 20,986 assertions;
+      `validate_physics` passed standalone smokes and the 44,401-line
+      byte-exact baseline with zero-warning Debug/Profile builds; report-only
+      coverage passed at 14,135 / 24,167 lines (58.49%), including physics
+      stores 1,026 / 1,638 (62.64%), stages/solver 2,582 / 4,544 (56.82%), and
+      config/schema 400 / 422 (94.79%).
 - [ ] **U8 — Tier 3: runtime logic owners.** `InputRouter` binding-context
       enforcement and edge-memory (press/release across context switches),
       `RuntimeInteractionController` frame-policy table (the

@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-16th-july` (unit-test coverage campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U6 is complete; begin U7 config/schema and seeded property invariants |
-| Active/future progress | 13 / 19 tasks = 68% overall (unit-test coverage 7/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
+| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U7 is complete; begin U8 Tier-3 runtime logic owners |
+| Active/future progress | 14 / 19 tasks = 74% overall (unit-test coverage 8/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | U6 `validate_tests` passed 262 cases / 19,467 assertions in 7.4 s; `validate_coverage` passed report-only with startup at 1,155 / 1,257 lines (91.89%, above Tier 2) and whole product at 14,120 / 24,167 lines (58.43%); no engine launch or product-source change |
+| Validation for current edits | U7 final `validate_tests` passed 268 cases / 20,986 assertions; `validate_physics` passed standalone smokes, zero-warning Debug/Profile builds, and the 44,401-line byte-exact baseline; `validate_coverage` passed report-only at 14,135 / 24,167 lines (58.49%), with physics stores 62.64%, stages/solver 56.82%, and config/schema 94.79% |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is ACTIVE at 7/10 (2026-07-16 owner
+0000000. `unit-test-coverage-campaign` is ACTIVE at 8/10 (2026-07-16 owner
          reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
          the tolerance-based behavioral/property suites are the only oracle
          that survives the golden regeneration, and S7 now requires them to
@@ -42,7 +42,9 @@ plan inventory.
          U5 locked canonical replay writes, malformed-table rejection, optional
          track absence, and all full-artifact false-pass controls. U6 raised
          startup to 91.89% with CLI, scene/suite, launch-packet, and exact-error
-         coverage. Continue with U7's config/schema and seeded property matrix.
+         coverage. U7 added deterministic v1 config evidence and fixed-seed
+         momentum, quaternion/matrix, mutual-gravity, prepared-AABB, friction,
+         and restitution properties. Continue with U8's Tier-3 runtime owners.
 000000. `physics-soa-simd-1000-bodies` is PAUSED at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene

@@ -26,6 +26,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Maths/Quaternion.h"
 
@@ -120,6 +121,56 @@ TEST_CASE( "Quaternion: repeated multiply drift stays bounded and normalizable" 
     CHECK( MagnitudeSquared( value ) == doctest::Approx( 1.0f ).epsilon( 0.001f ) );
     value.Normalise();
     CHECK( MagnitudeSquared( value ) == doctest::Approx( 1.0f ).epsilon( kEpsilon ) );
+}
+
+
+TEST_CASE( "Property invariant: quaternion normalization and matrix orthonormality [seed 0x16C0FFEE]" )
+{
+    SkullbonezTests::FixedSeed random( 0x16C0FFEEu );
+    const Vector3 basisX( 1.0f, 0.0f, 0.0f );
+    const Vector3 basisY( 0.0f, 1.0f, 0.0f );
+    const Vector3 basisZ( 0.0f, 0.0f, 1.0f );
+
+    // Invariant: normalization is idempotent, and a normalized composition
+    // chain maps the three unit basis vectors to another orthonormal basis.
+    for ( int sample = 0; sample < 64; ++sample )
+    {
+        Quaternion value;
+        for ( int link = 0; link < 24; ++link )
+        {
+            Vector3 axis( random.Float( -1.0f, 1.0f ),
+                          random.Float( -1.0f, 1.0f ),
+                          random.Float( -1.0f, 1.0f ) );
+            const float axisMagnitude = SkullbonezCore::Math::Vector::VectorMag( axis );
+            if ( axisMagnitude <= TOLERANCE )
+            {
+                axis = basisX;
+            }
+            else
+            {
+                axis /= axisMagnitude;
+            }
+            Quaternion delta;
+            delta.RotateAboutAxis( axis, random.Float( -0.35f, 0.35f ) );
+            value *= delta;
+        }
+
+        value.Normalise();
+        const QuaternionComponents once = ComponentsOf( value );
+        value.Normalise();
+        CheckQuaternionNear( value, once, 0.000002f );
+
+        const auto matrix = value.GetOrientationMatrix();
+        const Vector3 x = matrix * basisX;
+        const Vector3 y = matrix * basisY;
+        const Vector3 z = matrix * basisZ;
+        CHECK( SkullbonezCore::Math::Vector::VectorMag( x ) == doctest::Approx( 1.0f ).epsilon( 0.00002f ) );
+        CHECK( SkullbonezCore::Math::Vector::VectorMag( y ) == doctest::Approx( 1.0f ).epsilon( 0.00002f ) );
+        CHECK( SkullbonezCore::Math::Vector::VectorMag( z ) == doctest::Approx( 1.0f ).epsilon( 0.00002f ) );
+        CHECK( fabsf( x * y ) <= 0.00002f );
+        CHECK( fabsf( x * z ) <= 0.00002f );
+        CHECK( fabsf( y * z ) <= 0.00002f );
+    }
 }
 
 

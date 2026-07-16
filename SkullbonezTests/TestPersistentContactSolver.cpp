@@ -35,6 +35,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestFixedSeed.h"
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
 
 #include "../SkullbonezSource/Core/Common.h"
@@ -315,6 +316,39 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
+}
+
+
+TEST_CASE( "Property invariant: friction and restitution outputs stay bounded [seed 0x16C0111D]" )
+{
+    SkullbonezTests::FixedSeed random( 0x16C0111Du );
+    constexpr int kContactSamples = 12;
+
+    // Invariant: tangent impulse magnitude never exceeds its Coulomb budget,
+    // and terrain bounce never returns more normal speed than restitution allows.
+    // Why: each sample runs the complete persistent row solver. Twelve spread
+    // values preserve a bounded property corpus without multiplying the coverage
+    // collector's instruction-tracing cost into a multi-minute per-case outlier.
+    for ( int sample = 0; sample < kContactSamples; ++sample )
+    {
+        float tangent1 = random.Float( -20.0f, 20.0f );
+        float tangent2 = random.Float( -20.0f, 20.0f );
+        const float frictionLimit = random.Float( 0.0f, 8.0f );
+        SkullbonezCore::Physics::ContactSolver::ClampFrictionVector( tangent1, tangent2, frictionLimit );
+        CHECK( sqrtf( tangent1 * tangent1 + tangent2 * tangent2 ) <= frictionLimit + 0.00002f );
+
+        const float closingSpeed = random.Float( 0.5f, 12.0f );
+        const float restitution = random.Float( 0.0f, 1.0f );
+        SolverFixture fixture;
+        fixture.config.bodySimulation.contactRestitutionThreshold = 0.0f;
+        fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -closingSpeed, 0.0f ), restitution );
+        fixture.AddTerrainContact( 0, static_cast<uint32_t>( sample + 1 ), 0.0f );
+        fixture.Solve();
+
+        const float outputSpeed = fixture.bodyStore.HotFields().linearVelocityY[0];
+        CHECK( outputSpeed >= -0.00002f );
+        CHECK( outputSpeed <= closingSpeed * restitution + 0.0001f );
+    }
 }
 
 

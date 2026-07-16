@@ -39,6 +39,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/SolverBroadphaseStage.h"
 #include "../SkullbonezSource/Core/Config.h"
@@ -282,6 +283,53 @@ TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and mass
     CHECK( forces[1] == SkullbonezCore::Math::Vector::ZERO_VECTOR );
     CHECK( forces[2] == SkullbonezCore::Math::Vector::ZERO_VECTOR );
     CHECK( forces[3] == SkullbonezCore::Math::Vector::ZERO_VECTOR );
+}
+
+
+TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [seed 0x16B0D1E5]" )
+{
+    SkullbonezTests::FixedSeed random( 0x16B0D1E5u );
+    PhysicsBodyStore& bodyStore = TestBodyStore();
+    PhysicsForceStage stage;
+    stage.ReserveBodyScratchCapacity( 2u );
+    SkullbonezCore::Core::PhysicsExecutionConfig execution;
+    execution.parallel = false;
+    execution.simdKernels = false;
+    WorkerPool inlinePool;
+    const std::array<uint8_t, 2> sleepState = { 0u, 0u };
+
+    // Invariant: the pair kernel computes one force and applies its exact
+    // negation to the other body, independent of mass, distance, or softening.
+    for ( int sample = 0; sample < 64; ++sample )
+    {
+        bodyStore.Clear();
+        PhysicsBodyCreateRecord left;
+        left.cold.mass = random.Float( 0.25f, 20.0f );
+        left.hot.inverseMass = 1.0f / left.cold.mass;
+        left.hot.position = Vector3( random.Float( -20.0f, 20.0f ),
+                                     random.Float( -20.0f, 20.0f ),
+                                     random.Float( -20.0f, 20.0f ) );
+        PhysicsBodyCreateRecord right;
+        right.cold.mass = random.Float( 0.25f, 20.0f );
+        right.hot.inverseMass = 1.0f / right.cold.mass;
+        right.hot.position = left.hot.position + Vector3( random.Float( 0.5f, 12.0f ),
+                                                           random.Float( 0.5f, 12.0f ),
+                                                           random.Float( 0.5f, 12.0f ) );
+        (void)bodyStore.CreateBodyRecord( left );
+        (void)bodyStore.CreateBodyRecord( right );
+        PhysicsWorldForces worldForces;
+        worldForces.mutualGravity.enabled = true;
+        worldForces.mutualGravity.gravitationalConstant = random.Float( 0.01f, 50.0f );
+        worldForces.mutualGravity.softeningLength = random.Float( 0.0f, 2.0f );
+
+        const Vector3* forces = stage.PrepareMutualGravityForces(
+            bodyStore.Records(), bodyStore.HotFields(), sleepState, 2, worldForces, execution, inlinePool );
+
+        REQUIRE( forces != nullptr );
+        CHECK( forces[0].x == -forces[1].x );
+        CHECK( forces[0].y == -forces[1].y );
+        CHECK( forces[0].z == -forces[1].z );
+    }
 }
 
 

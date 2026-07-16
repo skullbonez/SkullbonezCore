@@ -204,3 +204,31 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future
     CHECK( std::string( result.error.message ).find( "current version 3" ) != std::string::npos );
     CHECK( future.window.screenX == 1800 );
 }
+
+
+TEST_CASE( "SkullbonezCore::Core::EngineConfig: v1 physics migration is deterministic and rejects invalid rows" )
+{
+    TemporaryConfigFiles files;
+    REQUIRE( WriteTextFile( kConfigInputPath,
+                            "format_version = 1\n"
+                            "gravity = -12.5\n"
+                            "physics_sleep_frames = 1000001\n"
+                            "persistent_contact_solver_iterations = 1000001\n"
+                            "physics_parallel_mutual_gravity = off\n"
+                            "physics_v1_unknown = 77\n" ) );
+
+    EngineConfig first;
+    REQUIRE( first.Load( kConfigInputPath ).ok );
+    CHECK( first.worldForces.gravity == doctest::Approx( -12.5f ) );
+    CHECK( first.physicsSleep.frames == 30 );
+    CHECK( first.persistentContactSolver.iterations == 12 );
+    CHECK_FALSE( first.physicsExecution.parallelMutualGravity );
+    CHECK_FALSE( first.physicsExecution.simdKernels );
+    REQUIRE( DumpConfig( first ) );
+    const std::vector<std::string> firstDump = ReadLines( kConfigDumpPath );
+
+    EngineConfig second;
+    REQUIRE( second.Load( kConfigInputPath ).ok );
+    REQUIRE( DumpConfig( second ) );
+    CHECK( ReadLines( kConfigDumpPath ) == firstDump );
+}

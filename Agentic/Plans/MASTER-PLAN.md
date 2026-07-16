@@ -94,9 +94,9 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| unit-test-coverage-campaign (ACTIVE) | 7 | 10 | 70% |
+| unit-test-coverage-campaign (ACTIVE) | 8 | 10 | 80% |
 | physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
-| **Active/future total** | **13** | **19** | **68%** |
+| **Active/future total** | **14** | **19** | **74%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign. Later the same day the owner REORDERED it ahead
@@ -534,7 +534,7 @@ reconciliation.
 | [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 6/9 (2026-07-16 owner reorder) | 6/9 | Resumes at S6 after the coverage campaign closes at U9; S7 gains the both-toggle-states test precondition |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
-## Unit Test Coverage Campaign (2026-07-16, registered future)
+## Unit Test Coverage Campaign (2026-07-16, active)
 
 Source: the 2026-07-16 owner discussion on unit coverage. The engine has
 strong system oracles over an ~4% unit layer; twice in one week the gap was
@@ -557,7 +557,7 @@ the paused SoA/SIMD cutover.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 7/10 | U7: complete config/schema and seeded property invariants |
+| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 8/10 | U8: complete Tier-3 runtime logic-owner coverage |
 
 ## Features
 

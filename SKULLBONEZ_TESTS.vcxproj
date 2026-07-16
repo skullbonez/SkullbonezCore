@@ -281,6 +281,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezTests\TestFixedSeed.h" />
     <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>

@@ -34,6 +34,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
@@ -102,6 +103,54 @@ ColliderStore& TestColliderStore()
     return store;
 }
 } // namespace
+
+
+TEST_CASE( "Property invariant: equal-and-opposite impulses conserve pair momentum [seed 0x16A11CE5]" )
+{
+    SkullbonezTests::FixedSeed random( 0x16A11CE5u );
+    PhysicsBodyStore& store = TestBodyStore();
+
+    // Invariant: application-point torque may change angular momentum, but the
+    // zero-offset +J/-J pair cannot change total linear momentum.
+    for ( int sample = 0; sample < 64; ++sample )
+    {
+        store.Clear();
+        const float leftMass = random.Float( 0.25f, 20.0f );
+        const float rightMass = random.Float( 0.25f, 20.0f );
+        PhysicsBodyCreateRecord left = MakeBodyRecord( 1u, Vector3( 0.0f, 0.0f, 0.0f ) );
+        left.cold.mass = leftMass;
+        left.hot.inverseMass = 1.0f / leftMass;
+        left.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ),
+                                           random.Float( -5.0f, 5.0f ),
+                                           random.Float( -5.0f, 5.0f ) );
+        PhysicsBodyCreateRecord right = MakeBodyRecord( 2u, Vector3( 0.0f, 0.0f, 0.0f ) );
+        right.cold.mass = rightMass;
+        right.hot.inverseMass = 1.0f / rightMass;
+        right.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ),
+                                            random.Float( -5.0f, 5.0f ),
+                                            random.Float( -5.0f, 5.0f ) );
+        const PhysicsBodyHandle leftHandle = store.CreateBodyRecord( left );
+        const PhysicsBodyHandle rightHandle = store.CreateBodyRecord( right );
+        const Vector3 momentumBefore = left.hot.linearVelocity * leftMass + right.hot.linearVelocity * rightMass;
+        const Vector3 impulse( random.Float( -12.0f, 12.0f ),
+                               random.Float( -12.0f, 12.0f ),
+                               random.Float( -12.0f, 12.0f ) );
+
+        REQUIRE( store.ApplyBodyImpulse( leftHandle, impulse, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+        REQUIRE( store.ApplyBodyImpulse( rightHandle, impulse * -1.0f, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+        REQUIRE( store.ConsumePendingBodyImpulse( 0 ) );
+        REQUIRE( store.ConsumePendingBodyImpulse( 1 ) );
+
+        const auto hot = store.HotFields();
+        const Vector3 leftVelocity( hot.linearVelocityX[0], hot.linearVelocityY[0], hot.linearVelocityZ[0] );
+        const Vector3 rightVelocity( hot.linearVelocityX[1], hot.linearVelocityY[1], hot.linearVelocityZ[1] );
+        const Vector3 momentumAfter = leftVelocity * leftMass + rightVelocity * rightMass;
+        const Vector3 drift = momentumAfter - momentumBefore;
+        CHECK( fabsf( drift.x ) <= 0.0001f );
+        CHECK( fabsf( drift.y ) <= 0.0001f );
+        CHECK( fabsf( drift.z ) <= 0.0001f );
+    }
+}
 
 
 TEST_CASE( "Physics handles: body store resolves fresh handles and replay ids" )

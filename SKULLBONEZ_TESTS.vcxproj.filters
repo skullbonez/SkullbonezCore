@@ -344,5 +344,8 @@
     <ClInclude Include="SkullbonezTests\TestFatalCases.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestFixedSeed.h">
+      <Filter>Header Files\Tests</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

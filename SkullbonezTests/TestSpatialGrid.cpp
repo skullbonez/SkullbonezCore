@@ -26,6 +26,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 
@@ -170,5 +171,37 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
         {
             CHECK( HasPair( pairs, a, b ) );
         }
+    }
+}
+
+
+TEST_CASE( "Property invariant: prepared AABB insert/query round-trips including zero extent [seed 0x16AABB00]" )
+{
+    SkullbonezTests::FixedSeed random( 0x16AABB00u );
+    SpatialGrid& grid = TestGrid();
+
+    // Invariant: two identical prepared bounds always share at least one cell,
+    // even when min == max on every axis at a cell boundary.
+    for ( int sample = 0; sample < 64; ++sample )
+    {
+        grid.Clear();
+        const Vector3 center( random.Float( -50.0f, 50.0f ),
+                              random.Float( -50.0f, 50.0f ),
+                              random.Float( -50.0f, 50.0f ) );
+        const Vector3 extent = ( sample % 8 == 0 )
+                                   ? Vector3( 0.0f, 0.0f, 0.0f )
+                                   : Vector3( random.Float( 0.0f, 4.0f ),
+                                              random.Float( 0.0f, 4.0f ),
+                                              random.Float( 0.0f, 4.0f ) );
+        const Vector3 minimum = center - extent;
+        const Vector3 maximum = center + extent;
+
+        const Vector3 noDisplacement( 0.0f, 0.0f, 0.0f );
+        grid.InsertPreparedBounds( 0, center, noDisplacement, 0.0f, minimum, maximum, false );
+        grid.InsertPreparedBounds( 1, center, noDisplacement, 0.0f, minimum, maximum, false );
+        const auto pairs = CandidatePairs( grid );
+
+        REQUIRE( pairs.size() == 1u );
+        CHECK( pairs[0] == std::make_pair( 0, 1 ) );
     }
 }
