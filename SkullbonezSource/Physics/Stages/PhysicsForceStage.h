@@ -75,7 +75,7 @@ class PhysicsForceStage
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
     const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
-                                                             PhysicsBodyHotFieldsConstView hotFields,
+                                                             const PhysicsBodyHotFieldsConstView& hotFields,
                                                              std::span<const uint8_t> sleepState,
                                                              int modelCount,
                                                              const PhysicsWorldForces& worldForces,

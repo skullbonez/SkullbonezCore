@@ -72,7 +72,7 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-bool IsSolverBodyFixed( Physics::PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
+bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
@@ -80,7 +80,7 @@ bool IsSolverBodyFixed( Physics::PhysicsBodyHotFieldsConstView hotFields, int bo
 void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                const Physics::ColliderStore& colliderStore,
                                const Physics::PhysicsWorldForces& worldForces,
-                               Physics::PhysicsBodyHotFieldsConstView hotFields,
+                               const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                std::span<const uint8_t> sleepState,
                                std::vector<float>& timeRemaining,
                                const Vector3* mutualGravityForces,
@@ -105,7 +105,7 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
 
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                    const Physics::ColliderStore& colliderStore,
-                                   Physics::PhysicsBodyHotFieldsConstView hotFields,
+                                   const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                    std::span<const uint8_t> sleepState,
                                    std::span<const float> timeRemaining,
                                    int bodyIndex )
@@ -162,7 +162,7 @@ void PhysicsForceStage::ReserveBodyScratchCapacity( std::size_t capacity )
 }
 
 const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
-                                                              PhysicsBodyHotFieldsConstView hotFields,
+                                                              const PhysicsBodyHotFieldsConstView& hotFields,
                                                               std::span<const uint8_t> sleepState,
                                                               int modelCount,
                                                               const PhysicsWorldForces& worldForces,

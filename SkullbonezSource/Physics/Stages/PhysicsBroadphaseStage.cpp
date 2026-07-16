@@ -52,12 +52,12 @@ constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
 constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
 
-bool IsSolverBodyFixed( Physics::PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
+bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
-Vector3 SolverBodyPosition( Physics::PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
+Vector3 SolverBodyPosition( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return Physics::PhysicsBodyPosition( hotFields, static_cast<size_t>( bodyIndex ) );
 }
@@ -100,7 +100,7 @@ void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePa
     candidatePairs.emplace_back( a, b );
 }
 
-bool IsFastSmallSweepBody( Physics::PhysicsBodyHotFieldsConstView hotFields,
+bool IsFastSmallSweepBody( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                            std::span<const Physics::ColliderRecord> colliderRecords,
                            int bodyIndex,
                            float dt )
@@ -124,7 +124,7 @@ bool IsFastSmallSweepBody( Physics::PhysicsBodyHotFieldsConstView hotFields,
 
 // Invariant: contactEpsilon is the raw config value, not the clamped
 // broadphase contact skin. It controls only conservative pair admission.
-bool SweptSegmentTouchesExpandedBody( Physics::PhysicsBodyHotFieldsConstView hotFields,
+bool SweptSegmentTouchesExpandedBody( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                       std::span<const Physics::ColliderRecord> colliderRecords,
                                       int movingIndex,
                                       int targetIndex,
@@ -152,7 +152,7 @@ bool SweptSegmentTouchesExpandedBody( Physics::PhysicsBodyHotFieldsConstView hot
     return Vector::VectorMagSquared( closestRelative ) <= expandedRadius * expandedRadius;
 }
 
-bool IsFixedSolverCandidatePair( Physics::PhysicsBodyHotFieldsConstView hotFields,
+bool IsFixedSolverCandidatePair( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                  int modelCount,
                                  const std::pair<int, int>& pair )
 {
@@ -227,7 +227,7 @@ bool IsSleepPrunedCandidatePair( std::span<const uint8_t> sleepState, const std:
 }
 
 void TryRecordSleepPrunedCandidatePair( std::vector<Physics::PhysicsPipelineRecord>& physicsPipelineTrace,
-                                        Physics::PhysicsBodyHotFieldsConstView hotFields,
+                                        const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                         const std::pair<int, int>& pair )
 {
     if ( physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )

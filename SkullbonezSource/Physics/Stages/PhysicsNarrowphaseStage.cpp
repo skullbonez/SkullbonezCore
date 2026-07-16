@@ -46,7 +46,7 @@ namespace
 constexpr float PHYSICS_OBJECT_CCD_RADIUS_FRACTION = 0.25f;
 constexpr float PHYSICS_OBJECT_CCD_SKIN_SCALE = 4.0f;
 
-bool IsSolverBodyFixed( PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
+bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
@@ -67,7 +67,7 @@ bool IsUnderwaterSleepLocked( std::span<const uint8_t> underwaterSleepLocked, in
 // Concept: wake energy uses the same quietness thresholds as sleep eligibility.
 // A body with enough linear or angular motion can wake a sleeping neighbor
 // during persistent-contact handling.
-bool HasWakeEnergy( PhysicsBodyHotFieldsConstView hotFields, int awakeIndex, float sleepLinearSq, float sleepAngularSq )
+bool HasWakeEnergy( const PhysicsBodyHotFieldsConstView& hotFields, int awakeIndex, float sleepLinearSq, float sleepAngularSq )
 {
     const Vector3 vel = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( awakeIndex ) );
     const Vector3 omega = PhysicsBodyAngularVelocity( hotFields, static_cast<size_t>( awakeIndex ) );
@@ -76,7 +76,7 @@ bool HasWakeEnergy( PhysicsBodyHotFieldsConstView hotFields, int awakeIndex, flo
     return speedSq >= sleepLinearSq || omegaSq >= sleepAngularSq;
 }
 
-ObjectContactBodyView ObjectContactBodyViewAtTime( PhysicsBodyHotFieldsConstView hotFields, int index, float time )
+ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyHotFieldsConstView& hotFields, int index, float time )
 {
     const size_t bodyIndex = static_cast<size_t>( index );
     ObjectContactBodyView body;
@@ -86,7 +86,7 @@ ObjectContactBodyView ObjectContactBodyViewAtTime( PhysicsBodyHotFieldsConstView
     return body;
 }
 
-bool HasPersistentWakeContact( PhysicsBodyHotFieldsConstView hotFields,
+bool HasPersistentWakeContact( const PhysicsBodyHotFieldsConstView& hotFields,
                                std::span<const ColliderRecord> colliderRecords,
                                int awakeIndex,
                                int sleepingIndex,
@@ -115,7 +115,7 @@ bool HasPersistentWakeContact( PhysicsBodyHotFieldsConstView hotFields,
                                        manifold );
 }
 
-bool HasObjectContactAtTime( PhysicsBodyHotFieldsConstView hotFields,
+bool HasObjectContactAtTime( const PhysicsBodyHotFieldsConstView& hotFields,
                              std::span<const ColliderRecord> colliderRecords,
                              int bodyA,
                              int bodyB,
@@ -144,7 +144,7 @@ bool HasObjectContactAtTime( PhysicsBodyHotFieldsConstView hotFields,
                                        manifold );
 }
 
-float RefineObjectSweepContactTime( PhysicsBodyHotFieldsConstView hotFields,
+float RefineObjectSweepContactTime( const PhysicsBodyHotFieldsConstView& hotFields,
                                     std::span<const ColliderRecord> colliderRecords,
                                     int bodyA,
                                     int bodyB,
@@ -203,7 +203,7 @@ float RefineObjectSweepContactTime( PhysicsBodyHotFieldsConstView hotFields,
     return hi;
 }
 
-ObjectContactSweepResult SweepObjectPair( PhysicsBodyHotFieldsConstView hotFields,
+ObjectContactSweepResult SweepObjectPair( const PhysicsBodyHotFieldsConstView& hotFields,
                                           std::span<const ColliderRecord> colliderRecords,
                                           int bodyA,
                                           int bodyB,
@@ -253,7 +253,7 @@ bool ObjectPairHasPersistentContactCache( const std::vector<PersistentContactCac
            ( static_cast<uint64_t>( cachedIt->key ) & 0xffffffff00000000ull ) == pairPrefix;
 }
 
-bool ObjectPairNeedsSweptCcd( PhysicsBodyHotFieldsConstView hotFields,
+bool ObjectPairNeedsSweptCcd( const PhysicsBodyHotFieldsConstView& hotFields,
                               std::span<const ColliderRecord> colliderRecords,
                               const std::vector<PersistentContactCacheEntry>& persistentContactCache,
                               int bodyAIndex,
@@ -330,7 +330,7 @@ void PhysicsNarrowphaseStage::MarkObjectVisualEvent( ObjectNarrowphaseEvent& eve
 }
 
 void PhysicsNarrowphaseStage::WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                                             PhysicsBodyHotFieldsConstView hotFields,
+                                                             const PhysicsBodyHotFieldsConstView& hotFields,
                                                              int bodyA,
                                                              int bodyB,
                                                              float invCellSize )

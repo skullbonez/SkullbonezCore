@@ -149,7 +149,7 @@ class PhysicsNarrowphaseStage
                                               float availableTime );
     static void MarkObjectVisualEvent( ObjectNarrowphaseEvent& event, int bodyA, int bodyB );
     static void WriteObjectCollisionCellEvent( ObjectNarrowphaseEvent& event,
-                                               PhysicsBodyHotFieldsConstView hotFields,
+                                               const PhysicsBodyHotFieldsConstView& hotFields,
                                                int bodyA,
                                                int bodyB,
                                                float invCellSize );

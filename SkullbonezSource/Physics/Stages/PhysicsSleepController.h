@@ -80,7 +80,7 @@ class PhysicsNarrowphaseWakeAccess
                                   const ColliderStore& colliderStore,
                                   const PhysicsWorldForces& worldForces,
                                   std::span<PhysicsBodyRecord> bodyRecords,
-                                  PhysicsBodyHotFieldsView hotFields,
+                                  const PhysicsBodyHotFieldsView& hotFields,
                                   std::span<float> timeRemaining,
                                   std::span<uint8_t> sleepState,
                                   std::span<uint8_t> sleepCounter,

@@ -180,7 +180,10 @@ struct PhysicsBodyHotFieldsView
     std::span<uint8_t> awake;
 };
 
-inline PhysicsBodyHotFieldsConstView ConstPhysicsBodyHotFields( PhysicsBodyHotFieldsView fields )
+// Why: each view aggregates 20 spans. Hot helpers borrow the aggregate by
+// reference so nested scalar calls do not copy hundreds of bytes per body or
+// candidate pair; the spans still retain the store-owned lifetime.
+inline PhysicsBodyHotFieldsConstView ConstPhysicsBodyHotFields( const PhysicsBodyHotFieldsView& fields )
 {
     return { fields.positionX,
              fields.positionY,
@@ -204,27 +207,28 @@ inline PhysicsBodyHotFieldsConstView ConstPhysicsBodyHotFields( PhysicsBodyHotFi
              fields.awake };
 }
 
-inline Math::Vector::Vector3 PhysicsBodyPosition( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+inline Math::Vector::Vector3 PhysicsBodyPosition( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
 {
     return { fields.positionX[index], fields.positionY[index], fields.positionZ[index] };
 }
 
-inline Math::Vector::Vector3 PhysicsBodyLinearVelocity( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+inline Math::Vector::Vector3 PhysicsBodyLinearVelocity( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
 {
     return { fields.linearVelocityX[index], fields.linearVelocityY[index], fields.linearVelocityZ[index] };
 }
 
-inline Math::Vector::Vector3 PhysicsBodyAngularVelocity( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+inline Math::Vector::Vector3 PhysicsBodyAngularVelocity( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
 {
     return { fields.angularVelocityX[index], fields.angularVelocityY[index], fields.angularVelocityZ[index] };
 }
 
-inline Math::Vector::Vector3 PhysicsBodyInverseInertia( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+inline Math::Vector::Vector3 PhysicsBodyInverseInertia( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
 {
     return { fields.inverseInertiaX[index], fields.inverseInertiaY[index], fields.inverseInertiaZ[index] };
 }
 
-inline Math::Orientation::Quaternion PhysicsBodyOrientation( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+inline Math::Orientation::Quaternion PhysicsBodyOrientation( const PhysicsBodyHotFieldsConstView& fields,
+                                                             std::size_t index )
 {
     return { fields.orientationX[index],
              fields.orientationY[index],
@@ -232,7 +236,7 @@ inline Math::Orientation::Quaternion PhysicsBodyOrientation( PhysicsBodyHotField
              fields.orientationW[index] };
 }
 
-inline PhysicsBodyHotState LoadPhysicsBodyHotState( PhysicsBodyHotFieldsConstView fields, std::size_t index )
+inline PhysicsBodyHotState LoadPhysicsBodyHotState( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
 {
     PhysicsBodyHotState state;
     state.position = Math::Vector::Vector3( fields.positionX[index], fields.positionY[index], fields.positionZ[index] );
@@ -256,13 +260,15 @@ inline PhysicsBodyHotState LoadPhysicsBodyHotState( PhysicsBodyHotFieldsConstVie
     return state;
 }
 
-inline PhysicsBodyHotState LoadPhysicsBodyHotState( PhysicsBodyHotFieldsView fields, std::size_t index )
+inline PhysicsBodyHotState LoadPhysicsBodyHotState( const PhysicsBodyHotFieldsView& fields, std::size_t index )
 {
     return LoadPhysicsBodyHotState( ConstPhysicsBodyHotFields( fields ), index );
 }
 
 inline void
-StorePhysicsBodyHotState( PhysicsBodyHotFieldsView fields, std::size_t index, const PhysicsBodyHotState& state )
+StorePhysicsBodyHotState( const PhysicsBodyHotFieldsView& fields,
+                          std::size_t index,
+                          const PhysicsBodyHotState& state )
 {
     fields.positionX[index] = state.position.x;
     fields.positionY[index] = state.position.y;

@@ -51,7 +51,7 @@ struct SleepSupportPropagationContext
 class SleepIslandSystem
 {
   public:
-    void PropagateSupport( SleepSupportPropagationContext& context, PhysicsBodyHotFieldsConstView hotFields );
+    void PropagateSupport( SleepSupportPropagationContext& context, const PhysicsBodyHotFieldsConstView& hotFields );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

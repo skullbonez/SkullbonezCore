@@ -1,8 +1,8 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Active — registered in `MASTER-PLAN.md`; S0-S2 are complete and S3 is
-next. 3/9 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md`; S0-S3 are complete and S4 is
+next. 4/9 tasks complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden
@@ -163,12 +163,17 @@ path) until S7 flips the default in one owner-approved ceremony.
       204-test/full/allocation proof, final 44,401-line byte-exact physics
       output, and the single passing one-process replay mega invocation. No
       baseline or golden changed.
-- [ ] **S3 — SoA-scalar measurement checkpoint.** Re-run the S0 benchmark
+- [x] **S3 — SoA-scalar measurement checkpoint.** Re-run the S0 benchmark
       matrix on the SoA-scalar build and commit the comparison: the layout
       alone should already move bandwidth-bound stages. If SoA-scalar
       regresses any stage beyond noise, diagnose and fix before any kernel
       work (a layout that loses scalar perf will not win it back in SIMD).
       Gates: `validate_perf` + byte-exact `validate_physics`.
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s3-scalar-checkpoint.md`
+      records the diagnosed 20-span by-value copy/full-row traffic regression,
+      the bit-neutral correction, the final 200/520/1,000/2,000-body matrix,
+      0.9795 ms at 1,000 bodies versus S0's 0.9978 ms, 15/15 comment audit,
+      clean performance gate, and 44,401-line byte-exact physics proof.
 - [ ] **S4 — Kernel infrastructure + integration pilot (dark).** Add the
       `physicsExecution.simdKernels` config toggle (default OFF, config
       version bump + migration + format tests per the versioning policy),

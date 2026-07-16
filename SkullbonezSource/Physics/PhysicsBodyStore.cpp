@@ -308,7 +308,7 @@ uint32_t NextHandleGeneration( uint32_t generation )
 }
 
 PreservedRefreshStateList CapturePreservedRefreshState( const PhysicsBodyRecordList& bodies,
-                                                        PhysicsBodyHotFieldsConstView hotFields,
+                                                        const PhysicsBodyHotFieldsConstView& hotFields,
                                                         std::size_t handleSlotCount )
 {
     PreservedRefreshStateList preserved( "PhysicsBodyStore.preservedRefreshStateByHandle" );
@@ -1970,9 +1970,20 @@ bool PhysicsBodyStore::ConsumePendingBodyImpulse( int modelIndex )
         return false;
     }
 
-    PhysicsBodyHotState hot = HotStateForModelIndex( modelIndex );
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    PhysicsBodyHotState hot;
+    hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
+    hot.angularVelocity =
+        Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
     ApplyPendingImpulse( *record, hot );
-    StoreHotStateAt( modelIndex, hot );
+    // Why: an impulse can only change velocity. Writing the entire 20-field row
+    // here needlessly pollutes the scalar hot path and obscures that invariant.
+    m_linearVelocityX[bodyIndex] = hot.linearVelocity.x;
+    m_linearVelocityY[bodyIndex] = hot.linearVelocity.y;
+    m_linearVelocityZ[bodyIndex] = hot.linearVelocity.z;
+    m_angularVelocityX[bodyIndex] = hot.angularVelocity.x;
+    m_angularVelocityY[bodyIndex] = hot.angularVelocity.y;
+    m_angularVelocityZ[bodyIndex] = hot.angularVelocity.z;
     return true;
 }
 
@@ -1985,7 +1996,18 @@ bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, in
     {
         return false;
     }
-    PhysicsBodyHotState hot = HotStateForModelIndex( modelIndex );
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    PhysicsBodyHotState hot;
+    hot.position = Vector3( m_positionX[bodyIndex], m_positionY[bodyIndex], m_positionZ[bodyIndex] );
+    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex],
+                                                     m_orientationY[bodyIndex],
+                                                     m_orientationZ[bodyIndex],
+                                                     m_orientationW[bodyIndex] );
+    hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
+    hot.angularVelocity =
+        Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
+    hot.fixed = m_fixed[bodyIndex] != 0u;
+    hot.awake = m_awake[bodyIndex] != 0u;
     if ( hot.fixed || !hot.awake )
     {
         return false;
@@ -1996,7 +2018,21 @@ bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, in
     // Why: this value is a targeted underwater-sleep probe, not general body
     // state. Any pose integration invalidates the previous water sample.
     record->submergedVolumePercent = 0.0f;
-    StoreHotStateAt( modelIndex, hot );
+    // Invariant: pose integration simplifies both velocity vectors and mutates
+    // only pose plus velocity, so unrelated mass, radius, and flags stay cold.
+    m_positionX[bodyIndex] = hot.position.x;
+    m_positionY[bodyIndex] = hot.position.y;
+    m_positionZ[bodyIndex] = hot.position.z;
+    hot.orientation.GetComponents( m_orientationX[bodyIndex],
+                                   m_orientationY[bodyIndex],
+                                   m_orientationZ[bodyIndex],
+                                   m_orientationW[bodyIndex] );
+    m_linearVelocityX[bodyIndex] = hot.linearVelocity.x;
+    m_linearVelocityY[bodyIndex] = hot.linearVelocity.y;
+    m_linearVelocityZ[bodyIndex] = hot.linearVelocity.z;
+    m_angularVelocityX[bodyIndex] = hot.angularVelocity.x;
+    m_angularVelocityY[bodyIndex] = hot.angularVelocity.y;
+    m_angularVelocityZ[bodyIndex] = hot.angularVelocity.z;
     return true;
 }
 
@@ -2013,18 +2049,39 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
     {
         return false;
     }
-    PhysicsBodyHotState hot = HotStateForModelIndex( modelIndex );
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    PhysicsBodyHotState hot;
+    hot.position = Vector3( m_positionX[bodyIndex], m_positionY[bodyIndex], m_positionZ[bodyIndex] );
+    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex],
+                                                     m_orientationY[bodyIndex],
+                                                     m_orientationZ[bodyIndex],
+                                                     m_orientationW[bodyIndex] );
+    hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
+    hot.angularVelocity =
+        Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
+    hot.boundingRadius = m_boundingRadius[bodyIndex];
+    hot.fixed = m_fixed[bodyIndex] != 0u;
     if ( hot.fixed )
     {
-        hot.linearVelocity = ZERO_VECTOR;
-        hot.angularVelocity = ZERO_VECTOR;
-        StoreHotStateAt( modelIndex, hot );
+        m_linearVelocityX[bodyIndex] = 0.0f;
+        m_linearVelocityY[bodyIndex] = 0.0f;
+        m_linearVelocityZ[bodyIndex] = 0.0f;
+        m_angularVelocityX[bodyIndex] = 0.0f;
+        m_angularVelocityY[bodyIndex] = 0.0f;
+        m_angularVelocityZ[bodyIndex] = 0.0f;
         return false;
     }
 
     ThrottleAngularVelocity( *record, hot );
     ApplyWorldForces( *record, hot, *collider, worldForces, deltaSeconds, precomputedMutualGravityForce );
     ApplyPendingImpulse( *record, hot );
-    StoreHotStateAt( modelIndex, hot );
+    // Invariant: force and pending-impulse integration are velocity-only edits.
+    // Keeping the writes narrow avoids a 20-field round trip per active body.
+    m_linearVelocityX[bodyIndex] = hot.linearVelocity.x;
+    m_linearVelocityY[bodyIndex] = hot.linearVelocity.y;
+    m_linearVelocityZ[bodyIndex] = hot.linearVelocity.z;
+    m_angularVelocityX[bodyIndex] = hot.angularVelocity.x;
+    m_angularVelocityY[bodyIndex] = hot.angularVelocity.y;
+    m_angularVelocityZ[bodyIndex] = hot.angularVelocity.z;
     return true;
 }

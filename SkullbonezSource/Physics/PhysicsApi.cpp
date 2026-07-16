@@ -315,7 +315,7 @@ float ComputeInverseMass( PhysicsBodyMotionKind motionKind, float mass )
     return motionKind == PhysicsBodyMotionKind::Fixed || mass <= 0.0f ? 0.0f : 1.0f / mass;
 }
 
-bool BodyPassesQueryFilters( PhysicsBodyHotFieldsConstView hotFields,
+bool BodyPassesQueryFilters( const PhysicsBodyHotFieldsConstView& hotFields,
                              std::size_t bodyIndex,
                              bool includeFixedBodies,
                              bool includeSleepingBodies,
@@ -361,8 +361,9 @@ float EffectiveColliderRadius( const ColliderRecord& collider )
     return ConservativeBroadphaseRadius( collider.boundingRadius, collider.shape );
 }
 
-Vector3
-ColliderWorldCenter( PhysicsBodyHotFieldsConstView hotFields, std::size_t bodyIndex, const ColliderRecord& collider )
+Vector3 ColliderWorldCenter( const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::size_t bodyIndex,
+                             const ColliderRecord& collider )
 {
     // Why: local collider offsets live in body space. Rotate them through the
     // body orientation before doing any world-space query math so conservative

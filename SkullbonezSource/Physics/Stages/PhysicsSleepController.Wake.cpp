@@ -45,7 +45,7 @@ namespace
 constexpr float EXPLICIT_WAKE_NEIGHBOR_SLOP = 0.50f;
 constexpr float EXPLICIT_WAKE_VERTICAL_SLOP = 0.25f;
 
-bool IsSolverBodyFixed( PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
+bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<std::size_t>( bodyIndex )] != 0u;
 }
@@ -368,7 +368,7 @@ PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsBodyStore& bo
                                                             const ColliderStore& colliderStore,
                                                             const PhysicsWorldForces& worldForces,
                                                             std::span<PhysicsBodyRecord> bodyRecords,
-                                                            PhysicsBodyHotFieldsView hotFields,
+                                                            const PhysicsBodyHotFieldsView& hotFields,
                                                             std::span<float> timeRemaining,
                                                             std::span<uint8_t> sleepState,
                                                             std::span<uint8_t> sleepCounter,

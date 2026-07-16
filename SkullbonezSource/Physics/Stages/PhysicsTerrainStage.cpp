@@ -50,13 +50,13 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-bool IsSolverBodyFixed( PhysicsBodyHotFieldsConstView hotFields, int bodyIndex )
+bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
     return hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u;
 }
 
 TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
-                                                       PhysicsBodyHotFieldsConstView hotFields,
+                                                       const PhysicsBodyHotFieldsConstView& hotFields,
                                                        const SkullbonezCore::Core::EngineConfig& config,
                                                        int index )
 {
