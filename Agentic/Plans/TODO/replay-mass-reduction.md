@@ -1,10 +1,10 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 8/9 tasks complete. R6 recorded explicit cohesion rulings for
-all four oversized/near-threshold translation units and rejected cosmetic or
-new-interface splits. Continue at R7's final census, binary proof, and
-independent campaign review.
+Status: Active — 9/9 ledger tasks complete. R7 closed the final census,
+byte-exact original-mismatch proof, and independent whole-campaign review with
+zero unresolved credible findings. Continue at R8's uncounted aggregate
+closure gates and plan deletion.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -293,7 +293,7 @@ every single task.
       new internal API, duplicate a byte/order contract, or become a cosmetic
       include fragment. No source/project/build change occurred. Tests passed
       202/202 and the sole 431.54 s mega passed unchanged.
-- [ ] **R7 — Final census, binary proof, and independent review.** Re-run the
+- [x] **R7 — Final census, binary proof, and independent review.** Re-run the
       R0 census and map-file measurement from the final tree: report
       product-config replay line/object deltas, automation-config totals, and
       per-bucket movements next to the R0 numbers. Mandatory single
@@ -301,6 +301,17 @@ every single task.
       forwarding facades, no `#ifdef` scatter, dedup unifications bit-honest,
       deletion rulings all cited. Any credible finding reopens the owning
       task.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r7-final-census-review.md`
+      repeats R0's source and map methodology. Product compilation falls from
+      17 TUs / 26,875 implementation lines to 16 / 24,521 (-1 TU, -2,354
+      lines); Release/Profile map attribution honestly changes +364/+1,988
+      bytes. Automation retains its configuration-owned verifier and
+      fingerprint objects. Both original R3 mismatches, the repaired encoder,
+      and the final R7 artifact are exactly 36,564,003 bytes at SHA
+      `F916DED3...B24`. The independent review's initial semantic-hash and
+      governance findings reopened R4b; the same reviewer confirmed both
+      repairs and zero remaining material blocker. Tests passed 203/203 and
+      the sole accepted final-source 428.07 s mega passed unchanged.
 - [ ] **R8 — Closure gates.** From the final source: `validate_full` (build
       configs and broad surface changed across the campaign), the final mega
       gate invocation, `validate_perf` (presentation emission was touched),

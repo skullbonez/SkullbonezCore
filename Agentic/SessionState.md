@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute replay mass-reduction R7 → R8 strictly in order, beginning with the final census, binary proof, and independent whole-campaign review |
-| Active/future progress | 8 / 9 tasks = 89% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
+| Current objective | Execute replay mass-reduction R8's aggregate full/perf/allocation/final-mega closure gates, report, and plan deletion |
+| Active/future progress | 9 / 9 tasks = 100% overall; aggregate closure gates remain before the completed plan is deleted |
 | Last broad local gate | `tools\\validate_full.bat` passed in 121.33 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R7 review reopened R4b's fixed semantic sentinel. The content-sensitive repair passes 203/203 tests in 7.45 s; both original mismatches and the real encoder are byte-exact at SHA `F916DED3...B24`; the 433.34 s remediation mega passed unchanged 2,401/200/187/199 results |
+| Validation for current edits | R7 final tests passed 203/203 in 6.14 s and its 428.07 s mega passed unchanged 2,401/200/187/199 results. Product compilation is -1 TU/-2,354 lines; maps honestly change +364/+1,988 bytes. The same independent reviewer confirmed the reopened R4b repairs and zero remaining material blocker |
 
 ## Live Queue
 
-00000. `replay-mass-reduction` is active at 8/9. R0 closed the 42-file,
+00000. `replay-mass-reduction` is at 9/9 with aggregate closure pending. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
        and reference gates. R1 proved the fingerprint boundary. R2 moved the
@@ -46,8 +46,12 @@ plan inventory.
        owner approved one additional same-tip invocation, for three total;
        the final gate passed. R6 then recorded KEEP-cohesive rulings for the
        four oversized/near-threshold TUs; no source or project move was made.
-       NEXT TASK IS R7's final census, binary proof, and independent campaign
-       review. Binding rules for every other
+       R7 then closed the final census, exact original-mismatch/final-encoder
+       proof, and independent review: product compilation is down one TU and
+       2,354 lines, map attribution honestly changes +364/+1,988 bytes, and
+       the same reviewer confirmed the reopened R4b semantic/governance fixes
+       with no remaining material blocker. NEXT TASK IS R8's aggregate
+       closure gates, report, and plan deletion. Binding rules for every other
        task: exactly one
        `tools\validate_replay_visual_fidelity.bat` invocation (one engine
        process, one prediction generation, zero golden refresh,
@@ -276,8 +280,9 @@ plan inventory.
 
 ## Next Handoff
 
-Replay mass-reduction is active at 8/9. R7's census/maps are measured; finish
-the same independent review after the content-sensitive RVIS semantic repair,
-then commit R7 and run R8's full/perf/allocation/final-mega closure gates. The
+Replay mass-reduction is at 9/9 with R7's final census, byte proof, and
+independent review closed. Commit R7, then run R8's
+full/perf/allocation/final-mega closure gates, write the closure report, and
+delete the completed plan under inventory rule 4. The
 externally administered validation-gate V3 lane remains blocked and excluded
 from the ledger.

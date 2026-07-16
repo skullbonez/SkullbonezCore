@@ -98,8 +98,8 @@ validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 8 | 9 | 89% |
-| **Active/future total** | **8** | **9** | **89%** |
+| replay-mass-reduction | 9 | 9 | 100% |
+| **Active/future total** | **9** | **9** | **100%** |
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -136,8 +136,14 @@ three R4b invocations total, and the final invocation passed. This exception
 is closed and inherited by no other task. R6 then ruled the remaining four
 oversized/near-threshold replay translation units cohesive: a moves-only split
 would require a new internal API, duplicate byte/order contracts, or create a
-cosmetic include fragment. The next task is R7's final census, binary proof,
-and independent whole-campaign review.
+cosmetic include fragment. R7 then closed the final census and independent
+whole-campaign review after repairing the review's content-sensitive semantic-
+hash and stale-governance findings. Product compilation is down one TU and
+2,354 implementation lines; map-attributed bytes honestly changed +364
+Release/+1,988 Profile. The original R3 mismatch pair and final encoder are
+byte-exact at the same 36,564,003-byte SHA. The remaining action is R8's
+uncounted aggregate full/perf/allocation/final-mega closure gate, report, and
+plan deletion under inventory rule 4.
 MASTER rule 11 (one mega-gate invocation, one engine process, no golden
 refresh, revert-on-diff) binds every other task.
 
@@ -475,7 +481,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 8/9 | R7: finalize the census/maps and close the independent campaign review after the content-sensitive RVIS semantic repair |
+| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Closure pending | 9/9 | R8: run full/perf/allocation/final-mega gates from final source, write the closure report, and delete the plan under inventory rule 4 |
 
 ## Features
 
