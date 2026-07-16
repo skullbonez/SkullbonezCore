@@ -175,6 +175,10 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
     }
     bodyStore.CopySleepStatesTo( m_sleepState );
     EnsureUnderwaterSleepLockBuffer( modelCount );
+    // Hazard: the first fixed step can arrive before any island rebuild has
+    // sized the diagnostics mirror. Keep it row-aligned before indexing below;
+    // this changes no solver decision or byte-exact physics value.
+    EnsureVisualIdSize( modelCount );
     if ( !m_sleepEnabled )
     {
         std::fill( m_sleepState.begin(), m_sleepState.end(), static_cast<uint8_t>( 0 ) );
