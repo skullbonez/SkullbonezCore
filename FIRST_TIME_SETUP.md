@@ -36,6 +36,13 @@ Install the Python image dependency used by DX12 screenshot checks:
 python -m pip install Pillow
 ```
 
+Install OpenCppCoverage for the Debug unit-coverage lane. Its installer is
+machine-scoped, so omit `--scope user`:
+
+```powershell
+winget install --id OpenCppCoverage.OpenCppCoverage --exact --accept-package-agreements --accept-source-agreements
+```
+
 Optional: install CodeGraph for local code-intelligence lookups. CodeGraph is
 not required for builds, validation, or agent startup; it helps agents query
 symbols, callers, callees, and impact before opening large source files.
@@ -68,6 +75,7 @@ py --version
 git --version
 python -c "import PIL; print(PIL.__version__)"
 winget --version
+& 'C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe' --help
 ```
 
 If you installed optional CodeGraph, verify the local index from the repository
@@ -122,6 +130,10 @@ diagnostic lane writes only under `TestOutput\validation\native_diagnostics`.
 If `py` or `python` opens the Microsoft Store or says Python was not found, install Python with the `winget` command above and refresh PATH in the current shell.
 
 If Pillow is missing, renderer screenshot checks will fail with `ModuleNotFoundError: No module named 'PIL'`. Run `python -m pip install Pillow`.
+
+If `tools\validate_coverage.bat` reports that OpenCppCoverage is missing, run
+the winget command above. The script also honors an `OPENCPPCOVERAGE_EXE`
+environment variable pointing to a non-standard installation.
 
 If perf analysis fails because `git` is missing, install Git with the `winget` command above. In the same shell, refresh PATH or open a new terminal.
 

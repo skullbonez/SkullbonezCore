@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "mode": "report_only",
+  "owner_ratification": {
+    "date": "2026-07-16",
+    "decision": "Ratify the campaign-default tier map and line floors without amendment.",
+    "governance_ruling": "Coverage floors are a quality gate, not a frozen-count debt ratchet; the AGENTS.md ban on ratchets for migration vocabulary does not apply."
+  },
+  "tiers": {
+    "1": {
+      "name": "Maths and core primitives",
+      "ratified_floor_percent": 85.0
+    },
+    "2": {
+      "name": "Physics, codecs, startup, and config",
+      "ratified_floor_percent": 70.0
+    },
+    "3": {
+      "name": "Runtime logic owners",
+      "ratified_floor_percent": 50.0
+    },
+    "4": {
+      "name": "System-gate-owned platform and presentation",
+      "ratified_floor_percent": null
+    }
+  },
+  "excluded_product_globs": [
+    "SkullbonezSource/Rendering/DX12/**",
+    "SkullbonezSource/UI/**",
+    "SkullbonezSource/Runtime/Window.*",
+    "SkullbonezSource/Runtime/Render/**",
+    "SkullbonezSource/Runtime/RunRender.*",
+    "SkullbonezSource/Runtime/RunUiTextPass.*",
+    "SkullbonezSource/Runtime/Replay/ReplayValidation*",
+    "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.*"
+  ],
+  "subsystems": [
+    {
+      "name": "maths",
+      "tier": 1,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 85.0,
+      "include_globs": ["SkullbonezSource/Maths/**"]
+    },
+    {
+      "name": "core_primitives",
+      "tier": 1,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 85.0,
+      "include_globs": [
+        "SkullbonezSource/Core/SbResult.h",
+        "SkullbonezSource/Core/WorkerPool.*",
+        "SkullbonezSource/Core/AmortizedTask.*",
+        "SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.*",
+        "SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.*"
+      ]
+    },
+    {
+      "name": "physics_stores",
+      "tier": 2,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Physics/PhysicsBodyStore.*",
+        "SkullbonezSource/Physics/ColliderStore.*",
+        "SkullbonezSource/Physics/PhysicsApi.*",
+        "SkullbonezSource/Physics/PhysicsFixedList.h"
+      ]
+    },
+    {
+      "name": "physics_stages_and_solver",
+      "tier": 2,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Physics/Stages/**",
+        "SkullbonezSource/Physics/Kernels/**",
+        "SkullbonezSource/Physics/PersistentContactSolver.*",
+        "SkullbonezSource/Physics/ObjectContactManifold.*",
+        "SkullbonezSource/Physics/SleepIslandSystem.*",
+        "SkullbonezSource/Physics/SpatialGrid.*",
+        "SkullbonezSource/Physics/TerrainContactManifold.*"
+      ]
+    },
+    {
+      "name": "replay_artifact_codecs",
+      "tier": 2,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Replay/ReplayV2Artifact.*",
+        "SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.*"
+      ]
+    },
+    {
+      "name": "startup",
+      "tier": 2,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Startup/StartupCommandLine.*",
+        "SkullbonezSource/Runtime/Startup/StartupLaunchResolution.*"
+      ]
+    },
+    {
+      "name": "config_and_schema",
+      "tier": 2,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": ["SkullbonezSource/Core/Config.*"]
+    },
+    {
+      "name": "runtime_input_and_interaction",
+      "tier": 3,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 50.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/InputRouter.*",
+        "SkullbonezSource/Runtime/InputController.Bindings.*",
+        "SkullbonezSource/Runtime/RuntimeInteractionController.*"
+      ]
+    },
+    {
+      "name": "scene_logic",
+      "tier": 3,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 50.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Scene/SceneController.*",
+        "SkullbonezSource/Runtime/Scene/SceneRequestQueue.*"
+      ]
+    },
+    {
+      "name": "replay_value_seams",
+      "tier": 3,
+      "floor_percent": 0.0,
+      "ratified_floor_percent": 50.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Replay/ReplayTimeline.*",
+        "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.*",
+        "SkullbonezSource/Runtime/Replay/ReplayRecorder.*"
+      ]
+    }
+  ]
+}

@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 0/10 tasks
-complete; begin at U0(b). The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 1/10 tasks
+complete; begin at U1. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -121,7 +121,7 @@ skip it.
 
 ## Task Checklist
 
-- [ ] **U0 — Tooling, baseline, floors ratification, and governance ruling.**
+- [x] **U0 — Tooling, baseline, floors ratification, and governance ruling.**
       (a) Register this plan in `MASTER-PLAN.md` (ledger 0/10, campaign
       section, critical-path placement) and `SessionState.md` — skip if an
       activation governance commit already did it; verify, never duplicate.

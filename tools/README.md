@@ -14,6 +14,7 @@ validation.
 | `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
 | `validate_all_cpu_tests.bat` | Run every mandatory CPU test target once with fail-fast attribution | incremental builds + 5 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
+| `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |
 | `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
 | `validate_automation.bat` | Prove Profile excludes scripted diagnostics and run the replay/prediction pre-commit smoke in Automation | build + 2 engine processes |
 | `validate_scene_parser_tests.bat` | Build/run CPU-side scene/style parser contract tests | build + console test runner |
