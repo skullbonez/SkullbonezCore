@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | S4: add the default-OFF SIMD config/migration, dedicated AVX2/FMA kernel infrastructure, and the 8-wide integration pilot with A/B evidence |
-| Active/future progress | `physics-soa-simd-1000-bodies` 4 / 9 = 44% |
-| Last broad local gate | S2 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning Profile/Automation/Debug builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | S3 `validate_perf` completed with all budgets/guards green and 0.9795 ms at 1,000 bodies; `validate_physics` matched all 44,401 lines byte-exact; no baseline/golden refresh |
+| Current objective | S5: add dark force, mutual-gravity, and broadphase AVX2/FMA kernels with the same A/B and OFF-path proof |
+| Active/future progress | `physics-soa-simd-1000-bodies` 5 / 9 = 56% |
+| Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
+| Validation for current edits | S4 `validate_perf` completed with all budgets/guards green; paired 1,000-body integration pilot was 4.5% faster and Physics Step 3.56% faster; toggle-OFF physics remained 44,401 lines byte-exact; no baseline/golden refresh |
 
 ## Live Queue
 
-000000. `physics-soa-simd-1000-bodies` is active at 4/9. S0 registered the
+000000. `physics-soa-simd-1000-bodies` is active at 5/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
         does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
@@ -38,7 +38,12 @@ plan inventory.
         both without changing arithmetic or stored values, and restored the
         1,000-body Physics average to 0.9795 ms versus S0's 0.9978 ms. The full
         performance gate and 44,401-line byte-exact physics oracle passed. S4
-        now adds the dark integration pilot and AVX2/FMA kernel infrastructure.
+        added the default-OFF v3 config/migration, a dedicated per-file AVX2/FMA
+        integration kernel, deterministic masked tails, and a streaming A/B
+        oracle. The pilot marker improved 4.5%, aggregate 1,000-tick stability
+        stayed inside the explicit 1% outcome envelope, and final full/perf plus
+        44,401-line byte-exact OFF gates passed. S5 adds the remaining dark
+        force, mutual-gravity, and broadphase kernels.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -303,9 +308,9 @@ plan inventory.
 
 ## Next Handoff
 
-Physics SoA/SIMD is active at 4/9 after S3 removed scalar-only view-copy and
-full-row traffic, measured 0.9795 ms at 1,000 bodies against S0's 0.9978 ms,
-and passed performance plus 44,401-line byte-exact physics. Continue with S4's
-dark AVX2/FMA infrastructure and integration pilot. Replay mass reduction remains closed at 9/9 plus R8;
+Physics SoA/SIMD is active at 5/9 after S4 added the default-OFF AVX2/FMA
+integration pilot, measured a 4.5% kernel-marker speedup, and passed A/B,
+performance, full, and 44,401-line byte-exact OFF-path proof. Continue with
+S5's dark force, mutual-gravity, and broadphase kernels. Replay mass reduction remains closed at 9/9 plus R8;
 the externally administered validation-gate V3 lane remains blocked and
 excluded from the ledger.

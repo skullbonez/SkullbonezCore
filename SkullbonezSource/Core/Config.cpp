@@ -385,6 +385,7 @@ static const ConfigSetting kPhysicsExecutionSettings[] = {
     CONFIG_BOOL( "physics_parallel_narrowphase", physicsExecution.parallelNarrowphase ),
     CONFIG_BOOL( "physics_parallel_terrain_detect", physicsExecution.parallelTerrainDetect ),
     CONFIG_BOOL( "physics_parallel_integrate", physicsExecution.parallelIntegrate ),
+    CONFIG_BOOL( "physics_simd_kernels", physicsExecution.simdKernels ),
 };
 
 static const ConfigSetting kRuntimeRenderSettings[] = {
@@ -632,7 +633,7 @@ static const ConfigSetting kContactAudioSettings[] = {
     CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
 };
 
-constexpr size_t kExpectedConfigSettingCount = 220;
+constexpr size_t kExpectedConfigSettingCount = 221;
 static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
                        ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
                        ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
@@ -867,9 +868,9 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
                                   ENGINE_CONFIG_FORMAT_VERSION,
                                   path );
     }
-    // Versions 0 and 1 share the key/value grammar. The v1->v2 mutual-gravity
-    // worker key is optional, so absence deterministically selects its true
-    // built-in default while the migration tool materializes that value.
+    // Versions 0-2 share the key/value grammar. Added execution keys are
+    // optional, so absence deterministically selects their built-in defaults
+    // while the migration tool materializes each versioned value.
     return SbResult::Success();
 }
 } // anonymous namespace

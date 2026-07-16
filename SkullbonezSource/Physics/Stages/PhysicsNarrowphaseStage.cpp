@@ -67,7 +67,10 @@ bool IsUnderwaterSleepLocked( std::span<const uint8_t> underwaterSleepLocked, in
 // Concept: wake energy uses the same quietness thresholds as sleep eligibility.
 // A body with enough linear or angular motion can wake a sleeping neighbor
 // during persistent-contact handling.
-bool HasWakeEnergy( const PhysicsBodyHotFieldsConstView& hotFields, int awakeIndex, float sleepLinearSq, float sleepAngularSq )
+bool HasWakeEnergy( const PhysicsBodyHotFieldsConstView& hotFields,
+                    int awakeIndex,
+                    float sleepLinearSq,
+                    float sleepAngularSq )
 {
     const Vector3 vel = PhysicsBodyLinearVelocity( hotFields, static_cast<size_t>( awakeIndex ) );
     const Vector3 omega = PhysicsBodyAngularVelocity( hotFields, static_cast<size_t>( awakeIndex ) );
@@ -76,7 +79,8 @@ bool HasWakeEnergy( const PhysicsBodyHotFieldsConstView& hotFields, int awakeInd
     return speedSq >= sleepLinearSq || omegaSq >= sleepAngularSq;
 }
 
-ObjectContactBodyView ObjectContactBodyViewAtTime( const PhysicsBodyHotFieldsConstView& hotFields, int index, float time )
+ObjectContactBodyView
+ObjectContactBodyViewAtTime( const PhysicsBodyHotFieldsConstView& hotFields, int index, float time )
 {
     const size_t bodyIndex = static_cast<size_t>( index );
     ObjectContactBodyView body;

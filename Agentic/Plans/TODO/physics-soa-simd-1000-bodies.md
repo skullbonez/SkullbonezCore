@@ -1,8 +1,8 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Active — registered in `MASTER-PLAN.md`; S0-S3 are complete and S4 is
-next. 4/9 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md`; S0-S4 are complete and S5 is
+next. 5/9 tasks complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden
@@ -174,7 +174,7 @@ path) until S7 flips the default in one owner-approved ceremony.
       the bit-neutral correction, the final 200/520/1,000/2,000-body matrix,
       0.9795 ms at 1,000 bodies versus S0's 0.9978 ms, 15/15 comment audit,
       clean performance gate, and 44,401-line byte-exact physics proof.
-- [ ] **S4 — Kernel infrastructure + integration pilot (dark).** Add the
+- [x] **S4 — Kernel infrastructure + integration pilot (dark).** Add the
       `physicsExecution.simdKernels` config toggle (default OFF, config
       version bump + migration + format tests per the versioning policy),
       the kernel TU layout with per-file AVX2 compilation, lane-mask
@@ -185,6 +185,10 @@ path) until S7 flips the default in one owner-approved ceremony.
       ticks in the report), plus stability checks (no NaN/Inf, sleep
       outcomes equivalent). Toggle OFF remains byte-exact (gate proof).
       Perf: kernel-level speedup recorded.
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s4-integration-pilot.md`
+      records the v3 default-OFF config/migration, per-file AVX2/FMA kernel,
+      masked-tail coverage, honest chaotic-scale A/B oracle, 4.5% pilot-marker
+      speedup, 44,401-line byte-exact OFF proof, and green full/perf gates.
 - [ ] **S5 — Force, gravity, and broadphase kernels (dark).** Apply-forces
       kernel; mutual-gravity pair kernel under the existing ≤512 parallel
       path (serial >512 fallback keeps its exact semantics — on the SIMD

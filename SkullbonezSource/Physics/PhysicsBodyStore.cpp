@@ -934,17 +934,13 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     ApplyWorldImpulse( record, hot, worldForce * deltaSeconds, worldTorque * deltaSeconds );
 }
 
-// Concept: store-owned pose integration advances the authoritative body row.
+// Concept: store-owned orientation completion advances the authoritative row.
 //
-// Keeping this here means solver hot paths mutate only physics records when
-// advancing position and orientation.
-void IntegrateBodyRecordPose( PhysicsBodyHotState& hot, float deltaSeconds )
+// The SIMD pilot owns position arithmetic, but orientation normalization and
+// terrain completion remain scalar store policy. The scalar reference path
+// calls the same helper after its original position expression.
+void IntegrateBodyRecordOrientation( PhysicsBodyHotState& hot, float deltaSeconds )
 {
-    hot.linearVelocity.Simplify();
-    hot.angularVelocity.Simplify();
-
-    hot.position += hot.linearVelocity * deltaSeconds;
-
     const Vector3 omega = hot.angularVelocity;
     const float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
     if ( omegaMag > 0.0001f )
@@ -952,6 +948,15 @@ void IntegrateBodyRecordPose( PhysicsBodyHotState& hot, float deltaSeconds )
         const Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
         hot.orientation.RotateAboutAxis( axis, omegaMag * deltaSeconds );
     }
+}
+
+void IntegrateBodyRecordPose( PhysicsBodyHotState& hot, float deltaSeconds )
+{
+    hot.linearVelocity.Simplify();
+    hot.angularVelocity.Simplify();
+
+    hot.position += hot.linearVelocity * deltaSeconds;
+    IntegrateBodyRecordOrientation( hot, deltaSeconds );
 }
 
 void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRecord& cold, PhysicsBodyHotState& hot )
@@ -1972,7 +1977,8 @@ bool PhysicsBodyStore::ConsumePendingBodyImpulse( int modelIndex )
 
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     PhysicsBodyHotState hot;
-    hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
+    hot.linearVelocity =
+        Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
     hot.angularVelocity =
         Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
     ApplyPendingImpulse( *record, hot );
@@ -2003,7 +2009,8 @@ bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, in
                                                      m_orientationY[bodyIndex],
                                                      m_orientationZ[bodyIndex],
                                                      m_orientationW[bodyIndex] );
-    hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
+    hot.linearVelocity =
+        Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
     hot.angularVelocity =
         Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
     hot.fixed = m_fixed[bodyIndex] != 0u;
@@ -2037,6 +2044,45 @@ bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, in
 }
 
 
+bool PhysicsBodyStore::CompleteBodyPoseIntegration( const ColliderStore& colliderStore,
+                                                    int modelIndex,
+                                                    float deltaSeconds )
+{
+    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
+    const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
+    if ( !record || !collider || modelIndex < 0 || deltaSeconds <= 0.0f )
+    {
+        return false;
+    }
+
+    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
+    if ( m_fixed[bodyIndex] != 0u || m_awake[bodyIndex] == 0u )
+    {
+        return false;
+    }
+
+    PhysicsBodyHotState hot;
+    hot.position = Vector3( m_positionX[bodyIndex], m_positionY[bodyIndex], m_positionZ[bodyIndex] );
+    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex],
+                                                     m_orientationY[bodyIndex],
+                                                     m_orientationZ[bodyIndex],
+                                                     m_orientationW[bodyIndex] );
+    hot.angularVelocity =
+        Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
+    IntegrateBodyRecordOrientation( hot, deltaSeconds );
+    ClampBodyToTerrainSurface( *record, hot, *collider );
+    record->submergedVolumePercent = 0.0f;
+    m_positionX[bodyIndex] = hot.position.x;
+    m_positionY[bodyIndex] = hot.position.y;
+    m_positionZ[bodyIndex] = hot.position.z;
+    hot.orientation.GetComponents( m_orientationX[bodyIndex],
+                                   m_orientationY[bodyIndex],
+                                   m_orientationZ[bodyIndex],
+                                   m_orientationW[bodyIndex] );
+    return true;
+}
+
+
 bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
                                     const ColliderStore& colliderStore,
                                     int modelIndex,
@@ -2056,7 +2102,8 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
                                                      m_orientationY[bodyIndex],
                                                      m_orientationZ[bodyIndex],
                                                      m_orientationW[bodyIndex] );
-    hot.linearVelocity = Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
+    hot.linearVelocity =
+        Vector3( m_linearVelocityX[bodyIndex], m_linearVelocityY[bodyIndex], m_linearVelocityZ[bodyIndex] );
     hot.angularVelocity =
         Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
     hot.boundingRadius = m_boundingRadius[bodyIndex];

@@ -1,24 +1,30 @@
 /*
 File: SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
 Purpose:
-  Implements exact mutual gravity and deterministic per-body force dispatch.
+  Implements exact mutual gravity, deterministic force dispatch, and the dark
+  AVX2/FMA pose-integration pilot.
 
 Summary:
   Scenes through 512 bodies may build pair forces on bounded worker chunks,
   then always reduce those values in the original serial order. Larger scenes
   bypass pair storage and execute the original exact nested-loop accumulation.
   The same owner dispatches ordinary force application without retaining any
-  store, sleep, or remaining-time reference.
+  store, sleep, or remaining-time reference. When explicitly enabled, it sends
+  eight-row blocks to the integration kernel and completes scalar orientation
+  and terrain work through PhysicsBodyStore.
 
 Glossary:
   Pair-build worker: Worker that computes disjoint pair slots without reducing.
   Reduction: Model-order addition/subtraction of retained pair forces.
   Receive predicate: Dynamic, positive-inverse-mass, awake body eligibility.
+  SIMD pilot: Dark eight-row position/velocity kernel used to certify the
+    pinned AVX2/FMA execution envelope before the S7 cutover.
 
 Invariants:
   - Float expressions and loop order are unchanged from the P2 implementation.
   - The pair table never represents more than 512 bodies (130,816 rows).
   - Apply-forces worker dispatch uses the same threshold, label, and hash.
+  - Toggle OFF retains the scalar integration path and byte-exact baseline.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.h
@@ -27,6 +33,7 @@ Related:
 */
 #include "PhysicsForceStage.h"
 
+#include "Kernels/IntegrationKernel.h"
 #include "PhysicsStageContexts.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Config.h"
@@ -105,12 +112,12 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
 
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                    const Physics::ColliderStore& colliderStore,
-                                   const Physics::PhysicsBodyHotFieldsConstView& hotFields,
+                                   const Physics::PhysicsBodyHotFieldsView& hotFields,
                                    std::span<const uint8_t> sleepState,
                                    std::span<const float> timeRemaining,
                                    int bodyIndex )
 {
-    if ( IsSolverBodyFixed( hotFields, bodyIndex ) || sleepState[bodyIndex] )
+    if ( hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u || sleepState[bodyIndex] )
     {
         return;
     }
@@ -119,6 +126,43 @@ void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
         (void)bodyStore.IntegrateBodyPose( colliderStore, bodyIndex, timeRemaining[bodyIndex] );
     }
 }
+
+// Invariant: the kernel owns position/velocity arithmetic only. The stage uses
+// its returned mask to preserve the scalar owner and order for orientation,
+// terrain clamping, and water-sample invalidation.
+void IntegrateRemainingSimdBlock( const Physics::IntegrateRemainingStageContext& context,
+                                  int modelCount,
+                                  int blockIndex )
+{
+    const int bodyBegin = blockIndex * Physics::Kernels::INTEGRATION_LANE_COUNT;
+    const uint32_t activeMask = Physics::Kernels::IntegratePositionAvx2( context.hotFields,
+                                                                         context.sleepState,
+                                                                         context.timeRemaining,
+                                                                         bodyBegin,
+                                                                         modelCount );
+    for ( int lane = 0; lane < Physics::Kernels::INTEGRATION_LANE_COUNT; ++lane )
+    {
+        if ( ( activeMask & ( 1u << lane ) ) == 0u )
+        {
+            continue;
+        }
+        const int bodyIndex = bodyBegin + lane;
+        (void)context.bodyStore.CompleteBodyPoseIntegration( context.colliderStore,
+                                                             bodyIndex,
+                                                             context.timeRemaining[bodyIndex] );
+    }
+}
+
+struct IntegrateRemainingSimdBlockContext
+{
+    const Physics::IntegrateRemainingStageContext& context;
+    int modelCount = 0;
+
+    void operator()( int blockIndex ) const
+    {
+        IntegrateRemainingSimdBlock( context, modelCount, blockIndex );
+    }
+};
 } // namespace
 
 namespace SkullbonezCore
@@ -420,6 +464,33 @@ void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext
                                             Threading::WorkerPool& workerPool,
                                             const Core::PhysicsExecutionConfig& execution ) const
 {
+    if ( execution.simdKernels )
+    {
+        const int blockCount = ( modelCount + Kernels::INTEGRATION_LANE_COUNT - 1 ) / Kernels::INTEGRATION_LANE_COUNT;
+        const IntegrateRemainingSimdBlockContext simdBlocks{ context, modelCount };
+        PROFILE_BEGIN( "Frame/Physics/Integrate/SimdPilot" );
+        if ( execution.parallel && execution.parallelIntegrate )
+        {
+            workerPool.ParallelForNoAlloc(
+                0,
+                blockCount,
+                simdBlocks,
+                ( PHYSICS_PARALLEL_MIN_BODIES + Kernels::INTEGRATION_LANE_COUNT - 1 ) / Kernels::INTEGRATION_LANE_COUNT,
+                "Frame/Physics/Integrate/WorkerBodies",
+                PHYSICS_INTEGRATE_WORKER_HASH );
+        }
+        else
+        {
+            for ( int blockIndex = 0; blockIndex < blockCount; ++blockIndex )
+            {
+                simdBlocks( blockIndex );
+            }
+        }
+        PROFILE_END( "Frame/Physics/Integrate/SimdPilot" );
+        return;
+    }
+
+    PROFILE_BEGIN( "Frame/Physics/Integrate/ScalarBodyLoop" );
     if ( execution.parallel && execution.parallelIntegrate )
     {
         workerPool.ParallelForNoAlloc( 0,
@@ -436,6 +507,7 @@ void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext
             context( x );
         }
     }
+    PROFILE_END( "Frame/Physics/Integrate/ScalarBodyLoop" );
 }
 
 uint64_t PhysicsForceStage::CollectDynamicMemoryBytes() const

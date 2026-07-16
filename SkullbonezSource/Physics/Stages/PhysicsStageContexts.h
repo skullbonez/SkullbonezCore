@@ -66,7 +66,7 @@ struct IntegrateRemainingStageContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     std::span<const PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsConstView hotFields;
+    PhysicsBodyHotFieldsView hotFields;
     std::span<const uint8_t> sleepState;
     std::span<const float> timeRemaining;
 

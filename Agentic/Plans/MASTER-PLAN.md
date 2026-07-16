@@ -94,8 +94,8 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physics-soa-simd-1000-bodies | 4 | 9 | 44% |
-| **Active/future total** | **4** | **9** | **44%** |
+| physics-soa-simd-1000-bodies | 5 | 9 | 56% |
+| **Active/future total** | **5** | **9** | **56%** |
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -110,7 +110,7 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active 2026-07-16 physics SoA/SIMD campaign has completed S0-S3. Its fixed-seed
+The active 2026-07-16 physics SoA/SIMD campaign has completed S0-S4. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
 body Physics Step averages 0.9978 ms on the Threadripper 3970X and the ratified
 final-cutover budget is no more than 0.80 ms. Capacity reaches 2,000 without
@@ -126,8 +126,11 @@ replay mega gate pass with no baseline/golden refresh. S3 found and removed
 20-span by-value helper copies plus unrelated full-row store traffic without
 changing arithmetic or values. The final SoA-scalar 1,000-body Physics average
 is 0.9795 ms, 1.8% faster than S0; performance and the 44,401-line byte-exact
-physics gate pass. S4 is next: add dark kernel infrastructure and the integration
-pilot while the toggle-OFF path remains byte-exact.
+physics gate pass. S4 added the default-OFF v3 config/migration, dedicated
+per-file AVX2/FMA kernel, eight-lane masked integration pilot, and streaming A/B
+oracle. The pilot marker is 4.5% faster; the OFF path remains 44,401 lines
+byte-exact and full/performance gates pass. S5 is next: add the dark force,
+gravity, and broadphase kernels under the same OFF-path proof.
 
 The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
 order. R0–R5 closed the census and implementation work: the
@@ -496,7 +499,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active | 4/9 | S4: add dark AVX2/FMA kernel infrastructure and the integration pilot |
+| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active | 5/9 | S5: add dark force, mutual-gravity, and broadphase kernels |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Features

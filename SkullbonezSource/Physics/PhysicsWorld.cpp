@@ -869,7 +869,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     IntegrateRemainingStageContext integrateRemainingStage{ bodyStore,
                                                             colliderStore,
                                                             bodyRecords,
-                                                            hotFields,
+                                                            mutableHotFields,
                                                             m_sleepController.GetSleepStates(),
                                                             m_timeRemaining };
 

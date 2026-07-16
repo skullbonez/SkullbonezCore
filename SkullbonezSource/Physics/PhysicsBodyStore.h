@@ -217,7 +217,8 @@ inline Math::Vector::Vector3 PhysicsBodyLinearVelocity( const PhysicsBodyHotFiel
     return { fields.linearVelocityX[index], fields.linearVelocityY[index], fields.linearVelocityZ[index] };
 }
 
-inline Math::Vector::Vector3 PhysicsBodyAngularVelocity( const PhysicsBodyHotFieldsConstView& fields, std::size_t index )
+inline Math::Vector::Vector3 PhysicsBodyAngularVelocity( const PhysicsBodyHotFieldsConstView& fields,
+                                                         std::size_t index )
 {
     return { fields.angularVelocityX[index], fields.angularVelocityY[index], fields.angularVelocityZ[index] };
 }
@@ -266,9 +267,7 @@ inline PhysicsBodyHotState LoadPhysicsBodyHotState( const PhysicsBodyHotFieldsVi
 }
 
 inline void
-StorePhysicsBodyHotState( const PhysicsBodyHotFieldsView& fields,
-                          std::size_t index,
-                          const PhysicsBodyHotState& state )
+StorePhysicsBodyHotState( const PhysicsBodyHotFieldsView& fields, std::size_t index, const PhysicsBodyHotState& state )
 {
     fields.positionX[index] = state.position.x;
     fields.positionY[index] = state.position.y;
@@ -400,6 +399,9 @@ class PhysicsBodyStore
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has
     // no positive time to integrate.
     bool IntegrateBodyPose( const ColliderStore& colliderStore, int modelIndex, float deltaSeconds );
+    // Completes orientation and terrain correction after the force-stage SIMD
+    // position kernel has already simplified velocities and advanced position.
+    bool CompleteBodyPoseIntegration( const ColliderStore& colliderStore, int modelIndex, float deltaSeconds );
     bool ApplyForces( const PhysicsWorldForces& worldForces,
                       const ColliderStore& colliderStore,
                       int modelIndex,

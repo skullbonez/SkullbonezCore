@@ -48,7 +48,7 @@ namespace SkullbonezCore
 namespace Core
 {
 
-inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 2;
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 3;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -232,6 +232,9 @@ struct PhysicsExecutionConfig
     bool parallelNarrowphase = false;
     bool parallelTerrainDetect = true;
     bool parallelIntegrate = true;
+    // Dark until the S7 cutover. Enabled binaries use the pinned AVX2/FMA
+    // integration kernels; no runtime CPU dispatch or feature probing occurs.
+    bool simdKernels = false;
 };
 
 // Heightfield scale and sampling policy shared by rendered terrain and
