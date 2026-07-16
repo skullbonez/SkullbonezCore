@@ -1,11 +1,9 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — registered in `MASTER-PLAN.md` by the 2026-07-16 activation
-governance commit. 0/8 tasks complete. R0's registration sub-step (a) is
-already satisfied by that commit; R0 now covers the census, classification
-map, map-file baseline, owner bucket ratification, and the reference gate
-run only.
+Status: Active — 1/8 tasks complete. R0 closed the census, classification map,
+map-file baseline, owner bucket ratification, and reference gates. Continue at
+R1's link-boundary pilot.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -21,19 +19,21 @@ the ownership (ownership was already fixed by `replay-monolith-decomposition`
 9/9; this campaign must not reopen that shape). The mass has three distinct
 diseases, each with its own correction:
 
-1. **Test harness compiled into the product.** Only three replay files
-   reference `SKULLBONEZ_AUTOMATION_DIAGNOSTICS` (`ReplayRuntime.{h,cpp}`,
-   `ReplayCoordination.h`). `ReplayValidation.cpp` (**3,729 lines** of probe
-   runner, expected-failure checks, and transactional restore probes),
-   `ReplayVisualPacketFingerprint.cpp` (611), and the probe-facing share of
-   `ReplayPredictionArchive.cpp` (707) compile into every configuration,
-   including production Release. Validation tooling this large belongs behind
-   the automation boundary the engine already has.
-2. **Duplicated mechanics across sibling owners.** Artifact encode/decode
-   spans `ReplayRecorder.cpp` (3,488) and `ReplayV2Artifact.cpp` (2,889) with
-   overlapping serialization helpers; segment/ribbon/overlay emission spans
-   `ReplayPredictionDrawing.cpp` (2,057), `ReplayOverlayRenderer.cpp` (1,151),
-   and `ReplayPresentation.cpp` (1,308) with per-lane repetition.
+1. **Test harness objects compiled into product configurations.** Only three
+   replay files reference `SKULLBONEZ_AUTOMATION_DIAGNOSTICS`
+   (`ReplayRuntime.{h,cpp}`, `ReplayCoordination.h`). R0 proved the source is
+   mixed more narrowly than the activation draft claimed: production restore
+   logic remains in `ReplayValidation.cpp` (3,729), the production RVPD codec
+   remains in `ReplayPredictionArchive.cpp` (707), while the fingerprint TU
+   (611), guarded Debug probe blocks, and the archive round-trip verifier are
+   diagnostics-only. Those proven diagnostics portions belong behind the
+   configuration-appropriate link boundary.
+2. **Duplicated mechanics need source-accurate disposition.** R0 found one
+   honest codec candidate between `ReplayPredictionArchive.cpp` and
+   `ReplayV2Artifact.cpp`, plus repeated quota/trajectory loops within
+   `ReplayPredictionDrawing.cpp` and render-pose loops within
+   `ReplayPresentation.cpp`. Recorder hashing is not artifact serialization;
+   3D ribbons, screen-space UI, and packet telemetry are separate concerns.
 3. **Oversized owner TUs.** `ReplayPrediction.cpp` is **4,424 lines** — the
    largest file in the engine after the PhysicsWorld campaign — and
    `ReplayRecorder.cpp`/`ReplayValidation.cpp` are both larger than any
@@ -47,8 +47,9 @@ ownership decomposition.
 
 ## Goal
 
-Production (non-automation) builds compile no replay probe/validation/
-fingerprint code; artifact serialization and presentation emission each have
+Production Release/Profile builds compile no replay probe/validation/
+fingerprint code; Automation and Debug retain their existing diagnostics
+coverage. Artifact serialization and presentation emission each have
 exactly one mechanical owner; every dead path is deleted under a recorded
 owner ruling; no remaining replay TU exceeds ~2,000 lines except where the
 closure review records why its state belongs together; and the end-to-end
@@ -80,10 +81,11 @@ every single task.
    process, one prediction generation; a second launch or generation is an
    immediate failure; no golden refresh. A task that cannot pass the gate
    reverts; never fix forward a replay behavior diff.
-2. **Automation-boundary moves are link-level, not `#ifdef` soup.** Probe/
-   validation TUs move to automation-only compilation (project configuration
-   or a dedicated filter group excluded from non-automation configs), with a
-   narrow header seam in the product build. Do not scatter hundreds of
+2. **Diagnostics-boundary moves are link-level, not `#ifdef` soup.** The
+   fingerprint TU belongs to Automation+Debug, the RVPD verifier to Automation,
+   and existing `_DEBUG` probe blocks to Debug; all are excluded from
+   Release/Profile. Product archive/restore remains in every configuration and
+   exposes no probe entry points or no-op stubs. Do not scatter hundreds of
    `#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )` blocks through product
    TUs — the existing three-file seam pattern is the model.
 3. **Deduplication must be bit-neutral.** A shared helper replaces two copies
@@ -107,7 +109,7 @@ every single task.
 
 ## Task Checklist
 
-- [ ] **R0 — Census and classification map.**
+- [x] **R0 — Census and classification map.**
       (a) MASTER/SessionState registration — ALREADY DONE by the 2026-07-16
       activation governance commit; verify the ledger row reads 0/8 and do
       not re-register.
@@ -123,43 +125,54 @@ every single task.
       (c) Measure and record the production footprint honestly: Release and
       Profile link with `/MAP`, record the replay-object contribution to
       binary size before any change (this is the R7 comparison number).
-      (d) Owner ratifies the bucket map — in particular which of
-      `ReplayValidation.cpp`, `ReplayVisualPacketFingerprint.cpp`, and the
-      probe share of `ReplayPredictionArchive.cpp` are confirmed
-      automation-only. Certification: run the mega gate once on the
-      unmodified tip and file the log as the campaign's reference run.
+      (d) Owner ratifies the bucket map and mixed-file boundaries: the
+      fingerprint TU is Automation+Debug-only, the RVPD verifier is
+      Automation-only, guarded legacy probes remain Debug-only, and production
+      archive/restore stays in all builds. Release/Profile expose no probe seam
+      or no-op stubs. Certification: run the mega gate once on the unmodified
+      tip and file the log as the campaign's reference run.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-census.md`
+      reconciles 42/42 files and 33,783 lines; records Release/Profile
+      map-attributed baselines of 498,264/456,044 bytes; dispositions D1-D8;
+      records the ratified diagnostics matrix and absent product seam; and
+      records the single 459.14 s mega gate plus 202/202 test pass.
 - [ ] **R1 — Automation boundary design (no mass moves yet).** Define the
-      link-level boundary: which project/configuration carries
-      automation-only replay TUs, what the narrow product-side seam header
-      exposes (probe entry points become no-ops or are absent in product
-      configs — decide and record which, since `Run` currently constructs
-      probe paths only under the define), and how `validate_full`'s
-      Automation lane picks the TUs up. Prove the design with ONE moved
+      ratified link-level boundary: fingerprint code compiles in Automation and
+      Debug, while Release/Profile expose no probe declarations or no-op stubs.
+      Record how `validate_full`'s Automation lane picks the TU up. Prove the
+      design with ONE moved
       pilot file (`ReplayVisualPacketFingerprint.cpp`, the smallest
       candidate): Release/Profile binaries lose its objects (map-file diff),
       Automation still passes its lanes, mega gate green.
 - [ ] **R2 — Move the probe harness behind the boundary.**
-      `ReplayValidation.cpp` and the R0-confirmed probe share of
-      `ReplayPredictionArchive.cpp` move to automation-only compilation using
-      the R1 pattern. Product-config grep-proof: no probe runner, expected-
-      failure, or fingerprint symbol in the Release map file. Automation
+      Physically split the R0-confirmed `_DEBUG` probe blocks from the mixed
+      `ReplayValidation.cpp` into a Debug-only TU, and move only
+      `VerifyReplayPredictionArchiveRoundTrip` from the production codec into
+      an Automation-only TU using the R1 pattern. Product archive/restore logic
+      stays in all configurations. Product-config grep-proof: no probe runner,
+      expected-failure, or fingerprint symbol in the Release map file. Automation
       config: every existing probe CLI flag and report string byte-identical
       (probe output schema freeze). Gates: mega gate, `validate_tests`, plus
       one full `validate_full` because build-configuration files changed.
-- [ ] **R3 — Artifact codec consolidation.** Extract the single serialization
-      owner for replay artifacts: the R0 duplication table's codec rows
-      (shared varint/field/section helpers currently repeated between
-      `ReplayRecorder.cpp` and `ReplayV2Artifact.cpp`) collapse into one
-      mechanical codec unit consumed by both owners. Byte-identical artifact
+- [ ] **R3 — Artifact codec consolidation.** Evaluate and disposition the R0
+      duplication table's honest codec candidate: scalar/byte writer-reader
+      mechanics in `ReplayPredictionArchive.cpp` and `ReplayV2Artifact.cpp`.
+      `ReplayRecorder.cpp` hashing/field traversal is explicitly not artifact
+      serialization and remains separate. Collapse only byte-identical leaf
+      mechanics into one codec unit; otherwise record the KEEP reason.
+      Byte-identical artifact
       proof: record one bounded replay artifact before and after the change
       with the same seed/scene and byte-compare the files (this is stronger
       than the mega gate for IO code and costs no extra engine process —
       use the durable artifact the mega gate already produces).
-- [ ] **R4 — Presentation emission deduplication.** Unify the repeated
-      segment/ribbon/overlay emission helpers across
-      `ReplayPredictionDrawing.cpp`, `ReplayOverlayRenderer.cpp`, and
-      `ReplayPresentation.cpp` per the R0 table — same submission order, same
-      vertex arithmetic, R0-recorded evidence per unification. Gates: mega
+- [ ] **R4 — Presentation emission deduplication.** Evaluate D4/D5/D7 from the
+      R0 table: quota/accounting and trajectory loops within
+      `ReplayPredictionDrawing.cpp`, plus structurally similar render-pose loops
+      within `ReplayPresentation.cpp`. R0 proved that 3D ribbons,
+      screen-space UI, and packet telemetry across the three named files are
+      separate concerns; do not create a catch-all emission owner. Preserve
+      submission order and vertex arithmetic for every accepted unification.
+      Gates: mega
       gate, `validate_dx12_renderer` + `run_graphics_stress.bat 1` (submission
       code), `validate_tests`.
 - [ ] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
@@ -201,9 +214,10 @@ every single task.
   other provenance inputs change during this campaign for unrelated reasons,
   reconciliation of hash fields requires explicit owner approval and touches
   nothing else.
-- Owner decisions this plan needs at R0: the automation-only bucket
-  confirmation, and the product-config behavior for probe entry points
-  (absent vs no-op stubs).
+- R0 owner decisions are resolved: configuration-appropriate diagnostics
+  membership (Automation+Debug fingerprint, Automation RVPD verifier, Debug
+  legacy probe blocks) and no probe entry points or no-op stubs in
+  Release/Profile.
 - The deferred SoA/SIMD lane is unaffected; nothing here touches physics or
   the FP envelope.
 

@@ -98,8 +98,8 @@ validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 0 | 8 | 0% |
-| **Active/future total** | **0** | **8** | **0%** |
+| replay-mass-reduction | 1 | 8 | 13% |
+| **Active/future total** | **1** | **8** | **13%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -109,10 +109,12 @@ historical work per commit-contract rule 4.
 ## Current Execution Priority
 
 The binding critical path is the 2026-07-16 replay mass-reduction campaign:
-`replay-mass-reduction` R0 → R8 strictly in order. R0's owner bucket
-ratification and reference mega-gate run precede any code move; R1 proves the
-link-level automation boundary on one pilot file before R2 moves the probe
-harness; MASTER rule 11 (one mega-gate invocation, one engine process, no
+`replay-mass-reduction` R0 → R8 strictly in order. R0 is complete: the owner
+ratified configuration-appropriate diagnostics membership and absent
+Release/Profile probe seams; the 42-file census, Release/Profile maps, and
+reference gates are recorded in the R0 report. R1 now proves the link-level
+boundary on the fingerprint pilot before R2 moves only the confirmed probe
+portions; MASTER rule 11 (one mega-gate invocation, one engine process, no
 golden refresh, revert-on-diff) binds every task.
 
 The 2026-07-15 runtime mass-reduction critical path completed at 16/16:
@@ -449,7 +451,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 0/8 | R0: census, bucket classification, duplication table, Release/Profile map-file baseline, owner ratification, and the reference mega-gate run |
+| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 1/8 | R1: move the fingerprint pilot behind the ratified Automation+Debug link boundary; Release/Profile expose no probe seam |
 
 ## Features
 

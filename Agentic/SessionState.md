@@ -10,32 +10,31 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `claude/night-runner-code-review-8gw5g6` (runtime mass-reduction campaign validated by the 2026-07-16 owner review; replay mass-reduction campaign activated) |
+| Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the replay mass-reduction campaign (`Plans/TODO/replay-mass-reduction.md`, R0 → R8 strictly in order): move the probe/validation harness behind a link-level automation boundary, consolidate the artifact codec and presentation emission, delete only owner-ruled dead paths, and partition oversized owner TUs — all under one mega-gate invocation per task with zero golden refresh |
-| Active/future progress | 0 / 8 tasks = 0% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
+| Current objective | Execute replay mass-reduction R1 → R8 strictly in order, beginning with the fingerprint pilot behind the ratified diagnostics link boundary |
+| Active/future progress | 1 / 8 tasks = 13% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 113.79 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Wide-call T5 is complete: final full gate passed; plan history contains no screenshot/physics/behavioral-golden change beyond the explicitly approved two replay provenance hashes; final comment audit is 11/11; independent review is clear after correcting one lifetime comment. |
+| Validation for current edits | R0 passed its single `tools\validate_replay_visual_fidelity.bat` invocation in 459.14 s (2,401 ticks, 200 moved, 187 toppled) and `tools\validate_tests.bat` in 2.14 s (202/202 cases, 12,595 assertions); zero golden/provenance/source change |
 
 ## Live Queue
 
-00000. `replay-mass-reduction` is the active campaign (activated 2026-07-16;
-       registered in MASTER at 0/8). Start at R0: the registration sub-step
-       is already done — do not re-register. R0 delivers the census and
-       bucket classification of every `Runtime/Replay/` file
-       (product-runtime / prediction-engine / artifact-io / probe-harness /
-       presentation-emission), the duplication table with file:line
-       evidence, the Release/Profile `/MAP` replay-footprint baseline, the
-       owner's bucket ratification, and one reference mega-gate run on the
-       unmodified tip. Binding rules for every task: exactly one
+00000. `replay-mass-reduction` is active at 1/8. R0 closed the 42-file,
+       33,783-line census, D1-D8 duplication dispositions, Release/Profile
+       map-attributed baselines (498,264/456,044 bytes), owner ratification,
+       and reference gates. Start R1: the fingerprint TU compiles in
+       Automation+Debug and is absent from Release/Profile; product builds
+       expose no probe declarations or no-op stubs. Binding rules for every
+       task: exactly one
        `tools\validate_replay_visual_fidelity.bat` invocation (one engine
        process, one prediction generation, zero golden refresh,
-       revert-on-diff); link-level automation boundary, never `#ifdef`
+       revert-on-diff); link-level diagnostics boundary, never `#ifdef`
        scatter; no artifact-format or probe-schema changes; no ownership
        re-decomposition; deletions only via R5 owner rulings; owner-TU
        partitions only in R6; reserve-allocator registrations move
        unchanged. R1 proves the boundary on the fingerprint pilot file
-       before R2 moves ReplayValidation.cpp; R4 adds DX12+stress gates; R8
+       before R2 splits only ratified probe portions from mixed production
+       files; R4 adds DX12+stress gates; R8
        closes with full/perf/allocation gates and the final census against
        R0's measured numbers.
 0000. Runtime mass-reduction campaign completed at 16/16 on 2026-07-16. Binding
@@ -256,11 +255,9 @@ plan inventory.
 
 ## Next Handoff
 
-The runtime mass-reduction campaign closed at 16/16 and passed the
-2026-07-16 owner-commissioned validation review (both replay provenance
-hashes were mechanically verified against their source files; the only open
-trust point is the runner's recorded claim of explicit owner approval for
-that reconciliation). The active work is now the replay mass-reduction
-campaign at 0/8 — start with `Plans/TODO/replay-mass-reduction.md` R0 per
-the Live Queue entry above. The externally administered validation-gate V3
-lane remains blocked and excluded from the ledger.
+Replay mass-reduction R0 is complete at 1/8. Continue with R1's single
+fingerprint pilot: Automation+Debug retain diagnostics, Release/Profile lose
+the object and expose no probe seam. R0's one-process oracle and unit gate are
+already committed evidence; R1 must run its own single mega-gate invocation
+and `validate_tests`. The externally administered validation-gate V3 lane
+remains blocked and excluded from the ledger.
