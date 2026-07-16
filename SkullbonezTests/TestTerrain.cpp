@@ -32,9 +32,14 @@
 
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 #include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/WorkerPool.h"
+#include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h"
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestRenderResourceDoubles.h"
 
+#include <array>
 #include <cstdio>
 #include <fstream>
 #include <memory>
@@ -43,6 +48,33 @@ using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Geometry::Plane;
 using SkullbonezCore::Geometry::Terrain;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::CollisionDetection::CollisionShape;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsTerrainStage;
+using SkullbonezCore::Physics::TerrainDetectionStageContext;
+using SkullbonezCore::Threading::WorkerPool;
+
+namespace
+{
+PhysicsBodyStore& TerrainBodyStore()
+{
+    static PhysicsBodyStore store;
+    store.Clear();
+    return store;
+}
+
+ColliderStore& TerrainColliderStore()
+{
+    static ColliderStore store;
+    store.Clear();
+    return store;
+}
+} // namespace
 
 TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
 {
@@ -104,4 +136,49 @@ TEST_CASE( "Terrain: collapsed height-map posts publish world-up render normals"
         CHECK( vertices[vertex + 4u] == doctest::Approx( 1.0f ) );
         CHECK( vertices[vertex + 5u] == doctest::Approx( 0.0f ) );
     }
+}
+
+
+TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligibility" )
+{
+    EngineConfig config;
+    AssetSystem assets;
+    SkullbonezTests::NullRenderResourceFactory resources;
+    Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
+    PhysicsBodyStore& bodies = TerrainBodyStore();
+    ColliderStore& colliders = TerrainColliderStore();
+    for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.terrain = &terrain;
+        body.hot.position = Vector3( static_cast<float>( bodyIndex ), 5.0f, 0.0f );
+        body.hot.fixed = bodyIndex == 1;
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.shape = CollisionShape( BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ) );
+        collider.boundingRadius = 1.0f;
+        colliders.CreateColliderRecord( collider );
+    }
+    const std::array<uint8_t, 3> sleepState = { 0u, 0u, 1u };
+    const std::array<float, 3> timeRemaining = { 0.5f, 0.5f, 0.5f };
+    const TerrainDetectionStageContext context{ bodies.Records(),
+                                                bodies.HotFields(),
+                                                colliders.Records(),
+                                                config,
+                                                sleepState,
+                                                timeRemaining };
+    SkullbonezCore::Core::PhysicsExecutionConfig execution;
+    execution.parallel = false;
+    WorkerPool inlinePool;
+    PhysicsTerrainStage stage;
+
+    stage.Detect( context, 3, execution, inlinePool );
+
+    const auto candidates = stage.GetDetectionCandidates();
+    REQUIRE( candidates.size() == 3u );
+    CHECK( candidates[0].tested == 1u );
+    CHECK( candidates[0].availableTime == doctest::Approx( 0.5f ) );
+    CHECK( candidates[1].tested == 0u );
+    CHECK( candidates[2].tested == 0u );
 }

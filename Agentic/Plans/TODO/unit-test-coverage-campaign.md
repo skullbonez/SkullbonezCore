@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 3/10 tasks
-complete; begin at U3. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 4/10 tasks
+complete; begin at U4. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -179,7 +179,7 @@ skip it.
       proves representative IEEE propagation; the Debug assert contract is
       recorded without stalling doctest. `validate_tests` passed 237 cases and
       17,835 assertions with a zero-warning Profile build.
-- [ ] **U3 — Physics stores and stateless stage owners.** Synthetic-store
+- [x] **U3 — Physics stores and stateless stage owners.** Synthetic-store
       unit tests for `PhysicsBodyStore` (handle lifecycle: create/retire/
       reuse, hole compaction, pending-impulse preservation across descriptor
       refresh — the documented invariants in its header), `ColliderStore`
@@ -194,6 +194,12 @@ skip it.
       `validate_physics` byte-exact (pure test additions must not touch
       product source; if a task needs a product seam, that diff is isolated,
       named in the commit, and rides the physics gate).
+      Completed 2026-07-16: focused cases now lock descriptor-reorder pending
+      impulse ownership, dense body/collider realignment, exact/minimum and
+      crowded-cell grid behavior, contact-skin equality, gravity receive flags,
+      and terrain candidate row order/eligibility. `validate_tests` passed 244
+      cases / 17,876 assertions; `validate_physics` matched 44,401 lines
+      byte-exact with zero-warning Debug/Profile builds and no baseline change.
 - [ ] **U4 — Sleep controller, narrowphase, and contact-solver stages.** The
       state-machine tier: sleep counter thresholds (including the uint8 clamp
       at 255), island merge/wake propagation across support edges,

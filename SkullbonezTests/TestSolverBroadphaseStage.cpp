@@ -41,6 +41,10 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Physics/SolverBroadphaseStage.h"
+#include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/WorkerPool.h"
+#include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
+#include "../SkullbonezSource/Physics/Stages/PhysicsForceStage.h"
 #include "../SkullbonezSource/Physics/Stages/Kernels/IntegrationKernel.h"
 #include "../SkullbonezSource/Physics/Stages/Kernels/ForceKernel.h"
 #include "../SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.h"
@@ -56,6 +60,9 @@ using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
+using SkullbonezCore::Physics::PhysicsForceStage;
+using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
@@ -140,6 +147,25 @@ TEST_CASE( "Solver broadphase stage: candidate filter keeps boundary policy cons
 }
 
 
+TEST_CASE( "Solver broadphase stage: contact skin includes the exact static boundary" )
+{
+    PhysicsBodyStore& bodyStore = TestBodyStore();
+    ColliderRecordList& colliderRecords = TestColliderRecords();
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), 1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 2.1f, 0.0f, 0.0f ), Vector3(), 1.0f );
+    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
+                                              bodyStore.HotFields(),
+                                              { colliderRecords.data(), colliderRecords.size() },
+                                              2,
+                                              1.0f,
+                                              0.1f };
+
+    CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+    bodyStore.MutableHotFields().positionX[1] = 2.1002f;
+    CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+}
+
+
 TEST_CASE( "Integration AVX2 pilot: activity and masked-tail lanes stay bounded" )
 {
     PhysicsBodyStore& bodyStore = TestBodyStore();
@@ -219,6 +245,43 @@ TEST_CASE( "Force AVX2 kernels: gravity masks and mutual-pair tails stay indepen
     const float expectedX = 2.0f * 3.0f * 2.0f / std::pow( 5.0f, 1.5f );
     CHECK( pairForces[0].x == doctest::Approx( expectedX ) );
     CHECK( pairForces[0].y == 0.0f );
+}
+
+
+TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and massless receive flags" )
+{
+    PhysicsBodyStore& bodyStore = TestBodyStore();
+    for ( int bodyIndex = 0; bodyIndex < 4; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = bodyIndex == 3 ? 0.0f : 2.0f;
+        body.hot.inverseMass = bodyIndex == 3 ? 0.0f : 0.5f;
+        body.hot.position = Vector3( static_cast<float>( bodyIndex * 2 ), 0.0f, 0.0f );
+        body.hot.fixed = bodyIndex == 1;
+        (void)bodyStore.CreateBodyRecord( body );
+    }
+    const std::array<uint8_t, 4> sleepState = { 0u, 0u, 1u, 0u };
+    PhysicsWorldForces worldForces;
+    worldForces.mutualGravity.enabled = true;
+    worldForces.mutualGravity.gravitationalConstant = 1.0f;
+    worldForces.mutualGravity.softeningLength = 0.1f;
+    SkullbonezCore::Core::PhysicsExecutionConfig execution;
+    execution.parallel = false;
+    execution.simdKernels = false;
+    WorkerPool inlinePool;
+    PhysicsForceStage stage;
+    stage.ReserveBodyScratchCapacity( 4u );
+
+    const Vector3* forces = stage.PrepareMutualGravityForces(
+        bodyStore.Records(), bodyStore.HotFields(), sleepState, 4, worldForces, execution, inlinePool );
+
+    REQUIRE( forces != nullptr );
+    CHECK( forces[0].x > 0.0f );
+    CHECK( forces[0].y == doctest::Approx( 0.0f ) );
+    CHECK( forces[0].z == doctest::Approx( 0.0f ) );
+    CHECK( forces[1] == SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    CHECK( forces[2] == SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    CHECK( forces[3] == SkullbonezCore::Math::Vector::ZERO_VECTOR );
 }
 
 

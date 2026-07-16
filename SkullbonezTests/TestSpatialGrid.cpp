@@ -133,3 +133,42 @@ TEST_CASE( "SpatialGrid: clear removes old generation contents from queries" )
     CHECK( grid.GetActiveCellCount() == 0 );
     CHECK( pairs.empty() );
 }
+
+
+TEST_CASE( "SpatialGrid: minimum cell size preserves exact-edge insert and query" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( SpatialGrid::MIN_CELL_SIZE );
+    grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 0.25f );
+    grid.Insert( 1, Vector3( 0.75f, 0.25f, 0.25f ), 0.25f );
+
+    const auto pairs = CandidatePairs( grid );
+
+    CHECK( grid.GetCellSize() == SpatialGrid::MIN_CELL_SIZE );
+    CHECK( HasPair( pairs, 0, 1 ) );
+    CHECK( pairs.size() == 1u );
+}
+
+
+TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
+{
+    SpatialGrid& grid = TestGrid();
+    constexpr int kBodyCount = 4;
+    for ( int body = 0; body < kBodyCount; ++body )
+    {
+        grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
+    }
+
+    const auto pairs = CandidatePairs( grid );
+
+    // Hazard: a single crowded cell is the documented O(n^2) broadphase
+    // case. The contract is complete, deduplicated output—not hidden pruning.
+    CHECK( pairs.size() == 6u );
+    for ( int a = 0; a < kBodyCount; ++a )
+    {
+        for ( int b = a + 1; b < kBodyCount; ++b )
+        {
+            CHECK( HasPair( pairs, a, b ) );
+        }
+    }
+}

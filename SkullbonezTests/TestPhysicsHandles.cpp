@@ -36,6 +36,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
@@ -51,6 +52,7 @@ using SkullbonezCore::Physics::MakePhysicsSceneObjectIdFromReplayBodyId;
 using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
@@ -175,6 +177,35 @@ TEST_CASE( "Physics body SoA: aligned hot fields are the sole hot-state authorit
     const auto refreshedHot = static_cast<const PhysicsBodyStore&>( store ).HotFields();
     CHECK( refreshedHot.angularVelocityZ[0] == -6.5f );
     CHECK( refreshedHot.inverseMass[0] == 0.125f );
+}
+
+
+TEST_CASE( "Physics handles: descriptor reorder preserves handle-owned pending impulse" )
+{
+    PhysicsBodyStore& store = TestBodyStore();
+    const PhysicsBodyHandle first = store.CreateBodyRecord( MakeBodyRecord( 101u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle second = store.CreateBodyRecord( MakeBodyRecord( 202u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    const Vector3 impulse( 7.0f, 8.0f, 9.0f );
+    const Vector3 applicationPoint( 1.0f, 2.0f, 3.0f );
+    REQUIRE( store.SetPendingBodyImpulse( second, impulse, applicationPoint ) );
+
+    PhysicsBodyCreateDesc reordered[2];
+    reordered[0].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( 202u );
+    reordered[0].position = Vector3( 20.0f, 0.0f, 0.0f );
+    reordered[1].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( 101u );
+    reordered[1].position = Vector3( 10.0f, 0.0f, 0.0f );
+    const uint8_t awakeRows[2] = {};
+
+    store.LoadFromDescriptors( reordered, awakeRows );
+
+    CHECK( store.HandleForModelIndex( 0 ) == second );
+    CHECK( store.HandleForModelIndex( 1 ) == first );
+    REQUIRE( store.RecordForHandle( second ) != nullptr );
+    CHECK( store.RecordForHandle( second )->hasPendingImpulse );
+    CHECK( store.RecordForHandle( second )->pendingImpulse == impulse );
+    CHECK( store.RecordForHandle( second )->pendingImpulseApplicationPoint == applicationPoint );
+    REQUIRE( store.RecordForHandle( first ) != nullptr );
+    CHECK_FALSE( store.RecordForHandle( first )->hasPendingImpulse );
 }
 
 
@@ -316,6 +347,29 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     CHECK( replacement.generation != middle.generation );
     CHECK( store.Contains( replacement ) );
     CHECK_FALSE( store.Contains( middle ) );
+}
+
+
+TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
+{
+    PhysicsBodyStore& bodies = TestBodyStore();
+    ColliderStore& colliders = TestColliderStore();
+    const PhysicsBodyHandle first = bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle middle = bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle last = bodies.CreateBodyRecord( MakeBodyRecord( 333u, Vector3( 3.0f, 0.0f, 0.0f ) ) );
+    const PhysicsColliderHandle firstCollider = colliders.CreateColliderRecord( MakeColliderRecord( first, 111u, 1.0f ) );
+    const PhysicsColliderHandle middleCollider = colliders.CreateColliderRecord( MakeColliderRecord( middle, 222u, 2.0f ) );
+    const PhysicsColliderHandle lastCollider = colliders.CreateColliderRecord( MakeColliderRecord( last, 333u, 3.0f ) );
+
+    REQUIRE( bodies.DestroyBodyRecord( middle ) );
+    REQUIRE( colliders.DestroyColliderRecord( middleCollider ) );
+    REQUIRE( colliders.RefreshBodyBindings( bodies ) );
+
+    CHECK( colliders.HandleForModelIndex( 0 ) == firstCollider );
+    CHECK( colliders.HandleForModelIndex( 1 ) == lastCollider );
+    REQUIRE( colliders.Count() == 2 );
+    CHECK( colliders.Data()[1].body == last );
+    CHECK( colliders.Data()[1].replayBodyId == 333u );
 }
 
 
