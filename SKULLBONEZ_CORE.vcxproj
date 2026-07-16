@@ -292,7 +292,11 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringCauseTree.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayScrubberTools.cpp" />

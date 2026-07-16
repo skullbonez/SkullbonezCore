@@ -42,7 +42,11 @@ Related:
 #include "ReplayRestoreService.h"
 #include "ReplayRestoreTransactions.h"
 #include "ReplayPredictionArchive.h"
+#ifdef _DEBUG
+// Invariant: the visual fingerprint oracle is a Debug probe dependency. Product
+// configurations neither compile its implementation nor see its declarations.
 #include "ReplayVisualPacketFingerprint.h"
+#endif
 #include "ReplayV2Artifact.h"
 
 #include "../../Core/FatalError.h"
@@ -65,7 +69,9 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
+#ifdef _DEBUG
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
+#endif
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 using namespace SkullbonezCore::Math::Orientation;

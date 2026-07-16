@@ -1,9 +1,9 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 1/8 tasks complete. R0 closed the census, classification map,
-map-file baseline, owner bucket ratification, and reference gates. Continue at
-R1's link-boundary pilot.
+Status: Active — 2/8 tasks complete. R1 proved the ratified fingerprint
+linkage boundary with product maps and the unchanged mega gate. Continue at
+R2's physical probe-harness split.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -136,7 +136,7 @@ every single task.
       map-attributed baselines of 498,264/456,044 bytes; dispositions D1-D8;
       records the ratified diagnostics matrix and absent product seam; and
       records the single 459.14 s mega gate plus 202/202 test pass.
-- [ ] **R1 — Automation boundary design (no mass moves yet).** Define the
+- [x] **R1 — Automation boundary design (no mass moves yet).** Define the
       ratified link-level boundary: fingerprint code compiles in Automation and
       Debug, while Release/Profile expose no probe declarations or no-op stubs.
       Record how `validate_full`'s Automation lane picks the TU up. Prove the
@@ -144,6 +144,11 @@ every single task.
       pilot file (`ReplayVisualPacketFingerprint.cpp`, the smallest
       candidate): Release/Profile binaries lose its objects (map-file diff),
       Automation still passes its lanes, mega gate green.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r1-fingerprint-linkage.md`
+      records the Automation+Debug project matrix and absent product header
+      seam. Fresh Release/Profile maps contain zero fingerprint-object rows
+      versus R0's 64/200-byte attribution; Automation linked the TU; the
+      single 459.87 s mega gate and 202/202 unit-test gate passed unchanged.
 - [ ] **R2 — Move the probe harness behind the boundary.**
       Physically split the R0-confirmed `_DEBUG` probe blocks from the mixed
       `ReplayValidation.cpp` into a Debug-only TU, and move only

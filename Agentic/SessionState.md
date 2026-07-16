@@ -12,19 +12,22 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute replay mass-reduction R1 → R8 strictly in order, beginning with the fingerprint pilot behind the ratified diagnostics link boundary |
-| Active/future progress | 1 / 8 tasks = 13% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
+| Current objective | Execute replay mass-reduction R2 → R8 strictly in order, beginning with the physical Debug-probe and Automation-verifier split |
+| Active/future progress | 2 / 8 tasks = 25% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 113.79 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R0 passed its single `tools\validate_replay_visual_fidelity.bat` invocation in 459.14 s (2,401 ticks, 200 moved, 187 toppled) and `tools\validate_tests.bat` in 2.14 s (202/202 cases, 12,595 assertions); zero golden/provenance/source change |
+| Validation for current edits | R1 passed fresh Release/Profile map builds with zero fingerprint-object rows, its single `tools\validate_replay_visual_fidelity.bat` invocation in 459.87 s (2,401 ticks, 200 moved, 187 toppled), and `tools\validate_tests.bat` in 6.28 s (202/202 cases, 12,595 assertions); zero golden/provenance change |
 
 ## Live Queue
 
-00000. `replay-mass-reduction` is active at 1/8. R0 closed the 42-file,
+00000. `replay-mass-reduction` is active at 2/8. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
-       and reference gates. Start R1: the fingerprint TU compiles in
-       Automation+Debug and is absent from Release/Profile; product builds
-       expose no probe declarations or no-op stubs. Binding rules for every
+       and reference gates. R1 proved the fingerprint TU compiles in
+       Automation+Debug and is absent from Release/Profile maps; product
+       builds expose no fingerprint declarations or no-op stubs. Start R2:
+       physically split only the existing `_DEBUG` replay-probe blocks and the
+       Automation-only RVPD verifier while production archive/restore remains
+       in all configurations. Binding rules for every
        task: exactly one
        `tools\validate_replay_visual_fidelity.bat` invocation (one engine
        process, one prediction generation, zero golden refresh,
@@ -32,9 +35,7 @@ plan inventory.
        scatter; no artifact-format or probe-schema changes; no ownership
        re-decomposition; deletions only via R5 owner rulings; owner-TU
        partitions only in R6; reserve-allocator registrations move
-       unchanged. R1 proves the boundary on the fingerprint pilot file
-       before R2 splits only ratified probe portions from mixed production
-       files; R4 adds DX12+stress gates; R8
+       unchanged. R4 adds DX12+stress gates; R8
        closes with full/perf/allocation gates and the final census against
        R0's measured numbers.
 0000. Runtime mass-reduction campaign completed at 16/16 on 2026-07-16. Binding

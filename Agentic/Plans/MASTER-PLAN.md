@@ -98,8 +98,8 @@ validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 1 | 8 | 13% |
-| **Active/future total** | **1** | **8** | **13%** |
+| replay-mass-reduction | 2 | 8 | 25% |
+| **Active/future total** | **2** | **8** | **25%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -109,12 +109,13 @@ historical work per commit-contract rule 4.
 ## Current Execution Priority
 
 The binding critical path is the 2026-07-16 replay mass-reduction campaign:
-`replay-mass-reduction` R0 → R8 strictly in order. R0 is complete: the owner
-ratified configuration-appropriate diagnostics membership and absent
-Release/Profile probe seams; the 42-file census, Release/Profile maps, and
-reference gates are recorded in the R0 report. R1 now proves the link-level
-boundary on the fingerprint pilot before R2 moves only the confirmed probe
-portions; MASTER rule 11 (one mega-gate invocation, one engine process, no
+`replay-mass-reduction` R0 → R8 strictly in order. R0 and R1 are complete: the
+owner-ratified diagnostics matrix is recorded, and the fingerprint pilot now
+links only in Automation+Debug with zero Release/Profile map rows and no
+product declaration seam. R2 now physically splits only the proven Debug
+probe blocks and Automation RVPD verifier while keeping product archive/restore
+in every configuration.
+MASTER rule 11 (one mega-gate invocation, one engine process, no
 golden refresh, revert-on-diff) binds every task.
 
 The 2026-07-15 runtime mass-reduction critical path completed at 16/16:
@@ -451,7 +452,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 1/8 | R1: move the fingerprint pilot behind the ratified Automation+Debug link boundary; Release/Profile expose no probe seam |
+| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 2/8 | R2: split Debug replay probes and the Automation RVPD verifier behind the proven boundary; retain product archive/restore |
 
 ## Features
 
