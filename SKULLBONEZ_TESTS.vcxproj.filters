@@ -156,6 +156,9 @@
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

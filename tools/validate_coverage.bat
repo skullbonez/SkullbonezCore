@@ -17,9 +17,8 @@
 @rem Invariants:
 @rem   - Coverage runs the Debug x64 SKULLBONEZ_TESTS executable from repo root.
 @rem   - Test and third-party lines never enter the product denominator.
-@rem   - The temporary topple-case exclusion is removed in campaign task U4,
-@rem     after that fixture is moved away from its instrumentation-sensitive
-@rem     floating-point selection boundary.
+@rem   - Every doctest case participates; instrumentation-sensitive fixtures
+@rem     must be authored away from floating-point selection boundaries.
 @rem   - Full child output stays in TestOutput/coverage to keep gate output bounded.
 @rem
 @rem Related:
@@ -97,7 +96,7 @@ if exist "%COVERAGE_LOG%" del /q "%COVERAGE_LOG%"
 
 echo [3/4] Capturing Cobertura product coverage...
 echo       Full test output: %COVERAGE_LOG%
-"%OPENCPPCOVERAGE_EXE%" --quiet --modules "%REPO%\Debug\SKULLBONEZ_TESTS.exe" --sources "%REPO%\SkullbonezSource" --working_dir "%REPO%" --export_type "cobertura:%COVERAGE_XML%" -- "%REPO%\Debug\SKULLBONEZ_TESTS.exe" "--test-case-exclude=Persistent contact solver: a box gains sleep support only after toppling from its edge" "--quiet" > "%COVERAGE_LOG%" 2>&1
+"%OPENCPPCOVERAGE_EXE%" --quiet --modules "%REPO%\Debug\SKULLBONEZ_TESTS.exe" --sources "%REPO%\SkullbonezSource" --working_dir "%REPO%" --export_type "cobertura:%COVERAGE_XML%" -- "%REPO%\Debug\SKULLBONEZ_TESTS.exe" "--quiet" > "%COVERAGE_LOG%" 2>&1
 if errorlevel 1 (
     echo FAIL: OpenCppCoverage or the Debug test process failed.
     findstr /C:"FATAL ERROR:" /C:"Status:" "%COVERAGE_LOG%"

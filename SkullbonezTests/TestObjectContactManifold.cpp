@@ -178,3 +178,30 @@ TEST_CASE( "Object contact manifold: coplanar face and degenerate slab stay fini
         BuildBoxManifold( base, unitBox, MakeBody( Vector3( 0.0f, 1.0f, 0.0f ) ), slab );
     CheckFiniteManifold( degenerate );
 }
+
+
+TEST_CASE( "Object contact manifold: boundary-band feature selection is stable across ten evaluations" )
+{
+    const CollisionShape box = MakeBox();
+    const ObjectContactBodyView lower = MakeBody( Vector3( 0.0f, 0.0f, 0.0f ) );
+    // Concept: exact face contact sits on a feature-selection boundary. The
+    // selected side is less important than returning the same ordered rows on
+    // every evaluation, because those feature ids key the warm-start cache.
+    const ObjectContactBodyView upper = MakeBody( Vector3( 0.0f, 2.0f, 0.0f ) );
+    const ObjectContactManifold baseline = BuildBoxManifold( lower, box, upper, box );
+
+    for ( int repeat = 0; repeat < 10; ++repeat )
+    {
+        const ObjectContactManifold current = BuildBoxManifold( lower, box, upper, box );
+        REQUIRE( current.pointCount == baseline.pointCount );
+        CHECK( current.normal.x == doctest::Approx( baseline.normal.x ) );
+        CHECK( current.normal.y == doctest::Approx( baseline.normal.y ) );
+        CHECK( current.normal.z == doctest::Approx( baseline.normal.z ) );
+        for ( uint8_t pointIndex = 0; pointIndex < baseline.pointCount; ++pointIndex )
+        {
+            CHECK( current.points[pointIndex].featureId == baseline.points[pointIndex].featureId );
+            CHECK( current.points[pointIndex].penetration ==
+                   doctest::Approx( baseline.points[pointIndex].penetration ) );
+        }
+    }
+}

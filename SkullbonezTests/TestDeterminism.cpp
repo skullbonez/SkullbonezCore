@@ -276,9 +276,10 @@ TEST_CASE( "Physics collision-time diagnostics cover every bounded fixed-step ev
 TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
 {
     // PhysicsEngine owns fixed-capacity solver scratch too large for the
-    // default test-thread stack; existing determinism fixtures use static cold
-    // storage for the same reason.
-    static PhysicsEngine engine;
+    // default test-thread stack. Heap ownership also keeps repeated fixtures
+    // out of the Debug executable's image-size budget.
+    auto engineStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& engine = *engineStorage;
     engine.Clear();
     engine.SetSleepEnabled( true );
     CHECK( engine.IsSleepEnabled() );
@@ -852,8 +853,10 @@ void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& 
 
 TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick intervals" )
 {
-    static PhysicsEngine first;
-    static PhysicsEngine second;
+    auto firstStorage = std::make_unique<PhysicsEngine>();
+    auto secondStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& first = *firstStorage;
+    PhysicsEngine& second = *secondStorage;
     SeedMicroWorld( first );
     SeedMicroWorld( second );
 
@@ -868,7 +871,8 @@ TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick interva
 
 TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
 {
-    static PhysicsEngine pairWorld;
+    auto pairWorldStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& pairWorld = *pairWorldStorage;
     SeedTwoBodyGravityWorld( pairWorld,
                              Vector3( -12.0f, 80.0f, 0.0f ),
                              Vector3( 12.0f, 80.0f, 0.0f ),
@@ -894,7 +898,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
 
 TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
 {
-    static PhysicsEngine closeWorld;
+    auto closeWorldStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& closeWorld = *closeWorldStorage;
     SeedTwoBodyGravityWorld( closeWorld,
                              Vector3( 0.0f, 80.0f, 0.0f ),
                              Vector3( 0.03f, 80.0f, 0.0f ),
@@ -919,7 +924,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
 
 TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounded" )
 {
-    static PhysicsEngine orbitWorld;
+    auto orbitWorldStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& orbitWorld = *orbitWorldStorage;
     const float orbitRadius = 20.0f;
     const float separation = orbitRadius * 2.0f;
     const float mass = 20.0f;
@@ -956,8 +962,10 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
 
 TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
 {
-    static PhysicsEngine first;
-    static PhysicsEngine second;
+    auto firstStorage = std::make_unique<PhysicsEngine>();
+    auto secondStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& first = *firstStorage;
+    PhysicsEngine& second = *secondStorage;
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.worldForces.gravity = 0.0f;
 
@@ -1007,7 +1015,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: large fields use an exact serial fallb
 
 TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves closing speed" )
 {
-    static PhysicsEngine collisionWorld;
+    auto collisionWorldStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& collisionWorld = *collisionWorldStorage;
     const float mass = 2.0f;
     const float radius = 1.0f;
     const float speed = 4.0f;
@@ -1038,7 +1047,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves clos
 
 TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetration tolerance" )
 {
-    static PhysicsEngine settled;
+    auto settledStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& settled = *settledStorage;
     SeedMicroWorld( settled );
 
     const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
@@ -1051,7 +1061,8 @@ TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetra
 
 TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy" )
 {
-    static PhysicsEngine damped;
+    auto dampedStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& damped = *dampedStorage;
     SeedMicroWorld( damped );
 
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
@@ -1077,7 +1088,8 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
 
 TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
 {
-    static PhysicsEngine sleepWorld;
+    auto sleepWorldStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& sleepWorld = *sleepWorldStorage;
     SeedMicroWorld( sleepWorld );
     sleepWorld.SetSleepEnabled( true );
 
@@ -1102,7 +1114,8 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
 
 TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after threshold frames" )
 {
-    static PhysicsEngine sleepWorld;
+    auto sleepWorldStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& sleepWorld = *sleepWorldStorage;
 
     SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     config.physicsSleep.frames = 3;
@@ -1129,8 +1142,10 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
 
 TEST_CASE( "PhysicsEngine determinism: solver snapshot plus body state restores losslessly" )
 {
-    static PhysicsEngine interrupted;
-    static PhysicsEngine restored;
+    auto interruptedStorage = std::make_unique<PhysicsEngine>();
+    auto restoredStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& interrupted = *interruptedStorage;
+    PhysicsEngine& restored = *restoredStorage;
     SeedMicroWorld( interrupted );
     SeedMicroWorld( restored );
 
@@ -1149,8 +1164,10 @@ TEST_CASE( "PhysicsEngine determinism: solver snapshot plus body state restores 
 
 TEST_CASE( "Replay solver sample restore: recorded frame reproduces future frame" )
 {
-    static PhysicsEngine expected;
-    static PhysicsEngine restored;
+    auto expectedStorage = std::make_unique<PhysicsEngine>();
+    auto restoredStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& expected = *expectedStorage;
+    PhysicsEngine& restored = *restoredStorage;
     SeedMicroWorld( expected );
     SeedMicroWorld( restored );
 

@@ -94,9 +94,9 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| unit-test-coverage-campaign (ACTIVE) | 4 | 10 | 40% |
+| unit-test-coverage-campaign (ACTIVE) | 5 | 10 | 50% |
 | physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
-| **Active/future total** | **10** | **19** | **53%** |
+| **Active/future total** | **11** | **19** | **58%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign. Later the same day the owner REORDERED it ahead
@@ -557,7 +557,7 @@ the paused SoA/SIMD cutover.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 4/10 | U4: cover sleep, narrowphase, and contact-solver state machines |
+| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 5/10 | U5: cover replay artifact codec round-trips and adversarial decode |
 
 ## Features
 

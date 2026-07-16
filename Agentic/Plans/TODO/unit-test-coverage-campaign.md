@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 4/10 tasks
-complete; begin at U4. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 5/10 tasks
+complete; begin at U5. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -200,7 +200,7 @@ skip it.
       and terrain candidate row order/eligibility. `validate_tests` passed 244
       cases / 17,876 assertions; `validate_physics` matched 44,401 lines
       byte-exact with zero-warning Debug/Profile builds and no baseline change.
-- [ ] **U4 — Sleep controller, narrowphase, and contact-solver stages.** The
+- [x] **U4 — Sleep controller, narrowphase, and contact-solver stages.** The
       state-machine tier: sleep counter thresholds (including the uint8 clamp
       at 255), island merge/wake propagation across support edges,
       underwater-lock entry/exit, point-joint island relaxation flags;
@@ -214,6 +214,19 @@ skip it.
       times) rather than asserting which side wins — the fp-envelope
       fixture-construction rule, now enforced by example. Gate:
       `validate_tests` + `validate_physics` byte-exact.
+      Completed 2026-07-16: direct stage fixtures now lock uint8 sleep-policy
+      clamping, chained fixed-anchor support, underwater dormancy entry/exit,
+      and original pair-slot ordering across two 256-island parallel passes.
+      Solver coverage adds signed friction-cone and bounded restitution checks;
+      the exact face-boundary manifold repeats ten times with stable ordered
+      feature ids. `validate_tests` passed 249 cases / 19,052 assertions;
+      `validate_physics` matched 44,401 lines byte-exact with zero-warning
+      Debug/Profile builds and no baseline change. The U0 temporary topple
+      exclusion is removed, and heap-owned determinism fixtures keep the Debug
+      PE loadable for full instrumentation (clean-link image 0x25CFF000 rather
+      than the stale/static-heavy 0x7C046000). `validate_coverage` passed with
+      all cases participating and 12,223 / 21,120 whole-product lines (57.87%);
+      `validate_fast` also passed after the wrapper change.
 - [ ] **U5 — Artifact codec round-trips and adversarial decode.** CPU-only
       encode→decode round-trips for the replay artifact writer/readers:
       chunk-table integrity, every chunk tag present/absent combination the

@@ -280,6 +280,12 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     CHECK( accT1 == doctest::Approx( 1.2f ).epsilon( 0.0001 ) );
     CHECK( accT2 == doctest::Approx( 1.6f ).epsilon( 0.0001 ) );
 
+    float signedT1 = -3.0f;
+    float signedT2 = 4.0f;
+    SkullbonezCore::Physics::ContactSolver::ClampFrictionVector( signedT1, signedT2, 2.0f );
+    CHECK( signedT1 == doctest::Approx( -1.2f ).epsilon( 0.0001 ) );
+    CHECK( signedT2 == doctest::Approx( 1.6f ).epsilon( 0.0001 ) );
+
     SolverFixture fixture;
     fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 5.0f, -0.1f, 5.0f ) );
     fixture.AddTerrainContact( 0, 7u, 0.05f );
@@ -308,6 +314,7 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.bodySimulation.contactRestitutionThreshold );
     CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
+    CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
 }
 
 
