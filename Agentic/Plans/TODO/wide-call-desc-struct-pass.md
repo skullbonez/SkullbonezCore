@@ -1,7 +1,7 @@
 # Wide-Call Desc-Struct Pass — Retire The 12-To-20 Argument Tail
 
 Date: 2026-07-15
-Status: Active — 3/5 tasks complete
+Status: Active — 4/5 tasks complete
 Impact area: `Runtime/Render/RuntimeRenderer`, `Runtime/Replay/*` call sites,
 `Runtime/Editor/RunEditorTracer`, the wide-invocation inventory report
 Owner: runtime shell / replay presentation
@@ -100,11 +100,17 @@ no behavior, ordering, or float change; all baselines and goldens unchanged.
       202/202 cases, 12,595/12,595 assertions, and zero warnings/errors. Comment
       audit 10/10, zero deferred; no replay tick, causal value, artifact,
       screenshot, physics baseline, or behavioral golden value changed.
-- [ ] T4 — Inventory truth pass: update every touched row in the inventory
+- [x] T4 — Inventory truth pass: update every touched row in the inventory
       report with its new arg count; re-run the report's balanced-token
       arity scan to regenerate exact max counts; any surviving ≥12-arg row
       gets an individual, non-boilerplate keep-reason naming the concrete
       cost of conversion (e.g. measured per-iteration copy in a hot loop).
+      Evidence: the 16.89 s committed-tip scan reconciles all ten converted
+      names at 0–2 arguments and finds exactly 31 surviving ≥12-argument names,
+      down from 41. All 31 current sites/counts are recorded with individual
+      hot-path copy, live-owner authority, normalization, or final diagnostic-
+      serialization reasons; zero row is new or unclassified. Documentation-
+      only; no repository validation required.
 - [ ] T5 — Final gates: `tools\validate_full.bat` (multiple areas), plus
       confirmation that no golden, screenshot, or physics baseline changed
       anywhere in the plan (git history is the proof). Comment audit over

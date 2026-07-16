@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (runtime mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute the runtime mass-reduction campaign: Init startup and Run member/include shrink are complete; finish `wide-call-desc-struct-pass` at 3/5. |
-| Active/future progress | 14 / 16 tasks = 88% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
+| Current objective | Execute the runtime mass-reduction campaign: Init startup and Run member/include shrink are complete; finish `wide-call-desc-struct-pass` at 4/5. |
+| Active/future progress | 15 / 16 tasks = 94% overall (mass-reduction plans only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 110.45 s on 2026-07-16: mandatory CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | Wide-call T3 labels nine replay/editor/UI record-construction calls. Its sole 435.86 s replay process produced the exact 2,401-tick/187-sleeper oracle, then exposed only stale pre-config-v2 provenance. With explicit owner approval, two hash fields were reconciled; the continued CPU equality/false-pass suite and final `validate_tests` (202 cases, 12,595 assertions) passed. No second engine/generation or behavioral golden change. |
+| Validation for current edits | Wide-call T4 is documentation-only. Its 16.89 s committed-tip balanced-token scan reconciles ten converted names at 0–2 arguments and exactly 31 surviving ≥12-argument names, all with individual current keep reasons; no repository validation required. |
 
 ## Live Queue
 
@@ -25,9 +25,9 @@ plan inventory.
       remediation restored generic CLI policy to its parser owner. Continue with
       `run-member-and-include-shrink` is complete at 6/6 after its clear repeat
       ownership review and full/DX12/stress closure gates. Continue with
-      `wide-call-desc-struct-pass` is active at 3/5: the render record and nine
-      UI/replay/editor record-construction rows are designated; continue with
-      T4's exact inventory truth pass. Owner
+      `wide-call-desc-struct-pass` is active at 4/5: ten record-construction
+      names are now 0–2 arguments and all 31 surviving ≥12-argument names have
+      current individual reasons; continue with T5's final broad gate. Owner
       rulings: Init's round-3 parking is lifted and a free-function file
       split by responsibility is the approved shape; the Run shrink allows
       at most two cohesive owners, bans a services bag, and requires one
@@ -237,7 +237,7 @@ plan inventory.
 
 ## Next Handoff
 
-The runtime mass-reduction campaign is at 14/16. Continue with
-`Plans/TODO/wide-call-desc-struct-pass.md` T4 at 3/5. The externally
+The runtime mass-reduction campaign is at 15/16. Continue with
+`Plans/TODO/wide-call-desc-struct-pass.md` T5 at 4/5. The externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.

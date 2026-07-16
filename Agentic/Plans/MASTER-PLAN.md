@@ -99,8 +99,8 @@ rule 4. The externally blocked validation lane remains deliberately excluded.
 |---|---:|---:|---:|
 | init-startup-decomposition | 5 | 5 | 100% |
 | run-member-and-include-shrink | 6 | 6 | 100% |
-| wide-call-desc-struct-pass | 3 | 5 | 60% |
-| **Active/future total** | **14** | **16** | **88%** |
+| wide-call-desc-struct-pass | 4 | 5 | 80% |
+| **Active/future total** | **15** | **16** | **94%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -411,7 +411,7 @@ ownership review; replay-touching wide-call work runs the one-invocation
 |---|---|---:|---|
 | `init-startup-decomposition` | Complete | 5/5 | Init is a 453-line process orchestrator; four focused Startup owners, exact CLI proofs, independent ownership review, final full gate, and both manual exit-code probes are closed in `../Reports/2026-07-15/init-startup-decomposition-map.md` |
 | `run-member-and-include-shrink` | Complete | 6/6 | Run.h has 23 direct includes and none of the four named heavy transitive headers; two cohesive owners, recorded UI/audio stays, clear independent review, and full/DX12/stress closure evidence are recorded in `../Reports/2026-07-15/run-member-shrink-map.md` |
-| [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 3/5 | T4: regenerate the exact post-conversion arity inventory and reconcile all surviving ≥12-argument keep rows |
+| [wide-call-desc-struct-pass](TODO/wide-call-desc-struct-pass.md) | Active | 4/5 | T5: run the final broad gate, prove plan-wide baseline scope, and close the touched-file comment audit |
 
 ## Features
 

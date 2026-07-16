@@ -343,3 +343,67 @@ Comment-quality audit: 1/1 touched source file inspected, zero deferred. The
 renderer retains its full learning header and the new local `Why:` comment
 states the field-label and one-frame lifetime contract. No baseline, screenshot,
 golden, scene, or authored-data file changed.
+
+## 2026-07-16 Final Post-Conversion Truth Pass
+
+T4 reran the same comment/literal-masked balanced-token parser over the
+committed T3 tip. Definitions and constructor initializers were excluded, all
+four delimiter kinds were balanced, and only top-level commas counted. The
+16.89 s scan found **31 current invoked names with a maximum of at least 12
+arguments**, down exactly ten from T1's 41-name tail. The ten-row conversion
+reconciliation is complete:
+
+| Converted name | Final max args and current site(s) | Reconciliation |
+|---|---|---|
+| `addMarkerOption` | 1 — `RunUiTextPass.cpp:634,654` | Two designated `UIProfilerMarkerOption` payloads. |
+| `AddReplayFutureNodeToNodes` | 2 — `Replay/ReplayPrediction.cpp:2475` | Node container plus designated `ReplayFutureNodeDesc`. |
+| `AppendReplayRibbonVertex` | 2 — `Editor/RunEditorTracer.cpp:754` | Vertex vector plus designated `ReplayRibbonVertexDesc`. |
+| `ApplyReplayRestoreEditorPlaceEvent` | 2 — `Replay/ReplayValidation.cpp:1388` | Designated restore desc plus sequencing callback. |
+| `BeginReplayPredictionJob` | 1 — `Replay/ReplayPrediction.cpp:3795` | One designated `ReplayPredictionJobDesc`. |
+| `BuildReplayProbeVisualProjection` | 1 — `Replay/ReplayValidation.cpp:2961` | One designated cold-probe desc. |
+| `BuildRuntimeRenderInputs` | 0 — deleted | Existing render input records are designated directly. |
+| `DescribeReplayScrubberSurface` | 1 — `Replay/ReplayOverlayRenderer.cpp:117`; `Replay/ReplayScrubberTools.cpp:1223` | One designated surface request at each consumer. |
+| `MakeEditorHousePart` | 0 — deleted | All 34 constexpr house rows designate the existing definition directly. |
+| `MakeEditorTreePart` | 1 — `Editor/RunEditorPlacementAssets.cpp:671,690,710,732,746,760,774,803,817,831,845,872,886,900,914` | All 15 rows pass one designated desc while retaining derived contact release. |
+
+The complete surviving tail follows. Each reason was rechecked against the
+current call site rather than inherited by category; no boilerplate exemption
+or unclassified >=12-argument invocation remains.
+
+| Surviving invoked name | Current >=12-argument site(s), exact max | Individual keep reason |
+|---|---|---|
+| `DispatchReflectionRays` | `Render/RuntimeRenderPasses.cpp:1237`; 17 | **Hot render operation:** one immediate per-pass command/resource binding call; copying the same live bindings into another record would duplicate the backend contract without constructing owned data. |
+| `EmitFxQuad` | `Render/RuntimeRenderPasses.cpp:1723,1775,1812`; 14 | **Per-quad hot primitive:** three effect paths invoke it for every emitted quad; a desc adds a per-item aggregate copy to fixed geometry/color scalars consumed immediately. |
+| `ExecutePending` | `InputFrameExecution.cpp:1029`; 22 | **Cold composition boundary:** explicitly names scene, host, and interaction owners for command execution; an aggregate would be a mutable multi-domain services bag. |
+| `ExecuteUiTextThroughRenderGraph` | `Render/RuntimeRenderer.cpp:2221`; 13 | **Render scheduling operation:** values are copied once into the already-existing `UiTextGraphCallbackData`; a second desc duplicates that record and adds a per-frame copy. |
+| `fprintf` | `Diagnostics/DiagnosticsRuntime.cpp:264,286,932,1003`; `Startup/StartupProbeHarnesses.cpp:381,406`; 34 | **External diagnostic API:** six distinct fixed format strings own these positional schemas; no engine record exists beyond the final variadic serialization boundary. |
+| `GameObjects::GameModelRenderer::RenderModels` | `Render/RuntimeRenderPasses.cpp:1320,1392`; 13 | **Hot render operation:** object and reflection passes consume live renderer resources directly; a copied pass record would own no state and execute twice per frame. |
+| `Load` | `InputFrameExecution.cpp:354`; `Run.cpp:526,683`; `RunFrame.cpp:1102,1231`; `RuntimeStressController.cpp:1070`; `Scene/SceneRequestExecution.cpp:80`; 23 | **Cold scene-owner boundary:** the explicit owner list prevents `SceneController` reach-back; wrapping it recreates the prohibited broad scene/runtime context. |
+| `LogReplayRestoreResult` | `Replay/ReplayValidation.cpp:988`; `RuntimeDiagnostics.cpp:640`; 20 | **Diagnostic schema:** two stable restore-report sinks emit the exact fields immediately; there is no retained record consumer to justify a copied desc. |
+| `LogReplayScrubProbe` | `Replay/ReplayValidation.cpp:2742`; 12 | **Diagnostic schema:** one compatibility-sensitive scrub-probe row is serialized in fixed order and never retained. |
+| `LogReplayV2TargetRestoreDiagnostic` | `Replay/ReplayValidation.cpp:1957,3248`; 15 | **Diagnostic schema:** two bounded target-restore evidence rows terminate directly at logging; no reusable value crosses the boundary. |
+| `MakePhysicsBodyCreateDesc` | `Scene/SceneAuthoredSetup.cpp:144`; `Startup/StartupProbeHarnesses.cpp:107,141`; 12 | **Normalization factory:** this already produces `PhysicsBodyCreateDesc` and derives shape metrics/world-inertia policy; a second input desc duplicates the output contract and crosses into Physics API policy. |
+| `MakeSceneBodyDesc` | `Scene/SceneAuthoredSetup.cpp:233,510,553,598,633,701,759`; 12 | **Scene normalization factory:** seven cold authored rows convert fixed policy to motion kind before delegating to the derived-metric factory; another record only mirrors the existing output. |
+| `Physics::MakePhysicsBodyCreateDesc` | `Tools/RuntimeTools.cpp:817`; 12 | **Normalization factory:** the single cold tool call uses the same Physics derivation contract; a duplicate input record has no additional owner or consumer. |
+| `PrepareEditorGizmoGesture` | `Editor/RunEditorTools.cpp:1734`; 12 | **Editor operation:** reads live scene/physics/interaction owners and writes `EditorGizmoGesturePlan`; wrapping the owners broadens authority rather than constructs the output plan. |
+| `PrepareRenderFrame` | `RunRender.cpp:125`; 15 | **Frame sequencing boundary:** combines the existing narrow frame views once at the composition root; another aggregate recreates complete-frame authority. |
+| `printf` | `Replay/ReplayValidation.cpp:3512,3708`; `RuntimeStressController.cpp:1235`; 44 | **External diagnostic API:** three independent fixed format strings terminate at the C variadic boundary; no common record or downstream consumer exists. |
+| `RenderShadowMap` | `Render/RuntimeRenderPasses.cpp:1028,1052`; 12 | **Hot render operation:** terrain and object shadow passes consume live pass resources twice per frame; a desc adds two copies without owned state. |
+| `RenderUiText` | `RunFrame.cpp:258`; 12 | **Frame sequencing boundary:** consumes existing UI/render/replay owners in final frame order; bundling them would create a UI services bag. |
+| `ReplayPresentationOperations::ActivateLoadedPresentation` | `Replay/ReplayScrubberTools.cpp:528`; `Replay/ReplayValidation.cpp:2995,3655`; 17 | **Replay owner transaction:** atomically coordinates timeline, scrubber, presentation, prediction, authoring, and diagnostics; a transient desc obscures that live multi-owner operation and retains no value. |
+| `RuntimeDiagnostics::LogReplayRestoreResult` | `Diagnostics/DiagnosticsRuntime.cpp:1208`; 20 | **Diagnostic sink:** the member boundary serializes the same exact restore fields; converting only this layer creates a redundant copied record. |
+| `RuntimeDiagnostics::LogReplayScrubProbe` | `Diagnostics/DiagnosticsRuntime.cpp:1146`; 13 | **Diagnostic sink:** fixed scrub evidence is emitted immediately and does not construct reusable state. |
+| `sprintf_s` | `Replay/ReplayAuthoringCauseTree.cpp:705`; `Replay/ReplayRecorder.cpp:3325`; `Replay/ReplayValidation.cpp:1646`; 28 | **External formatting API:** three bounded buffers have independent fixed schemas; the variadic call is their final serialization boundary. |
+| `std::fprintf` | `Allocation/RuntimeReserveAllocator.cpp:307,454,669,705`; 19 | **Allocation diagnostics:** four cold fatal/report rows serialize policy evidence directly; a record adds failure-path code without a consumer. |
+| `TickCauseTreeInput` | `Replay/ReplayScrubberTools.cpp:587`; 24 | **Input operation:** mutates cause-tree and interaction owners once per input frame; a desc would be a mutable replay services bag. |
+| `TickReplayScrubberGesture` | `Replay/ReplayScrubberTools.cpp:1544`; 13 | **Input operation:** gesture state and live replay owners are consumed synchronously once per input frame, not assembled into a value. |
+| `TickScrubberInput` | `Replay/ReplayScrubberTools.cpp:563`; 21 | **Input sequencing boundary:** top-level replay input coordinates live owners; an aggregate duplicates the existing frame boundary and broadens authority. |
+| `TickVelocityEditInput` | `Replay/ReplayScrubberTools.cpp:614`; 24 | **Input operation:** synchronously edits authoring, physics, and interaction state; a desc would collect mutable cross-domain owners. |
+| `UpdateFrame` | `Replay/ReplayRuntime.cpp:1402`; 18 | **Replay owner operation:** per-frame coordinator over live timeline/presentation owners; a whole-replay bag would have no record lifetime or value semantics. |
+| `UpdateInput` | `InputFrame.cpp:522`; 15 | **Frame sequencing boundary:** consumes four existing narrow frame views once; another aggregate recreates the complete-frame bag removed by the signature plan. |
+| `UpdateReplayPrediction` | `Replay/ReplayPrediction.cpp:3901`; 21 | **Prediction owner operation:** schedules live physics, worker, and presentation state once per frame; wrapping mutable owners obscures authority and constructs no value. |
+| `Writef` | `RuntimeDiagnostics.cpp:527,592,691,747,832`; 46 | **Diagnostic API:** five bounded stable log schemas terminate at the variadic writer; there is no common record shape or retained consumer. |
+
+Final proof: **10/10 conversion names reconciled, 31/31 surviving names carry
+individual reasons, zero unclassified >=12-argument invocations**. T4 changes
+documentation only; no repository validation is required.
