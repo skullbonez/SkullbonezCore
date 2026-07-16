@@ -20,6 +20,8 @@ Glossary:
     invalidate it while resolving stable identity.
   Fixed-tree release: Authored structure rule where one released fixed prop can
     release higher parts in the same tree group.
+  Hot SoA fields: Parallel component arrays used by per-body stage kernels so
+    eight adjacent bodies can be loaded without gathering from records.
 
 Invariants:
   - Runtime body records stay in scene/model slot order.
@@ -29,6 +31,8 @@ Invariants:
     explicit maps instead of encoding model index inside the handle.
   - Store refreshes load descriptor rows into physics-owned body records before
     a step or explicit editor/replay commit.
+  - Every hot component array starts on a 32-byte boundary and has exactly the
+    same live dense prefix as the cold record view.
   - Steady-frame pose, velocity, and sleep state do not copy back to authoring data;
     readers must use the body, collider, render, or diagnostics stores.
 
@@ -113,6 +117,64 @@ using PhysicsHandleReplayIdList = PhysicsFixedList<uint32_t, SkullbonezCore::Sce
 using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
 using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
 
+// Borrowed hot-field spans keep stage inputs explicit and prevent kernels from
+// reaching unrelated cold authoring state. S2 removes the record compatibility
+// view after every consumer has moved to these spans.
+struct PhysicsBodyHotFieldsConstView
+{
+    std::span<const float> positionX;
+    std::span<const float> positionY;
+    std::span<const float> positionZ;
+    std::span<const float> orientationX;
+    std::span<const float> orientationY;
+    std::span<const float> orientationZ;
+    std::span<const float> orientationW;
+    std::span<const float> linearVelocityX;
+    std::span<const float> linearVelocityY;
+    std::span<const float> linearVelocityZ;
+    std::span<const float> angularVelocityX;
+    std::span<const float> angularVelocityY;
+    std::span<const float> angularVelocityZ;
+    std::span<const float> inverseMass;
+    std::span<const float> inverseInertiaX;
+    std::span<const float> inverseInertiaY;
+    std::span<const float> inverseInertiaZ;
+    std::span<const float> boundingRadius;
+    std::span<const uint8_t> fixed;
+    std::span<const uint8_t> awake;
+};
+
+struct PhysicsBodyHotFieldsView
+{
+    std::span<float> positionX;
+    std::span<float> positionY;
+    std::span<float> positionZ;
+    std::span<float> orientationX;
+    std::span<float> orientationY;
+    std::span<float> orientationZ;
+    std::span<float> orientationW;
+    std::span<float> linearVelocityX;
+    std::span<float> linearVelocityY;
+    std::span<float> linearVelocityZ;
+    std::span<float> angularVelocityX;
+    std::span<float> angularVelocityY;
+    std::span<float> angularVelocityZ;
+    std::span<float> inverseMass;
+    std::span<float> inverseInertiaX;
+    std::span<float> inverseInertiaY;
+    std::span<float> inverseInertiaZ;
+    std::span<float> boundingRadius;
+    std::span<uint8_t> fixed;
+    std::span<uint8_t> awake;
+};
+
+#ifdef _MSC_VER
+// Why: the deliberate 32-byte array starts add harmless intra-object padding.
+// MSVC's C4324 is promoted by the repository warning policy even though this
+// layout is the alignment contract being tested, so suppress only this class.
+#pragma warning( push )
+#pragma warning( disable : 4324 )
+#endif
 class PhysicsBodyStore
 {
   public:
@@ -184,6 +246,10 @@ class PhysicsBodyStore
     // retained across scene mutation, compaction, or store destruction.
     std::span<const PhysicsBodyRecord> Records() const;
     std::span<PhysicsBodyRecord> MutableRecords();
+    // Lifetime: hot spans borrow fixed store storage and remain valid until the
+    // store is destroyed. Only the dense prefix up to Count() is exposed.
+    PhysicsBodyHotFieldsConstView HotFields() const;
+    PhysicsBodyHotFieldsView MutableHotFields();
     std::size_t RecordCapacity() const;
     PhysicsBodyRecord* MutableRecordForHandle( PhysicsBodyHandle handle );
     const PhysicsBodyRecord* RecordForHandle( PhysicsBodyHandle handle ) const;
@@ -218,12 +284,68 @@ class PhysicsBodyStore
                       const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
 
   private:
+    enum class HotFieldAuthority : uint8_t
+    {
+        Synchronized,
+        RecordView,
+        SoA
+    };
+
     PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex,
                                                   uint32_t replayBodyId,
                                                   PhysicsHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const PhysicsHandleAssignmentMask& assignedHandleSlots );
+    void PrepareMutableRecordView();
+    void PrepareRecordView() const;
+    void PrepareHotFields() const;
+    void ClearHotFields();
+    void CopyRecordViewToHotFields() const;
+    void CopyHotFieldsToRecordView() const;
 
-    PhysicsBodyRecordList m_bodies{ "PhysicsBodyStore.bodies" };                               // Body records in scene/model slot order.
+    // Transitional S1 seam: m_bodies retains the public record surface while
+    // S2 migrates consumers. HotFieldAuthority prevents either side from reading
+    // stale bits; S2 deletes the hot members from PhysicsBodyRecord and this shim.
+    mutable PhysicsBodyRecordList m_bodies{
+        "PhysicsBodyStore.bodies" };                                                           // Cold records plus temporary hot-field compatibility values.
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_positionX{
+        "PhysicsBodyStore.positionX" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_positionY{
+        "PhysicsBodyStore.positionY" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_positionZ{
+        "PhysicsBodyStore.positionZ" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_orientationX{
+        "PhysicsBodyStore.orientationX" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_orientationY{
+        "PhysicsBodyStore.orientationY" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_orientationZ{
+        "PhysicsBodyStore.orientationZ" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_orientationW{
+        "PhysicsBodyStore.orientationW" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_linearVelocityX{
+        "PhysicsBodyStore.linearVelocityX" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_linearVelocityY{
+        "PhysicsBodyStore.linearVelocityY" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_linearVelocityZ{
+        "PhysicsBodyStore.linearVelocityZ" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_angularVelocityX{
+        "PhysicsBodyStore.angularVelocityX" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_angularVelocityY{
+        "PhysicsBodyStore.angularVelocityY" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_angularVelocityZ{
+        "PhysicsBodyStore.angularVelocityZ" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_inverseMass{
+        "PhysicsBodyStore.inverseMass" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_inverseInertiaX{
+        "PhysicsBodyStore.inverseInertiaX" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_inverseInertiaY{
+        "PhysicsBodyStore.inverseInertiaY" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_inverseInertiaZ{
+        "PhysicsBodyStore.inverseInertiaZ" };
+    alignas( 32 ) mutable PhysicsFixedList<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_boundingRadius{
+        "PhysicsBodyStore.boundingRadius" };
+    alignas( 32 ) mutable PhysicsHandleFlagList m_fixed{ "PhysicsBodyStore.fixed" };
+    alignas( 32 ) mutable PhysicsHandleFlagList m_awake{ "PhysicsBodyStore.awake" };
+    mutable HotFieldAuthority m_hotFieldAuthority = HotFieldAuthority::Synchronized;
     PhysicsBodyHandleList m_modelBodyHandles{ "PhysicsBodyStore.modelBodyHandles" };           // Model index to body handle map.
     PhysicsHandleGenerationList m_handleGenerations{ "PhysicsBodyStore.handleGenerations" };   // Handle-slot generations.
     PhysicsHandleFlagList m_handleAlive{ "PhysicsBodyStore.handleAlive" };                     // Live handle slot flags.
@@ -234,5 +356,8 @@ class PhysicsBodyStore
     // instead of constructing a heap-backed standard-library container.
     PhysicsHandleAssignmentMask m_assignedHandleScratch{ "PhysicsBodyStore.assignedHandleScratch" };
 };
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif
 } // namespace Physics
 } // namespace SkullbonezCore

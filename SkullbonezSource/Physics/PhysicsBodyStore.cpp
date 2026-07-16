@@ -986,6 +986,139 @@ PhysicsBodyRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc, bool sleepE
 PhysicsBodyStore::PhysicsBodyStore() = default;
 
 
+// Concept: S1 keeps one bit-exact compatibility record view while the hot
+// component arrays become the stage-facing storage. Only one side may be dirty
+// at a time; crossing the seam copies components without performing arithmetic.
+void PhysicsBodyStore::PrepareMutableRecordView()
+{
+    PrepareRecordView();
+    m_hotFieldAuthority = HotFieldAuthority::RecordView;
+}
+
+
+void PhysicsBodyStore::PrepareRecordView() const
+{
+    if ( m_hotFieldAuthority == HotFieldAuthority::SoA )
+    {
+        CopyHotFieldsToRecordView();
+        m_hotFieldAuthority = HotFieldAuthority::Synchronized;
+    }
+}
+
+
+void PhysicsBodyStore::PrepareHotFields() const
+{
+    if ( m_hotFieldAuthority == HotFieldAuthority::RecordView || m_positionX.size() != m_bodies.size() )
+    {
+        CopyRecordViewToHotFields();
+        m_hotFieldAuthority = HotFieldAuthority::Synchronized;
+    }
+}
+
+
+void PhysicsBodyStore::ClearHotFields()
+{
+    m_positionX.clear();
+    m_positionY.clear();
+    m_positionZ.clear();
+    m_orientationX.clear();
+    m_orientationY.clear();
+    m_orientationZ.clear();
+    m_orientationW.clear();
+    m_linearVelocityX.clear();
+    m_linearVelocityY.clear();
+    m_linearVelocityZ.clear();
+    m_angularVelocityX.clear();
+    m_angularVelocityY.clear();
+    m_angularVelocityZ.clear();
+    m_inverseMass.clear();
+    m_inverseInertiaX.clear();
+    m_inverseInertiaY.clear();
+    m_inverseInertiaZ.clear();
+    m_boundingRadius.clear();
+    m_fixed.clear();
+    m_awake.clear();
+    m_hotFieldAuthority = HotFieldAuthority::Synchronized;
+}
+
+
+void PhysicsBodyStore::CopyRecordViewToHotFields() const
+{
+    const std::size_t count = m_bodies.size();
+    m_positionX.resize( count );
+    m_positionY.resize( count );
+    m_positionZ.resize( count );
+    m_orientationX.resize( count );
+    m_orientationY.resize( count );
+    m_orientationZ.resize( count );
+    m_orientationW.resize( count );
+    m_linearVelocityX.resize( count );
+    m_linearVelocityY.resize( count );
+    m_linearVelocityZ.resize( count );
+    m_angularVelocityX.resize( count );
+    m_angularVelocityY.resize( count );
+    m_angularVelocityZ.resize( count );
+    m_inverseMass.resize( count );
+    m_inverseInertiaX.resize( count );
+    m_inverseInertiaY.resize( count );
+    m_inverseInertiaZ.resize( count );
+    m_boundingRadius.resize( count );
+    m_fixed.resize( count );
+    m_awake.resize( count );
+
+    for ( std::size_t index = 0; index < count; ++index )
+    {
+        const PhysicsBodyRecord& record = m_bodies[index];
+        m_positionX[index] = record.position.x;
+        m_positionY[index] = record.position.y;
+        m_positionZ[index] = record.position.z;
+        record.orientation.GetComponents( m_orientationX[index],
+                                          m_orientationY[index],
+                                          m_orientationZ[index],
+                                          m_orientationW[index] );
+        m_linearVelocityX[index] = record.linearVelocity.x;
+        m_linearVelocityY[index] = record.linearVelocity.y;
+        m_linearVelocityZ[index] = record.linearVelocity.z;
+        m_angularVelocityX[index] = record.angularVelocity.x;
+        m_angularVelocityY[index] = record.angularVelocity.y;
+        m_angularVelocityZ[index] = record.angularVelocity.z;
+        m_inverseMass[index] = record.invMass;
+        m_inverseInertiaX[index] = record.invRotationalInertia.x;
+        m_inverseInertiaY[index] = record.invRotationalInertia.y;
+        m_inverseInertiaZ[index] = record.invRotationalInertia.z;
+        m_boundingRadius[index] = record.boundingRadius;
+        m_fixed[index] = record.isFixed ? 1u : 0u;
+        m_awake[index] = record.isSleeping ? 0u : 1u;
+    }
+}
+
+
+void PhysicsBodyStore::CopyHotFieldsToRecordView() const
+{
+    // Invariant: callers can mutate values but cannot resize borrowed spans, so
+    // topology remains owned by m_bodies and every component count must match.
+    assert( m_positionX.size() == m_bodies.size() );
+    for ( std::size_t index = 0; index < m_bodies.size(); ++index )
+    {
+        PhysicsBodyRecord& record = m_bodies[index];
+        record.position = Vector3( m_positionX[index], m_positionY[index], m_positionZ[index] );
+        record.orientation = Math::Orientation::Quaternion( m_orientationX[index],
+                                                            m_orientationY[index],
+                                                            m_orientationZ[index],
+                                                            m_orientationW[index] );
+        record.linearVelocity = Vector3( m_linearVelocityX[index], m_linearVelocityY[index], m_linearVelocityZ[index] );
+        record.angularVelocity =
+            Vector3( m_angularVelocityX[index], m_angularVelocityY[index], m_angularVelocityZ[index] );
+        record.invMass = m_inverseMass[index];
+        record.invRotationalInertia =
+            Vector3( m_inverseInertiaX[index], m_inverseInertiaY[index], m_inverseInertiaZ[index] );
+        record.boundingRadius = m_boundingRadius[index];
+        record.isFixed = m_fixed[index] != 0u;
+        record.isSleeping = m_awake[index] == 0u;
+    }
+}
+
+
 static uint32_t NextReplayBodyIdAfter( const PhysicsBodyRecordList& bodies )
 {
     uint32_t nextReplayBodyId = 1;
@@ -1167,6 +1300,7 @@ void PhysicsBodyStore::RetireUnassignedHandles( const PhysicsHandleAssignmentMas
 void PhysicsBodyStore::Clear()
 {
     m_bodies.clear();
+    ClearHotFields();
     m_modelBodyHandles.clear();
     for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleAlive.size() ); ++slot )
     {
@@ -1193,6 +1327,7 @@ void PhysicsBodyStore::Clear()
 void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDesc> bodyDescs,
                                             std::span<const uint8_t> sleepStates )
 {
+    PrepareMutableRecordView();
     const PreservedRefreshStateList preservedStateByHandle =
         CapturePreservedRefreshState( m_bodies, m_handleGenerations.size() );
     m_assignedHandleScratch.assign( m_handleGenerations.size(), 0 );
@@ -1238,6 +1373,7 @@ void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDes
 
 PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyRecord& initialRecord )
 {
+    PrepareMutableRecordView();
     uint32_t slot = 0;
     if ( !m_freeHandleSlots.empty() )
     {
@@ -1282,6 +1418,7 @@ PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyCreateDes
 
 bool PhysicsBodyStore::DestroyBodyRecord( PhysicsBodyHandle handle )
 {
+    PrepareMutableRecordView();
     if ( !Contains( handle ) )
     {
         return false;
@@ -1337,6 +1474,7 @@ void PhysicsBodyStore::ClearPendingImpulses()
 // body after allocator reuse.
 bool PhysicsBodyStore::TrimToCount( int bodyCount )
 {
+    PrepareMutableRecordView();
     if ( bodyCount < 0 || bodyCount > Count() )
     {
         return false;
@@ -1421,21 +1559,23 @@ void PhysicsBodyStore::RefreshRecordFromDescriptorAt( const PhysicsBodyCreateDes
 
 void PhysicsBodyStore::CopySleepStatesFrom( std::span<const uint8_t> sleepStates )
 {
-    const int bodyCount = Count();
+    PhysicsBodyHotFieldsView hotFields = MutableHotFields();
+    const int bodyCount = static_cast<int>( hotFields.awake.size() );
     for ( int i = 0; i < bodyCount; ++i )
     {
-        m_bodies[static_cast<std::size_t>( i )].isSleeping =
-            i < static_cast<int>( sleepStates.size() ) && sleepStates[static_cast<std::size_t>( i )] != 0;
+        hotFields.awake[static_cast<std::size_t>( i )] =
+            i < static_cast<int>( sleepStates.size() ) && sleepStates[static_cast<std::size_t>( i )] != 0 ? 0u : 1u;
     }
 }
 
 
 void PhysicsBodyStore::CopySleepStatesTo( std::vector<uint8_t>& sleepStates ) const
 {
-    sleepStates.resize( m_bodies.size(), 0 );
-    for ( std::size_t i = 0; i < m_bodies.size(); ++i )
+    const PhysicsBodyHotFieldsConstView hotFields = HotFields();
+    sleepStates.resize( hotFields.awake.size(), 0 );
+    for ( std::size_t i = 0; i < hotFields.awake.size(); ++i )
     {
-        sleepStates[i] = m_bodies[i].isSleeping ? 1 : 0;
+        sleepStates[i] = hotFields.awake[i] == 0u ? 1u : 0u;
     }
 }
 
@@ -1459,6 +1599,7 @@ void PhysicsBodyStore::ReleaseFixedRecord( PhysicsBodyRecord& record,
 void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
                                                       std::vector<int>& outReleasedBodyIndices )
 {
+    PrepareMutableRecordView();
     outReleasedBodyIndices.clear();
     const int sourceIndex = event.sourceIndex;
     if ( sourceIndex < 0 || sourceIndex >= Count() )
@@ -1511,6 +1652,7 @@ void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeRele
 
 const PhysicsBodyRecord* PhysicsBodyStore::Data() const
 {
+    PrepareRecordView();
     return m_bodies.empty() ? nullptr : m_bodies.data();
 }
 
@@ -1622,13 +1764,68 @@ bool PhysicsBodyStore::Contains( PhysicsBodyHandle handle ) const
 
 std::span<const PhysicsBodyRecord> PhysicsBodyStore::Records() const
 {
+    PrepareRecordView();
     return { m_bodies.data(), m_bodies.size() };
 }
 
 
 std::span<PhysicsBodyRecord> PhysicsBodyStore::MutableRecords()
 {
+    PrepareMutableRecordView();
     return { m_bodies.data(), m_bodies.size() };
+}
+
+
+SkullbonezCore::Physics::PhysicsBodyHotFieldsConstView PhysicsBodyStore::HotFields() const
+{
+    PrepareHotFields();
+    return { { m_positionX.data(), m_positionX.size() },
+             { m_positionY.data(), m_positionY.size() },
+             { m_positionZ.data(), m_positionZ.size() },
+             { m_orientationX.data(), m_orientationX.size() },
+             { m_orientationY.data(), m_orientationY.size() },
+             { m_orientationZ.data(), m_orientationZ.size() },
+             { m_orientationW.data(), m_orientationW.size() },
+             { m_linearVelocityX.data(), m_linearVelocityX.size() },
+             { m_linearVelocityY.data(), m_linearVelocityY.size() },
+             { m_linearVelocityZ.data(), m_linearVelocityZ.size() },
+             { m_angularVelocityX.data(), m_angularVelocityX.size() },
+             { m_angularVelocityY.data(), m_angularVelocityY.size() },
+             { m_angularVelocityZ.data(), m_angularVelocityZ.size() },
+             { m_inverseMass.data(), m_inverseMass.size() },
+             { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
+             { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
+             { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
+             { m_boundingRadius.data(), m_boundingRadius.size() },
+             { m_fixed.data(), m_fixed.size() },
+             { m_awake.data(), m_awake.size() } };
+}
+
+
+SkullbonezCore::Physics::PhysicsBodyHotFieldsView PhysicsBodyStore::MutableHotFields()
+{
+    PrepareHotFields();
+    m_hotFieldAuthority = HotFieldAuthority::SoA;
+    return { { m_positionX.data(), m_positionX.size() },
+             { m_positionY.data(), m_positionY.size() },
+             { m_positionZ.data(), m_positionZ.size() },
+             { m_orientationX.data(), m_orientationX.size() },
+             { m_orientationY.data(), m_orientationY.size() },
+             { m_orientationZ.data(), m_orientationZ.size() },
+             { m_orientationW.data(), m_orientationW.size() },
+             { m_linearVelocityX.data(), m_linearVelocityX.size() },
+             { m_linearVelocityY.data(), m_linearVelocityY.size() },
+             { m_linearVelocityZ.data(), m_linearVelocityZ.size() },
+             { m_angularVelocityX.data(), m_angularVelocityX.size() },
+             { m_angularVelocityY.data(), m_angularVelocityY.size() },
+             { m_angularVelocityZ.data(), m_angularVelocityZ.size() },
+             { m_inverseMass.data(), m_inverseMass.size() },
+             { m_inverseInertiaX.data(), m_inverseInertiaX.size() },
+             { m_inverseInertiaY.data(), m_inverseInertiaY.size() },
+             { m_inverseInertiaZ.data(), m_inverseInertiaZ.size() },
+             { m_boundingRadius.data(), m_boundingRadius.size() },
+             { m_fixed.data(), m_fixed.size() },
+             { m_awake.data(), m_awake.size() } };
 }
 
 
@@ -1662,6 +1859,7 @@ const PhysicsBodyRecord* PhysicsBodyStore::RecordForHandle( PhysicsBodyHandle ha
 
 PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForModelIndex( int modelIndex )
 {
+    PrepareMutableRecordView();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_bodies.size() ) )
     {
         return nullptr;
@@ -1673,6 +1871,7 @@ PhysicsBodyRecord* PhysicsBodyStore::MutableRecordForModelIndex( int modelIndex 
 
 const PhysicsBodyRecord* PhysicsBodyStore::RecordForModelIndex( int modelIndex ) const
 {
+    PrepareRecordView();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( m_bodies.size() ) )
     {
         return nullptr;

@@ -94,8 +94,8 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physics-soa-simd-1000-bodies | 1 | 9 | 11% |
-| **Active/future total** | **1** | **9** | **11%** |
+| physics-soa-simd-1000-bodies | 2 | 9 | 22% |
+| **Active/future total** | **2** | **9** | **22%** |
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -110,15 +110,17 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active 2026-07-16 physics SoA/SIMD campaign has completed S0. Its fixed-seed
+The active 2026-07-16 physics SoA/SIMD campaign has completed S0-S1. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
 body Physics Step averages 0.9978 ms on the Threadripper 3970X and the ratified
 final-cutover budget is no more than 0.80 ms. Capacity reaches 2,000 without
 exhaustion; the stretch-row grid cost and pre-existing sleep-counter width
 mismatch are recorded rather than silently changed. Performance, byte-exact
 physics, full, and the single reference replay mega gate passed with no baseline
-refresh. S1 is next: the bit-neutral hot-field SoA split inside
-`PhysicsBodyStore`.
+refresh. S1 added 20 fixed-capacity, 32-byte-aligned component arrays inside
+`PhysicsBodyStore`, with an explicitly temporary bit-copy record seam. Normal
+and deep physics remain byte-exact, all 204 tests pass, and allocation policy is
+clean. S2 is next: migrate consumers to narrow SoA spans and delete the seam.
 
 The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
 order. R0–R5 closed the census and implementation work: the
@@ -487,7 +489,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active | 1/9 | S1: bit-neutral hot-field SoA split in `PhysicsBodyStore` |
+| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active | 2/9 | S2: migrate consumers to SoA spans and delete the record shim |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Features

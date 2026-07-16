@@ -1,8 +1,8 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Active — registered in `MASTER-PLAN.md`; S0 is complete and S1 is
-next. 1/9 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md`; S0-S1 are complete and S2 is
+next. 2/9 tasks complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden
@@ -134,7 +134,7 @@ path) until S7 flips the default in one owner-approved ceremony.
       the ratified final-cutover budget is no more than 0.80 ms. Performance,
       byte-exact physics, full, and the single reference mega gate passed with
       no baseline or golden refresh.
-- [ ] **S1 — Hot-field SoA split inside `PhysicsBodyStore` (bit-neutral).**
+- [x] **S1 — Hot-field SoA split inside `PhysicsBodyStore` (bit-neutral).**
       Hot fields move to parallel arrays owned by the store: position,
       orientation, linear/angular velocity, inverse mass, inverse inertia,
       per-body flags (fixed/awake), bounding radius. Cold/authoring fields
@@ -144,6 +144,10 @@ path) until S7 flips the default in one owner-approved ceremony.
       rule: S2 deletes it). Iteration orders unchanged everywhere.
       Gate: `validate_physics` byte-exact; `validate_physics_deep` once
       (layout change under every sleep/contact path); allocation checks.
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s1-layout.md` records the
+      20 aligned component arrays, exact two-way compatibility seam and S2
+      deletion condition, 204-test alignment/coherence coverage, byte-exact
+      normal/deep physics gates, clean allocation checks, and 3/3 comment audit.
 - [ ] **S2 — Consumer migration and shim deletion (bit-neutral).** Every
       stage owner, replay capture, presentation sync, and diagnostics
       consumer reads the SoA arrays (or narrow spans of them) directly; the
