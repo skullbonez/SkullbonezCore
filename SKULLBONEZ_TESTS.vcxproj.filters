@@ -49,6 +49,9 @@
     <Filter Include="Source Files\Runtime\Input">
       <UniqueIdentifier>{2CE81346-557B-4D79-B553-7F1DAB9BF29F}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Interaction">
+      <UniqueIdentifier>{7D5AC876-4C0D-4E1D-966B-9A18B82E2788}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Render">
       <UniqueIdentifier>{BDDE69D6-F660-4474-9BE8-0666D06D289E}</UniqueIdentifier>
     </Filter>
@@ -174,6 +177,9 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -296,6 +302,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
+      <Filter>Source Files\Runtime\Interaction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>

@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 8/10 tasks
-complete; begin at U8. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 9/10 tasks
+complete; begin at U9. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -307,7 +307,7 @@ skip it.
       coverage passed at 14,135 / 24,167 lines (58.49%), including physics
       stores 1,026 / 1,638 (62.64%), stages/solver 2,582 / 4,544 (56.82%), and
       config/schema 400 / 422 (94.79%).
-- [ ] **U8 — Tier 3: runtime logic owners.** `InputRouter` binding-context
+- [x] **U8 — Tier 3: runtime logic owners.** `InputRouter` binding-context
       enforcement and edge-memory (press/release across context switches),
       `RuntimeInteractionController` frame-policy table (the
       `BuildFramePolicy` input→policy matrix: pause lock, step-held, replay
@@ -316,7 +316,23 @@ skip it.
       hit-region math, HUD value packets). Avoid anything requiring a
       renderer or engine loop — Tier-4 stays gate-owned. Gate:
       `validate_tests`; if any test touches `TestReplay*` naming, it moves
-      to U5's gate rules instead.
+      to U5's gate rules instead. Completed 2026-07-17: linked the pure
+      `RuntimeInteractionController` and `ReplayOverlayLayout` owners into the
+      CPU runner through neutral `TestRuntimeValueSeams` naming, so U5's spent
+      replay mega gate was not invoked again. The new behavioral matrix covers
+      disabled/historical physics lock, live-edge step hold, forced advance,
+      inspect/edit/replay pause policy, launcher/manipulator precedence, camera
+      precedence, replay scrubber geometry and disabled-control hit blocking,
+      loaded/live surface value packets, cause-window placement/scroll clamps,
+      bounded replay event-command payloads, and chronological event-ring wrap.
+      Existing named `TestInputRouter` cases already lock context-switch edge
+      memory and existing `TestOwnerRequestQueues` cases lock ordered scene
+      requests and one-transition checkpoints. Final `validate_tests` passed
+      276 cases / 21,151 assertions; report-only `validate_coverage` passed at
+      14,823 / 24,739 whole-product lines (59.92%), with runtime
+      input/interaction at 504 / 676 (74.56%), scene logic at 35 / 36
+      (97.22%), and replay value seams at 1,256 / 2,272 (55.28%), all above
+      the ratified 50% Tier-3 floor.
 - [ ] **U9 — Floors armed, ratchet ruling honored, closure.** Flip
       `tools/coverage_floors.json` from report-only to the U0-ratified
       floors; `validate_coverage` joins the AGENTS file-to-gate mapping and

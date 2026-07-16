@@ -94,9 +94,9 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| unit-test-coverage-campaign (ACTIVE) | 8 | 10 | 80% |
+| unit-test-coverage-campaign (ACTIVE) | 9 | 10 | 90% |
 | physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
-| **Active/future total** | **14** | **19** | **74%** |
+| **Active/future total** | **15** | **19** | **79%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign. Later the same day the owner REORDERED it ahead
@@ -557,7 +557,7 @@ the paused SoA/SIMD cutover.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 8/10 | U8: complete Tier-3 runtime logic-owner coverage |
+| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 9/10 | U9: arm floors, run closure gates and independent review, publish final report, then close the plan |
 
 ## Features
 

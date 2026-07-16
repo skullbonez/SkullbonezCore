@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-16th-july` (unit-test coverage campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U7 is complete; begin U8 Tier-3 runtime logic owners |
-| Active/future progress | 14 / 19 tasks = 74% overall (unit-test coverage 8/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
+| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U8 is complete; begin U9 floor arming, closure gates, independent review, and final report |
+| Active/future progress | 15 / 19 tasks = 79% overall (unit-test coverage 9/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | U7 final `validate_tests` passed 268 cases / 20,986 assertions; `validate_physics` passed standalone smokes, zero-warning Debug/Profile builds, and the 44,401-line byte-exact baseline; `validate_coverage` passed report-only at 14,135 / 24,167 lines (58.49%), with physics stores 62.64%, stages/solver 56.82%, and config/schema 94.79% |
+| Validation for current edits | U8 final `validate_tests` passed 276 cases / 21,151 assertions; `validate_coverage` passed report-only at 14,823 / 24,739 lines (59.92%), with runtime input/interaction 74.56%, scene logic 97.22%, and replay value seams 55.28% |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is ACTIVE at 8/10 (2026-07-16 owner
+0000000. `unit-test-coverage-campaign` is ACTIVE at 9/10 (2026-07-16 owner
          reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
          the tolerance-based behavioral/property suites are the only oracle
          that survives the golden regeneration, and S7 now requires them to
@@ -44,7 +44,10 @@ plan inventory.
          startup to 91.89% with CLI, scene/suite, launch-packet, and exact-error
          coverage. U7 added deterministic v1 config evidence and fixed-seed
          momentum, quaternion/matrix, mutual-gravity, prepared-AABB, friction,
-         and restitution properties. Continue with U8's Tier-3 runtime owners.
+         and restitution properties. U8 linked the CPU-only interaction and
+         replay-overlay value owners, locked their policy/hit-region/event-ring
+         contracts, and raised every Tier-3 subsystem above 50%. Continue with
+         U9 floor arming, final gates, the single independent review, and closure.
 000000. `physics-soa-simd-1000-bodies` is PAUSED at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
@@ -338,7 +341,7 @@ plan inventory.
 
 ## Next Handoff
 
-Unit-test coverage is active at 7/10. U0 established the Debug
+Unit-test coverage is active at 9/10. U0 established the Debug
 OpenCppCoverage lane and U1 raised Maths/core primitives above the ratified
 85% Tier-1 floor with behavioral contracts. U2 completed the 12-row Try-API
 matrix and bidirectional survey links. U3 covered store identity/refresh,
@@ -346,8 +349,11 @@ grid boundaries, gravity receive flags, and terrain candidate ordering. U4
 locked sleep/narrowphase/contact-solver state transitions and deterministic
 feature/pair ordering. U5 covered replay artifact codec round-trip and
 adversarial decode, and consumed the campaign's single replay mega invocation.
-U6 covered startup parsing/resolution at 91.89%. Continue with U7 config,
-schema migration, and seeded property invariants. Physics SoA/SIMD remains
+U6 covered startup parsing/resolution at 91.89%. U7 completed config/schema
+and seeded property invariants. U8 completed Tier-3 runtime interaction,
+scene-request, and replay-value coverage; every Tier-3 subsystem now exceeds
+50%. Continue with U9 floor arming, full closure validation, the one independent
+anti-gaming review, and the final report. Physics SoA/SIMD remains
 paused at 6/9; do not begin S6 or
 S7 before U9 closes. Replay mass reduction remains closed at 9/9 plus R8;
 the externally administered validation-gate V3 lane remains blocked and
