@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-16th-july` (unit-test coverage campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U5 is complete; begin U6 startup command-line and launch-resolution coverage |
-| Active/future progress | 12 / 19 tasks = 63% overall (unit-test coverage 6/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
+| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U6 is complete; begin U7 config/schema and seeded property invariants |
+| Active/future progress | 13 / 19 tasks = 68% overall (unit-test coverage 7/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | U5 `validate_tests` passed 252 cases / 19,153 assertions in 6.2 s; `validate_coverage` passed report-only at 12,955 / 22,764 whole-product lines (56.91%); the campaign's sole replay mega invocation produced one fresh engine artifact and every visual, causal, artifact, prediction, and determinism control passed after a provenance-only manifest correction; physics baselines untouched |
+| Validation for current edits | U6 `validate_tests` passed 262 cases / 19,467 assertions in 7.4 s; `validate_coverage` passed report-only with startup at 1,155 / 1,257 lines (91.89%, above Tier 2) and whole product at 14,120 / 24,167 lines (58.43%); no engine launch or product-source change |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is ACTIVE at 6/10 (2026-07-16 owner
+0000000. `unit-test-coverage-campaign` is ACTIVE at 7/10 (2026-07-16 owner
          reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
          the tolerance-based behavioral/property suites are the only oracle
          that survives the golden regeneration, and S7 now requires them to
@@ -40,8 +40,9 @@ plan inventory.
          sleep/support/underwater transitions, parallel island ordering,
          friction/restitution bounds, and repeated manifold feature stability.
          U5 locked canonical replay writes, malformed-table rejection, optional
-         track absence, and all full-artifact false-pass controls. Continue with
-         U6's startup command-line and launch-resolution matrix.
+         track absence, and all full-artifact false-pass controls. U6 raised
+         startup to 91.89% with CLI, scene/suite, launch-packet, and exact-error
+         coverage. Continue with U7's config/schema and seeded property matrix.
 000000. `physics-soa-simd-1000-bodies` is PAUSED at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
@@ -335,7 +336,7 @@ plan inventory.
 
 ## Next Handoff
 
-Unit-test coverage is active at 6/10. U0 established the Debug
+Unit-test coverage is active at 7/10. U0 established the Debug
 OpenCppCoverage lane and U1 raised Maths/core primitives above the ratified
 85% Tier-1 floor with behavioral contracts. U2 completed the 12-row Try-API
 matrix and bidirectional survey links. U3 covered store identity/refresh,
@@ -343,7 +344,8 @@ grid boundaries, gravity receive flags, and terrain candidate ordering. U4
 locked sleep/narrowphase/contact-solver state transitions and deterministic
 feature/pair ordering. U5 covered replay artifact codec round-trip and
 adversarial decode, and consumed the campaign's single replay mega invocation.
-Continue with U6 startup seams. Physics SoA/SIMD remains
+U6 covered startup parsing/resolution at 91.89%. Continue with U7 config,
+schema migration, and seeded property invariants. Physics SoA/SIMD remains
 paused at 6/9; do not begin S6 or
 S7 before U9 closes. Replay mass reduction remains closed at 9/9 plus R8;
 the externally administered validation-gate V3 lane remains blocked and

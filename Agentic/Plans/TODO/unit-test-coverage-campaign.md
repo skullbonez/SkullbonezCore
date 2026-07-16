@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 6/10 tasks
-complete; begin at U6. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 7/10 tasks
+complete; begin at U7. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -259,7 +259,7 @@ skip it.
       (39.11%) and explicitly remaining U9 floor work. The engine run took
       about 6m26s after a 23.25 s zero-warning Automation build; no physics
       baseline, tick, visual, causal, scene, shader, or authored value changed.
-- [ ] **U6 — Startup command line and launch resolution.** The Init-split
+- [x] **U6 — Startup command line and launch resolution.** The Init-split
       payoff: exhaustive table-driven cases over `StartupCommandLine`
       (tokenizer quoting/whitespace edges, every flag/value directive family,
       malformed values, duplicate flags, the exact error strings and
@@ -269,6 +269,19 @@ skip it.
       fallbacks). Assert exit-code contracts for the probe entry points at
       the seam level without launching the engine. Gate: `validate_tests`
       (+ `validate_fast` if any `tools/` script is touched).
+      Complete 2026-07-17: the production `StartupCommandLine` and
+      `StartupLaunchResolution` units now run inside the CPU harness. Ten
+      behavioral cases cover quoting/whitespace, assigned and aliased values,
+      primitive overflow and optional booleans, all run-value directive
+      families, exact malformed-value diagnostics, physics-debug composition,
+      generated/hero/named/explicit scene resolution, suite schema failures,
+      Run launch-packet ownership, common flags, config overrides, and frozen
+      validation precedence without an engine launch. The suite reported the
+      existing MSVC `strtoul("-1") == UINT_MAX` compatibility hazard rather
+      than changing product behavior outside U10. `validate_tests` passed 262
+      cases / 19,467 assertions in 7.4 s; `validate_coverage` passed with
+      startup at 1,155 / 1,257 lines (91.89%, above the 70% Tier-2 floor) and
+      whole-product output at 14,120 / 24,167 lines (58.43%).
 - [ ] **U7 — Config, schema migration, and property invariants.** (a)
       `Config`/`engine.cfg` parse: every physics default clamped/validated
       path, v1→v2 migration determinism (already partially covered — fill to

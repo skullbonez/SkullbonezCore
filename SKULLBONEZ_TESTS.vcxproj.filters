@@ -64,6 +64,9 @@
     <Filter Include="Source Files\Runtime\Scene">
       <UniqueIdentifier>{F44133F6-7B35-4C37-BB2B-E2F8A746D8A4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Startup">
+      <UniqueIdentifier>{0A690EBA-E39F-4CD4-BE1D-65B9AE6D6504}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Editor">
       <UniqueIdentifier>{A84A2248-37E9-4E32-9D84-7709D31D8802}</UniqueIdentifier>
     </Filter>
@@ -180,6 +183,9 @@
     <ClCompile Include="SkullbonezTests\TestReplayArtifact.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestStartup.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
@@ -231,6 +237,9 @@
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
@@ -278,6 +287,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
