@@ -2471,7 +2471,26 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     return evaluation;
 }
 
-ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick )
+// Concept: durable topology ids are dense first-publication tokens. The vector
+// is ordered capture state, not an iterated map, so RVIS and offline projection
+// derive the same value without retaining the live schedule counter.
+uint32_t CanonicalReplayArtifactTopologyVersion( uint32_t liveVersion, std::vector<uint32_t>& publishedVersions )
+{
+    if ( liveVersion == 0u )
+    {
+        return 0u;
+    }
+    const auto found = std::find( publishedVersions.begin(), publishedVersions.end(), liveVersion );
+    if ( found == publishedVersions.end() )
+    {
+        publishedVersions.push_back( liveVersion );
+        return static_cast<uint32_t>( publishedVersions.size() );
+    }
+    return static_cast<uint32_t>( std::distance( publishedVersions.begin(), found ) + 1 );
+}
+
+ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFidelityReportTick& tick,
+                                                          uint32_t canonicalTopologyVersion )
 {
     ReplayVisualArchiveSample packet;
     packet.sourceFrame = tick.sourceFrame;
@@ -2483,7 +2502,7 @@ ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFide
     packet.targetId = tick.targetId;
     packet.branchId = tick.branchId;
     packet.eventCursor = tick.eventCursor;
-    packet.topologyVersion = tick.topologyVersion;
+    packet.topologyVersion = canonicalTopologyVersion;
     packet.publishedFrameCount = tick.publishedFrameCount;
     packet.predictionEnabled = tick.predictionEnabled ? 1u : 0u;
     packet.predictionBuilding = tick.predictionBuilding ? 1u : 0u;
@@ -2500,7 +2519,9 @@ ReplayVisualArchiveSample BuildReplayVisualArchiveSample( const ReplayVisualFide
     packet.expandedVertexHash = tick.vertexHash;
     packet.ordinaryExpandedVertexHash = tick.ordinaryVertexHash;
     packet.droppedSegmentCount = tick.droppedSegmentCount;
-    packet.replayReserveGrowthEvents = tick.replayReserveGrowthEvents;
+    // Concept: reserve growth is process telemetry. The report retains the live
+    // counter; RVIS and offline reconstruction use the durable zero constant.
+    packet.replayReserveGrowthEvents = 0u;
     packet.combinedLineBytes = tick.combinedLineBytes;
     packet.ordinaryLineBytes = tick.ordinaryLineBytes;
     packet.priorityLineBytes = tick.priorityLineBytes;
@@ -2570,9 +2591,13 @@ bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state
     SceneController& scene = sceneOwners.sceneController;
     std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
     trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
+    std::vector<uint32_t> publishedTopologyVersions;
+    publishedTopologyVersions.reserve( state.replayVisualFidelityTicks.size() );
     for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
     {
-        const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick );
+        const uint32_t canonicalTopologyVersion =
+            CanonicalReplayArtifactTopologyVersion( tick.topologyVersion, publishedTopologyVersions );
+        const ReplayVisualArchiveSample expected = BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion );
         offlinePrediction.SetVerificationRevealFrame( expected.revealFrame );
         tracer.Clear();
         const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
@@ -3529,9 +3554,13 @@ SkullbonezCore::Runtime::WriteInteractionAutomationReport( InteractionAutomation
         replayArtifactPath += ".skreplay";
         std::vector<ReplayVisualArchiveSample> visualPackets;
         visualPackets.reserve( state.replayVisualFidelityTicks.size() );
+        std::vector<uint32_t> publishedTopologyVersions;
+        publishedTopologyVersions.reserve( state.replayVisualFidelityTicks.size() );
         for ( const ReplayVisualFidelityReportTick& tick : state.replayVisualFidelityTicks )
         {
-            visualPackets.push_back( BuildReplayVisualArchiveSample( tick ) );
+            const uint32_t canonicalTopologyVersion =
+                CanonicalReplayArtifactTopologyVersion( tick.topologyVersion, publishedTopologyVersions );
+            visualPackets.push_back( BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion ) );
         }
         // Lane R: the artifact is cold validation IO. Its failure belongs in
         // the machine-readable automation result, never in runtime ownership.

@@ -1,12 +1,10 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 6/9 tasks complete. R5 audited 99 replay-header callables,
-deleted two proven zero-caller accessors, and retained every other path
-under individual rulings. The 2026-07-16 owner ruling on finding R3-F1 added
-task R4b (canonical artifact bookkeeping serialization), which runs NEXT —
-before R6's partition pass — so later tasks inherit byte-deterministic
-artifacts.
+Status: Active — 7/9 tasks complete. R4b closed finding R3-F1: both original
+R3 artifacts and two final-encoder artifacts are whole-file byte-identical
+under canonical serialization while gate-covered content retains its R3 SHA.
+Continue at R6's move-only oversized-TU partition/cohesion pass.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -207,7 +205,7 @@ every single task.
       or order changes. Tests passed 202/202; DX12 passed with zero errors and
       matching baselines; 61.89 s stress was crash-free; the single 474.85 s
       mega passed with one process/generation and no golden refresh.
-- [ ] **R4b — Canonical artifact bookkeeping serialization (ruled fix for
+- [x] **R4b — Canonical artifact bookkeeping serialization (ruled fix for
       finding R3-F1).** Owner rulings 2026-07-16: canonicalize at the
       serialization boundary — live engine state keeps its raw
       schedule-sensitive counters; the artifact stops recording them. This
@@ -251,6 +249,18 @@ every single task.
       whole-artifact SHA equality, no golden/baseline/provenance change.
       Sequencing note: R5 completed before this ruled task was registered;
       R4b therefore runs next, before R6.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r4b-artifact-bookkeeping-determinism.md`
+      inventories every writer/reader and records the no-version-bump ruling.
+      Live counters remain raw; RVPD/RVIS encode dense topology/record tokens
+      and explicit telemetry constants. The owner approved one additional
+      same-tip invocation after the first run's zero sentinel was correctly
+      rejected, for three total. Final artifacts B/C and both canonicalized
+      R3 originals are 36,564,003 bytes with whole-file SHA
+      `BF1B9C5B4D152C968ACF7C2C4C2020349B21B70A5507753931F28EF346DF04C8`;
+      all retain gate-covered SHA
+      `363841634C50DB68D0C5CCF582A8BC07EFFC7FFED8DBF69D4444C6B3127DA2FA`.
+      Tests passed 202/202, fast tooling passed, and the final 430.45 s mega
+      passed one process/generation with unchanged 2,401/200/187/199 results.
 - [x] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
       reachability pass over the replay surface (public functions with zero
       call sites outside tests, config branches no scene/CLI can reach,

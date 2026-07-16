@@ -98,14 +98,14 @@ validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 6 | 9 | 67% |
-| **Active/future total** | **6** | **9** | **67%** |
+| replay-mass-reduction | 7 | 9 | 78% |
+| **Active/future total** | **7** | **9** | **78%** |
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
 R4b per commit-contract rule 4 (rescoped plans update the ledger and
 denominator in the same commit). R5 completed in parallel with that ruling;
-the reconciled state is 6 done of 9.
+the reconciled state was 6 done of 9 before R4b; R4b closes it at 7 of 9.
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -125,19 +125,16 @@ content byte-identical across three artifacts. R4 unified bit-identical quota
 and render-pose mechanics, retained policy-distinct trajectory loops, and kept
 3D ribbons, screen-space UI, and packet telemetry separate. R5 deleted only
 two proven zero-caller accessors and retained every live/test/migration path
-under individual rulings. The next task is R4b — the 2026-07-16 owner ruling
-on finding R3-F1, registered in parallel with R5's completion: canonicalize
-ALL schedule-sensitive artifact bookkeeping (topology versions in RVPD/RVIS,
-trajectory-store, inactive worker-bank, and reserve-growth fields) at the
-serialization boundary; live engine counters stay raw. R4b's charter
-pre-authorizes exactly two mega-gate invocations (the determinism proof needs
-two artifacts; whole-file SHA equality closes R3-F1) — this recorded owner
-approval is the sole rule-11 exception in the campaign and no other task
-inherits it. The root cause chain is verified in source: wall-clock build
-budgets (`ReplayPrediction.cpp:214`) vary rebuild counts, the monotonic
-topology counter records them, `AppendPod` serializes them fixed-width into
-RVPD/RVIS, and MANI's decimal-printed `visualPredictionHash` supplies the
-variable file length. R6's move-only owner-TU partition pass follows R4b.
+under individual rulings. R4b then closed R3-F1 by canonicalizing every ruled
+RVPD/RVIS topology, trajectory-store, inactive worker-bank, reserve-growth,
+and derived semantic field at serialization while leaving live counters raw.
+Both original R3 artifacts and two final-encoder artifacts now produce the
+same 36,564,003-byte file and whole-file SHA; the gate-covered projection SHA
+remains unchanged. The initial zero semantic sentinel was correctly rejected;
+the owner explicitly approved one additional same-tip invocation, making
+three R4b invocations total, and the final invocation passed. This exception
+is closed and inherited by no other task. The next task is R6's move-only
+owner-TU partition/cohesion pass.
 MASTER rule 11 (one mega-gate invocation, one engine process, no golden
 refresh, revert-on-diff) binds every other task.
 

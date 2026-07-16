@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute replay mass-reduction R4b → R6 → R8 strictly in order. R4b is the 2026-07-16 owner-ruled fix for finding R3-F1 (registered in parallel with R5's completion): canonicalize all schedule-sensitive artifact bookkeeping at serialization (live counters stay raw), with a pre-authorized two-invocation determinism proof |
-| Active/future progress | 6 / 9 tasks = 67% overall (replay mass-reduction only; denominator grew 8 → 9 with the R4b ruling while R5 closed in parallel; completed campaigns and externally blocked work are excluded) |
+| Current objective | Execute replay mass-reduction R6 → R8 strictly in order, beginning with the move-only oversized-TU partition/cohesion pass |
+| Active/future progress | 7 / 9 tasks = 78% overall (replay mass-reduction only; completed campaigns and externally blocked work are excluded) |
 | Last broad local gate | `tools\\validate_full.bat` passed in 121.33 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R5 Profile build passed zero-warning in 15.01 s; tests passed 202/202 in 3.52 s; the single mega passed in 472.76 s with one process/generation and unchanged 2,401/200/187/199 results; only two zero-caller accessors were deleted; zero baseline/golden/schema/provenance change |
+| Validation for current edits | R4b tests passed 202/202; fast tooling passed in 54.00 s; original R3 artifacts and final B/C artifacts are byte-identical at SHA `BF1B9C...04C8`; the final 430.45 s mega passed one process/generation with unchanged 2,401/200/187/199 results; zero baseline/golden/provenance change |
 
 ## Live Queue
 
-00000. `replay-mass-reduction` is active at 6/8. R0 closed the 42-file,
+00000. `replay-mass-reduction` is active at 7/9. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
        and reference gates. R1 proved the fingerprint boundary. R2 moved the
@@ -37,21 +37,14 @@ plan inventory.
        mega. R5 audited 99 header callables, deleted only two true
        zero-caller accessors, and retained all production, test-seam,
        CLI/config, and supported migration paths under individual rulings.
-       NEXT TASK IS R4b, not R6: the 2026-07-16 owner ruling on R3-F1
-       (registered in parallel with R5's completion) adds canonical artifact
-       bookkeeping serialization — enumerate every schedule-sensitive field
-       family from the R3 disposition report's binary diff (topology
-       versions in RVPD and RVIS headers, trajectory-store, inactive
-       worker-bank, reserve-growth), remap match-contract values to a dense
-       deterministic sequence applied consistently across chunks, serialize
-       pure-telemetry values as documented canonical constants, survey every
-       reader for value-agnosticism first, keep the durable fingerprint
-       comparison remap-aware on both sides, and make the format-versioning
-       ruling explicitly. R4b's charter pre-authorizes exactly two mega-gate
-       invocations (recorded owner approval; whole-artifact SHA equality is
-       the R3-F1 closure proof; the gate-covered projection must still match
-       R3's recorded SHA). Then R6's move-only oversized-TU partition/
-       cohesion pass. Binding rules for every other
+       R4b closed R3-F1 with a complete writer/reader inventory, dense durable
+       tokens, fixed telemetry constants, and a no-version-bump ruling. Both
+       original R3 artifacts and final artifacts B/C are byte-identical after
+       canonicalization at SHA `BF1B9C...04C8`; the R3 gate-covered SHA is
+       unchanged. The first zero sentinel was correctly rejected and the
+       owner approved one additional same-tip invocation, for three total;
+       the final gate passed. NEXT TASK IS R6's move-only oversized-TU
+       partition/cohesion pass. Binding rules for every other
        task: exactly one
        `tools\validate_replay_visual_fidelity.bat` invocation (one engine
        process, one prediction generation, zero golden refresh,
