@@ -56,6 +56,23 @@ order and stops before any engine launch when a CPU target fails:
    two engine processes, rendering launches one, and physics launches its
    standalone smoke and regression scene, for five engine processes in total.
 
+## Unit Coverage Floors
+
+`validate_coverage.bat` builds the Debug doctest runner, captures product-line
+Cobertura XML with OpenCppCoverage, then applies the versioned tier map in
+`coverage_floors.json`. Tier 1 is enforced at 85%, Tier 2 at 70%, and Tier 3 at
+50%; whole-product coverage remains informational rather than a gate.
+
+Each subsystem also lists `required_instrumented_sources`. The checker fails if
+one of those translation units disappears from the XML, preventing a link or
+project-file omission from silently shrinking a denominator. Tier-4 and
+separate-gate owners are recorded in the config's exclusions and scope rulings.
+Run the checker policy tests directly with:
+
+```bat
+python tools\check_coverage.py --self-test
+```
+
 Direct `validate_fast.bat` use still runs `SKULLBONEZ_TESTS.exe`. Its
 `--preflight-only` switch is an internal composition mode for `validate_full`;
 it prevents the doctest runner from being executed both by fast validation and

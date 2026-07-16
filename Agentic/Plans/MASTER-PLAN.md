@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-15
+Date: 2026-07-17
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -94,18 +94,16 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| unit-test-coverage-campaign (ACTIVE) | 9 | 10 | 90% |
-| physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
-| **Active/future total** | **15** | **19** | **79%** |
+| physics-soa-simd-1000-bodies (PAUSED at S5; owner hold remains in force) | 6 | 9 | 67% |
+| **Active/future total** | **6** | **9** | **67%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
-unit-test coverage campaign. Later the same day the owner REORDERED it ahead
-of the SoA/SIMD cutover ("unit tests first"): the coverage campaign is now
-active and the SoA/SIMD campaign is paused at 6/9. Rationale: byte-exact
-gates cannot verify behavior across the S7 golden regeneration, but the
-tolerance-based behavioral/property suites built by the coverage campaign
-survive it — they must exist BEFORE the cutover and pass in both SIMD toggle
-states as an added S7 precondition.
+unit-test coverage campaign, then returned to 9 on 2026-07-17 when U0-U9
+closed and the completed campaign left the active/future ledger under rule 4.
+The tolerance-based behavioral/property suites now exist before the S7 golden
+regeneration and remain a binding cutover precondition. The SoA/SIMD campaign
+stays paused at 6/9 under the owner's current hold; closing U9 did not authorize
+starting S6 or S7.
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -120,7 +118,7 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active 2026-07-16 physics SoA/SIMD campaign has completed S0-S4. Its fixed-seed
+The owner-paused 2026-07-16 physics SoA/SIMD campaign has completed S0-S5. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
 body Physics Step averages 0.9978 ms on the Threadripper 3970X and the ratified
 final-cutover budget is no more than 0.80 ms. Capacity reaches 2,000 without
@@ -143,21 +141,18 @@ byte-exact and full/performance gates pass. S5 added dark universal-gravity,
 mutual-pair, and broadphase-bounds kernels with masked-tail tests, passing
 chaotic-scale and focused mutual-gravity A/B oracles, and unchanged OFF-path
 proof. Paired Profile evidence is negative rather than a claimed speedup, so
-the S7 cutover budget remains binding. S6 is next: add dark narrowphase-prune
-and solver-row preparation kernels.
+the S7 cutover budget remains binding. S6 is the next defined task, but the
+current owner hold forbids starting it.
 
 Portfolio ordering (2026-07-16 owner reorder, superseding the same-day
-"after S8" decision): the `unit-test-coverage-campaign` is ACTIVE NOW and
-runs U0 → U9 to completion while the SoA/SIMD campaign is PAUSED at 6/9.
-Reason: the S7 cutover regenerates every golden, so byte-gates cannot verify
-the SIMD kernels' semantics across it — the coverage campaign's
-tolerance-based behavioral/property suites (momentum symmetry, orthonormality,
-bounds, grid round-trips, stage-contract cases) are authored against today's
-scalar behavior and become the independent oracle that survives regeneration.
-U5's single mega-gate invocation cannot collide with rule-11 budgets while
-SoA/SIMD is paused. After U9 closes, SoA/SIMD resumes at S6; then the
-owner-commissioned pre-cutover adversarial review; then and only then may S7
-be considered, with THREE preconditions now binding: (1) the ratified
+"after S8" decision): `unit-test-coverage-campaign` completed U0-U9 on
+2026-07-17 before the SoA/SIMD cutover. Its tolerance-based momentum,
+orthonormality, bounds, grid, and stage-contract cases are the independent
+oracle that survives golden regeneration. U5 consumed the campaign's single
+mega-gate invocation. SoA/SIMD remains paused at 6/9 until a new owner
+instruction permits S6; then the owner-commissioned pre-cutover adversarial
+review follows, and only then may S7 be considered, with THREE preconditions
+binding: (1) the ratified
 0.80 ms combined toggle-ON budget met (S5's enabled-path Profile finding is
 negative — force/gravity/broadphase kernels currently cost more than they
 save; S7 may not proceed on integration-pilot wins alone); (2) the unit and
@@ -552,12 +547,13 @@ lines with versioned exclusions; floors are a quality gate, not the banned
 migration-debt ratchet (U0 records that ruling); a new gate lane
 (`validate_coverage` via OpenCppCoverage) ships report-only at U0 and is
 armed at U9; U5's adversarial artifact decode is the campaign's single
-mega-gate invocation. The 2026-07-16 owner reorder runs this campaign before
-the paused SoA/SIMD cutover.
+mega-gate invocation. The campaign completed before the paused SoA/SIMD
+cutover; closure evidence is in
+`../Reports/2026-07-17/unit-test-coverage-closure.md`.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 9/10 | U9: arm floors, run closure gates and independent review, publish final report, then close the plan |
+| None | No active test plan | — | Coverage campaign closed; physics remains owner-paused |
 
 ## Features
 

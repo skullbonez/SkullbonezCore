@@ -15,10 +15,13 @@ Glossary:
   Report-only: Bring-up mode that prints measurements without failing on floors.
   Instrumented line: Product line emitted by the compiler's debug information
     and observed by OpenCppCoverage, whether its hit count is zero or nonzero.
+  Required source: Product translation unit that must appear in Cobertura so a
+    link or project-file omission cannot silently shrink a subsystem denominator.
 
 Invariants:
   - Duplicate inline/header rows merge by normalized path and line number.
   - One product line may belong to at most one configured subsystem.
+  - Every required product translation unit must appear in the Cobertura input.
   - Tier-4 exclusions are versioned data, never hidden checker constants.
   - Enforced subsystems with no instrumented lines fail closed.
 
@@ -131,6 +134,7 @@ def aggregate(
         floor = row.get("floor_percent")
         ratified = row.get("ratified_floor_percent")
         include_globs = row.get("include_globs")
+        required_sources = row.get("required_instrumented_sources", [])
         if not isinstance(name, str) or not name:
             raise ValueError("each subsystem needs a non-empty name")
         if not isinstance(tier, int) or tier not in (1, 2, 3):
@@ -143,6 +147,24 @@ def aggregate(
             isinstance(item, str) and item for item in include_globs
         ):
             raise ValueError(f"subsystem {name} include_globs must be non-empty strings")
+        if not isinstance(required_sources, list) or not all(
+            isinstance(item, str) and item.startswith(PRODUCT_ROOT) for item in required_sources
+        ):
+            raise ValueError(
+                f"subsystem {name} required_instrumented_sources must be product source paths"
+            )
+
+        instrumented_paths = {line.path for line in lines.values()}
+        # Invariant: configured positive scope fails closed before floor math;
+        # a missing translation unit is not equivalent to zero uncovered lines.
+        for required_source in required_sources:
+            normalized_required = required_source.replace("\\", "/")
+            if matches_any(normalized_required, excluded_globs):
+                raise ValueError(f"subsystem {name} required source is globally excluded: {normalized_required}")
+            if not matches_any(normalized_required, include_globs):
+                raise ValueError(f"subsystem {name} required source is outside its include globs: {normalized_required}")
+            if normalized_required not in instrumented_paths:
+                errors.append(f"{name}: required source was not instrumented: {normalized_required}")
 
         selected: list[CoverageLine] = []
         for key, line in lines.items():
@@ -237,6 +259,7 @@ def run_self_tests() -> int:
                 "floor_percent": 50.0,
                 "ratified_floor_percent": 85.0,
                 "include_globs": ["SkullbonezSource/Maths/**"],
+                "required_instrumented_sources": ["SkullbonezSource/Maths/Vector3.cpp"],
             }
         ],
     }
@@ -256,7 +279,16 @@ def run_self_tests() -> int:
         if code == 0 or "below the 51.00% floor" not in output:
             print("SELF_TEST_FAIL: enforced floor breach was not rejected", file=sys.stderr)
             return 1
-    print("SELF_TEST_PASS: coverage path, merge, exclusion, and floor cases passed")
+        config["subsystems"][0]["floor_percent"] = 50.0
+        config["subsystems"][0]["required_instrumented_sources"] = [
+            "SkullbonezSource/Maths/Matrix4.cpp"
+        ]
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        code, output = evaluate(xml_path, config_path)
+        if code == 0 or "required source was not instrumented" not in output:
+            print("SELF_TEST_FAIL: missing required translation unit was not rejected", file=sys.stderr)
+            return 1
+    print("SELF_TEST_PASS: coverage path, merge, exclusion, required-source, and floor cases passed")
     return 0
 
 

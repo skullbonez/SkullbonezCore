@@ -10,21 +10,23 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (unit-test coverage campaign) |
+| Branch | `nightrunner-16th-july` (unit-test coverage campaign closed) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U8 is complete; begin U9 floor arming, closure gates, independent review, and final report |
-| Active/future progress | 15 / 19 tasks = 79% overall (unit-test coverage 9/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
-| Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | U8 final `validate_tests` passed 276 cases / 21,151 assertions; `validate_coverage` passed report-only at 14,823 / 24,739 lines (59.92%), with runtime input/interaction 74.56%, scene logic 97.22%, and replay value seams 55.28% |
+| Current objective | Unit-test coverage U0 → U9 is complete. SoA/SIMD remains PAUSED at 6/9 under the owner's current hold — do not start S6 or S7 without a new instruction. |
+| Active/future progress | 6 / 9 tasks = 67% overall (completed unit-test coverage campaign excluded; SoA/SIMD 6/9 owner-paused) |
+| Last broad local gate | U9 final `tools\\validate_full.bat` passed in 153.88 s: CPU umbrella, zero-warning Automation/Debug builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and the 44,401-line byte-exact physics baseline passed |
+| Validation for current edits | U9 armed coverage passes all required-source checks and floors: Tier 1 ≥85%, Tier 2 ≥70%, Tier 3 ≥50%; final doctest count is 282 cases / 21,388 assertions |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is ACTIVE at 9/10 (2026-07-16 owner
+0000000. `unit-test-coverage-campaign` is COMPLETE at 10/10 (2026-07-17; plan
+         deleted under inventory rule 4; closure evidence lives in
+         `Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`). The 2026-07-16 owner
          reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
          the tolerance-based behavioral/property suites are the only oracle
          that survives the golden regeneration, and S7 now requires them to
-         pass in both SIMD toggle states). SoA/SIMD is paused at 6/9 and
-         resumes at S6 only after U9 closes; do not start any S task.
+         pass in both SIMD toggle states). SoA/SIMD is paused at 6/9 under the
+         owner's current hold; do not start S6 or S7 without a new instruction.
          U0 shipped OpenCppCoverage 0.9.9.0 and the report-only
          `validate_coverage` lane, measured the per-subsystem baseline,
          ratified the default floors (Tier 1 85%,
@@ -46,8 +48,9 @@ plan inventory.
          momentum, quaternion/matrix, mutual-gravity, prepared-AABB, friction,
          and restitution properties. U8 linked the CPU-only interaction and
          replay-overlay value owners, locked their policy/hit-region/event-ring
-         contracts, and raised every Tier-3 subsystem above 50%. Continue with
-         U9 floor arming, final gates, the single independent review, and closure.
+         contracts, and raised every Tier-3 subsystem above 50%. U9 armed the
+         ratified floors, added positive translation-unit scope
+         checks, resolved the independent review, and closed the campaign.
 000000. `physics-soa-simd-1000-bodies` is PAUSED at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
@@ -341,20 +344,12 @@ plan inventory.
 
 ## Next Handoff
 
-Unit-test coverage is active at 9/10. U0 established the Debug
-OpenCppCoverage lane and U1 raised Maths/core primitives above the ratified
-85% Tier-1 floor with behavioral contracts. U2 completed the 12-row Try-API
-matrix and bidirectional survey links. U3 covered store identity/refresh,
-grid boundaries, gravity receive flags, and terrain candidate ordering. U4
-locked sleep/narrowphase/contact-solver state transitions and deterministic
-feature/pair ordering. U5 covered replay artifact codec round-trip and
-adversarial decode, and consumed the campaign's single replay mega invocation.
-U6 covered startup parsing/resolution at 91.89%. U7 completed config/schema
-and seeded property invariants. U8 completed Tier-3 runtime interaction,
-scene-request, and replay-value coverage; every Tier-3 subsystem now exceeds
-50%. Continue with U9 floor arming, full closure validation, the one independent
-anti-gaming review, and the final report. Physics SoA/SIMD remains
-paused at 6/9; do not begin S6 or
-S7 before U9 closes. Replay mass reduction remains closed at 9/9 plus R8;
-the externally administered validation-gate V3 lane remains blocked and
-excluded from the ledger.
+Unit-test coverage is complete at 10/10. All required translation units are
+present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
+Closure evidence, baseline deltas, the independent review, the three-file
+comment audit, and final validation live in
+`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD
+remains owner-paused at 6/9; do not begin S6 or S7 without a new instruction.
+Replay mass reduction remains closed at 9/9 plus R8; the externally
+administered validation-gate V3 lane remains blocked and excluded from the
+ledger.

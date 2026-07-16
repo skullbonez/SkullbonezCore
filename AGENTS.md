@@ -333,6 +333,7 @@ render, or tool gate; it does not replace it.
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Runtime/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
+| `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat` | `validate_fast`, then `tools\validate_coverage.bat` |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |

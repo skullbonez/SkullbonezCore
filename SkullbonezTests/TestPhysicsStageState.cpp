@@ -12,10 +12,14 @@
 //   Support edge: Directed relation from a grounded supporter to a supported body.
 //   Underwater lock: Dormancy state that prevents a fully submerged ball from jitter-waking.
 //   Pair slot: Event row whose index remains identical to the broadphase candidate index.
+//   Point-joint relaxation: Anchor-distance check that prevents a stretched
+//     constraint island from sleeping before the joint settles inside slack.
 //
 // Invariants:
 //   - Sleep frame counts clamp to uint8 storage without wrapping.
 //   - Support propagates to a fixed point through model-order edges.
+//   - A stretched point joint publishes the sleep-block reason without
+//     advancing its island counter; a relaxed joint remains eligible.
 //   - Parallel narrowphase scheduling cannot reorder pair-slot results.
 //
 // Related:
@@ -166,6 +170,58 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     controller.SetPhysicsSleepEnabled( false );
     CHECK( controller.GetUnderwaterSleepLocks()[0] == 0u );
     CHECK( controller.GetSleepStates()[0] == 0u );
+}
+
+TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation while slack anchors remain eligible" )
+{
+    // Concept: the pipeline decision row is the public diagnostic for why an
+    // otherwise quiet, fixed-anchored island could not advance toward sleep.
+    for ( const bool stretched : { false, true } )
+    {
+        PhysicsBodyStore& bodies = StageBodyStore();
+        ColliderStore& colliders = StageColliderStore();
+        PhysicsBodyCreateRecord anchor;
+        anchor.hot.fixed = true;
+        const auto anchorHandle = bodies.CreateBodyRecord( anchor );
+        PhysicsBodyCreateRecord dynamic;
+        dynamic.hot.position = Vector3( stretched ? 2.0f : 0.1f, 0.0f, 0.0f );
+        const auto dynamicHandle = bodies.CreateBodyRecord( dynamic );
+
+        SkullbonezCore::Physics::PointJointConstraint joint;
+        joint.SetBodies( anchorHandle, dynamicHandle );
+        joint.slack = 0.25f;
+        const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints = { joint };
+        const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
+        std::array<float, 2> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f };
+        std::array<uint16_t, 2> restingCounts = { 0u, 0u };
+        std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
+        PhysicsWorldForces worldForces;
+        PhysicsSleepController controller;
+        controller.MirrorFlagsFrom( bodies, 2 );
+        const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
+                                                                               colliders,
+                                                                               worldForces,
+                                                                               bodies.MutableRecords(),
+                                                                               bodies.MutableHotFields(),
+                                                                               timeRemaining,
+                                                                               contacts,
+                                                                               restingCounts,
+                                                                               joints,
+                                                                               pipeline,
+                                                                               2,
+                                                                               0.01f,
+                                                                               0.01f,
+                                                                               3u };
+
+        controller.RunIslandStage( context );
+
+        REQUIRE( pipeline.size() == 1u );
+        CHECK( pipeline[0].stage == SkullbonezCore::Physics::PhysicsPipelineStage::SleepIslandDecision );
+        CHECK( pipeline[0].bodyA == 1 );
+        CHECK( pipeline[0].scalarB == doctest::Approx( 1.0f ) );
+        CHECK( pipeline[0].scalarC == doctest::Approx( stretched ? 2.0f : 0.0f ) );
+        CHECK( controller.GetSleepCounters()[1] == ( stretched ? 0u : 1u ) );
+    }
 }
 
 TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves original pair slots" )
