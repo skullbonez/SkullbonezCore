@@ -390,6 +390,31 @@ render, or tool gate; it does not replace it.
 
 ---
 
+## Provenance-Only Golden Reconciliation
+
+Standing owner ruling adopted 2026-07-17: a config-format/version bump
+automatically authorizes provenance-hash-only reconciliation in committed
+replay or visual golden metadata. A separate owner approval is not required
+only when every condition below is satisfied:
+
+- the replacement config hash is mechanically computed from the exact final
+  authored config file that will be committed;
+- every dependent hash change is mechanically derived solely from that
+  provenance-field change;
+- the diff changes hash fields only: no behavioral golden value, tick, sample,
+  screenshot pixel, scene value, shader, artifact format, or physics baseline;
+- the owning plan, report, or commit records the old/new hashes, the causal
+  derivation, and the command or comparison evidence for that instance; and
+- the mapped gate is rerun against the reconciled metadata and passes.
+
+If any condition is unproved, if the config edit changes runtime behavior, or
+if any non-hash golden field moves, revert the reconciliation and obtain
+explicit owner approval under the normal baseline/golden rules. This standing
+ruling does not authorize golden refreshes or weaken replay's one-process,
+one-generation limits.
+
+---
+
 ## Reviews
 
 When asked for a review, prioritize findings over summary. List bugs, behavior

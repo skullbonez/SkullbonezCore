@@ -33,7 +33,10 @@ plan inventory.
          Tier 2 70%, Tier 3 50%, Tier 4 excluded), and the governance ruling
          that quality-gate floors are not the banned migration-debt ratchet.
          U5 (adversarial artifact decode) consumed the campaign's single
-         mega-gate invocation successfully. Behavioral assertions only; fixed seeds; ~60 s
+         mega-gate invocation successfully. Its provenance-hash-only correction
+         was retroactively owner-ratified on 2026-07-17 under the permanent
+         config-version reconciliation rule in `AGENTS.md`. Behavioral
+         assertions only; fixed seeds; ~60 s
          `validate_tests` budget; floors armed at U9 with a final measured
          report and independent anti-gaming review. U1 raised Maths to 86.41%
          and core primitives to 88.34% through behavioral contracts. U2 mapped

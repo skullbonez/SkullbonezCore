@@ -124,6 +124,26 @@ scene value, shader, or authored behavior was changed. U5 updated only the
 previously stale default-OFF SIMD config provenance hash and its dependent
 visual-manifest hash after proving all behavioral golden values unchanged.
 
+Owner ratification, 2026-07-17: the owner retroactively approved U5 commit
+`409af3872` under the standing provenance-only reconciliation rule now recorded
+in `AGENTS.md`. S4's config-v3 `physics_simd_kernels` default-OFF addition made
+the metadata stale without changing runtime behavior. The mechanically verified
+changes were:
+
+- `configSha256`:
+  `b4c4bd4bcc34459e78e23143a347a6d680f573b2ed803731c5c54630de47b4d6`
+  → `fede1ca110a51b3368fabdf1e5b9712352e29a4b99139ee025b8da2ab3d7d3f1`,
+  matching the committed `SkullbonezData/engine.cfg` bytes; and
+- dependent `visualBaselineSha256`:
+  `148451d83c520df15e4ee1bce589e7adc892ec0304babcf60c5ccdc39c8c8391`
+  → `f4a247de2d7778b17d93f8dd421dad678aed145f96a100f9f4e84f35c64b82f4`,
+  cascading solely from the visual manifest's provenance-field change.
+
+All non-hash visual, causal, tick, scene, shader, artifact, and physics-baseline
+values remained unchanged, and the reconciled replay visual-fidelity gate
+passed. This closes the missing-approval finding without authorizing any other
+kind of golden refresh.
+
 The campaign's only product-source change was the prerequisite commit
 `37b56828`, which sized sleep visual-id rows before the first mirror so Debug
 coverage could execute the existing test suite. All U0-U9 campaign commits
