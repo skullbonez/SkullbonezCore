@@ -291,7 +291,13 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayValidation.Probes.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.Automation.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">true</ExcludedFromBuild>
@@ -492,6 +498,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Startup\StartupProbeHarnesses.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayProbeState.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayValidation.Internal.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RenderPresentationSettings.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunStartupState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunTimerState.h" />

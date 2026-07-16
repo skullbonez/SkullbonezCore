@@ -51,6 +51,10 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
                                   char* outReason,
                                   std::size_t reasonSize );
 
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+// Automation restores and rebuilds one captured RVPD payload. Product
+// configurations deliberately expose no verifier declaration or fallback.
 bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize );
+#endif
 } // namespace ReplayPredictionArchiveOperations
 } // namespace SkullbonezCore::Runtime

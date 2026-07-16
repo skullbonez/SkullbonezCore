@@ -3,6 +3,11 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 Purpose:
   Composes replay's timeline, scrubber, presentation, prediction, and authoring owners.
 
+Summary:
+  ReplayRuntime sequences typed work across concrete replay owners and exposes
+  published value views to the application shell. Configuration-specific probe
+  implementations are linked separately and call the same private operations.
+
 Mental model:
   ReplayRuntime sequences owner-to-owner work. The application shell exchanges
   typed commands and read-only published views; concrete replay owners retain
@@ -427,6 +432,17 @@ class ReplayRuntime
     void ApplyPredictionUpdateResult( const ReplayPredictionUpdateResult& result );
     void ApplyPastTrajectoryUpdate( const ReplayPastTrajectoryUpdate& update );
     void AppendSolverTrajectorySampleToStore( const ReplaySolverFrameSample& sample );
+#ifdef _DEBUG
+    // Runs the configured Debug startup probes after product artifact loading
+    // has completed; early probe failures are returned in the value result.
+    ReplayStartupResult RunStartupProbeWorkflows( const ReplayStartupWorkflowState& startup,
+                                                  ReplayStartupResult result,
+                                                  const ReplayRestoreTransaction& probeTransaction,
+                                                  const ReplayArtifactTopologyOwners& probeTopology,
+                                                  RunMousePickupState& probeMousePickup,
+                                                  RunCameraMode probeNormalizedCurrentMode,
+                                                  double probeNow );
+#endif
     bool RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransaction& transaction,
                                            const ReplayArtifactTopologyOwners& topologyOwners,
                                            const char* path,

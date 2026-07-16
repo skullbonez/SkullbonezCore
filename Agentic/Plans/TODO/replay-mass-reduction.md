@@ -1,9 +1,9 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 2/8 tasks complete. R1 proved the ratified fingerprint
-linkage boundary with product maps and the unchanged mega gate. Continue at
-R2's physical probe-harness split.
+Status: Active — 3/8 tasks complete. R2 physically separated Debug probes and
+the Automation RVPD verifier while preserving product archive/restore. Continue
+at R3's byte-neutral codec disposition.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -149,7 +149,7 @@ every single task.
       seam. Fresh Release/Profile maps contain zero fingerprint-object rows
       versus R0's 64/200-byte attribution; Automation linked the TU; the
       single 459.87 s mega gate and 202/202 unit-test gate passed unchanged.
-- [ ] **R2 — Move the probe harness behind the boundary.**
+- [x] **R2 — Move the probe harness behind the boundary.**
       Physically split the R0-confirmed `_DEBUG` probe blocks from the mixed
       `ReplayValidation.cpp` into a Debug-only TU, and move only
       `VerifyReplayPredictionArchiveRoundTrip` from the production codec into
@@ -159,6 +159,11 @@ every single task.
       config: every existing probe CLI flag and report string byte-identical
       (probe output schema freeze). Gates: mega gate, `validate_tests`, plus
       one full `validate_full` because build-configuration files changed.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r2-diagnostics-split.md`
+      records the 1,949-line product restore TU, 1,880-line Debug probe TU,
+      73-line Automation verifier TU, configuration matrix, and final Release
+      map with zero probe/verifier/fingerprint rows. The single 463.42 s mega
+      gate, 202/202 unit tests, and 121.33 s full gate all passed unchanged.
 - [ ] **R3 — Artifact codec consolidation.** Evaluate and disposition the R0
       duplication table's honest codec candidate: scalar/byte writer-reader
       mechanics in `ReplayPredictionArchive.cpp` and `ReplayV2Artifact.cpp`.

@@ -7,8 +7,6 @@ Summary:
   The writer captures typed frames, trajectory records, causal topology,
   retained marker poses, and butterfly baseline values. The reader validates
   all counts before allocating and restores a completed, non-generating future.
-  The offline verifier rebuilds the same archive bytes without presenting a
-  second visual pass.
 
 Glossary:
   Scalar codec: Explicit little-endian encoding for one integer or float field.
@@ -22,6 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.h
+  - SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.Automation.cpp
   - SkullbonezSource/Runtime/Replay/ReplayRuntime.h
 */
 #include "ReplayPredictionArchive.h"
@@ -677,31 +676,5 @@ bool LoadReplayPredictionArchive( std::span<const uint8_t> bytes,
     return true;
 }
 
-bool VerifyReplayPredictionArchiveRoundTrip( std::span<const uint8_t> bytes, char* outReason, std::size_t reasonSize )
-{
-    // Lane P: this is bounded validation work performed after the sole live
-    // capture. Temporary vectors are diagnostics artifacts, never steady-state
-    // replay storage or a second presentation path.
-    RunReplayPathVisualizerState restoredPathVisualizer;
-    RunReplayPredictionState restoredPrediction;
-    if ( !LoadReplayPredictionArchive( bytes, restoredPathVisualizer, restoredPrediction, outReason, reasonSize ) )
-    {
-        return false;
-    }
-
-    std::vector<uint8_t> rebuiltBytes;
-    if ( !BuildReplayPredictionArchive( restoredPathVisualizer, restoredPrediction, rebuiltBytes ) )
-    {
-        WriteReason( outReason, reasonSize, "could not rebuild prediction archive" );
-        return false;
-    }
-    if ( rebuiltBytes.size() != bytes.size() ||
-         ( !bytes.empty() && std::memcmp( rebuiltBytes.data(), bytes.data(), bytes.size() ) != 0 ) )
-    {
-        WriteReason( outReason, reasonSize, "prediction archive round-trip bytes diverged" );
-        return false;
-    }
-    return true;
-}
 } // namespace ReplayPredictionArchiveOperations
 } // namespace SkullbonezCore::Runtime
