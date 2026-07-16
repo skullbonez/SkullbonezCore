@@ -7,6 +7,8 @@ Summary:
   The stage rebuilds the spatial grid, preserves conservative fast-projectile
   augmentation, prunes fixed/joint/sleep-only pairs in their original order,
   and records the same bounded pipeline evidence as the certified facade code.
+  The default-OFF dark path can prepare eight conservative bounds at a time;
+  SpatialGrid still owns cell traversal, capacity, and pair order.
 
 Glossary:
   Broadphase filter: Shape-aware cheap predicate applied while grid pairs form.
@@ -14,17 +16,21 @@ Glossary:
   Sleep-pruned pair: Pair of dormant bodies with no awake energy to create work.
 
 Invariants:
-  - Float expressions and loop order are unchanged from the P0 implementation.
+  - Toggle OFF retains the P0 float expressions and byte-exact insertion path.
+  - Toggle ON consumes prepared bounds strictly in model order; vector code
+    never owns buckets, deduplication, or candidate ordering.
   - `remove_if` predicates preserve their original diagnostic side effects.
   - No hot-path vector operation may exceed construction-time capacity.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h
+  - SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.h
   - SkullbonezSource/Physics/SolverBroadphaseStage.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
 */
 #include "PhysicsBroadphaseStage.h"
 
+#include "Kernels/BroadphaseKernel.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
@@ -340,19 +346,54 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_spatialGrid.SetCellSize( (std::min)( configuredCell, sceneCell ) );
         m_spatialGrid.Clear();
         m_collisionCellKeys.clear();
-        for ( int i = 0; i < context.modelCount; ++i )
+        if ( context.config.physicsExecution.simdKernels )
         {
-            const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;
-            const Vector3 displacement =
-                PhysicsBodyLinearVelocity( context.hotFields, static_cast<size_t>( i ) ) * context.dt;
-            const float displacementSq = Vector::VectorMagSquared( displacement );
-            if ( !IsSolverBodyFixed( context.hotFields, i ) && displacementSq > radius * radius )
+            PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild/SimdBounds" );
+            for ( int bodyBegin = 0; bodyBegin < context.modelCount; bodyBegin += Kernels::BROADPHASE_LANE_COUNT )
             {
-                m_spatialGrid.InsertSwept( i, SolverBodyPosition( context.hotFields, i ), displacement, radius );
+                Kernels::BroadphaseBoundsBlock bounds;
+                Kernels::BuildBroadphaseBoundsAvx2( context.hotFields,
+                                                    context.colliderRecords,
+                                                    bodyBegin,
+                                                    context.modelCount,
+                                                    context.dt,
+                                                    context.contactSkin,
+                                                    bounds );
+                for ( int lane = 0; lane < Kernels::BROADPHASE_LANE_COUNT; ++lane )
+                {
+                    if ( ( bounds.validBits & ( 1u << lane ) ) == 0u )
+                    {
+                        continue;
+                    }
+                    const int bodyIndex = bodyBegin + lane;
+                    m_spatialGrid.InsertPreparedBounds(
+                        bodyIndex,
+                        SolverBodyPosition( context.hotFields, bodyIndex ),
+                        Vector3( bounds.displacementX[lane], bounds.displacementY[lane], bounds.displacementZ[lane] ),
+                        bounds.radius[lane],
+                        Vector3( bounds.minX[lane], bounds.minY[lane], bounds.minZ[lane] ),
+                        Vector3( bounds.maxX[lane], bounds.maxY[lane], bounds.maxZ[lane] ),
+                        ( bounds.sweptBits & ( 1u << lane ) ) != 0u );
+                }
             }
-            else
+        }
+        else
+        {
+            PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild/ScalarBounds" );
+            for ( int i = 0; i < context.modelCount; ++i )
             {
-                m_spatialGrid.Insert( i, SolverBodyPosition( context.hotFields, i ), radius );
+                const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;
+                const Vector3 displacement =
+                    PhysicsBodyLinearVelocity( context.hotFields, static_cast<size_t>( i ) ) * context.dt;
+                const float displacementSq = Vector::VectorMagSquared( displacement );
+                if ( !IsSolverBodyFixed( context.hotFields, i ) && displacementSq > radius * radius )
+                {
+                    m_spatialGrid.InsertSwept( i, SolverBodyPosition( context.hotFields, i ), displacement, radius );
+                }
+                else
+                {
+                    m_spatialGrid.Insert( i, SolverBodyPosition( context.hotFields, i ), radius );
+                }
             }
         }
         m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );

@@ -120,6 +120,12 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\IntegrationKernel.cpp">
       <Filter>Source Files\Stages</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\ForceKernel.cpp">
+      <Filter>Source Files\Stages</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\BroadphaseKernel.cpp">
+      <Filter>Source Files\Stages</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp">
       <Filter>Source Files\Stages</Filter>
     </ClCompile>
@@ -255,6 +261,12 @@
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\IntegrationKernel.h">
+      <Filter>Header Files\Stages</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\ForceKernel.h">
+      <Filter>Header Files\Stages</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\BroadphaseKernel.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h">

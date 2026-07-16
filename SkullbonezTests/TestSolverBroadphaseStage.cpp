@@ -2,13 +2,14 @@
 // File: SkullbonezTests/TestSolverBroadphaseStage.cpp
 // Purpose:
 //   Lock direct coverage for the solver broadphase filter and the AVX2
-//   integration pilot's activity-mask boundary.
+//   integration, force, mutual-gravity, and broadphase SIMD mask boundaries.
 //
 // Summary:
 //   SpatialGrid emits possible pairs from cell overlap. The solver broadphase
 //   filter is a cheaper geometric pass that keeps only pairs whose swept
 //   bounding spheres can touch this tick. The integration fixture separately
-//   proves inactive and masked-tail lanes never mutate SoA body storage.
+//   proves inactive and masked-tail lanes never mutate SoA body storage. Force
+//   and bounds fixtures lock the S5 per-lane contracts before stage dispatch.
 //
 // Glossary:
 //   Swept pair: Two bodies whose relative motion may close the gap before the
@@ -26,10 +27,14 @@
 //     authority over malformed or transitional shape data.
 //   - Integration-kernel activity masks exclude fixed, sleeping, and zero-time
 //     rows and preserve masked-tail bounds.
+//   - Force and broadphase kernels report valid/active lanes without horizontal
+//     reductions or out-of-range tail access.
 //
 // Related:
 //   - SkullbonezSource/Physics/SolverBroadphaseStage.h
 //   - SkullbonezSource/Physics/Stages/Kernels/IntegrationKernel.h
+//   - SkullbonezSource/Physics/Stages/Kernels/ForceKernel.h
+//   - SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.h
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
@@ -37,6 +42,8 @@
 
 #include "../SkullbonezSource/Physics/SolverBroadphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/Kernels/IntegrationKernel.h"
+#include "../SkullbonezSource/Physics/Stages/Kernels/ForceKernel.h"
+#include "../SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.h"
 
 #include <array>
 #include <cmath>
@@ -46,8 +53,8 @@ using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
 using SkullbonezCore::Physics::BroadphaseCandidateFilterContext;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
-using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 
 namespace
@@ -154,12 +161,8 @@ TEST_CASE( "Integration AVX2 pilot: activity and masked-tail lanes stay bounded"
     hotFields.awake[4] = 0u;
     timeRemaining[5] = 0.0f;
 
-    const uint32_t firstMask = SkullbonezCore::Physics::Kernels::IntegratePositionAvx2(
-        hotFields,
-        sleepState,
-        timeRemaining,
-        0,
-        10 );
+    const uint32_t firstMask =
+        SkullbonezCore::Physics::Kernels::IntegratePositionAvx2( hotFields, sleepState, timeRemaining, 0, 10 );
     CHECK( firstMask == 0xc3u );
     CHECK( hotFields.positionX[0] == std::fma( 2.0f, 0.25f, 0.1f ) );
     CHECK( hotFields.linearVelocityX[1] == 0.0f );
@@ -167,13 +170,93 @@ TEST_CASE( "Integration AVX2 pilot: activity and masked-tail lanes stay bounded"
     CHECK( hotFields.positionX[2] == doctest::Approx( 2.1f ) );
     CHECK( hotFields.angularVelocityX[0] == 0.0f );
 
-    const uint32_t tailMask = SkullbonezCore::Physics::Kernels::IntegratePositionAvx2(
-        hotFields,
-        sleepState,
-        timeRemaining,
-        8,
-        10 );
+    const uint32_t tailMask =
+        SkullbonezCore::Physics::Kernels::IntegratePositionAvx2( hotFields, sleepState, timeRemaining, 8, 10 );
     CHECK( tailMask == 0x03u );
     CHECK( hotFields.positionX[8] == std::fma( 2.0f, 0.25f, 8.1f ) );
     CHECK( hotFields.positionX[9] == std::fma( 2.0f, 0.25f, 9.1f ) );
+}
+
+
+TEST_CASE( "Force AVX2 kernels: gravity masks and mutual-pair tails stay independent" )
+{
+    PhysicsBodyStore& bodyStore = TestBodyStore();
+    for ( int index = 0; index < 10; ++index )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = static_cast<float>( index + 2 );
+        body.hot.position = Vector3( static_cast<float>( index ) * 2.0f, 0.0f, 0.0f );
+        body.hot.linearVelocity = Vector3( 0.0f, 5.0f, 0.0f );
+        body.hot.inverseMass = 1.0f / body.cold.mass;
+        (void)bodyStore.CreateBodyRecord( body );
+    }
+
+    auto hotFields = bodyStore.MutableHotFields();
+    std::array<uint8_t, 10> sleepState = {};
+    sleepState[2] = 1u;
+    hotFields.fixed[3] = 1u;
+    hotFields.inverseMass[4] = 0.0f;
+    const uint32_t gravityMask =
+        SkullbonezCore::Physics::Kernels::ApplyGravityAvx2( hotFields, sleepState, 0, 10, -9.8f, 0.25f );
+    CHECK( gravityMask == 0xf3u );
+    CHECK( hotFields.linearVelocityY[0] == std::fma( -9.8f, 0.25f, 5.0f ) );
+    CHECK( hotFields.linearVelocityY[2] == 5.0f );
+    CHECK( hotFields.linearVelocityY[3] == 5.0f );
+    CHECK( hotFields.linearVelocityY[4] == 5.0f );
+    CHECK( SkullbonezCore::Physics::Kernels::ApplyGravityAvx2( hotFields, sleepState, 8, 10, -9.8f, 0.25f ) == 0x03u );
+
+    std::array<Vector3, 8> pairForces = {};
+    const uint32_t pairMask = SkullbonezCore::Physics::Kernels::BuildMutualGravityPairsAvx2( bodyStore.Records(),
+                                                                                             bodyStore.HotFields(),
+                                                                                             sleepState,
+                                                                                             0,
+                                                                                             1,
+                                                                                             3,
+                                                                                             1.0f,
+                                                                                             1.0f,
+                                                                                             pairForces.data() );
+    CHECK( pairMask == 0x03u );
+    const float expectedX = 2.0f * 3.0f * 2.0f / std::pow( 5.0f, 1.5f );
+    CHECK( pairForces[0].x == doctest::Approx( expectedX ) );
+    CHECK( pairForces[0].y == 0.0f );
+}
+
+
+TEST_CASE( "Broadphase AVX2 kernel: swept and static AABB lanes keep masked tails" )
+{
+    PhysicsBodyStore& bodyStore = TestBodyStore();
+    ColliderRecordList& colliderRecords = TestColliderRecords();
+    for ( int index = 0; index < 10; ++index )
+    {
+        AddCandidateBody( bodyStore,
+                          colliderRecords,
+                          Vector3( static_cast<float>( index ), 2.0f, -3.0f ),
+                          Vector3( index == 0 || index == 2 ? 10.0f : 0.0f, 0.0f, 0.0f ),
+                          1.0f );
+    }
+    bodyStore.MutableHotFields().fixed[2] = 1u;
+
+    SkullbonezCore::Physics::Kernels::BroadphaseBoundsBlock bounds;
+    SkullbonezCore::Physics::Kernels::BuildBroadphaseBoundsAvx2( bodyStore.HotFields(),
+                                                                 { colliderRecords.data(), colliderRecords.size() },
+                                                                 0,
+                                                                 10,
+                                                                 0.5f,
+                                                                 0.0f,
+                                                                 bounds );
+    CHECK( bounds.validBits == 0xffu );
+    CHECK( bounds.sweptBits == 0x01u );
+    CHECK( bounds.minX[0] == -1.0f );
+    CHECK( bounds.maxX[0] == 6.0f );
+    CHECK( bounds.minX[1] == 0.0f );
+    CHECK( bounds.maxX[1] == 2.0f );
+
+    SkullbonezCore::Physics::Kernels::BuildBroadphaseBoundsAvx2( bodyStore.HotFields(),
+                                                                 { colliderRecords.data(), colliderRecords.size() },
+                                                                 8,
+                                                                 10,
+                                                                 0.5f,
+                                                                 0.0f,
+                                                                 bounds );
+    CHECK( bounds.validBits == 0x03u );
 }

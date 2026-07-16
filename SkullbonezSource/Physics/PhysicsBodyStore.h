@@ -407,8 +407,21 @@ class PhysicsBodyStore
                       int modelIndex,
                       float deltaSeconds,
                       const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
+    // Completes drag, buoyancy, torque, and pending-impulse policy after the
+    // force-stage SIMD kernel has already applied universal gravity.
+    bool CompleteForcesAfterSimdGravity( const PhysicsWorldForces& worldForces,
+                                         const ColliderStore& colliderStore,
+                                         int modelIndex,
+                                         float deltaSeconds,
+                                         const Math::Vector::Vector3* precomputedMutualGravityForce = nullptr );
 
   private:
+    bool ApplyForcesInternal( const PhysicsWorldForces& worldForces,
+                              const ColliderStore& colliderStore,
+                              int modelIndex,
+                              float deltaSeconds,
+                              const Math::Vector::Vector3* precomputedMutualGravityForce,
+                              bool includeGravity );
     PhysicsBodyHandle ResolveHandleForModelIndex( int modelIndex,
                                                   uint32_t replayBodyId,
                                                   PhysicsHandleAssignmentMask& assignedHandleSlots );

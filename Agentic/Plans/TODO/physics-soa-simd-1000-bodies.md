@@ -1,8 +1,8 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Active — registered in `MASTER-PLAN.md`; S0-S4 are complete and S5 is
-next. 5/9 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md`; S0-S5 are complete and S6 is
+next. 6/9 tasks complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden
@@ -189,12 +189,18 @@ path) until S7 flips the default in one owner-approved ceremony.
       records the v3 default-OFF config/migration, per-file AVX2/FMA kernel,
       masked-tail coverage, honest chaotic-scale A/B oracle, 4.5% pilot-marker
       speedup, 44,401-line byte-exact OFF proof, and green full/perf gates.
-- [ ] **S5 — Force, gravity, and broadphase kernels (dark).** Apply-forces
+- [x] **S5 — Force, gravity, and broadphase kernels (dark).** Apply-forces
       kernel; mutual-gravity pair kernel under the existing ≤512 parallel
       path (serial >512 fallback keeps its exact semantics — on the SIMD
       path divergence is expected and certified at S7 like everything
       else); broadphase AABB/cell binning kernel. Same A/B + stability +
       perf evidence per kernel; toggle OFF byte-exact gate every commit.
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s5-force-gravity-broadphase.md`
+      records dedicated force/pair/bounds kernels, masked-tail unit coverage,
+      a passing 2,000,000-row chaotic-scale oracle, a focused 72,000-row
+      mutual-gravity oracle, byte-identical pre/post-optimization ON artifacts,
+      and green fast/physics/performance gates. The paired Profile evidence is
+      honestly negative, so S7's 0.80 ms cutover precondition remains binding.
 - [ ] **S6 — Narrowphase prune + solver row-prep kernels (dark).**
       Sphere-sphere/AABB rejection kernel in the narrowphase front-end and
       vectorized solver row preparation (mass/anchor/bias precompute). The

@@ -151,6 +151,8 @@ PHYSICS_SOLVER_PREFIXES = (
 )
 
 PHYSICS_STAGE_PREFIXES = (
+    "BroadphaseKernel",
+    "ForceKernel",
     "IntegrationKernel",
     "PhysicsBroadphaseStage",
     "PhysicsContactSolverStage",

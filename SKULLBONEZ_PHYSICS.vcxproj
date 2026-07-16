@@ -185,7 +185,13 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\IntegrationKernel.cpp">
-      <!-- S4 dark pilot only: do not move AVX2 to project scope before S7. -->
+      <!-- Dark SIMD kernels only: do not move AVX2 to project scope before S7. -->
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\ForceKernel.cpp">
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\Kernels\BroadphaseKernel.cpp">
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp" />
@@ -235,6 +241,8 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\IntegrationKernel.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\ForceKernel.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\Kernels\BroadphaseKernel.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h" />

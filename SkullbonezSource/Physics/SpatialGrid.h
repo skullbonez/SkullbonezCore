@@ -150,6 +150,16 @@ class SpatialGrid
     void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
+    // Consumes SIMD-prepared bounds in body order. Static/short-displacement
+    // rows use the prepared AABB directly; swept rows retain the grid owner's
+    // bounded exact-AABB/traversal fallback policy.
+    void InsertPreparedBounds( int index,
+                               const Vector::Vector3& position,
+                               const Vector::Vector3& displacement,
+                               float radius,
+                               const Vector::Vector3& minBounds,
+                               const Vector::Vector3& maxBounds,
+                               bool swept );
     // Emits deduplicated cell-sharing pairs. A filter can reject a known-safe
     // false positive before it is appended, but narrowphase still owns contacts.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,

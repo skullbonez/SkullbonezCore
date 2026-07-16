@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | S5: add dark force, mutual-gravity, and broadphase AVX2/FMA kernels with the same A/B and OFF-path proof |
-| Active/future progress | `physics-soa-simd-1000-bodies` 5 / 9 = 56% |
+| Current objective | S6: add dark narrowphase-prune and solver-row preparation AVX2/FMA kernels with the same A/B and OFF-path proof |
+| Active/future progress | `physics-soa-simd-1000-bodies` 6 / 9 = 67% |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | S4 `validate_perf` completed with all budgets/guards green; paired 1,000-body integration pilot was 4.5% faster and Physics Step 3.56% faster; toggle-OFF physics remained 44,401 lines byte-exact; no baseline/golden refresh |
+| Validation for current edits | S5 fast/physics/performance gates passed; chaotic and mutual-gravity A/B oracles passed with zero non-finite values; the paired enabled-path performance finding is negative and remains a binding S7 concern; no baseline/golden refresh |
 
 ## Live Queue
 
-000000. `physics-soa-simd-1000-bodies` is active at 5/9. S0 registered the
+000000. `physics-soa-simd-1000-bodies` is active at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
         does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
@@ -42,8 +42,12 @@ plan inventory.
         integration kernel, deterministic masked tails, and a streaming A/B
         oracle. The pilot marker improved 4.5%, aggregate 1,000-tick stability
         stayed inside the explicit 1% outcome envelope, and final full/perf plus
-        44,401-line byte-exact OFF gates passed. S5 adds the remaining dark
-        force, mutual-gravity, and broadphase kernels.
+        44,401-line byte-exact OFF gates passed. S5 added dark universal-gravity,
+        mutual-pair, and broadphase-bounds kernels. Its 2,000,000-row chaotic
+        and 72,000-row mutual-gravity oracles passed without non-finite values;
+        pre/post-optimization ON captures were byte-identical. Paired Profile
+        evidence was negative, so the S7 cutover budget remains binding. S6
+        adds narrowphase-prune and solver-row preparation kernels.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -308,9 +312,11 @@ plan inventory.
 
 ## Next Handoff
 
-Physics SoA/SIMD is active at 5/9 after S4 added the default-OFF AVX2/FMA
-integration pilot, measured a 4.5% kernel-marker speedup, and passed A/B,
-performance, full, and 44,401-line byte-exact OFF-path proof. Continue with
-S5's dark force, mutual-gravity, and broadphase kernels. Replay mass reduction remains closed at 9/9 plus R8;
+Physics SoA/SIMD is active at 6/9 after S5 added default-OFF force,
+mutual-gravity, and broadphase AVX2/FMA kernels, passed the chaotic-scale and
+focused mutual-gravity A/B oracles, and retained 44,401-line byte-exact
+OFF-path proof. Its paired enabled-path performance evidence is negative, so
+the S7 budget remains a hard cutover precondition. Continue with S6's dark
+narrowphase-prune and solver-row preparation kernels. Replay mass reduction remains closed at 9/9 plus R8;
 the externally administered validation-gate V3 lane remains blocked and
 excluded from the ledger.

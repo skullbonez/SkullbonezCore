@@ -811,7 +811,8 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
                        const ColliderRecord& collider,
                        const PhysicsWorldForces& worldForces,
                        float deltaSeconds,
-                       const Vector3* precomputedMutualGravityForce )
+                       const Vector3* precomputedMutualGravityForce,
+                       bool includeGravity )
 {
     Vector3 worldForce = ZERO_VECTOR;
     Vector3 worldTorque = ZERO_VECTOR;
@@ -819,7 +820,10 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     const PhysicsBuoyancySample buoyancySample = CalculateBuoyancySample( record, hot, collider, worldForces );
     const float submergedVolumePercent = buoyancySample.submergedVolumePercent;
 
-    worldForce.y += CalculateGravityForce( worldForces, record.mass );
+    if ( includeGravity )
+    {
+        worldForce.y += CalculateGravityForce( worldForces, record.mass );
+    }
     // Why: mutual gravity is accumulated in PhysicsWorld's serial pair pass,
     // then injected per body so worker force integration stays order-neutral.
     if ( precomputedMutualGravityForce )
@@ -2089,6 +2093,37 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
                                     float deltaSeconds,
                                     const Vector3* precomputedMutualGravityForce )
 {
+    return ApplyForcesInternal( worldForces,
+                                colliderStore,
+                                modelIndex,
+                                deltaSeconds,
+                                precomputedMutualGravityForce,
+                                true );
+}
+
+
+bool PhysicsBodyStore::CompleteForcesAfterSimdGravity( const PhysicsWorldForces& worldForces,
+                                                       const ColliderStore& colliderStore,
+                                                       int modelIndex,
+                                                       float deltaSeconds,
+                                                       const Vector3* precomputedMutualGravityForce )
+{
+    return ApplyForcesInternal( worldForces,
+                                colliderStore,
+                                modelIndex,
+                                deltaSeconds,
+                                precomputedMutualGravityForce,
+                                false );
+}
+
+
+bool PhysicsBodyStore::ApplyForcesInternal( const PhysicsWorldForces& worldForces,
+                                            const ColliderStore& colliderStore,
+                                            int modelIndex,
+                                            float deltaSeconds,
+                                            const Vector3* precomputedMutualGravityForce,
+                                            bool includeGravity )
+{
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
     if ( !record || !collider )
@@ -2120,7 +2155,13 @@ bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
     }
 
     ThrottleAngularVelocity( *record, hot );
-    ApplyWorldForces( *record, hot, *collider, worldForces, deltaSeconds, precomputedMutualGravityForce );
+    ApplyWorldForces( *record,
+                      hot,
+                      *collider,
+                      worldForces,
+                      deltaSeconds,
+                      precomputedMutualGravityForce,
+                      includeGravity );
     ApplyPendingImpulse( *record, hot );
     // Invariant: force and pending-impulse integration are velocity-only edits.
     // Keeping the writes narrow avoids a 20-field round trip per active body.
