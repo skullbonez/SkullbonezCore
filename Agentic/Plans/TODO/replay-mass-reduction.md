@@ -1,11 +1,12 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 5/9 tasks complete. R4 unified the bit-identical quota and
-render-pose mechanics under the unchanged renderer/mega gates. The 2026-07-16
-owner ruling on finding R3-F1 added task R4b (canonical artifact bookkeeping
-serialization), which runs NEXT — before R5's dead-path audit — so later
-tasks inherit byte-deterministic artifacts.
+Status: Active — 6/9 tasks complete. R5 audited 99 replay-header callables,
+deleted two proven zero-caller accessors, and retained every other path
+under individual rulings. The 2026-07-16 owner ruling on finding R3-F1 added
+task R4b (canonical artifact bookkeeping serialization), which runs NEXT —
+before R6's partition pass — so later tasks inherit byte-deterministic
+artifacts.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -248,7 +249,9 @@ every single task.
       `visualPredictionHash` becomes stable as a consequence.
       Gates: `validate_tests`, the two authorized mega-gate runs with
       whole-artifact SHA equality, no golden/baseline/provenance change.
-- [ ] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
+      Sequencing note: R5 completed before this ruled task was registered;
+      R4b therefore runs next, before R6.
+- [x] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
       reachability pass over the replay surface (public functions with zero
       call sites outside tests, config branches no scene/CLI can reach,
       superseded pre-V2 artifact paths *not* covered by the versioned-
@@ -257,6 +260,12 @@ every single task.
       are removed, each with its ruling cited in the commit. No ruling, no
       deletion — this task may legitimately delete little; the census stays
       honest either way.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r5-dead-path-audit.md`
+      records all 17 graph candidates individually: two zero-caller accessors
+      DELETE, 13 production paths KEEP, and two test seams KEEP. Configuration,
+      CLI, v2-v4 artifact, and internal snapshot migration branches remain
+      reachable/supported. Profile/tests passed and the single 472.76 s mega
+      passed unchanged; no golden/schema/baseline change.
 - [ ] **R6 — Oversized-TU partition pass.** Remaining TUs over ~2,000 lines
       (`ReplayPrediction.cpp` 4,424 is the primary target; `ReplayRecorder`
       as post-R3 size dictates) split into cohesive owner partitions
