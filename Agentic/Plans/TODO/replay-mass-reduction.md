@@ -1,10 +1,10 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 5/8 tasks complete. R4 unified the bit-identical quota and
-render-pose mechanics, retained policy-distinct trajectory loops, and preserved
-submission order under the unchanged renderer/mega gates. Continue at R5's
-owner-ruled dead-path audit.
+Status: Active — 6/8 tasks complete. R5 audited 99 replay-header callables,
+deleted two proven zero-caller accessors, and retained every production,
+test-seam, CLI/config, and supported migration path. Continue at R6's
+move-only oversized-TU partition pass.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -199,7 +199,7 @@ every single task.
       or order changes. Tests passed 202/202; DX12 passed with zero errors and
       matching baselines; 61.89 s stress was crash-free; the single 474.85 s
       mega passed with one process/generation and no golden refresh.
-- [ ] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
+- [x] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
       reachability pass over the replay surface (public functions with zero
       call sites outside tests, config branches no scene/CLI can reach,
       superseded pre-V2 artifact paths *not* covered by the versioned-
@@ -208,6 +208,12 @@ every single task.
       are removed, each with its ruling cited in the commit. No ruling, no
       deletion — this task may legitimately delete little; the census stays
       honest either way.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r5-dead-path-audit.md`
+      records all 17 graph candidates individually: two zero-caller accessors
+      DELETE, 13 production paths KEEP, and two test seams KEEP. Configuration,
+      CLI, v2-v4 artifact, and internal snapshot migration branches remain
+      reachable/supported. Profile/tests passed and the single 472.76 s mega
+      passed unchanged; no golden/schema/baseline change.
 - [ ] **R6 — Oversized-TU partition pass.** Remaining TUs over ~2,000 lines
       (`ReplayPrediction.cpp` 4,424 is the primary target; `ReplayRecorder`
       as post-R3 size dictates) split into cohesive owner partitions

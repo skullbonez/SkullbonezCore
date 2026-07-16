@@ -382,10 +382,6 @@ class ReplayPrediction
         return view;
     }
 
-    bool Enabled() const noexcept
-    {
-        return m_state.enabled;
-    }
     bool ToggleEnabled() noexcept
     {
         m_state.enabled = !m_state.enabled;
@@ -399,10 +395,6 @@ class ReplayPrediction
     {
         m_state.ragdollVisualsEnabled = !m_state.ragdollVisualsEnabled;
         return m_state.ragdollVisualsEnabled;
-    }
-    float HorizonSeconds() const noexcept
-    {
-        return m_state.simulation.horizonSeconds;
     }
     void ClampHorizonSeconds( float minSeconds, float maxSeconds ) noexcept
     {
