@@ -10,15 +10,22 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
-| Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Replay mass-reduction is closed at 9/9 plus R8; no active local implementation plan remains |
-| Active/future progress | 0 active/future local tasks; the completed replay campaign closure snapshot is 9 / 9 = 100% and is now historical |
-| Last broad local gate | `tools\\validate_full.bat` passed in 113.24 s on 2026-07-16: CPU umbrella, zero-warning Profile/Automation/Debug builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and byte-exact physics lanes all passed |
-| Validation for current edits | R8 passed tests (203/203), full, performance (DX12 and physics no regressions), allocation self/repo checks (zero allowlist errors), and the sole 428.08 s final mega (2,401/200/187/199). Final artifact SHA is byte-exact `F916DED3...B24` |
+| Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
+| Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
+| Current objective | S1: split hot fields inside `PhysicsBodyStore` into bit-neutral SoA storage |
+| Active/future progress | `physics-soa-simd-1000-bodies` 1 / 9 = 11% |
+| Last broad local gate | S0 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and byte-exact physics passed |
+| Validation for current edits | S0 passed performance (94.62 s), byte-exact physics (49.85 s), full, and the single 427.56 s reference mega (2,401/200/187/199), with no baseline/golden refresh |
 
 ## Live Queue
 
+000000. `physics-soa-simd-1000-bodies` is active at 1/9. S0 registered the
+        campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
+        measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
+        does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
+        Step budget at 1,000 bodies against the 0.9978 ms reference. S0 passed
+        performance, byte-exact physics, full, and the single reference replay
+        mega gate without refreshing any baseline or golden. S1 is next.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -283,8 +290,8 @@ plan inventory.
 
 ## Next Handoff
 
-Replay mass-reduction is closed at 9/9 plus its R8 aggregate gates. No active
-local implementation plan remains. Closure evidence is in
-`Agentic/Reports/2026-07-16/replay-mass-reduction-closure.md`. The externally
-administered validation-gate V3 lane remains blocked and excluded from the
-ledger.
+Physics SoA/SIMD is active at 1/9 after S0 ratified the 0.80 ms 1,000-body
+budget and certified the scalar-AoS baseline. Continue with S1's bit-neutral
+hot-field SoA store split. Replay mass reduction remains closed at 9/9 plus R8;
+the externally administered validation-gate V3 lane remains blocked and
+excluded from the ledger.

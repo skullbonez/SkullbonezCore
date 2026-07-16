@@ -1,9 +1,8 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Draft — NOT yet registered in `MASTER-PLAN.md`; queued behind the
-active `replay-mass-reduction` campaign (task S0 performs registration when
-the owner activates this plan). 0/9 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md`; S0 is complete and S1 is
+next. 1/9 tasks complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden
@@ -111,7 +110,7 @@ path) until S7 flips the default in one owner-approved ceremony.
 
 ## Task Checklist
 
-- [ ] **S0 — Registration, benchmark authoring, and budget ratification.**
+- [x] **S0 — Registration, benchmark authoring, and budget ratification.**
       (a) Register in MASTER (ledger 0/9) and SessionState (skip if the
       activation commit already did it — verify, do not duplicate).
       (b) Author the scale benchmark: a deterministic 1,000-body scene (and
@@ -128,6 +127,13 @@ path) until S7 flips the default in one owner-approved ceremony.
       average fixed-step on the reference machine") — this number becomes
       the campaign's acceptance criterion. Reference mega-relevant gates run
       once on the unmodified tip for certification.
+      Evidence: the deterministic authored 200/520/1,000/2,000-body matrix and
+      capacity audit are recorded in
+      `Agentic/Reports/2026-07-16/soa-simd-s0-baseline.md`. The scalar-AoS
+      1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X;
+      the ratified final-cutover budget is no more than 0.80 ms. Performance,
+      byte-exact physics, full, and the single reference mega gate passed with
+      no baseline or golden refresh.
 - [ ] **S1 — Hot-field SoA split inside `PhysicsBodyStore` (bit-neutral).**
       Hot fields move to parallel arrays owned by the store: position,
       orientation, linear/angular velocity, inverse mass, inverse inertia,
