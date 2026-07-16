@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Editor/RunEditorTracer.cpp
 Purpose:
   Implements runtime editor overlay tracer primitives and draw submission.
 
-Mental model:
+Summary:
   The tracer turns editor/replay tool state into transient colored lines and replay
   ribbons. It observes state prepared elsewhere and should not mutate selection,
   physics, or replay ownership.
@@ -140,32 +140,42 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
     return hash;
 }
 
-void AppendReplayRibbonVertex( std::vector<float>& vertexData,
-                               const Vector3& previous,
-                               const Vector3& start,
-                               const Vector3& end,
-                               const Vector3& next,
-                               float r,
-                               float g,
-                               float b,
-                               float alpha,
-                               float width,
-                               float edgeFeather,
-                               float emphasis )
+// Value payload encoded identically into each of a segment's six vertices.
+// Vector references are consumed synchronously and never stored by the tracer.
+struct ReplayRibbonVertexDesc
 {
+    const Vector3& previous;
+    const Vector3& start;
+    const Vector3& end;
+    const Vector3& next;
+    float r = 0.0f;
+    float g = 0.0f;
+    float b = 0.0f;
+    float alpha = 0.0f;
+    float width = 0.0f;
+    float edgeFeather = 0.0f;
+    float emphasis = 0.0f;
+};
+
+void AppendReplayRibbonVertex( std::vector<float>& vertexData, const ReplayRibbonVertexDesc& desc )
+{
+    const Vector3& previous = desc.previous;
+    const Vector3& start = desc.start;
+    const Vector3& end = desc.end;
+    const Vector3& next = desc.next;
     vertexData.push_back( start.x );
     vertexData.push_back( start.y );
     vertexData.push_back( start.z );
     vertexData.push_back( end.x );
     vertexData.push_back( end.y );
     vertexData.push_back( end.z );
-    vertexData.push_back( width );
-    vertexData.push_back( r );
-    vertexData.push_back( g );
-    vertexData.push_back( b );
-    vertexData.push_back( alpha );
-    vertexData.push_back( edgeFeather );
-    vertexData.push_back( emphasis );
+    vertexData.push_back( desc.width );
+    vertexData.push_back( desc.r );
+    vertexData.push_back( desc.g );
+    vertexData.push_back( desc.b );
+    vertexData.push_back( desc.alpha );
+    vertexData.push_back( desc.edgeFeather );
+    vertexData.push_back( desc.emphasis );
     vertexData.push_back( previous.x );
     vertexData.push_back( previous.y );
     vertexData.push_back( previous.z );
@@ -742,17 +752,17 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
             for ( int vertex = 0; vertex < 6; ++vertex )
             {
                 AppendReplayRibbonVertex( m_replayRibbonVertexData,
-                                          previous,
-                                          a,
-                                          b,
-                                          next,
-                                          r,
-                                          g,
-                                          bl,
-                                          alpha,
-                                          width,
-                                          edgeFeather,
-                                          emphasis );
+                                          ReplayRibbonVertexDesc{ .previous = previous,
+                                                                  .start = a,
+                                                                  .end = b,
+                                                                  .next = next,
+                                                                  .r = r,
+                                                                  .g = g,
+                                                                  .b = bl,
+                                                                  .alpha = alpha,
+                                                                  .width = width,
+                                                                  .edgeFeather = edgeFeather,
+                                                                  .emphasis = emphasis } );
             }
         }
     };

@@ -1718,20 +1718,37 @@ void AssignReplayFutureNode( RunReplayPathTraceNode& node,
     node.contactDerived = contactDerived;
 }
 
-template <typename NodeContainer>
-void AddReplayFutureNodeToNodes( NodeContainer& nodes,
-                                 ReplayBodyId rootId,
-                                 ReplayBodyId parentId,
-                                 int parentModelIndex,
-                                 ReplayBodyId id,
-                                 int modelIndex,
-                                 ReplayFrameIndex firstFrame,
-                                 const Vector3& contactPoint,
-                                 const Vector3& contactNormal,
-                                 int depth,
-                                 bool contactDerived,
-                                 bool replaceMotionFallback )
+// Value payload for one future-node insertion. Vector storage remains the
+// operation-specific argument so this record cannot retain cache ownership.
+struct ReplayFutureNodeDesc
 {
+    ReplayBodyId rootId;
+    ReplayBodyId parentId;
+    int parentModelIndex = -1;
+    ReplayBodyId id;
+    int modelIndex = -1;
+    ReplayFrameIndex firstFrame;
+    const Vector3& contactPoint;
+    const Vector3& contactNormal;
+    int depth = 0;
+    bool contactDerived = false;
+    bool replaceMotionFallback = false;
+};
+
+template <typename NodeContainer>
+void AddReplayFutureNodeToNodes( NodeContainer& nodes, const ReplayFutureNodeDesc& desc )
+{
+    const ReplayBodyId rootId = desc.rootId;
+    const ReplayBodyId parentId = desc.parentId;
+    const int parentModelIndex = desc.parentModelIndex;
+    const ReplayBodyId id = desc.id;
+    const int modelIndex = desc.modelIndex;
+    const ReplayFrameIndex firstFrame = desc.firstFrame;
+    const Vector3& contactPoint = desc.contactPoint;
+    const Vector3& contactNormal = desc.contactNormal;
+    const int depth = desc.depth;
+    const bool contactDerived = desc.contactDerived;
+    const bool replaceMotionFallback = desc.replaceMotionFallback;
     if ( id.value == 0 || id.value == rootId.value )
     {
         return;
@@ -2456,17 +2473,17 @@ void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
     }
 
     AddReplayFutureNodeToNodes( *context.nodes,
-                                context.rootId,
-                                parentId,
-                                parentModelIndex,
-                                id,
-                                modelIndex,
-                                firstFrame,
-                                contactPoint,
-                                contactNormal,
-                                depth,
-                                contactDerived,
-                                true );
+                                ReplayFutureNodeDesc{ .rootId = context.rootId,
+                                                      .parentId = parentId,
+                                                      .parentModelIndex = parentModelIndex,
+                                                      .id = id,
+                                                      .modelIndex = modelIndex,
+                                                      .firstFrame = firstFrame,
+                                                      .contactPoint = contactPoint,
+                                                      .contactNormal = contactNormal,
+                                                      .depth = depth,
+                                                      .contactDerived = contactDerived,
+                                                      .replaceMotionFallback = true } );
 }
 
 bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
@@ -3188,26 +3205,52 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     return true;
 }
 
-bool BeginReplayPredictionJob( ReplayPrediction& predictionOwner,
-                               RunReplayPredictionState& prediction,
-                               PhysicsEngine& physicsEngine,
-                               const SceneEntityStore& entities,
-                               const SkullbonezCore::Core::EngineConfig& config,
-                               const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
-                               SkullbonezCore::Threading::WorkerPool& workerPool,
-                               bool scenePhysics,
-                               double fallbackSourceSimulationSeconds,
-                               double simulationTotalSeconds,
-                               const ReplaySolverFrameSample* latestSolverSample,
-                               ReplayBodyId requestedTargetId,
-                               ModelRowHint requestedTargetModelRow,
-                               bool targetAvailable,
-                               ReplayFrameIndex sourceFrameIndex,
-                               uint64_t sourceSolverHash,
-                               const std::chrono::steady_clock::time_point& budgetStart,
-                               double budgetMilliseconds,
-                               ReplayPredictionUpdateResult& result )
+// Lifetime: every owner reference is borrowed only while a begin attempt
+// captures and schedules the private prediction job; workers retain none of it.
+struct ReplayPredictionJobDesc
 {
+    ReplayPrediction& predictionOwner;
+    RunReplayPredictionState& prediction;
+    PhysicsEngine& physicsEngine;
+    const SceneEntityStore& entities;
+    const SkullbonezCore::Core::EngineConfig& config;
+    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
+    SkullbonezCore::Threading::WorkerPool& workerPool;
+    bool scenePhysics = false;
+    double fallbackSourceSimulationSeconds = 0.0;
+    double simulationTotalSeconds = 0.0;
+    const ReplaySolverFrameSample* latestSolverSample = nullptr;
+    ReplayBodyId requestedTargetId;
+    ModelRowHint requestedTargetModelRow;
+    bool targetAvailable = false;
+    ReplayFrameIndex sourceFrameIndex;
+    uint64_t sourceSolverHash = 0;
+    const std::chrono::steady_clock::time_point& budgetStart;
+    double budgetMilliseconds = 0.0;
+    ReplayPredictionUpdateResult& result;
+};
+
+bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
+{
+    ReplayPrediction& predictionOwner = desc.predictionOwner;
+    RunReplayPredictionState& prediction = desc.prediction;
+    PhysicsEngine& physicsEngine = desc.physicsEngine;
+    const SceneEntityStore& entities = desc.entities;
+    const SkullbonezCore::Core::EngineConfig& config = desc.config;
+    const SkullbonezCore::Physics::PhysicsWorldForces& worldForces = desc.worldForces;
+    SkullbonezCore::Threading::WorkerPool& workerPool = desc.workerPool;
+    const bool scenePhysics = desc.scenePhysics;
+    const double fallbackSourceSimulationSeconds = desc.fallbackSourceSimulationSeconds;
+    const double simulationTotalSeconds = desc.simulationTotalSeconds;
+    const ReplaySolverFrameSample* latestSolverSample = desc.latestSolverSample;
+    const ReplayBodyId requestedTargetId = desc.requestedTargetId;
+    const ModelRowHint requestedTargetModelRow = desc.requestedTargetModelRow;
+    const bool targetAvailable = desc.targetAvailable;
+    const ReplayFrameIndex sourceFrameIndex = desc.sourceFrameIndex;
+    const uint64_t sourceSolverHash = desc.sourceSolverHash;
+    const std::chrono::steady_clock::time_point& budgetStart = desc.budgetStart;
+    const double budgetMilliseconds = desc.budgetMilliseconds;
+    ReplayPredictionUpdateResult& result = desc.result;
     PROFILE_SCOPED( "Frame/Replay/Prediction/BeginJob" );
     if ( !predictionOwner.GenerationPermitted() )
     {
@@ -3749,25 +3792,26 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
                 prediction.baseline.comparisonActive = false;
             }
         }
-        const bool began = BeginReplayPredictionJob( predictionOwner,
-                                                     prediction,
-                                                     physicsEngine,
-                                                     entities,
-                                                     config,
-                                                     worldForces,
-                                                     workerPool,
-                                                     scenePhysics,
-                                                     fallbackSourceSimulationSeconds,
-                                                     simulationTotalSeconds,
-                                                     latestSolverSample,
-                                                     targetId,
-                                                     targetModelRow,
-                                                     targetAvailable,
-                                                     latestFrame,
-                                                     latestHash,
-                                                     budgetStart,
-                                                     budgetMilliseconds,
-                                                     result );
+        const bool began = BeginReplayPredictionJob(
+            ReplayPredictionJobDesc{ .predictionOwner = predictionOwner,
+                                     .prediction = prediction,
+                                     .physicsEngine = physicsEngine,
+                                     .entities = entities,
+                                     .config = config,
+                                     .worldForces = worldForces,
+                                     .workerPool = workerPool,
+                                     .scenePhysics = scenePhysics,
+                                     .fallbackSourceSimulationSeconds = fallbackSourceSimulationSeconds,
+                                     .simulationTotalSeconds = simulationTotalSeconds,
+                                     .latestSolverSample = latestSolverSample,
+                                     .requestedTargetId = targetId,
+                                     .requestedTargetModelRow = targetModelRow,
+                                     .targetAvailable = targetAvailable,
+                                     .sourceFrameIndex = latestFrame,
+                                     .sourceSolverHash = latestHash,
+                                     .budgetStart = budgetStart,
+                                     .budgetMilliseconds = budgetMilliseconds,
+                                     .result = result } );
         if ( began )
         {
             if ( wasPendingLatestRestart )

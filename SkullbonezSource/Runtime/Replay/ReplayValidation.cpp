@@ -214,21 +214,36 @@ const ReplaySolverFrameSample* ReplayProbeCurrentSolverSample( const ReplayTimel
     return timeline.Solver().SampleAtNormalized( ReplaySolverNormalizedFromTrack( position, present ) );
 }
 
-ReplayVisualPacket BuildReplayProbeVisualProjection(
-    ReplayTimeline& timeline,
-    ReplayScrubber& scrubber,
-    ReplayPresentation& presentation,
-    ReplayAuthoring& authoring,
-    ReplayPrediction& prediction,
-    PhysicsEngine& physics,
-    const SceneEntityStore& entities,
-    std::span<const SkullbonezCore::Rendering::RenderInstancePresentationRecord> presentationRecords,
-    const PhysicsBodyStore& bodyStore,
-    RuntimeTools& runtimeTools,
-    const Vector3& cameraEye,
-    const Vector3& cameraUp,
-    uint64_t replayReserveGrowthEvents )
+// Lifetime: the cold probe borrows production owners only while deriving one
+// packet; it cannot schedule prediction or retain a probe-only presentation.
+struct ReplayProbeVisualProjectionDesc
 {
+    ReplayTimeline& timeline;
+    ReplayScrubber& scrubber;
+    ReplayPresentation& presentation;
+    ReplayAuthoring& authoring;
+    ReplayPrediction& prediction;
+    PhysicsEngine& physics;
+    const SceneEntityStore& entities;
+    std::span<const SkullbonezCore::Rendering::RenderInstancePresentationRecord> presentationRecords;
+    const PhysicsBodyStore& bodyStore;
+    RuntimeTools& runtimeTools;
+    const Vector3& cameraEye;
+    const Vector3& cameraUp;
+    uint64_t replayReserveGrowthEvents = 0;
+};
+
+ReplayVisualPacket BuildReplayProbeVisualProjection( const ReplayProbeVisualProjectionDesc& desc )
+{
+    ReplayTimeline& timeline = desc.timeline;
+    ReplayScrubber& scrubber = desc.scrubber;
+    ReplayPresentation& presentation = desc.presentation;
+    ReplayAuthoring& authoring = desc.authoring;
+    ReplayPrediction& prediction = desc.prediction;
+    PhysicsEngine& physics = desc.physics;
+    const SceneEntityStore& entities = desc.entities;
+    const PhysicsBodyStore& bodyStore = desc.bodyStore;
+    RuntimeTools& runtimeTools = desc.runtimeTools;
     // Invariant: this cold projection uses the production presentation owners
     // and fixed-capacity tracer; it does not invent a probe-only packet shape.
     RunEditorTracer& tracer = runtimeTools.EditorTracer();
@@ -250,12 +265,12 @@ ReplayVisualPacket BuildReplayProbeVisualProjection(
                                          runtimeTools.Editor().editorModeEnabled,
                                          RuntimeInteractionGesture{},
                                          tracer );
-    (void)presentation.BuildPredictionGhostDrawRequests( predictionView, presentationRecords, bodyStore );
-    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraEye, cameraUp );
+    (void)presentation.BuildPredictionGhostDrawRequests( predictionView, desc.presentationRecords, bodyStore );
+    ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( desc.cameraEye, desc.cameraUp );
     presentation.PublishVisualPacket( packet,
                                       predictionView,
                                       timeline.Solver().LatestSample(),
-                                      replayReserveGrowthEvents );
+                                      desc.replayReserveGrowthEvents );
     return presentation.PublishedVisualPacketView();
 }
 
@@ -1099,20 +1114,38 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
     }
 }
 
+// Lifetime: restore borrows live editor/scene owners for one decoded event.
+// The request callback remains separate because it is operation sequencing,
+// not part of the editor-place value payload.
+struct ReplayRestoreEditorPlaceEventDesc
+{
+    RuntimeTools& runtimeTools;
+    SkullbonezCore::Runtime::SceneController& models;
+    PhysicsEngine& physics;
+    RunSceneState& scene;
+    SkullbonezCore::Environment::WorldEnvironment& world;
+    SkullbonezCore::Assets::AssetSystem& assets;
+    SceneTerrain& terrain;
+    int gameModelCapacity = 0;
+    const ReplayEventSample& event;
+    char* eventOutReason = nullptr;
+    std::size_t eventReasonSize = 0;
+};
+
 template <typename RequestInteractiveScene>
-bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
-                                         SkullbonezCore::Runtime::SceneController& models,
-                                         PhysicsEngine& physics,
-                                         RunSceneState& scene,
-                                         SkullbonezCore::Environment::WorldEnvironment& world,
-                                         SkullbonezCore::Assets::AssetSystem& assets,
-                                         SceneTerrain& terrain,
-                                         int gameModelCapacity,
-                                         const ReplayEventSample& event,
-                                         char* eventOutReason,
-                                         std::size_t eventReasonSize,
+bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc& desc,
                                          RequestInteractiveScene requestInteractiveScene )
 {
+    RuntimeTools& runtimeTools = desc.runtimeTools;
+    SkullbonezCore::Runtime::SceneController& models = desc.models;
+    PhysicsEngine& physics = desc.physics;
+    RunSceneState& scene = desc.scene;
+    SkullbonezCore::Environment::WorldEnvironment& world = desc.world;
+    SkullbonezCore::Assets::AssetSystem& assets = desc.assets;
+    SceneTerrain& terrain = desc.terrain;
+    const ReplayEventSample& event = desc.event;
+    char* eventOutReason = desc.eventOutReason;
+    const std::size_t eventReasonSize = desc.eventReasonSize;
     Vector3 terrainPoint;
     Vector3 placementScale;
     float placementYawRadians = 0.0f;
@@ -1142,7 +1175,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( RuntimeTools& runtimeTools,
                                                    world,
                                                    terrain.Get(),
                                                    assets,
-                                                   gameModelCapacity };
+                                                   desc.gameModelCapacity };
     EditorObjectPlacementRequest placementRequest{ event.value0,
                                                    ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                    terrainPoint };
@@ -1352,18 +1385,19 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported timeline mutation event" );
         return false;
     case ReplayEventKind::EditorPlace:
-        return ApplyReplayRestoreEditorPlaceEvent( context.runtimeTools,
-                                                   context.models,
-                                                   context.physics,
-                                                   context.scene,
-                                                   context.world,
-                                                   context.assets,
-                                                   context.terrain,
-                                                   context.gameModelCapacity,
-                                                   event,
-                                                   eventOutReason,
-                                                   eventReasonSize,
-                                                   requestInteractiveScene );
+        return ApplyReplayRestoreEditorPlaceEvent(
+            ReplayRestoreEditorPlaceEventDesc{ .runtimeTools = context.runtimeTools,
+                                               .models = context.models,
+                                               .physics = context.physics,
+                                               .scene = context.scene,
+                                               .world = context.world,
+                                               .assets = context.assets,
+                                               .terrain = context.terrain,
+                                               .gameModelCapacity = context.gameModelCapacity,
+                                               .event = event,
+                                               .eventOutReason = eventOutReason,
+                                               .eventReasonSize = eventReasonSize },
+            requestInteractiveScene );
     case ReplayEventKind::EditorTransform:
         return ApplyReplayRestoreEditorTransformEvent( context.models,
                                                        context.physics,
@@ -2924,20 +2958,20 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
                                                       prediction,
                                                       transaction.sampleOwners.physics,
                                                       sceneController.Entities() );
-            const ReplayVisualPacket projected =
-                BuildReplayProbeVisualProjection( timeline,
-                                                  scrubber,
-                                                  presentation,
-                                                  authoring,
-                                                  prediction,
-                                                  transaction.sampleOwners.physics,
-                                                  sceneController.Entities(),
-                                                  sceneController.RenderPresentationRecords(),
-                                                  sceneController.BodyStore(),
-                                                  runtimeTools,
-                                                  expected.cameraEye,
-                                                  expected.cameraUp,
-                                                  expected.replayReserveGrowthEvents );
+            const ReplayVisualPacket projected = BuildReplayProbeVisualProjection(
+                ReplayProbeVisualProjectionDesc{ .timeline = timeline,
+                                                 .scrubber = scrubber,
+                                                 .presentation = presentation,
+                                                 .authoring = authoring,
+                                                 .prediction = prediction,
+                                                 .physics = transaction.sampleOwners.physics,
+                                                 .entities = sceneController.Entities(),
+                                                 .presentationRecords = sceneController.RenderPresentationRecords(),
+                                                 .bodyStore = sceneController.BodyStore(),
+                                                 .runtimeTools = runtimeTools,
+                                                 .cameraEye = expected.cameraEye,
+                                                 .cameraUp = expected.cameraUp,
+                                                 .replayReserveGrowthEvents = expected.replayReserveGrowthEvents } );
             const ReplayVisualPacketFingerprint fingerprint =
                 BuildReplayVisualPacketFingerprint( projected, trajectoryDigests );
             if ( fingerprint.visualStateHash != expected.visualStateHash )

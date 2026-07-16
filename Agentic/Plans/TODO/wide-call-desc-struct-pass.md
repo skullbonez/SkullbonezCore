@@ -1,7 +1,7 @@
 # Wide-Call Desc-Struct Pass — Retire The 12-To-20 Argument Tail
 
 Date: 2026-07-15
-Status: Active — 2/5 tasks complete
+Status: Active — 3/5 tasks complete
 Impact area: `Runtime/Render/RuntimeRenderer`, `Runtime/Replay/*` call sites,
 `Runtime/Editor/RunEditorTracer`, the wide-invocation inventory report
 Owner: runtime shell / replay presentation
@@ -42,9 +42,12 @@ no behavior, ordering, or float change; all baselines and goldens unchanged.
   where a struct build would add per-iteration copies are re-examined and
   either converted or given an *individual* measured keep-reason (no
   boilerplate).
-- No replay behavior, artifact-format, prediction, or presentation changes;
-  the 200-box golden manifest is untouchable (MASTER rule 11 — any refresh
-  needs explicit owner approval, and this plan must not need one).
+- No replay behavior, artifact-format, prediction, or presentation changes.
+  The 200-box golden values remain untouched. The owner explicitly approved a
+  provenance-only reconciliation on 2026-07-16 after the sole T3 process proved
+  every behavioral value equal but found the manifest's whole-config hash still
+  described pre-v2 `engine.cfg`; only `configSha256` and its dependent visual-
+  manifest hash changed.
 - No ownership moves; this is signature shape only.
 
 ## Tasks
@@ -76,13 +79,27 @@ no behavior, ordering, or float change; all baselines and goldens unchanged.
       exited 0 in 51.94 s with zero InfoQueue errors and matching screenshots;
       graphics stress exited 0 in 62.72 s with empty stderr and zero memory
       reconciliation delta. Comment audit 1/1; no baseline refresh.
-- [ ] T3 — Replay/editor side: convert the ≥12-arg replay/editor rows to desc
+- [x] T3 — Replay/editor side: convert the ≥12-arg replay/editor rows to desc
       structs with designated initializers, byte-identical argument values.
       Mapped gate: `Runtime/Replay/*` changes ⇒
       `tools\validate_replay_visual_fidelity.bat` **in addition to** the
       normal gate (one engine process, one prediction generation, unchanged
-      golden — a second engine launch is an immediate failure), plus
+      behavioral golden — a second engine launch is an immediate failure), plus
       `tools\validate_tests.bat` for the replay test lanes.
+      Evidence: nine construction rows now use named designated records;
+      mechanical inventories reconcile all 15 tree and 34 house rows, and the
+      post-conversion balanced-token scan removes exactly those nine names.
+      The sole 435.86 s mega-gate process produced 2,401 ticks, 200 moved and
+      187 toppled/sleeping bricks, 199 causal nodes, one presented cascade, and
+      one prediction generation. It stopped only because the approved manifest
+      still named the pre-config-v2 whole-file hash. After explicit owner
+      approval, the two provenance hashes were reconciled and the exact
+      remaining CPU comparison plus all false-pass controls passed against the
+      captured report; no second engine process or prediction generation ran.
+      `tools\validate_tests.bat` then passed from final state in 2.17 s with
+      202/202 cases, 12,595/12,595 assertions, and zero warnings/errors. Comment
+      audit 10/10, zero deferred; no replay tick, causal value, artifact,
+      screenshot, physics baseline, or behavioral golden value changed.
 - [ ] T4 — Inventory truth pass: update every touched row in the inventory
       report with its new arg count; re-run the report's balanced-token
       arity scan to regenerate exact max counts; any surviving ≥12-arg row
@@ -101,6 +118,9 @@ no behavior, ordering, or float change; all baselines and goldens unchanged.
   rows keep their existing inventory dispositions for now.
 - MASTER rule 11 applies to T3 verbatim: one mega-gate invocation, no golden
   refresh, no second engine process.
+- Owner ruling 2026-07-16: reconcile the stale `engine.cfg` provenance hash and
+  dependent visual-manifest hash from the already captured sole T3 process;
+  do not alter behavioral golden data and do not launch a second process.
 
 ## Acceptance
 
