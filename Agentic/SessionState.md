@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
 | Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute replay mass-reduction R8's aggregate full/perf/allocation/final-mega closure gates, report, and plan deletion |
-| Active/future progress | 9 / 9 tasks = 100% overall; aggregate closure gates remain before the completed plan is deleted |
-| Last broad local gate | `tools\\validate_full.bat` passed in 121.33 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R7 final tests passed 203/203 in 6.14 s and its 428.07 s mega passed unchanged 2,401/200/187/199 results. Product compilation is -1 TU/-2,354 lines; maps honestly change +364/+1,988 bytes. The same independent reviewer confirmed the reopened R4b repairs and zero remaining material blocker |
+| Current objective | Replay mass-reduction is closed at 9/9 plus R8; no active local implementation plan remains |
+| Active/future progress | 0 active/future local tasks; the completed replay campaign closure snapshot is 9 / 9 = 100% and is now historical |
+| Last broad local gate | `tools\\validate_full.bat` passed in 113.24 s on 2026-07-16: CPU umbrella, zero-warning Profile/Automation/Debug builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and byte-exact physics lanes all passed |
+| Validation for current edits | R8 passed tests (203/203), full, performance (DX12 and physics no regressions), allocation self/repo checks (zero allowlist errors), and the sole 428.08 s final mega (2,401/200/187/199). Final artifact SHA is byte-exact `F916DED3...B24` |
 
 ## Live Queue
 
-00000. `replay-mass-reduction` is at 9/9 with aggregate closure pending. R0 closed the 42-file,
+00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
        and reference gates. R1 proved the fingerprint boundary. R2 moved the
@@ -50,9 +50,12 @@ plan inventory.
        proof, and independent review: product compilation is down one TU and
        2,354 lines, map attribution honestly changes +364/+1,988 bytes, and
        the same reviewer confirmed the reopened R4b semantic/governance fixes
-       with no remaining material blocker. NEXT TASK IS R8's aggregate
-       closure gates, report, and plan deletion. Binding rules for every other
-       task: exactly one
+       with no remaining material blocker. R8 passed tests, full, performance,
+       allocation policy, and the sole final mega gate. Product compilation is
+       -1 TU/-2,354 lines; linked map bytes are honestly +364/+1,988; both
+       original mismatches and both final gates are byte exact at
+       `F916DED3...B24`. The plan is deleted and no active local replay step
+       remains. Binding rules throughout were: exactly one
        `tools\validate_replay_visual_fidelity.bat` invocation (one engine
        process, one prediction generation, zero golden refresh,
        revert-on-diff); link-level diagnostics boundary, never `#ifdef`
@@ -280,9 +283,8 @@ plan inventory.
 
 ## Next Handoff
 
-Replay mass-reduction is at 9/9 with R7's final census, byte proof, and
-independent review closed. Commit R7, then run R8's
-full/perf/allocation/final-mega closure gates, write the closure report, and
-delete the completed plan under inventory rule 4. The
-externally administered validation-gate V3 lane remains blocked and excluded
-from the ledger.
+Replay mass-reduction is closed at 9/9 plus its R8 aggregate gates. No active
+local implementation plan remains. Closure evidence is in
+`Agentic/Reports/2026-07-16/replay-mass-reduction-closure.md`. The externally
+administered validation-gate V3 lane remains blocked and excluded from the
+ledger.

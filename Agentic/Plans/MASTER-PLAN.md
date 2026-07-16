@@ -88,18 +88,16 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-Scope: active and future implementation work only. Per the 2026-07-16 owner
-decision, the active portfolio is the replay mass-reduction campaign below.
-The 2026-07-15 runtime mass-reduction campaign closed at 16/16
-(init-startup-decomposition 5/5, run-member-and-include-shrink 6/6,
-wide-call-desc-struct-pass 5/5) and leaves the ledger as historical work per
-commit-contract rule 4, as do all earlier campaigns. The externally blocked
-validation lane remains deliberately excluded.
+No active/future local implementation work remains after the 2026-07-16 replay
+mass-reduction campaign closed at 9/9 plus its aggregate R8 gate. The table
+below is its final closure snapshot and supplies the closing plan-runner's 100%
+subject; future portfolio calculations exclude it under commit-contract rule
+4. The externally blocked validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | replay-mass-reduction | 9 | 9 | 100% |
-| **Active/future total** | **9** | **9** | **100%** |
+| **Campaign closure total** | **9** | **9** | **100%** |
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -114,8 +112,8 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The binding critical path is the 2026-07-16 replay mass-reduction campaign:
-`replay-mass-reduction` R0 → R8 strictly in order. R0–R5 are complete: the
+The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
+order. R0–R5 closed the census and implementation work: the
 ratified fingerprint, Debug probe, and Automation verifier code now link only
 in their intended configurations; the final Release map has zero diagnostic
 objects/symbols while product archive/restore remains present. R3 retained
@@ -141,11 +139,11 @@ whole-campaign review after repairing the review's content-sensitive semantic-
 hash and stale-governance findings. Product compilation is down one TU and
 2,354 implementation lines; map-attributed bytes honestly changed +364
 Release/+1,988 Profile. The original R3 mismatch pair and final encoder are
-byte-exact at the same 36,564,003-byte SHA. The remaining action is R8's
-uncounted aggregate full/perf/allocation/final-mega closure gate, report, and
-plan deletion under inventory rule 4.
-MASTER rule 11 (one mega-gate invocation, one engine process, no golden
-refresh, revert-on-diff) binds every other task.
+byte-exact at the same 36,564,003-byte SHA. R8 then passed tests, full,
+performance, allocation-policy, and the one-process final mega gate from final
+source. The plan is deleted under inventory rule 4; no active local serial step
+remains. Closure evidence is in
+`Agentic/Reports/2026-07-16/replay-mass-reduction-closure.md`.
 
 The 2026-07-15 runtime mass-reduction critical path completed at 16/16:
 `init-startup-decomposition → run-member-and-include-shrink →
@@ -456,7 +454,7 @@ dependent manifest hash; all behavioral golden values remained unchanged.
 ## Replay Mass Reduction Campaign (2026-07-16)
 
 Source: the proportion finding from the 2026-07-15 hostile review, activated
-by the owner on 2026-07-16. `Runtime/Replay/` is 33,783 lines at tip
+by the owner and completed on 2026-07-16. `Runtime/Replay/` was 33,783 lines at tip
 `c0dd7016` with three diagnosed diseases: the probe/validation harness
 (ReplayValidation.cpp 3,729 lines plus fingerprint/probe-archive tooling)
 compiles into production Release because only three files sit behind the
@@ -481,7 +479,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Closure pending | 9/9 | R8: run full/perf/allocation/final-mega gates from final source, write the closure report, and delete the plan under inventory rule 4 |
+| [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Features
 

@@ -1,8 +1,8 @@
 # Replay Mass-Reduction R7 Final Census And Independent Review
 
-Date: 2026-07-16  
-Plan: `Agentic/Plans/TODO/replay-mass-reduction.md`  
-Final measured source: `fffda9fe3`  
+Date: 2026-07-16
+Plan: `Agentic/Plans/TODO/replay-mass-reduction.md`
+Final measured source: `fffda9fe3`
 Status: Complete. The final census, binary evidence, byte proof, and independent
 whole-campaign review are closed with no unresolved credible finding.
 
