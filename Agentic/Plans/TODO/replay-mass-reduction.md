@@ -1,10 +1,10 @@
 # Replay Mass Reduction — Right-Size The 33,783-Line Replay Subsystem
 
 Date: 2026-07-16
-Status: Active — 4/8 tasks complete. R3 retained the distinct RVPD/V2 codec
-owners, formally recorded run-to-run diagnostic-bookkeeping nondeterminism, and
-proved gate-covered content byte-identical across three artifacts. Continue at
-R4's presentation-emission disposition.
+Status: Active — 5/8 tasks complete. R4 unified the bit-identical quota and
+render-pose mechanics, retained policy-distinct trajectory loops, and preserved
+submission order under the unchanged renderer/mega gates. Continue at R5's
+owner-ruled dead-path audit.
 Impact area: `Runtime/Replay/*`, automation build boundary, replay artifact
 codec, prediction presentation, replay reserve-allocator registrations,
 `tools/check_replay_visual_fidelity.py` consumers (schema-frozen)
@@ -183,7 +183,7 @@ every single task.
       third distinct whole artifact, while all three gate-covered projections
       matched SHA-256 `363841...A2FA`. No source, schema, golden, baseline, or
       provenance field changed.
-- [ ] **R4 — Presentation emission deduplication.** Evaluate D4/D5/D7 from the
+- [x] **R4 — Presentation emission deduplication.** Evaluate D4/D5/D7 from the
       R0 table: quota/accounting and trajectory loops within
       `ReplayPredictionDrawing.cpp`, plus structurally similar render-pose loops
       within `ReplayPresentation.cpp`. R0 proved that 3D ribbons,
@@ -193,6 +193,12 @@ every single task.
       Gates: mega
       gate, `validate_dx12_renderer` + `run_graphics_stress.bat 1` (submission
       code), `validate_tests`.
+      Evidence: `Agentic/Reports/2026-07-16/replay-mass-reduction-r4-presentation-emission.md`
+      records D4/D7 UNIFY and D5 KEEP. One quota leaf and one compile-time
+      render-pose skeleton remove 20 net lines without callbacks, allocation,
+      or order changes. Tests passed 202/202; DX12 passed with zero errors and
+      matching baselines; 61.89 s stress was crash-free; the single 474.85 s
+      mega passed with one process/generation and no golden refresh.
 - [ ] **R5 — Dead-path audit and owner deletion rulings.** Mechanical
       reachability pass over the replay surface (public functions with zero
       call sites outside tests, config branches no scene/CLI can reach,

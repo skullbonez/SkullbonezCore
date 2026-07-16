@@ -98,8 +98,8 @@ validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 4 | 8 | 50% |
-| **Active/future total** | **4** | **8** | **50%** |
+| replay-mass-reduction | 5 | 8 | 63% |
+| **Active/future total** | **5** | **8** | **63%** |
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -109,15 +109,16 @@ historical work per commit-contract rule 4.
 ## Current Execution Priority
 
 The binding critical path is the 2026-07-16 replay mass-reduction campaign:
-`replay-mass-reduction` R0 → R8 strictly in order. R0–R3 are complete: the
+`replay-mass-reduction` R0 → R8 strictly in order. R0–R4 are complete: the
 ratified fingerprint, Debug probe, and Automation verifier code now link only
 in their intended configurations; the final Release map has zero diagnostic
 objects/symbols while product archive/restore remains present. R3 retained
 distinct RVPD/V2 codecs, recorded the schedule-sensitive artifact-bookkeeping
 nondeterminism as a separately ruled follow-up, and proved all gate-covered
-content byte-identical across three artifacts. R4 now evaluates D4/D5/D7 and
-unifies only bit-identical presentation-emission mechanics while keeping 3D
-ribbons, screen-space UI, and packet telemetry as separate concerns.
+content byte-identical across three artifacts. R4 unified bit-identical quota
+and render-pose mechanics, retained policy-distinct trajectory loops, and kept
+3D ribbons, screen-space UI, and packet telemetry separate. R5 now performs the
+mechanical reachability and owner-ruling audit; no ruling means no deletion.
 MASTER rule 11 (one mega-gate invocation, one engine process, no
 golden refresh, revert-on-diff) binds every task.
 
@@ -455,7 +456,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 4/8 | R4: disposition D4/D5/D7 presentation-emission duplication without merging distinct 3D, UI, and telemetry concerns |
+| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 5/8 | R5: audit replay dead-path candidates and delete only rows with explicit owner rulings and migration-policy clearance |
 
 ## Features
 

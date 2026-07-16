@@ -232,6 +232,124 @@ bool ReplayPresentationQueueRenderPoseOverride( Rendering::RenderInstanceStore& 
     return renderInstances.OverridePose( modelIndex, replayBodyId.value, position, orientation, colliderStore );
 }
 
+int ReplayPresentationRenderPoseModelHint( const ReplayBodyPresentationSample& ) noexcept
+{
+    return -1;
+}
+
+int ReplayPresentationRenderPoseModelHint( const ReplaySolverBodySample& ) noexcept
+{
+    return -1;
+}
+
+int ReplayPresentationRenderPoseModelHint( const RunReplayPredictionBodySample& body ) noexcept
+{
+    return body.modelRow.value;
+}
+
+Math::Orientation::Quaternion ReplayPresentationRenderPoseOrientation( const ReplayBodyPresentationSample& body )
+{
+    return Math::Orientation::Quaternion( body.orientation[0],
+                                          body.orientation[1],
+                                          body.orientation[2],
+                                          body.orientation[3] );
+}
+
+Math::Orientation::Quaternion ReplayPresentationRenderPoseOrientation( const ReplaySolverBodySample& body )
+{
+    return Math::Orientation::Quaternion( body.orientation[0],
+                                          body.orientation[1],
+                                          body.orientation[2],
+                                          body.orientation[3] );
+}
+
+Math::Orientation::Quaternion ReplayPresentationRenderPoseOrientation( const RunReplayPredictionBodySample& body )
+{
+    return body.orientation;
+}
+
+// Concept: all retained replay body rows apply the same renderer override
+// protocol. Compile-time overloads adapt only the model-row hint and orientation
+// storage; no callback or owner indirection enters this per-frame loop.
+//
+// Invariant: body order, identity resolution, quaternion normalization, override
+// submission, and match marking stay in this exact order for every sample type.
+template <typename BodySample>
+bool ReplayPresentationApplyBodyRenderPoses( Rendering::RenderInstanceStore& renderInstances,
+                                             const Physics::PhysicsBodyStore& bodyStore,
+                                             const Physics::ColliderStore& colliderStore,
+                                             std::span<const BodySample> bodies,
+                                             std::span<uint8_t> matchedBodies,
+                                             int modelCount )
+{
+    bool queuedAny = false;
+    for ( const BodySample& body : bodies )
+    {
+        int resolvedModelIndex = -1;
+        if ( !ReplayPresentationResolveReplayBody( bodyStore,
+                                                   body.id,
+                                                   ReplayPresentationRenderPoseModelHint( body ),
+                                                   modelCount,
+                                                   resolvedModelIndex ) )
+        {
+            continue;
+        }
+
+        Math::Orientation::Quaternion orientation = ReplayPresentationRenderPoseOrientation( body );
+        orientation.Normalise();
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        body.id,
+                                                        body.position,
+                                                        orientation ) )
+        {
+            matchedBodies[static_cast<std::size_t>( resolvedModelIndex )] = 1;
+            queuedAny = true;
+        }
+    }
+    return queuedAny;
+}
+
+bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore& renderInstances,
+                                                  const Physics::PhysicsBodyStore& bodyStore,
+                                                  const Physics::ColliderStore& colliderStore,
+                                                  std::span<const uint8_t> matchedBodies,
+                                                  int modelCount )
+{
+    bool queuedAny = false;
+    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
+    for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
+    {
+        if ( matchedBodies[static_cast<std::size_t>( modelIndex )] != 0 )
+        {
+            continue;
+        }
+
+        const Physics::PhysicsBodyRecord* bodyRecord =
+            ReplayPresentationBodyRecordForModelIndex( bodyStore, modelIndex );
+        if ( !bodyRecord )
+        {
+            continue;
+        }
+
+        // Why: loaded artifacts may not contain every live body. Move unmatched
+        // bodies out of view instead of letting unrelated live geometry appear
+        // inside the scrubbed replay frame.
+        const ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
+                                                        bodyStore,
+                                                        colliderStore,
+                                                        replayBodyId,
+                                                        hiddenReplayPosition,
+                                                        Math::Orientation::IDENTITY_QUATERNION ) )
+        {
+            queuedAny = true;
+        }
+    }
+    return queuedAny;
+}
+
 RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& visualizer, ReplayBodyId id )
 {
     for ( RunReplayPathTarget& target : visualizer.targets )
@@ -822,63 +940,20 @@ bool ReplayPresentation::ApplyPresentationSampleForRender( Rendering::RenderInst
     {
         return false;
     }
-    bool queuedAny = false;
-
-    for ( const ReplayBodyPresentationSample& body : sample.bodies )
-    {
-        int resolvedModelIndex = -1;
-        if ( !ReplayPresentationResolveReplayBody( bodyStore, body.id, -1, modelCount, resolvedModelIndex ) )
-        {
-            continue;
-        }
-
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        orientation.Normalise();
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        body.id,
-                                                        body.position,
-                                                        orientation ) )
-        {
-            MarkRenderPoseBodyMatched( resolvedModelIndex );
-            queuedAny = true;
-        }
-    }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( RenderPoseBodyMatched( static_cast<int>( bodyIndex ) ) )
-        {
-            continue;
-        }
-
-        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore, i );
-        if ( !bodyRecord )
-        {
-            continue;
-        }
-
-        // Why: loaded artifacts may not contain every live body. Move unmatched
-        // bodies out of view instead of letting unrelated live geometry appear
-        // inside the scrubbed replay frame.
-        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        replayBodyId,
-                                                        hiddenReplayPosition,
-                                                        Math::Orientation::IDENTITY_QUATERNION ) )
-        {
-            queuedAny = true;
-        }
-    }
-    return queuedAny;
+    const std::span<uint8_t> matchedBodies( m_renderPoseBodyMatched.data(), static_cast<std::size_t>( modelCount ) );
+    const bool queuedBodies = ReplayPresentationApplyBodyRenderPoses(
+        renderInstances,
+        bodyStore,
+        colliderStore,
+        std::span<const ReplayBodyPresentationSample>( sample.bodies.data(), sample.bodies.size() ),
+        matchedBodies,
+        modelCount );
+    const bool queuedHidden = ReplayPresentationHideUnmatchedRenderBodies( renderInstances,
+                                                                           bodyStore,
+                                                                           colliderStore,
+                                                                           matchedBodies,
+                                                                           modelCount );
+    return queuedBodies || queuedHidden;
 }
 
 
@@ -892,60 +967,20 @@ bool ReplayPresentation::ApplySolverSampleForRender( Rendering::RenderInstanceSt
     {
         return false;
     }
-    bool queuedAny = false;
-
-    for ( const ReplaySolverBodySample& body : sample.bodies )
-    {
-        int resolvedModelIndex = -1;
-        if ( !ReplayPresentationResolveReplayBody( bodyStore, body.id, -1, modelCount, resolvedModelIndex ) )
-        {
-            continue;
-        }
-
-        Math::Orientation::Quaternion orientation( body.orientation[0],
-                                                   body.orientation[1],
-                                                   body.orientation[2],
-                                                   body.orientation[3] );
-        orientation.Normalise();
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        body.id,
-                                                        body.position,
-                                                        orientation ) )
-        {
-            MarkRenderPoseBodyMatched( resolvedModelIndex );
-            queuedAny = true;
-        }
-    }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( RenderPoseBodyMatched( static_cast<int>( bodyIndex ) ) )
-        {
-            continue;
-        }
-
-        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore, i );
-        if ( !bodyRecord )
-        {
-            continue;
-        }
-
-        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        replayBodyId,
-                                                        hiddenReplayPosition,
-                                                        Math::Orientation::IDENTITY_QUATERNION ) )
-        {
-            queuedAny = true;
-        }
-    }
-    return queuedAny;
+    const std::span<uint8_t> matchedBodies( m_renderPoseBodyMatched.data(), static_cast<std::size_t>( modelCount ) );
+    const bool queuedBodies = ReplayPresentationApplyBodyRenderPoses(
+        renderInstances,
+        bodyStore,
+        colliderStore,
+        std::span<const ReplaySolverBodySample>( sample.bodies.data(), sample.bodies.size() ),
+        matchedBodies,
+        modelCount );
+    const bool queuedHidden = ReplayPresentationHideUnmatchedRenderBodies( renderInstances,
+                                                                           bodyStore,
+                                                                           colliderStore,
+                                                                           matchedBodies,
+                                                                           modelCount );
+    return queuedBodies || queuedHidden;
 }
 
 
@@ -959,61 +994,20 @@ bool ReplayPresentation::ApplyPredictionFrameForRender( Rendering::RenderInstanc
     {
         return false;
     }
-    bool queuedAny = false;
-
-    for ( const RunReplayPredictionBodySample& body : frame.bodies )
-    {
-        int resolvedModelIndex = -1;
-        if ( !ReplayPresentationResolveReplayBody( bodyStore,
-                                                   body.id,
-                                                   body.modelRow.value,
-                                                   modelCount,
-                                                   resolvedModelIndex ) )
-        {
-            continue;
-        }
-
-        Math::Orientation::Quaternion orientation = body.orientation;
-        orientation.Normalise();
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        body.id,
-                                                        body.position,
-                                                        orientation ) )
-        {
-            MarkRenderPoseBodyMatched( resolvedModelIndex );
-            queuedAny = true;
-        }
-    }
-
-    const Math::Vector::Vector3 hiddenReplayPosition( 0.0f, -100000.0f, 0.0f );
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        const std::size_t bodyIndex = static_cast<std::size_t>( i );
-        if ( RenderPoseBodyMatched( static_cast<int>( bodyIndex ) ) )
-        {
-            continue;
-        }
-
-        const Physics::PhysicsBodyRecord* bodyRecord = ReplayPresentationBodyRecordForModelIndex( bodyStore, i );
-        if ( !bodyRecord )
-        {
-            continue;
-        }
-
-        ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
-        if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
-                                                        bodyStore,
-                                                        colliderStore,
-                                                        replayBodyId,
-                                                        hiddenReplayPosition,
-                                                        Math::Orientation::IDENTITY_QUATERNION ) )
-        {
-            queuedAny = true;
-        }
-    }
-    return queuedAny;
+    const std::span<uint8_t> matchedBodies( m_renderPoseBodyMatched.data(), static_cast<std::size_t>( modelCount ) );
+    const bool queuedBodies = ReplayPresentationApplyBodyRenderPoses(
+        renderInstances,
+        bodyStore,
+        colliderStore,
+        std::span<const RunReplayPredictionBodySample>( frame.bodies.data(), frame.bodies.size() ),
+        matchedBodies,
+        modelCount );
+    const bool queuedHidden = ReplayPresentationHideUnmatchedRenderBodies( renderInstances,
+                                                                           bodyStore,
+                                                                           colliderStore,
+                                                                           matchedBodies,
+                                                                           modelCount );
+    return queuedBodies || queuedHidden;
 }
 
 
@@ -1159,22 +1153,6 @@ bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
                m_renderPoseBodyMatched.begin() + static_cast<std::size_t>( modelCount ),
                uint8_t{ 0 } );
     return true;
-}
-
-
-void ReplayPresentation::MarkRenderPoseBodyMatched( int modelIndex ) noexcept
-{
-    if ( modelIndex >= 0 && modelIndex < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
-    {
-        m_renderPoseBodyMatched[static_cast<std::size_t>( modelIndex )] = 1;
-    }
-}
-
-
-bool ReplayPresentation::RenderPoseBodyMatched( int modelIndex ) const noexcept
-{
-    return modelIndex >= 0 && modelIndex < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS &&
-           m_renderPoseBodyMatched[static_cast<std::size_t>( modelIndex )] != 0;
 }
 
 
