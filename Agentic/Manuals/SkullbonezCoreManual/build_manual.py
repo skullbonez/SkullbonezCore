@@ -717,7 +717,7 @@ def chapter_specs() -> list[ChapterSpec]:
                     ],
                     bullets=[
                         "Authoritative legacy storage: GameModel vector inside GameModelCollection.",
-                        "Physics hot path: body records, collider records, body streams, solver scratch, side-effect buffers.",
+                        "Physics hot path: aligned body-field arrays, collider records, body streams, solver scratch, side-effect buffers.",
                         "Render path: render instance streams and per-frame RuntimeRenderInputs.",
                         "Diagnostics path: bounded pipeline records and queryable SkullScope traces.",
                     ],
@@ -748,7 +748,7 @@ def chapter_specs() -> list[ChapterSpec]:
                     bullets=[
                         "Intent: command-line, scene JSON, UI, replay, validation.",
                         "Owners: Run, SceneRuntime, SimulationSystem, PhysicsScene, RuntimeRenderer, AssetSystem.",
-                        "Hot data: body records, collider records, render instances, descriptor rows, upload arenas.",
+                        "Hot data: aligned body-field arrays, collider records, render instances, descriptor rows, upload arenas.",
                     ],
                 ),
             ],
@@ -852,7 +852,7 @@ def chapter_specs() -> list[ChapterSpec]:
                     [
                         "SimulationSystem owns the policy that turns frame time into physics steps. In deterministic fixed-step mode it ignores wall-clock accumulation and commits whole PHYSICS_FIXED_DT ticks from the time-scale accumulator. In variable-time scenes it still runs physics in fixed-size steps, capped to avoid runaway catch-up.",
                         "The important split is that physics receives a fixed dt while camera/UI presentation can use a frame-level dt. This is why scene validation can reproduce byte-exact physics behavior even when rendering cadence changes.",
-                        "Every fixed tick runs through GameModelCollection::RunPhysics, PhysicsEngine::Step, PhysicsScene::RunPhysics, and PhysicsWorld::RunPhysics. PhysicsScene reloads body records, refreshes colliders when topology changed, runs the world, copies sleep state, and writes body records back to models once.",
+                        "Every fixed tick runs through GameModelCollection::RunPhysics, PhysicsEngine::Step, PhysicsScene::RunPhysics, and PhysicsWorld::RunPhysics. PhysicsScene reloads cold metadata and initial hot fields, refreshes colliders when topology changed, runs the world over aligned hot arrays, copies sleep state, and writes the model-owner mirror once.",
                     ],
                     equation="eq_fixed_step",
                     table=(
@@ -932,7 +932,7 @@ def chapter_specs() -> list[ChapterSpec]:
                     [
                         "The row solver is Catto-style sequential impulses. Precompute builds tangent axes, normal/tangent effective masses, restitution or Baumgarte bias, friction limits, and cached warm-start impulses.",
                         "Warm starting applies cached lambda to scratch solver velocities before iteration. Then each Projected Gauss-Seidel pass recomputes contact relative velocity, solves a normal impulse, clamps accumulated normal lambda to be non-negative, solves tangent friction, clamps the two tangents as one 2D friction vector, and applies only the delta impulse.",
-                        "The solver writes velocity changes to compact SolverBodyState scratch first. Only after the row loop are solved linear and angular velocities written back to PhysicsBodyRecord storage.",
+                        "The solver writes velocity changes to compact SolverBodyState scratch first. Only after the row loop are solved linear and angular velocities written back to the authoritative hot-field arrays.",
                     ],
                     equation="eq_friction",
                     bullets=[
@@ -944,7 +944,7 @@ def chapter_specs() -> list[ChapterSpec]:
                 SectionSpec(
                     "Writeback, Integration, and Sleep",
                     [
-                        "After solving, terrain rest policy can damp tiny supported rolling motion. Then solved velocities are written back to body records and queued for model-owner mirror writeback. Partial positional correction removes visible leftover overlap without replacing the velocity solver.",
+                        "After solving, terrain rest policy can damp tiny supported rolling motion. Then solved velocities are written back to the authoritative hot arrays and queued for model-owner mirror writeback. Partial positional correction removes visible leftover overlap without replacing the velocity solver.",
                         "PhysicsWorld then wakes point-joint-connected sleepers, solves point joints, appends joint support edges, propagates sleep support, and integrates remaining time for awake models using the solved velocities.",
                         "Sleep is island-level. The engine builds contact and joint islands, checks quiet linear/angular thresholds, requires credible support anchors, honors terrain inhibition and point-joint error gates, then sleeps the whole eligible island only after every awake member accumulates the required quiet frames.",
                     ],
@@ -1400,7 +1400,7 @@ def worked_guides() -> list[SectionSpec]:
             "Trace One Fixed Physics Tick",
             [
                 "Start at SimulationSystem::Tick and identify whether the scene is fixed-step or accumulator-driven. Follow the committed tick into GameModelCollection::RunPhysics, then through PhysicsEngine::Step and PhysicsScene::RunPhysics.",
-                "In PhysicsScene, watch the model-owner boundary: body records reload from GameModel state, collider snapshots refresh only when topology changed, PhysicsWorld mutates store data, then body records write back once for downstream consumers.",
+                "In PhysicsScene, watch the model-owner boundary: cold metadata and initial hot fields reload from GameModel state, collider snapshots refresh only when topology changed, PhysicsWorld mutates store-owned hot arrays, then the model-owner mirror writes once for downstream consumers.",
                 "In PhysicsWorld, read the phase order as an invariant: per-frame buffers, force pass, broadphase, object CCD front-end, terrain detection, persistent contact solve, point joints, sleep support, remaining integration, sleep island decision.",
             ],
             bullets=[

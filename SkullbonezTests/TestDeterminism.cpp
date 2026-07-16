@@ -79,9 +79,12 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
+using SkullbonezCore::Physics::LoadPhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
 using SkullbonezCore::Physics::PhysicsWorldForces;
@@ -434,6 +437,14 @@ const PhysicsBodyRecord& RequireBodyRecord( const PhysicsEngine& engine, int mod
     return *record;
 }
 
+PhysicsBodyHotState RequireBodyHotState( const PhysicsEngine& engine, int modelIndex )
+{
+    const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine );
+    REQUIRE( modelIndex >= 0 );
+    REQUIRE( modelIndex < bodyStore.Count() );
+    return LoadPhysicsBodyHotState( bodyStore.HotFields(), static_cast<std::size_t>( modelIndex ) );
+}
+
 PhysicsBodyHandle RequireBodyHandle( const PhysicsEngine& engine, int modelIndex )
 {
     return RequireBodyRecord( engine, modelIndex ).handle;
@@ -444,12 +455,13 @@ float VectorMagnitudeSquared( const Vector3& value )
     return value.x * value.x + value.y * value.y + value.z * value.z;
 }
 
-float BodyKineticEnergy( const PhysicsBodyRecord& record )
+float BodyKineticEnergy( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hotState )
 {
-    const float translational = 0.5f * record.mass * VectorMagnitudeSquared( record.linearVelocity );
-    const float angular = 0.5f * ( record.rotationalInertia.x * record.angularVelocity.x * record.angularVelocity.x +
-                                   record.rotationalInertia.y * record.angularVelocity.y * record.angularVelocity.y +
-                                   record.rotationalInertia.z * record.angularVelocity.z * record.angularVelocity.z );
+    const float translational = 0.5f * record.mass * VectorMagnitudeSquared( hotState.linearVelocity );
+    const float angular =
+        0.5f * ( record.rotationalInertia.x * hotState.angularVelocity.x * hotState.angularVelocity.x +
+                 record.rotationalInertia.y * hotState.angularVelocity.y * hotState.angularVelocity.y +
+                 record.rotationalInertia.z * hotState.angularVelocity.z * hotState.angularVelocity.z );
     return translational + angular;
 }
 
@@ -458,7 +470,7 @@ float TotalKineticEnergy( const PhysicsEngine& engine )
     float energy = 0.0f;
     for ( int i = 0; i < SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count(); ++i )
     {
-        energy += BodyKineticEnergy( RequireBodyRecord( engine, i ) );
+        energy += BodyKineticEnergy( RequireBodyRecord( engine, i ), RequireBodyHotState( engine, i ) );
     }
     return energy;
 }
@@ -479,8 +491,8 @@ void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine,
     const float maxAllowedPenetration = config.terrainContact.threshold + config.bodySimulation.contactEpsilon;
     for ( int i = 0; i < SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count(); ++i )
     {
-        const PhysicsBodyRecord& record = RequireBodyRecord( engine, i );
-        const float groundClearance = record.position.y - record.boundingRadius;
+        const PhysicsBodyHotState hotState = RequireBodyHotState( engine, i );
+        const float groundClearance = hotState.position.y - hotState.boundingRadius;
         CHECK( groundClearance >= -maxAllowedPenetration );
     }
 
@@ -494,20 +506,20 @@ void CheckTerrainPenetrationWithinTolerance( const PhysicsEngine& engine,
     }
 }
 
-BodyReplayState CaptureBodyReplayState( const PhysicsBodyRecord& record )
+BodyReplayState CaptureBodyReplayState( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hotState )
 {
     BodyReplayState state;
     state.handle = record.handle;
     state.replayBodyId = record.replayBodyId;
-    state.fixed = record.isFixed;
-    state.position = record.position;
-    state.orientation = record.orientation;
-    state.linearVelocity = record.linearVelocity;
-    state.angularVelocity = record.angularVelocity;
+    state.fixed = hotState.fixed;
+    state.position = hotState.position;
+    state.orientation = hotState.orientation;
+    state.linearVelocity = hotState.linearVelocity;
+    state.angularVelocity = hotState.angularVelocity;
     state.mass = record.mass;
-    state.inverseMass = record.invMass;
+    state.inverseMass = hotState.inverseMass;
     state.rotationalInertia = record.rotationalInertia;
-    state.inverseRotationalInertia = record.invRotationalInertia;
+    state.inverseRotationalInertia = hotState.inverseRotationalInertia;
     return state;
 }
 
@@ -607,7 +619,7 @@ MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
         const PhysicsBodyRecord* record =
             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( i );
         REQUIRE( record != nullptr );
-        snapshot.bodies[static_cast<std::size_t>( i )] = CaptureBodyReplayState( *record );
+        snapshot.bodies[static_cast<std::size_t>( i )] = CaptureBodyReplayState( *record, RequireBodyHotState( engine, i ) );
     }
     return snapshot;
 }
@@ -619,21 +631,20 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
     REQUIRE( record != nullptr );
 
     ReplaySolverBodySample body;
+    const PhysicsBodyHotState hotState = RequireBodyHotState( engine, modelIndex );
     body.id.value = record->replayBodyId;
     body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( modelIndex );
     body.shapeKind = ReplayBodyShapeKind::Sphere;
-    body.position = record->position;
-    body.linearVelocity = record->linearVelocity;
-    body.angularVelocity = record->angularVelocity;
-    record->orientation.GetComponents( body.orientation[0],
-                                       body.orientation[1],
-                                       body.orientation[2],
-                                       body.orientation[3] );
+    body.position = hotState.position;
+    body.linearVelocity = hotState.linearVelocity;
+    body.angularVelocity = hotState.angularVelocity;
+    hotState.orientation.GetComponents(
+        body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
     body.mass = record->mass;
-    body.inverseMass = record->invMass;
+    body.inverseMass = hotState.inverseMass;
     body.rotationalInertia = record->rotationalInertia;
-    body.inverseRotationalInertia = record->invRotationalInertia;
-    body.fixed = record->isFixed;
+    body.inverseRotationalInertia = hotState.inverseRotationalInertia;
+    body.fixed = hotState.fixed;
 
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( engine );
@@ -828,10 +839,12 @@ void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& 
             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( rhs ).RecordForModelIndex( i );
         REQUIRE( left != nullptr );
         REQUIRE( right != nullptr );
-        CheckVectorBytesEqual( left->position, right->position );
-        CheckQuaternionBytesEqual( left->orientation, right->orientation );
-        CheckVectorBytesEqual( left->linearVelocity, right->linearVelocity );
-        CheckVectorBytesEqual( left->angularVelocity, right->angularVelocity );
+        const PhysicsBodyHotState leftHot = RequireBodyHotState( lhs, i );
+        const PhysicsBodyHotState rightHot = RequireBodyHotState( rhs, i );
+        CheckVectorBytesEqual( leftHot.position, rightHot.position );
+        CheckQuaternionBytesEqual( leftHot.orientation, rightHot.orientation );
+        CheckVectorBytesEqual( leftHot.linearVelocity, rightHot.linearVelocity );
+        CheckVectorBytesEqual( leftHot.angularVelocity, rightHot.angularVelocity );
     }
 }
 } // namespace
@@ -869,8 +882,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
     const PhysicsWorldForces forces = MutualGravityForces( 120.0f, 0.25f );
 
     StepMicroWorldWith( pairWorld, 1, config, forces );
-    const PhysicsBodyRecord& left = RequireBodyRecord( pairWorld, 0 );
-    const PhysicsBodyRecord& right = RequireBodyRecord( pairWorld, 1 );
+    const PhysicsBodyHotState left = RequireBodyHotState( pairWorld, 0 );
+    const PhysicsBodyHotState right = RequireBodyHotState( pairWorld, 1 );
     CHECK( left.linearVelocity.x > 0.0f );
     CHECK( right.linearVelocity.x < 0.0f );
     CHECK( left.linearVelocity.x == doctest::Approx( -right.linearVelocity.x ).epsilon( 0.0001 ) );
@@ -895,8 +908,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
     const PhysicsWorldForces forces = MutualGravityForces( 1000.0f, 5.0f );
 
     StepMicroWorldWith( closeWorld, 1, config, forces );
-    const PhysicsBodyRecord& left = RequireBodyRecord( closeWorld, 0 );
-    const PhysicsBodyRecord& right = RequireBodyRecord( closeWorld, 1 );
+    const PhysicsBodyHotState left = RequireBodyHotState( closeWorld, 0 );
+    const PhysicsBodyHotState right = RequireBodyHotState( closeWorld, 1 );
     CHECK( std::isfinite( left.linearVelocity.x ) );
     CHECK( std::isfinite( right.linearVelocity.x ) );
     CHECK( fabsf( left.linearVelocity.x ) < 1.0f );
@@ -930,8 +943,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
     const PhysicsWorldForces forces = MutualGravityForces( gravitationalConstant, softeningLength );
 
     StepMicroWorldWith( orbitWorld, 300, config, forces );
-    const PhysicsBodyRecord& left = RequireBodyRecord( orbitWorld, 0 );
-    const PhysicsBodyRecord& right = RequireBodyRecord( orbitWorld, 1 );
+    const PhysicsBodyHotState left = RequireBodyHotState( orbitWorld, 0 );
+    const PhysicsBodyHotState right = RequireBodyHotState( orbitWorld, 1 );
     const Vector3 barycenter = ( left.position + right.position ) * 0.5f;
     const float finalSeparation = sqrtf( VectorMagnitudeSquared( right.position - left.position ) );
     CHECK( barycenter.x == doctest::Approx( 0.0f ).epsilon( 0.001 ) );
@@ -1013,8 +1026,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves clos
 
     const float initialEnergy = TotalKineticEnergy( collisionWorld );
     StepMicroWorldWith( collisionWorld, 1, config, forces );
-    const PhysicsBodyRecord& left = RequireBodyRecord( collisionWorld, 0 );
-    const PhysicsBodyRecord& right = RequireBodyRecord( collisionWorld, 1 );
+    const PhysicsBodyHotState left = RequireBodyHotState( collisionWorld, 0 );
+    const PhysicsBodyHotState right = RequireBodyHotState( collisionWorld, 1 );
     const float finalEnergy = TotalKineticEnergy( collisionWorld );
 
     CHECK( left.linearVelocity.x < -speed * 0.98f );
@@ -1074,16 +1087,16 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
 
     const PhysicsBodyHandle body = RequireBodyHandle( sleepWorld, 0 );
     sleepWorld.SeedBodyAsleep( body );
-    CHECK( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK_FALSE( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
-    const Vector3 positionBeforeWake = RequireBodyRecord( sleepWorld, 0 ).position;
+    const Vector3 positionBeforeWake = RequireBodyHotState( sleepWorld, 0 ).position;
     REQUIRE( sleepWorld.SetBodyVelocity( body, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), true ) );
-    CHECK_FALSE( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
     StepMicroWorldWith( sleepWorld, 1, config, forces );
-    CHECK( RequireBodyRecord( sleepWorld, 0 ).position.x > positionBeforeWake.x );
+    CHECK( RequireBodyHotState( sleepWorld, 0 ).position.x > positionBeforeWake.x );
 }
 
 
@@ -1100,17 +1113,17 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
     SeedSupportedSleepWorld( sleepWorld, config );
     StepMicroWorldWith( sleepWorld, config.physicsSleep.frames + 24, config, forces );
 
-    CHECK( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK_FALSE( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
     const PhysicsBodyHandle body = RequireBodyHandle( sleepWorld, 0 );
-    const Vector3 positionBeforeWake = RequireBodyRecord( sleepWorld, 0 ).position;
+    const Vector3 positionBeforeWake = RequireBodyHotState( sleepWorld, 0 ).position;
     sleepWorld.ApplyBodyImpulse( body, Vector3( 12.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
-    CHECK_FALSE( RequireBodyRecord( sleepWorld, 0 ).isSleeping );
+    CHECK( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
     StepMicroWorldWith( sleepWorld, 1, config, forces );
-    CHECK( RequireBodyRecord( sleepWorld, 0 ).position.x > positionBeforeWake.x );
+    CHECK( RequireBodyHotState( sleepWorld, 0 ).position.x > positionBeforeWake.x );
 }
 
 

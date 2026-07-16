@@ -617,8 +617,10 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::Runtime::SceneContr
 
     PhysicsBodyUpdateDesc bodyEdit;
     bodyEdit.body = eventBody;
-    bodyEdit.position = eventBodyRecord->position;
-    bodyEdit.orientation = eventBodyRecord->orientation;
+    const std::size_t eventBodyIndex = static_cast<std::size_t>( event.value0 );
+    const auto hotFields = bodyStoreBeforeEdit.HotFields();
+    bodyEdit.position = PhysicsBodyPosition( hotFields, eventBodyIndex );
+    bodyEdit.orientation = PhysicsBodyOrientation( hotFields, eventBodyIndex );
     if ( event.flags & REPLAY_EDITOR_TRANSFORM_TRANSLATE )
     {
         bodyEdit.updateMask |= PHYSICS_BODY_UPDATE_POSE;
@@ -681,7 +683,8 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::Runtime::SceneContr
     const PhysicsBodyHandle body =
         bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-    if ( bodyRecord && !bodyRecord->isFixed )
+    const int bodyIndex = bodyStore.ModelIndexForHandle( body );
+    if ( bodyRecord && bodyIndex >= 0 && bodyStore.HotFields().fixed[static_cast<std::size_t>( bodyIndex )] == 0u )
     {
         physics.WakeBody( body );
     }
@@ -995,13 +998,14 @@ void FormatReplayRestoreDivergenceMessage( char* message,
     if ( expectedPresentation && !expectedPresentation->bodies.empty() && restoredBody )
     {
         const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
-        const Vector3& restoredPosition = restoredBody->position;
-        const Vector3& restoredVelocity = restoredBody->linearVelocity;
+        const auto hotFields = models.BodyStore().HotFields();
+        const Vector3 restoredPosition = PhysicsBodyPosition( hotFields, 0u );
+        const Vector3 restoredVelocity = PhysicsBodyLinearVelocity( hotFields, 0u );
         float restoredQx = 0.0f;
         float restoredQy = 0.0f;
         float restoredQz = 0.0f;
         float restoredQw = 1.0f;
-        restoredBody->orientation.GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
+        PhysicsBodyOrientation( hotFields, 0u ).GetComponents( restoredQx, restoredQy, restoredQz, restoredQw );
 
         // Why: body 0 gives replay-restore failures a stable first mismatch to
         // compare against the saved presentation track without dumping the full

@@ -139,7 +139,9 @@ struct PersistentContactSolverContext
     std::span<uint8_t> terrainRestApplied;
     std::span<uint8_t> sleepSupportedThisFrame;
     PersistentContactSolverSideEffects& sideEffects;
+    PhysicsBodyStore& bodyStore;
     std::span<PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
@@ -163,6 +165,7 @@ struct PhysicsContactSolverStageContext
     std::span<uint8_t> terrainRestApplied;
     std::span<uint8_t> sleepSupportedThisFrame;
     std::span<PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsView hotFields;
     std::span<const ColliderRecord> colliderRecords;
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;

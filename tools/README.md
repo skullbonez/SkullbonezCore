@@ -181,6 +181,10 @@ bake; shader compiler diagnostics and a nonzero bake exit fail the build.
 `validate_perf.bat` is a hard gate: baseline regressions and
 `check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat
 perf output as a warning-only review note unless the script itself exits 0.
+It also runs the deterministic 200/520/1,000/2,000-body physics scale matrix.
+Those four artifacts are measurement-only until the SoA/SIMD cutover ceremony;
+they report stage timing without weakening the existing DX12 and physics-bench
+baseline or absolute-budget comparisons.
 
 `validate_replay_visual_fidelity.bat` is the single replay presentation oracle.
 Each invocation starts exactly one hidden Automation engine process and permits

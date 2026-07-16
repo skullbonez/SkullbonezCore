@@ -167,11 +167,14 @@ bool ResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
         }
     }
 
-    for ( const PhysicsBodyRecord& body : bodyStore.Records() )
+    const auto bodies = bodyStore.Records();
+    const auto hotFields = bodyStore.HotFields();
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
     {
+        const PhysicsBodyRecord& body = bodies[bodyIndex];
         if ( body.replayBodyId == id.value )
         {
-            outPosition = body.position;
+            outPosition = PhysicsBodyPosition( hotFields, bodyIndex );
             if ( outRadius )
             {
                 const int fallbackModelRow = bodyStore.ModelIndexForHandle( body.handle );

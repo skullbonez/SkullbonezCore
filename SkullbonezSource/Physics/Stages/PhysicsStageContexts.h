@@ -32,6 +32,7 @@ Related:
 #include <vector>
 
 #include "../../Maths/Vector3.h"
+#include "../PhysicsBodyStore.h"
 
 namespace SkullbonezCore
 {
@@ -39,7 +40,6 @@ namespace Physics
 {
 class ColliderStore;
 class PhysicsBodyStore;
-struct PhysicsBodyRecord;
 struct PhysicsWorldForces;
 
 struct ApplyForcesStageContext
@@ -50,6 +50,7 @@ struct ApplyForcesStageContext
     const ColliderStore& colliderStore;
     const PhysicsWorldForces& worldForces;
     std::span<const PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;
     std::vector<float>& timeRemaining;
     const Math::Vector::Vector3* mutualGravityForces = nullptr;
@@ -65,6 +66,7 @@ struct IntegrateRemainingStageContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     std::span<const PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;
     std::span<const float> timeRemaining;
 

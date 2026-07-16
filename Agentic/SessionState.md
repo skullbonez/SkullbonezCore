@@ -10,16 +10,36 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-15th-july` (replay mass-reduction campaign) |
-| Current baseline | Replay visual-fidelity V0-V6 are complete: one prediction generation, one 2,401-tick presented cascade, CPU-only durable reconstruction, and 187/200 bricks grounded and sleeping through the final second |
-| Current objective | Execute replay mass-reduction R4b → R6 → R8 strictly in order. R4b is the 2026-07-16 owner-ruled fix for finding R3-F1 (registered in parallel with R5's completion): canonicalize all schedule-sensitive artifact bookkeeping at serialization (live counters stay raw), with a pre-authorized two-invocation determinism proof |
-| Active/future progress | 6 / 9 tasks = 67% overall (replay mass-reduction only; denominator grew 8 → 9 with the R4b ruling while R5 closed in parallel; completed campaigns and externally blocked work are excluded) |
-| Last broad local gate | `tools\\validate_full.bat` passed in 121.33 s on 2026-07-16: all CPU lanes, zero-warning Profile/Automation/Debug builds, replay/prediction smoke, DX12 screenshots with zero InfoQueue errors, both physics smoke lanes, and the 44,401-line byte-exact varied baseline all passed |
-| Validation for current edits | R5 Profile build passed zero-warning in 15.01 s; tests passed 202/202 in 3.52 s; the single mega passed in 472.76 s with one process/generation and unchanged 2,401/200/187/199 results; only two zero-caller accessors were deleted; zero baseline/golden/schema/provenance change |
+| Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
+| Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
+| Current objective | S4: add the default-OFF SIMD config/migration, dedicated AVX2/FMA kernel infrastructure, and the 8-wide integration pilot with A/B evidence |
+| Active/future progress | `physics-soa-simd-1000-bodies` 4 / 9 = 44% |
+| Last broad local gate | S2 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning Profile/Automation/Debug builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
+| Validation for current edits | S3 `validate_perf` completed with all budgets/guards green and 0.9795 ms at 1,000 bodies; `validate_physics` matched all 44,401 lines byte-exact; no baseline/golden refresh |
 
 ## Live Queue
 
-00000. `replay-mass-reduction` is active at 6/8. R0 closed the 42-file,
+000000. `physics-soa-simd-1000-bodies` is active at 4/9. S0 registered the
+        campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
+        measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
+        does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
+        Step budget at 1,000 bodies against the 0.9978 ms reference. S0 passed
+        performance, byte-exact physics, full, and the single reference replay
+        mega gate without refreshing any baseline or golden. S1 added 20
+        fixed-capacity aligned hot component arrays with a bit-exact two-way
+        compatibility seam. All arrays are 32-byte aligned in focused coverage;
+        normal/deep physics, 204 tests, format, and allocation policy passed.
+        S2 migrated all stage/replay/presentation/diagnostics/editor/automation
+        consumers to direct hot-field views, made records cold-only, and deleted
+        the compatibility seam. Final full, 44,401-line byte-exact physics,
+        allocation, and the sole one-process replay mega gate passed with zero
+        baseline/golden refresh. S3 diagnosed by-value copies of 20-span hot
+        views plus full-row traffic in narrow scalar store kernels, removed
+        both without changing arithmetic or stored values, and restored the
+        1,000-body Physics average to 0.9795 ms versus S0's 0.9978 ms. The full
+        performance gate and 44,401-line byte-exact physics oracle passed. S4
+        now adds the dark integration pilot and AVX2/FMA kernel infrastructure.
+00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
        and reference gates. R1 proved the fingerprint boundary. R2 moved the
@@ -37,22 +57,25 @@ plan inventory.
        mega. R5 audited 99 header callables, deleted only two true
        zero-caller accessors, and retained all production, test-seam,
        CLI/config, and supported migration paths under individual rulings.
-       NEXT TASK IS R4b, not R6: the 2026-07-16 owner ruling on R3-F1
-       (registered in parallel with R5's completion) adds canonical artifact
-       bookkeeping serialization — enumerate every schedule-sensitive field
-       family from the R3 disposition report's binary diff (topology
-       versions in RVPD and RVIS headers, trajectory-store, inactive
-       worker-bank, reserve-growth), remap match-contract values to a dense
-       deterministic sequence applied consistently across chunks, serialize
-       pure-telemetry values as documented canonical constants, survey every
-       reader for value-agnosticism first, keep the durable fingerprint
-       comparison remap-aware on both sides, and make the format-versioning
-       ruling explicitly. R4b's charter pre-authorizes exactly two mega-gate
-       invocations (recorded owner approval; whole-artifact SHA equality is
-       the R3-F1 closure proof; the gate-covered projection must still match
-       R3's recorded SHA). Then R6's move-only oversized-TU partition/
-       cohesion pass. Binding rules for every other
-       task: exactly one
+       R4b closed R3-F1 with a complete writer/reader inventory, dense durable
+       tokens, zero reserve telemetry, a content-sensitive canonical semantic
+       hash, and a no-version-bump ruling. Both original R3 artifacts and the
+       real review-fix encoder are byte-identical after canonicalization at SHA
+       `F916DED3...B24`; the R3 gate-covered SHA is unchanged. The first zero
+       sentinel was correctly rejected and the
+       owner approved one additional same-tip invocation, for three total;
+       the final gate passed. R6 then recorded KEEP-cohesive rulings for the
+       four oversized/near-threshold TUs; no source or project move was made.
+       R7 then closed the final census, exact original-mismatch/final-encoder
+       proof, and independent review: product compilation is down one TU and
+       2,354 lines, map attribution honestly changes +364/+1,988 bytes, and
+       the same reviewer confirmed the reopened R4b semantic/governance fixes
+       with no remaining material blocker. R8 passed tests, full, performance,
+       allocation policy, and the sole final mega gate. Product compilation is
+       -1 TU/-2,354 lines; linked map bytes are honestly +364/+1,988; both
+       original mismatches and both final gates are byte exact at
+       `F916DED3...B24`. The plan is deleted and no active local replay step
+       remains. Binding rules throughout were: exactly one
        `tools\validate_replay_visual_fidelity.bat` invocation (one engine
        process, one prediction generation, zero golden refresh,
        revert-on-diff); link-level diagnostics boundary, never `#ifdef`
@@ -280,9 +303,9 @@ plan inventory.
 
 ## Next Handoff
 
-Replay mass-reduction R0 is complete at 1/8. Continue with R1's single
-fingerprint pilot: Automation+Debug retain diagnostics, Release/Profile lose
-the object and expose no probe seam. R0's one-process oracle and unit gate are
-already committed evidence; R1 must run its own single mega-gate invocation
-and `validate_tests`. The externally administered validation-gate V3 lane
-remains blocked and excluded from the ledger.
+Physics SoA/SIMD is active at 4/9 after S3 removed scalar-only view-copy and
+full-row traffic, measured 0.9795 ms at 1,000 bodies against S0's 0.9978 ms,
+and passed performance plus 44,401-line byte-exact physics. Continue with S4's
+dark AVX2/FMA infrastructure and integration pilot. Replay mass reduction remains closed at 9/9 plus R8;
+the externally administered validation-gate V3 lane remains blocked and
+excluded from the ledger.

@@ -74,11 +74,11 @@ std::string SkullbonezCore::Runtime::NormalizeSceneQueuePath( const std::string&
 
 namespace
 {
-ObjectContactBodyView SceneContactBodyView( const PhysicsBodyRecord& body )
+ObjectContactBodyView SceneContactBodyView( PhysicsBodyHotFieldsConstView hotFields, std::size_t bodyIndex )
 {
     ObjectContactBodyView view;
-    view.position = body.position;
-    view.orientation = body.orientation;
+    view.position = PhysicsBodyPosition( hotFields, bodyIndex );
+    view.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
     return view;
 }
 
@@ -422,14 +422,15 @@ void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::Runtime::SceneControl
             continue;
         }
 
-        const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( required.bodyA )];
-        const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( required.bodyB )];
+        const std::size_t bodyAIndex = static_cast<std::size_t>( required.bodyA );
+        const std::size_t bodyBIndex = static_cast<std::size_t>( required.bodyB );
         const ColliderRecord& colliderA = colliderRecords[static_cast<size_t>( required.bodyA )];
         const ColliderRecord& colliderB = colliderRecords[static_cast<size_t>( required.bodyB )];
         ObjectContactManifold manifold;
-        if ( BuildObjectContactManifold( SceneContactBodyView( bodyA ),
+        const auto hotFields = bodyStore.HotFields();
+        if ( BuildObjectContactManifold( SceneContactBodyView( hotFields, bodyAIndex ),
                                          colliderA.shape,
-                                         SceneContactBodyView( bodyB ),
+                                         SceneContactBodyView( hotFields, bodyBIndex ),
                                          colliderB.shape,
                                          required.bodyA,
                                          required.bodyB,

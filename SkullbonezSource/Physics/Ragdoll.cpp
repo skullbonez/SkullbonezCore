@@ -128,22 +128,22 @@ void AppendPreviewBox( std::vector<float>& lineData,
     }
 }
 
-RotationMatrix BodyRotation( const PhysicsBodyRecord& record )
+RotationMatrix BodyRotation( const PhysicsBodyHotState& hot )
 {
-    Quaternion q = record.orientation;
+    Quaternion q = hot.orientation;
     return q.GetOrientationMatrix();
 }
 
-Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const Vector3& value )
+Vector3 ApplyRecordInvInertia( const PhysicsBodyRecord& record, const PhysicsBodyHotState& hot, const Vector3& value )
 {
     if ( !record.usesWorldInertia )
     {
-        return VectorMultiply( record.invRotationalInertia, value );
+        return VectorMultiply( hot.inverseRotationalInertia, value );
     }
 
-    const RotationMatrix rotation = BodyRotation( record );
+    const RotationMatrix rotation = BodyRotation( hot );
     const Vector3 local = rotation.TransposeMultiply( value );
-    return rotation * VectorMultiply( record.invRotationalInertia, local );
+    return rotation * VectorMultiply( hot.inverseRotationalInertia, local );
 }
 
 Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
@@ -163,14 +163,16 @@ Vector3 ClampVectorMagnitude( const Vector3& value, float limit )
     return value * ( limit / sqrtf( magSq ) );
 }
 
-void ClampRagdollBodyVelocity( PhysicsBodyRecord& record )
+void ClampRagdollBodyVelocity( PhysicsBodyHotState& hot )
 {
-    record.linearVelocity = ClampVectorMagnitude( record.linearVelocity, RAGDOLL_JOINT_MAX_LINEAR_SPEED );
-    record.angularVelocity = ClampVectorMagnitude( record.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
+    hot.linearVelocity = ClampVectorMagnitude( hot.linearVelocity, RAGDOLL_JOINT_MAX_LINEAR_SPEED );
+    hot.angularVelocity = ClampVectorMagnitude( hot.angularVelocity, RAGDOLL_JOINT_MAX_ANGULAR_SPEED );
 }
 
 void ApplyConstraintImpulse( PhysicsBodyRecord& a,
                              PhysicsBodyRecord& b,
+                             PhysicsBodyHotState& hotA,
+                             PhysicsBodyHotState& hotB,
                              const Vector3& rA,
                              const Vector3& rB,
                              const Vector3& impulse,
@@ -179,21 +181,21 @@ void ApplyConstraintImpulse( PhysicsBodyRecord& a,
 {
     if ( invMassA > 0.0f )
     {
-        a.linearVelocity += impulse * invMassA;
-        a.angularVelocity += ApplyRecordInvInertia( a, CrossProduct( rA, impulse ) );
+        hotA.linearVelocity += impulse * invMassA;
+        hotA.angularVelocity += ApplyRecordInvInertia( a, hotA, CrossProduct( rA, impulse ) );
     }
     if ( invMassB > 0.0f )
     {
-        b.linearVelocity -= impulse * invMassB;
-        b.angularVelocity -= ApplyRecordInvInertia( b, CrossProduct( rB, impulse ) );
+        hotB.linearVelocity -= impulse * invMassB;
+        hotB.angularVelocity -= ApplyRecordInvInertia( b, hotB, CrossProduct( rB, impulse ) );
     }
     if ( invMassA > 0.0f )
     {
-        ClampRagdollBodyVelocity( a );
+        ClampRagdollBodyVelocity( hotA );
     }
     if ( invMassB > 0.0f )
     {
-        ClampRagdollBodyVelocity( b );
+        ClampRagdollBodyVelocity( hotB );
     }
 }
 
@@ -208,7 +210,7 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore,
                            const std::vector<PointJointConstraint>& constraints,
                            std::span<const uint8_t> sleepState )
 {
-    const auto bodyRecords = bodyStore.MutableRecords();
+    const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const int modelCount = bodyStore.Count();
     bool changed = false;
     for ( const PointJointConstraint& constraint : constraints )
@@ -224,14 +226,16 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore,
             continue;
         }
 
-        PhysicsBodyRecord& headRecord = bodyRecords[static_cast<size_t>( bodyBIndex )];
-        if ( headRecord.isFixed || IsBodySleeping( bodyBIndex, sleepState ) )
+        const size_t headIndex = static_cast<size_t>( bodyBIndex );
+        if ( hotFields.fixed[headIndex] != 0u || IsBodySleeping( bodyBIndex, sleepState ) )
         {
             continue;
         }
 
-        const RotationMatrix torsoRot = BodyRotation( bodyRecords[static_cast<size_t>( bodyAIndex )] );
-        const RotationMatrix headRot = BodyRotation( headRecord );
+        const PhysicsBodyHotState torsoHot = LoadPhysicsBodyHotState( hotFields, static_cast<size_t>( bodyAIndex ) );
+        PhysicsBodyHotState headHot = LoadPhysicsBodyHotState( hotFields, headIndex );
+        const RotationMatrix torsoRot = BodyRotation( torsoHot );
+        const RotationMatrix headRot = BodyRotation( headHot );
         Vector3 torsoUp = torsoRot * Vector3( 0.0f, 1.0f, 0.0f );
         Vector3 headUp = headRot * Vector3( 0.0f, 1.0f, 0.0f );
         torsoUp.Normalise();
@@ -252,10 +256,11 @@ bool ApplyNeckSwingLimits( PhysicsBodyStore& bodyStore,
 
         const float correctionAngle =
             (std::min)( acosf( dot ) - RAGDOLL_NECK_MAX_SWING_RADIANS, RAGDOLL_NECK_MAX_CORRECTION_RADIANS );
-        Quaternion orientation = headRecord.orientation;
+        Quaternion orientation = headHot.orientation;
         orientation.RotateAboutAxis( correctionAxis, correctionAngle );
-        headRecord.orientation = orientation;
-        headRecord.angularVelocity = headRecord.angularVelocity * RAGDOLL_NECK_ANGULAR_DAMPING;
+        headHot.orientation = orientation;
+        headHot.angularVelocity = headHot.angularVelocity * RAGDOLL_NECK_ANGULAR_DAMPING;
+        StorePhysicsBodyHotState( hotFields, headIndex, headHot );
         changed = true;
     }
     return changed;
@@ -473,6 +478,7 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
     }
 
     const auto bodyRecords = bodyStore.MutableRecords();
+    const PhysicsBodyHotFieldsView hotFields = bodyStore.MutableHotFields();
     const int modelCount = bodyStore.Count();
     const float invDt = 1.0f / dt;
     for ( int iteration = 0; iteration < RAGDOLL_SOLVER_ITERATIONS; ++iteration )
@@ -488,22 +494,26 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
 
             PhysicsBodyRecord& bodyA = bodyRecords[static_cast<size_t>( bodyAIndex )];
             PhysicsBodyRecord& bodyB = bodyRecords[static_cast<size_t>( bodyBIndex )];
+            const size_t hotAIndex = static_cast<size_t>( bodyAIndex );
+            const size_t hotBIndex = static_cast<size_t>( bodyBIndex );
+            PhysicsBodyHotState hotA = LoadPhysicsBodyHotState( hotFields, hotAIndex );
+            PhysicsBodyHotState hotB = LoadPhysicsBodyHotState( hotFields, hotBIndex );
             const bool aSleeping = bodyAIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyAIndex] != 0;
             const bool bSleeping = bodyBIndex < static_cast<int>( sleepState.size() ) && sleepState[bodyBIndex] != 0;
-            const float invMassA = ( bodyA.isFixed || aSleeping ) ? 0.0f : bodyA.invMass;
-            const float invMassB = ( bodyB.isFixed || bSleeping ) ? 0.0f : bodyB.invMass;
+            const float invMassA = ( hotA.fixed || aSleeping ) ? 0.0f : hotA.inverseMass;
+            const float invMassB = ( hotB.fixed || bSleeping ) ? 0.0f : hotB.inverseMass;
             const float totalInvMass = invMassA + invMassB;
             if ( totalInvMass <= TOLERANCE )
             {
                 continue;
             }
 
-            const RotationMatrix rotA = BodyRotation( bodyA );
-            const RotationMatrix rotB = BodyRotation( bodyB );
+            const RotationMatrix rotA = BodyRotation( hotA );
+            const RotationMatrix rotB = BodyRotation( hotB );
             const Vector3 rA = rotA * constraint.localAnchorA;
             const Vector3 rB = rotB * constraint.localAnchorB;
-            const Vector3 anchorA = bodyA.position + rA;
-            const Vector3 anchorB = bodyB.position + rB;
+            const Vector3 anchorA = hotA.position + rA;
+            const Vector3 anchorB = hotB.position + rB;
             Vector3 error = anchorB - anchorA;
             float distance = VectorMag( error );
             if ( distance <= constraint.slack && iteration > 0 )
@@ -517,8 +527,8 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
                 axis = error / distance;
             }
 
-            const Vector3 velA = bodyA.linearVelocity + CrossProduct( bodyA.angularVelocity, rA );
-            const Vector3 velB = bodyB.linearVelocity + CrossProduct( bodyB.angularVelocity, rB );
+            const Vector3 velA = hotA.linearVelocity + CrossProduct( hotA.angularVelocity, rA );
+            const Vector3 velB = hotB.linearVelocity + CrossProduct( hotB.angularVelocity, rB );
             const float relVel = ( velB - velA ) * axis;
             const float distanceError = (std::max)( 0.0f, distance - constraint.slack );
             const float biasSpeed =
@@ -532,12 +542,16 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
                 axis,
                 rA,
                 rB,
-                [&]( const Vector3& v ) { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, v ) : ZERO_VECTOR; },
-                [&]( const Vector3& v ) { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, v ) : ZERO_VECTOR; } );
+                [&]( const Vector3& v )
+                { return invMassA > 0.0f ? ApplyRecordInvInertia( bodyA, hotA, v ) : ZERO_VECTOR; },
+                [&]( const Vector3& v )
+                { return invMassB > 0.0f ? ApplyRecordInvInertia( bodyB, hotB, v ) : ZERO_VECTOR; } );
             if ( effectiveMass > 0.0f )
             {
                 ApplyConstraintImpulse( bodyA,
                                         bodyB,
+                                        hotA,
+                                        hotB,
                                         rA,
                                         rB,
                                         axis * ( effectiveMass * velocityTarget ),
@@ -552,13 +566,15 @@ bool Ragdoll::SolvePointJoints( PhysicsBodyStore& bodyStore,
                 const Vector3 correction = axis * ( correctionAmount / totalInvMass );
                 if ( invMassA > 0.0f )
                 {
-                    bodyA.position += correction * invMassA;
+                    hotA.position += correction * invMassA;
                 }
                 if ( invMassB > 0.0f )
                 {
-                    bodyB.position -= correction * invMassB;
+                    hotB.position -= correction * invMassB;
                 }
             }
+            StorePhysicsBodyHotState( hotFields, hotAIndex, hotA );
+            StorePhysicsBodyHotState( hotFields, hotBIndex, hotB );
         }
     }
 

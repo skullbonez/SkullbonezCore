@@ -36,6 +36,7 @@ Related:
 #include "../PhysicsDebugData.h"
 #include "../Ragdoll.h"
 #include "../SleepIslandSystem.h"
+#include "../PhysicsBodyStore.h"
 #include "PhysicsContactSolverStage.h"
 #include "../../Runtime/Replay/ReplaySolverSnapshot.h"
 
@@ -66,6 +67,7 @@ class PhysicsNarrowphaseWakeAccess
     const ColliderStore& m_colliderStore;
     const PhysicsWorldForces& m_worldForces;
     std::span<PhysicsBodyRecord> m_bodyRecords;
+    PhysicsBodyHotFieldsView m_hotFields;
     std::span<float> m_timeRemaining;
     std::span<uint8_t> m_sleepState;
     std::span<uint8_t> m_sleepCounter;
@@ -78,6 +80,7 @@ class PhysicsNarrowphaseWakeAccess
                                   const ColliderStore& colliderStore,
                                   const PhysicsWorldForces& worldForces,
                                   std::span<PhysicsBodyRecord> bodyRecords,
+                                  const PhysicsBodyHotFieldsView& hotFields,
                                   std::span<float> timeRemaining,
                                   std::span<uint8_t> sleepState,
                                   std::span<uint8_t> sleepCounter,
@@ -104,6 +107,7 @@ struct PhysicsSleepWakeContext
     // the sleep owner never retains a sibling owner or borrowed frame state.
     int bodyCount = 0;
     std::span<const PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsView hotFields;
     PhysicsBodyStore* bodyStore = nullptr;
     const ColliderStore* colliderStore = nullptr;
     const PhysicsWorldForces* worldForces = nullptr;
@@ -119,6 +123,7 @@ struct PhysicsSleepIslandStageContext
     const ColliderStore& colliderStore;
     const PhysicsWorldForces& worldForces;
     std::span<PhysicsBodyRecord> bodyRecords;
+    PhysicsBodyHotFieldsView hotFields;
     std::span<float> timeRemaining;
     std::span<const PersistentContact> persistentContacts;
     std::span<const uint16_t> persistentRestingContactCounts;
@@ -173,7 +178,7 @@ class PhysicsSleepController
     void Clear();
     void ApplyRuntimeConfig( const Core::EngineConfig& config );
     PhysicsSleepStepPolicy ResolveStepPolicy( const Core::PhysicsSleepConfig& config ) const;
-    void MirrorFlagsFrom( PhysicsBodyStore& bodyStore, std::span<const PhysicsBodyRecord> bodyRecords, int modelCount );
+    void MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount );
     void EnsureVisualIdSize( int modelCount );
     void WakeModel( const PhysicsSleepWakeContext& context, int index );
     PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
@@ -183,7 +188,7 @@ class PhysicsSleepController
                                                               std::span<float> timeRemaining,
                                                               int modelCount,
                                                               float dt );
-    void SeedModelAsleep( int bodyCount, std::span<const PhysicsBodyRecord> bodyRecords, int index );
+    void SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index );
     void SetPhysicsSleepEnabled( bool enabled );
     bool IsPhysicsSleepEnabled() const;
     void LockUnderwaterSleeperIfReady( const PhysicsWorldForces& worldForces,
@@ -191,7 +196,7 @@ class PhysicsSleepController
                                        const ColliderStore& colliderStore,
                                        std::span<float> timeRemaining,
                                        int index );
-    void PropagateSupport( std::span<const PhysicsBodyRecord> bodyRecords );
+    void PropagateSupport( const PhysicsBodyStore& bodyStore );
     void AppendPointJointSupportEdges( const PhysicsBodyStore& bodyStore,
                                        const std::vector<PointJointConstraint>& pointJointConstraints,
                                        int modelCount );

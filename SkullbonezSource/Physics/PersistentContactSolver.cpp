@@ -88,6 +88,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     auto& m_terrainRestApplied = context.terrainRestApplied;
     auto& m_sleepSupportedThisFrame = context.sleepSupportedThisFrame;
     auto& m_bodyRecords = context.bodyRecords;
+    auto m_hotFields = context.hotFields;
+    const PhysicsBodyHotFieldsConstView m_hotRead = ConstPhysicsBodyHotFields( m_hotFields );
     const auto& m_colliderRecords = context.colliderRecords;
     auto& sideEffects = context.sideEffects;
     // Why: pipeline tracing is capped. Once full, later record calls are no-ops,
@@ -136,7 +138,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     const int modelCount = (std::min)( { context.bodyStoreCount,
                                          static_cast<int>( m_bodyRecords.size() ),
                                          static_cast<int>( m_colliderRecords.size() ) } );
-    auto isFixedBody = [&]( int index ) -> bool { return m_bodyRecords[static_cast<size_t>( index )].isFixed; };
+    auto isFixedBody = [&]( int index ) -> bool { return m_hotFields.fixed[static_cast<size_t>( index )] != 0u; };
     const auto& config = context.config;
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
@@ -268,15 +270,16 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             }
             else
             {
-                body.linearVelocity = record.linearVelocity;
-                body.angularVelocity = record.angularVelocity;
-                body.invMass = record.invMass;
-                body.invInertia = record.invRotationalInertia;
+                const size_t bodyIndex = static_cast<size_t>( i );
+                body.linearVelocity = PhysicsBodyLinearVelocity( m_hotRead, bodyIndex );
+                body.angularVelocity = PhysicsBodyAngularVelocity( m_hotRead, bodyIndex );
+                body.invMass = m_hotFields.inverseMass[bodyIndex];
+                body.invInertia = PhysicsBodyInverseInertia( m_hotRead, bodyIndex );
                 body.useWorldInertia = record.usesWorldInertia;
             }
             if ( body.useWorldInertia )
             {
-                Quaternion orientation = record.orientation;
+                Quaternion orientation = PhysicsBodyOrientation( m_hotRead, static_cast<size_t>( i ) );
                 body.orientation = orientation.GetOrientationMatrix();
             }
         }
@@ -365,10 +368,10 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         // Why: object manifolds need only pose plus shape. Pose now comes from
         // PhysicsBodyRecord, while ColliderStore owns the shape snapshot; the
         // solver no longer has to borrow a mutable scene object just to build rows.
-        const PhysicsBodyRecord& record = m_bodyRecords[static_cast<size_t>( index )];
+        const size_t bodyIndex = static_cast<size_t>( index );
         ObjectContactBodyView view;
-        view.position = record.position;
-        view.orientation = record.orientation;
+        view.position = PhysicsBodyPosition( m_hotRead, bodyIndex );
+        view.orientation = PhysicsBodyOrientation( m_hotRead, bodyIndex );
         return view;
     };
 
@@ -394,8 +397,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 record.bodyA = aIndex;
                 record.bodyB = bIndex;
                 record.normal = normal;
-                record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
-                                 m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                record.point = ( PhysicsBodyPosition( m_hotRead, static_cast<size_t>( aIndex ) ) +
+                                 PhysicsBodyPosition( m_hotRead, static_cast<size_t>( bIndex ) ) ) *
                                0.5f;
                 record.scalarA = normal.y;
                 RecordPhysicsPipelineStage( record );
@@ -411,8 +414,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 record.bodyA = bIndex;
                 record.bodyB = aIndex;
                 record.normal = -normal;
-                record.point = ( m_bodyRecords[static_cast<size_t>( aIndex )].position +
-                                 m_bodyRecords[static_cast<size_t>( bIndex )].position ) *
+                record.point = ( PhysicsBodyPosition( m_hotRead, static_cast<size_t>( aIndex ) ) +
+                                 PhysicsBodyPosition( m_hotRead, static_cast<size_t>( bIndex ) ) ) *
                                0.5f;
                 record.scalarA = -normal.y;
                 RecordPhysicsPipelineStage( record );
@@ -709,8 +712,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             const ObjectContactBodyView bodyA = contactBodyViewForIndex( aIndex );
             const ObjectContactBodyView bodyB = contactBodyViewForIndex( bIndex );
 
-            Vector3 centerDelta = m_bodyRecords[static_cast<size_t>( bIndex )].position -
-                                  m_bodyRecords[static_cast<size_t>( aIndex )].position;
+            Vector3 centerDelta = PhysicsBodyPosition( m_hotRead, static_cast<size_t>( bIndex ) ) -
+                                  PhysicsBodyPosition( m_hotRead, static_cast<size_t>( aIndex ) );
             float contactDistance = conservativeContactRadius( colliderA ) + conservativeContactRadius( colliderB ) +
                                     config.bodySimulation.contactEpsilon;
             if ( Vector::VectorMagSquared( centerDelta ) > contactDistance * contactDistance )
@@ -755,7 +758,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     const bool supportedBodyIsBox = manifold.normal.y > 0.0f ? shapeBIsBox : shapeAIsBox;
                     if ( supportedBodyIsBox )
                     {
-                        Quaternion orientation = m_bodyRecords[static_cast<size_t>( supportedIndex )].orientation;
+                        Quaternion orientation =
+                            PhysicsBodyOrientation( m_hotRead, static_cast<size_t>( supportedIndex ) );
                         const auto rotation = orientation.GetOrientationMatrix();
                         const Vector3 supportNormal = manifold.normal.y > 0.0f ? manifold.normal : -manifold.normal;
                         const float faceDotX = fabsf( ( rotation * Vector3( 1.0f, 0.0f, 0.0f ) ) * supportNormal );
@@ -1186,7 +1190,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 record.bodyA = c.bodyA;
                 record.bodyB = c.bodyB;
                 record.featureId = c.featureId;
-                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+                record.point = PhysicsBodyPosition( m_hotRead, static_cast<size_t>( c.bodyA ) ) + c.rA;
                 record.normal = c.normal;
                 record.scalarA = c.warmStarted ? 1.0f : 0.0f;
                 record.scalarB = c.accN;
@@ -1285,7 +1289,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     record.bodyB = c.bodyB;
                     record.iteration = iter;
                     record.featureId = c.featureId;
-                    record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+                    record.point = PhysicsBodyPosition( m_hotRead, static_cast<size_t>( c.bodyA ) ) + c.rA;
                     record.normal = c.normal;
                     record.scalarA = deltaN;
                     record.scalarB = c.accN;
@@ -1414,14 +1418,19 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 Physics::PhysicsPipelineRecord record;
                 record.stage = Physics::PhysicsPipelineStage::VelocityWriteback;
                 record.bodyA = i;
-                record.point = m_bodyRecords[static_cast<size_t>( i )].position;
+                record.point = PhysicsBodyPosition( m_hotRead, static_cast<size_t>( i ) );
                 record.scalarA = Vector::VectorMag( m_solverBodies[i].linearVelocity );
                 record.scalarB = Vector::VectorMag( m_solverBodies[i].angularVelocity );
                 RecordPhysicsPipelineStage( record );
             }
 
-            m_bodyRecords[static_cast<size_t>( i )].linearVelocity = m_solverBodies[i].linearVelocity;
-            m_bodyRecords[static_cast<size_t>( i )].angularVelocity = m_solverBodies[i].angularVelocity;
+            const size_t bodyIndex = static_cast<size_t>( i );
+            m_hotFields.linearVelocityX[bodyIndex] = m_solverBodies[i].linearVelocity.x;
+            m_hotFields.linearVelocityY[bodyIndex] = m_solverBodies[i].linearVelocity.y;
+            m_hotFields.linearVelocityZ[bodyIndex] = m_solverBodies[i].linearVelocity.z;
+            m_hotFields.angularVelocityX[bodyIndex] = m_solverBodies[i].angularVelocity.x;
+            m_hotFields.angularVelocityY[bodyIndex] = m_solverBodies[i].angularVelocity.y;
+            m_hotFields.angularVelocityZ[bodyIndex] = m_solverBodies[i].angularVelocity.z;
         }
     }
 
@@ -1433,11 +1442,11 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         {
             if ( c.accN > 0.0f )
             {
-                if ( m_bodyRecords[static_cast<size_t>( c.bodyA )].isFixed )
+                if ( isFixedBody( c.bodyA ) )
                 {
                     MarkFixedContact( c.bodyA );
                 }
-                if ( c.bodyB != TERRAIN_BODY_INDEX && m_bodyRecords[static_cast<size_t>( c.bodyB )].isFixed )
+                if ( c.bodyB != TERRAIN_BODY_INDEX && isFixedBody( c.bodyB ) )
                 {
                     MarkFixedContact( c.bodyB );
                 }
@@ -1447,7 +1456,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             out.bodyA = c.bodyA;
             out.bodyB = c.bodyB;
             out.featureId = c.featureId;
-            out.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+            out.point = PhysicsBodyPosition( m_hotRead, static_cast<size_t>( c.bodyA ) ) + c.rA;
             out.normal = c.isTerrain ? c.terrainNormal : c.normal;
             out.tangent1 = c.tangent1;
             out.tangent2 = c.tangent2;
@@ -1477,15 +1486,19 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 continue;
             }
 
-            const PhysicsBodyRecord& bodyA = m_bodyRecords[static_cast<size_t>( c.bodyA )];
-            float invMassA = ( m_sleepState[c.bodyA] || bodyA.isFixed ) ? 0.0f : bodyA.invMass;
+            const size_t bodyAIndex = static_cast<size_t>( c.bodyA );
+            float invMassA = ( m_sleepState[c.bodyA] || m_hotFields.fixed[bodyAIndex] != 0u )
+                                 ? 0.0f
+                                 : m_hotFields.inverseMass[bodyAIndex];
             float invMassB = 0.0f;
             bool hasBodyB = false;
             if ( c.bodyB != TERRAIN_BODY_INDEX )
             {
-                const PhysicsBodyRecord& bodyB = m_bodyRecords[static_cast<size_t>( c.bodyB )];
+                const size_t bodyBIndex = static_cast<size_t>( c.bodyB );
                 hasBodyB = true;
-                invMassB = ( m_sleepState[c.bodyB] || bodyB.isFixed ) ? 0.0f : bodyB.invMass;
+                invMassB = ( m_sleepState[c.bodyB] || m_hotFields.fixed[bodyBIndex] != 0u )
+                               ? 0.0f
+                               : m_hotFields.inverseMass[bodyBIndex];
             }
             float totalInvMass = invMassA + invMassB;
             if ( totalInvMass <= TOLERANCE )
@@ -1510,17 +1523,24 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 record.bodyA = c.bodyA;
                 record.bodyB = c.bodyB;
                 record.featureId = c.featureId;
-                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+                record.point = PhysicsBodyPosition( m_hotRead, bodyAIndex ) + c.rA;
                 record.normal = c.normal;
                 record.scalarA = correctionMagnitude;
                 record.scalarB = c.penetration;
                 record.scalarC = rowContactSlop;
                 RecordPhysicsPipelineStage( record );
             }
-            m_bodyRecords[static_cast<size_t>( c.bodyA )].position -= correction * invMassA;
+            Vector3 positionA = PhysicsBodyPosition( m_hotRead, bodyAIndex ) - correction * invMassA;
+            m_hotFields.positionX[bodyAIndex] = positionA.x;
+            m_hotFields.positionY[bodyAIndex] = positionA.y;
+            m_hotFields.positionZ[bodyAIndex] = positionA.z;
             if ( hasBodyB )
             {
-                m_bodyRecords[static_cast<size_t>( c.bodyB )].position += correction * invMassB;
+                const size_t bodyBIndex = static_cast<size_t>( c.bodyB );
+                Vector3 positionB = PhysicsBodyPosition( m_hotRead, bodyBIndex ) + correction * invMassB;
+                m_hotFields.positionX[bodyBIndex] = positionB.x;
+                m_hotFields.positionY[bodyBIndex] = positionB.y;
+                m_hotFields.positionZ[bodyBIndex] = positionB.z;
             }
         }
     }
@@ -1561,7 +1581,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                 record.bodyA = c.bodyA;
                 record.bodyB = c.bodyB;
                 record.featureId = c.featureId;
-                record.point = m_bodyRecords[static_cast<size_t>( c.bodyA )].position + c.rA;
+                record.point = PhysicsBodyPosition( m_hotRead, static_cast<size_t>( c.bodyA ) ) + c.rA;
                 record.normal = c.normal;
                 record.scalarA = c.accN;
                 record.scalarB = c.accT1;
@@ -1591,7 +1611,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
             PhysicsBodyRecord& fixedRecord = m_bodyRecords[static_cast<size_t>( fixedIndex )];
             const PhysicsBodyRecord& otherRecord = m_bodyRecords[static_cast<size_t>( otherIndex )];
-            if ( !fixedRecord.isFixed || !fixedRecord.releasesFromFixedOnContact || otherRecord.isFixed ||
+            if ( !isFixedBody( fixedIndex ) || !fixedRecord.releasesFromFixedOnContact || isFixedBody( otherIndex ) ||
                  otherRecord.releasesFromFixedOnContact || c.accN < fixedRecord.contactReleaseImpulseThreshold )
             {
                 return;
@@ -1607,7 +1627,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
 
             const float mass = (std::max)( 0.001f, fixedRecord.mass );
             const float impulseSpeed = c.accN / mass;
-            const Vector3 otherVelocity = m_bodyRecords[static_cast<size_t>( otherIndex )].linearVelocity;
+            const Vector3 otherVelocity = PhysicsBodyLinearVelocity( m_hotRead, static_cast<size_t>( otherIndex ) );
             const float carriedSpeed = (std::max)( 0.0f, otherVelocity * releaseDir );
             const float releaseSpeed = std::clamp( (std::max)( impulseSpeed, carriedSpeed * 0.35f ), 1.5f, 36.0f );
 
@@ -1624,18 +1644,15 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             Vector3 angularVelocity = ZERO_VECTOR;
             if ( spinAxisMag > TOLERANCE )
             {
-                const float radius = (std::max)( 0.25f, fixedRecord.boundingRadius );
+                const float radius = (std::max)( 0.25f, m_hotFields.boundingRadius[static_cast<size_t>( fixedIndex )] );
                 angularVelocity = spinAxis * ( std::clamp( releaseSpeed / radius, 0.0f, 8.0f ) / spinAxisMag );
             }
 
-            PhysicsBodyStore::ReleaseFixedRecord( fixedRecord,
-                                                  releaseDir * releaseSpeed + tangentVelocity,
-                                                  angularVelocity );
+            const Vector3 releasedLinearVelocity = releaseDir * releaseSpeed + tangentVelocity;
+            context.bodyStore.ReleaseFixedBody( fixedIndex, releasedLinearVelocity, angularVelocity );
             QueueReleaseWake( fixedIndex );
             QueueFixedTreeRelease(
-                PhysicsFixedTreeReleaseEvent{ fixedIndex,
-                                              m_bodyRecords[static_cast<size_t>( fixedIndex )].linearVelocity,
-                                              m_bodyRecords[static_cast<size_t>( fixedIndex )].angularVelocity } );
+                PhysicsFixedTreeReleaseEvent{ fixedIndex, releasedLinearVelocity, angularVelocity } );
         };
 
         for ( const PersistentContact& c : m_persistentContacts )

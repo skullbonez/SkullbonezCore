@@ -47,11 +47,12 @@ constexpr float UNDERWATER_SLEEP_LOCK_SUBMERGED_PERCENT = 0.999f;
 
 
 bool BuoyancySystem::IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
+                                           bool fixed,
                                            const ColliderStore& colliderStore,
                                            int index )
 {
     const auto colliders = colliderStore.Records();
-    if ( index < 0 || index >= static_cast<int>( colliders.size() ) || bodyRecord.isFixed ||
+    if ( index < 0 || index >= static_cast<int>( colliders.size() ) || fixed ||
          colliders[static_cast<std::size_t>( index )].shapeKind != ColliderShapeKind::Sphere )
     {
         return false;
@@ -91,8 +92,12 @@ bool BuoyancySystem::RefreshUnderwaterSubmersionForBall( const PhysicsWorldForce
         return false;
     }
 
-    const Math::Transformation::RotationMatrix rotation = bodyRecord->orientation.GetOrientationMatrix();
-    const Math::Vector::Vector3 center = bodyRecord->position + ( rotation * sphere->GetPosition() );
+    const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const std::size_t bodyIndex = static_cast<std::size_t>( index );
+    const Math::Transformation::RotationMatrix rotation =
+        PhysicsBodyOrientation( hotFields, bodyIndex ).GetOrientationMatrix();
+    const Math::Vector::Vector3 center =
+        PhysicsBodyPosition( hotFields, bodyIndex ) + ( rotation * sphere->GetPosition() );
     const float radius = sphere->GetRadius();
     if ( radius <= TOLERANCE )
     {

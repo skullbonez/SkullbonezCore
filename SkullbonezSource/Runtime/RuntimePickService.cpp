@@ -55,6 +55,7 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
     }
 
     const auto bodies = request.bodyStore->Records();
+    const auto hotFields = request.bodyStore->HotFields();
     const auto colliders = request.colliderStore->Records();
     const int candidateCount = static_cast<int>( (std::min)( bodies.size(), colliders.size() ) );
     const bool skipFixedBodies = request.purpose == RuntimePickPurpose::ManipulatorPickup;
@@ -66,14 +67,15 @@ bool RuntimePickService::TryPickModel( const RuntimePickRequest& request, Runtim
         {
             continue;
         }
-        if ( skipFixedBodies && body.isFixed )
+        const std::size_t bodyIndex = static_cast<std::size_t>( i );
+        if ( skipFixedBodies && hotFields.fixed[bodyIndex] != 0u )
         {
             continue;
         }
 
         RuntimePickShapeTransform transform;
-        transform.position = body.position;
-        transform.orientation = body.orientation;
+        transform.position = Physics::PhysicsBodyPosition( hotFields, bodyIndex );
+        transform.orientation = Physics::PhysicsBodyOrientation( hotFields, bodyIndex );
 
         // Invariant: picking now answers against authored collision geometry,
         // not the conservative broadphase radius. Padding would reintroduce the

@@ -88,24 +88,20 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-Scope: active and future implementation work only. Per the 2026-07-16 owner
-decision, the active portfolio is the replay mass-reduction campaign below.
-The 2026-07-15 runtime mass-reduction campaign closed at 16/16
-(init-startup-decomposition 5/5, run-member-and-include-shrink 6/6,
-wide-call-desc-struct-pass 5/5) and leaves the ledger as historical work per
-commit-contract rule 4, as do all earlier campaigns. The externally blocked
-validation lane remains deliberately excluded.
+The owner activated the SoA/SIMD scale campaign after replay mass reduction
+closed. Completed historical campaigns are excluded under commit-contract rule
+4. The externally blocked validation lane remains deliberately excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| replay-mass-reduction | 6 | 9 | 67% |
-| **Active/future total** | **6** | **9** | **67%** |
+| physics-soa-simd-1000-bodies | 4 | 9 | 44% |
+| **Active/future total** | **4** | **9** | **44%** |
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
 R4b per commit-contract rule 4 (rescoped plans update the ledger and
 denominator in the same commit). R5 completed in parallel with that ruling;
-the reconciled state is 6 done of 9.
+the reconciled state was 6 done of 9 before R4b; R4b closes it at 7 of 9.
 
 The three round-5 plans (fp-envelope-hardening 4/4,
 mutual-gravity-large-scene-fallback 3/3, math-fatal-survey-restoration 3/3)
@@ -114,8 +110,27 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The binding critical path is the 2026-07-16 replay mass-reduction campaign:
-`replay-mass-reduction` R0 → R8 strictly in order. R0–R5 are complete: the
+The active 2026-07-16 physics SoA/SIMD campaign has completed S0-S3. Its fixed-seed
+200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
+body Physics Step averages 0.9978 ms on the Threadripper 3970X and the ratified
+final-cutover budget is no more than 0.80 ms. Capacity reaches 2,000 without
+exhaustion; the stretch-row grid cost and pre-existing sleep-counter width
+mismatch are recorded rather than silently changed. Performance, byte-exact
+physics, full, and the single reference replay mega gate passed with no baseline
+refresh. S1 added 20 fixed-capacity, 32-byte-aligned component arrays inside
+`PhysicsBodyStore`. S2 migrated every stage, replay, presentation, diagnostics,
+editor, and automation consumer to narrow hot-field spans, made the cold record
+honest, and deleted the temporary bit-copy seam. All 204 tests, allocation,
+full, the final 44,401-line byte-exact physics oracle, and the single one-process
+replay mega gate pass with no baseline/golden refresh. S3 found and removed
+20-span by-value helper copies plus unrelated full-row store traffic without
+changing arithmetic or values. The final SoA-scalar 1,000-body Physics average
+is 0.9795 ms, 1.8% faster than S0; performance and the 44,401-line byte-exact
+physics gate pass. S4 is next: add dark kernel infrastructure and the integration
+pilot while the toggle-OFF path remains byte-exact.
+
+The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
+order. R0–R5 closed the census and implementation work: the
 ratified fingerprint, Debug probe, and Automation verifier code now link only
 in their intended configurations; the final Release map has zero diagnostic
 objects/symbols while product archive/restore remains present. R3 retained
@@ -125,21 +140,27 @@ content byte-identical across three artifacts. R4 unified bit-identical quota
 and render-pose mechanics, retained policy-distinct trajectory loops, and kept
 3D ribbons, screen-space UI, and packet telemetry separate. R5 deleted only
 two proven zero-caller accessors and retained every live/test/migration path
-under individual rulings. The next task is R4b — the 2026-07-16 owner ruling
-on finding R3-F1, registered in parallel with R5's completion: canonicalize
-ALL schedule-sensitive artifact bookkeeping (topology versions in RVPD/RVIS,
-trajectory-store, inactive worker-bank, and reserve-growth fields) at the
-serialization boundary; live engine counters stay raw. R4b's charter
-pre-authorizes exactly two mega-gate invocations (the determinism proof needs
-two artifacts; whole-file SHA equality closes R3-F1) — this recorded owner
-approval is the sole rule-11 exception in the campaign and no other task
-inherits it. The root cause chain is verified in source: wall-clock build
-budgets (`ReplayPrediction.cpp:214`) vary rebuild counts, the monotonic
-topology counter records them, `AppendPod` serializes them fixed-width into
-RVPD/RVIS, and MANI's decimal-printed `visualPredictionHash` supplies the
-variable file length. R6's move-only owner-TU partition pass follows R4b.
-MASTER rule 11 (one mega-gate invocation, one engine process, no golden
-refresh, revert-on-diff) binds every other task.
+under individual rulings. R4b then closed R3-F1 by canonicalizing every ruled
+RVPD/RVIS topology, trajectory-store, inactive worker-bank, reserve-growth,
+and derived semantic field at serialization while leaving live counters raw.
+Both original R3 artifacts and two final-encoder artifacts now produce the
+same 36,564,003-byte file and whole-file SHA; the gate-covered projection SHA
+remains unchanged. The initial zero semantic sentinel was correctly rejected;
+the owner explicitly approved one additional same-tip invocation, making
+three R4b invocations total, and the final invocation passed. This exception
+is closed and inherited by no other task. R6 then ruled the remaining four
+oversized/near-threshold replay translation units cohesive: a moves-only split
+would require a new internal API, duplicate byte/order contracts, or create a
+cosmetic include fragment. R7 then closed the final census and independent
+whole-campaign review after repairing the review's content-sensitive semantic-
+hash and stale-governance findings. Product compilation is down one TU and
+2,354 implementation lines; map-attributed bytes honestly changed +364
+Release/+1,988 Profile. The original R3 mismatch pair and final encoder are
+byte-exact at the same 36,564,003-byte SHA. R8 then passed tests, full,
+performance, allocation-policy, and the one-process final mega gate from final
+source. The plan is deleted under inventory rule 4; no active local serial step
+remains. Closure evidence is in
+`Agentic/Reports/2026-07-16/replay-mass-reduction-closure.md`.
 
 The 2026-07-15 runtime mass-reduction critical path completed at 16/16:
 `init-startup-decomposition → run-member-and-include-shrink →
@@ -450,7 +471,7 @@ dependent manifest hash; all behavioral golden values remained unchanged.
 ## Replay Mass Reduction Campaign (2026-07-16)
 
 Source: the proportion finding from the 2026-07-15 hostile review, activated
-by the owner on 2026-07-16. `Runtime/Replay/` is 33,783 lines at tip
+by the owner and completed on 2026-07-16. `Runtime/Replay/` was 33,783 lines at tip
 `c0dd7016` with three diagnosed diseases: the probe/validation harness
 (ReplayValidation.cpp 3,729 lines plus fingerprint/probe-archive tooling)
 compiles into production Release because only three files sit behind the
@@ -475,7 +496,8 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-mass-reduction](TODO/replay-mass-reduction.md) | Active | 6/8 | R6: split oversized replay TUs into cohesive same-owner partitions with moves only, or record explicit cohesion rulings |
+| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active | 4/9 | S4: add dark AVX2/FMA kernel infrastructure and the integration pilot |
+| [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Features
 

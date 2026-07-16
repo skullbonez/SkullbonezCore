@@ -46,6 +46,26 @@ constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS = REPLAY_PREDICTION_MAR
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_POINTS = 4000000u;
 constexpr std::size_t REPLAY_PREDICTION_ARCHIVE_MAX_BYTES = 128u * 1024u * 1024u;
 
+bool IsInactivePredictionWorkerBankRecord( const ReplayTrajectoryRecord& record ) noexcept
+{
+    const bool childLane = record.key.lane == ReplayTrajectoryLane::FutureChildIncoming ||
+                           record.key.lane == ReplayTrajectoryLane::FutureChildOutgoing;
+    return childLane && record.key.branchOrdinal >= REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
+}
+
+uint32_t CountCanonicalTrajectoryVersions( const ReplayTrajectoryStore& store ) noexcept
+{
+    uint32_t count = 0;
+    for ( const ReplayTrajectoryRecord& record : store.records )
+    {
+        if ( !IsInactivePredictionWorkerBankRecord( record ) )
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
 void WriteReason( char* destination, std::size_t size, const char* message )
 {
     if ( destination && size > 0 )
@@ -348,8 +368,13 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
         }
     }
 
-    writer.Scalar( prediction.futureNodeCache.futureNodesTopologyVersion );
-    writer.Scalar( prediction.futureNodeCache.nextFutureNodesTopologyVersion );
+    // Concept: topology versions are equality tokens, not durable generation
+    // numbers. A completed RVPD contains one published topology, so first-
+    // publication order maps it to one and reserves two for a later rebuild.
+    const uint32_t canonicalTopologyVersion = prediction.futureNodeCache.futureNodesTopologyVersion != 0u ? 1u : 0u;
+    const uint32_t canonicalNextTopologyVersion = canonicalTopologyVersion != 0u ? 2u : 1u;
+    writer.Scalar( canonicalTopologyVersion );
+    writer.Scalar( canonicalNextTopologyVersion );
     writer.Boolean( prediction.futureNodeCache.futureNodesBuiltRagdollVisuals );
     writer.Scalar( static_cast<uint32_t>( prediction.futureNodeCache.futureNodes.size() ) );
     for ( const RunReplayPathTraceNode& node : prediction.futureNodeCache.futureNodes )
@@ -362,9 +387,11 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
         WriteMarker( writer, prediction.futureNodeCache.retainedMarkers[index] );
     }
 
-    writer.Scalar( prediction.trajectoryStore.nextVersion );
+    const uint32_t canonicalTrajectoryVersionCount = CountCanonicalTrajectoryVersions( prediction.trajectoryStore );
+    writer.Scalar( canonicalTrajectoryVersionCount + 1u );
     writer.Scalar( static_cast<uint32_t>( prediction.trajectoryStore.records.size() ) );
     uint64_t totalPointCount = 0;
+    uint32_t canonicalTrajectoryVersion = 1u;
     for ( const ReplayTrajectoryRecord& record : prediction.trajectoryStore.records )
     {
         totalPointCount += record.points.size();
@@ -373,10 +400,30 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
         {
             return false;
         }
+        if ( IsInactivePredictionWorkerBankRecord( record ) )
+        {
+            // Hazard: this double-buffer bank is renderer-inactive after
+            // completion, but its schedule-selected keys and point payloads
+            // used to leak into the durable artifact. Keep one fixed-width
+            // record slot while replacing all variable telemetry with an inert
+            // constant; the reader layout and record-count contract stay intact.
+            writer.Scalar( static_cast<uint32_t>( 0u ) );
+            writer.Scalar( static_cast<uint8_t>( ReplayTrajectoryLane::FutureChildIncoming ) );
+            writer.Scalar( static_cast<uint16_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+            writer.Scalar( static_cast<uint32_t>( 0u ) );
+            writer.Scalar( static_cast<uint32_t>( 0u ) );
+            writer.Scalar( static_cast<uint16_t>( 0u ) );
+            writer.Scalar( static_cast<uint32_t>( 0u ) );
+            writer.Scalar( static_cast<int32_t>( 0 ) );
+            writer.Scalar( static_cast<ReplayFrameIndex>( 0u ) );
+            writer.Boolean( false );
+            writer.Scalar( static_cast<uint32_t>( 0u ) );
+            continue;
+        }
         writer.Scalar( record.key.bodyId.value );
         writer.Scalar( static_cast<uint8_t>( record.key.lane ) );
         writer.Scalar( record.key.branchOrdinal );
-        writer.Scalar( record.version );
+        writer.Scalar( canonicalTrajectoryVersion++ );
         writer.Scalar( static_cast<uint32_t>( record.publishedPointCount ) );
         writer.Scalar( record.styleId );
         writer.Scalar( record.parentId.value );
@@ -396,7 +443,14 @@ bool BuildReplayPredictionArchive( const RunReplayPathVisualizerState& pathVisua
     writer.Scalar( static_cast<uint32_t>( prediction.trajectoryBuild.rootFrameCount ) );
     writer.Scalar( static_cast<uint32_t>( prediction.trajectoryBuild.childFrameCount ) );
     writer.Scalar( static_cast<uint32_t>( prediction.trajectoryBuild.builtNodeCount ) );
-    writer.Scalar( prediction.trajectoryBuild.topologyVersion );
+    // Invariant: the build-state token must equal the canonical future-node
+    // token whenever the live tokens matched; offline reconstruction exercises
+    // the same equality check without depending on the process-local number.
+    const uint32_t canonicalBuildTopologyVersion =
+        prediction.trajectoryBuild.topologyVersion == prediction.futureNodeCache.futureNodesTopologyVersion
+            ? canonicalTopologyVersion
+            : 0u;
+    writer.Scalar( canonicalBuildTopologyVersion );
     writer.Boolean( prediction.trajectoryBuild.valid );
 
     const ReplayPredictionBaselineSnapshot& baseline = prediction.baseline;

@@ -67,6 +67,7 @@ namespace Physics
 class ColliderStore;
 class PhysicsBodyStore;
 struct ColliderRecord;
+struct PhysicsBodyHotState;
 struct PhysicsBodyRecord;
 } // namespace Physics
 
@@ -163,6 +164,7 @@ class RenderInstanceStore
     bool CanAppendCreationRow( int expectedCount ) const;
     void CommitCreationRow( const RenderInstancePresentationRecord& presentation,
                             const Physics::PhysicsBodyRecord& body,
+                            const Physics::PhysicsBodyHotState& hotState,
                             const Physics::ColliderRecord& collider,
                             int expectedIndex );
     // Scene deletion compacts presentation, instance, and handle rows together.

@@ -8,7 +8,7 @@ Summary:
   It does not route through Run, renderer setup, scene parsing, or runtime
   collection owners. The world is intentionally small: it proves deterministic
   create/update/delete/query/step ownership while collision and solver
-  authority stay on store-backed records.
+  authority stays in store-owned cold records and aligned hot-field arrays.
 
 Glossary:
   Activation command: Handle-based request to wake a body, seed it asleep, or
@@ -40,7 +40,7 @@ Glossary:
 
 Invariants:
   - Standalone handles pair a slot index with a nonzero generation value.
-  - Step mutates only alive, dynamic, awake body records.
+  - Step mutates only alive, dynamic, awake hot-field rows.
   - Contact rows are rebuilt from body/collider stores after Step() and cleared
     on geometry mutations, so public views never point into model storage.
   - Island rows are rebuilt after contact rows and borrow body-handle spans from
@@ -54,6 +54,7 @@ Related:
 */
 #include "PhysicsApi.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -71,12 +72,19 @@ using SkullbonezCore::Math::Vector::VectorMag;
 using SkullbonezCore::Math::Vector::VectorMagSquared;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
+using SkullbonezCore::Physics::ConstPhysicsBodyHotFields;
 using SkullbonezCore::Physics::PHYSICS_HANDLE_INITIAL_GENERATION;
 using SkullbonezCore::Physics::PhysicsActivationCommand;
 using SkullbonezCore::Physics::PhysicsActivationCommandKind;
+using SkullbonezCore::Physics::PhysicsBodyAngularVelocity;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyHotFieldsConstView;
+using SkullbonezCore::Physics::PhysicsBodyInverseInertia;
+using SkullbonezCore::Physics::PhysicsBodyLinearVelocity;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
+using SkullbonezCore::Physics::PhysicsBodyOrientation;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyUpdateDesc;
 using SkullbonezCore::Physics::PhysicsBodyView;
@@ -307,16 +315,17 @@ float ComputeInverseMass( PhysicsBodyMotionKind motionKind, float mass )
     return motionKind == PhysicsBodyMotionKind::Fixed || mass <= 0.0f ? 0.0f : 1.0f / mass;
 }
 
-bool BodyPassesQueryFilters( const PhysicsBodyRecord& body,
+bool BodyPassesQueryFilters( const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::size_t bodyIndex,
                              bool includeFixedBodies,
                              bool includeSleepingBodies,
                              bool sleepEnabled )
 {
-    if ( !includeFixedBodies && body.isFixed )
+    if ( !includeFixedBodies && hotFields.fixed[bodyIndex] != 0u )
     {
         return false;
     }
-    return includeSleepingBodies || !sleepEnabled || !body.isSleeping;
+    return includeSleepingBodies || !sleepEnabled || hotFields.awake[bodyIndex] != 0u;
 }
 
 float ConservativeShapeRadius( const SkullbonezCore::Math::CollisionDetection::CollisionShape& shape )
@@ -352,14 +361,16 @@ float EffectiveColliderRadius( const ColliderRecord& collider )
     return ConservativeBroadphaseRadius( collider.boundingRadius, collider.shape );
 }
 
-Vector3 ColliderWorldCenter( const PhysicsBodyRecord& body, const ColliderRecord& collider )
+Vector3 ColliderWorldCenter( const PhysicsBodyHotFieldsConstView& hotFields,
+                             std::size_t bodyIndex,
+                             const ColliderRecord& collider )
 {
     // Why: local collider offsets live in body space. Rotate them through the
     // body orientation before doing any world-space query math so conservative
     // candidates match the narrowphase coordinate convention.
-    auto orientation = body.orientation;
+    auto orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
     const RotationMatrix rotation = orientation.GetOrientationMatrix();
-    return body.position + rotation * GetShapePosition( collider.shape );
+    return PhysicsBodyPosition( hotFields, bodyIndex ) + rotation * GetShapePosition( collider.shape );
 }
 
 bool IntersectRaySphere( const Vector3& rayOrigin,
@@ -452,47 +463,54 @@ bool PhysicsStandaloneWorld::UpdateBody( const PhysicsBodyUpdateDesc& desc )
     {
         return false;
     }
+    const int modelIndex = m_bodyStore.ModelIndexForHandle( desc.body );
+    if ( modelIndex < 0 )
+    {
+        return false;
+    }
+    const std::size_t hotIndex = static_cast<std::size_t>( modelIndex );
+    const PhysicsBodyHotFieldsView hotFields = m_bodyStore.MutableHotFields();
+    PhysicsBodyHotState hot = LoadPhysicsBodyHotState( hotFields, hotIndex );
 
     if ( desc.updateMask & PHYSICS_BODY_UPDATE_POSE )
     {
-        body->position = desc.position;
-        body->orientation = desc.orientation;
+        hot.position = desc.position;
+        hot.orientation = desc.orientation;
     }
     if ( desc.updateMask & PHYSICS_BODY_UPDATE_VELOCITY )
     {
-        body->linearVelocity = desc.linearVelocity;
-        body->angularVelocity = desc.angularVelocity;
+        hot.linearVelocity = desc.linearVelocity;
+        hot.angularVelocity = desc.angularVelocity;
     }
     const bool updatesMotionKind = ( desc.updateMask & PHYSICS_BODY_UPDATE_MOTION_KIND ) != 0;
     const bool updatesMass = ( desc.updateMask & PHYSICS_BODY_UPDATE_MASS ) != 0;
     if ( updatesMotionKind )
     {
-        body->isFixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
+        hot.fixed = desc.motionKind == PhysicsBodyMotionKind::Fixed;
     }
     if ( updatesMass )
     {
         body->mass = desc.mass;
-        body->invMass =
-            ComputeInverseMass( body->isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
-                                body->mass );
+        hot.inverseMass =
+            ComputeInverseMass( hot.fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic, body->mass );
         body->rotationalInertia = desc.rotationalInertia;
-        body->invRotationalInertia =
-            body->isFixed ? Vector3( 0.0f, 0.0f, 0.0f ) : InvertNonZeroComponents( desc.rotationalInertia );
+        hot.inverseRotationalInertia =
+            hot.fixed ? Vector3( 0.0f, 0.0f, 0.0f ) : InvertNonZeroComponents( desc.rotationalInertia );
     }
     else if ( updatesMotionKind )
     {
-        body->invMass =
-            ComputeInverseMass( body->isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic,
-                                body->mass );
-        if ( body->isFixed )
+        hot.inverseMass =
+            ComputeInverseMass( hot.fixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic, body->mass );
+        if ( hot.fixed )
         {
-            body->invRotationalInertia = Vector3( 0.0f, 0.0f, 0.0f );
+            hot.inverseRotationalInertia = Vector3( 0.0f, 0.0f, 0.0f );
         }
     }
     if ( desc.updateMask & PHYSICS_BODY_UPDATE_SLEEP_STATE )
     {
-        body->isSleeping = m_sleepEnabled && desc.sleeping;
+        hot.awake = !( m_sleepEnabled && desc.sleeping );
     }
+    StorePhysicsBodyHotState( hotFields, hotIndex, hot );
     InvalidateBodyViews();
     ClearContacts();
     return true;
@@ -740,9 +758,12 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
     bool mutated = false;
     if ( desc.deltaSeconds > 0.0f )
     {
-        for ( PhysicsBodyRecord& body : m_bodyStore.MutableRecords() )
+        const auto bodies = m_bodyStore.Records();
+        const auto hotFields = m_bodyStore.MutableHotFields();
+        const auto hotRead = ConstPhysicsBodyHotFields( hotFields );
+        for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
         {
-            if ( body.isFixed || ( m_sleepEnabled && body.isSleeping ) )
+            if ( hotRead.fixed[bodyIndex] != 0u || ( m_sleepEnabled && hotRead.awake[bodyIndex] == 0u ) )
             {
                 continue;
             }
@@ -750,9 +771,16 @@ bool PhysicsStandaloneWorld::Step( const PhysicsStandaloneStepDesc& desc )
             // Invariant: consume one-shot impulses as velocity edits before the
             // semi-implicit acceleration/position step. Reordering these operations
             // changes deterministic smoke and future replay samples.
-            PhysicsBodyStore::ConsumePendingBodyImpulse( body );
-            body.linearVelocity += desc.worldLinearAcceleration * desc.deltaSeconds;
-            body.position += body.linearVelocity * desc.deltaSeconds;
+            m_bodyStore.ConsumePendingBodyImpulse( static_cast<int>( bodyIndex ) );
+            const Vector3 linearVelocity =
+                PhysicsBodyLinearVelocity( hotRead, bodyIndex ) + desc.worldLinearAcceleration * desc.deltaSeconds;
+            const Vector3 position = PhysicsBodyPosition( hotRead, bodyIndex ) + linearVelocity * desc.deltaSeconds;
+            hotFields.linearVelocityX[bodyIndex] = linearVelocity.x;
+            hotFields.linearVelocityY[bodyIndex] = linearVelocity.y;
+            hotFields.linearVelocityZ[bodyIndex] = linearVelocity.z;
+            hotFields.positionX[bodyIndex] = position.x;
+            hotFields.positionY[bodyIndex] = position.y;
+            hotFields.positionZ[bodyIndex] = position.z;
             mutated = true;
         }
     }
@@ -783,11 +811,13 @@ void PhysicsStandaloneWorld::ClearIslands()
 void PhysicsStandaloneWorld::GenerateStandaloneContacts()
 {
     const auto colliders = m_colliderStore.Records();
+    const auto hotFields = m_bodyStore.HotFields();
     for ( std::size_t a = 0; a < colliders.size(); ++a )
     {
         const ColliderRecord& colliderA = colliders[a];
         const PhysicsBodyRecord* bodyA = BodyRecord( colliderA.body );
-        if ( !bodyA )
+        const int bodyAIndex = m_bodyStore.ModelIndexForHandle( colliderA.body );
+        if ( !bodyA || bodyAIndex < 0 )
         {
             continue;
         }
@@ -801,25 +831,34 @@ void PhysicsStandaloneWorld::GenerateStandaloneContacts()
             }
 
             const PhysicsBodyRecord* bodyB = BodyRecord( colliderB.body );
-            if ( !bodyB || ( bodyA->isFixed && bodyB->isFixed ) )
+            const int bodyBIndex = m_bodyStore.ModelIndexForHandle( colliderB.body );
+            if ( !bodyB || bodyBIndex < 0 ||
+                 ( hotFields.fixed[static_cast<std::size_t>( bodyAIndex )] != 0u &&
+                   hotFields.fixed[static_cast<std::size_t>( bodyBIndex )] != 0u ) )
             {
                 continue;
             }
 
-            if ( TryAppendSphereSphereContact( colliderA, *bodyA, colliderB, *bodyB ) )
+            if ( TryAppendSphereSphereContact( colliderA,
+                                               static_cast<std::size_t>( bodyAIndex ),
+                                               colliderB,
+                                               static_cast<std::size_t>( bodyBIndex ) ) )
             {
                 continue;
             }
-            (void)TryAppendSphereBoxContact( colliderA, *bodyA, colliderB, *bodyB );
+            (void)TryAppendSphereBoxContact( colliderA,
+                                             static_cast<std::size_t>( bodyAIndex ),
+                                             colliderB,
+                                             static_cast<std::size_t>( bodyBIndex ) );
         }
     }
 }
 
 
 bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord& colliderA,
-                                                           const PhysicsBodyRecord& bodyA,
+                                                           std::size_t bodyAIndex,
                                                            const ColliderRecord& colliderB,
-                                                           const PhysicsBodyRecord& bodyB )
+                                                           std::size_t bodyBIndex )
 {
     const BoundingSphere* sphereA = std::get_if<BoundingSphere>( &colliderA.shape );
     const BoundingSphere* sphereB = std::get_if<BoundingSphere>( &colliderB.shape );
@@ -831,8 +870,9 @@ bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord&
     const float radiusA = sphereA->GetRadius();
     const float radiusB = sphereB->GetRadius();
     const float radiusSum = radiusA + radiusB;
-    const Vector3 centerA = ColliderWorldCenter( bodyA, colliderA );
-    const Vector3 centerB = ColliderWorldCenter( bodyB, colliderB );
+    const auto hotFields = m_bodyStore.HotFields();
+    const Vector3 centerA = ColliderWorldCenter( hotFields, bodyAIndex, colliderA );
+    const Vector3 centerB = ColliderWorldCenter( hotFields, bodyBIndex, colliderB );
     const Vector3 delta = centerB - centerA;
     const float distance = VectorMag( delta );
     if ( distance > radiusSum )
@@ -844,8 +884,8 @@ bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord&
     const float penetration = radiusSum - distance;
 
     PhysicsContactView contact;
-    contact.bodyA = bodyA.handle;
-    contact.bodyB = bodyB.handle;
+    contact.bodyA = colliderA.body;
+    contact.bodyB = colliderB.body;
     contact.colliderA = colliderA.handle;
     contact.colliderB = colliderB.handle;
     contact.point = centerA + normal * ( radiusA - penetration * 0.5f );
@@ -859,16 +899,16 @@ bool PhysicsStandaloneWorld::TryAppendSphereSphereContact( const ColliderRecord&
 
 
 bool PhysicsStandaloneWorld::TryAppendSphereBoxContact( const ColliderRecord& colliderA,
-                                                        const PhysicsBodyRecord& bodyA,
+                                                        std::size_t bodyAIndex,
                                                         const ColliderRecord& colliderB,
-                                                        const PhysicsBodyRecord& bodyB )
+                                                        std::size_t bodyBIndex )
 {
     const BoundingSphere* sphere = std::get_if<BoundingSphere>( &colliderA.shape );
     const BoundingBox* box = std::get_if<BoundingBox>( &colliderB.shape );
     const ColliderRecord* sphereCollider = &colliderA;
     const ColliderRecord* boxCollider = &colliderB;
-    const PhysicsBodyRecord* sphereBody = &bodyA;
-    const PhysicsBodyRecord* boxBody = &bodyB;
+    std::size_t sphereBodyIndex = bodyAIndex;
+    std::size_t boxBodyIndex = bodyBIndex;
     bool sphereIsColliderA = true;
     if ( !sphere || !box )
     {
@@ -876,8 +916,8 @@ bool PhysicsStandaloneWorld::TryAppendSphereBoxContact( const ColliderRecord& co
         box = std::get_if<BoundingBox>( &colliderA.shape );
         sphereCollider = &colliderB;
         boxCollider = &colliderA;
-        sphereBody = &bodyB;
-        boxBody = &bodyA;
+        sphereBodyIndex = bodyBIndex;
+        boxBodyIndex = bodyAIndex;
         sphereIsColliderA = false;
     }
     if ( !sphere || !box )
@@ -885,10 +925,11 @@ bool PhysicsStandaloneWorld::TryAppendSphereBoxContact( const ColliderRecord& co
         return false;
     }
 
-    auto boxOrientation = boxBody->orientation;
+    const auto hotFields = m_bodyStore.HotFields();
+    auto boxOrientation = PhysicsBodyOrientation( hotFields, boxBodyIndex );
     const RotationMatrix boxRotation = boxOrientation.GetOrientationMatrix();
-    const Vector3 boxCenter = ColliderWorldCenter( *boxBody, *boxCollider );
-    const Vector3 sphereCenter = ColliderWorldCenter( *sphereBody, *sphereCollider );
+    const Vector3 boxCenter = ColliderWorldCenter( hotFields, boxBodyIndex, *boxCollider );
+    const Vector3 sphereCenter = ColliderWorldCenter( hotFields, sphereBodyIndex, *sphereCollider );
     const Vector3 sphereCenterInBox = boxRotation.TransposeMultiply( sphereCenter - boxCenter );
     const Vector3 halfExtents = box->GetHalfExtents();
     Vector3 closestInBox( ClampFloat( sphereCenterInBox.x, -halfExtents.x, halfExtents.x ),
@@ -941,8 +982,8 @@ bool PhysicsStandaloneWorld::TryAppendSphereBoxContact( const ColliderRecord& co
     const Vector3 sphereSurface = sphereCenter - boxToSphereNormal * radius;
 
     PhysicsContactView contact;
-    contact.bodyA = bodyA.handle;
-    contact.bodyB = bodyB.handle;
+    contact.bodyA = colliderA.body;
+    contact.bodyB = colliderB.body;
     contact.colliderA = colliderA.handle;
     contact.colliderB = colliderB.handle;
     contact.point = ( closestWorld + sphereSurface ) * 0.5f;
@@ -960,6 +1001,7 @@ void PhysicsStandaloneWorld::GenerateStandaloneIslands()
     ClearIslands();
 
     const auto bodies = m_bodyStore.Records();
+    const auto hotFields = m_bodyStore.HotFields();
     if ( bodies.empty() )
     {
         return;
@@ -1041,10 +1083,10 @@ void PhysicsStandaloneWorld::GenerateStandaloneIslands()
 
         PhysicsIslandView& island = m_islands[islandSlot];
         ++island.bodyCount;
-        island.supported = island.supported || bodies[row].isFixed;
-        if ( !bodies[row].isFixed )
+        island.supported = island.supported || hotFields.fixed[row] != 0u;
+        if ( hotFields.fixed[row] == 0u )
         {
-            island.sleeping = island.sleeping && m_sleepEnabled && bodies[row].isSleeping;
+            island.sleeping = island.sleeping && m_sleepEnabled && hotFields.awake[row] == 0u;
         }
     }
 
@@ -1087,23 +1129,23 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
         {
             // Invariant: disabling sleep makes Step() treat every live body as
             // awake, mirroring the legacy world path that clears sleep state.
-            for ( PhysicsBodyRecord& body : m_bodyStore.MutableRecords() )
-            {
-                body.isSleeping = false;
-            }
+            const auto hotFields = m_bodyStore.MutableHotFields();
+            std::fill( hotFields.awake.begin(), hotFields.awake.end(), static_cast<uint8_t>( 1u ) );
             InvalidateBodyViews();
             ClearIslands();
         }
         return true;
     }
 
-    PhysicsBodyRecord* body = MutableBodyRecord( command.body );
-    if ( !body )
+    const int bodyIndex = m_bodyStore.ModelIndexForHandle( command.body );
+    if ( bodyIndex < 0 )
     {
         return false;
     }
 
-    if ( body->isFixed )
+    const std::size_t hotIndex = static_cast<std::size_t>( bodyIndex );
+    const auto hotRead = m_bodyStore.HotFields();
+    if ( hotRead.fixed[hotIndex] != 0u )
     {
         return false;
     }
@@ -1111,7 +1153,7 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
     switch ( command.kind )
     {
     case PhysicsActivationCommandKind::WakeBody:
-        body->isSleeping = false;
+        (void)m_bodyStore.WakeBody( command.body );
         InvalidateBodyViews();
         ClearIslands();
         return true;
@@ -1120,9 +1162,7 @@ bool PhysicsStandaloneWorld::ApplyActivationCommand( const PhysicsActivationComm
         {
             return false;
         }
-        body->linearVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-        body->angularVelocity = Vector3( 0.0f, 0.0f, 0.0f );
-        body->isSleeping = true;
+        (void)m_bodyStore.SeedBodyAsleep( command.body );
         InvalidateBodyViews();
         ClearIslands();
         return true;
@@ -1155,6 +1195,7 @@ PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& des
     }
     const Vector3 direction = desc.direction / directionLength;
     float closestDistance = ( std::numeric_limits<float>::max )();
+    const auto hotFields = m_bodyStore.HotFields();
 
     // Concept: standalone ray casts use the same conservative broadphase
     // envelope as runtime tool rays. Exact shape-specific picks can replace
@@ -1162,15 +1203,20 @@ PhysicsRayCastHit PhysicsStandaloneWorld::RayCast( const PhysicsRayCastDesc& des
     for ( const ColliderRecord& collider : m_colliderStore.Records() )
     {
         const PhysicsBodyRecord* body = BodyRecord( collider.body );
-        if ( !body ||
-             !BodyPassesQueryFilters( *body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
+        const int bodyIndex = m_bodyStore.ModelIndexForHandle( collider.body );
+        if ( !body || bodyIndex < 0 ||
+             !BodyPassesQueryFilters( hotFields,
+                                      static_cast<std::size_t>( bodyIndex ),
+                                      desc.includeFixedBodies,
+                                      desc.includeSleepingBodies,
+                                      m_sleepEnabled ) )
         {
             continue;
         }
 
         float distance = 0.0f;
         const float radius = EffectiveColliderRadius( collider );
-        const Vector3 center = ColliderWorldCenter( *body, collider );
+        const Vector3 center = ColliderWorldCenter( hotFields, static_cast<std::size_t>( bodyIndex ), collider );
         if ( !IntersectRaySphere( desc.origin, direction, center, radius, distance ) || distance > desc.maxDistance ||
              distance >= closestDistance )
         {
@@ -1199,15 +1245,24 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
     m_broadphaseQueryScratch.clear();
 
     const auto bodies = m_bodyStore.Records();
-    for ( const PhysicsBodyRecord& body : bodies )
+    const auto hotFields = m_bodyStore.HotFields();
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
     {
-        if ( !BodyPassesQueryFilters( body, desc.includeFixedBodies, desc.includeSleepingBodies, m_sleepEnabled ) )
+        const PhysicsBodyRecord& body = bodies[bodyIndex];
+        if ( !BodyPassesQueryFilters( hotFields,
+                                      bodyIndex,
+                                      desc.includeFixedBodies,
+                                      desc.includeSleepingBodies,
+                                      m_sleepEnabled ) )
         {
             continue;
         }
 
-        bool overlaps =
-            body.boundingRadius > 0.0f && SphereOverlapsAabb( body.position, body.boundingRadius, desc.min, desc.max );
+        bool overlaps = hotFields.boundingRadius[bodyIndex] > 0.0f &&
+                        SphereOverlapsAabb( PhysicsBodyPosition( hotFields, bodyIndex ),
+                                            hotFields.boundingRadius[bodyIndex],
+                                            desc.min,
+                                            desc.max );
         for ( const ColliderRecord& collider : m_colliderStore.Records() )
         {
             if ( overlaps )
@@ -1216,7 +1271,7 @@ PhysicsStandaloneWorld::QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDe
             }
             if ( collider.body == body.handle )
             {
-                overlaps = SphereOverlapsAabb( ColliderWorldCenter( body, collider ),
+                overlaps = SphereOverlapsAabb( ColliderWorldCenter( hotFields, bodyIndex, collider ),
                                                EffectiveColliderRadius( collider ),
                                                desc.min,
                                                desc.max );
@@ -1368,22 +1423,23 @@ const PhysicsBodyRecord* PhysicsStandaloneWorld::BodyRecord( PhysicsBodyHandle b
 }
 
 
-PhysicsBodyView PhysicsStandaloneWorld::MakeBodyView( const PhysicsBodyRecord& record ) const
+PhysicsBodyView PhysicsStandaloneWorld::MakeBodyView( const PhysicsBodyRecord& record, std::size_t bodyIndex ) const
 {
+    const auto hotFields = m_bodyStore.HotFields();
     PhysicsBodyView view;
     view.body = record.handle;
     view.sceneObjectId = record.sceneObjectId;
-    view.position = record.position;
-    view.orientation = record.orientation;
-    view.linearVelocity = record.linearVelocity;
-    view.angularVelocity = record.angularVelocity;
+    view.position = PhysicsBodyPosition( hotFields, bodyIndex );
+    view.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
+    view.linearVelocity = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+    view.angularVelocity = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
     view.rotationalInertia = record.rotationalInertia;
-    view.inverseRotationalInertia = record.invRotationalInertia;
+    view.inverseRotationalInertia = PhysicsBodyInverseInertia( hotFields, bodyIndex );
     view.mass = record.mass;
-    view.inverseMass = record.invMass;
-    view.boundingRadius = record.boundingRadius;
-    view.motionKind = record.isFixed ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
-    view.sleeping = record.isSleeping;
+    view.inverseMass = hotFields.inverseMass[bodyIndex];
+    view.boundingRadius = hotFields.boundingRadius[bodyIndex];
+    view.motionKind = hotFields.fixed[bodyIndex] != 0u ? PhysicsBodyMotionKind::Fixed : PhysicsBodyMotionKind::Dynamic;
+    view.sleeping = hotFields.awake[bodyIndex] == 0u;
     return view;
 }
 
@@ -1405,9 +1461,10 @@ const std::vector<PhysicsBodyView>& PhysicsStandaloneWorld::BodyViewCache() cons
     // records. Rebuild this cold cache only after body mutations so the hot step
     // keeps iterating PhysicsBodyStore without a parallel authoritative mirror.
     m_bodyViewCache.clear();
-    for ( const PhysicsBodyRecord& record : m_bodyStore.Records() )
+    const auto records = m_bodyStore.Records();
+    for ( std::size_t bodyIndex = 0; bodyIndex < records.size(); ++bodyIndex )
     {
-        m_bodyViewCache.push_back( MakeBodyView( record ) );
+        m_bodyViewCache.push_back( MakeBodyView( records[bodyIndex], bodyIndex ) );
     }
     m_bodyViewCacheDirty = false;
     return m_bodyViewCache;

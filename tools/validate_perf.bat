@@ -17,6 +17,10 @@
 @rem     audio-side work from perf comparisons.
 @rem   Structural perf proof: Counter-based assertion that rejects an expensive
 @rem     algorithmic path without relying on machine-specific frame timings.
+@rem   Scale matrix: Measurement-only 200/520/1,000/2,000-body artifacts used
+@rem     to ratify and track the physics fixed-step budget. These rows are
+@rem     reported but do not compare against a committed baseline before the
+@rem     SIMD cutover ceremony.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
@@ -149,6 +153,21 @@ if errorlevel 1 (
     exit /b 6
 )
 
+echo.
+echo Running measurement-only physics scale matrix...
+for %%n in (200 520 1000 2000) do (
+    del /q "%REPO%\Profile\physics_scale_%%n_perf_log.csv" 2>nul
+    "%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --shadows off %PERF_HEADLESS_ARGS% --scene SkullbonezData/scenes/physics_scale_%%n.scene.json
+    if errorlevel 1 (
+        echo FAIL: physics_scale_%%n scene crashed or errored.
+        exit /b 6
+    )
+    if not exist "%REPO%\Profile\physics_scale_%%n_perf_log.csv" (
+        echo FAIL: physics_scale_%%n_perf_log.csv was not produced.
+        exit /b 6
+    )
+)
+
 echo [5/5] Analyzing and comparing performance...
 set "SKORE_REPO=%REPO%"
 set "PYTHONUTF8=1"
@@ -160,6 +179,16 @@ for %%r in (dx12 physics_bench) do (
     "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
     if errorlevel 1 (
         echo FAIL: %%r perf analysis script failed.
+        exit /b 5
+    )
+)
+
+for %%n in (200 520 1000 2000) do (
+    echo.
+    echo Analyzing measurement-only physics_scale_%%n performance...
+    "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer physics_scale_%%n --csv "%REPO%\Profile\physics_scale_%%n_perf_log.csv" --out-dir "%REPO%\Profile"
+    if errorlevel 1 (
+        echo FAIL: physics_scale_%%n perf analysis failed.
         exit /b 5
     )
 )

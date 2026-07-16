@@ -79,6 +79,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderShapeKind;
 using SkullbonezCore::Physics::ColliderStore;
+using SkullbonezCore::Physics::LoadPhysicsBodyHotState;
 using SkullbonezCore::Physics::MakeModelRowHint;
 using SkullbonezCore::Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt;
 using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
@@ -87,10 +88,13 @@ using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyCount;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRefreshView;
 using SkullbonezCore::Physics::PhysicsAuthoredBodyRegistration;
+using SkullbonezCore::Physics::PhysicsBodyAngularVelocity;
 using SkullbonezCore::Physics::PhysicsBodyCount;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyLinearVelocity;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderCount;
@@ -374,7 +378,12 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
     renderPresentation.shadowCasterStream =
         ResolveRegisteredShadowCasterStream( *colliderRecord, renderPresentation.material );
     SceneEntities().CommitAppend( entity, bodyHandle );
-    m_renderInstanceStore.CommitCreationRow( renderPresentation, *bodyRecord, *colliderRecord, modelIndex );
+    m_renderInstanceStore.CommitCreationRow(
+        renderPresentation,
+        *bodyRecord,
+        LoadPhysicsBodyHotState( BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) ),
+        *colliderRecord,
+        modelIndex );
     AssertSceneCreationTopology( modelIndex + 1 );
     return { SkullbonezCore::Core::SbResult::Success(), bodyHandle };
 }
@@ -505,7 +514,7 @@ bool SceneController::TryGetModelPosition( int index, Vector3& outPosition ) con
         SB_FATAL( "GameObjects/SceneController",
                   "No physics body exists at the specified index.  (SceneController::TryGetModelPosition)" );
     }
-    outPosition = record->position;
+    outPosition = PhysicsBodyPosition( bodyStore.HotFields(), static_cast<std::size_t>( index ) );
     return true;
 }
 
@@ -818,15 +827,17 @@ double SceneController::GetSceneKineticEnergy()
     double totalEnergy = 0.0;
     const PhysicsBodyStore& bodyStore = BodyStore();
     const auto bodies = bodyStore.Records();
-    for ( const PhysicsBodyRecord& body : bodies )
+    const auto hotFields = bodyStore.HotFields();
+    for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
     {
-        if ( body.isFixed )
+        const PhysicsBodyRecord& body = bodies[bodyIndex];
+        if ( hotFields.fixed[bodyIndex] != 0u )
         {
             continue;
         }
 
-        const Vector3& vel = body.linearVelocity;
-        const Vector3& omega = body.angularVelocity;
+        const Vector3 vel = PhysicsBodyLinearVelocity( hotFields, bodyIndex );
+        const Vector3 omega = PhysicsBodyAngularVelocity( hotFields, bodyIndex );
         const double speedSq = static_cast<double>( vel.x ) * vel.x + static_cast<double>( vel.y ) * vel.y +
                                static_cast<double>( vel.z ) * vel.z;
         const double omegaSq = static_cast<double>( omega.x ) * omega.x + static_cast<double>( omega.y ) * omega.y +
@@ -930,8 +941,9 @@ void SceneController::NotifyFixedContact( int modelIndex, float highlightSeconds
     // Why: fixed-contact events come from the solver. The presentation timer
     // should trust the same dense body row instead of reopening legacy
     // model-side physics state to decide whether a body is fixed.
-    const PhysicsBodyRecord* body = BodyStore().RecordForModelIndex( modelIndex );
-    if ( body && body->isFixed )
+    const PhysicsBodyStore& bodyStore = BodyStore();
+    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
+    if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( modelIndex )] != 0u )
     {
         m_renderInstanceStore.NotifyFixedContact( modelIndex, highlightSeconds );
     }

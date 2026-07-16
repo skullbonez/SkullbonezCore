@@ -1,9 +1,8 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: Draft — NOT yet registered in `MASTER-PLAN.md`; queued behind the
-active `replay-mass-reduction` campaign (task S0 performs registration when
-the owner activates this plan). 0/9 tasks complete.
+Status: Active — registered in `MASTER-PLAN.md`; S0-S3 are complete and S4 is
+next. 4/9 tasks complete.
 Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
 SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
 S7 cutover only — every physics baseline and replay golden
@@ -111,7 +110,7 @@ path) until S7 flips the default in one owner-approved ceremony.
 
 ## Task Checklist
 
-- [ ] **S0 — Registration, benchmark authoring, and budget ratification.**
+- [x] **S0 — Registration, benchmark authoring, and budget ratification.**
       (a) Register in MASTER (ledger 0/9) and SessionState (skip if the
       activation commit already did it — verify, do not duplicate).
       (b) Author the scale benchmark: a deterministic 1,000-body scene (and
@@ -128,7 +127,14 @@ path) until S7 flips the default in one owner-approved ceremony.
       average fixed-step on the reference machine") — this number becomes
       the campaign's acceptance criterion. Reference mega-relevant gates run
       once on the unmodified tip for certification.
-- [ ] **S1 — Hot-field SoA split inside `PhysicsBodyStore` (bit-neutral).**
+      Evidence: the deterministic authored 200/520/1,000/2,000-body matrix and
+      capacity audit are recorded in
+      `Agentic/Reports/2026-07-16/soa-simd-s0-baseline.md`. The scalar-AoS
+      1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X;
+      the ratified final-cutover budget is no more than 0.80 ms. Performance,
+      byte-exact physics, full, and the single reference mega gate passed with
+      no baseline or golden refresh.
+- [x] **S1 — Hot-field SoA split inside `PhysicsBodyStore` (bit-neutral).**
       Hot fields move to parallel arrays owned by the store: position,
       orientation, linear/angular velocity, inverse mass, inverse inertia,
       per-body flags (fixed/awake), bounding radius. Cold/authoring fields
@@ -138,7 +144,11 @@ path) until S7 flips the default in one owner-approved ceremony.
       rule: S2 deletes it). Iteration orders unchanged everywhere.
       Gate: `validate_physics` byte-exact; `validate_physics_deep` once
       (layout change under every sleep/contact path); allocation checks.
-- [ ] **S2 — Consumer migration and shim deletion (bit-neutral).** Every
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s1-layout.md` records the
+      20 aligned component arrays, exact two-way compatibility seam and S2
+      deletion condition, 204-test alignment/coherence coverage, byte-exact
+      normal/deep physics gates, clean allocation checks, and 3/3 comment audit.
+- [x] **S2 — Consumer migration and shim deletion (bit-neutral).** Every
       stage owner, replay capture, presentation sync, and diagnostics
       consumer reads the SoA arrays (or narrow spans of them) directly; the
       S1 accessor shim is deleted; `std::span` field views replace record
@@ -147,12 +157,23 @@ path) until S7 flips the default in one owner-approved ceremony.
       extraction. Gate: `validate_physics` byte-exact + `validate_tests` +
       one mega-gate invocation (replay capture reads moved) + allocation
       checks.
-- [ ] **S3 — SoA-scalar measurement checkpoint.** Re-run the S0 benchmark
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s2-consumer-migration.md`
+      records the cold-only record, sole-authority aligned hot arrays, deletion
+      of every S1 compatibility helper, 61/61 touched-file comment audit,
+      204-test/full/allocation proof, final 44,401-line byte-exact physics
+      output, and the single passing one-process replay mega invocation. No
+      baseline or golden changed.
+- [x] **S3 — SoA-scalar measurement checkpoint.** Re-run the S0 benchmark
       matrix on the SoA-scalar build and commit the comparison: the layout
       alone should already move bandwidth-bound stages. If SoA-scalar
       regresses any stage beyond noise, diagnose and fix before any kernel
       work (a layout that loses scalar perf will not win it back in SIMD).
       Gates: `validate_perf` + byte-exact `validate_physics`.
+      Evidence: `Agentic/Reports/2026-07-16/soa-simd-s3-scalar-checkpoint.md`
+      records the diagnosed 20-span by-value copy/full-row traffic regression,
+      the bit-neutral correction, the final 200/520/1,000/2,000-body matrix,
+      0.9795 ms at 1,000 bodies versus S0's 0.9978 ms, 15/15 comment audit,
+      clean performance gate, and 44,401-line byte-exact physics proof.
 - [ ] **S4 — Kernel infrastructure + integration pilot (dark).** Add the
       `physicsExecution.simdKernels` config toggle (default OFF, config
       version bump + migration + format tests per the versioning policy),

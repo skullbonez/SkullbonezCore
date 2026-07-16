@@ -1,0 +1,37 @@
+{
+  "format": "skullbonez.scene.json",
+  "version": 1,
+  "cinematic": {},
+  "simulation": {
+    "seed": 3235774467,
+    "physics": true,
+    "text": false,
+    "modelCapacity": 4000,
+    "solverBalls": 520
+  },
+  "runtime": {
+    "vsync": false,
+    "pipelineSync": false
+  },
+  "playback": {
+    "fixedStep": true,
+    "frames": 600,
+    "exitOnComplete": true
+  },
+  "debug": {
+    "waterHidden": true
+  },
+  "cameras": [
+    {
+      "name": "scale_overview",
+      "position": [321, 110, 557],
+      "view": [581, 40, 633],
+      "up": [0, 1, 0]
+    }
+  ],
+  "logging": {
+    "perfLog": "Profile/physics_scale_520_perf_log.csv",
+    "perfLogFlush": false,
+    "perfLogFlushInterval": 0
+  }
+}

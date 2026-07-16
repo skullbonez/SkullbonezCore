@@ -36,33 +36,34 @@ using SkullbonezCore::Physics::BroadphaseCandidateFilterContext;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
-using SkullbonezCore::Physics::PhysicsBodyRecordList;
+using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 
 namespace
 {
-void AddCandidateBody( PhysicsBodyRecordList& bodyRecords,
+void AddCandidateBody( PhysicsBodyStore& bodyStore,
                        ColliderRecordList& colliderRecords,
                        const Vector3& position,
                        const Vector3& velocity,
                        float radius )
 {
-    PhysicsBodyRecord body;
-    body.position = position;
-    body.linearVelocity = velocity;
-    bodyRecords.push_back( body );
+    PhysicsBodyCreateRecord body;
+    body.hot.position = position;
+    body.hot.linearVelocity = velocity;
+    (void)bodyStore.CreateBodyRecord( body );
 
     ColliderRecord collider;
     collider.boundingRadius = radius;
     colliderRecords.push_back( collider );
 }
 
-PhysicsBodyRecordList& TestBodyRecords()
+PhysicsBodyStore& TestBodyStore()
 {
     // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS slots. Static storage matches
     // runtime ownership and avoids consuming the doctest thread stack.
-    static PhysicsBodyRecordList records( "TestSolverBroadphaseStage.bodyRecords" );
-    records.clear();
-    return records;
+    static PhysicsBodyStore store;
+    store.Clear();
+    return store;
 }
 
 ColliderRecordList& TestColliderRecords()
@@ -78,14 +79,15 @@ ColliderRecordList& TestColliderRecords()
 
 TEST_CASE( "Solver broadphase stage: candidate filter handles static and swept pairs" )
 {
-    PhysicsBodyRecordList& bodyRecords = TestBodyRecords();
+    PhysicsBodyStore& bodyStore = TestBodyStore();
     ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 8.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 10.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 2.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 8.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 10.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
 
-    BroadphaseCandidateFilterContext context{ { bodyRecords.data(), bodyRecords.size() },
+    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
+                                              bodyStore.HotFields(),
                                               { colliderRecords.data(), colliderRecords.size() },
                                               4,
                                               1.0f,
@@ -94,19 +96,20 @@ TEST_CASE( "Solver broadphase stage: candidate filter handles static and swept p
     CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
     CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 2 ) );
 
-    bodyRecords[0].linearVelocity = Vector3( 10.0f, 0.0f, 0.0f );
+    bodyStore.MutableHotFields().linearVelocityX[0] = 10.0f;
     CHECK( BroadphaseCandidateCanTouch( &context, 0, 3 ) );
 }
 
 
 TEST_CASE( "Solver broadphase stage: candidate filter keeps boundary policy conservative" )
 {
-    PhysicsBodyRecordList& bodyRecords = TestBodyRecords();
+    PhysicsBodyStore& bodyStore = TestBodyStore();
     ColliderRecordList& colliderRecords = TestColliderRecords();
-    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
-    AddCandidateBody( bodyRecords, colliderRecords, Vector3( 100.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), -1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), 1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 100.0f, 0.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ), -1.0f );
 
-    BroadphaseCandidateFilterContext context{ { bodyRecords.data(), bodyRecords.size() },
+    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
+                                              bodyStore.HotFields(),
                                               { colliderRecords.data(), colliderRecords.size() },
                                               2,
                                               1.0f,

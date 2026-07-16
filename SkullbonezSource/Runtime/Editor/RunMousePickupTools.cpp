@@ -145,7 +145,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 
     const PhysicsBodyStore& bodyStore = collection.BodyStore();
     const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
-    if ( !pickedBody )
+    const int pickedBodyIndex = bodyStore.ModelIndexForHandle( result.body );
+    if ( !pickedBody || pickedBodyIndex < 0 )
     {
         return routeResult;
     }
@@ -188,9 +189,11 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
     m_mousePickup.planePoint = grabPoint;
     m_mousePickup.planeNormal = cameraNormal;
     m_mousePickup.cameraPlaneDistance = cameraPlaneDistance;
-    m_mousePickup.grabOffset = grabPoint - pickedBody->position;
+    const std::size_t hotIndex = static_cast<std::size_t>( pickedBodyIndex );
+    const auto hotFields = bodyStore.HotFields();
+    m_mousePickup.grabOffset = grabPoint - PhysicsBodyPosition( hotFields, hotIndex );
     m_mousePickup.targetPoint = grabPoint;
-    m_mousePickup.preservedAngularVelocity = pickedBody->angularVelocity;
+    m_mousePickup.preservedAngularVelocity = PhysicsBodyAngularVelocity( hotFields, hotIndex );
     m_mousePickup.lastImpulse = SkullbonezCore::Math::Vector::ZERO_VECTOR;
     inputRouter.RequestNativeCapture();
     routeResult.enteredInteractive = true;
@@ -215,19 +218,22 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( Runtime::SceneController& models
     RunMousePickupState& pickup = m_mousePickup;
     const PhysicsBodyStore& bodyStore = models.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
-    if ( !bodyRecord )
+    const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
+    if ( !bodyRecord || bodyIndex < 0 )
     {
         CancelMousePickup( inputRouter, interaction );
         return;
     }
 
-    if ( bodyRecord->isFixed )
+    const std::size_t hotIndex = static_cast<std::size_t>( bodyIndex );
+    const auto hotFields = bodyStore.HotFields();
+    if ( hotFields.fixed[hotIndex] != 0u )
     {
         CancelMousePickup( inputRouter, interaction );
         return;
     }
-    const Vector3 bodyPosition = bodyRecord->position;
-    const Vector3 linearVelocity = bodyRecord->linearVelocity;
+    const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, hotIndex );
+    const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hotFields, hotIndex );
     if ( !physics.SetBodyVelocity( pickup.body, linearVelocity, pickup.preservedAngularVelocity, false ) )
     {
         CancelMousePickup( inputRouter, interaction );
@@ -268,19 +274,25 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( Runtime::SceneController& 
     RunMousePickupState& pickup = m_mousePickup;
     const PhysicsBodyStore& bodyStore = models.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
-    if ( !bodyRecord )
+    const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
+    if ( !bodyRecord || bodyIndex < 0 )
     {
         CancelMousePickup( inputRouter, interaction );
         return;
     }
 
-    if ( bodyRecord->isFixed )
+    const std::size_t hotIndex = static_cast<std::size_t>( bodyIndex );
+    const auto hotFields = bodyStore.HotFields();
+    if ( hotFields.fixed[hotIndex] != 0u )
     {
         CancelMousePickup( inputRouter, interaction );
         return;
     }
 
-    if ( !physics.SetBodyVelocity( pickup.body, bodyRecord->linearVelocity, pickup.preservedAngularVelocity, false ) )
+    if ( !physics.SetBodyVelocity( pickup.body,
+                                   PhysicsBodyLinearVelocity( hotFields, hotIndex ),
+                                   pickup.preservedAngularVelocity,
+                                   false ) )
     {
         CancelMousePickup( inputRouter, interaction );
     }

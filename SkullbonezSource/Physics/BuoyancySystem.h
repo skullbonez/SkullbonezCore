@@ -43,8 +43,10 @@ class BuoyancySystem
                                                     PhysicsBodyStore& bodyStore,
                                                     const ColliderStore& colliderStore,
                                                     int index );
-    static bool
-    IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord, const ColliderStore& colliderStore, int index );
+    static bool IsFullySubmergedBall( const PhysicsBodyRecord& bodyRecord,
+                                      bool fixed,
+                                      const ColliderStore& colliderStore,
+                                      int index );
 };
 } // namespace Physics
 } // namespace SkullbonezCore
