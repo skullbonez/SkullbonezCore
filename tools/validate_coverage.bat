@@ -30,7 +30,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "REPO=%~dp0.."
+for %%I in ("%~dp0..") do set "REPO=%%~fI"
 set "CONFIG=Debug"
 set "COVERAGE_DIR=%REPO%\TestOutput\coverage"
 set "COVERAGE_XML=%COVERAGE_DIR%\coverage.xml"
@@ -92,6 +92,8 @@ if not exist "%REPO%\Debug\SKULLBONEZ_TESTS.exe" (
 )
 
 if not exist "%COVERAGE_DIR%" mkdir "%COVERAGE_DIR%"
+if exist "%COVERAGE_XML%" del /q "%COVERAGE_XML%"
+if exist "%COVERAGE_LOG%" del /q "%COVERAGE_LOG%"
 
 echo [3/4] Capturing Cobertura product coverage...
 echo       Full test output: %COVERAGE_LOG%

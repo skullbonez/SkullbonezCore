@@ -2,8 +2,8 @@
 
 Date: 2026-07-16
 Status: ACTIVE — reordered ahead of the SoA/SIMD cutover by the 2026-07-16
-owner instruction ("we need to make the unit tests first"). 1/10 tasks
-complete; begin at U1. The SoA/SIMD campaign is PAUSED at 6/9 until this
+owner instruction ("we need to make the unit tests first"). 2/10 tasks
+complete; begin at U2. The SoA/SIMD campaign is PAUSED at 6/9 until this
 campaign closes at U9. Rationale for the reorder: byte-exact gates cannot
 verify behavior across the S7 regeneration (the cutover redefines the
 goldens), but the behavioral/property suites built here are tolerance-based
@@ -146,7 +146,7 @@ skip it.
       are a quality gate, not a frozen-count debt ratchet; the AGENTS.md ban
       on ratchets for migration vocabulary does not apply. This sentence
       exists so a future runner cannot refuse the gate on principle.
-- [ ] **U1 — Tier 1: Maths and core primitives to floor.** Fill
+- [x] **U1 — Tier 1: Maths and core primitives to floor.** Fill
       `TestVector3`/`TestQuaternion`/`TestMatrix4`(create as needed)/
       `GeometricMath`/`Frustum` to the Tier-1 floor with contract cases:
       normalization idempotence, rotation round-trips (quaternion↔matrix,
@@ -158,6 +158,9 @@ skip it.
       pinned. Add `SbResult` success/failure/message propagation and
       allocation-tracker phase-scope cases. Gate: `validate_tests` +
       `validate_coverage` report showing Tier-1 at/above floor.
+      Completed 2026-07-16: canonicalized the coverage wrapper so stale XML
+      cannot mask capture failure; measured Maths at 585/677 (86.41%) and
+      core primitives at 917/1,038 (88.34%), both above the ratified 85% floor.
 - [ ] **U2 — The Try-API degeneracy matrix.** One test per
       reachable-degenerate row of
       `Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md` (12 Try

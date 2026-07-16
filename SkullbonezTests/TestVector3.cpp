@@ -142,3 +142,31 @@ TEST_CASE( "Vector3: Try divide APIs reject zero divisors without partial writes
     REQUIRE( componentValue.TryDivided( Vector3( 2.0f, 2.0f, 2.0f ), output ) );
     CHECK( output == Vector3( 1.0f, 2.0f, 3.0f ) );
 }
+
+
+TEST_CASE( "Vector3: tolerance boundaries are strict and Simplify uses the same interval" )
+{
+    Vector3 inside( TOLERANCE * 0.5f, ZERO_TAKE_TOLERANCE * 0.5f, 0.0f );
+    Vector3 boundary( TOLERANCE, ZERO_TAKE_TOLERANCE, 0.0f );
+
+    CHECK( inside.IsCloseToZero() );
+    CHECK_FALSE( boundary.IsCloseToZero() );
+
+    inside.Simplify();
+    boundary.Simplify();
+    CHECK( inside == Vector3( 0.0f, 0.0f, 0.0f ) );
+    CHECK( boundary == Vector3( TOLERANCE, ZERO_TAKE_TOLERANCE, 0.0f ) );
+}
+
+
+TEST_CASE( "Vector3: reflection preserves the normal component and reverses the tangent" )
+{
+    using SkullbonezCore::Math::Vector::VectorReflect;
+
+    const Vector3 normal( 0.0f, 1.0f, 0.0f );
+    const Vector3 incident( 3.0f, -4.0f, 5.0f );
+
+    const Vector3 reflected = VectorReflect( incident, normal );
+    CHECK( reflected * normal == doctest::Approx( incident * normal ) );
+    CheckVectorNear( reflected, Vector3( -3.0f, -4.0f, -5.0f ) );
+}

@@ -94,9 +94,9 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| unit-test-coverage-campaign (ACTIVE) | 1 | 10 | 10% |
+| unit-test-coverage-campaign (ACTIVE) | 2 | 10 | 20% |
 | physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
-| **Active/future total** | **7** | **19** | **37%** |
+| **Active/future total** | **8** | **19** | **42%** |
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign. Later the same day the owner REORDERED it ahead
@@ -556,7 +556,7 @@ mega-gate invocation. Execution begins only after SoA/SIMD S8 closes.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 1/10 | U1: raise Maths and core primitives to the ratified Tier-1 floor |
+| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 2/10 | U2: complete the Try-API degeneracy matrix and survey links |
 
 ## Features
 

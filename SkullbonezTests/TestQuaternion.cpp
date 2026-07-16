@@ -121,3 +121,69 @@ TEST_CASE( "Quaternion: repeated multiply drift stays bounded and normalizable" 
     value.Normalise();
     CHECK( MagnitudeSquared( value ) == doctest::Approx( 1.0f ).epsilon( kEpsilon ) );
 }
+
+
+TEST_CASE( "Quaternion: XYZ vector and scalar overloads encode the same angular displacement" )
+{
+    Quaternion vectorForm;
+    vectorForm.RotateAboutXYZ( Vector3( 0.2f, -0.3f, 0.4f ) );
+    Quaternion scalarForm;
+    scalarForm.RotateAboutXYZ( 0.2f, -0.3f, 0.4f );
+
+    CheckQuaternionNear( vectorForm, ComponentsOf( scalarForm ) );
+    const Vector3 probe( 1.0f, 2.0f, -3.0f );
+    const Vector3 rotated = vectorForm.GetOrientationMatrix() * probe;
+    const Vector3 recovered = vectorForm.GetOrientationMatrix().TransposeMultiply( rotated );
+    CHECK( recovered.x == doctest::Approx( probe.x ).epsilon( kEpsilon ) );
+    CHECK( recovered.y == doctest::Approx( probe.y ).epsilon( kEpsilon ) );
+    CHECK( recovered.z == doctest::Approx( probe.z ).epsilon( kEpsilon ) );
+}
+
+
+TEST_CASE( "Quaternion: sub-tolerance XYZ displacement is an identity-preserving no-op" )
+{
+    Quaternion value( 0.2f, -0.3f, 0.4f, 0.5f );
+    value.Normalise();
+    const QuaternionComponents before = ComponentsOf( value );
+
+    value.RotateAboutXYZ( TOLERANCE * 0.25f, 0.0f, 0.0f );
+
+    CheckQuaternionNear( value, before );
+}
+
+
+TEST_CASE( "Quaternion: orientation matrix exposes identity support extent and arbitrary rotation" )
+{
+    Quaternion identity;
+    const auto identityMatrix = identity.GetOrientationMatrix();
+    CHECK( identityMatrix.SupportExtentY( Vector3( 2.0f, 3.0f, 4.0f ) ) == doctest::Approx( 3.0f ) );
+
+    const Vector3 rotated = SkullbonezCore::Math::Transformation::RotatePointAboutArbitrary(
+        kHalfPi,
+        Vector3( 0.0f, 0.0f, 1.0f ),
+        Vector3( 1.0f, 0.0f, 0.0f ) );
+    CHECK( rotated.x == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
+    CHECK( rotated.y == doctest::Approx( -1.0f ).epsilon( kEpsilon ) );
+    CHECK( rotated.z == doctest::Approx( 0.0f ).epsilon( kEpsilon ) );
+}
+
+
+TEST_CASE( "RotationMatrix: identity reset and legacy multiply spelling preserve a vector" )
+{
+    SkullbonezCore::Math::Transformation::RotationMatrix matrix( 2.0f,
+                                                                  3.0f,
+                                                                  4.0f,
+                                                                  5.0f,
+                                                                  6.0f,
+                                                                  7.0f,
+                                                                  8.0f,
+                                                                  9.0f,
+                                                                  10.0f );
+    matrix.Identity();
+    const Vector3 probe( -2.0f, 3.0f, 4.0f );
+
+    const Vector3 ordinary = matrix * probe;
+    const Vector3 legacy = matrix *= probe;
+    CHECK( ordinary == probe );
+    CHECK( legacy == probe );
+}

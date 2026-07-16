@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-16th-july` (unit-test coverage campaign) |
 | Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U0 is complete; begin U1 Maths/core behavioral coverage |
-| Active/future progress | 7 / 19 tasks = 37% overall (unit-test coverage 1/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
+| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. U1 is complete; begin U2 Try-API degeneracy coverage |
+| Active/future progress | 8 / 19 tasks = 42% overall (unit-test coverage 2/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
 | Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | S5 fast/physics/performance gates passed; chaotic and mutual-gravity A/B oracles passed with zero non-finite values; the paired enabled-path performance finding is negative and remains a binding S7 concern; no baseline/golden refresh |
+| Validation for current edits | U1 `validate_tests` passed 228 cases / 17,637 assertions; `validate_fast` passed formatting, metadata, zero-warning Profile/Debug builds, and tests; fresh `validate_coverage` measured Maths 86.41% and core primitives 88.34%, both above Tier 1's ratified 85%; no baseline/golden refresh |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is ACTIVE at 1/10 (2026-07-16 owner
+0000000. `unit-test-coverage-campaign` is ACTIVE at 2/10 (2026-07-16 owner
          reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
          the tolerance-based behavioral/property suites are the only oracle
          that survives the golden regeneration, and S7 now requires them to
@@ -34,7 +34,9 @@ plan inventory.
          mega-gate invocation and runs after the other tiers if any conflict
          arises. Behavioral assertions only; fixed seeds; ~60 s
          `validate_tests` budget; floors armed at U9 with a final measured
-         report and independent anti-gaming review. Continue with U1.
+         report and independent anti-gaming review. U1 raised Maths to 86.41%
+         and core primitives to 88.34% through behavioral contracts. Continue
+         with U2's Try-API degeneracy matrix.
 000000. `physics-soa-simd-1000-bodies` is PAUSED at 6/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
@@ -328,10 +330,11 @@ plan inventory.
 
 ## Next Handoff
 
-Unit-test coverage is active at 1/10. U0 established the Debug
-OpenCppCoverage lane, the measured subsystem baseline, ratified 85/70/50 tier
-floors, and recorded Tier-4 exclusions and governance. Continue with U1 Maths
-and core primitives. Physics SoA/SIMD remains paused at 6/9; do not begin S6 or
+Unit-test coverage is active at 2/10. U0 established the Debug
+OpenCppCoverage lane and U1 raised Maths/core primitives above the ratified
+85% Tier-1 floor with behavioral contracts. Continue with U2's Try-API
+degeneracy matrix and bidirectional survey links. Physics SoA/SIMD remains
+paused at 6/9; do not begin S6 or
 S7 before U9 closes. Replay mass reduction remains closed at 9/9 plus R8;
 the externally administered validation-gate V3 lane remains blocked and
 excluded from the ledger.
