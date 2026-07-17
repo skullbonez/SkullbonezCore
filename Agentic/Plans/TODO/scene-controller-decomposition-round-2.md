@@ -1,8 +1,8 @@
 # Scene Controller Decomposition Round 2 — Split The Ratified Aggregate
 
 Date: 2026-07-18
-Status: Active — 0/7 tasks
-Branch: owner decision at S0 (feature branch; never directly on `main`)
+Status: Active — 1/7 tasks
+Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/RunFrame.cpp`,
 `Runtime/RunInput.cpp`, `Runtime/InputFrame.cpp`, UI navigation consumers,
 project filters
@@ -68,7 +68,7 @@ owners genuinely participate, not because bags merge.
 
 ## Tasks
 
-- [ ] S0 — Census refresh and split map. Re-inventory every public method
+- [x] S0 — Census refresh and split map. Re-inventory every public method
   and member at the current tip, classify each into lifecycle vs world-state
   vs relocate-out (navigation policy, water input, audio notify, ragdoll
   queries, memory stats), and produce the two-owner target map with the
@@ -115,6 +115,11 @@ owners genuinely participate, not because bags merge.
 - S0 owner decisions: world-state owner name; whether `StepPhysics` stays a
   controller sequencing call or moves to the world-state owner; whether
   `CollectMemoryStats` aggregates on the store or a diagnostics boundary.
+- S0 ruling (2026-07-18): the concrete owner is `SceneWorld`; `StepPhysics`
+  moves to it; grouping/name queries move to `SceneEntityStore`; aggregate
+  memory accounting uses a diagnostics boundary over const owner views. Reuse
+  branch `nightrunner-17th-july`. Evidence:
+  `../../Reports/2026-07-18/scene-controller-round-2-census.md`.
 - Round-6 closure evidence
   (`Agentic/Reports/2026-07-17/scene-controller-ownership-closure.md`) is
   the baseline census; contradicting it requires the fresh S0 measurements.

@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 0 / 25 live tasks; 0%. |
+| Active/future progress | 1 / 25 live tasks; 4%. |
 | Last broad local gate | Red-flags C6 `validate_full` passed in 134.228s: 284/284 tests and all ten ratified coverage floors passed, Automation/replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
 | Validation for current edits | Final `validate_full` passed; `tools\run_graphics_stress.bat 1` completed its PID-scoped one-minute DX12 run in 60.826s. C6 repeat independent review reported no remaining blocker. |
 
@@ -25,8 +25,9 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
      allowed) → naming-and-identity-debt (after scene) →
      small-findings-hardening (after DX12). Owner exclusions: the seven render
      consumer interfaces stay unchanged for future consumers; FRAME_COUNT
-     stays 2. Next action: S0 census and D0 census, each ending in an
-     owner-ratified map before any edit.
+     stays 2. Scene S0 ratified `SceneWorld`, moved `StepPhysics` to that target,
+     placed grouping/name queries on `SceneEntityStore`, and selected a const-view
+     diagnostics boundary for aggregate memory stats. Next action: scene S1.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -389,9 +390,9 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
 
 ## Next Handoff
 
-Scene-controller ownership is complete at 7/7 and monolith TU right-sizing is
-complete at 8/8. N7 closed the 15-row final census after independent review,
-automatic coverage, full validation, and DX12 stress. C4 then closed the
-five-tick catch-up clamp with explicit drop accounting and byte-exact physics.
-Continue red-flags C6 closure. Do not regenerate behavioral, physics,
-replay, visual, or screenshot baselines.
+Round-7 scene decomposition is active at 1/7. S0's complete 98-declaration,
+nine-member census and two-owner map are in
+`Agentic/Reports/2026-07-18/scene-controller-round-2-census.md`. Continue S1 by
+moving browser/demo/cinematic decision logic to UI-owned
+`SceneNavigationModel`; the scene owner receives only value load requests. Do
+not regenerate behavioral, physics, replay, visual, or screenshot baselines.
