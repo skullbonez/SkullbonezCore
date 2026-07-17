@@ -58,27 +58,19 @@ static const int SDF_SPREAD_HI = 36; // max encoded signed distance (hi-res px) 
 // Layout per vertex: [x, y, u, v, r, g, b] (7 floats)
 // Batching all Render2dText* calls into one UploadAndDrawDynamicVB per frame
 // eliminates ~20 individual draw calls, shader binds, and state save/restores.
-static constexpr int TEXT_BATCH_MAX_CHARS = 2048;
-static constexpr int TEXT_BATCH_FLOATS_PER_VERT = 7;
-static constexpr int TEXT_BATCH_VERTS_PER_CHAR = 6;
-static float s_batchBuf[TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR * TEXT_BATCH_FLOATS_PER_VERT];
-static int s_batchVerts = 0;
+static constexpr int TEXT_BATCH_MAX_CHARS = TextBatch::TEXT_MAX_CHARS;
+static constexpr int TEXT_BATCH_FLOATS_PER_VERT = TextBatch::TEXT_FLOATS_PER_VERTEX;
+static constexpr int TEXT_BATCH_VERTS_PER_CHAR = TextBatch::TEXT_VERTICES_PER_CHAR;
 
 // --- Quad batch accumulation buffers ---
 // Layout per vertex: [x, y, r, g, b, a] (6 floats)
 // BatchQuad() accumulates quads here; FlushQuads() uploads and draws them all in
 // one draw call — so an entire profiler bar overlay (background + N segments +
 // legend swatches) costs exactly one draw call for all quads.
-static constexpr int QUAD_BATCH_MAX_QUADS = 8192;       // up to 8192 quads per flush
-static constexpr int QUAD_BATCH_FLOATS_PER_VERT = 6;    // x, y, r, g, b, a
-static constexpr int QUAD_BATCH_VERTS_PER_QUAD = 6;     // 2 triangles
-static constexpr int QUAD_BATCH_VERTS_PER_TRIANGLE = 3; // 1 triangle
-static float s_quadBatchBuf[QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD * QUAD_BATCH_FLOATS_PER_VERT];
-static int s_quadBatchVerts = 0;
-
-// Ortho projection matrix cached once at BuildFont time — screen dimensions never
-// change after init, so there is no need to recompute this every frame.
-static Matrix4 s_orthoProj;
+static constexpr int QUAD_BATCH_MAX_QUADS = TextBatch::QUAD_MAX_QUADS;
+static constexpr int QUAD_BATCH_FLOATS_PER_VERT = TextBatch::QUAD_FLOATS_PER_VERTEX;
+static constexpr int QUAD_BATCH_VERTS_PER_QUAD = TextBatch::QUAD_VERTICES_PER_QUAD;
+static constexpr int QUAD_BATCH_VERTS_PER_TRIANGLE = TextBatch::QUAD_VERTICES_PER_TRIANGLE;
 
 namespace
 {
@@ -498,7 +490,8 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
 }
 
 
-SkullbonezCore::Core::SbResult Text2d::BuildFont( IRenderResourceFactory& renderResources,
+SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
+                                                  IRenderResourceFactory& renderResources,
                                                   const SkullbonezCore::Assets::AssetSystem& assets,
                                                   int screenW,
                                                   int screenH,
@@ -570,21 +563,21 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( IRenderResourceFactory& render
             Text2d::pTextShader ? 1 : 0,
             Text2d::pSolidShader ? 1 : 0,
             Text2d::pSolidBatchShader ? 1 : 0 );
-        Text2d::DeleteFont( &renderResources );
+        Text2d::DeleteFont( batch, &renderResources );
         return failure;
     }
 
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
-    // RebuildProjection() must be called whenever the window is resized so the
-    // ortho extents stay matched to the actual viewport aspect ratio.
-    Text2d::RebuildProjection( screenW, screenH );
+    // RuntimeRenderer also refreshes this cached projection in the late pass,
+    // so a resize cannot leave queued UI in the previous viewport's aspect.
+    Text2d::RebuildProjection( batch, screenW, screenH );
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-void Text2d::RebuildProjection( int w, int h )
+void Text2d::RebuildProjection( TextBatch& batch, int w, int h )
 {
     if ( w <= 0 || h <= 0 )
     {
@@ -593,11 +586,17 @@ void Text2d::RebuildProjection( int w, int h )
     // Matches the legacy FFP coordinate space: FOV=45°, aspect=w/h.
     // halfH is derived from the half-FOV angle and is invariant to resolution;
     // halfW scales with the aspect ratio so text is never distorted on resize.
+    if ( batch.m_projectionWidth == w && batch.m_projectionHeight == h )
+    {
+        return;
+    }
     const float halfH = tanf( 22.5f * _PI / 180.0f );
     const float halfW = halfH * static_cast<float>( w ) / static_cast<float>( h );
-    s_orthoProj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
-    s_halfW = halfW;
-    s_halfH = halfH;
+    batch.m_projection = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
+    batch.m_projectionWidth = w;
+    batch.m_projectionHeight = h;
+    batch.m_halfWidth = halfW;
+    batch.m_halfHeight = halfH;
 }
 
 
@@ -624,7 +623,7 @@ float Text2d::MeasureText( float fSize, const char* text )
 }
 
 
-void Text2d::DeleteFont( IRenderResourceFactory* renderResources )
+void Text2d::DeleteFont( TextBatch& batch, IRenderResourceFactory* renderResources )
 {
     if ( Text2d::fontTexture )
     {
@@ -661,18 +660,19 @@ void Text2d::DeleteFont( IRenderResourceFactory* renderResources )
     Text2d::pTextShader.reset();
     Text2d::pSolidShader.reset();
     Text2d::pSolidBatchShader.reset();
-    s_batchVerts = 0;
-    s_quadBatchVerts = 0;
+    batch.m_textVertexCount = 0;
+    batch.m_quadVertexCount = 0;
 }
 
 
-static void RenderTextInternal( float xPosition,
-                                float yPosition,
-                                float fSize,
-                                float colR,
-                                float colG,
-                                float colB,
-                                const char* formatted )
+void Text2d::RenderTextInternal( TextBatch& batch,
+                                 float xPosition,
+                                 float yPosition,
+                                 float fSize,
+                                 float colR,
+                                 float colG,
+                                 float colB,
+                                 const char* formatted )
 {
     const int len = static_cast<int>( strlen( formatted ) );
     if ( len == 0 )
@@ -686,7 +686,7 @@ static void RenderTextInternal( float xPosition,
     for ( int i = 0; i < len; ++i )
     {
         // Guard against overflowing the batch buffer.
-        if ( s_batchVerts + TEXT_BATCH_VERTS_PER_CHAR > TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR )
+        if ( batch.m_textVertexCount + TEXT_BATCH_VERTS_PER_CHAR > TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR )
         {
             break;
         }
@@ -727,7 +727,7 @@ static void RenderTextInternal( float xPosition,
         float y1 = penY + fSize; // above yPosition — cap-height region
 
         // 7 floats per vertex: [x, y, u, v, r, g, b]
-        float* v = &s_batchBuf[s_batchVerts * TEXT_BATCH_FLOATS_PER_VERT];
+        float* v = &batch.m_textVertices[batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT];
         // Triangle 1
         v[0] = x0;
         v[1] = y0;
@@ -773,15 +773,15 @@ static void RenderTextInternal( float xPosition,
         v[40] = colG;
         v[41] = colB;
 
-        s_batchVerts += TEXT_BATCH_VERTS_PER_CHAR;
+        batch.m_textVertexCount += TEXT_BATCH_VERTS_PER_CHAR;
         penX += charW;
     }
 }
 
 
-void Text2d::FlushText( IRenderCommandContext& renderCommands )
+void Text2d::FlushText( TextBatch& batch, IRenderCommandContext& renderCommands )
 {
-    if ( s_batchVerts == 0 || !Text2d::pTextShader || !Text2d::textBatchVB )
+    if ( batch.m_textVertexCount == 0 || !Text2d::pTextShader || !Text2d::textBatchVB )
     {
         return;
     }
@@ -794,37 +794,38 @@ void Text2d::FlushText( IRenderCommandContext& renderCommands )
     renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     Text2d::pTextShader->Use();
-    Text2d::pTextShader->SetMat4( "uProjection", s_orthoProj );
+    Text2d::pTextShader->SetMat4( "uProjection", batch.m_projection );
     renderCommands.BindTexture( Text2d::fontTexture, 0 );
 
     // One GPU upload + one draw call covers the entire frame's text at all colors.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::textBatchVB, s_batchBuf, s_batchVerts );
+    renderCommands.UploadAndDrawDynamicVB( Text2d::textBatchVB, batch.m_textVertices.data(), batch.m_textVertexCount );
 
     renderCommands.SetDepthTest( depthWasEnabled );
     renderCommands.SetBlend( blendWasEnabled );
 
-    s_batchVerts = 0;
+    batch.m_textVertexCount = 0;
 }
 
 
-void Text2d::Render2dText( float xPosition, float yPosition, float fSize, const char* cRawText, ... )
+void Text2d::Render2dText( TextBatch& batch, float xPosition, float yPosition, float fSize, const char* cRawText, ... )
 {
     if ( !cRawText || !Text2d::pTextShader )
     {
         return;
     }
 
-    static char s_textBuf[512];
+    char textBuffer[512] = {};
     va_list args;
     va_start( args, cRawText );
-    vsprintf_s( s_textBuf, sizeof( s_textBuf ), cRawText, args );
+    vsprintf_s( textBuffer, sizeof( textBuffer ), cRawText, args );
     va_end( args );
 
-    RenderTextInternal( xPosition, yPosition, fSize, 1.0f, 1.0f, 1.0f, s_textBuf );
+    RenderTextInternal( batch, xPosition, yPosition, fSize, 1.0f, 1.0f, 1.0f, textBuffer );
 }
 
 
-void Text2d::Render2dTextColor( float xPosition,
+void Text2d::Render2dTextColor( TextBatch& batch,
+                                float xPosition,
                                 float yPosition,
                                 float fSize,
                                 float r,
@@ -838,17 +839,18 @@ void Text2d::Render2dTextColor( float xPosition,
         return;
     }
 
-    static char s_textBuf[512];
+    char textBuffer[512] = {};
     va_list args;
     va_start( args, cRawText );
-    vsprintf_s( s_textBuf, sizeof( s_textBuf ), cRawText, args );
+    vsprintf_s( textBuffer, sizeof( textBuffer ), cRawText, args );
     va_end( args );
 
-    RenderTextInternal( xPosition, yPosition, fSize, r, g, b, s_textBuf );
+    RenderTextInternal( batch, xPosition, yPosition, fSize, r, g, b, textBuffer );
 }
 
 
-void Text2d::Render2dQuad( IRenderCommandContext& renderCommands,
+void Text2d::Render2dQuad( TextBatch& batch,
+                           IRenderCommandContext& renderCommands,
                            float x0,
                            float y0,
                            float x1,
@@ -865,33 +867,8 @@ void Text2d::Render2dQuad( IRenderCommandContext& renderCommands,
 
     // Reuse the text VAO/VBO. Layout is (vec2 pos, vec2 uv); the solid shader only reads
     // location 0, so the uv slots are dummy zeros.
-    static float s_quadBuf[6 * 4];
-    s_quadBuf[0] = x0;
-    s_quadBuf[1] = y0;
-    s_quadBuf[2] = 0.0f;
-    s_quadBuf[3] = 0.0f;
-    s_quadBuf[4] = x1;
-    s_quadBuf[5] = y0;
-    s_quadBuf[6] = 0.0f;
-    s_quadBuf[7] = 0.0f;
-    s_quadBuf[8] = x1;
-    s_quadBuf[9] = y1;
-    s_quadBuf[10] = 0.0f;
-    s_quadBuf[11] = 0.0f;
-    s_quadBuf[12] = x0;
-    s_quadBuf[13] = y0;
-    s_quadBuf[14] = 0.0f;
-    s_quadBuf[15] = 0.0f;
-    s_quadBuf[16] = x1;
-    s_quadBuf[17] = y1;
-    s_quadBuf[18] = 0.0f;
-    s_quadBuf[19] = 0.0f;
-    s_quadBuf[20] = x0;
-    s_quadBuf[21] = y1;
-    s_quadBuf[22] = 0.0f;
-    s_quadBuf[23] = 0.0f;
-
-    const Matrix4& proj = s_orthoProj; // Kept current by RebuildProjection() on every resize
+    float quadVertices[6 * 4] = { x0, y0, 0.0f, 0.0f, x1, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f,
+                                  x0, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f, x0, y1, 0.0f, 0.0f };
 
     bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
     bool blendWasEnabled = renderCommands.IsBlendEnabled();
@@ -901,17 +878,18 @@ void Text2d::Render2dQuad( IRenderCommandContext& renderCommands,
     renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     Text2d::pSolidShader->Use();
-    Text2d::pSolidShader->SetMat4( "uProjection", proj );
+    Text2d::pSolidShader->SetMat4( "uProjection", batch.m_projection );
     Text2d::pSolidShader->SetVec4( "uColor", r, g, b, a );
 
-    renderCommands.UploadAndDrawDynamicVB( Text2d::dynamicVB, s_quadBuf, 6 );
+    renderCommands.UploadAndDrawDynamicVB( Text2d::dynamicVB, quadVertices, 6 );
 
     renderCommands.SetDepthTest( depthWasEnabled );
     renderCommands.SetBlend( blendWasEnabled );
 }
 
 
-void Text2d::BatchQuad( IRenderCommandContext& renderCommands,
+void Text2d::BatchQuad( TextBatch& batch,
+                        IRenderCommandContext& renderCommands,
                         float x0,
                         float y0,
                         float x1,
@@ -921,17 +899,17 @@ void Text2d::BatchQuad( IRenderCommandContext& renderCommands,
                         float b,
                         float a )
 {
-    // Accumulate one quad (two triangles, 6 vertices) into s_quadBatchBuf.
+    // Accumulate one quad (two triangles, 6 vertices) into the owner batch.
     // Vertex layout: [x, y, r, g, b, a] — 6 floats per vertex.
     // FlushQuads() uploads and draws all accumulated quads in one call.
 
-    if ( s_quadBatchVerts + QUAD_BATCH_VERTS_PER_QUAD > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
+    if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_QUAD > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
         // Buffer full — flush now and continue accumulating.
-        FlushQuads( renderCommands );
+        FlushQuads( batch, renderCommands );
     }
 
-    float* v = s_quadBatchBuf + s_quadBatchVerts * QUAD_BATCH_FLOATS_PER_VERT;
+    float* v = batch.m_quadVertices.data() + batch.m_quadVertexCount * QUAD_BATCH_FLOATS_PER_VERT;
 
     // Triangle 1: bottom-left, bottom-right, top-right
     v[0] = x0;
@@ -972,11 +950,12 @@ void Text2d::BatchQuad( IRenderCommandContext& renderCommands,
     v[34] = b;
     v[35] = a;
 
-    s_quadBatchVerts += QUAD_BATCH_VERTS_PER_QUAD;
+    batch.m_quadVertexCount += QUAD_BATCH_VERTS_PER_QUAD;
 }
 
 
-void Text2d::BatchTriangle( IRenderCommandContext& renderCommands,
+void Text2d::BatchTriangle( TextBatch& batch,
+                            IRenderCommandContext& renderCommands,
                             float x0,
                             float y0,
                             float x1,
@@ -988,12 +967,12 @@ void Text2d::BatchTriangle( IRenderCommandContext& renderCommands,
                             float b,
                             float a )
 {
-    if ( s_quadBatchVerts + QUAD_BATCH_VERTS_PER_TRIANGLE > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
+    if ( batch.m_quadVertexCount + QUAD_BATCH_VERTS_PER_TRIANGLE > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
     {
-        FlushQuads( renderCommands );
+        FlushQuads( batch, renderCommands );
     }
 
-    float* v = s_quadBatchBuf + s_quadBatchVerts * QUAD_BATCH_FLOATS_PER_VERT;
+    float* v = batch.m_quadVertices.data() + batch.m_quadVertexCount * QUAD_BATCH_FLOATS_PER_VERT;
     v[0] = x0;
     v[1] = y0;
     v[2] = r;
@@ -1013,16 +992,16 @@ void Text2d::BatchTriangle( IRenderCommandContext& renderCommands,
     v[16] = b;
     v[17] = a;
 
-    s_quadBatchVerts += QUAD_BATCH_VERTS_PER_TRIANGLE;
+    batch.m_quadVertexCount += QUAD_BATCH_VERTS_PER_TRIANGLE;
 }
 
 
-void Text2d::FlushQuads( IRenderCommandContext& renderCommands )
+void Text2d::FlushQuads( TextBatch& batch, IRenderCommandContext& renderCommands )
 {
     // This is the counterpart to FlushText(); together they give exactly two
     // draw calls for an entire overlay frame (quads first, then text on top).
 
-    if ( s_quadBatchVerts == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )
+    if ( batch.m_quadVertexCount == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )
     {
         return;
     }
@@ -1035,13 +1014,13 @@ void Text2d::FlushQuads( IRenderCommandContext& renderCommands )
     renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     Text2d::pSolidBatchShader->Use();
-    Text2d::pSolidBatchShader->SetMat4( "uProjection", s_orthoProj );
+    Text2d::pSolidBatchShader->SetMat4( "uProjection", batch.m_projection );
 
     // One GPU upload + one draw call covers every quad batched this frame.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::quadBatchVB, s_quadBatchBuf, s_quadBatchVerts );
+    renderCommands.UploadAndDrawDynamicVB( Text2d::quadBatchVB, batch.m_quadVertices.data(), batch.m_quadVertexCount );
 
     renderCommands.SetDepthTest( depthWasEnabled );
     renderCommands.SetBlend( blendWasEnabled );
 
-    s_quadBatchVerts = 0;
+    batch.m_quadVertexCount = 0;
 }

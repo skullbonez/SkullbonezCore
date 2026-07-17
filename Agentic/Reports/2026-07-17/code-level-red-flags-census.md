@@ -57,3 +57,27 @@ The C0 commit must reconcile the red-flags row to `1/7` and the portfolio to
 
 C0 is documentation-only. No repository validation is required; the final C0
 diff must be proved documentation-only with `git diff --check` before commit.
+
+## C1 Closure Evidence
+
+Completed 2026-07-17 on `nightrunner-17th-july`. `RuntimeRenderer` now owns a
+fixed-capacity `TextBatch` containing the text vertices, quad vertices,
+counters, projection, and viewport extents. Every mutating text, UI, profiler,
+and replay-overlay submission borrows that owner explicitly. `Window` no longer
+mutates text projection; the late renderer pass refreshes the owner projection
+from its viewport dimensions, with an unchanged-dim fast path. Font teardown
+also clears the owning batch counters. No allocation-policy exception or
+baseline/golden refresh was introduced.
+
+The touched-source comment-style audit covered all 17 edited source-bearing
+files and found the ownership/lifetime boundary documented at `TextBatch`,
+`RuntimeRenderer`, `UIRenderContext`, and `UIDrawContext`. Formal evidence:
+
+- `tools\validate_dx12_renderer.bat` — PASS in 83.145 seconds; Profile and
+  Debug builds succeeded with zero warnings, DX12 InfoQueue reported 0 errors,
+  and all three captures matched committed baselines. Manifest:
+  `TestOutput/validation/dx12_renderer/20260717T113837Z/manifest.json`.
+- `tools\run_graphics_stress.bat 1` — PASS in 61.558 seconds; PID 32092 ran
+  for the bounded minute, reached frame 11,921 with 327 scene loads, accepted
+  PID-scoped timeout shutdown, wrote its memory dump, produced empty stderr,
+  and contained no fatal/crash/device-removed/assert signature.

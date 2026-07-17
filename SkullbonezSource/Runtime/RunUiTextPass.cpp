@@ -56,9 +56,12 @@ using SkullbonezCore::UI::InGameUITab;
 
 namespace
 {
-void DrawUiTestPattern( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands, int screenW, int screenH )
+void DrawUiTestPattern( SkullbonezCore::Text::TextBatch& textBatch,
+                        SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                        int screenW,
+                        int screenH )
 {
-    const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
+    const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
     draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
 
     constexpr float tile = 88.0f;
@@ -83,7 +86,7 @@ void DrawUiTestPattern( SkullbonezCore::Rendering::IRenderCommandContext& render
     draw.Rect( 76.0f, 116.0f, 720.0f, 8.0f, 0.98f, 0.12f, 0.46f, 0.82f );
     draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
     draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
-    Text2d::FlushQuads( renderCommands );
+    Text2d::FlushQuads( textBatch, renderCommands );
 }
 
 
@@ -107,11 +110,12 @@ BuildMainMemoryOverlayStats( const DiagnosticsRuntime& diagnosticsRuntime,
 
 void RenderReplayScrubberOverlayFromInputs( const UiTextPassInputs& inputs )
 {
-    ReplayOverlay::RenderReplayScrubberOverlay( inputs.replayOverlayContext );
+    ReplayOverlay::RenderReplayScrubberOverlay( inputs.textBatch, inputs.replayOverlayContext );
 }
 
 void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
 {
+    SkullbonezCore::Text::TextBatch& textBatch = inputs.textBatch;
     if ( !inputs.state.debug.isTopTextHidden || !inputs.replayHud.divergenceValid )
     {
         return;
@@ -133,26 +137,27 @@ void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
     const float size = 0.034f;
     const float textWidth = Text2d::MeasureText( size, label );
     const float x = -textWidth * 0.5f;
-    const float y = Text2d::HalfH() - 0.115f;
+    const float y = Text2d::HalfH( textBatch ) - 0.115f;
     // Why: clean demo captures hide ordinary HUD chrome, so this single number
     // becomes the on-screen measure of how far the old and nudged futures split.
-    Text2d::Render2dTextColor( x + 0.002f, y - 0.002f, size, 0.0f, 0.0f, 0.0f, "%s", label );
-    Text2d::Render2dTextColor( x, y, size, 0.58f, 0.94f, 1.0f, "%s", label );
+    Text2d::Render2dTextColor( textBatch, x + 0.002f, y - 0.002f, size, 0.0f, 0.0f, 0.0f, "%s", label );
+    Text2d::Render2dTextColor( textBatch, x, y, size, 0.58f, 0.94f, 1.0f, "%s", label );
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Text::TextBatch& textBatch,
+                                                               Rendering::IRenderResourceFactory& renderResources,
                                                                const Assets::AssetSystem& assets,
                                                                int screenW,
                                                                int screenH )
 {
-    return Text2d::BuildFont( renderResources, assets, screenW, screenH, "Verdana" );
+    return Text2d::BuildFont( textBatch, renderResources, assets, screenW, screenH, "Verdana" );
 }
 
 
-void UiTextPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources )
+void UiTextPass::ReleaseGpuResources( Text::TextBatch& textBatch, Rendering::IRenderResourceFactory* renderResources )
 {
-    Text2d::DeleteFont( renderResources );
+    Text2d::DeleteFont( textBatch, renderResources );
 }
 
 
@@ -171,9 +176,13 @@ bool UiTextPass::ShouldRender( const UiTextPassState& state, const UI::InGameUI&
 void UiTextPass::Render( const UiTextPassInputs& inputs )
 {
     const UiTextPassState& state = inputs.state;
+    Text::TextBatch& textBatch = inputs.textBatch;
+    Text2d::RebuildProjection( textBatch, (std::max)( 1, state.screenW ), (std::max)( 1, state.screenH ) );
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
     assert( inputs.uiRender.IsReady() );
     Rendering::IRenderCommandContext& renderCommands = *inputs.uiRender.commands;
+    UI::UIRenderContext uiRender = inputs.uiRender;
+    uiRender.textBatch = &textBatch;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     assert( inputs.profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
     const SkullbonezCore::Core::Profiler& profiler = *inputs.profiler;
@@ -220,27 +229,35 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     if ( state.debug.isTextOnly )
     {
         // Dark background covering the full viewport
-        Text2d::Render2dQuad( renderCommands, -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
+        Text2d::Render2dQuad( textBatch, renderCommands, -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
 
         // Three rows of the pangram - each line uses a slightly different color
         // so hue/brightness fringing artifacts are visible on all channel combinations
         const float sz = 0.09f;
-        Text2d::Render2dTextColor( -0.46f, 0.22f, sz, 1.00f, 1.00f, 1.00f, "The quick brown fox" );
-        Text2d::Render2dTextColor( -0.46f, 0.07f, sz, 1.00f, 0.90f, 0.20f, "jumps over the" );
-        Text2d::Render2dTextColor( -0.46f, -0.08f, sz, 0.40f, 0.90f, 1.00f, "lazy dog" );
+        Text2d::Render2dTextColor( textBatch, -0.46f, 0.22f, sz, 1.00f, 1.00f, 1.00f, "The quick brown fox" );
+        Text2d::Render2dTextColor( textBatch, -0.46f, 0.07f, sz, 1.00f, 0.90f, 0.20f, "jumps over the" );
+        Text2d::Render2dTextColor( textBatch, -0.46f, -0.08f, sz, 0.40f, 0.90f, 1.00f, "lazy dog" );
 
         // Renderer name in small text at bottom so we know which backend we're looking at
-        Text2d::Render2dTextColor( -0.46f, -0.38f, 0.015f, 0.60f, 0.60f, 0.60f, "renderer: %s", rendererName );
+        Text2d::Render2dTextColor( textBatch,
+                                   -0.46f,
+                                   -0.38f,
+                                   0.015f,
+                                   0.60f,
+                                   0.60f,
+                                   0.60f,
+                                   "renderer: %s",
+                                   rendererName );
 
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "TextOnly" );
-            Text2d::FlushText( renderCommands );
+            Text2d::FlushText( textBatch, renderCommands );
         }
         return;
     }
 
-    const float hw = Text2d::HalfW();
-    const float hh = Text2d::HalfH();
+    const float hw = Text2d::HalfW( textBatch );
+    const float hh = Text2d::HalfH( textBatch );
     const float mX = 0.022f; // horizontal inset from left/right edge
     const float mY = 0.015f; // vertical inset from top/bottom edge
     constexpr float TOP_RIGHT_BADGE_MARGIN = 12.0f;
@@ -257,7 +274,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, state.screenW );
         const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -317,7 +334,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                           state.crossScenePauseLocked ? palette.warningAccent.g : palette.accent.g,
                           state.crossScenePauseLocked ? palette.warningAccent.b : palette.accent.b,
                           0.90f );
-        Text2d::FlushQuads( renderCommands );
+        Text2d::FlushQuads( textBatch, renderCommands );
         draw.Text( x + padX,
                    y + padY,
                    titlePx,
@@ -351,7 +368,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, state.screenW );
         const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -403,7 +420,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                           accent.g,
                           accent.b,
                           0.88f );
-        Text2d::FlushQuads( renderCommands );
+        Text2d::FlushQuads( textBatch, renderCommands );
         draw.Text( x + padX, y + padY, titlePx, accent.r, accent.g, accent.b, modeLine );
         draw.Text( x + padX,
                    y + padY + lineGap,
@@ -426,25 +443,62 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float cGap = 0.004f;
         const float cHalf = 0.00045f;
         const float cShadowHalf = 0.00080f;
-        Text2d::Render2dQuad( renderCommands, -cArm, -cShadowHalf, -cGap, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( renderCommands, cGap, -cShadowHalf, cArm, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( renderCommands, -cShadowHalf, -cArm, cShadowHalf, -cGap, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( renderCommands, -cShadowHalf, cGap, cShadowHalf, cArm, 0.0f, 0.0f, 0.0f, 0.40f );
-        Text2d::Render2dQuad( renderCommands, -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
-        Text2d::Render2dQuad( renderCommands, cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
-        Text2d::Render2dQuad( renderCommands, -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
-        Text2d::Render2dQuad( renderCommands, -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( textBatch,
+                              renderCommands,
+                              -cArm,
+                              -cShadowHalf,
+                              -cGap,
+                              cShadowHalf,
+                              0.0f,
+                              0.0f,
+                              0.0f,
+                              0.40f );
+        Text2d::Render2dQuad( textBatch,
+                              renderCommands,
+                              cGap,
+                              -cShadowHalf,
+                              cArm,
+                              cShadowHalf,
+                              0.0f,
+                              0.0f,
+                              0.0f,
+                              0.40f );
+        Text2d::Render2dQuad( textBatch,
+                              renderCommands,
+                              -cShadowHalf,
+                              -cArm,
+                              cShadowHalf,
+                              -cGap,
+                              0.0f,
+                              0.0f,
+                              0.0f,
+                              0.40f );
+        Text2d::Render2dQuad( textBatch,
+                              renderCommands,
+                              -cShadowHalf,
+                              cGap,
+                              cShadowHalf,
+                              cArm,
+                              0.0f,
+                              0.0f,
+                              0.0f,
+                              0.40f );
+        Text2d::Render2dQuad( textBatch, renderCommands, -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( textBatch, renderCommands, cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( textBatch, renderCommands, -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( textBatch, renderCommands, -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
         const char* fireModeLabel = state.launcherFireModeLabel;
         const float modeSz = 0.011f;
         const float modeW = Text2d::MeasureText( modeSz, fireModeLabel );
-        Text2d::Render2dTextColor( -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );
+        Text2d::Render2dTextColor( textBatch, -modeW * 0.5f, -0.048f, modeSz, 0.72f, 0.94f, 1.0f, "%s", fireModeLabel );
 #ifdef _DEBUG
         if ( state.debug.reproSnapshotMessage[0] != '\0' &&
              inputs.timers.simulationTimer.GetTimeSinceLastStart() <= state.debug.reproSnapshotMessageUntil )
         {
             const float msgSz = 0.014f;
             float msgW = Text2d::MeasureText( msgSz, state.debug.reproSnapshotMessage );
-            Text2d::Render2dTextColor( -msgW * 0.5f,
+            Text2d::Render2dTextColor( textBatch,
+                                       -msgW * 0.5f,
                                        -0.065f,
                                        msgSz,
                                        0.65f,
@@ -472,7 +526,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.screenH = state.screenH;
         if ( state.debug.isUITestPattern )
         {
-            DrawUiTestPattern( renderCommands, UIData.screenW, UIData.screenH );
+            DrawUiTestPattern( textBatch, renderCommands, UIData.screenW, UIData.screenH );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
@@ -952,15 +1006,15 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_BEGIN( "Frame/UI/PreFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "PreFlushText" );
-            Text2d::FlushText( renderCommands );
+            Text2d::FlushText( textBatch, renderCommands );
         }
         PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
-        inputs.ui.Draw( UIData, inputs.uiRender );
+        inputs.ui.Draw( UIData, uiRender );
         PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
-            Text2d::FlushText( renderCommands );
+            Text2d::FlushText( textBatch, renderCommands );
         }
         PROFILE_END( "Frame/UI/PostFlushText" );
         if ( inputs.ui.IsVisible() )
@@ -976,7 +1030,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "HUD" );
-            Text2d::FlushText( renderCommands );
+            Text2d::FlushText( textBatch, renderCommands );
         }
         return;
     }
@@ -995,15 +1049,17 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX1 = panX0 + panW;
         const float panY1 = panY0 + panH;
 
-        Text2d::Render2dQuad( renderCommands, panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
-        Text2d::Render2dTextColor( panX0 + panPad,
+        Text2d::Render2dQuad( textBatch, renderCommands, panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+        Text2d::Render2dTextColor( textBatch,
+                                   panX0 + panPad,
                                    panY1 - panPad - titleSz,
                                    titleSz,
                                    1.0f,
                                    0.85f,
                                    0.35f,
                                    "SCENE TELEMETRY" );
-        Text2d::Render2dTextColor( panX0 + panPad,
+        Text2d::Render2dTextColor( textBatch,
+                                   panX0 + panPad,
                                    panY1 - panPad - titleSz - lineH,
                                    entrySz,
                                    0.85f,
@@ -1011,7 +1067,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                                    0.85f,
                                    "Model Count: %d",
                                    state.scene.modelCount );
-        Text2d::Render2dTextColor( panX0 + panPad,
+        Text2d::Render2dTextColor( textBatch,
+                                   panX0 + panPad,
                                    panY1 - panPad - titleSz - lineH * 2.0f,
                                    entrySz,
                                    0.85f,
@@ -1022,7 +1079,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
-            Text2d::FlushText( renderCommands );
+            Text2d::FlushText( textBatch, renderCommands );
         }
         return;
     }
@@ -1039,11 +1096,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
-        profiler.RenderBarOverlay( renderCommands, panX, panY, panW, panH, absolute );
+        profiler.RenderBarOverlay( textBatch, renderCommands, panX, panY, panW, panH, absolute );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
-            Text2d::FlushText( renderCommands );
+            Text2d::FlushText( textBatch, renderCommands );
         }
         return;
     }
@@ -1070,11 +1127,18 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX1 = panX0 + panW;
         const float panY1 = panY0 + panH;
 
-        Text2d::Render2dQuad( renderCommands, panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+        Text2d::Render2dQuad( textBatch, renderCommands, panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
 
         // Title left-aligned inside panel
         const float titleY = panY1 - panPad - titleSz;
-        Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "CONTROL REFERENCE" );
+        Text2d::Render2dTextColor( textBatch,
+                                   panX0 + panPad,
+                                   titleY,
+                                   titleSz,
+                                   1.0f,
+                                   0.85f,
+                                   0.35f,
+                                   "CONTROL REFERENCE" );
 
         // Column X positions
         const float col1Key = panX0 + panPad;
@@ -1126,16 +1190,16 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         for ( int i = 0; i < nRows; ++i )
         {
             float y = firstY - static_cast<float>( i ) * lineH;
-            Text2d::Render2dTextColor( col1Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kLeft[i].key );
-            Text2d::Render2dTextColor( col1Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kLeft[i].desc );
-            Text2d::Render2dTextColor( col2Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kRight[i].key );
-            Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
+            Text2d::Render2dTextColor( textBatch, col1Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kLeft[i].key );
+            Text2d::Render2dTextColor( textBatch, col1Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kLeft[i].desc );
+            Text2d::Render2dTextColor( textBatch, col2Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kRight[i].key );
+            Text2d::Render2dTextColor( textBatch, col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Keys" );
-            Text2d::FlushText( renderCommands );
+            Text2d::FlushText( textBatch, renderCommands );
         }
         return;
     }
@@ -1149,7 +1213,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        profiler.RenderOverlay( renderCommands,
+        profiler.RenderOverlay( textBatch,
+                                renderCommands,
                                 -( hw - mX ),
                                 -( hh - mY ) - padY,
                                 lineH,
@@ -1161,6 +1226,6 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     RenderReplayScrubberOverlayFromInputs( inputs );
     {
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerOverlay" );
-        Text2d::FlushText( renderCommands );
+        Text2d::FlushText( textBatch, renderCommands );
     }
 }

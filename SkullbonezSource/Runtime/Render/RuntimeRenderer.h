@@ -42,6 +42,7 @@ Related:
 #include "../../Assets/TextureCollection.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
+#include "../../Rendering/Text.h"
 
 #include <array>
 #include <chrono>
@@ -320,6 +321,9 @@ class RuntimeRenderer
     DebugOverlayPass m_debugOverlayPass;                  // Broadphase and physics debug overlay pass.
     VolumetricPass m_volumetricPass;                      // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                            // HDR-to-backbuffer resolve pass.
+    // Lifetime: fixed-capacity CPU vertex/projection state lives with the
+    // renderer process owner and is synchronously borrowed by UI/text calls.
+    Text::TextBatch m_textBatch;
     UiTextPass m_uiTextPass;                              // HUD/UI/text pass.
     // Runtime allocation policy: graph wrapper passes reuse this owner scratch
     // storage. Pass labels are borrowed literals and per-pass reads/writes are

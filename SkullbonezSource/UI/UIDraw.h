@@ -34,6 +34,11 @@ namespace Rendering
 class IRenderCommandContext;
 }
 
+namespace Text
+{
+class TextBatch;
+} // namespace Text
+
 namespace UI
 {
 
@@ -60,7 +65,8 @@ class UIDrawContext
     UIDrawContext( int screenW,
                    int screenH,
                    UIDrawList* drawList = nullptr,
-                   Rendering::IRenderCommandContext* renderCommands = nullptr );
+                   Rendering::IRenderCommandContext* renderCommands = nullptr,
+                   Text::TextBatch* textBatch = nullptr );
 
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void
@@ -94,6 +100,9 @@ class UIDrawContext
     // Lifetime: immediate contexts borrow commands for this draw replay only.
     // Recording contexts keep this null because they enqueue CPU draw commands.
     Rendering::IRenderCommandContext* m_renderCommands = nullptr;
+    // Lifetime: both recording and immediate contexts borrow the owning
+    // RuntimeRenderer batch so pixel/frustum conversion stays owner-specific.
+    Text::TextBatch* m_textBatch = nullptr;
 };
 
 } // namespace UI

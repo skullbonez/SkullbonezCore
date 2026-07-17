@@ -84,14 +84,14 @@ float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayT
 // Input code owns mutations such as dragging, toggling prediction, and branch
 // creation. This pass samples the current state and turns it into UI quads and
 // text so rendering cannot accidentally advance or rewrite replay timelines.
-void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
+void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
     const ReplayScrubberView& scrubber = context.scrubber;
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
-    RenderReplayCauseTreeOverlay( context );
+    RenderReplayCauseTreeOverlay( textBatch, context );
 
     if ( !context.shouldRenderScrubber )
     {
@@ -189,7 +189,7 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
         sprintf_s( timeLabel, sizeof( timeLabel ), "-%.1fs", secondsBack );
     }
 
-    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
+    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
     const UI::UIRect panel = control( ReplayScrubberControl::Panel ).drawRect;
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
@@ -522,8 +522,8 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
 
     if ( loadedPresentation )
     {
-        Text2d::FlushQuads( renderCommands );
-        Text2d::FlushText( renderCommands );
+        Text2d::FlushQuads( textBatch, renderCommands );
+        Text2d::FlushText( textBatch, renderCommands );
         return;
     }
 
@@ -813,11 +813,11 @@ void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context )
                   "CONTACTS PARTIAL" );
     }
 
-    Text2d::FlushQuads( renderCommands );
-    Text2d::FlushText( renderCommands );
+    Text2d::FlushQuads( textBatch, renderCommands );
+    Text2d::FlushText( textBatch, renderCommands );
 }
 
-void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
+void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
@@ -849,7 +849,7 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
     const UI::UIRect content = controlRect( ReplayCauseWindowControl::Content );
     const UI::UIRect resize = controlRect( ReplayCauseWindowControl::Resize );
 
-    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands );
+    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     UI::Style::UIColor panelFill = palette.windowSubtle;
@@ -1145,7 +1145,7 @@ void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context )
                palette.innerBorder.b,
                0.68f );
 
-    Text2d::FlushQuads( renderCommands );
-    Text2d::FlushText( renderCommands );
+    Text2d::FlushQuads( textBatch, renderCommands );
+    Text2d::FlushText( textBatch, renderCommands );
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

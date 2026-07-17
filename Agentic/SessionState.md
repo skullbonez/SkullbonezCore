@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (SoA/SIMD scalar-retention campaign complete) |
-| Current baseline | Scalar-only matrix: 1,000 bodies Step/Broadphase 1.0871/0.3005 ms; 2,000 bodies 1.8670/0.7549 ms. Broadphase is inclusive; never add its children. |
-| Current objective | No active implementation plan; preserve the retained scalar SoA and completed campaign evidence. |
-| Active/future progress | 0 / 0 live tasks; portfolio complete (completed campaigns excluded under MASTER rule 4) |
-| Last broad local gate | Final `validate_full` passed: 282 tests/21,389 assertions, zero-warning builds, zero DX12 errors, matching captures, and byte-exact 44,401-line physics oracle |
-| Validation for current edits | None. S8 is documentation-only; S7 source gates are green. |
+| Branch | `nightrunner-17th-july` |
+| Current baseline | Three Round-6 remediation plans are active; baseline/golden refresh remains prohibited. |
+| Current objective | Complete `code-level-red-flags-remediation` C2-C3, then SceneController and monolith plans, then C4-C6. |
+| Active/future progress | 2 / 22 live tasks (9%); red-flags C0-C1 complete. |
+| Last broad local gate | C1 `validate_dx12_renderer` passed with zero warnings/errors and matching captures; one-minute graphics stress reached frame 11,921 without crash. |
+| Validation for current edits | C2 requires `validate_perf` plus `validate_tests`; formal gates are deferred until its pre-commit boundary. |
 
 ## Live Queue
 

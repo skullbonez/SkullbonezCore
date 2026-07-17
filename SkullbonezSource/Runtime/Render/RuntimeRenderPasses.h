@@ -111,6 +111,10 @@ namespace UI
 class InGameUI;
 struct UIRenderContext;
 } // namespace UI
+namespace Text
+{
+class TextBatch;
+}
 
 namespace Geometry
 {
@@ -421,6 +425,7 @@ struct UiTextPassInputs
     UI::InGameUI& ui;
     Rendering::IRenderDiagnostics& renderDiagnostics;
     SkullbonezCore::Core::Profiler* profiler = nullptr; // UI snapshot source; null when profiling is compiled out.
+    Text::TextBatch& textBatch;                         // RuntimeRenderer-owned mutable vertex/projection state.
     const UI::UIRenderContext& uiRender;
     const RuntimeRenderModelFrameView& models;
     DiagnosticsRuntime& diagnosticsRuntime;
@@ -915,11 +920,12 @@ class UiTextPass
     {
     }
 
-    SkullbonezCore::Core::SbResult EnsureGpuResources( Rendering::IRenderResourceFactory& renderResources,
+    SkullbonezCore::Core::SbResult EnsureGpuResources( Text::TextBatch& textBatch,
+                                                       Rendering::IRenderResourceFactory& renderResources,
                                                        const Assets::AssetSystem& assets,
                                                        int screenW,
                                                        int screenH );
-    void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
+    void ReleaseGpuResources( Text::TextBatch& textBatch, Rendering::IRenderResourceFactory* renderResources );
     bool ShouldRender( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void Render( const UiTextPassInputs& inputs );
 };

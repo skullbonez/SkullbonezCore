@@ -53,6 +53,11 @@ class IRenderCommandContext;
 class IRenderDiagnostics;
 } // namespace Rendering
 
+namespace Text
+{
+class TextBatch;
+} // namespace Text
+
 namespace Core
 {
 /* -- Profiler
@@ -222,7 +227,8 @@ class Profiler
     // Renders the indented overlay using the caller's current text/UI command context.
     // xLeft / yTop in the same frustum-unit space used elsewhere; lineHeight in same space; fSize for Text2d.
     // When rightAnchored=true, xLeft is treated as the desired right edge of the panel instead.
-    void RenderOverlay( Rendering::IRenderCommandContext& renderCommands,
+    void RenderOverlay( Text::TextBatch& textBatch,
+                        Rendering::IRenderCommandContext& renderCommands,
                         float xLeft,
                         float yAnchor,
                         float lineHeight,
@@ -232,7 +238,8 @@ class Profiler
 
     // Renders the visual bar overlay through the caller's active text/UI command context.
     // absolute=false: normalized (bar fills panelWidth), absolute=true: white = idle/vsync.
-    void RenderBarOverlay( Rendering::IRenderCommandContext& renderCommands,
+    void RenderBarOverlay( Text::TextBatch& textBatch,
+                           Rendering::IRenderCommandContext& renderCommands,
                            float xLeft,
                            float yBottom,
                            float panelWidth,

@@ -40,6 +40,11 @@ namespace SkullbonezCore::Rendering
 class IRenderCommandContext;
 }
 
+namespace SkullbonezCore::Text
+{
+class TextBatch;
+}
+
 namespace SkullbonezCore::Physics
 {
 class PhysicsBodyStore;
@@ -129,7 +134,7 @@ struct ReplayPathVisualizerRenderResult
     bool retainedRefreshBudgetExpired = false;
 };
 
-void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context );
-void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context );
+void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
+void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

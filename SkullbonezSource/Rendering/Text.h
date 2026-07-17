@@ -23,10 +23,10 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
 
 Invariants:
-  - Text2d owns static backend handles for the active font and batch buffers;
-    DeleteFont must run before backend teardown.
-  - Render2dText/BatchQuad enqueue CPU-side vertices, and FlushText/FlushQuads
-    are the draw boundaries for those queues.
+  - Text2d owns static backend handles for the active font; RuntimeRenderer owns
+    the one fixed-capacity TextBatch passed to every mutating draw operation.
+  - Render2dText/BatchQuad enqueue CPU-side vertices into that explicit batch,
+    and FlushText/FlushQuads are the draw boundaries for those queues.
 
 Related:
   - SkullbonezSource/Rendering/Text.cpp
@@ -34,6 +34,8 @@ Related:
 */
 #pragma once
 
+
+#include <array>
 
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
@@ -53,6 +55,35 @@ class IRenderResourceFactory;
 } // namespace Rendering
 namespace Text
 {
+// Concept: TextBatch is frame-local mutable submission state with renderer
+// lifetime storage. RuntimeRenderer owns one instance, eliminating hidden BSS
+// submission state. The arrays remain fixed-capacity under the runtime
+// allocation policy.
+class TextBatch
+{
+  public:
+    static constexpr int TEXT_MAX_CHARS = 2048;
+    static constexpr int TEXT_FLOATS_PER_VERTEX = 7;
+    static constexpr int TEXT_VERTICES_PER_CHAR = 6;
+    static constexpr int QUAD_MAX_QUADS = 8192;
+    static constexpr int QUAD_FLOATS_PER_VERTEX = 6;
+    static constexpr int QUAD_VERTICES_PER_QUAD = 6;
+    static constexpr int QUAD_VERTICES_PER_TRIANGLE = 3;
+
+  private:
+    friend class Text2d;
+
+    std::array<float, TEXT_MAX_CHARS * TEXT_VERTICES_PER_CHAR * TEXT_FLOATS_PER_VERTEX> m_textVertices{};
+    std::array<float, QUAD_MAX_QUADS * QUAD_VERTICES_PER_QUAD * QUAD_FLOATS_PER_VERTEX> m_quadVertices{};
+    Math::Transformation::Matrix4 m_projection;
+    int m_textVertexCount = 0;
+    int m_quadVertexCount = 0;
+    int m_projectionWidth = 0;
+    int m_projectionHeight = 0;
+    float m_halfWidth = 0.0f;
+    float m_halfHeight = 0.0f;
+};
+
 /* -- Text 2d
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -75,18 +106,17 @@ class Text2d
     inline static std::unique_ptr<Rendering::IShader> pSolidBatchShader; // per-vertex RGBA batch shader
     inline static float charAdvance[96] = {};
 
-    inline static float s_halfW = 0.0f;                                  // current ortho half-width  (right edge X)
-    inline static float s_halfH = 0.0f;                                  // current ortho half-height (top edge Y)
-
     // Text coordinates are centered on the client rect in legacy frustum units:
     // x/y normally stay within [-0.5, 0.5], fSize is normalized, and the format
     // string accepts printf-style arguments.
-    static void Render2dText( float xPosition,
+    static void Render2dText( TextBatch& batch,
+                              float xPosition,
                               float yPosition,
                               float fSize,
                               const char* cRawText,
                               ... );                                     // Queues white SDF text for this frame's text batch.
-    static void Render2dTextColor( float xPosition,
+    static void Render2dTextColor( TextBatch& batch,
+                                   float xPosition,
                                    float yPosition,
                                    float fSize,
                                    float r,
@@ -94,9 +124,11 @@ class Text2d
                                    float b,
                                    const char* cRawText,
                                    ... );                                // Queues colored SDF text for this frame's text batch.
-    static void FlushText( Rendering::IRenderCommandContext&
+    static void FlushText( TextBatch& batch,
+                           Rendering::IRenderCommandContext&
                                renderCommands );                         // Uploads queued text once so HUD strings stay one draw call.
-    static void Render2dQuad( Rendering::IRenderCommandContext& renderCommands,
+    static void Render2dQuad( TextBatch& batch,
+                              Rendering::IRenderCommandContext& renderCommands,
                               float x0,
                               float y0,
                               float x1,
@@ -105,7 +137,8 @@ class Text2d
                               float g,
                               float b,
                               float a );                                 // Immediate HUD quad path for legacy call sites.
-    static void BatchQuad( Rendering::IRenderCommandContext& renderCommands,
+    static void BatchQuad( TextBatch& batch,
+                           Rendering::IRenderCommandContext& renderCommands,
                            float x0,
                            float y0,
                            float x1,
@@ -114,7 +147,8 @@ class Text2d
                            float g,
                            float b,
                            float a );                                    // Queues a colored quad for the shared HUD batch.
-    static void BatchTriangle( Rendering::IRenderCommandContext& renderCommands,
+    static void BatchTriangle( TextBatch& batch,
+                               Rendering::IRenderCommandContext& renderCommands,
                                float x0,
                                float y0,
                                float x1,
@@ -126,27 +160,41 @@ class Text2d
                                float b,
                                float a );                                // Queues a colored triangle in the shared HUD batch.
     static void FlushQuads(
+        TextBatch& batch,
         Rendering::IRenderCommandContext& renderCommands );              // Uploads queued quads/triangles once for the frame.
     static SkullbonezCore::Core::SbResult
-    BuildFont( Rendering::IRenderResourceFactory& renderResources,
+    BuildFont( TextBatch& batch,
+               Rendering::IRenderResourceFactory& renderResources,
                const Assets::AssetSystem& assets,
                int screenW,
                int screenH,
                const char* cFontName );                                  // Loads or generates SDF atlas resources for the active backend.
     static bool GenerateSdfAtlasToFile( const char* cFontName,
                                         const char* cOutPath );          // Offline SDF atlas writer used by --gen-atlas tooling.
-    static void DeleteFont( Rendering::IRenderResourceFactory*
+    static void DeleteFont( TextBatch& batch,
+                            Rendering::IRenderResourceFactory*
                                 renderResources );                       // Releases GPU font resources while a backend is still available.
-    static void RebuildProjection( int w, int h );                       // Recomputes ortho projection after a window resize
-    static float HalfW()
+    static void
+    RebuildProjection( TextBatch& batch, int w, int h );                 // Recomputes owned ortho projection after a window resize.
+    static float HalfW( const TextBatch& batch )
     {
-        return s_halfW;
+        return batch.m_halfWidth;
     } // Right edge X in text space; varies with aspect ratio.
-    static float HalfH()
+    static float HalfH( const TextBatch& batch )
     {
-        return s_halfH;
+        return batch.m_halfHeight;
     } // Top edge Y in text space; fixed by the text projection FOV.
     static float MeasureText( float fSize, const char* text );           // Width in text-space units for already-formatted strings.
+
+  private:
+    static void RenderTextInternal( TextBatch& batch,
+                                    float xPosition,
+                                    float yPosition,
+                                    float fSize,
+                                    float colR,
+                                    float colG,
+                                    float colB,
+                                    const char* formatted );
 };
 } // namespace Text
 } // namespace SkullbonezCore

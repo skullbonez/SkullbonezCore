@@ -39,7 +39,6 @@ Related:
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "Input.h"
 #include "../Core/Log.h"
-#include "../Rendering/Text.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -141,10 +140,6 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
     {
         return resizeResult;
     }
-
-    // Recompute the 2D text ortho projection to match the new aspect ratio.
-    // Without this, text stretches when the window is resized or maximized.
-    Text::Text2d::RebuildProjection( w, h );
 
     // DX12 clip-space depth is [0,1], so the perspective matrix must use the
     // matching projection convention after every resize.

@@ -99,8 +99,8 @@ ledger defect: `code-level-red-flags-remediation` contains C0-C6, seven tasks.
 |---|---:|---:|---:|
 | [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 0 | 7 | 0% |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 1 | 7 | 14% |
-| **Active/future total** | **1** | **22** | **5%** |
+| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 2 | 7 | 29% |
+| **Active/future total** | **2** | **22** | **9%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution

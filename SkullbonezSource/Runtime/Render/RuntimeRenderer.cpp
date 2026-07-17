@@ -288,6 +288,7 @@ struct UiTextGraphCallbackData
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
+    SkullbonezCore::Text::TextBatch* textBatch = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
     const UiTextPassState* state = nullptr;
     RunTimerState* timers = nullptr;
@@ -547,9 +548,9 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/, void* userData )
 {
     auto* data = static_cast<UiTextGraphCallbackData*>( userData );
-    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->uiRender || !data->state || !data->timers ||
-         !data->ui || !data->models || !data->diagnosticsRuntime || !data->replayHud || !data->replayOverlayContext ||
-         !data->cinematic || !data->uiRender->IsReady() )
+    if ( !data || !data->uiTextPass || !data->renderDiagnostics || !data->textBatch || !data->uiRender ||
+         !data->state || !data->timers || !data->ui || !data->models || !data->diagnosticsRuntime || !data->replayHud ||
+         !data->replayOverlayContext || !data->cinematic || !data->uiRender->IsReady() )
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
@@ -558,6 +559,7 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                                 *data->ui,
                                 *data->renderDiagnostics,
                                 data->profiler,
+                                *data->textBatch,
                                 *data->uiRender,
                                 *data->models,
                                 *data->diagnosticsRuntime,
@@ -1376,6 +1378,7 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.profiler = m_profiler;
+    callbackData.textBatch = &m_textBatch;
     callbackData.uiRender = &uiRender;
     callbackData.state = &state;
     callbackData.timers = &timers;
@@ -2006,7 +2009,7 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     m_terrainPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
     m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
-    m_uiTextPass.ReleaseGpuResources( renderResources );
+    m_uiTextPass.ReleaseGpuResources( m_textBatch, renderResources );
     m_uiTextRayTracing = nullptr;
 }
 
@@ -2189,7 +2192,7 @@ RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& rende
                                         int screenH )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( renderResources, assets, screenW, screenH );
+    return m_uiTextPass.EnsureGpuResources( m_textBatch, renderResources, assets, screenW, screenH );
 }
 
 

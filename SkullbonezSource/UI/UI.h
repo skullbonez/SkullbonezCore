@@ -71,6 +71,11 @@ struct DeviceInputFrame;
 struct RuntimeMouseEdges;
 } // namespace Runtime
 
+namespace Text
+{
+class TextBatch;
+} // namespace Text
+
 namespace Assets
 {
 class AssetSystem;
@@ -118,6 +123,9 @@ struct UIRenderContext
     Rendering::IRenderResourceFactory* resources = nullptr;
     Rendering::IRenderCommandContext* commands = nullptr;
     Rendering::IRenderDiagnostics* diagnostics = nullptr;
+    // Lifetime: the late UI pass installs RuntimeRenderer's batch owner for
+    // this synchronous draw only. Run's wider frame context leaves it null.
+    Text::TextBatch* textBatch = nullptr;
 
     bool IsReady() const
     {

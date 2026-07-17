@@ -1,7 +1,7 @@
 # Code-Level Red-Flags Remediation — Renderer Globals, Hot-Path Singletons, Friend Debt, Catch-Up Clamp, LTO Determinism
 
 Date: 2026-07-17
-Status: Active — 1/7 tasks
+Status: Active — 2/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at C0)
 Impact area: `Rendering/Text.cpp`, `Core/Profiler.*`, `Core/Log.*`,
 `Core/LockOrderValidator.*`, `Physics/PhysicsScene.h`,
@@ -69,7 +69,7 @@ re-certified as accepted policy with evidence.
   the target clamp value (candidate: 5, with dropped-time accounting), and
   the LTO decision lane for C5 (structural narrowing vs. documented
   acceptance). Evidence: dated report under `Agentic/Reports/`.
-- [ ] C1 — Text renderer batch state becomes instance-owned. Move
+- [x] C1 — Text renderer batch state becomes instance-owned. Move
   `s_batchBuf`/`s_quadBatchBuf`/counters/`s_orthoProj` into a fixed-capacity
   batch owner constructed at startup by the render owner the C0 ruling
   names, threaded to call sites by reference. No allocation-policy change:
