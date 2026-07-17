@@ -38,11 +38,9 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "CaptureController.h"
 #include "RunLaunchOptions.h"
-#include "Scene/SceneController.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/ObjectContactManifold.h"
 #include "../Physics/PhysicsBodyStore.h"
-#include "../Physics/PhysicsEngine.h"
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -104,7 +102,7 @@ void SceneAutomationGateTracker::AppendRequiredBroadphaseXCells( int minCellX, i
 }
 
 
-void SceneAutomationGateTracker::UpdateRequiredContacts( SceneController& scene, float contactEpsilon )
+void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon )
 {
     if ( m_requiredContacts.empty() )
     {
@@ -113,8 +111,8 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneController& scene,
 
     // Invariant: validation observes committed compact stores. The legacy
     // object mirror may not have been refreshed yet at this post-step point.
-    const PhysicsBodyStore& bodyStore = scene.BodyStore();
-    const ColliderStore& colliderStore = scene.Colliders();
+    const PhysicsBodyStore& bodyStore = physics.bodyStore;
+    const ColliderStore& colliderStore = physics.colliderStore;
     const auto bodyRecords = bodyStore.Records();
     const auto colliderRecords = colliderStore.Records();
     const int contactModelCount =
@@ -146,8 +144,7 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneController& scene,
         }
     }
 
-    const std::vector<PhysicsDebugContact>& contacts = PhysicsEngine::ReadDebugContacts( scene.Physics() );
-    for ( const PhysicsDebugContact& contact : contacts )
+    for ( const PhysicsDebugContact& contact : physics.debugContacts )
     {
         if ( contact.bodyA < 0 || contact.bodyB < 0 )
         {
@@ -265,15 +262,10 @@ bool SceneAutomationGateTracker::RequiredBroadphaseXCellsComplete() const
 }
 
 
-bool SceneAutomationGateTracker::HasRequirements() const
+SceneAutomationGateStatus SceneAutomationGateTracker::Status() const
 {
-    return !m_requiredContacts.empty() || !m_requiredBroadphaseXCells.empty();
-}
-
-
-bool SceneAutomationGateTracker::Complete() const
-{
-    return RequiredContactsComplete() && RequiredBroadphaseXCellsComplete();
+    return SceneAutomationGateStatus{ !m_requiredContacts.empty() || !m_requiredBroadphaseXCells.empty(),
+                                      RequiredContactsComplete() && RequiredBroadphaseXCellsComplete() };
 }
 
 

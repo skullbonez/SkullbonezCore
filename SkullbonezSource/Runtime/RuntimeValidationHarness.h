@@ -37,11 +37,13 @@ Related:
 
 #include <cstddef>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "GraphicsStressController.h"
 #include "LiveStyleController.h"
 #include "../Physics/SpatialGrid.h"
+#include "../Physics/PhysicsDebugData.h"
 
 namespace SkullbonezCore
 {
@@ -50,6 +52,11 @@ namespace Rendering
 class IRenderCaptureBackend;
 class IRenderDiagnostics;
 } // namespace Rendering
+namespace Physics
+{
+class ColliderStore;
+class PhysicsBodyStore;
+} // namespace Physics
 namespace Runtime
 {
 class CaptureController;
@@ -62,7 +69,22 @@ struct RunLaunchOptions;
 struct RunStartupOverrides;
 struct SceneRuntimeStyleContext;
 
-class SceneController;
+struct SceneAutomationGatePhysicsView
+{
+    // Lifetime: post-physics diagnostics constructs this immutable view for one
+    // synchronous observation; the tracker stores no scene or store pointer.
+    const Physics::PhysicsBodyStore& bodyStore;
+    const Physics::ColliderStore& colliderStore;
+    std::span<const Physics::PhysicsDebugContact> debugContacts;
+};
+
+struct SceneAutomationGateStatus
+{
+    // Value-only completion facts consumed by scene advancement. Diagnostic
+    // row ownership and missing-requirement reporting remain in validation.
+    bool hasRequirements = false;
+    bool complete = true;
+};
 
 // Owner: validation harness. These rows are automation observations, not scene
 // topology. Authored setup appends resolved requirements through commands and
@@ -76,11 +98,10 @@ class SceneAutomationGateTracker
     void ReserveRequiredBroadphaseXCells( std::size_t count );
     void AppendRequiredBroadphaseXCells( int minCellX, int maxCellX, int cellY, int cellZ );
 
-    void UpdateRequiredContacts( SceneController& scene, float contactEpsilon );
+    void UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon );
     void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
                                          int activeCellCount );
-    bool HasRequirements() const;
-    bool Complete() const;
+    SceneAutomationGateStatus Status() const;
     void PrintMissingRequirements() const;
 
   private:

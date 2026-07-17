@@ -925,22 +925,13 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
-    const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
-    {
-        return SceneRuntimeGeneratedControlContext{ m_sceneController.State(),
-                                                    m_UI.SceneNavigation().overrides,
-                                                    m_camera,
-                                                    m_sceneController,
-                                                    m_config,
-                                                    m_sceneController.World(),
-                                                    m_sceneController.Terrain().Get(),
-                                                    m_sceneController,
-                                                    m_simulation,
-                                                    m_runtimeTools,
-                                                    m_renderBackendView.deviceLifecycle,
-                                                    m_launchOptions.generatedObjectTypeOverride,
-                                                    m_startup.gameModelCapacity };
-    };
+    const SceneGeneratedControlPolicy sceneGeneratedPolicy{ m_config,
+                                                            m_launchOptions.generatedObjectTypeOverride,
+                                                            m_startup.gameModelCapacity };
+    const SceneGeneratedControlPresentation sceneGeneratedPresentation{ m_UI.SceneNavigation().overrides, m_camera };
+    const SceneGeneratedControlResetParticipants sceneGeneratedReset{ m_simulation,
+                                                                      m_runtimeTools,
+                                                                      m_renderBackendView.deviceLifecycle };
     const auto executeSceneGeneratedControlAction =
         [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
@@ -979,8 +970,12 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         const int modelCount = 96 + StressHarness::NextInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
-            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
-                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(), modelCount ) );
+            const SkullbonezCore::Core::SbResult actionResult =
+                executeSceneGeneratedControlAction( ApplyUIModelCountOverride( sceneGeneratedPolicy,
+                                                                               sceneGeneratedPresentation,
+                                                                               sceneGeneratedReset,
+                                                                               m_sceneController,
+                                                                               modelCount ) );
             if ( !actionResult.ok )
             {
                 return actionResult;
@@ -993,8 +988,13 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         const int boxes = StressHarness::NextInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
-            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
-                ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
+            const SkullbonezCore::Core::SbResult actionResult =
+                executeSceneGeneratedControlAction( ApplyUISolverObjectCounts( sceneGeneratedPolicy,
+                                                                               sceneGeneratedPresentation,
+                                                                               sceneGeneratedReset,
+                                                                               m_sceneController,
+                                                                               balls,
+                                                                               boxes ) );
             if ( !actionResult.ok )
             {
                 return actionResult;

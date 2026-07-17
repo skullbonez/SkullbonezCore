@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-17th-july` |
-| Current baseline | Three Round-6 remediation plans are active; baseline/golden refresh remains prohibited. |
-| Current objective | Close SceneController T6, then complete monolith N0-N7 and red-flags C4-C6. |
-| Active/future progress | 10 / 22 live tasks (45%); SceneController T0-T5 and red-flags C0-C3 complete. |
-| Last broad local gate | T5 `validate_full` passed in 151 seconds: project/filter inventories matched at 713 items, 282/282 tests and every ratified coverage floor passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | T6 requires one independent ownership review, `tools\validate_full.bat`, and one `tools\validate_replay_visual_fidelity.bat` invocation before plan deletion. |
+| Current baseline | SceneController ownership is closed; two Round-6 plans remain and baseline/golden refresh remains prohibited. |
+| Current objective | Complete monolith N0-N7, then red-flags C4-C6. |
+| Active/future progress | 4 / 15 live tasks (27%); red-flags C0-C3 complete. |
+| Last broad local gate | Scene T6 `validate_full` passed in 3m25s: project/filter inventories matched at 713 items, 282/282 tests and every ratified coverage floor passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. The single replay-fidelity invocation also passed in 7m16s. |
+| Validation for current edits | Monolith N0 is documentation-only; no repository validation is required. |
 
 ## Live Queue
 
@@ -319,10 +319,9 @@ plan inventory.
   unless the owner explicitly restores a plan to `TODO/`.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
-- Active decomposition and future spline work execute on
-  `nightrunner-14th-july`. The visual mega probe is completed historical
-  evidence; every decomposition task reruns its unchanged golden 200-box
-  manifest. Refactors do not authorize baseline refresh.
+- Round-6 work executes on `nightrunner-17th-july`. Replay-touching tasks run
+  their plan-mapped single visual mega-gate invocation against the unchanged
+  200-box manifest. Refactors do not authorize baseline refresh.
 - Every plan-runner commit and plan-implementation prompt starts with the
   resolved MASTER progress header: plan name, completed plan tasks, and rounded
   active/future portfolio completion. That percentage covers only the active
@@ -374,16 +373,9 @@ plan inventory.
 
 ## Next Handoff
 
-Unit-test coverage is complete at 10/10. All required translation units are
-present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
-Closure evidence, baseline deltas, the independent review, the three-file
-comment audit, and final validation live in
-`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD is
-complete at 9/9: SoA remains, rejected SIMD and attribution-only complexity are
-gone, one complete 8,192-cell grid remains, and mandatory coverage and the full
-gate pass. Closure evidence lives in
-`Agentic/Reports/2026-07-17/soa-simd-closure.md`. There is no active local plan;
-do not regenerate behavioral physics baselines.
-Replay mass reduction remains closed at 9/9 plus R8; the externally
-administered validation-gate V3 lane remains blocked and excluded from the
-ledger.
+Scene-controller ownership is complete at 7/7 after the first independent
+review reopened two authority leaks and the fresh final review found zero
+credible findings. Closure evidence is in
+`Agentic/Reports/2026-07-17/scene-controller-ownership-closure.md`. Continue
+with monolith N0-N7, then red-flags C4-C6. Do not regenerate behavioral,
+physics, replay, visual, or screenshot baselines.

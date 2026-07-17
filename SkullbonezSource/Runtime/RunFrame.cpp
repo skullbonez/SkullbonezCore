@@ -1216,8 +1216,9 @@ bool Run::TickSceneAdvance()
 {
     const bool sceneProceedAllowed =
         !m_sceneController.CrossScenePauseLocked() || m_inputRouter.RuntimeSnapshot().frameInput.stepHeld;
+    const SceneAutomationGateStatus automationGateStatus = m_validationHarness->SceneGates().Status();
     const SceneFrameAdvanceResult result =
-        m_sceneController.AdvanceFrame( m_validationHarness->SceneGates(),
+        m_sceneController.AdvanceFrame( automationGateStatus,
                                         sceneProceedAllowed,
                                         m_diagnosticsRuntime.PerfTestActive(),
                                         m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved,
@@ -1225,6 +1226,10 @@ bool Run::TickSceneAdvance()
                                                                          m_attachedCamera.State().activeFollow,
                                                                          m_camera.director.grabbed ),
                                         m_timers.simulationTimer.GetTimeSinceLastStart() );
+    if ( result.reportMissingRequirements )
+    {
+        m_validationHarness->SceneGates().PrintMissingRequirements();
+    }
 #ifdef _DEBUG
     if ( result.finishReason )
     {

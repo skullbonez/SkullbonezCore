@@ -108,7 +108,7 @@ class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
-class SceneAutomationGateTracker;
+struct SceneAutomationGateStatus;
 class RuntimeRenderer;
 class RuntimeTools;
 class SimulationSystem;
@@ -129,6 +129,8 @@ struct SceneFrameAdvanceResult
     bool holdInteractive = false;
     bool quitIfLoadFails = false;
     bool restartSimulationTimerAfterLoad = false;
+    // Value request only; validation retains diagnostic rows and printing.
+    bool reportMissingRequirements = false;
 };
 struct SceneDefaultsSaveView
 {
@@ -305,7 +307,7 @@ class SceneController
     void MarkInteractiveRunComplete();
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
-    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateTracker& automationGates,
+    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates,
                                           bool proceedAllowed,
                                           bool perfTestActive,
                                           bool screenshotSaved,

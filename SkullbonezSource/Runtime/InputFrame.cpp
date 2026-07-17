@@ -900,22 +900,13 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, sceneController },
                                         uiCommands.physics );
     RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
-    const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
-    {
-        return SceneRuntimeGeneratedControlContext{ sceneController.State(),
-                                                    ui.SceneNavigation().overrides,
-                                                    camera,
-                                                    sceneController,
-                                                    liveConfig,
-                                                    sceneController.World(),
-                                                    sceneController.Terrain().Get(),
-                                                    sceneController,
-                                                    simulation,
-                                                    runtimeTools,
-                                                    renderBackendView.deviceLifecycle,
-                                                    launchOptions.generatedObjectTypeOverride,
-                                                    facts.gameModelCapacity };
-    };
+    const SceneGeneratedControlPolicy sceneGeneratedPolicy{ liveConfig,
+                                                            launchOptions.generatedObjectTypeOverride,
+                                                            facts.gameModelCapacity };
+    const SceneGeneratedControlPresentation sceneGeneratedPresentation{ ui.SceneNavigation().overrides, camera };
+    const SceneGeneratedControlResetParticipants sceneGeneratedReset{ simulation,
+                                                                      runtimeTools,
+                                                                      renderBackendView.deviceLifecycle };
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
     {
         if ( action.resetReplayTimeline )
@@ -942,7 +933,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         }
     };
     const SceneGeneratedUICommandResult modelCountCommand =
-        ApplySceneGeneratedModelCountUICommand( makeSceneGeneratedControlContext(),
+        ApplySceneGeneratedModelCountUICommand( sceneGeneratedPolicy,
+                                                sceneGeneratedPresentation,
+                                                sceneGeneratedReset,
+                                                sceneController,
                                                 uiCommands.sceneOptions.requestedModelCount );
     if ( !modelCountCommand.action.status.ok )
     {
@@ -959,7 +953,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         recordUIAction( RuntimeInputAction::SetWorkerThreads );
     }
     const SceneGeneratedUICommandResult solverBallCountCommand =
-        ApplySceneGeneratedSolverBallCountUICommand( makeSceneGeneratedControlContext(),
+        ApplySceneGeneratedSolverBallCountUICommand( sceneGeneratedPolicy,
+                                                     sceneGeneratedPresentation,
+                                                     sceneGeneratedReset,
+                                                     sceneController,
                                                      uiCommands.run.requestedSolverBallCount );
     if ( !solverBallCountCommand.action.status.ok )
     {
@@ -972,7 +969,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         recordUIAction( RuntimeInputAction::SetSolverCounts );
     }
     const SceneGeneratedUICommandResult solverBoxCountCommand =
-        ApplySceneGeneratedSolverBoxCountUICommand( makeSceneGeneratedControlContext(),
+        ApplySceneGeneratedSolverBoxCountUICommand( sceneGeneratedPolicy,
+                                                    sceneGeneratedPresentation,
+                                                    sceneGeneratedReset,
+                                                    sceneController,
                                                     uiCommands.run.requestedSolverBoxCount );
     if ( !solverBoxCountCommand.action.status.ok )
     {

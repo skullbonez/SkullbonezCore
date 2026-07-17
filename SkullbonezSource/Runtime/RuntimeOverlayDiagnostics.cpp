@@ -173,7 +173,10 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                   PhysicsEngine::ReadPipelineTrace( physics ),
                                                   scene.BodyStore().Count() };
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
-    validationHarness.SceneGates().UpdateRequiredContacts( scene, contactEpsilon );
+    const std::vector<PhysicsDebugContact>& debugContacts = PhysicsEngine::ReadDebugContacts( physics );
+    validationHarness.SceneGates().UpdateRequiredContacts(
+        SceneAutomationGatePhysicsView{ scene.BodyStore(), scene.Colliders(), debugContacts },
+        contactEpsilon );
     PROFILE_END( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );

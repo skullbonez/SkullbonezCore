@@ -18,7 +18,8 @@ Glossary:
   Model capacity: Active object capacity limit.
 
 Invariants:
-  - Helpers mutate generated scene/model state only through the context.
+  - Helpers mutate generated scene/model state only through narrow synchronous
+    participants and one explicit SceneController topology owner.
   - Generated model/resource mutation starts only after a successful GPU drain.
   - Returned status and follow-up flags must be honored by every caller.
 
@@ -36,18 +37,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Environment
-{
-class WorldEnvironment;
-}
-namespace Runtime
-{
-class SceneController;
-}
-namespace Geometry
-{
-class Terrain;
-}
 namespace Rendering
 {
 class IRenderDeviceLifecycle;
@@ -58,21 +47,29 @@ class SceneController;
 class SimulationSystem;
 class RuntimeTools;
 
-struct SceneRuntimeGeneratedControlContext
+// Concept: generated rebuild policy is copied separately from mutable owners so
+// no helper receives the complete runtime graph through a catch-all context.
+struct SceneGeneratedControlPolicy
 {
-    RunSceneState& scene;
+    const SkullbonezCore::Core::EngineConfig& config;
+    GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
+    int modelCapacity = 0;
+};
+
+struct SceneGeneratedControlPresentation
+{
+    // Lifetime: these UI/camera borrows live only for one rebuild command.
     RunSceneUIOverrideState& uiOverrides;
     RunCameraState& camera;
-    SceneController& controller;
-    const SkullbonezCore::Core::EngineConfig& config;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain = nullptr;
-    Runtime::SceneController& models;
+};
+
+struct SceneGeneratedControlResetParticipants
+{
+    // Hazard: this participant owns the ordered drain/tool/simulation reset
+    // transaction that must finish before topology is repopulated.
     SimulationSystem& simulation;
     RuntimeTools& tools;
     Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
-    GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
-    int modelCapacity = 0;
 };
 
 struct SceneRuntimeGeneratedControlAction
@@ -90,15 +87,34 @@ struct SceneGeneratedUICommandResult
     SceneRuntimeGeneratedControlAction action;
 };
 
-SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGeneratedControlContext context, int count );
-SceneRuntimeGeneratedControlAction
-ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int balls, int boxes );
-SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneRuntimeGeneratedControlContext context,
+SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedControlPolicy policy,
+                                                              SceneGeneratedControlPresentation presentation,
+                                                              SceneGeneratedControlResetParticipants reset,
+                                                              SceneController& scene,
+                                                              int count );
+SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedControlPolicy policy,
+                                                              SceneGeneratedControlPresentation presentation,
+                                                              SceneGeneratedControlResetParticipants reset,
+                                                              SceneController& scene,
+                                                              int balls,
+                                                              int boxes );
+SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneGeneratedControlPolicy policy,
+                                                                      SceneGeneratedControlPresentation presentation,
+                                                                      SceneGeneratedControlResetParticipants reset,
+                                                                      SceneController& scene,
                                                                       int requestedModelCount );
-SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand( SceneRuntimeGeneratedControlContext context,
-                                                                           int requestedSolverBallCount );
-SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneRuntimeGeneratedControlContext context,
-                                                                          int requestedSolverBoxCount );
+SceneGeneratedUICommandResult
+ApplySceneGeneratedSolverBallCountUICommand( SceneGeneratedControlPolicy policy,
+                                             SceneGeneratedControlPresentation presentation,
+                                             SceneGeneratedControlResetParticipants reset,
+                                             SceneController& scene,
+                                             int requestedSolverBallCount );
+SceneGeneratedUICommandResult
+ApplySceneGeneratedSolverBoxCountUICommand( SceneGeneratedControlPolicy policy,
+                                            SceneGeneratedControlPresentation presentation,
+                                            SceneGeneratedControlResetParticipants reset,
+                                            SceneController& scene,
+                                            int requestedSolverBoxCount );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

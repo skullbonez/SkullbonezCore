@@ -452,7 +452,7 @@ std::size_t SceneController::PendingRequestCount() const
 }
 
 
-SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateTracker& automationGates,
+SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates,
                                                        bool proceedAllowed,
                                                        bool perfTestActive,
                                                        bool screenshotSaved,
@@ -466,8 +466,8 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
     }
 
     ++m_runtime.State().currentFrame;
-    const bool hasRequiredSceneGate = automationGates.HasRequirements();
-    const bool requiredSceneComplete = automationGates.Complete();
+    const bool hasRequiredSceneGate = automationGates.hasRequirements;
+    const bool requiredSceneComplete = automationGates.complete;
 
     const auto finishInteractiveOrQueueNext = [&]( const char* reason )
     {
@@ -510,7 +510,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGate
         }
         if ( !frameCountCompletesScene )
         {
-            automationGates.PrintMissingRequirements();
+            result.reportMissingRequirements = true;
             return result;
         }
         finishInteractiveOrQueueNext( result.finishReason ? result.finishReason : "frame_count" );

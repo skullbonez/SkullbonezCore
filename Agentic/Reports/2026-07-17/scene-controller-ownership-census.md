@@ -96,6 +96,26 @@ has a phase-specific use above.
    entity/physics/render methods remain cohesive cross-store transaction
    operations; no forwarding facade or second context owner is introduced.
 
+## T6 Independent-Review Correction
+
+The first T6 review found two credible gaps in this census and reopened T2/T4:
+
+- The initial logical-module inventory omitted the 13-field
+  `SceneRuntimeGeneratedControlContext`, including duplicate `controller` and
+  `models` aliases to the same complete `SceneController`. The corrected target
+  is three synchronous values—generated policy, presentation edits, and ordered
+  reset participants—plus one explicit scene-topology owner reference. No
+  helper receives the complete runtime graph or duplicate scene aliases.
+- The first T4 implementation let `SceneAutomationGateTracker` borrow a complete
+  mutable `SceneController`, while `SceneController::AdvanceFrame` borrowed the
+  concrete tracker back. The corrected seam passes immutable body, collider,
+  and debug-contact views into validation; scene advancement receives only a
+  value status and returns a value request when validation should print missing
+  requirement details.
+
+These corrections preserve the ratified owner destinations while making the
+store-view/value-only boundaries in ruling 4 literal in source.
+
 ## Validation
 
 T0 is documentation-only. No repository validation is required before its

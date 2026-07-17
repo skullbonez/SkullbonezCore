@@ -90,17 +90,16 @@ Rules:
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
-remains deliberately excluded. The denominator grew 0 → 22 on 2026-07-17 when
-the owner activated the three adversarial-review round-6 remediation plans
-from the same day's hostile full-tree review. The initial 21-task entry was a
-ledger defect: `code-level-red-flags-remediation` contains C0-C6, seven tasks.
+remains deliberately excluded. Scene-controller ownership closed at 7/7 on
+2026-07-18 and left the live ledger under rule 4; its closure evidence is in
+`../Reports/2026-07-17/scene-controller-ownership-closure.md`. The remaining
+round-6 denominator is 15 tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 6 | 7 | 86% |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 4 | 7 | 57% |
-| **Active/future total** | **10** | **22** | **45%** |
+| **Active/future total** | **4** | **15** | **27%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -145,14 +144,11 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The three 2026-07-17 adversarial-review round-6 plans are the live portfolio
-(see the round-6 section below). Recommended order: `code-level-red-flags-
-remediation` C1-C3 (complete), then
-`scene-controller-ownership-decomposition` T1-T6 (current priority),
-then `monolith-tu-right-sizing` (most gate-expensive; its replay tasks each
-consume one mega-gate invocation). Each plan's T0/N0/C0 census-and-rulings
-task must complete before its implementation tasks start, and the remaining
-red-flags/clamp/LTO tasks sequence per that plan's internal order.
+Two 2026-07-17 adversarial-review round-6 plans remain live (see the round-6
+section below). `code-level-red-flags-remediation` C0-C3 and the complete
+`scene-controller-ownership-decomposition` T0-T6 are closed. Continue with
+`monolith-tu-right-sizing` N0-N7 (most gate-expensive; replay tasks each consume
+one mega-gate invocation), then resume red-flags C4-C6 in their plan order.
 
 There is no other active implementation-plan runner. `physics-soa-simd-1000-bodies`
 closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
@@ -645,7 +641,6 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 6/7 | T6 independent ownership review and closure gates |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 0/8 | N0 census, per-file owner rulings, and the DX12 re-partition parking lift |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 4/7 | C4-C6 resume after SceneController and monolith closure per the priority path |
 
