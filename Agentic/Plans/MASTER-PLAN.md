@@ -97,10 +97,10 @@ ledger defect: `code-level-red-flags-remediation` contains C0-C6, seven tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 0 | 7 | 0% |
+| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 1 | 7 | 14% |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 4 | 7 | 57% |
-| **Active/future total** | **4** | **22** | **18%** |
+| **Active/future total** | **5** | **22** | **23%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -147,8 +147,8 @@ historical work per commit-contract rule 4.
 
 The three 2026-07-17 adversarial-review round-6 plans are the live portfolio
 (see the round-6 section below). Recommended order: `code-level-red-flags-
-remediation` C1-C3 (small isolated wins), then
-`scene-controller-ownership-decomposition` (largest architectural payoff),
+remediation` C1-C3 (complete), then
+`scene-controller-ownership-decomposition` T1-T6 (current priority),
 then `monolith-tu-right-sizing` (most gate-expensive; its replay tasks each
 consume one mega-gate invocation). Each plan's T0/N0/C0 census-and-rulings
 task must complete before its implementation tasks start, and the remaining
@@ -645,7 +645,7 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 0/7 | T0 ownership census and owner-ratified target map |
+| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 1/7 | T1 mechanical public-parameter rename |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 0/8 | N0 census, per-file owner rulings, and the DX12 re-partition parking lift |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 4/7 | C4-C6 resume after SceneController and monolith closure per the priority path |
 

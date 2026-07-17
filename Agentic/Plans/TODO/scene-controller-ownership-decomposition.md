@@ -1,8 +1,8 @@
 # Scene Controller Ownership Decomposition — Kill The Relocated God Object
 
 Date: 2026-07-17
-Status: Active — 0/7 tasks
-Branch: owner decision at T0 (feature branch; never directly on `main`)
+Status: Active — 1/7 tasks
+Branch: `nightrunner-17th-july` (owner-ratified at T0)
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/Run*.cpp`,
 `Runtime/RuntimeFrameViews.h`, project filters
 Owner: runtime scene subsystem
@@ -55,7 +55,7 @@ signatures are decomposed into narrow per-domain load participants, and the
 
 ## Tasks
 
-- [ ] T0 — Ownership census and target map. Inventory every `SceneController`
+- [x] T0 — Ownership census and target map. Inventory every `SceneController`
   member, public method, and the full 22-parameter list of `Load` /
   `ExecutePending` with per-parameter usage evidence (which load phase reads
   which owner). Produce the target owner map: what stays (queue, requests,
@@ -104,6 +104,16 @@ signatures are decomposed into narrow per-domain load participants, and the
   on `SceneController` with a recorded reason rather than entering a bag.
 - Zero-baseline-refresh is binding for the whole plan; any physics CSV or
   replay golden diff is a revert, never a fix-forward.
+
+Owner-ratified T0 decisions (2026-07-17): use branch
+`nightrunner-17th-july`; keep scene lifecycle/topology state in
+`SceneController`; group the 22 synchronous borrows into the four narrow
+participant values recorded in the census; move browser/UI override state to
+UI-owned `SceneNavigationModel`; move automation gate state to
+`RuntimeValidationHarness`-owned `SceneAutomationGateTracker`; and re-home the
+cohesive cross-store declarations from the `.inl` into the class header. The
+complete evidence is recorded in
+`Agentic/Reports/2026-07-17/scene-controller-ownership-census.md`.
 
 ## Acceptance
 

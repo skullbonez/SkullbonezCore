@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Three Round-6 remediation plans are active; baseline/golden refresh remains prohibited. |
-| Current objective | Ratify and commit SceneController T0, complete T1-T6, then monolith N0-N7 and red-flags C4-C6. |
-| Active/future progress | 4 / 22 live tasks (18%); red-flags C0-C3 complete. |
+| Current objective | Complete SceneController T1-T6, then monolith N0-N7 and red-flags C4-C6. |
+| Active/future progress | 5 / 22 live tasks (23%); SceneController T0 and red-flags C0-C3 complete. |
 | Last broad local gate | C3 `validate_physics` passed in 66.985 seconds; standalone/runtime handle smoke passed and 44,401 physics CSV lines matched byte-exact with zero-warning Profile/Debug builds. |
-| Validation for current edits | SceneController T0 is documentation-only and requires no repository validation. |
+| Validation for current edits | SceneController T0 is documentation-only; T1 requires `tools\validate_fast.bat` at its commit gate. |
 
 ## Live Queue
 
