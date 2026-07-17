@@ -646,6 +646,9 @@
     <ClCompile Include="SkullbonezSource\UI\UI.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIWindowInteractionOwner.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -1356,6 +1359,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
   </ItemGroup>

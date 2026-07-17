@@ -155,3 +155,46 @@ standalone/runtime handle smoke matched expected state, both builds completed
 with zero warnings and zero errors, and `physics_regression_varied.csv` matched
 the committed baseline byte-exact at 44,401 lines. Evidence:
 `TestOutput/validation/agent_logs/monolith_n2_validate_physics_stdout.log`.
+
+## N3 UI Window-Interaction Owner Extraction
+
+Completed on 2026-07-18. `UI.cpp` fell from 2,517 to 1,240 lines after
+`UIWindowInteractionOwner` received the persistent window, widget, tab-input,
+pointer-capture, combo, slider, scroll, mini-palette, mouse-override, and cache
+state that input mutates. `InGameUI` retains draw composition, draw-command
+lists, GPU preview resources, the scene-navigation model, and its borrowed
+profiler pointer.
+
+The owner emits the unchanged `InGameUIInputResult` command value. Drawing
+borrows one synchronous `UIWindowInteractionOwner::WidgetView` so layout and
+hit testing continue to operate on the exact same widget objects; the view is
+never retained. The owner has no `InGameUI` pointer/reference, friend edge,
+callback pack, `void*`, services/context bag, or unrelated runtime authority.
+The stable public `InGameUI` methods delegate state commands to the concrete
+owner, where the state and implementation now live.
+
+A normalized source comparison proved every transplanted state/input method
+body identical to its pre-N3 implementation after only the class qualifier and
+explicit profiler argument changed. The direct Profile product build and the
+719-item project/filter parity check passed during iteration. The touched-file
+comment audit covered 4/4 source-bearing files (`UI.cpp`, `UI.h`, and the new
+owner pair), with zero deferred and no unchecked files; each has a complete
+learning header and the new borrowing/authority invariants are documented
+beside the boundary. No baseline, golden, screenshot, input schema, command
+value, or runtime behavior changed.
+
+The first two `tools\validate_fast.bat` attempts stopped in formatting
+preflight before build or tests: the first identified the two moved
+implementations, and the second identified the new header's declaration-join
+pipeline. Formatting was applied only to those files. The complete final rerun
+passed in about 45s: all 255 headers and implementation files were clean,
+719/719 production project/filter items matched, the ten staged candidates had
+zero size violations, Profile and Debug builds reported zero warnings/errors,
+and all 282 doctests (21,389 assertions) passed. Evidence:
+`TestOutput/validation/agent_logs/monolith_n3_validate_fast_stdout.log`.
+
+The separate interactive smoke launched the final Profile DX12 binary with
+`--frames 360 --ui-stress --ui-stress-seed 1357911 --ui-stress-actions 8`.
+It completed the bounded run, captured 393 physics samples, and exited 0 in
+5.499s without a crash. Evidence:
+`TestOutput/validation/agent_logs/monolith_n3_ui_stress_stdout.log`.

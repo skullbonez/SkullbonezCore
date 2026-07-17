@@ -380,6 +380,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UI.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIWindowInteractionOwner.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPaletteDraw.cpp" />
@@ -608,6 +609,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\UI\UITabSound.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabSky.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h" />
     <ClInclude Include="SkullbonezSource\Scene\TestScene.h" />
     <ClInclude Include="SkullbonezSource\Scene\TestSceneParserSchema.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h" />

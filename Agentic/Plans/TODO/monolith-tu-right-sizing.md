@@ -74,7 +74,7 @@ mechanical split.
   lifecycle, queries, diagnostics access) into owner-named physics TUs only
   where the census shows separable state; otherwise record the cohesion
   ruling. Gate: `validate_physics` byte-exact.
-- [ ] N3 — `UI.cpp` (2,501). Extract per-tab or per-widget-family
+- [x] N3 — `UI.cpp` (2,501). Extract per-tab or per-widget-family
   responsibility clusters the census identifies (layout constants must stay
   with their hit-test consumers per the UI invariant). Gate: `validate_fast`
   plus one interactive smoke run.

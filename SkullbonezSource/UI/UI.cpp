@@ -1,26 +1,31 @@
 /*
 File: SkullbonezSource/UI/UI.cpp
 Purpose:
-  Implements SkullbonezUI widgets, layout, drawing, or UI state for the in-engine controls.
+  Composes in-engine UI drawing and preserves the public InGameUI command surface.
 
 Summary:
-  UI.cpp implements SkullbonezUI widgets, layout, drawing, or UI state for the
-  in-engine controls. As an implementation unit, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
+  UI.cpp draws the current typed widget view, owns draw-only command/resource
+  storage, and delegates persistent window/input state to
+  UIWindowInteractionOwner. Public wrappers preserve existing call sites while
+  authority lives in the concrete interaction owner.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+    widget.
+  Widget view: Synchronous typed references borrowed from the interaction owner
+    so drawing uses the exact controls whose bounds were hit-tested.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - InGameUI never reaches into owner storage through friendship or a retained
+    pointer; WidgetView is borrowed only inside the current draw call.
 
 Related:
   - SkullbonezSource/UI/UI.h
+  - SkullbonezSource/UI/UIWindowInteractionOwner.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "UI.h"
@@ -68,394 +73,137 @@ using namespace SkullbonezCore::UI::FrameComposition;
 
 bool InGameUI::IsVisible() const
 {
-    return m_window.isVisible;
+    return m_windowInteraction.IsVisible();
 }
-
-
 bool InGameUI::IsMinimized() const
 {
-    return m_window.isMinimized;
+    return m_windowInteraction.IsMinimized();
 }
-
-
 void InGameUI::SetVisible( bool visible, double now )
 {
-    m_window.isVisible = visible;
-    m_cache.Reset();
-    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Visibility );
-    if ( visible )
-    {
-        m_window.isMinimized = false;
-        m_scrollbarVisibleUntil = now + 1.2;
-        CancelEditorMiniPaletteInteraction();
-    }
-    else
-    {
-        m_window.isMinimized = true;
-        m_interaction.isDragging = false;
-        m_interaction.isResizing = false;
-        m_interaction.blocksCameraMouse = false;
-        CancelEditorMiniPaletteInteraction();
-        m_rendererCombo.Close();
-        m_reflectionCombo.Close();
-        CloseSceneCombo();
-        CinematicTab::CloseCombo( m_cinematicTab );
-        m_renderTargetCombo.Close();
-        m_cameraModeCombo.Close();
-    }
+    m_windowInteraction.SetVisible( visible, now );
 }
-
-
 void InGameUI::ToggleVisible( double now )
 {
-    if ( !m_window.isVisible )
-    {
-        SetVisible( true, now );
-        return;
-    }
-    SetMinimized( !m_window.isMinimized, now );
+    m_windowInteraction.ToggleVisible( now );
 }
-
-
-void InGameUI::CancelEditorMiniPaletteInteraction()
-{
-    m_editorMiniPalettePressActive = false;
-    m_editorMiniPaletteFlyoutOpen = false;
-    m_editorMiniPalettePressedEntry = -1;
-    m_editorMiniPalettePressedObjectType = -1;
-    m_editorMiniPalettePressedTreePlacement = EDITOR_MINI_TREE_PLACEMENT_NONE;
-    m_editorMiniPalettePressedHoldMode = EDITOR_MINI_HOLD_MODE_NONE;
-    m_editorMiniPalettePressStart = 0.0;
-}
-
-
 void InGameUI::SetMinimized( bool minimized, double now )
 {
-    if ( m_window.isMinimized == minimized )
-    {
-        return;
-    }
-
-    const UIRect currentBounds = Chrome::WindowRect( m_window );
-    const UIRect minimizedBounds = MinimizedRect( m_lastScreenW, m_lastScreenH, m_window.minimizedWidth );
-    m_interaction.isDragging = false;
-    m_interaction.isResizing = false;
-    m_interaction.blocksCameraMouse = false;
-    CancelEditorMiniPaletteInteraction();
-    if ( minimized )
-    {
-        m_window.isMinimized = true;
-        Chrome::BeginWindowAnimation( m_window, currentBounds, minimizedBounds, now, true );
-        m_rendererCombo.Close();
-        m_reflectionCombo.Close();
-        CloseSceneCombo();
-        CinematicTab::CloseCombo( m_cinematicTab );
-        m_renderTargetCombo.Close();
-        m_cameraModeCombo.Close();
-        m_activeSlider = 0;
-    }
-    else
-    {
-        m_window.isMinimized = false;
-        m_cameraModeCombo.Close();
-        Chrome::BeginWindowAnimation( m_window, minimizedBounds, Chrome::WindowRect( m_window ), now, false );
-        m_scrollbarVisibleUntil = now + 1.2;
-    }
-    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::WindowState );
-    m_cache.Reset();
+    m_windowInteraction.SetMinimized( minimized, now );
 }
-
-
 void InGameUI::ToggleMaximizeMinimize( int screenW, int screenH, double now )
 {
-    if ( !m_window.isVisible )
-    {
-        SetVisible( true, now );
-        return;
-    }
-
-    if ( m_window.isMinimized )
-    {
-        SetMinimized( false, now );
-        return;
-    }
-
-    SetMaximized( !m_window.isMaximized, screenW, screenH, now );
+    m_windowInteraction.ToggleMaximizeMinimize( screenW, screenH, now );
 }
-
-
 void InGameUI::SetActiveTab( InGameUITab tab )
 {
-    const int tabIndex = static_cast<int>( tab );
-    if ( tabIndex < 0 || tabIndex >= static_cast<int>( InGameUITab::Count ) )
-    {
-        tab = InGameUITab::Scene;
-    }
-    m_activeTab = tab;
-    m_scrollY = 0.0f;
-    m_rendererCombo.Close();
-    m_reflectionCombo.Close();
-    CloseSceneCombo();
-    m_editorTab.objectCombo.Close();
-    CinematicTab::CloseCombo( m_cinematicTab );
-    m_renderTargetCombo.Close();
-    m_cameraModeCombo.Close();
-    m_activeSlider = 0;
-    SceneTab::ResetPreviewState( m_sceneTab );
-    OptionsTab::ResetPreviewState( m_optionsTab );
-    PhysicsTab::ResetPreviewState( m_physicsTab );
-    ControlsTab::ResetPreviewState( m_controlsTab );
-    SoundTab::ResetPreviewState( m_soundTab );
-    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Content );
-    m_cache.Reset();
+    m_windowInteraction.SetActiveTab( tab );
 }
-
-
 InGameUITab InGameUI::GetActiveTab() const
 {
-    return m_activeTab;
+    return m_windowInteraction.GetActiveTab();
 }
-
-
 void InGameUI::CancelInputCapture()
 {
-    m_interaction.isDragging = false;
-    m_interaction.isResizing = false;
-    m_interaction.blocksCameraMouse = false;
-    m_activeSlider = 0;
-    SceneTab::ResetPreviewState( m_sceneTab );
-    OptionsTab::ResetPreviewState( m_optionsTab );
-    PhysicsTab::ResetPreviewState( m_physicsTab );
-    ControlsTab::ResetPreviewState( m_controlsTab );
-    SoundTab::ResetPreviewState( m_soundTab );
-    m_editorTab.objectCombo.Close();
-    m_renderTargetCombo.Close();
-    m_cameraModeCombo.Close();
-    CancelEditorMiniPaletteInteraction();
-    ProfilerTab::CancelPerformanceHistogramInteraction( m_profilerTab );
+    m_windowInteraction.CancelInputCapture();
 }
-
-
 bool InGameUI::BlocksCameraMouse() const
 {
-    return m_interaction.blocksCameraMouse;
+    return m_windowInteraction.BlocksCameraMouse();
 }
-
-
 bool InGameUI::BlocksKeyboard() const
 {
-    return m_window.isVisible && !m_window.isMinimized &&
-           ( m_sceneCombo.IsOpen() || CinematicTab::IsComboOpen( m_cinematicTab ) || m_editorTab.objectCombo.IsOpen() ||
-             m_renderTargetCombo.IsOpen() );
+    return m_windowInteraction.BlocksKeyboard();
 }
-
-
 bool InGameUI::WantsNativeMouseCursor() const
 {
-    return ( m_window.isVisible && !m_window.isMinimized ) || m_interaction.blocksCameraMouse ||
-           ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
+    return m_windowInteraction.WantsNativeMouseCursor();
 }
-
-
 void InGameUI::SetWindowBounds( int x, int y, int width, int height )
 {
-    m_window.x = x;
-    m_window.y = y;
-    m_window.width = width;
-    m_window.height = height;
-    m_window.restoreX = x;
-    m_window.restoreY = y;
-    m_window.restoreW = width;
-    m_window.restoreH = height;
-    m_window.hasAppliedDefaultPlacement = true;
-    m_window.isMaximized = false;
-    m_window.animationActive = false;
-    m_scrollY = 0.0f;
-    m_scrollbarVisibleUntil = 0.0;
-    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
-    m_cache.Reset();
+    m_windowInteraction.SetWindowBounds( x, y, width, height );
 }
-
-
 void InGameUI::SetBlurEnabled( bool enabled )
 {
-    if ( m_blurPreviewEnabled != enabled )
-    {
-        m_blurPreviewEnabled = enabled;
-        m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Toggle );
-        m_cache.Reset();
-    }
+    m_windowInteraction.SetBlurEnabled( enabled );
 }
-
-
 void InGameUI::SetRendererComboOpen( bool open )
 {
-    m_rendererCombo.SetOpen( open );
-
-    if ( open )
-    {
-        m_reflectionCombo.Close();
-        CloseSceneCombo();
-        CinematicTab::CloseCombo( m_cinematicTab );
-        m_renderTargetCombo.Close();
-        m_cameraModeCombo.Close();
-    }
+    m_windowInteraction.SetRendererComboOpen( open );
 }
-
-
 void InGameUI::SetWaterComboOpen( bool open )
 {
-    m_reflectionCombo.SetOpen( open );
-    if ( open )
-    {
-        m_rendererCombo.Close();
-        CloseSceneCombo();
-        CinematicTab::CloseCombo( m_cinematicTab );
-        m_renderTargetCombo.Close();
-        m_cameraModeCombo.Close();
-    }
+    m_windowInteraction.SetWaterComboOpen( open );
 }
-
-
 void InGameUI::SetSceneComboOpen( bool open )
 {
-    m_sceneCombo.SetOpen( open );
-    if ( open )
-    {
-        m_rendererCombo.Close();
-        m_reflectionCombo.Close();
-        CinematicTab::CloseCombo( m_cinematicTab );
-        m_renderTargetCombo.Close();
-        m_cameraModeCombo.Close();
-        SceneTab::RequestFilterKeySync( m_sceneTab );
-    }
-    else
-    {
-        SceneTab::ClearFilter( m_sceneTab );
-    }
+    m_windowInteraction.SetSceneComboOpen( open );
 }
-
-
 void InGameUI::SetSceneFilter( const char* filter )
 {
-    SceneTab::SetFilter( m_sceneTab, filter );
+    m_windowInteraction.SetSceneFilter( filter );
 }
-
-
 void InGameUI::SetProfilerExpandAll( bool expandAll )
 {
-    ProfilerTab::SetExpandAll( m_profilerTab, expandAll );
-    m_cache.Reset();
+    m_windowInteraction.SetProfilerExpandAll( expandAll );
 }
-
-
 void InGameUI::SetProfilerTimelineEnabled( bool enabled )
 {
-    ProfilerTab::SetTimelineEnabled( m_profilerTab, enabled );
-    m_cache.Reset();
+    m_windowInteraction.SetProfilerTimelineEnabled( enabled );
 }
-
-
 void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 {
-    ProfilerTab::SetPerformanceHistogramEnabled( m_profilerTab, enabled );
-    m_cache.Reset();
+    m_windowInteraction.SetPerformanceHistogramEnabled( enabled );
 }
-
-
 bool InGameUI::IsPerformanceHistogramEnabled() const
 {
-    return ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
+    return m_windowInteraction.IsPerformanceHistogramEnabled();
 }
-
-
 void InGameUI::TogglePerformanceHistogramEnabled()
 {
-    SetPerformanceHistogramEnabled( !IsPerformanceHistogramEnabled() );
+    m_windowInteraction.TogglePerformanceHistogramEnabled();
 }
-
-
 void InGameUI::SetMemoryOverlayEnabled( bool enabled )
 {
-    MemoryTab::SetOverlayEnabled( m_memoryOverlay, enabled );
-    m_cache.Reset();
+    m_windowInteraction.SetMemoryOverlayEnabled( enabled );
 }
-
-
 bool InGameUI::IsMemoryOverlayEnabled() const
 {
-    return MemoryTab::OverlayEnabled( m_memoryOverlay );
+    return m_windowInteraction.IsMemoryOverlayEnabled();
 }
-
-
 void InGameUI::ToggleMemoryOverlayEnabled()
 {
-    SetMemoryOverlayEnabled( !IsMemoryOverlayEnabled() );
+    m_windowInteraction.ToggleMemoryOverlayEnabled();
 }
-
-
 bool InGameUI::NeedsUiTextPass() const
 {
-    return m_window.isVisible || IsPerformanceHistogramEnabled() || IsMemoryOverlayEnabled();
+    return m_windowInteraction.NeedsUiTextPass();
 }
-
-
 void InGameUI::SetHitboxOverlayEnabled( bool enabled )
 {
-    if ( m_hitboxOverlayEnabled != enabled )
-    {
-        m_hitboxOverlayEnabled = enabled;
-        m_cache.Reset();
-    }
+    m_windowInteraction.SetHitboxOverlayEnabled( enabled );
 }
-
-
 void InGameUI::SetScrollY( float scrollY )
 {
-    m_scrollY = (std::max)( 0.0f, scrollY );
-    m_scrollbarVisibleUntil = 1.2;
-    m_cache.Reset();
+    m_windowInteraction.SetScrollY( scrollY );
 }
-
-
 void InGameUI::SetMouseOverride( bool enabled, int x, int y )
 {
-    m_hasMouseOverride = enabled;
-    m_mouseOverrideX = x;
-    m_mouseOverrideY = y;
-    if ( enabled )
-    {
-        m_mouseX = x;
-        m_mouseY = y;
-    }
+    m_windowInteraction.SetMouseOverride( enabled, x, y );
 }
-
-
-void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double now )
-{
-    if ( Chrome::SetMaximized( m_window, maximized, screenW, screenH, now ) )
-    {
-        m_scrollbarVisibleUntil = 0.0;
-        m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
-    }
-}
-
-
 void InGameUI::ResetResources( IRenderResourceFactory* resources )
 {
-    m_backdropBlur.ResetResources();
+    m_windowInteraction.ResetPresentationResources();
     ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB, resources );
-    m_cache.Reset();
 }
-
-
 void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
                                   const InGameUIFrameData& data,
                                   const UIRect& windowBounds,
                                   const UIRect& contentBounds,
-                                  const UIRect& footerBounds ) const
+                                  const UIRect& footerBounds )
 {
-    if ( !m_hitboxOverlayEnabled )
+    auto widgets = m_windowInteraction.Widgets();
+    if ( !widgets.hitboxOverlayEnabled )
     {
         return;
     }
@@ -479,7 +227,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
     DrawHitboxRect( draw, titleButtons.minimize, chromeR, chromeG, chromeB, 0.050f, 0.86f );
     DrawHitboxRect( draw, titleButtons.maximize, chromeR, chromeG, chromeB, 0.050f, 0.86f );
     DrawHitboxRect( draw, titleButtons.close, chromeR, chromeG, chromeB, 0.050f, 0.86f );
-    if ( !m_window.isMaximized )
+    if ( !widgets.window.isMaximized )
     {
         DrawHitboxRect(
             draw,
@@ -491,88 +239,98 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
             0.86f );
     }
 
-    DrawTabHitboxes( draw, m_tabBar, static_cast<int>( InGameUITab::Count ) );
+    DrawTabHitboxes( draw, widgets.tabBar, static_cast<int>( InGameUITab::Count ) );
     DrawHitboxRect( draw, contentBounds, contentR, contentG, contentB, 0.018f, 0.48f );
 
-    switch ( m_activeTab )
+    switch ( widgets.activeTab )
     {
     case InGameUITab::Scene:
         DrawComboHitboxes( draw,
-                           m_sceneCombo,
-                           SceneDropdownHitboxOptionCount( m_sceneTab, data ),
+                           widgets.sceneCombo,
+                           SceneDropdownHitboxOptionCount( widgets.sceneTab, data ),
                            contentR,
                            contentG,
                            contentB );
-        DrawHitboxRect( draw, m_resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, m_resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, m_saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, m_sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.sceneTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Editor:
-        DrawHitboxRect( draw, m_editorTab.editorModeToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_editorTab.placementModeToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_editorTab.staticObjectToggle.Bounds(), contentR, contentG, contentB );
-        DrawComboHitboxes( draw, m_editorTab.objectCombo, EditorTab::OBJECT_TYPE_COUNT, contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.editorTab.editorModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.editorTab.placementModeToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.editorTab.staticObjectToggle.Bounds(), contentR, contentG, contentB );
+        DrawComboHitboxes( draw,
+                           widgets.editorTab.objectCombo,
+                           EditorTab::OBJECT_TYPE_COUNT,
+                           contentR,
+                           contentG,
+                           contentB );
         break;
     case InGameUITab::Physics:
         for ( int i = 0; i < 13; ++i )
         {
-            DrawHitboxRect( draw, m_physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
+            DrawHitboxRect( draw, widgets.physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
-        DrawHitboxRect( draw, m_physicsTab.pipelinePrevButton, buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, m_physicsTab.pipelineNextButton, buttonR, buttonG, buttonB );
-        DrawHitboxRect( draw, m_physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.launcherProjectileSpeedSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.terrainFrictionSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.objectFrictionSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.rollingFrictionSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.pipelinePrevButton, buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.physicsTab.pipelineNextButton, buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, widgets.physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.rayImpulseSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.launcherProjectileSpeedSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.terrainFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.objectFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.rollingFrictionSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Sound:
-        SoundTab::DrawHitboxes( m_soundTab, draw, data, contentR, contentG, contentB );
+        SoundTab::DrawHitboxes( widgets.soundTab, draw, data, contentR, contentG, contentB );
         break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
         {
-            DrawHitboxRect( draw, m_optionsTab.toggles[i].Bounds(), contentR, contentG, contentB );
+            DrawHitboxRect( draw, widgets.optionsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
-        DrawHitboxRect( draw, m_optionsTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_optionsTab.modelCountSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.optionsTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.optionsTab.modelCountSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Render:
-        DrawHitboxRect( draw, m_renderShadowToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_saveRenderDefaultsButton.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.renderShadowToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.saveRenderDefaultsButton.Bounds(), contentR, contentG, contentB );
         for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
         {
-            DrawHitboxRect( draw, m_renderSliders[i].Bounds(), contentR, contentG, contentB );
+            DrawHitboxRect( draw, widgets.renderSliders[i].Bounds(), contentR, contentG, contentB );
         }
         break;
     case InGameUITab::Targets:
-        DrawComboHitboxes( draw, m_renderTargetCombo, m_lastRenderTargetPreviewCount, contentR, contentG, contentB );
+        DrawComboHitboxes( draw,
+                           widgets.renderTargetCombo,
+                           widgets.lastRenderTargetPreviewCount,
+                           contentR,
+                           contentG,
+                           contentB );
         break;
     case InGameUITab::Keys:
-        DrawHitboxRect( draw, m_controlsTab.seedSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_controlsTab.solverBallSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_controlsTab.solverBoxSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_controlsTab.worldFluidHeightSlider.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.controlsTab.seedSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.controlsTab.solverBallSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.controlsTab.solverBoxSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.controlsTab.worldFluidHeightSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Sky:
-        SkyTab::DrawHitboxes( m_skyTab, draw, contentR, contentG, contentB );
+        SkyTab::DrawHitboxes( widgets.skyTab, draw, contentR, contentG, contentB );
         break;
     case InGameUITab::Cinematic:
-        CinematicTab::DrawHitboxes( m_cinematicTab, draw, data, contentR, contentG, contentB );
+        CinematicTab::DrawHitboxes( widgets.cinematicTab, draw, data, contentR, contentG, contentB );
         break;
     case InGameUITab::Profiler:
-        DrawHitboxRect( draw, m_profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
-        DrawHitboxRect( draw, m_profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.profilerTab.workerToggle.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, widgets.profilerTab.workerThreadSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Memory:
         break;
@@ -580,59 +338,19 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         break;
     }
 
-    if ( ContentHeight() > static_cast<int>( contentBounds.h ) )
+    if ( m_windowInteraction.ContentHeight() > static_cast<int>( contentBounds.h ) )
     {
-        DrawHitboxRect( draw, m_scrollBar.Bounds(), 0.18f, 0.82f, 0.95f, 0.060f, 0.86f );
+        DrawHitboxRect( draw, widgets.scrollBar.Bounds(), 0.18f, 0.82f, 0.95f, 0.060f, 0.86f );
     }
 
     DrawHitboxRect( draw, footerBounds, footerR, footerG, footerB, 0.020f, 0.54f );
-    DrawComboHitboxes( draw, m_rendererCombo, 1, footerR, footerG, footerB );
-    DrawComboHitboxes( draw, m_reflectionCombo, 3, footerR, footerG, footerB );
-    DrawHitboxRect( draw, m_blurToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, m_vsyncToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, m_histogramToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, m_timelineToggle.Bounds(), footerR, footerG, footerB );
-    DrawHitboxRect( draw, m_hitboxToggle.Bounds(), footerR, footerG, footerB );
-}
-
-
-int InGameUI::ContentHeight() const
-{
-    switch ( m_activeTab )
-    {
-    case InGameUITab::Scene:
-        return SceneTab::ContentHeight();
-    case InGameUITab::Keys:
-        return ControlsTab::ContentHeight();
-    case InGameUITab::Profiler:
-        return ProfilerTab::ContentHeight( m_profilerTab );
-    case InGameUITab::Memory:
-        return MemoryTab::ContentHeight();
-    case InGameUITab::Editor:
-        return EditorTab::ContentHeight();
-    case InGameUITab::Physics:
-        return PhysicsTab::ContentHeight();
-    case InGameUITab::Sound:
-        return SoundTab::ContentHeight();
-    case InGameUITab::Options:
-        return OptionsTab::ContentHeight();
-    case InGameUITab::Render:
-        return RenderContentHeight();
-    case InGameUITab::Targets:
-        return RenderTargetsContentHeight();
-    case InGameUITab::Sky:
-        return SkyTab::ContentHeight();
-    case InGameUITab::Cinematic:
-        return CinematicTab::ContentHeight();
-    default:
-        return ControlsTab::ContentHeight();
-    }
-}
-
-
-void InGameUI::CloseSceneCombo()
-{
-    SceneTab::CloseCombo( m_sceneTab, m_sceneCombo );
+    DrawComboHitboxes( draw, widgets.rendererCombo, 1, footerR, footerG, footerB );
+    DrawComboHitboxes( draw, widgets.reflectionCombo, 3, footerR, footerG, footerB );
+    DrawHitboxRect( draw, widgets.blurToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, widgets.vsyncToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, widgets.histogramToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, widgets.timelineToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, widgets.hitboxToggle.Bounds(), footerR, footerG, footerB );
 }
 
 
@@ -652,1054 +370,32 @@ InGameUIInputResult InGameUI::UpdateInput( const Runtime::DeviceInputFrame& devi
                                            int sceneOptionCount,
                                            int selectedSceneOption )
 {
-    PROFILE_SCOPED( m_profiler, "Frame/UI/Input" );
-    InGameUIInputResult result;
-    // Concept: UI input produces command intents and capture state. The run loop
-    // owns applying scene, physics, renderer, and editor mutations.
-    editorObjectType = std::clamp( editorObjectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
-    (void)editorObjectType;
-    cameraModeIndex = std::clamp( cameraModeIndex, 0, CAMERA_MODE_OPTION_COUNT - 1 );
-    cameraModeEnabledMask &= ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u;
-    m_interaction.blocksCameraMouse = false;
-    const InputControl::UIInputSnapshot input =
-        InputControl::CaptureSnapshot( deviceFrame, mouse, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
-    const int wheelDelta = input.wheelDelta;
-    result.unhandledWheelDelta = wheelDelta;
-    m_mouseX = input.mouseX;
-    m_mouseY = input.mouseY;
-
-    screenW = (std::max)( 1, screenW );
-    screenH = (std::max)( 1, screenH );
-    m_lastScreenW = screenW;
-    m_lastScreenH = screenH;
-    const bool leftNow = input.leftDown;
-    // Concept: the standalone histogram remains interactive even when the main
-    // diagnostics window is hidden, so it gets first chance at mouse input.
-    const bool histogramWasInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
-    if ( ProfilerTab::HandlePerformanceHistogramInput( m_profilerTab,
-                                                       result,
-                                                       screenW,
-                                                       screenH,
-                                                       m_mouseX,
-                                                       m_mouseY,
-                                                       leftNow,
-                                                       input.leftPressed,
-                                                       input.leftReleased,
-                                                       wheelDelta ) )
-    {
-        const bool histogramIsInteracting = ProfilerTab::PerformanceHistogramIsInteracting( m_profilerTab );
-        if ( input.leftPressed && histogramIsInteracting && !histogramWasInteracting )
-        {
-            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-        }
-        if ( input.leftReleased && histogramWasInteracting )
-        {
-            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
-        }
-        m_interaction.blocksCameraMouse = true;
-        return result;
-    }
-    if ( !m_window.isVisible )
-    {
-        return result;
-    }
-    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
-
-    const int minW = 520;
-    const int minH = 250;
-    const int margin = 10;
-    const int titleH = 44;
-    const int tabH = 44;
-    const int bottomH = 78;
-    const int contentPad = 18;
-    const int maxW = (std::max)( minW, screenW - margin * 2 );
-    const int maxH = (std::max)( minH, screenH - margin * 2 );
-
-    if ( !m_window.hasAppliedDefaultPlacement )
-    {
-        Chrome::ApplyDefaultWindowPlacement( m_window, screenW, screenH );
-    }
-    Chrome::ClampWindowToScreen( m_window, screenW, screenH, minW, minH, margin );
-
-    if ( m_window.isMinimized )
-    {
-        const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
-        const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
-        const bool showEditorMiniPalette = editorModeEnabled;
-        const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
-        m_cameraModeCombo.SetLabelVisible( false );
-        m_cameraModeCombo.SetBounds( cameraModeComboBounds.x,
-                                     cameraModeComboBounds.y,
-                                     cameraModeComboBounds.w,
-                                     cameraModeComboBounds.h );
-        m_cameraModeCombo.SetDropUp( true );
-        bool cameraModeComboHandled = false;
-        bool insideCameraModeCombo = false;
-        const uint32_t cameraModeDisabledMask = ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) & ~cameraModeEnabledMask;
-        if ( !showEditorMiniPalette )
-        {
-            if ( m_editorMiniPalettePressActive )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
-            }
-            CancelEditorMiniPaletteInteraction();
-
-            const bool comboOptionHit =
-                m_cameraModeCombo.IsOpen() &&
-                m_cameraModeCombo.HitOption( m_mouseX, m_mouseY, CAMERA_MODE_OPTION_COUNT ) >= 0;
-            const bool comboDropdownHit =
-                m_cameraModeCombo.IsOpen() &&
-                m_cameraModeCombo.DropdownBounds( CAMERA_MODE_OPTION_COUNT ).Contains( m_mouseX, m_mouseY );
-            insideCameraModeCombo =
-                m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) || comboOptionHit || comboDropdownHit;
-            if ( input.leftPressed && m_cameraModeCombo.IsOpen() )
-            {
-                const int option = m_cameraModeCombo.HitOption( m_mouseX, m_mouseY, CAMERA_MODE_OPTION_COUNT );
-                const bool optionDisabled =
-                    option >= 0 && option < 32 && ( cameraModeDisabledMask & ( 1u << option ) ) != 0;
-                if ( option >= 0 && option < CAMERA_MODE_OPTION_COUNT && !optionDisabled )
-                {
-                    result.commands.run.requestedCameraMode = option;
-                    result.commands.ui.userInteracted = true;
-                    m_cameraModeCombo.Close();
-                    m_cache.Reset();
-                    cameraModeComboHandled = true;
-                }
-                else if ( m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) )
-                {
-                    m_cameraModeCombo.ToggleOpen();
-                    result.commands.ui.userInteracted = true;
-                    m_cache.Reset();
-                    cameraModeComboHandled = true;
-                }
-                else if ( option < 0 )
-                {
-                    m_cameraModeCombo.Close();
-                    result.commands.ui.userInteracted = true;
-                    m_cache.Reset();
-                    cameraModeComboHandled = true;
-                }
-            }
-            else if ( input.leftPressed && m_cameraModeCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_cameraModeCombo.ToggleOpen();
-                result.commands.ui.userInteracted = true;
-                m_cache.Reset();
-                cameraModeComboHandled = true;
-            }
-        }
-        else
-        {
-            m_cameraModeCombo.Close();
-        }
-
-        EditorMiniPaletteLayout editorMiniPalette;
-        bool editorMiniPaletteHandled = false;
-        bool insideEditorMiniPalette = false;
-        bool editorMinimizedStatusHandled = false;
-        bool insideEditorMinimizedStatusControl = false;
-        if ( showEditorMiniPalette )
-        {
-            const EditorMinimizedStatusLayout statusLayout = BuildEditorMinimizedStatusLayout( minimized,
-                                                                                               editorPlacementMode,
-                                                                                               editorPlaceStatic,
-                                                                                               editorTerrainAlign );
-            const bool insideModeChip = statusLayout.modeChip.Contains( m_mouseX, m_mouseY );
-            const bool insideBodyChip = statusLayout.bodyChip.Contains( m_mouseX, m_mouseY );
-            const bool insideAlignChip = statusLayout.alignChip.Contains( m_mouseX, m_mouseY );
-            insideEditorMinimizedStatusControl = insideModeChip || insideBodyChip || insideAlignChip;
-            if ( input.leftPressed && insideModeChip )
-            {
-                result.commands.editor.togglePlacementMode = true;
-                result.commands.ui.userInteracted = true;
-                editorMinimizedStatusHandled = true;
-            }
-            else if ( input.leftPressed && insideBodyChip )
-            {
-                result.commands.editor.togglePlaceStatic = true;
-                result.commands.ui.userInteracted = true;
-                editorMinimizedStatusHandled = true;
-            }
-            else if ( input.leftPressed && insideAlignChip )
-            {
-                result.commands.editor.toggleTerrainAlign = true;
-                result.commands.ui.userInteracted = true;
-                editorMinimizedStatusHandled = true;
-            }
-
-            if ( m_editorMiniPalettePressActive && !leftNow && !input.leftReleased )
-            {
-                CancelEditorMiniPaletteInteraction();
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
-            }
-
-            if ( m_editorMiniPalettePressActive && !m_editorMiniPaletteFlyoutOpen &&
-                 m_editorMiniPalettePressedHoldMode != EDITOR_MINI_HOLD_MODE_NONE &&
-                 now - m_editorMiniPalettePressStart >= EDITOR_MINI_HOLD_SECONDS )
-            {
-                m_editorMiniPaletteFlyoutOpen = true;
-            }
-
-            editorMiniPalette = BuildEditorMiniPaletteLayout( screenW,
-                                                              screenH,
-                                                              minimized,
-                                                              m_editorMiniPalettePressedEntry,
-                                                              m_editorMiniPaletteFlyoutOpen );
-            insideEditorMiniPalette = EditorMiniPaletteContains( editorMiniPalette, m_mouseX, m_mouseY );
-
-            const auto SelectEditorMiniPaletteObject =
-                [&]( int objectType, bool requestPlaceStatic = false, bool placeStatic = false ) -> void
-            {
-                result.commands.editor.requestedObjectType =
-                    std::clamp( objectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );
-                if ( requestPlaceStatic )
-                {
-                    result.commands.editor.requestPlaceStatic = true;
-                    result.commands.editor.requestedPlaceStatic = placeStatic;
-                }
-                result.commands.editor.enterPlacementMode = true;
-                result.commands.ui.userInteracted = true;
-                editorMiniPaletteHandled = true;
-            };
-
-            if ( input.leftPressed && insideEditorMiniPalette )
-            {
-                const int pressedButton = HitEditorMiniPaletteButton( editorMiniPalette, m_mouseX, m_mouseY );
-                if ( pressedButton >= 0 )
-                {
-                    const EditorMiniPaletteEntry& entry = kEditorMiniPaletteEntries[pressedButton];
-                    if ( entry.holdMode != EDITOR_MINI_HOLD_MODE_NONE )
-                    {
-                        m_editorMiniPalettePressActive = true;
-                        m_editorMiniPaletteFlyoutOpen = false;
-                        m_editorMiniPalettePressedEntry = pressedButton;
-                        m_editorMiniPalettePressedObjectType = entry.objectType;
-                        m_editorMiniPalettePressedTreePlacement = entry.treePlacement;
-                        m_editorMiniPalettePressedHoldMode = entry.holdMode;
-                        m_editorMiniPalettePressStart = now;
-                        result.commands.ui.userInteracted = true;
-                        editorMiniPaletteHandled = true;
-                        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-                    }
-                    else
-                    {
-                        SelectEditorMiniPaletteObject( entry.objectType );
-                    }
-                }
-            }
-
-            if ( m_editorMiniPalettePressActive )
-            {
-                result.commands.ui.userInteracted = true;
-                editorMiniPaletteHandled = true;
-
-                if ( input.leftReleased )
-                {
-                    int selectedObjectType = -1;
-                    bool requestPlaceStatic = false;
-                    bool requestedPlaceStatic = false;
-                    if ( m_editorMiniPaletteFlyoutOpen )
-                    {
-                        const int flyoutOption =
-                            HitEditorMiniPaletteFlyoutOption( editorMiniPalette, m_mouseX, m_mouseY );
-                        if ( flyoutOption >= 0 )
-                        {
-                            if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_TREE_TYPES )
-                            {
-                                selectedObjectType =
-                                    EditorMiniTreeObjectType( flyoutOption, m_editorMiniPalettePressedTreePlacement );
-                            }
-                            else if ( m_editorMiniPalettePressedHoldMode == EDITOR_MINI_HOLD_MODE_RAGDOLL_MODES )
-                            {
-                                selectedObjectType = EditorMiniRagdollObjectType( flyoutOption );
-                            }
-                        }
-                    }
-                    else if ( m_editorMiniPalettePressedEntry >= 0 &&
-                              m_editorMiniPalettePressedEntry < editorMiniPalette.buttonCount &&
-                              editorMiniPalette.buttons[m_editorMiniPalettePressedEntry].Contains( m_mouseX,
-                                                                                                   m_mouseY ) )
-                    {
-                        selectedObjectType = m_editorMiniPalettePressedObjectType;
-                    }
-
-                    if ( selectedObjectType >= 0 )
-                    {
-                        requestPlaceStatic = EditorMiniSelectionRequestsStatic( m_editorMiniPalettePressedHoldMode,
-                                                                                m_editorMiniPalettePressedTreePlacement,
-                                                                                requestedPlaceStatic );
-                        SelectEditorMiniPaletteObject( selectedObjectType, requestPlaceStatic, requestedPlaceStatic );
-                    }
-                    CancelEditorMiniPaletteInteraction();
-                    result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
-                }
-            }
-        }
-
-        if ( insideMinimized || insideCameraModeCombo || cameraModeComboHandled || insideEditorMiniPalette ||
-             insideEditorMinimizedStatusControl || m_editorMiniPalettePressActive )
-        {
-            result.unhandledWheelDelta = 0;
-        }
-        if ( input.leftPressed && insideMinimized && !cameraModeComboHandled && !editorMiniPaletteHandled &&
-             !editorMinimizedStatusHandled )
-        {
-            SetMinimized( false, now );
-            result.commands.ui.userInteracted = true;
-        }
-        m_interaction.blocksCameraMouse = insideMinimized || insideCameraModeCombo || cameraModeComboHandled ||
-                                          insideEditorMiniPalette || insideEditorMinimizedStatusControl ||
-                                          m_editorMiniPalettePressActive;
-        return result;
-    }
-
-    const UIRect inputBounds = Chrome::CurrentWindowRect( m_window, now );
-    const int inputX = static_cast<int>( std::round( inputBounds.x ) );
-    const int inputY = static_cast<int>( std::round( inputBounds.y ) );
-    const int inputW = static_cast<int>( std::round( inputBounds.w ) );
-    const int inputH = static_cast<int>( std::round( inputBounds.h ) );
-    const UIRect inputHitBounds = { static_cast<float>( inputX ),
-                                    static_cast<float>( inputY ),
-                                    static_cast<float>( inputW ),
-                                    static_cast<float>( inputH ) };
-    const bool inside =
-        m_mouseX >= inputX && m_mouseX <= inputX + inputW && m_mouseY >= inputY && m_mouseY <= inputY + inputH;
-    const bool inTitle = inside && m_mouseY < inputY + titleH;
-    const bool inTabs = inside && m_mouseY >= inputY + titleH && m_mouseY < inputY + titleH + tabH;
-    const bool inResize =
-        !m_window.isMaximized && inside && Chrome::IsResizeHotspot( inputHitBounds, m_mouseX, m_mouseY );
-    const int contentY = inputY + titleH + tabH + 12;
-    const int contentH = (std::max)( 24, inputH - titleH - tabH - bottomH - contentPad );
-    const int bottomY = inputY + inputH - bottomH;
-    const bool inContent = inside && m_mouseY >= contentY && m_mouseY <= contentY + contentH;
-    const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
-    const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( inputHitBounds );
-
-    if ( inside )
-    {
-        result.unhandledWheelDelta = 0;
-    }
-
-    m_tabBar.SetBounds( static_cast<float>( inputX + 14 ),
-                        static_cast<float>( inputY + titleH ),
-                        static_cast<float>( inputW - 28 ),
-                        static_cast<float>( tabH ) );
-    const float footerX = static_cast<float>( inputX );
-    const float footerY = static_cast<float>( bottomY );
-    const UIRect rendererComboBounds = FooterRendererComboBounds( footerX, footerY );
-    const UIRect waterComboBounds = FooterWaterComboBounds( footerX, footerY );
-    const UIRect blurBounds = FooterBlurBounds( footerX, footerY );
-    const UIRect vsyncBounds = FooterVsyncBounds( footerX, footerY );
-    const UIRect hitboxBounds = FooterHitboxBounds( footerX, footerY );
-    const UIRect timelineBounds = FooterTimelineBounds( footerX, footerY );
-    const UIRect perfBounds = FooterPerfBounds( footerX, footerY );
-    m_rendererCombo.SetBounds( rendererComboBounds.x,
-                               rendererComboBounds.y,
-                               rendererComboBounds.w,
-                               rendererComboBounds.h );
-    m_rendererCombo.SetDropUp( true );
-    m_reflectionCombo.SetBounds( waterComboBounds.x, waterComboBounds.y, waterComboBounds.w, waterComboBounds.h );
-    m_reflectionCombo.SetDropUp( true );
-    m_blurToggle.SetBounds( blurBounds.x, blurBounds.y, blurBounds.w, blurBounds.h );
-    m_vsyncToggle.SetBounds( vsyncBounds.x, vsyncBounds.y, vsyncBounds.w, vsyncBounds.h );
-    m_hitboxToggle.SetBounds( hitboxBounds.x, hitboxBounds.y, hitboxBounds.w, hitboxBounds.h );
-    m_histogramToggle.SetBounds( perfBounds.x, perfBounds.y, perfBounds.w, perfBounds.h );
-    m_timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
-    {
-        const float contentX = static_cast<float>( inputX + contentPad );
-        const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-        const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-        m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
-        m_renderTargetCombo.SetDropUp( false );
-    }
-
-    if ( ( leftNow && ( inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0 ) ) ||
-         ( wheelDelta != 0 && inside ) )
-    {
-        result.commands.ui.userInteracted = true;
-    }
-
-    if ( m_activeTab == InGameUITab::Scene )
-    {
-        SceneTab::UpdateFilterTyping( m_sceneTab,
-                                      m_sceneCombo,
-                                      result,
-                                      deviceFrame.keys,
-                                      sceneOptions,
-                                      sceneOptionCount );
-    }
-
-    bool wheelHandled = false;
-    if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
-    {
-        const float contentX = static_cast<float>( inputX + contentPad );
-        const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-        wheelHandled = SceneTab::HandleComboWheel( m_sceneTab,
-                                                   m_sceneCombo,
-                                                   sceneOptions,
-                                                   sceneOptionCount,
-                                                   m_mouseX,
-                                                   m_mouseY,
-                                                   wheelDelta,
-                                                   contentX,
-                                                   rowBase,
-                                                   contentW );
-    }
-
-    if ( wheelDelta != 0 && inContent && !wheelHandled )
-    {
-        m_scrollY -= static_cast<float>( wheelDelta ) / static_cast<float>( WHEEL_DELTA ) * 42.0f;
-        m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
-        m_scrollbarVisibleUntil = now + 1.4;
-    }
-
-    if ( input.leftPressed )
-    {
-        if ( titleButtons.minimize.Contains( m_mouseX, m_mouseY ) || titleButtons.close.Contains( m_mouseX, m_mouseY ) )
-        {
-            SetMinimized( true, now );
-        }
-        else if ( titleButtons.maximize.Contains( m_mouseX, m_mouseY ) )
-        {
-            SetMaximized( !m_window.isMaximized, screenW, screenH, now );
-        }
-        else if ( inResize )
-        {
-            m_interaction.isResizing = true;
-            m_interaction.resizeStartMouseX = m_mouseX;
-            m_interaction.resizeStartMouseY = m_mouseY;
-            m_interaction.resizeStartW = inputW;
-            m_interaction.resizeStartH = inputH;
-            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-        }
-        else if ( inTitle )
-        {
-            m_interaction.isDragging = true;
-            m_interaction.dragOffsetX = m_mouseX - inputX;
-            m_interaction.dragOffsetY = m_mouseY - inputY;
-            result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-        }
-        else if ( inTabs )
-        {
-            static const int kTabCount = static_cast<int>( InGameUITab::Count );
-            const int index = m_tabBar.HitTest( m_mouseX, m_mouseY, kTabCount );
-            if ( index >= 0 && index < kTabCount )
-            {
-                SetActiveTab( static_cast<InGameUITab>( index ) );
-                m_scrollbarVisibleUntil = now + 1.0;
-            }
-        }
-        else if ( m_sceneCombo.IsOpen() )
-        {
-            if ( m_activeTab == InGameUITab::Scene )
-            {
-                const float contentX = static_cast<float>( inputX + contentPad );
-                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-                SceneTab::HandleOpenComboClick( m_sceneTab,
-                                                m_sceneCombo,
-                                                m_resetSceneButton,
-                                                m_resetDefaultsButton,
-                                                m_saveDefaultsButton,
-                                                result,
-                                                sceneOptions,
-                                                sceneOptionCount,
-                                                m_mouseX,
-                                                m_mouseY,
-                                                contentX,
-                                                rowBase,
-                                                contentW );
-            }
-            else
-            {
-                CloseSceneCombo();
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
-        }
-        else if ( CinematicTab::IsComboOpen( m_cinematicTab ) )
-        {
-            CinematicTab::HandleOpenComboClick( m_cinematicTab,
-                                                result,
-                                                sceneOptions,
-                                                sceneOptionCount,
-                                                m_mouseX,
-                                                m_mouseY );
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CloseSceneCombo();
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
-        }
-        else if ( m_renderTargetCombo.IsOpen() )
-        {
-            if ( m_activeTab == InGameUITab::Targets )
-            {
-                const int option = m_renderTargetCombo.HitOption( m_mouseX, m_mouseY, m_lastRenderTargetPreviewCount );
-                const bool optionDisabled =
-                    option >= 0 && option < 32 && ( m_lastRenderTargetDisabledMask & ( 1u << option ) ) != 0;
-                if ( option >= 0 && option < m_lastRenderTargetPreviewCount && !optionDisabled )
-                {
-                    m_selectedRenderTargetPreview = option;
-                    m_renderTargetCombo.Close();
-                    m_cache.Reset();
-                }
-                else if ( m_renderTargetCombo.HitBox( m_mouseX, m_mouseY ) )
-                {
-                    m_renderTargetCombo.ToggleOpen();
-                }
-                else if ( option < 0 )
-                {
-                    m_renderTargetCombo.Close();
-                }
-            }
-            else
-            {
-                m_renderTargetCombo.Close();
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-        }
-        else if ( m_editorTab.objectCombo.IsOpen() )
-        {
-            if ( m_activeTab == InGameUITab::Editor )
-            {
-                const float contentX = static_cast<float>( inputX + contentPad );
-                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-                EditorTab::HandleContentClick( m_editorTab, result, m_mouseX, m_mouseY, contentX, rowBase, contentW );
-            }
-            else
-            {
-                m_editorTab.objectCombo.Close();
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_renderTargetCombo.Close();
-        }
-        else if ( m_reflectionCombo.IsOpen() )
-        {
-            const int option = m_reflectionCombo.HitOption( m_mouseX, m_mouseY, 3 );
-            if ( option >= 0 && option < 3 )
-            {
-                result.commands.water.requestedWaterReflectionMode = option;
-                m_reflectionCombo.Close();
-            }
-            else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_reflectionCombo.ToggleOpen();
-            }
-            else
-            {
-                m_reflectionCombo.Close();
-            }
-            m_rendererCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
-        }
-        else if ( m_rendererCombo.IsOpen() )
-        {
-            const int option = m_rendererCombo.HitOption( m_mouseX, m_mouseY, 1 );
-            if ( option == 0 )
-            {
-                m_rendererCombo.Close();
-            }
-            else if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_rendererCombo.ToggleOpen();
-                m_reflectionCombo.Close();
-                CloseSceneCombo();
-                CinematicTab::CloseCombo( m_cinematicTab );
-                m_editorTab.objectCombo.Close();
-                m_renderTargetCombo.Close();
-            }
-            else if ( !m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_rendererCombo.Close();
-            }
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Profiler )
-        {
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            if ( ProfilerTab::HandleContentClick( m_profilerTab,
-                                                  result,
-                                                  m_activeSlider,
-                                                  inputX + contentPad,
-                                                  contentY,
-                                                  contentW,
-                                                  m_scrollY,
-                                                  m_mouseX,
-                                                  m_mouseY,
-                                                  m_lastWorkerThreadCount,
-                                                  m_lastMaxWorkerThreadCount ) )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-                m_scrollbarVisibleUntil = now + 1.2;
-            }
-            m_rendererCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Memory )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            if ( MemoryTab::HandleContentClick( m_memoryOverlay,
-                                                result,
-                                                m_activeSlider,
-                                                m_mouseX,
-                                                m_mouseY,
-                                                contentX,
-                                                scrolledY,
-                                                contentW ) )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-                m_scrollbarVisibleUntil = now + 1.2;
-            }
-            m_rendererCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Scene )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const bool sceneClickHandled = SceneTab::HandleContentClick( m_sceneTab,
-                                                                         m_sceneCombo,
-                                                                         m_resetSceneButton,
-                                                                         m_resetDefaultsButton,
-                                                                         m_saveDefaultsButton,
-                                                                         result,
-                                                                         deviceFrame.keys,
-                                                                         m_activeSlider,
-                                                                         sceneOptions,
-                                                                         sceneOptionCount,
-                                                                         selectedSceneOption,
-                                                                         m_mouseX,
-                                                                         m_mouseY,
-                                                                         contentX,
-                                                                         rowBase,
-                                                                         contentW );
-            m_rendererCombo.Close();
-            if ( sceneClickHandled )
-            {
-                m_reflectionCombo.Close();
-                CinematicTab::CloseCombo( m_cinematicTab );
-                m_editorTab.objectCombo.Close();
-            }
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Editor )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            EditorTab::HandleContentClick( m_editorTab, result, m_mouseX, m_mouseY, contentX, rowBase, contentW );
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CloseSceneCombo();
-            CinematicTab::CloseCombo( m_cinematicTab );
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Physics )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const int previousActiveSlider = m_activeSlider;
-            if ( PhysicsTab::HandleContentClick( m_physicsTab,
-                                                 result,
-                                                 m_activeSlider,
-                                                 m_mouseX,
-                                                 m_mouseY,
-                                                 contentX,
-                                                 rowBase,
-                                                 contentW ) &&
-                 m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Sound )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            const int previousActiveSlider = m_activeSlider;
-            if ( SoundTab::HandleContentClick( m_soundTab,
-                                               result,
-                                               m_activeSlider,
-                                               m_mouseX,
-                                               m_mouseY,
-                                               contentX,
-                                               scrolledY,
-                                               contentW ) &&
-                 m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Options )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            if ( OptionsTab::HandleContentClick( m_optionsTab,
-                                                 result,
-                                                 m_activeSlider,
-                                                 m_mouseX,
-                                                 m_mouseY,
-                                                 contentX,
-                                                 rowBase,
-                                                 contentW,
-                                                 m_lastModelCapacity ) )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Render )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            bool capturedSlider = false;
-
-            const float colW = (std::max)( 148.0f, contentW * 0.46f );
-            m_renderShadowToggle.SetBounds( contentX, scrolledY + UI_RENDER_FEATURE_START_Y, colW, 24.0f );
-            m_saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
-                                                  scrolledY + UI_RENDER_FEATURE_START_Y,
-                                                  UI_RENDER_SAVE_BUTTON_W,
-                                                  24.0f );
-            if ( m_renderShadowToggle.HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.renderTuning.toggleShadows = true;
-            }
-            else if ( m_saveRenderDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.renderTuning.saveDefaults = true;
-            }
-            else
-            {
-                const float rowBase = scrolledY + UI_RENDER_START_Y;
-                for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
-                {
-                    m_renderSliders[i].SetBounds( contentX, RenderSliderY( i, rowBase ), contentW, 34.0f );
-                    if ( m_renderSliders[i].HitTest( m_mouseX, m_mouseY ) )
-                    {
-                        m_activeSlider = UI_RENDER_SLIDER_BASE + i;
-                        SetRenderSliderResult( result, m_renderSliders[i], m_mouseX, kRenderSliderSpecs[i] );
-                        capturedSlider = true;
-                        break;
-                    }
-                }
-            }
-
-            if ( capturedSlider )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_renderTargetCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Targets )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
-            if ( m_renderTargetCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_renderTargetCombo.ToggleOpen();
-                m_rendererCombo.Close();
-                m_reflectionCombo.Close();
-                CloseSceneCombo();
-                CinematicTab::CloseCombo( m_cinematicTab );
-                m_editorTab.objectCombo.Close();
-            }
-            else
-            {
-                m_rendererCombo.Close();
-                m_reflectionCombo.Close();
-                CloseSceneCombo();
-                CinematicTab::CloseCombo( m_cinematicTab );
-                m_editorTab.objectCombo.Close();
-                m_renderTargetCombo.Close();
-            }
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Sky )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            const bool capturedSlider = SkyTab::HandleContentClick( m_skyTab,
-                                                                    result,
-                                                                    m_activeSlider,
-                                                                    m_mouseX,
-                                                                    m_mouseY,
-                                                                    contentX,
-                                                                    scrolledY,
-                                                                    contentW );
-
-            if ( capturedSlider )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_renderTargetCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Cinematic )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            const bool capturedSlider = CinematicTab::HandleContentClick( m_cinematicTab,
-                                                                          result,
-                                                                          m_activeSlider,
-                                                                          m_mouseX,
-                                                                          m_mouseY,
-                                                                          contentX,
-                                                                          scrolledY,
-                                                                          contentW );
-
-            if ( capturedSlider )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-        }
-        else if ( inContent && m_activeTab == InGameUITab::Keys )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            if ( ControlsTab::HandleContentClick( m_controlsTab,
-                                                  result,
-                                                  m_activeSlider,
-                                                  m_mouseX,
-                                                  m_mouseY,
-                                                  contentX,
-                                                  rowBase,
-                                                  contentW,
-                                                  m_lastModelCapacity,
-                                                  m_lastSolverBallCount,
-                                                  m_lastSolverBoxCount ) )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-        }
-        else if ( inside && m_mouseY >= inputY + inputH - bottomH )
-        {
-            if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_rendererCombo.ToggleOpen();
-                m_reflectionCombo.Close();
-                CloseSceneCombo();
-                CinematicTab::CloseCombo( m_cinematicTab );
-                m_editorTab.objectCombo.Close();
-                m_renderTargetCombo.Close();
-            }
-            else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                m_reflectionCombo.ToggleOpen();
-                m_rendererCombo.Close();
-                CloseSceneCombo();
-                CinematicTab::CloseCombo( m_cinematicTab );
-                m_editorTab.objectCombo.Close();
-                m_renderTargetCombo.Close();
-            }
-            else if ( m_blurToggle.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_blurPreviewEnabled = !m_blurPreviewEnabled;
-                m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Toggle );
-            }
-            else if ( m_vsyncToggle.HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.renderer.toggleVsync = true;
-            }
-            else if ( m_hitboxToggle.HitTest( m_mouseX, m_mouseY ) )
-            {
-                SetHitboxOverlayEnabled( !m_hitboxOverlayEnabled );
-            }
-            else if ( m_histogramToggle.HitTest( m_mouseX, m_mouseY ) )
-            {
-                SetPerformanceHistogramEnabled( !ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
-            }
-            else if ( m_timelineToggle.HitTest( m_mouseX, m_mouseY ) )
-            {
-                SetProfilerTimelineEnabled( !ProfilerTab::TimelineEnabled( m_profilerTab ) );
-            }
-        }
-        else
-        {
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
-        }
-    }
-
-    if ( leftNow && m_activeSlider != 0 )
-    {
-        // Sliders update previews continuously while dragged.  Heavy operations
-        // such as rebuilding generated bodies are delayed until mouse release,
-        // but cheap scalar controls are emitted every frame for immediate feedback.
-        if ( !SceneTab::UpdateActiveSlider( m_sceneTab, m_activeSlider, m_mouseX, result ) &&
-             !ProfilerTab::UpdateActiveSlider( m_profilerTab,
-                                               m_activeSlider,
-                                               m_mouseX,
-                                               m_lastMaxWorkerThreadCount,
-                                               result ) &&
-             !MemoryTab::UpdateActiveSlider( m_memoryOverlay, m_activeSlider, m_mouseX, result ) &&
-             !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
-             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) &&
-             !SoundTab::UpdateActiveSlider( m_soundTab, m_activeSlider, m_mouseX, result ) )
-        {
-            const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
-            if ( renderSlider >= 0 )
-            {
-                SetRenderSliderResult( result,
-                                       m_renderSliders[renderSlider],
-                                       m_mouseX,
-                                       kRenderSliderSpecs[renderSlider] );
-            }
-            else
-            {
-                if ( !SkyTab::UpdateActiveSlider( m_skyTab, m_activeSlider, m_mouseX, result ) &&
-                     !CinematicTab::UpdateActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
-                {
-                    ControlsTab::UpdateActiveSlider( m_controlsTab,
-                                                     m_activeSlider,
-                                                     m_mouseX,
-                                                     m_lastModelCapacity,
-                                                     m_lastSolverBallCount,
-                                                     m_lastSolverBoxCount,
-                                                     result );
-                }
-            }
-        }
-    }
-
-    if ( leftNow && m_interaction.isDragging )
-    {
-        const int oldX = m_window.x;
-        const int oldY = m_window.y;
-        m_window.x = std::clamp( m_mouseX - m_interaction.dragOffsetX,
-                                 margin,
-                                 (std::max)( margin, screenW - m_window.width - margin ) );
-        m_window.y = std::clamp( m_mouseY - m_interaction.dragOffsetY,
-                                 margin,
-                                 (std::max)( margin, screenH - m_window.height - margin ) );
-        if ( oldX != m_window.x || oldY != m_window.y )
-        {
-            m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
-        }
-    }
-    if ( leftNow && m_interaction.isResizing )
-    {
-        const int oldW = m_window.width;
-        const int oldH = m_window.height;
-        m_window.width =
-            std::clamp( m_interaction.resizeStartW + m_mouseX - m_interaction.resizeStartMouseX, minW, maxW );
-        m_window.height =
-            std::clamp( m_interaction.resizeStartH + m_mouseY - m_interaction.resizeStartMouseY, minH, maxH );
-        m_scrollbarVisibleUntil = now + 1.4;
-        if ( oldW != m_window.width || oldH != m_window.height )
-        {
-            m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
-        }
-    }
-
-    if ( input.leftReleased )
-    {
-        // Commit deferred slider previews exactly once on release.  This avoids
-        // rebuilding solver objects or generated model pools every mouse-move
-        // while still letting the drawn slider thumb track the user's drag.
-        if ( !SceneTab::CommitActiveSlider( m_sceneTab, m_activeSlider, result ) &&
-             !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
-             !MemoryTab::CommitActiveSlider( m_memoryOverlay, m_activeSlider, result ) &&
-             !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
-             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) &&
-             !SoundTab::CommitActiveSlider( m_soundTab, m_activeSlider, result ) )
-        {
-            const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
-            if ( renderSlider >= 0 )
-            {
-                SetRenderSliderResult( result,
-                                       m_renderSliders[renderSlider],
-                                       m_mouseX,
-                                       kRenderSliderSpecs[renderSlider] );
-            }
-            else
-            {
-                if ( !SkyTab::CommitActiveSlider( m_skyTab, m_activeSlider, m_mouseX, result ) &&
-                     !CinematicTab::CommitActiveSlider( m_cinematicTab, m_activeSlider, m_mouseX, result ) )
-                {
-                    ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
-                }
-            }
-        }
-        m_activeSlider = 0;
-        SceneTab::ResetPreviewState( m_sceneTab );
-        ProfilerTab::ResetPreviewState( m_profilerTab );
-        MemoryTab::ResetPreviewState( m_memoryOverlay );
-        OptionsTab::ResetPreviewState( m_optionsTab );
-        PhysicsTab::ResetPreviewState( m_physicsTab );
-        ControlsTab::ResetPreviewState( m_controlsTab );
-        SoundTab::ResetPreviewState( m_soundTab );
-        m_interaction.isDragging = false;
-        m_interaction.isResizing = false;
-        result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;
-    }
-
-    m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
-    m_interaction.blocksCameraMouse =
-        inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
-    return result;
+    return m_windowInteraction.UpdateInput( m_profiler,
+                                            deviceFrame,
+                                            mouse,
+                                            screenW,
+                                            screenH,
+                                            now,
+                                            editorModeEnabled,
+                                            editorPlacementMode,
+                                            editorPlaceStatic,
+                                            editorTerrainAlign,
+                                            editorObjectType,
+                                            cameraModeIndex,
+                                            cameraModeEnabledMask,
+                                            sceneOptions,
+                                            sceneOptionCount,
+                                            selectedSceneOption );
 }
-
-
 void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& render )
 {
-    const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( m_profilerTab );
-    const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( m_memoryOverlay );
+    auto widgets = m_windowInteraction.Widgets();
+    const bool histogramEnabled = ProfilerTab::PerformanceHistogramEnabled( widgets.profilerTab );
+    const bool memoryOverlayEnabled = MemoryTab::OverlayEnabled( widgets.memoryOverlay );
     // Why: input handling runs before the next draw, so the profiler tab keeps a
     // bounded copy of the latest frame snapshot for content height and hit tests.
-    ProfilerTab::SetFrameSnapshot( m_profilerTab, data.profiler );
-    if ( !m_window.isVisible && !histogramEnabled && !memoryOverlayEnabled )
+    ProfilerTab::SetFrameSnapshot( widgets.profilerTab, data.profiler );
+    if ( !widgets.window.isVisible && !histogramEnabled && !memoryOverlayEnabled )
     {
         return;
     }
@@ -1712,16 +408,17 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
     const int screenW = (std::max)( 1, data.screenW );
     const int screenH = (std::max)( 1, data.screenH );
-    m_lastScreenW = screenW;
-    m_lastScreenH = screenH;
-    m_lastModelCapacity = std::clamp( data.modelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_lastSolverBallCount = std::clamp( data.solverBallCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
-    m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, m_lastModelCapacity );
-    m_lastMaxWorkerThreadCount = (std::max)( 1, data.maxWorkerThreadCount );
-    m_lastWorkerThreadCount = std::clamp( data.workerThreadCount, 0, m_lastMaxWorkerThreadCount );
-    m_lastRenderTargetPreviewCount = RenderTargetPreviewCount( data );
-    m_lastRenderTargetDisabledMask = RenderTargetPreviewDisabledMask( data );
-    m_selectedRenderTargetPreview = ResolveRenderTargetPreviewSelection( data, m_selectedRenderTargetPreview );
+    widgets.lastScreenW = screenW;
+    widgets.lastScreenH = screenH;
+    widgets.lastModelCapacity = std::clamp( data.modelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    widgets.lastSolverBallCount = std::clamp( data.solverBallCount, UI_SOLVER_COUNT_MIN, widgets.lastModelCapacity );
+    widgets.lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, widgets.lastModelCapacity );
+    widgets.lastMaxWorkerThreadCount = (std::max)( 1, data.maxWorkerThreadCount );
+    widgets.lastWorkerThreadCount = std::clamp( data.workerThreadCount, 0, widgets.lastMaxWorkerThreadCount );
+    widgets.lastRenderTargetPreviewCount = RenderTargetPreviewCount( data );
+    widgets.lastRenderTargetDisabledMask = RenderTargetPreviewDisabledMask( data );
+    widgets.selectedRenderTargetPreview =
+        ResolveRenderTargetPreviewSelection( data, widgets.selectedRenderTargetPreview );
 
     auto drawHistogramOverlay = [&]()
     {
@@ -1735,7 +432,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         // every frame.
         m_histogramDrawList.Clear();
         const UIDrawContext histogramDraw( screenW, screenH, &m_histogramDrawList, nullptr, &textBatch );
-        ProfilerTab::DrawPerformanceHistogram( m_profilerTab, histogramDraw, data );
+        ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, data );
         FlushUIDrawList( m_histogramDrawList,
                          textBatch,
                          m_profiler,
@@ -1757,10 +454,10 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         // the CPU histogram's current position when both are visible.
         m_memoryOverlayDrawList.Clear();
         const UIDrawContext memoryDraw( screenW, screenH, &m_memoryOverlayDrawList, nullptr, &textBatch );
-        const float memoryX = histogramEnabled ? m_profilerTab.histogramPanelX : 16.0f;
+        const float memoryX = histogramEnabled ? widgets.profilerTab.histogramPanelX : 16.0f;
         const float memoryY =
-            histogramEnabled ? m_profilerTab.histogramPanelY + m_profilerTab.histogramPanelH + 8.0f : 16.0f;
-        MemoryTab::DrawOverlay( m_memoryOverlay, memoryDraw, data, memoryX, memoryY );
+            histogramEnabled ? widgets.profilerTab.histogramPanelY + widgets.profilerTab.histogramPanelH + 8.0f : 16.0f;
+        MemoryTab::DrawOverlay( widgets.memoryOverlay, memoryDraw, data, memoryX, memoryY );
         FlushUIDrawList( m_memoryOverlayDrawList,
                          textBatch,
                          m_profiler,
@@ -1778,29 +475,29 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
     if ( histogramEnabled )
     {
-        ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data );
+        ProfilerTab::PushPerformanceHistogramSample( widgets.profilerTab, data );
     }
     if ( memoryOverlayEnabled )
     {
-        MemoryTab::PushOverlayFrame( m_memoryOverlay, data );
+        MemoryTab::PushOverlayFrame( widgets.memoryOverlay, data );
     }
 
-    if ( !m_window.isVisible )
+    if ( !widgets.window.isVisible )
     {
         drawStandaloneOverlays();
         return;
     }
 
-    if ( m_window.isMinimized )
+    if ( widgets.window.isMinimized )
     {
-        m_cache.Reset();
-        UIDrawList& drawList = m_cache.MutableDrawList();
+        widgets.cache.Reset();
+        UIDrawList& drawList = widgets.cache.MutableDrawList();
         drawList.Clear();
         const UIDrawContext draw( screenW, screenH, &drawList, nullptr, &textBatch );
-        if ( m_window.animationActive && m_window.animationToMinimized )
+        if ( widgets.window.animationActive && widgets.window.animationToMinimized )
         {
-            const UIRect animBounds = Chrome::CurrentWindowRect( m_window, data.now );
-            if ( m_window.animationActive )
+            const UIRect animBounds = Chrome::CurrentWindowRect( widgets.window, data.now );
+            if ( widgets.window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
                 FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
@@ -1815,41 +512,41 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         {
             StripMinimizedRuntimeModeSuffix( data, titleText, sizeof( titleText ) );
         }
-        m_window.minimizedWidth =
+        widgets.window.minimizedWidth =
             data.editorModeEnabled
                 ? EditorMinimizedWidth( data, screenW )
                 : (std::min)( MinimizedWidthWithCameraModeCombo( titleText, screenW ), MINIMIZED_RUN_MAX_W );
-        const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
+        const UIRect minimized = MinimizedRect( screenW, screenH, widgets.window.minimizedWidth );
         if ( data.editorModeEnabled )
         {
             const EditorMiniPaletteLayout editorMiniPalette =
                 BuildEditorMiniPaletteLayout( screenW,
                                               screenH,
                                               minimized,
-                                              m_editorMiniPalettePressedEntry,
-                                              m_editorMiniPaletteFlyoutOpen );
+                                              widgets.editorMiniPalettePressedEntry,
+                                              widgets.editorMiniPaletteFlyoutOpen );
             DrawEditorMiniPalette( draw,
                                    editorMiniPalette,
                                    data.editorObjectType,
                                    data.editorPlaceStatic,
-                                   m_mouseX,
-                                   m_mouseY,
-                                   m_editorMiniPalettePressedTreePlacement,
-                                   m_editorMiniPalettePressedHoldMode,
-                                   m_editorMiniPalettePressedEntry,
+                                   widgets.mouseX,
+                                   widgets.mouseY,
+                                   widgets.editorMiniPalettePressedTreePlacement,
+                                   widgets.editorMiniPalettePressedHoldMode,
+                                   widgets.editorMiniPalettePressedEntry,
                                    screenW,
                                    screenH );
-            DrawEditorMinimizedWindow( draw, minimized, data, m_mouseX, m_mouseY );
+            DrawEditorMinimizedWindow( draw, minimized, data, widgets.mouseX, widgets.mouseY );
         }
         else
         {
             const UIRect cameraModeComboBounds = MinimizedCameraModeComboBounds( minimized );
-            m_cameraModeCombo.SetLabelVisible( false );
-            m_cameraModeCombo.SetBounds( cameraModeComboBounds.x,
-                                         cameraModeComboBounds.y,
-                                         cameraModeComboBounds.w,
-                                         cameraModeComboBounds.h );
-            m_cameraModeCombo.SetDropUp( true );
+            widgets.cameraModeCombo.SetLabelVisible( false );
+            widgets.cameraModeCombo.SetBounds( cameraModeComboBounds.x,
+                                               cameraModeComboBounds.y,
+                                               cameraModeComboBounds.w,
+                                               cameraModeComboBounds.h );
+            widgets.cameraModeCombo.SetDropUp( true );
             const float titleMaxW =
                 (std::max)( 40.0f, cameraModeComboBounds.x - ( minimized.x + 32.0f ) - MINIMIZED_CAMERA_MODE_GAP );
             Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, titleMaxW );
@@ -1858,14 +555,14 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             const uint32_t cameraModeDisabledMask =
                 ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) &
                 ~( data.cameraModeEnabledMask & ( ( 1u << CAMERA_MODE_OPTION_COUNT ) - 1u ) );
-            m_cameraModeCombo.Draw( draw,
-                                    "",
-                                    kCameraModeOptions,
-                                    CAMERA_MODE_OPTION_COUNT,
-                                    cameraModeIndex,
-                                    m_mouseX,
-                                    m_mouseY,
-                                    cameraModeDisabledMask );
+            widgets.cameraModeCombo.Draw( draw,
+                                          "",
+                                          kCameraModeOptions,
+                                          CAMERA_MODE_OPTION_COUNT,
+                                          cameraModeIndex,
+                                          widgets.mouseX,
+                                          widgets.mouseY,
+                                          cameraModeDisabledMask );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
         FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
@@ -1874,7 +571,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     }
 
     PROFILE_BEGIN( m_profiler, "Frame/UI/Layout" );
-    const UIRect windowBounds = Chrome::CurrentWindowRect( m_window, data.now );
+    const UIRect windowBounds = Chrome::CurrentWindowRect( widgets.window, data.now );
     const float x = windowBounds.x;
     const float y = windowBounds.y;
     const float w = windowBounds.w;
@@ -1887,7 +584,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     const float contentY = y + titleH + tabH + 12.0f;
     const float contentW = w - pad * 2.0f - 8.0f;
     const float contentH = (std::max)( 30.0f, h - titleH - tabH - bottomH - pad );
-    const float scrolledY = contentY - m_scrollY;
+    const float scrolledY = contentY - widgets.scrollY;
     char titleText[192] = {};
     Chrome::BuildWindowTitle( data, titleText, sizeof( titleText ) );
     const bool useTitleStats = w - 36.0f < 560.0f;
@@ -1903,41 +600,42 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         titleMaxW = titleStatX - ( x + 20.0f ) - 10.0f;
     }
     Chrome::FitTitleText( titleText, sizeof( titleText ), 15.5f, (std::max)( 40.0f, titleMaxW ) );
-    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
-    ProfilerTab::ApplyExpandAll( m_profilerTab );
+    ProfilerTab::ApplyDefaultExpansion( widgets.profilerTab );
+    ProfilerTab::ApplyExpandAll( widgets.profilerTab );
 
     UICacheFrameKey cacheKey;
     cacheKey.screenW = screenW;
     cacheKey.screenH = screenH;
     cacheKey.windowBounds = windowBounds;
-    cacheKey.activeTab = static_cast<int>( m_activeTab );
-    cacheKey.scrollY = m_scrollY;
-    cacheKey.blurEnabled = m_blurPreviewEnabled;
+    cacheKey.activeTab = static_cast<int>( widgets.activeTab );
+    cacheKey.scrollY = widgets.scrollY;
+    cacheKey.blurEnabled = widgets.blurPreviewEnabled;
     cacheKey.contentSignature = BuildUIContentSignature( data );
-    cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
-    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX,
-                                                                 m_mouseY,
-                                                                 m_rendererCombo.IsOpen(),
-                                                                 m_reflectionCombo.IsOpen(),
-                                                                 m_sceneCombo.IsOpen(),
-                                                                 CinematicTab::IsComboOpen( m_cinematicTab ),
-                                                                 m_editorTab.objectCombo.IsOpen(),
-                                                                 m_renderTargetCombo.IsOpen(),
-                                                                 m_cameraModeCombo.IsOpen(),
-                                                                 m_selectedRenderTargetPreview,
-                                                                 m_activeSlider );
+    cacheKey.styleSignature =
+        HashBool( HashBool( 2166136261u, widgets.blurPreviewEnabled ), widgets.hitboxOverlayEnabled );
+    cacheKey.interactionSignature = BuildUIInteractionSignature( widgets.mouseX,
+                                                                 widgets.mouseY,
+                                                                 widgets.rendererCombo.IsOpen(),
+                                                                 widgets.reflectionCombo.IsOpen(),
+                                                                 widgets.sceneCombo.IsOpen(),
+                                                                 CinematicTab::IsComboOpen( widgets.cinematicTab ),
+                                                                 widgets.editorTab.objectCombo.IsOpen(),
+                                                                 widgets.renderTargetCombo.IsOpen(),
+                                                                 widgets.cameraModeCombo.IsOpen(),
+                                                                 widgets.selectedRenderTargetPreview,
+                                                                 widgets.activeSlider );
     // Why: Most UI frames only move the window/scroll offset. Replaying cached
     // draw commands keeps draw-call churn low while live render-target previews
     // still rebuild every frame.
-    m_cache.BeginFrame( cacheKey );
+    widgets.cache.BeginFrame( cacheKey );
     PROFILE_END( m_profiler, "Frame/UI/Layout" );
 
-    const bool drawsLiveRenderTargetPreview = m_activeTab == InGameUITab::Targets;
-    if ( !drawsLiveRenderTargetPreview && m_cache.CanReplayPositionOnly( cacheKey ) )
+    const bool drawsLiveRenderTargetPreview = widgets.activeTab == InGameUITab::Targets;
+    if ( !drawsLiveRenderTargetPreview && widgets.cache.CanReplayPositionOnly( cacheKey ) )
     {
-        const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
-        const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
-        FlushUIDrawList( m_cache.DrawList(),
+        const float replayOffsetX = widgets.cache.ReplayOffsetX( cacheKey );
+        const float replayOffsetY = widgets.cache.ReplayOffsetY( cacheKey );
+        FlushUIDrawList( widgets.cache.DrawList(),
                          textBatch,
                          m_profiler,
                          renderCommands,
@@ -1947,11 +645,11 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                          replayOffsetX,
                          replayOffsetY );
         drawStandaloneOverlays();
-        m_cache.StoreFrame( cacheKey );
+        widgets.cache.StoreFrame( cacheKey );
         return;
     }
 
-    UIDrawList& drawList = m_cache.MutableDrawList();
+    UIDrawList& drawList = widgets.cache.MutableDrawList();
     drawList.Clear();
     const UIDrawContext draw( screenW, screenH, &drawList, nullptr, &textBatch );
     PROFILE_BEGIN( m_profiler, "Frame/UI/DrawBuild" );
@@ -1959,12 +657,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     const UIRect blurBounds = { x, y, w, h };
     Text2d::FlushQuads( textBatch, renderCommands );
     PROFILE_BEGIN( m_profiler, "Frame/UI/Blur" );
-    m_backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, m_blurPreviewEnabled );
+    widgets.backdropBlur
+        .Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, widgets.blurPreviewEnabled );
     PROFILE_END( m_profiler, "Frame/UI/Blur" );
 
-    Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
+    Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, widgets.blurPreviewEnabled, titleText );
     const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( windowBounds );
-    Chrome::DrawTitleButtons( draw, titleButtons, m_window.isMaximized, m_mouseX, m_mouseY );
+    Chrome::DrawTitleButtons( draw, titleButtons, widgets.window.isMaximized, widgets.mouseX, widgets.mouseY );
     const UIRect objectCounterAvoidBounds = TitleButtonGroupBounds( titleButtons );
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
@@ -1972,8 +671,8 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         { "Prof", "Scene", "Edit", "Phys", "Sound", "Opt", "Render", "Targets", "Ctrl", "Sky", "Cine", "Mem" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
-    m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
-    m_tabBar.Draw( draw, kTabs, tabCount, static_cast<int>( m_activeTab ) );
+    widgets.tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
+    widgets.tabBar.Draw( draw, kTabs, tabCount, static_cast<int>( widgets.activeTab ) );
 
     const Style::UIPalette& palette = Style::Palette();
     draw.RoundedPanel( { contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f },
@@ -1981,39 +680,39 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                        palette.windowSubtle,
                        palette.innerBorder );
 
-    if ( m_activeTab == InGameUITab::Profiler )
+    if ( widgets.activeTab == InGameUITab::Profiler )
     {
-        ProfilerTab::Draw( m_profilerTab,
+        ProfilerTab::Draw( widgets.profilerTab,
                            draw,
                            data,
                            contentX,
                            contentY,
                            contentW,
                            contentH,
-                           m_scrollY,
-                           m_activeSlider );
+                           widgets.scrollY,
+                           widgets.activeSlider );
     }
-    else if ( m_activeTab == InGameUITab::Memory )
+    else if ( widgets.activeTab == InGameUITab::Memory )
     {
         MemoryTab::Draw( draw,
-                         m_memoryOverlay,
+                         widgets.memoryOverlay,
                          data,
                          contentX,
                          contentY,
                          contentW,
                          contentH,
                          scrolledY,
-                         m_activeSlider,
-                         m_mouseX,
-                         m_mouseY );
+                         widgets.activeSlider,
+                         widgets.mouseX,
+                         widgets.mouseY );
     }
-    else if ( m_activeTab == InGameUITab::Scene )
+    else if ( widgets.activeTab == InGameUITab::Scene )
     {
-        SceneTab::Draw( m_sceneTab,
-                        m_sceneCombo,
-                        m_resetSceneButton,
-                        m_resetDefaultsButton,
-                        m_saveDefaultsButton,
+        SceneTab::Draw( widgets.sceneTab,
+                        widgets.sceneCombo,
+                        widgets.resetSceneButton,
+                        widgets.resetDefaultsButton,
+                        widgets.saveDefaultsButton,
                         draw,
                         data,
                         contentX,
@@ -2021,12 +720,12 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                         contentW,
                         contentH,
                         scrolledY,
-                        m_mouseX,
-                        m_mouseY );
+                        widgets.mouseX,
+                        widgets.mouseY );
     }
-    else if ( m_activeTab == InGameUITab::Physics )
+    else if ( widgets.activeTab == InGameUITab::Physics )
     {
-        PhysicsTab::Draw( m_physicsTab,
+        PhysicsTab::Draw( widgets.physicsTab,
                           draw,
                           data,
                           contentX,
@@ -2034,13 +733,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                           contentW,
                           contentH,
                           scrolledY,
-                          m_activeSlider,
-                          m_mouseX,
-                          m_mouseY );
+                          widgets.activeSlider,
+                          widgets.mouseX,
+                          widgets.mouseY );
     }
-    else if ( m_activeTab == InGameUITab::Sound )
+    else if ( widgets.activeTab == InGameUITab::Sound )
     {
-        SoundTab::Draw( m_soundTab,
+        SoundTab::Draw( widgets.soundTab,
                         draw,
                         data,
                         contentX,
@@ -2048,13 +747,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                         contentW,
                         contentH,
                         scrolledY,
-                        m_activeSlider,
-                        m_mouseX,
-                        m_mouseY );
+                        widgets.activeSlider,
+                        widgets.mouseX,
+                        widgets.mouseY );
     }
-    else if ( m_activeTab == InGameUITab::Editor )
+    else if ( widgets.activeTab == InGameUITab::Editor )
     {
-        EditorTab::Draw( m_editorTab,
+        EditorTab::Draw( widgets.editorTab,
                          draw,
                          data,
                          contentX,
@@ -2062,14 +761,22 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                          contentW,
                          contentH,
                          scrolledY,
-                         m_mouseX,
-                         m_mouseY );
+                         widgets.mouseX,
+                         widgets.mouseY );
     }
-    else if ( m_activeTab == InGameUITab::Options )
+    else if ( widgets.activeTab == InGameUITab::Options )
     {
-        OptionsTab::Draw( m_optionsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, m_activeSlider );
+        OptionsTab::Draw( widgets.optionsTab,
+                          draw,
+                          data,
+                          contentX,
+                          contentY,
+                          contentW,
+                          contentH,
+                          scrolledY,
+                          widgets.activeSlider );
     }
-    else if ( m_activeTab == InGameUITab::Render )
+    else if ( widgets.activeTab == InGameUITab::Render )
     {
         char buf[128];
         const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -2077,19 +784,19 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         DrawContentToggle( draw,
                            contentY,
                            contentH,
-                           m_renderShadowToggle,
+                           widgets.renderShadowToggle,
                            contentX,
                            scrolledY + UI_RENDER_FEATURE_START_Y,
                            colW,
                            "Shadows",
                            data.ordinaryRender.shadow.enabled );
-        m_saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
-                                              scrolledY + UI_RENDER_FEATURE_START_Y,
-                                              UI_RENDER_SAVE_BUTTON_W,
-                                              24.0f );
+        widgets.saveRenderDefaultsButton.SetBounds( contentX + contentW - UI_RENDER_SAVE_BUTTON_W,
+                                                    scrolledY + UI_RENDER_FEATURE_START_Y,
+                                                    UI_RENDER_SAVE_BUTTON_W,
+                                                    24.0f );
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_RENDER_FEATURE_START_Y, 24.0f ) )
         {
-            m_saveRenderDefaultsButton.Draw( draw, "Save CFG", m_mouseX, m_mouseY );
+            widgets.saveRenderDefaultsButton.Draw( draw, "Save CFG", widgets.mouseX, widgets.mouseY );
         }
 
         static constexpr const char* visibilityLabels[] = { "Main", "Reflection", "Terrain shadow", "Object shadow" };
@@ -2134,17 +841,17 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                 std::clamp( RenderValueForParam( data.ordinaryRender, spec.param ), spec.minValue, spec.maxValue );
 
             snprintf( buf, sizeof( buf ), spec.valueFormat, value );
-            m_renderSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
+            widgets.renderSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
             if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
             {
-                m_renderSliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
+                widgets.renderSliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
             }
         }
     }
-    else if ( m_activeTab == InGameUITab::Targets )
+    else if ( widgets.activeTab == InGameUITab::Targets )
     {
         const int targetCount = RenderTargetPreviewCount( data );
-        const int selectedIndex = m_selectedRenderTargetPreview;
+        const int selectedIndex = widgets.selectedRenderTargetPreview;
         const bool hasSelection = selectedIndex >= 0 && selectedIndex < targetCount;
         const UIRenderTargetPreviewResource* selected =
             hasSelection ? &data.renderTargetPreviews[selectedIndex] : nullptr;
@@ -2271,27 +978,36 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         }
 
         const char* selectedText = selected ? selected->label : "No targets";
-        m_renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
+        widgets.renderTargetCombo.SetBounds( contentX, scrolledY + UI_TARGETS_COMBO_Y, contentW, 24.0f );
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_TARGETS_COMBO_Y, 24.0f ) )
         {
-            m_renderTargetCombo.Draw( draw,
-                                      "View",
-                                      selectedText,
-                                      options,
-                                      targetCount,
-                                      selectedIndex,
-                                      m_mouseX,
-                                      m_mouseY,
-                                      m_lastRenderTargetDisabledMask );
+            widgets.renderTargetCombo.Draw( draw,
+                                            "View",
+                                            selectedText,
+                                            options,
+                                            targetCount,
+                                            selectedIndex,
+                                            widgets.mouseX,
+                                            widgets.mouseY,
+                                            widgets.lastRenderTargetDisabledMask );
         }
     }
-    else if ( m_activeTab == InGameUITab::Sky )
+    else if ( widgets.activeTab == InGameUITab::Sky )
     {
-        SkyTab::Draw( m_skyTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, m_mouseX, m_mouseY );
+        SkyTab::Draw( widgets.skyTab,
+                      draw,
+                      data,
+                      contentX,
+                      contentY,
+                      contentW,
+                      contentH,
+                      scrolledY,
+                      widgets.mouseX,
+                      widgets.mouseY );
     }
-    else if ( m_activeTab == InGameUITab::Cinematic )
+    else if ( widgets.activeTab == InGameUITab::Cinematic )
     {
-        CinematicTab::Draw( m_cinematicTab,
+        CinematicTab::Draw( widgets.cinematicTab,
                             draw,
                             data,
                             contentX,
@@ -2299,17 +1015,21 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                             contentW,
                             contentH,
                             scrolledY,
-                            m_mouseX,
-                            m_mouseY );
+                            widgets.mouseX,
+                            widgets.mouseY );
     }
     else
     {
-        ControlsTab::Draw( m_controlsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY );
+        ControlsTab::Draw( widgets.controlsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY );
     }
 
-    m_scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );
-    m_scrollBar
-        .Draw( draw, static_cast<float>( ContentHeight() ), contentH, m_scrollY, m_scrollbarVisibleUntil, data.now );
+    widgets.scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );
+    widgets.scrollBar.Draw( draw,
+                            static_cast<float>( m_windowInteraction.ContentHeight() ),
+                            contentH,
+                            widgets.scrollY,
+                            widgets.scrollbarVisibleUntil,
+                            data.now );
 
     const float by = y + h - bottomH;
     draw.Rect( x + 16.0f, by, w - 32.0f, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.14f );
@@ -2331,37 +1051,40 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     const UIRect hitboxFooterBounds = FooterHitboxBounds( x, by );
     const UIRect timelineFooterBounds = FooterTimelineBounds( x, by );
     const UIRect perfFooterBounds = FooterPerfBounds( x, by );
-    m_rendererCombo.SetBounds( rendererComboBounds.x,
-                               rendererComboBounds.y,
-                               rendererComboBounds.w,
-                               rendererComboBounds.h );
-    m_rendererCombo.SetDropUp( true );
-    m_reflectionCombo.SetBounds( waterComboBounds.x, waterComboBounds.y, waterComboBounds.w, waterComboBounds.h );
-    m_reflectionCombo.SetDropUp( true );
-    m_blurToggle.SetBounds( blurFooterBounds.x, blurFooterBounds.y, blurFooterBounds.w, blurFooterBounds.h );
-    m_vsyncToggle.SetBounds( vsyncFooterBounds.x, vsyncFooterBounds.y, vsyncFooterBounds.w, vsyncFooterBounds.h );
-    m_hitboxToggle.SetBounds( hitboxFooterBounds.x, hitboxFooterBounds.y, hitboxFooterBounds.w, hitboxFooterBounds.h );
-    m_histogramToggle.SetBounds( perfFooterBounds.x, perfFooterBounds.y, perfFooterBounds.w, perfFooterBounds.h );
-    m_timelineToggle.SetBounds( timelineFooterBounds.x,
-                                timelineFooterBounds.y,
-                                timelineFooterBounds.w,
-                                timelineFooterBounds.h );
+    widgets.rendererCombo.SetBounds( rendererComboBounds.x,
+                                     rendererComboBounds.y,
+                                     rendererComboBounds.w,
+                                     rendererComboBounds.h );
+    widgets.rendererCombo.SetDropUp( true );
+    widgets.reflectionCombo.SetBounds( waterComboBounds.x, waterComboBounds.y, waterComboBounds.w, waterComboBounds.h );
+    widgets.reflectionCombo.SetDropUp( true );
+    widgets.blurToggle.SetBounds( blurFooterBounds.x, blurFooterBounds.y, blurFooterBounds.w, blurFooterBounds.h );
+    widgets.vsyncToggle.SetBounds( vsyncFooterBounds.x, vsyncFooterBounds.y, vsyncFooterBounds.w, vsyncFooterBounds.h );
+    widgets.hitboxToggle.SetBounds( hitboxFooterBounds.x,
+                                    hitboxFooterBounds.y,
+                                    hitboxFooterBounds.w,
+                                    hitboxFooterBounds.h );
+    widgets.histogramToggle.SetBounds( perfFooterBounds.x, perfFooterBounds.y, perfFooterBounds.w, perfFooterBounds.h );
+    widgets.timelineToggle.SetBounds( timelineFooterBounds.x,
+                                      timelineFooterBounds.y,
+                                      timelineFooterBounds.w,
+                                      timelineFooterBounds.h );
     static const char* kRendererOptions[] = { "DX12" };
     static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
-    m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 1, 0, m_mouseX, m_mouseY );
-    DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled );
+    widgets.rendererCombo.Draw( draw, "Renderer", kRendererOptions, 1, 0, widgets.mouseX, widgets.mouseY );
+    DrawFooterToggle( draw, blurFooterBounds, "Blur", widgets.blurPreviewEnabled );
     DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled );
-    DrawFooterToggle( draw, hitboxFooterBounds, "Hitboxes", m_hitboxOverlayEnabled );
-    DrawFooterToggle( draw, perfFooterBounds, "Perf", ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
-    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", ProfilerTab::TimelineEnabled( m_profilerTab ) );
-    m_reflectionCombo.Draw( draw,
-                            "Water",
-                            kReflectionOptions,
-                            3,
-                            WaterReflectionModeFromData( data ),
-                            m_mouseX,
-                            m_mouseY,
-                            ReflectionDisabledMask() );
+    DrawFooterToggle( draw, hitboxFooterBounds, "Hitboxes", widgets.hitboxOverlayEnabled );
+    DrawFooterToggle( draw, perfFooterBounds, "Perf", ProfilerTab::PerformanceHistogramEnabled( widgets.profilerTab ) );
+    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", ProfilerTab::TimelineEnabled( widgets.profilerTab ) );
+    widgets.reflectionCombo.Draw( draw,
+                                  "Water",
+                                  kReflectionOptions,
+                                  3,
+                                  WaterReflectionModeFromData( data ),
+                                  widgets.mouseX,
+                                  widgets.mouseY,
+                                  ReflectionDisabledMask() );
 
     char status[128];
     const float frameDisplayMs = data.fps > 0.0f ? 1000.0f / data.fps : 0.0f;
@@ -2508,10 +1231,10 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     drawStandaloneOverlays();
     if ( drawsLiveRenderTargetPreview )
     {
-        m_cache.Reset();
+        widgets.cache.Reset();
     }
     else
     {
-        m_cache.StoreFrame( cacheKey );
+        widgets.cache.StoreFrame( cacheKey );
     }
 }

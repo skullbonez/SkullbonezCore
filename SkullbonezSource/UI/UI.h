@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/UI/UI.h
 Purpose:
-  Implements SkullbonezUI widgets, layout, drawing, or UI state for the in-engine controls.
+  Declares the in-engine UI draw composer and its stable public command surface.
 
 Summary:
-  UI.h implements SkullbonezUI widgets, layout, drawing, or UI state for the
-  in-engine controls. As a public header, keep edits anchored on UI request,
-  layout, hit-test, and draw-command flow and on the glossary/invariants
-  below.
+  InGameUI composes drawing and draw-only resources around a concrete
+  UIWindowInteractionOwner. Callers keep the stable InGameUI API while window,
+  widget, tab-input, gesture, and cache authority live in that owner.
 
 Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
@@ -24,15 +23,21 @@ Glossary:
     obvious Sound-tab section so the old contact-row classifier can be bypassed.
   Scene navigation model: UI-owned browser rows and generated-scene overrides
     borrowed synchronously by runtime navigation and load transactions.
+  Interaction owner: Concrete owner of persistent UI controls and cross-frame
+    pointer/capture state; it emits typed command values rather than mutating
+    runtime subsystems.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
     constants.
   - Scene browser pointer views and live overrides share InGameUI's lifetime;
     runtime owners never retain a backpointer to this model.
+  - The interaction owner has no InGameUI backpointer, friend edge, callback
+    pack, or unrelated runtime context.
 
 Related:
   - SkullbonezSource/UI/UI.cpp
+  - SkullbonezSource/UI/UIWindowInteractionOwner.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
@@ -65,6 +70,7 @@ Related:
 #include "UITabScene.h"
 #include "UITabSound.h"
 #include "UITabSky.h"
+#include "UIWindowInteractionOwner.h"
 #include <cstdint>
 #include <memory>
 
@@ -428,84 +434,18 @@ class InGameUI
     // draw paths borrow it without resolving process-global diagnostics state.
     Core::Profiler* m_profiler = nullptr;
     SceneNavigationModel m_sceneNavigation;
-    // Persistent widget state.  Scene loads may apply SceneUIOptions, but normal
-    // simulation resets preserve these values so the UI remains where the user
-    // left it while the bodies/timers are rebuilt underneath.
-    UIWindowState m_window;
-    UIInteractionState m_interaction;
-    bool m_blurPreviewEnabled = false;
-    InGameUITab m_activeTab = InGameUITab::Scene;
-    UITabBar m_tabBar;
-    UICheckBox m_blurToggle;
-    UICheckBox m_vsyncToggle;
-    UICheckBox m_timelineToggle;
-    UICheckBox m_histogramToggle;
-    UICheckBox m_hitboxToggle;
-    UIButton m_resetSceneButton;
-    UIButton m_resetDefaultsButton;
-    UIButton m_saveDefaultsButton;
-    UIComboBox m_rendererCombo;
-    UIComboBox m_reflectionCombo;
-    UIComboBox m_sceneCombo;
-    UIComboBox m_renderTargetCombo;
-    UIComboBox m_cameraModeCombo;
-    UICheckBox m_cinematicMasterToggle;
-    UICheckBox m_renderShadowToggle;
-    UIButton m_saveRenderDefaultsButton;
-    UISlider m_renderSliders[static_cast<int>( UIRenderParam::Count )];
-    UIBackdropBlur m_backdropBlur;
-    UICacheState m_cache;
+    // Lifetime: the interaction owner holds every widget and gesture record
+    // shared by hit testing and drawing. It never retains an InGameUI reach-back.
+    UIWindowInteractionOwner m_windowInteraction;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
     std::unique_ptr<Rendering::IShader> m_renderTargetPreviewShader;
     uint32_t m_renderTargetPreviewVB = 0;
-    UIScrollBar m_scrollBar;
-    int m_mouseX = 0;
-    int m_mouseY = 0;
-    int m_lastScreenW = 1;
-    int m_lastScreenH = 1;
-    int m_lastModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
-    int m_lastSolverBallCount = 0;
-    int m_lastSolverBoxCount = 0;
-    int m_lastWorkerThreadCount = 0;
-    int m_lastMaxWorkerThreadCount = 1;
-    int m_lastRenderTargetPreviewCount = 0;
-    uint32_t m_lastRenderTargetDisabledMask = 0;
-    int m_selectedRenderTargetPreview = 0;
-    bool m_hasMouseOverride = false;
-    int m_mouseOverrideX = 0;
-    int m_mouseOverrideY = 0;
-    ControlsTab::UIControlsTabState m_controlsTab;
-    EditorTab::UIEditorTabState m_editorTab;
-    OptionsTab::UIOptionsTabState m_optionsTab;
-    PhysicsTab::UIPhysicsTabState m_physicsTab;
-    ProfilerTab::UIProfilerTabState m_profilerTab;
-    MemoryTab::UIMemoryOverlayState m_memoryOverlay;
-    SceneTab::UISceneTabState m_sceneTab;
-    SoundTab::UISoundTabState m_soundTab;
-    SkyTab::UISkyTabState m_skyTab;
-    CinematicTab::UICinematicTabState m_cinematicTab;
-    float m_scrollY = 0.0f;
-    double m_scrollbarVisibleUntil = 0.0;
-    int m_activeSlider = 0;                        // 0=none; other values map to Controls/Options sliders in UI.cpp
-    bool m_hitboxOverlayEnabled = false;
-    bool m_editorMiniPalettePressActive = false;
-    bool m_editorMiniPaletteFlyoutOpen = false;
-    int m_editorMiniPalettePressedEntry = -1;
-    int m_editorMiniPalettePressedObjectType = -1;
-    int m_editorMiniPalettePressedTreePlacement = -1;
-    int m_editorMiniPalettePressedHoldMode = 0;
-    double m_editorMiniPalettePressStart = 0.0;
-
-    int ContentHeight() const;
     void DrawHitboxOverlay( const UIDrawContext& draw,
                             const InGameUIFrameData& data,
                             const UIRect& windowBounds,
                             const UIRect& contentBounds,
-                            const UIRect& footerBounds ) const;
-    void CloseSceneCombo();
-    void CancelEditorMiniPaletteInteraction();
-    void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );
+                            const UIRect& footerBounds );
 };
 
 } // namespace UI
