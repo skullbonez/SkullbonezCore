@@ -104,6 +104,15 @@ void AppendCandidatePairIfMissing( std::vector<std::pair<int, int>>& candidatePa
         }
     }
 
+    if ( !Physics::BroadphaseCandidateAppendHasCapacity( candidatePairs.size(), candidatePairs.capacity() ) )
+    {
+        // Lane F: growing here would violate the zero-allocation fixed-step
+        // contract; dropping the conservative pair could miss a collision.
+        SB_FATAL( "Physics/PhysicsBroadphaseStage",
+                  "Candidate pair reserve exhausted: size=%zu capacity=%zu phase=steady_gameplay.",
+                  candidatePairs.size(),
+                  candidatePairs.capacity() );
+    }
     candidatePairs.emplace_back( a, b );
 }
 
@@ -558,7 +567,10 @@ void PhysicsBroadphaseStage::AppendCollisionCellKey( int64_t collisionCellKey )
 
 uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 {
-    return VectorCapacityBytes( m_candidatePairs ) + VectorCapacityBytes( m_collisionCellKeys );
+    // Invariant: out-of-line fixed grid storage is still owned memory. Count it
+    // beside vector capacities so diagnostics and budget gates see all bytes.
+    return m_spatialGrid.CollectDynamicMemoryBytes() + VectorCapacityBytes( m_candidatePairs ) +
+           VectorCapacityBytes( m_collisionCellKeys );
 }
 
 

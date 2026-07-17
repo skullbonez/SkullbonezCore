@@ -40,6 +40,7 @@ Related:
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include <memory>
 #include "../Core/Common.h"
 #include "../Runtime/Scene/SceneCapacity.h"
 #include "../Maths/Vector3.h"
@@ -84,12 +85,16 @@ class SpatialGrid
     // one tick. Large projectile clouds should use a dedicated ray/query path.
     static constexpr int TABLE_SIZE = 4096;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
-    // Concept: only a saturated frame touches this compact secondary index.
-    // It maps admitted keys back to the unchanged primary bucket table, so a
-    // missing 4,097th cell no longer scans all 4,096 occupied buckets.
-    static constexpr int FULL_LOOKUP_SLOT_COUNT = 8192;
+    static constexpr int OVERFLOW_BUCKET_COUNT = 4096;
+    static constexpr int TOTAL_BUCKET_COUNT = TABLE_SIZE + OVERFLOW_BUCKET_COUNT;
+    // Concept: only a primary-saturated frame touches this compact index. It
+    // maps both primary and cold overflow keys to their stable bucket rows, so
+    // lookup stays bounded without dropping broadphase coverage.
+    static constexpr int FULL_LOOKUP_SLOT_COUNT = 16384;
     static constexpr int FULL_LOOKUP_SLOT_MASK = FULL_LOOKUP_SLOT_COUNT - 1;
     static constexpr uint16_t FULL_LOOKUP_EMPTY = UINT16_MAX;
+    static_assert( TOTAL_BUCKET_COUNT < FULL_LOOKUP_EMPTY,
+                   "SpatialGrid bucket indices must not collide with the compact lookup sentinel" );
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
@@ -115,13 +120,18 @@ class SpatialGrid
         int16_t ix, iy, iz;  // Cell grid coordinates (stored for visualization)
     };
 
+    struct OverflowStorage
+    {
+        uint16_t lookup[FULL_LOOKUP_SLOT_COUNT];
+        Bucket buckets[OVERFLOW_BUCKET_COUNT];
+    };
+
     float cellSize;
     float inverseCellSize;
     uint32_t generation;
     int entryPoolUsed;
     int objectCount;
     int activeBucketCount;
-    bool fullBucketLookupReady;
 
     // Concept: one reset-per-rebuild value explains grid work without feeding
     // decisions back into physics. The broadphase owner is serial, so these
@@ -143,13 +153,21 @@ class SpatialGrid
 
     Bucket buckets[TABLE_SIZE];
     int activeBuckets[TABLE_SIZE];
-    uint16_t fullBucketLookup[FULL_LOOKUP_SLOT_COUNT];
     Entry entries[MAX_CELL_ENTRIES];
     uint64_t pairSeen[PAIR_WORDS];
+    // Lifetime: one startup allocation owns the fixed cold tier for this grid.
+    // Keeping its 160 KiB out of line preserves both the grid and containing
+    // broadphase owner's common-scale layout; it never grows during gameplay.
+    int overflowBucketCount;
+    bool fullBucketLookupReady;
+    std::unique_ptr<OverflowStorage> overflowStorage;
 
     int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     void BuildFullBucketLookup();
-    int FindFullBucket( int64_t key ) const;
+    int FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    Bucket& BucketAt( int bucketIndex );
+    const Bucket& BucketAt( int bucketIndex ) const;
+    void InsertOverflowCellEntry( int index, int overflowIndex );
     void InsertCell( int index, int ix, int iy, int iz );
     void
     InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds, bool sampledSweep );
@@ -157,7 +175,8 @@ class SpatialGrid
     InsertSweptBounds( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
 
   public:
-    static constexpr int MAX_BUCKETS = TABLE_SIZE;
+    static constexpr int PRIMARY_BUCKET_CAPACITY = TABLE_SIZE;
+    static constexpr int MAX_BUCKETS = TOTAL_BUCKET_COUNT;
     // PhysicsWorld already clamps authored settings to this lower bound. Keep
     // the grid's own constructor/setter equally strict so direct users cannot
     // create cell coordinates outside the integer representation envelope.
@@ -191,6 +210,8 @@ class SpatialGrid
     };
 
     SpatialGrid( float fCellSize );
+    SpatialGrid( const SpatialGrid& other );
+    SpatialGrid& operator=( const SpatialGrid& other );
     void Clear();
     // Sets the cell diameter used by the next broadphase rebuild. Callers must
     // rebuild the grid after changing it; existing bucket entries keep their
@@ -219,6 +240,10 @@ class SpatialGrid
     int GetActiveCellCount() const
     {
         return activeBucketCount;
+    }
+    uint64_t CollectDynamicMemoryBytes() const
+    {
+        return static_cast<uint64_t>( sizeof( OverflowStorage ) );
     }
     FrameStats GetFrameStats() const
     {

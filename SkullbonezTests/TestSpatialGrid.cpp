@@ -208,31 +208,89 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
 }
 
 
-TEST_CASE( "SpatialGrid: saturated lookup preserves the 4096-cell admission contract" )
+TEST_CASE( "SpatialGrid: primary saturation admits colliding overflow keys in deterministic order" )
 {
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
 
-    for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS; ++cell )
+    const auto fillPrimary = [&]()
     {
-        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
-    }
+        for ( int cell = 0; cell < SpatialGrid::PRIMARY_BUCKET_CAPACITY; ++cell )
+        {
+            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+        }
+    };
+    fillPrimary();
 
-    // Invariant: a second body can still join an admitted cell after the
-    // admission budget fills, but a new distinct cell remains rejected. The
-    // saturated lookup accelerates membership only; it does not expand content.
-    grid.Insert( 1, Vector3( 0.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 1, Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+    // Invariant: x=0, 16,384, and 32,768 share a low-14-bit lookup home slot.
+    // The cold tier must probe through both collisions, retain each new cell,
+    // and emit pairs in first-admitted cell order.
+    grid.Insert( 1, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 2, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 3, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 4, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
 
     const auto pairs = CandidatePairs( grid );
     const SpatialGrid::FrameStats stats = grid.GetFrameStats();
+    const std::vector<std::pair<int, int>> firstOrder{ { 1, 2 }, { 3, 4 } };
 
-    CHECK( grid.GetActiveCellCount() == SpatialGrid::MAX_BUCKETS );
-    CHECK( stats.bodyInsertions == static_cast<uint64_t>( SpatialGrid::MAX_BUCKETS + 2 ) );
-    CHECK( stats.exactAabbCellVisits == static_cast<uint64_t>( SpatialGrid::MAX_BUCKETS + 2 ) );
-    CHECK( stats.entryWrites == static_cast<uint64_t>( SpatialGrid::MAX_BUCKETS + 1 ) );
-    REQUIRE( pairs.size() == 1u );
-    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+    CHECK( grid.GetActiveCellCount() == SpatialGrid::PRIMARY_BUCKET_CAPACITY + 2 );
+    CHECK( stats.bodyInsertions == static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY + 4 ) );
+    CHECK( stats.exactAabbCellVisits == static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY + 4 ) );
+    CHECK( stats.entryWrites == static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY + 4 ) );
+    CHECK( pairs == firstOrder );
+
+    grid.Clear();
+    fillPrimary();
+    grid.Insert( 3, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 4, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 1, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 2, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
+    const std::vector<std::pair<int, int>> rebuiltOrder{ { 3, 4 }, { 1, 2 } };
+    CHECK( CandidatePairs( grid ) == rebuiltOrder );
+}
+
+
+TEST_CASE( "SpatialGrid: saturated copies own independent overflow storage" )
+{
+    SpatialGrid& source = TestGrid();
+    source.SetCellSize( 1.0f );
+    source.Clear();
+    const auto fillPrimary = []( SpatialGrid& grid )
+    {
+        for ( int cell = 0; cell < SpatialGrid::PRIMARY_BUCKET_CAPACITY; ++cell )
+        {
+            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+        }
+    };
+    fillPrimary( source );
+    source.Insert( 1, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
+    source.Insert( 2, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
+    source.Insert( 3, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
+    source.Insert( 4, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
+    const std::vector<std::pair<int, int>> expected{ { 1, 2 }, { 3, 4 } };
+
+    // Lifetime: static storage keeps each large hot grid off the test stack.
+    // Copy construction allocates its own cold block; assignment reuses the
+    // target's existing block and must not alias either source.
+    static SpatialGrid copyConstructed( source );
+    static SpatialGrid assigned( 1.0f );
+    assigned = source;
+    CHECK( source.CollectDynamicMemoryBytes() == 160u * 1024u );
+    CHECK( CandidatePairs( copyConstructed ) == expected );
+    CHECK( CandidatePairs( assigned ) == expected );
+
+    source.Clear();
+    CHECK( CandidatePairs( copyConstructed ) == expected );
+    CHECK( CandidatePairs( assigned ) == expected );
+
+    copyConstructed.Clear();
+    fillPrimary( copyConstructed );
+    copyConstructed.Insert( 5, Vector3( 49152.25f, 0.25f, 0.25f ), 0.0f );
+    copyConstructed.Insert( 6, Vector3( 49152.25f, 0.25f, 0.25f ), 0.0f );
+    const std::vector<std::pair<int, int>> copyOnly{ { 5, 6 } };
+    CHECK( CandidatePairs( copyConstructed ) == copyOnly );
+    CHECK( CandidatePairs( assigned ) == expected );
 }
 
 

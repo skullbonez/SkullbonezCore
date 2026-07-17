@@ -52,6 +52,14 @@ struct BroadphaseCandidateFilterContext
     bool simdKernels = false;
 };
 
+// Invariant: fixed-step candidate owners may append only inside construction-
+// reserved storage. Equality is already exhaustion because emplace_back would
+// otherwise trigger runtime growth.
+inline bool BroadphaseCandidateAppendHasCapacity( std::size_t size, std::size_t capacity )
+{
+    return size < capacity;
+}
+
 inline Math::Vector::Vector3 BroadphaseCandidateBodyPosition( const PhysicsBodyHotFieldsConstView& hotFields,
                                                               int bodyIndex )
 {

@@ -59,6 +59,7 @@
 
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
+using SkullbonezCore::Physics::BroadphaseCandidateAppendHasCapacity;
 using SkullbonezCore::Physics::BroadphaseCandidateFilterContext;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
@@ -85,6 +86,14 @@ void AddCandidateBody( PhysicsBodyStore& bodyStore,
     ColliderRecord collider;
     collider.boundingRadius = radius;
     colliderRecords.push_back( collider );
+}
+
+TEST_CASE( "Broadphase candidate append capacity rejects equality before vector growth" )
+{
+    CHECK( BroadphaseCandidateAppendHasCapacity( 0u, 1u ) );
+    CHECK( BroadphaseCandidateAppendHasCapacity( 7u, 8u ) );
+    CHECK_FALSE( BroadphaseCandidateAppendHasCapacity( 8u, 8u ) );
+    CHECK_FALSE( BroadphaseCandidateAppendHasCapacity( 9u, 8u ) );
 }
 
 PhysicsBodyStore& TestBodyStore()

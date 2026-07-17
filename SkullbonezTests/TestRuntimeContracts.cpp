@@ -236,6 +236,16 @@ bool RunRuntimeFatalCase( const char* caseName )
         static SpatialGrid grid( SpatialGrid::MIN_CELL_SIZE * 0.5f );
         return true;
     }
+    if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+        grid.Clear();
+        for ( int cell = 0; cell <= SpatialGrid::MAX_BUCKETS; ++cell )
+        {
+            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+        }
+        return true;
+    }
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )
     {
         WorkerPool pool;
@@ -437,6 +447,9 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=nan", "minimum=0.5" } );
     ExpectFatalCase( "spatial-grid-tiny-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
+    ExpectFatalCase( "spatial-grid-bucket-capacity",
+                     { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded", "capacity=8192", "active=8192",
+                       "phase=steady_gameplay" } );
     ExpectFatalCase( "amortized-task-in-flight-destroy",
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
     ExpectFatalCase( "worker-fatal-log",

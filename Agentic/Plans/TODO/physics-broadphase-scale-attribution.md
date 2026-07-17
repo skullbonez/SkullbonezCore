@@ -1,7 +1,7 @@
 # Physics Broadphase Scale Attribution And Cell-Insertion Campaign
 
 Date: 2026-07-17
-Status: ACTIVE — B0-B2 complete; execute B3-B4 in order
+Status: ACTIVE — B0-B3 complete; independent-review corrections are in B4
 Owner: Physics broadphase (`PhysicsBroadphaseStage` and `SpatialGrid`)
 Branch: `nightrunner-16th-july`
 
@@ -103,8 +103,10 @@ before B3 changes it.
 3. Sleeper exclusion requires a separate static/dynamic-grid design and proof
    that awake movers still pair with sleepers. It is not an implicit fallback.
 4. A candidate is reverted if 1,000-body performance regresses beyond process
-   noise, candidate bytes/order change, the 44,401-line oracle changes, or any
-   required validation fails.
+   noise, order changes for already admitted cells, the 44,401-line oracle
+   changes, or any required validation fails. After independent review exposed
+   the legacy saturated-cell drops as a completeness bug, deterministic output
+   added solely by admitting those missing cells is a required correction.
 
 ## Tasks
 
@@ -159,12 +161,12 @@ before B3 changes it.
     duplicate-scan hypothesis. `GridInsertScalar` grows 30.94x because the
     2,000-body scene fills all 4,096 hash slots and averages 3,660 full-table
     misses per queried frame. B3 is restricted to a lower-load fixed hash table
-    that preserves the existing 4,096-cell admission/order contract.
+    that preserves deterministic order without saturated full-table misses.
 
 - [x] **B3 — implement and prove the evidence-selected algorithmic fix.**
   - Implement only the B2-selected path. Once the unchanged 4,096-cell primary
-    table saturates, build a fixed 8,192-slot compact lookup that distinguishes
-    admitted keys from rejected new keys without rescanning every primary slot.
+    table saturates, build a fixed compact lookup that avoids rescanning every
+    primary slot while preserving conservative cell coverage.
   - Add regression/property coverage for candidate completeness, normalized
     deterministic order, exact-cell entry counts, and sampled-sweep duplicate
     suppression. Preserve capacity diagnostics and fatal lanes.
@@ -172,23 +174,31 @@ before B3 changes it.
     alternating same-tip pairs at 1,000 and 2,000 bodies. Report every pair,
     medians, ranges, and the exclusive-phase movement.
   - Acceptance: 1,000-body is neutral or faster; 2,000-body improvement is
-    repeatable; candidate output and the byte-exact physics oracle are
-    unchanged. A failed candidate is reverted and B2's next measured path is
-    attempted without weakening the contract.
+    repeatable; already admitted cells keep deterministic order; the byte-exact
+    physics oracle is unchanged; and saturation never drops a conservative
+    cell silently. A failed candidate is reverted and B2's next measured path
+    is attempted without weakening the contract.
   - Gate before commit: `tools\validate_tests.bat`,
     `tools\validate_physics.bat`, and `tools\validate_perf.bat` (plus
     `tools\validate_fast.bat` if tooling changes after B1).
   - Evidence (2026-07-17):
     `../../Reports/2026-07-17/broadphase-saturated-lookup-experiment.md`
-    records the two rejected larger-primary-table candidates and the retained
-    16 KiB cold secondary index. Across seven alternating same-tip pairs, the
-    1,000-body Step median moved +0.43% (noise) while the 2,000-body Step,
-    Broadphase, and grid-insert medians improved 76.21%, 88.53%, and 92.54%.
-    Fresh 30-frame Debug traces at both scales match the B2 controls byte for
-    byte. Tests passed 286/286 with 21,425 assertions, the physics oracle kept
-    its exact 44,401-line baseline, and the performance/allocation gate
-    completed. Touched-source comment audit: 3/3 checked, 0 deferred, 0
-    unchecked (checklist path N/A in touched-file mode).
+    records two rejected larger-primary-table candidates and the seven-pair
+    mechanism proof. B4 review then rejected the first 16 KiB membership-only
+    lookup because it preserved silent cell drops. The retained correction uses
+    a 16,384-slot lookup plus 4,096 cold fixed buckets, admits about 7,574 cells
+    in the 2,000-body scene, and fails fatally only at 8,193 distinct cells.
+    Its formal matrix still improves 2,000-body Step/Broadphase/grid insertion
+    by 73.51%/86.61%/90.72% (Step versus B0's packed-source reference;
+    Broadphase/insert versus B2's instrumented attribution). Seven final pairs
+    classify 1,000-body Step as neutral at +0.65% median (-0.45% to +2.45%)
+    while disclosing Broadphase/insert medians of +8.11%/+11.12%; 2,000-body
+    Step repeats at -75.33%. The fixed 160 KiB tier is startup-preallocated,
+    fully memory-accounted, and deep-copy/assignment tested. The 1,000-body trace stays byte-identical;
+    the 2,000-body trace changes intentionally because missing coverage is
+    restored. Tests pass 288/288 with 21,444 assertions, the physics oracle
+    keeps its exact 44,401-line baseline, and the allocation/performance gate
+    completes cleanly.
 
 - [ ] **B4 — final review, final matrix, and campaign closure.**
   - Rerun the final 200/520/1,000/2,000 performance matrix from the exact

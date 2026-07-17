@@ -106,10 +106,44 @@ int16_t ClampVisualizationCell( int cell )
 
 SpatialGrid::SpatialGrid( float fCellSize )
     : cellSize( 1.0f ), inverseCellSize( 1.0f ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 ),
-      activeBucketCount( 0 ), fullBucketLookupReady( false )
+      activeBucketCount( 0 ), overflowBucketCount( 0 ), fullBucketLookupReady( false ),
+      overflowStorage( std::make_unique<OverflowStorage>() )
 {
     memset( buckets, 0, sizeof( buckets ) );
     SetCellSize( fCellSize );
+}
+
+
+SpatialGrid::SpatialGrid( const SpatialGrid& other ) : SpatialGrid( other.cellSize )
+{
+    *this = other;
+}
+
+
+SpatialGrid& SpatialGrid::operator=( const SpatialGrid& other )
+{
+    if ( this == &other )
+    {
+        return *this;
+    }
+
+    // Lifetime: each copy retains its own startup-owned cold block. Replay
+    // assignment copies bytes into that existing block and never allocates.
+    cellSize = other.cellSize;
+    inverseCellSize = other.inverseCellSize;
+    generation = other.generation;
+    entryPoolUsed = other.entryPoolUsed;
+    objectCount = other.objectCount;
+    activeBucketCount = other.activeBucketCount;
+    frameStats = other.frameStats;
+    memcpy( buckets, other.buckets, sizeof( buckets ) );
+    memcpy( activeBuckets, other.activeBuckets, sizeof( activeBuckets ) );
+    memcpy( entries, other.entries, sizeof( entries ) );
+    memcpy( pairSeen, other.pairSeen, sizeof( pairSeen ) );
+    overflowBucketCount = other.overflowBucketCount;
+    fullBucketLookupReady = other.fullBucketLookupReady;
+    *overflowStorage = *other.overflowStorage;
+    return *this;
 }
 
 
@@ -139,49 +173,9 @@ void SpatialGrid::Clear()
     entryPoolUsed = 0;
     objectCount = 0;
     activeBucketCount = 0;
+    overflowBucketCount = 0;
     fullBucketLookupReady = false;
     frameStats = FrameStatsStorage{};
-}
-
-
-void SpatialGrid::BuildFullBucketLookup()
-{
-    // Invariant: at most 4,096 admitted buckets occupy an 8,192-slot index,
-    // so linear probing always retains an empty sentinel for a missing key.
-    std::fill_n( fullBucketLookup, FULL_LOOKUP_SLOT_COUNT, FULL_LOOKUP_EMPTY );
-    for ( int active = 0; active < activeBucketCount; ++active )
-    {
-        const int bucketIndex = activeBuckets[active];
-        int slot = static_cast<int>( static_cast<uint64_t>( buckets[bucketIndex].key ) & FULL_LOOKUP_SLOT_MASK );
-        while ( fullBucketLookup[slot] != FULL_LOOKUP_EMPTY )
-        {
-            slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
-        }
-        fullBucketLookup[slot] = static_cast<uint16_t>( bucketIndex );
-    }
-    fullBucketLookupReady = true;
-}
-
-
-int SpatialGrid::FindFullBucket( int64_t key ) const
-{
-    assert( fullBucketLookupReady && "saturated SpatialGrid lookup index missing" );
-    int slot = static_cast<int>( static_cast<uint64_t>( key ) & FULL_LOOKUP_SLOT_MASK );
-    for ( int probe = 0; probe < FULL_LOOKUP_SLOT_COUNT; ++probe )
-    {
-        const uint16_t compactBucketIndex = fullBucketLookup[slot];
-        if ( compactBucketIndex == FULL_LOOKUP_EMPTY )
-        {
-            return -1;
-        }
-        const int bucketIndex = static_cast<int>( compactBucketIndex );
-        if ( buckets[bucketIndex].key == key )
-        {
-            return bucketIndex;
-        }
-        slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
-    }
-    return -1;
 }
 
 
@@ -191,12 +185,11 @@ int SpatialGrid::FindFullBucket( int64_t key ) const
 // Output is the bucket index for this key.
 int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
-    if ( activeBucketCount >= TABLE_SIZE )
+    if ( activeBucketCount >= TABLE_SIZE && fullBucketLookupReady )
     {
-        // Why: the legacy table is intentionally a behavior cap. The compact
-        // index distinguishes admitted keys from new rejected keys without a
-        // full primary-table probe, and is cold on unsaturated frames.
-        return FindFullBucket( key );
+        // Why: once a genuinely new post-saturation cell appears, every key is
+        // indexed and the bounded overflow tier owns subsequent lookups.
+        return FindOrCreateFullBucket( key, cx, cy, cz );
     }
 
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
@@ -216,10 +209,6 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
             b.iz = cz;
             assert( activeBucketCount < TABLE_SIZE && "activeBuckets overflow" );
             activeBuckets[activeBucketCount++] = idx;
-            if ( activeBucketCount == TABLE_SIZE )
-            {
-                BuildFullBucketLookup();
-            }
             return idx;
         }
 
@@ -231,7 +220,16 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    return -1;
+    if ( activeBucketCount == TABLE_SIZE )
+    {
+        // Why: filling the primary table is common at 1,000 bodies, but that
+        // scene only revisits admitted keys. Delay the 32 KiB rebuild until a
+        // probe proves that a genuinely new cell needs the overflow tier.
+        BuildFullBucketLookup();
+        return FindOrCreateFullBucket( key, cx, cy, cz );
+    }
+
+    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid primary lookup exhausted before reaching its admission capacity" );
 }
 
 
@@ -243,8 +241,17 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
     const int bi =
         FindOrCreate( key, ClampVisualizationCell( ix ), ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
-    if ( bi < 0 || bi >= TABLE_SIZE )
+    if ( bi < 0 )
     {
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid bucket index out of bounds" );
+    }
+    if ( bi >= TABLE_SIZE )
+    {
+        if ( bi >= TOTAL_BUCKET_COUNT )
+        {
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid overflow bucket index out of bounds" );
+        }
+        InsertOverflowCellEntry( index, bi - TABLE_SIZE );
         return;
     }
 
@@ -256,6 +263,122 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
         if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
         {
             SB_FATAL( "Physics/SpatialGrid", "SpatialGrid entry chain index out of bounds" );
+        }
+        if ( entries[cur].objectIndex == index )
+        {
+            ++frameStats.duplicateRejections;
+            return;
+        }
+    }
+
+    if ( entryPoolUsed >= MAX_CELL_ENTRIES )
+    {
+        assert( false && "SpatialGrid cell entry capacity exceeded" );
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell entry capacity exceeded" );
+    }
+
+    entries[entryPoolUsed].objectIndex = index;
+    entries[entryPoolUsed].next = b.head;
+    b.head = entryPoolUsed;
+    ++entryPoolUsed;
+    ++b.count;
+    ++frameStats.entryWrites;
+    frameStats.maxBucketOccupancy = (std::max)( frameStats.maxBucketOccupancy, b.count );
+}
+
+
+void SpatialGrid::BuildFullBucketLookup()
+{
+    // Invariant: at most 8,192 admitted buckets occupy a 16,384-slot index,
+    // so linear probing always retains an empty sentinel for a missing key.
+    std::fill_n( overflowStorage->lookup, FULL_LOOKUP_SLOT_COUNT, FULL_LOOKUP_EMPTY );
+    for ( int active = 0; active < activeBucketCount; ++active )
+    {
+        const int bucketIndex = activeBuckets[active];
+        int slot = static_cast<int>( static_cast<uint64_t>( buckets[bucketIndex].key ) & FULL_LOOKUP_SLOT_MASK );
+        while ( overflowStorage->lookup[slot] != FULL_LOOKUP_EMPTY )
+        {
+            slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
+        }
+        overflowStorage->lookup[slot] = static_cast<uint16_t>( bucketIndex );
+    }
+    fullBucketLookupReady = true;
+}
+
+
+SpatialGrid::Bucket& SpatialGrid::BucketAt( int bucketIndex )
+{
+    return bucketIndex < TABLE_SIZE ? buckets[bucketIndex] : overflowStorage->buckets[bucketIndex - TABLE_SIZE];
+}
+
+
+const SpatialGrid::Bucket& SpatialGrid::BucketAt( int bucketIndex ) const
+{
+    return bucketIndex < TABLE_SIZE ? buckets[bucketIndex] : overflowStorage->buckets[bucketIndex - TABLE_SIZE];
+}
+
+
+int SpatialGrid::FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
+{
+    assert( fullBucketLookupReady && "saturated SpatialGrid lookup index missing" );
+    int slot = static_cast<int>( static_cast<uint64_t>( key ) & FULL_LOOKUP_SLOT_MASK );
+    for ( int probe = 0; probe < FULL_LOOKUP_SLOT_COUNT; ++probe )
+    {
+        const uint16_t compactBucketIndex = overflowStorage->lookup[slot];
+        if ( compactBucketIndex == FULL_LOOKUP_EMPTY )
+        {
+            if ( overflowBucketCount >= OVERFLOW_BUCKET_COUNT )
+            {
+                // Lane F: dropping a cell could hide a real collision. The
+                // fixed cold tier is the complete runtime admission budget.
+                SB_FATAL( "Physics/SpatialGrid",
+                          "SpatialGrid bucket capacity exceeded: capacity=%d active=%d primary=%d overflow=%d "
+                          "phase=steady_gameplay.",
+                          TOTAL_BUCKET_COUNT,
+                          activeBucketCount,
+                          TABLE_SIZE,
+                          OVERFLOW_BUCKET_COUNT );
+            }
+
+            const int bucketIndex = TABLE_SIZE + overflowBucketCount++;
+            Bucket& bucket = BucketAt( bucketIndex );
+            bucket.key = key;
+            bucket.generation = generation;
+            bucket.head = -1;
+            bucket.count = 0;
+            bucket.ix = cx;
+            bucket.iy = cy;
+            bucket.iz = cz;
+            overflowStorage->lookup[slot] = static_cast<uint16_t>( bucketIndex );
+            ++activeBucketCount;
+            return bucketIndex;
+        }
+        const int bucketIndex = static_cast<int>( compactBucketIndex );
+        if ( BucketAt( bucketIndex ).key == key )
+        {
+            return bucketIndex;
+        }
+        slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
+    }
+
+    // Lane F: the table is capped at 50% load, so exhausting every probe is
+    // impossible unless the lookup metadata was corrupted.
+    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid saturated lookup exhausted all probe slots" );
+}
+
+
+void SpatialGrid::InsertOverflowCellEntry( int index, int overflowIndex )
+{
+    // Why: overflow insertion is deliberately out of line so the common
+    // primary path retains direct buckets[] access and its original branches.
+    Bucket& b = overflowStorage->buckets[overflowIndex];
+    for ( int cur = b.head; cur != -1; cur = entries[cur].next )
+    {
+        ++frameStats.bucketChainEntriesInspected;
+        assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
+        if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
+        {
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid overflow entry chain index out of bounds" );
         }
         if ( entries[cur].objectIndex == index )
         {
@@ -614,19 +737,11 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         pendingPairCount = 0;
     };
 
-    // Iterate only buckets that were actually touched this frame.
-    for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
+    const auto emitBucketPairs = [&]( Bucket& b )
     {
-        int bi = activeBuckets[activeIndex];
-        assert( bi >= 0 && bi < TABLE_SIZE && "active bucket index OOB" );
-        if ( bi < 0 || bi >= TABLE_SIZE )
-        {
-            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket index out of bounds" );
-        }
-        Bucket& b = buckets[bi];
         if ( b.generation != generation || b.count < 2 )
         {
-            continue;
+            return;
         }
 
         // Collect cell indices into a local buffer for O(c^2) pair generation
@@ -717,6 +832,108 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                 }
             }
         }
+    };
+
+    // Why: keep the unsaturated traversal byte-shaped like the legacy loop.
+    // The mirrored overflow lambda above is invoked only for cold rows.
+    const int primaryActiveCount = (std::min)( activeBucketCount, TABLE_SIZE );
+    for ( int activeIndex = 0; activeIndex < primaryActiveCount; ++activeIndex )
+    {
+        const int bi = activeBuckets[activeIndex];
+        assert( bi >= 0 && bi < TABLE_SIZE && "primary active bucket index OOB" );
+        if ( bi < 0 || bi >= TABLE_SIZE )
+        {
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid primary active bucket index out of bounds" );
+        }
+        Bucket& b = buckets[bi];
+        if ( b.generation != generation || b.count < 2 )
+        {
+            continue;
+        }
+
+        int cellIndices[SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS];
+        int cellCount = 0;
+        int cur = b.head;
+        while ( cur != -1 )
+        {
+            assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
+            if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
+            {
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid entry chain index out of bounds" );
+            }
+            const int objIdx = entries[cur].objectIndex;
+            assert( objIdx >= 0 && objIdx < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS &&
+                    "objectIndex OOB in entry chain" );
+            if ( objIdx < 0 || objIdx >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+            {
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds in entry chain" );
+            }
+            if ( cellCount >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+            {
+                assert( false && "cell index staging overflow" );
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell index staging overflow" );
+            }
+            cellIndices[cellCount++] = objIdx;
+            cur = entries[cur].next;
+        }
+
+        for ( int i = 0; i < cellCount - 1; ++i )
+        {
+            for ( int j = i + 1; j < cellCount; ++j )
+            {
+                ++frameStats.rawPairCombinations;
+                int a = cellIndices[i];
+                int bIdx = cellIndices[j];
+                if ( a == bIdx )
+                {
+                    continue;
+                }
+                if ( a > bIdx )
+                {
+                    const int tmp = a;
+                    a = bIdx;
+                    bIdx = tmp;
+                }
+                assert( a < bIdx && "pair ordering violated: a must be less than bIdx" );
+                if ( a >= bIdx )
+                {
+                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair ordering violated" );
+                }
+                const int pairIdx = bIdx * ( bIdx - 1 ) / 2 + a;
+                const int word = pairIdx >> 6;
+                assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
+                if ( word < 0 || word >= PAIR_WORDS )
+                {
+                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair dedup index out of bounds" );
+                }
+                const uint64_t bit = uint64_t( 1 ) << ( pairIdx & 63 );
+                if ( pairSeen[word] & bit )
+                {
+                    continue;
+                }
+                pairSeen[word] |= bit;
+                ++frameStats.uniquePairs;
+                if ( filter && filter->simdKernels )
+                {
+                    pendingPairs[pendingPairCount++] = std::pair<int, int>( a, bIdx );
+                    if ( pendingPairCount == SkullbonezCore::Physics::Kernels::NARROWPHASE_PRUNE_LANE_COUNT )
+                    {
+                        flushPendingPairs();
+                    }
+                    continue;
+                }
+                if ( filter && !SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, bIdx ) )
+                {
+                    ++frameStats.filterRejections;
+                    continue;
+                }
+                appendPair( a, bIdx );
+            }
+        }
+    }
+    for ( int overflowIndex = 0; overflowIndex < overflowBucketCount; ++overflowIndex )
+    {
+        emitBucketPairs( overflowStorage->buckets[overflowIndex] );
     }
     // Invariant: the final partial block still runs the AVX2 masked-lane path;
     // it is flushed only after all grid buckets so candidate order is unchanged.
@@ -734,8 +951,8 @@ void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
     int count = ( activeBucketCount < maxCells ) ? activeBucketCount : maxCells;
     for ( int i = 0; i < count; ++i )
     {
-        int bi = activeBuckets[i];
-        const Bucket& b = buckets[bi];
+        const int bi = i < TABLE_SIZE ? activeBuckets[i] : i;
+        const Bucket& b = BucketAt( bi );
         outCells[i].ix = b.ix;
         outCells[i].iy = b.iy;
         outCells[i].iz = b.iz;
