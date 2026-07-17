@@ -52,6 +52,13 @@ using namespace SkullbonezCore::Math::Vector;
 
 namespace
 {
+// Hazard: a bounds call that first activates overflow can leave later cells in
+// the primary specialization. Keep that one-time fallback bounded; larger
+// spans use the readiness-aware transition loop instead of repeating 4,096-slot
+// primary probes for the rest of a permitted large span. The compact cap limits
+// that fallback to at most 63 * 4,096 = 258,048 one-time slot probes.
+constexpr int64_t MAX_PRIMARY_TRANSITION_SCAN_CELLS = 64;
+
 void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector3& maxBounds, float inverseCellSize )
 {
     const bool finite = std::isfinite( minBounds.x ) && std::isfinite( minBounds.y ) && std::isfinite( minBounds.z ) &&
@@ -106,8 +113,7 @@ int16_t ClampVisualizationCell( int cell )
 
 SpatialGrid::SpatialGrid( float fCellSize )
     : cellSize( 1.0f ), inverseCellSize( 1.0f ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 ),
-      activeBucketCount( 0 ), overflowBucketCount( 0 ), fullBucketLookupReady( false ),
-      overflowStorage( std::make_unique<OverflowStorage>() )
+      activeBucketCount( 0 ), overflowBucketCount( 0 ), overflowStorage( std::make_unique<OverflowStorage>() )
 {
     memset( buckets, 0, sizeof( buckets ) );
     SetCellSize( fCellSize );
@@ -141,7 +147,6 @@ SpatialGrid& SpatialGrid::operator=( const SpatialGrid& other )
     memcpy( entries, other.entries, sizeof( entries ) );
     memcpy( pairSeen, other.pairSeen, sizeof( pairSeen ) );
     overflowBucketCount = other.overflowBucketCount;
-    fullBucketLookupReady = other.fullBucketLookupReady;
     *overflowStorage = *other.overflowStorage;
     return *this;
 }
@@ -174,7 +179,6 @@ void SpatialGrid::Clear()
     objectCount = 0;
     activeBucketCount = 0;
     overflowBucketCount = 0;
-    fullBucketLookupReady = false;
     frameStats = FrameStatsStorage{};
 }
 
@@ -183,16 +187,8 @@ void SpatialGrid::Clear()
 // Uses LINEAR PROBING: if the target slot is occupied by a different key,
 // try the next slot, then the next, etc.
 // Output is the bucket index for this key.
-int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
+int SpatialGrid::FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
-    if ( fullBucketLookupReady )
-    {
-        // Why: readiness already implies primary saturation. Testing the flag
-        // directly keeps the unsaturated per-cell route to one predictable
-        // branch while the bounded overflow tier owns all indexed lookups.
-        return FindOrCreateFullBucket( key, cx, cy, cz );
-    }
-
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
 
     for ( int probe = 0; probe < TABLE_SIZE; ++probe )
@@ -221,12 +217,17 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    if ( activeBucketCount == TABLE_SIZE )
+    if ( activeBucketCount >= TABLE_SIZE )
     {
         // Why: filling the primary table is common at 1,000 bodies, but that
-        // scene only revisits admitted keys. Delay the 32 KiB rebuild until a
-        // probe proves that a genuinely new cell needs the overflow tier.
-        BuildFullBucketLookup();
+        // scene usually only revisits admitted keys. Delay the 32 KiB rebuild
+        // until a probe proves that a genuinely new cell needs the overflow
+        // tier. A bounds call that crossed saturation may route here again, so
+        // preserve its already-built lookup rather than rebuilding it.
+        if ( activeBucketCount == TABLE_SIZE )
+        {
+            BuildFullBucketLookup();
+        }
         return FindOrCreateFullBucket( key, cx, cy, cz );
     }
 
@@ -234,14 +235,33 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 }
 
 
-void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
+template <SpatialGrid::BucketLookupRoute Route>
+void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int iz )
 {
     // The same object can overlap a cell through multiple sampled bounds during
     // a swept insert. Before appending, scan this bucket's linked list so one
     // object contributes at most once to a cell's candidate-pair list.
     const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
-    const int bi =
-        FindOrCreate( key, ClampVisualizationCell( ix ), ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
+    const int16_t visualizationX = ClampVisualizationCell( ix );
+    const int16_t visualizationY = ClampVisualizationCell( iy );
+    const int16_t visualizationZ = ClampVisualizationCell( iz );
+    int bi = -1;
+    if constexpr ( Route == BucketLookupRoute::Full )
+    {
+        bi = FindOrCreateFullBucket( key, visualizationX, visualizationY, visualizationZ );
+    }
+    else if constexpr ( Route == BucketLookupRoute::Transitioning )
+    {
+        // Why: only a bounds call that could cross primary capacity pays this
+        // per-cell readiness branch. Once its first new overflow cell builds
+        // the compact index, all remaining cells avoid a full primary scan.
+        bi = activeBucketCount > TABLE_SIZE ? FindOrCreateFullBucket( key, visualizationX, visualizationY, visualizationZ )
+                                            : FindOrCreatePrimaryBucket( key, visualizationX, visualizationY, visualizationZ );
+    }
+    else
+    {
+        bi = FindOrCreatePrimaryBucket( key, visualizationX, visualizationY, visualizationZ );
+    }
     // Why: one unsigned range check preserves the legacy primary-cell branch
     // shape. Negative and overflow results both enter the cold validation path.
     if ( static_cast<unsigned int>( bi ) >= static_cast<unsigned int>( TABLE_SIZE ) )
@@ -286,7 +306,73 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
 }
 
 
-void SpatialGrid::BuildFullBucketLookup()
+template <SpatialGrid::BucketLookupRoute Route>
+void SpatialGrid::InsertBoundsCells( int index,
+                                     int minX,
+                                     int minY,
+                                     int minZ,
+                                     int maxX,
+                                     int maxY,
+                                     int maxZ,
+                                     bool sampledSweep )
+{
+    for ( int ix = minX; ix <= maxX; ++ix )
+    {
+        for ( int iy = minY; iy <= maxY; ++iy )
+        {
+            for ( int iz = minZ; iz <= maxZ; ++iz )
+            {
+                if ( sampledSweep )
+                {
+                    ++frameStats.sampledSweepCellVisits;
+                }
+                else
+                {
+                    ++frameStats.exactAabbCellVisits;
+                }
+                InsertCellRouted<Route>( index, ix, iy, iz );
+            }
+        }
+    }
+}
+
+
+// Why: ordinary body bounds need one routing branch, not the full saturation
+// decision tree. Keeping large-span and overflow routing out of line preserves
+// the compact pre-overflow InsertBounds layout measured by this campaign.
+__declspec(noinline) void SpatialGrid::InsertBoundsCellsUncommon( int index,
+                                                                  int minX,
+                                                                  int minY,
+                                                                  int minZ,
+                                                                  int maxX,
+                                                                  int maxY,
+                                                                  int maxZ,
+                                                                  bool sampledSweep,
+                                                                  int64_t cellVisitCount )
+{
+    if ( activeBucketCount > TABLE_SIZE )
+    {
+        // Invariant: the first overflow admission cannot occur until the
+        // compact lookup is fully built, so a count above primary capacity is
+        // the hot-state proof that direct full lookup is ready.
+        InsertBoundsCells<BucketLookupRoute::Full>( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
+    }
+    else if ( int64_t( activeBucketCount ) + cellVisitCount <= TABLE_SIZE )
+    {
+        InsertBoundsCells<BucketLookupRoute::Primary>( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
+    }
+    else
+    {
+        InsertBoundsCells<BucketLookupRoute::Transitioning>(
+            index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
+    }
+}
+
+
+// Why: keep the 32 KiB cold-table rebuild out of the hot primary-cell
+// specialization. MSVC otherwise inlined the fill and 4,096-row rebuild under
+// LTCG, increasing hot code size and register pressure even when never taken.
+__declspec(noinline) void SpatialGrid::BuildFullBucketLookup()
 {
     // Invariant: at most 8,192 admitted buckets occupy a 16,384-slot index,
     // so linear probing always retains an empty sentinel for a missing key.
@@ -301,7 +387,6 @@ void SpatialGrid::BuildFullBucketLookup()
         }
         overflowStorage->lookup[slot] = static_cast<uint16_t>( bucketIndex );
     }
-    fullBucketLookupReady = true;
 }
 
 
@@ -317,9 +402,16 @@ const SpatialGrid::Bucket& SpatialGrid::BucketAt( int bucketIndex ) const
 }
 
 
-int SpatialGrid::FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
+// Why: keep the saturated 16,384-slot probe and overflow admission out of the
+// primary specialization; LTCG otherwise makes never-taken overflow machinery
+// part of the 1,000-body instruction footprint.
+__declspec(noinline) int
+SpatialGrid::FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
-    assert( fullBucketLookupReady && "saturated SpatialGrid lookup index missing" );
+    // Invariant: callers enter directly only after one overflow admission;
+    // the primary route may enter at exactly TABLE_SIZE immediately after it
+    // builds this index and before admitting that first overflow bucket.
+    assert( activeBucketCount >= TABLE_SIZE && "saturated SpatialGrid lookup index missing" );
     int slot = static_cast<int>( static_cast<uint64_t>( key ) & FULL_LOOKUP_SLOT_MASK );
     for ( int probe = 0; probe < FULL_LOOKUP_SLOT_COUNT; ++probe )
     {
@@ -366,7 +458,7 @@ int SpatialGrid::FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, in
 }
 
 
-void SpatialGrid::InsertOverflowCellEntry( int index, int overflowIndex )
+__declspec(noinline) void SpatialGrid::InsertOverflowCellEntry( int index, int overflowIndex )
 {
     // Why: overflow insertion is deliberately out of line so the common
     // primary path retains direct buckets[] access and its original branches.
@@ -444,23 +536,20 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
                   MAX_CELL_ENTRIES );
     }
 
-    for ( int ix = minX; ix <= maxX; ++ix )
+    const int64_t cellVisitCount = cellCountX * cellCountY * cellCountZ;
+
+    // Why: bitwise conjunction evaluates two cheap hot-state comparisons and
+    // emits one common-route decision. The no-inline helper owns every large
+    // or already-overflowed case so its branches cannot inflate this path.
+    if ( ( activeBucketCount <= TABLE_SIZE ) & ( cellVisitCount <= MAX_PRIMARY_TRANSITION_SCAN_CELLS ) )
     {
-        for ( int iy = minY; iy <= maxY; ++iy )
-        {
-            for ( int iz = minZ; iz <= maxZ; ++iz )
-            {
-                if ( sampledSweep )
-                {
-                    ++frameStats.sampledSweepCellVisits;
-                }
-                else
-                {
-                    ++frameStats.exactAabbCellVisits;
-                }
-                InsertCell( index, ix, iy, iz );
-            }
-        }
+        // Invariant: this can leave at most 63 later cells on the one-time
+        // primary fallback if a compact bounds call activates overflow.
+        InsertBoundsCells<BucketLookupRoute::Primary>( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
+    }
+    else
+    {
+        InsertBoundsCellsUncommon( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep, cellVisitCount );
     }
 }
 

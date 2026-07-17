@@ -159,16 +159,34 @@ class SpatialGrid
     // Keeping its 160 KiB out of line preserves both the grid and containing
     // broadphase owner's common-scale layout; it never grows during gameplay.
     int overflowBucketCount;
-    bool fullBucketLookupReady;
     std::unique_ptr<OverflowStorage> overflowStorage;
 
-    int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    enum class BucketLookupRoute
+    {
+        Primary,
+        Full,
+        Transitioning,
+    };
+
+    int FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     void BuildFullBucketLookup();
     int FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     Bucket& BucketAt( int bucketIndex );
     const Bucket& BucketAt( int bucketIndex ) const;
     void InsertOverflowCellEntry( int index, int overflowIndex );
-    void InsertCell( int index, int ix, int iy, int iz );
+    template <BucketLookupRoute Route>
+    void InsertCellRouted( int index, int ix, int iy, int iz );
+    template <BucketLookupRoute Route>
+    void InsertBoundsCells( int index, int minX, int minY, int minZ, int maxX, int maxY, int maxZ, bool sampledSweep );
+    void InsertBoundsCellsUncommon( int index,
+                                    int minX,
+                                    int minY,
+                                    int minZ,
+                                    int maxX,
+                                    int maxY,
+                                    int maxZ,
+                                    bool sampledSweep,
+                                    int64_t cellVisitCount );
     void
     InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds, bool sampledSweep );
     void
