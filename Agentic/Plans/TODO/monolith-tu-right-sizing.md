@@ -1,7 +1,7 @@
 # Monolith Translation-Unit Right-Sizing — Finish What The Campaigns Declared Done
 
 Date: 2026-07-17
-Status: Active — 5/8 tasks
+Status: Active — 6/8 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at N0)
 Impact area: `Runtime/Replay/ReplayPrediction.cpp`,
 `Runtime/InteractionAutomationController.cpp`,
@@ -86,7 +86,7 @@ mechanical split.
   implementation-only types out of the public surface. Gates:
   `validate_dx12_renderer`, then `tools\run_graphics_stress.bat 1` with
   recorded command, runtime, and exit evidence; `dx12_validation.txt` = 0.
-- [ ] N5 — `ReplayRecorder.cpp` (3,492). New-evidence pass inside the
+- [x] N5 — `ReplayRecorder.cpp` (3,492). New-evidence pass inside the
   recorder owner: if the census shows separable responsibilities (ring
   bookkeeping vs. encode staging vs. eviction policy) extract them behind the
   existing owner; otherwise record a fresh dated cohesion ruling superseding

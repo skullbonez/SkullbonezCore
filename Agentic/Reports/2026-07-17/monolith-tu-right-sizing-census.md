@@ -240,3 +240,44 @@ Formal commit-gate evidence from the final staged source:
   bounded minute, stopped PID 45448 through the script's PID timeout, and
   exited 0 in 61.627s without a crash. Log:
   `TestOutput/validation/agent_logs/monolith_n4_graphics_stress_stdout.log`.
+
+## N5 Replay Recorder Cohesion Ruling
+
+Completed on 2026-07-18 against the current `ReplayRecorder.cpp` and
+`ReplayRecorder` field surface. The new-evidence pass tested ring bookkeeping,
+presentation-delta encoding, resolution, checkpoints, and hash-log emission as
+candidate responsibilities. It found one ordered presentation-track authority:
+
+| Candidate | Fresh dependency evidence | Ruling |
+|---|---|---|
+| Ring bookkeeping / eviction | `AcquireSampleSlotIndex` advances `m_sampleHead` only after `PromoteVisualFrameToKeyframe(1)` reconstructs the new oldest row. The returned slot indexes `m_samples`, `m_visualFrames`, and `m_resolvedPresentationSamples` together. | Cohesive. A standalone ring owner would need mutable access to delta encoding/resolution or a broad multi-array context. |
+| Delta encode staging | Metadata indices, carry states, active/seen masks, and changed-body rows persist across captures. Keyframe cadence derives from the sample/checkpoint order, and eviction promotion calls the same store operation with carry updates disabled. | Cohesive. The staging state is the retained stream's cross-frame encoding state, not a disposable encoder value. |
+| Sample resolution | Resolution searches backward from the requested ring offset to the retained keyframe, applies deltas in head-relative order, and rebuilds bodies from the same metadata table. Latest/normalized reads retain slot-aligned caches. | Cohesive. Separating it would duplicate the byte/order contract or borrow all ring and metadata authority. |
+| Checkpoint summaries | The checkpoint ring records the exact capture frame/event/hash and is updated in the same commit order as samples and hash rows. It contributes directly to recorder stats and retention configuration. | Retain. It is a small index of the presentation timeline, not an independent subsystem. |
+| Hash-log emission | Header capacity/cadence comes from the same normalized config; each row consumes the just-committed sample, body count, checkpoint flag, and state hash under a stable external column contract. | Retain. Moving two formatting methods would be a forwarding/file-size shuffle rather than ownership extraction. |
+
+The physical TU also contains the already concrete presentation, solver, and
+event recorder classes plus shared value/codec helpers. Moving those existing
+classes to separate files would not change state ownership, and introducing a
+new internal API for their shared byte/order helpers would re-create the exact
+R6 risk this task was required to test with new evidence. The owner therefore
+ratifies the dated cohesion ruling: keep the presentation recorder's ring,
+delta codec, retention promotion, resolution cache, checkpoint index, and hash
+row sequencing together. No source, artifact schema, probe output, allocation
+registration, baseline, golden, or runtime behavior changed in N5.
+
+The required final gates passed from the staged documentation-only ruling:
+
+- `tools\validate_tests.bat` passed in 6.821s with 91/91 test project/filter
+  items, a zero-warning Profile test build, and all 282 doctests / 21,389
+  assertions passing. Log:
+  `TestOutput/validation/agent_logs/monolith_n5_validate_tests_stdout.log`.
+- The task's only invocation of
+  `tools\validate_replay_visual_fidelity.bat` passed in 434.351s. Its launcher
+  control proved one engine process and one prediction generation; the 16
+  typed packet controls passed; the authoritative immutable oracle produced
+  2,401 ticks, 200 moved / 187 toppled wall bricks, 199 causal nodes, one
+  presented cascade, and reveal frames 0–2400; every negative, artifact, and
+  determinism control detected its injected divergence. No golden changed.
+  Log:
+  `TestOutput/validation/agent_logs/monolith_n5_replay_visual_fidelity_stdout.log`.

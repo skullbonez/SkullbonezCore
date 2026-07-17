@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | SceneController ownership is closed; two Round-6 plans remain and baseline/golden refresh remains prohibited. |
 | Current objective | Complete monolith N0-N7, then red-flags C4-C6. |
-| Active/future progress | 9 / 15 live tasks (60%); monolith N0-N4 and red-flags C0-C3 complete. |
+| Active/future progress | 10 / 15 live tasks (67%); monolith N0-N5 and red-flags C0-C3 complete. |
 | Last broad local gate | Monolith N1 `validate_full` passed in about 2m13s: 717 project/filter items matched, 282/282 tests and every ratified coverage floor passed, the Automation boundary smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | Monolith N4 `validate_fast`, `validate_dx12_renderer`, and `run_graphics_stress.bat 1` passed; N5 requires `validate_tests` plus exactly one replay visual-fidelity mega-gate invocation. |
+| Validation for current edits | Monolith N5 `validate_tests` and its single replay visual-fidelity mega gate passed with the immutable 2,401-tick / 200-box oracle unchanged; N6 has the same two required gates after its dependency ruling. |
 
 ## Live Queue
 
@@ -373,8 +373,9 @@ plan inventory.
 
 ## Next Handoff
 
-Scene-controller ownership is complete at 7/7. Monolith N4 moved the existing
-DX12 frame and deferred-release owners behind a private header without changing
-the two-frame or fence contracts; renderer and bounded stress gates passed.
-Continue with monolith N5, then N6-N7 and red-flags C4-C6. Do not regenerate
-behavioral, physics, replay, visual, or screenshot baselines.
+Scene-controller ownership is complete at 7/7. Monolith N5's fresh dependency
+pass retained the recorder as cohesive because slot eviction, keyframe
+promotion, delta carry, and resolution share one ordered state authority; its
+tests and one-invocation mega gate passed. Continue with N6-N7 and red-flags
+C4-C6. Do not regenerate behavioral, physics, replay, visual, or screenshot
+baselines.
