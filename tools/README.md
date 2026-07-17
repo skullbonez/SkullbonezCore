@@ -64,6 +64,14 @@ Cobertura XML with OpenCppCoverage, then applies the versioned tier map in
 PR gate enforces Tier 1 at 85%, Tier 2 at 70%, and Tier 3 at 50%; whole-product
 coverage remains informational.
 
+Run `tools\validate_coverage.bat` directly when changing coverage floors,
+exclusions, instrumentation scope, coverage tooling, or tests intended to raise
+subsystem coverage. Also run it as the final pre-commit/PR gate when explicit
+confirmation against the ratified floors is required. Do not run it again after
+`validate_all_cpu_tests.bat`: that umbrella already invokes it, and
+`validate_full.bat`, `agent_validate.bat`, and hosted mandatory CPU CI all use
+the same umbrella.
+
 Each subsystem also lists `required_instrumented_sources`. The checker fails if
 one of those translation units disappears from the XML, preventing a link or
 project-file omission from silently shrinking a denominator. Tier-4 and
