@@ -90,16 +90,17 @@ Rules:
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
-remains deliberately excluded. The denominator grew 0 → 21 on 2026-07-17 when
+remains deliberately excluded. The denominator grew 0 → 22 on 2026-07-17 when
 the owner activated the three adversarial-review round-6 remediation plans
-from the same day's hostile full-tree review.
+from the same day's hostile full-tree review. The initial 21-task entry was a
+ledger defect: `code-level-red-flags-remediation` contains C0-C6, seven tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 0 | 7 | 0% |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 0 | 6 | 0% |
-| **Active/future total** | **0** | **21** | **0%** |
+| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 1 | 7 | 14% |
+| **Active/future total** | **1** | **22** | **5%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -646,7 +647,7 @@ closure failures; each plan ends with one independent review.
 |---|---|---:|---|
 | [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 0/7 | T0 ownership census and owner-ratified target map |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 0/8 | N0 census, per-file owner rulings, and the DX12 re-partition parking lift |
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 0/6 | C0 census plus clamp-value and LTO-lane owner rulings |
+| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 1/7 | C1 moves text batching into the ratified `RuntimeRenderer` owner |
 
 ## Features
 

@@ -1,8 +1,8 @@
 # Code-Level Red-Flags Remediation — Renderer Globals, Hot-Path Singletons, Friend Debt, Catch-Up Clamp, LTO Determinism
 
 Date: 2026-07-17
-Status: Active — 0/6 tasks
-Branch: owner decision at C0 (feature branch; never directly on `main`)
+Status: Active — 1/7 tasks
+Branch: `nightrunner-17th-july` (owner-ratified at C0)
 Impact area: `Rendering/Text.cpp`, `Core/Profiler.*`, `Core/Log.*`,
 `Core/LockOrderValidator.*`, `Physics/PhysicsScene.h`,
 `Physics/PhysicsEngine.*`, `Physics/SimulationSystem.cpp`, project settings
@@ -62,7 +62,7 @@ re-certified as accepted policy with evidence.
 
 ## Tasks
 
-- [ ] C0 — Census and rulings. Confirm each finding at the current tip with
+- [x] C0 — Census and rulings. Confirm each finding at the current tip with
   file:line evidence; owner ratifies the branch, the destination owner for
   text-batch state, the profiler access pattern (cached reference at scope
   construction vs. explicit handle plumbed through render/physics owners),
@@ -120,6 +120,15 @@ re-certified as accepted policy with evidence.
   for anything measured after it).
 - Zero-baseline-refresh binds all tasks except the narrow owner-approved C4
   path described in Non-Goals; any unexpected physics CSV diff is a revert.
+
+Owner-ratified C0 decisions (2026-07-17): `RuntimeRenderer` owns the fixed
+text batch; profiler handles are explicitly plumbed through hot runtime,
+render, UI, and physics owners; `TrackedMutex` caches Debug-only validation;
+`EngineLog` remains the documented cold/fatal static; the fixed-step clamp is
+five ticks with explicit dropped-time facts and counters; and C5 structurally
+narrows WPO/LTCG for solver-critical physics translation units. The evidence
+and complete call-site census are recorded in
+`Agentic/Reports/2026-07-17/code-level-red-flags-census.md`.
 
 ## Acceptance
 
