@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | SceneController ownership is closed; two Round-6 plans remain and baseline/golden refresh remains prohibited. |
 | Current objective | Complete monolith N0-N7, then red-flags C4-C6. |
-| Active/future progress | 6 / 15 live tasks (40%); monolith N0-N1 and red-flags C0-C3 complete. |
+| Active/future progress | 7 / 15 live tasks (47%); monolith N0-N2 and red-flags C0-C3 complete. |
 | Last broad local gate | Monolith N1 `validate_full` passed in about 2m13s: 717 project/filter items matched, 282/282 tests and every ratified coverage floor passed, the Automation boundary smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | Monolith N2 is a fresh cohesion pass plus `tools\validate_physics.bat`; defer the formal gate until commit preparation. |
+| Validation for current edits | Monolith N2 `tools\validate_physics.bat` passed with the 44,401-line byte-exact baseline; N3 requires `tools\validate_fast.bat` plus one interactive smoke run at its commit gate. |
 
 ## Live Queue
 

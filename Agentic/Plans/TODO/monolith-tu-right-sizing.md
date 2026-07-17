@@ -70,7 +70,7 @@ mechanical split.
   inputs. It is automation-boundary code, so the link-level configuration
   exclusion must be preserved exactly. Gate: `validate_full` (automation
   boundary lane).
-- [ ] N2 — `PhysicsApi.cpp` (2,226). Partition by API domain (body/collider
+- [x] N2 — `PhysicsApi.cpp` (2,226). Partition by API domain (body/collider
   lifecycle, queries, diagnostics access) into owner-named physics TUs only
   where the census shows separable state; otherwise record the cohesion
   ruling. Gate: `validate_physics` byte-exact.

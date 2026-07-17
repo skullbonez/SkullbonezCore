@@ -125,3 +125,33 @@ doctests, all ratified coverage floors, the Profile exclusion plus Automation
 replay/prediction smoke, zero DX12 validation errors with committed captures,
 and the byte-exact 44,401-line physics baseline. Evidence:
 `TestOutput/validation/agent_logs/monolith_n1_validate_full_stdout.log`.
+
+## N2 Standalone Physics Cohesion Ruling
+
+Completed on 2026-07-18 against `PhysicsStandaloneWorld` at the current tip.
+The fresh field-to-method dependency pass found one state authority rather than
+separable body, collider, query, or diagnostics owners:
+
+| State | Mutators | Consumers / invalidation coupling |
+|---|---|---|
+| `m_bodyStore` | `Clear`, body lifecycle, impulse, `Step`, activation | Collider lifecycle, joint lifecycle, contact/island generation, both spatial queries, every body/collider view, and all body-view cache helpers. |
+| `m_colliderStore` | `Clear`, collider lifecycle, body destruction | `Step`, contact/island generation, ray cast, broadphase query, collider views, and body bounding-radius refresh. |
+| `m_contacts`, `m_islands`, and island scratch | Cleared by every relevant world mutation and rebuilt by `Step` | `Contacts`/`Islands` return borrowed views whose lifetime is the next world mutation; island generation also reads bodies, colliders, joints, sleep state, and contact rows. |
+| Joint rows, generations, liveness, and free list | `Clear`, point-joint lifecycle, body destruction | Island generation and the borrowed joint views share slot identity and tombstone order. |
+| Body/collider/joint/query view scratch | Rebuilt by const query/view calls; invalidated by mutations | Projection requires live handle resolution across body, collider, and constraint state; the public lifetime contract is world-wide, not per API domain. |
+| `m_sleepEnabled` and `m_nextInitialGeneration` | Activation/clear | Sleep policy is consumed by creation, update, step, contact/island generation, and both queries; the generation seed governs every post-clear handle. |
+
+The owner therefore ratifies the dated cohesion ruling: retain
+`PhysicsStandaloneWorld` as the single standalone simulation/state owner.
+Partitioning body/collider lifecycle would split generation and destruction
+invariants; partitioning queries or diagnostics would require a mutable store
+backpointer, wide borrowed context, or forwarding facade. A method-only TU
+split would reduce physical line count without moving authority and is
+explicitly rejected by this plan. No physics source, behavior, baseline, or
+golden changed in N2.
+
+The required `tools\validate_physics.bat` commit gate passed in about 50s:
+standalone/runtime handle smoke matched expected state, both builds completed
+with zero warnings and zero errors, and `physics_regression_varied.csv` matched
+the committed baseline byte-exact at 44,401 lines. Evidence:
+`TestOutput/validation/agent_logs/monolith_n2_validate_physics_stdout.log`.

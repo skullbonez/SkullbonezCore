@@ -97,9 +97,9 @@ round-6 denominator is 15 tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 2 | 8 | 25% |
+| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 3 | 8 | 38% |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 4 | 7 | 57% |
-| **Active/future total** | **6** | **15** | **40%** |
+| **Active/future total** | **7** | **15** | **47%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -641,7 +641,7 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 2/8 | N2 PhysicsApi fresh cohesion pass and byte-exact physics gate |
+| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 3/8 | N3 UI window-interaction owner extraction and fast/interactive gates |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 4/7 | C4-C6 resume after SceneController and monolith closure per the priority path |
 
 ## Features
