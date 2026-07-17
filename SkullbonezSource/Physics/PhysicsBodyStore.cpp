@@ -141,7 +141,8 @@ const ColliderRecord* ColliderRecordForModelIndex( const ColliderStore& collider
 // Boxes and hulls should be lifted only by their deepest actual vertex
 // penetration. A center-height clamp would make tilted or uneven-terrain bodies
 // visibly float and would change the deterministic physics baseline.
-bool FindClosestBoxTerrainVertex( const PhysicsBodyRecord& record,
+bool FindClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
+                                  const PhysicsBodyRecord& record,
                                   const PhysicsBodyHotState& hot,
                                   const BoundingBox& box,
                                   Vector3& outVertex,
@@ -149,7 +150,7 @@ bool FindClosestBoxTerrainVertex( const PhysicsBodyRecord& record,
                                   Plane& outPlane,
                                   float& outGap )
 {
-    PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxClosestVertexProbe" );
 
     if ( !record.terrain )
     {
@@ -190,7 +191,8 @@ bool FindClosestBoxTerrainVertex( const PhysicsBodyRecord& record,
     return found;
 }
 
-bool FindClosestHullTerrainVertex( const PhysicsBodyRecord& record,
+bool FindClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
+                                   const PhysicsBodyRecord& record,
                                    const PhysicsBodyHotState& hot,
                                    const ConvexHullShape& hull,
                                    Vector3& outVertex,
@@ -198,7 +200,7 @@ bool FindClosestHullTerrainVertex( const PhysicsBodyRecord& record,
                                    Plane& outPlane,
                                    float& outGap )
 {
-    PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullClosestVertexProbe" );
 
     if ( !record.terrain )
     {
@@ -239,7 +241,8 @@ bool FindClosestHullTerrainVertex( const PhysicsBodyRecord& record,
     return found;
 }
 
-void ClampBodyToTerrainSurface( const PhysicsBodyRecord& record,
+void ClampBodyToTerrainSurface( SkullbonezCore::Core::Profiler* profiler,
+                                const PhysicsBodyRecord& record,
                                 PhysicsBodyHotState& hot,
                                 const ColliderRecord& collider )
 {
@@ -259,7 +262,8 @@ void ClampBodyToTerrainSurface( const PhysicsBodyRecord& record,
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
-        if ( FindClosestBoxTerrainVertex( record,
+        if ( FindClosestBoxTerrainVertex( profiler,
+                                          record,
                                           hot,
                                           std::get<BoundingBox>( collider.shape ),
                                           closestVertex,
@@ -279,7 +283,8 @@ void ClampBodyToTerrainSurface( const PhysicsBodyRecord& record,
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
-        if ( FindClosestHullTerrainVertex( record,
+        if ( FindClosestHullTerrainVertex( profiler,
+                                           record,
                                            hot,
                                            std::get<ConvexHullShape>( collider.shape ),
                                            closestVertex,
@@ -1989,7 +1994,10 @@ bool PhysicsBodyStore::ConsumePendingBodyImpulse( int modelIndex )
 }
 
 
-bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, int modelIndex, float deltaSeconds )
+bool PhysicsBodyStore::IntegrateBodyPose( Core::Profiler* profiler,
+                                          const ColliderStore& colliderStore,
+                                          int modelIndex,
+                                          float deltaSeconds )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
@@ -2016,7 +2024,7 @@ bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, in
     }
 
     IntegrateBodyRecordPose( hot, deltaSeconds );
-    ClampBodyToTerrainSurface( *record, hot, *collider );
+    ClampBodyToTerrainSurface( profiler, *record, hot, *collider );
     // Why: this value is a targeted underwater-sleep probe, not general body
     // state. Any pose integration invalidates the previous water sample.
     record->submergedVolumePercent = 0.0f;

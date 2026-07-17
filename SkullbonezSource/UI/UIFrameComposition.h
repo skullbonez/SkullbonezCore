@@ -115,6 +115,7 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 
 void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
+                      Core::Profiler* profiler,
                       Rendering::IRenderCommandContext& renderCommands,
                       Rendering::IRenderDiagnostics& renderDiagnostics,
                       int screenW,

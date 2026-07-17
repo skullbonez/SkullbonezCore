@@ -286,6 +286,11 @@ PhysicsWorld::PhysicsWorld()
     m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
 }
 
+void PhysicsWorld::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept
+{
+    m_profiler = profiler;
+}
+
 
 void PhysicsWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
@@ -550,7 +555,7 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
         return;
     }
 
-    PROFILE_SCOPED( "Frame/Physics/TornadoField" );
+    PROFILE_SCOPED( m_profiler, "Frame/Physics/TornadoField" );
     const std::vector<int>& releaseWakeBodies = m_tornadoGameplay.ReleaseFixedBodies( stepState, bodyStore );
     for ( int releasedIndex : releaseWakeBodies )
     {
@@ -674,7 +679,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 
     // Sleeping bodies keep cached state until a contact or scene change wakes
     // them, so force integration only runs for awake rows.
-    const Vector3* mutualGravityForces = m_forceStage.PrepareMutualGravityForces( bodyRecords,
+    const Vector3* mutualGravityForces = m_forceStage.PrepareMutualGravityForces( m_profiler,
+                                                                                  bodyRecords,
                                                                                   hotFields,
                                                                                   sleepStates,
                                                                                   modelCount,
@@ -691,6 +697,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         m_timeRemaining,
         mutualGravityForces,
         dt,
+        m_profiler,
     };
     m_forceStage.ApplyForces( applyForcesStage, modelCount, workerPool, config.physicsExecution );
 
@@ -708,12 +715,13 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                            m_stepDiagnostics.MutablePipelineTrace(),
                                                            modelCount,
                                                            dt,
-                                                           contactSkin };
+                                                           contactSkin,
+                                                           m_profiler };
     const std::span<const std::pair<int, int>> candidatePairs = m_broadphase.Run( broadphaseContext );
 
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
-    PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
+    PROFILE_BEGIN( m_profiler, "Frame/Physics/Narrowphase" );
     float invCellSize = 1.0f / m_broadphase.GetCellSize();
     const int candidatePairCount = static_cast<int>( candidatePairs.size() );
 
@@ -742,7 +750,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         contactSkin,
         config.bodySimulation.contactEpsilon,
         invCellSize,
-        dt };
+        dt,
+        m_profiler };
 
     const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( objectNarrowphasePairContext,
                                                                       candidatePairCount,
@@ -751,7 +760,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                       workerPool );
     if ( ranParallelNarrowphase )
     {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/CommitEvents" );
+        PROFILE_SCOPED( m_profiler, "Frame/Physics/Narrowphase/CommitEvents" );
         const std::span<const ObjectNarrowphaseEvent> events = m_narrowphase.GetEvents();
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {
@@ -762,7 +771,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     {
         // Invariant: serial mode commits each pair's side effects immediately.
         // Deferring this loop would change what the next pair observes.
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/SerialPairs" );
+        PROFILE_SCOPED( m_profiler, "Frame/Physics/Narrowphase/SerialPairs" );
         for ( int pairIndex = 0; pairIndex < candidatePairCount; ++pairIndex )
         {
             ObjectNarrowphaseEvent event;
@@ -770,7 +779,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             CommitObjectNarrowphaseEvent( event );
         }
     }
-    PROFILE_END( "Frame/Physics/Narrowphase" );
+    PROFILE_END( m_profiler, "Frame/Physics/Narrowphase" );
 
     // Terrain phase ownership:
     //   1. Keep swept terrain detection here so fast bodies still stop at the
@@ -779,14 +788,15 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     //      or terrain-only velocity response in this phase.
     //   3. Leave remaining-time integration and all normal/friction response to
     //      the shared persistent contact rows below.
-    PROFILE_BEGIN( "Frame/Physics/Terrain" );
-    PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
+    PROFILE_BEGIN( m_profiler, "Frame/Physics/Terrain" );
+    PROFILE_BEGIN( m_profiler, "Frame/Physics/Terrain/Detect" );
     TerrainDetectionStageContext terrainDetectionContext{ bodyRecords,
                                                           hotFields,
                                                           colliderRecords,
                                                           config,
                                                           sleepStates,
-                                                          m_timeRemaining };
+                                                          m_timeRemaining,
+                                                          m_profiler };
     TerrainCandidateCommitContext terrainCandidateCommitContext{ bodyStore,
                                                                  colliderStore,
                                                                  bodyRecords,
@@ -794,7 +804,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                  colliderRecords,
                                                                  config,
                                                                  m_sleepController.MutableSupportedStatesForTerrain(),
-                                                                 m_sleepController.MutableInhibitedStatesForTerrain() };
+                                                                 m_sleepController.MutableInhibitedStatesForTerrain(),
+                                                                 m_profiler };
     m_terrain.Detect( terrainDetectionContext, modelCount, config.physicsExecution, workerPool );
 
     const std::span<const TerrainDetectionCandidate> terrainCandidates = m_terrain.GetDetectionCandidates();
@@ -828,8 +839,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
             }
         }
     }
-    PROFILE_END( "Frame/Physics/Terrain/Detect" );
-    PROFILE_END( "Frame/Physics/Terrain" );
+    PROFILE_END( m_profiler, "Frame/Physics/Terrain/Detect" );
+    PROFILE_END( m_profiler, "Frame/Physics/Terrain" );
 
     const PhysicsContactSolverStageContext contactSolverContext{
         bodyStore,
@@ -847,7 +858,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         mutableHotFields,
         colliderRecords,
         bodyStore.Count(),
-        m_stepDiagnostics.RemainingPipelineRecordCapacity() };
+        m_stepDiagnostics.RemainingPipelineRecordCapacity(),
+        m_profiler };
     m_contactSolverStage.Solve( contactSolverContext, dt );
     CommitContactSolverConsequences( bodyStore, colliderStore, worldForces );
     m_sleepController.WakePointJointConnectedBodies( bodyStore,
@@ -865,13 +877,14 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     m_sleepController.PropagateSupport( bodyStore );
 
     // Integrate remaining time for awake models.
-    PROFILE_BEGIN( "Frame/Physics/Integrate" );
+    PROFILE_BEGIN( m_profiler, "Frame/Physics/Integrate" );
     IntegrateRemainingStageContext integrateRemainingStage{ bodyStore,
                                                             colliderStore,
                                                             bodyRecords,
                                                             hotFields,
                                                             m_sleepController.GetSleepStates(),
-                                                            m_timeRemaining };
+                                                            m_timeRemaining,
+                                                            m_profiler };
 
     m_forceStage.IntegrateRemaining( integrateRemainingStage, modelCount, workerPool, config.physicsExecution );
 
@@ -890,7 +903,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                              sleepPolicy.angularSpeedSquared,
                                                              sleepPolicy.frameCount };
     m_sleepController.RunIslandStage( sleepIslandContext );
-    PROFILE_END( "Frame/Physics/Integrate" );
+    PROFILE_END( m_profiler, "Frame/Physics/Integrate" );
 }
 
 void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )

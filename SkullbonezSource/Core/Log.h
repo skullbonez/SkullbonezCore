@@ -20,6 +20,8 @@ Invariants:
   - Debug/test logging serializes map and FILE access so a worker-side Lane F
     diagnostic cannot race an ordinary main-thread write or flush.
   - Release builds keep the interface shape but carry no FILE handle state.
+  - EngineLog::Get is the sole sanctioned cold/fatal magic static. It must not
+    become a frame-service locator or be resolved from ordinary hot loops.
 
 Related:
   - SkullbonezSource/Core/Log.cpp

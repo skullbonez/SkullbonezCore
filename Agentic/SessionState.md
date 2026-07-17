@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Three Round-6 remediation plans are active; baseline/golden refresh remains prohibited. |
-| Current objective | Complete `code-level-red-flags-remediation` C2-C3, then SceneController and monolith plans, then C4-C6. |
-| Active/future progress | 2 / 22 live tasks (9%); red-flags C0-C1 complete. |
-| Last broad local gate | C1 `validate_dx12_renderer` passed with zero warnings/errors and matching captures; one-minute graphics stress reached frame 11,921 without crash. |
-| Validation for current edits | C2 requires `validate_perf` plus `validate_tests`; formal gates are deferred until its pre-commit boundary. |
+| Current objective | Complete `code-level-red-flags-remediation` C3, then SceneController and monolith plans, then C4-C6. |
+| Active/future progress | 3 / 22 live tasks (14%); red-flags C0-C2 complete. |
+| Last broad local gate | C2 `validate_fast`, allocation-policy self-test/repository scan, and `validate_perf` passed; 282 tests passed and Profile/Debug builds reported zero warnings/errors. |
+| Validation for current edits | C3 requires `tools\validate_physics.bat`; formal validation is deferred until its pre-commit boundary. |
 
 ## Live Queue
 

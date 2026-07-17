@@ -40,6 +40,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Assets
 {
@@ -90,6 +91,7 @@ struct RuntimeFrameHostView
     Assets::AssetSystem& assets;
     Threading::WorkerPool& workerPool;
     Window& window;
+    Core::Profiler* profiler;
 
     // C++20 no longer treats a type with a user-declared constructor as an
     // aggregate. Keep copy construction forbidden and make the one valid
@@ -98,9 +100,10 @@ struct RuntimeFrameHostView
                           DiagnosticsRuntime& diagnosticsRuntimeValue,
                           Assets::AssetSystem& assetsValue,
                           Threading::WorkerPool& workerPoolValue,
-                          Window& windowValue )
+                          Window& windowValue,
+                          Core::Profiler* profilerValue )
         : applicationExit( applicationExitValue ), diagnosticsRuntime( diagnosticsRuntimeValue ), assets( assetsValue ),
-          workerPool( workerPoolValue ), window( windowValue )
+          workerPool( workerPoolValue ), window( windowValue ), profiler( profilerValue )
     {
     }
     RuntimeFrameHostView( const RuntimeFrameHostView& ) = delete;

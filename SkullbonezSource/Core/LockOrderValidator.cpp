@@ -202,14 +202,22 @@ bool LockOrderValidator::DetectCycleUnlocked() const
 
 TrackedMutex::TrackedMutex( const char* name )
     : m_name( name ), m_id( g_nextLockId.fetch_add( 1, std::memory_order_relaxed ) )
+#ifdef _DEBUG
+      ,
+      m_validator( &LockOrderValidator::Instance() )
+#endif
 {
-    LockOrderValidator::Instance().RegisterLock( m_id, m_name );
+#ifdef _DEBUG
+    m_validator->RegisterLock( m_id, m_name );
+#endif
 }
 
 
 void TrackedMutex::lock()
 {
-    LockOrderValidator::Instance().RecordAcquisition( m_id, CurrentThreadId() );
+#ifdef _DEBUG
+    m_validator->RecordAcquisition( m_id, CurrentThreadId() );
+#endif
     m_inner.lock();
 }
 
@@ -220,14 +228,18 @@ bool TrackedMutex::try_lock()
     {
         return false;
     }
-    LockOrderValidator::Instance().RecordAcquisition( m_id, CurrentThreadId() );
+#ifdef _DEBUG
+    m_validator->RecordAcquisition( m_id, CurrentThreadId() );
+#endif
     return true;
 }
 
 
 void TrackedMutex::unlock()
 {
-    LockOrderValidator::Instance().RecordRelease( m_id, CurrentThreadId() );
+#ifdef _DEBUG
+    m_validator->RecordRelease( m_id, CurrentThreadId() );
+#endif
     m_inner.unlock();
 }
 

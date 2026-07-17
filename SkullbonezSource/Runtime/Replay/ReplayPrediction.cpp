@@ -2761,9 +2761,10 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
 
 bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
                                        SkullbonezCore::Threading::WorkerPool& workerPool,
+                                       SkullbonezCore::Core::Profiler* profiler,
                                        std::vector<RunReplayPredictionBodyBackup>& outBodies )
 {
-    PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureBodyState" );
+    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/CaptureBodyState" );
     const int modelCount = bodyStore.Count();
     const auto bodyRecords = bodyStore.Records();
     const auto hotFields = bodyStore.HotFields();
@@ -2827,9 +2828,10 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
 
 
 bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
+                                     SkullbonezCore::Core::Profiler* profiler,
                                      const std::vector<RunReplayPredictionBodyBackup>& bodies )
 {
-    PROFILE_SCOPED( "Frame/Replay/Prediction/ApplyBodyState" );
+    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/ApplyBodyState" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     if ( bodies.size() != static_cast<std::size_t>( bodyStore.Count() ) )
     {
@@ -2865,12 +2867,13 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
 
 
 bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
+                                 SkullbonezCore::Core::Profiler* profiler,
                                  const PhysicsEngine& liveEngine,
                                  const SkullbonezCore::Core::EngineConfig& config,
                                  const PhysicsWorldForces& worldForces,
                                  int modelCount )
 {
-    PROFILE_SCOPED( "Frame/Replay/Prediction/SeedPrivateEngine" );
+    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/SeedPrivateEngine" );
     const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     const int requestedBytes = ReplayPredictionEngineReserveBytes( liveEngine );
     if ( requestedBytes <= 0 )
@@ -2919,9 +2922,10 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     // live engine is never passed to prediction stepping after this point.
     PhysicsEngine& predictionEngine = *prediction.simulation.predictionEngine;
     predictionEngine = liveEngine;
+    predictionEngine.BindProfiler( profiler );
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;
-    if ( !ApplyReplayPredictionBodyState( predictionEngine, prediction.simulation.predictionBodies ) ||
+    if ( !ApplyReplayPredictionBodyState( predictionEngine, profiler, prediction.simulation.predictionBodies ) ||
          !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld,
                                                         MakePhysicsBodyCountFromNonNegativeInt( modelCount ) ) )
     {
@@ -2935,10 +2939,11 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
 bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
                                    const PhysicsEngine& physicsEngine,
                                    SkullbonezCore::Threading::WorkerPool& workerPool,
+                                   SkullbonezCore::Core::Profiler* profiler,
                                    int modelCount,
                                    ReplayFrameIndex frameIndex )
 {
-    PROFILE_SCOPED( "Frame/Replay/Prediction/CaptureSample" );
+    PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/CaptureSample" );
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physicsEngine );
     const auto bodyRecords = bodyStore.Records();
     const auto hotFields = bodyStore.HotFields();
@@ -3053,6 +3058,7 @@ void MarkReplayPredictionWorkerFailed( RunReplayPredictionState& prediction )
 }
 
 void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction,
+                                     SkullbonezCore::Core::Profiler* profiler,
                                      const SkullbonezCore::Core::EngineConfig& config,
                                      SkullbonezCore::Threading::WorkerPool& workerPool,
                                      int modelCount,
@@ -3089,6 +3095,7 @@ void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction,
              !CaptureReplayPredictionFrame( prediction,
                                             predictionEngine,
                                             workerPool,
+                                            profiler,
                                             modelCount,
                                             static_cast<ReplayFrameIndex>( predictionTick ) ) )
         {
@@ -3123,7 +3130,7 @@ void ReplayPrediction::RunWorkerRange( const SkullbonezCore::Core::EngineConfig&
                                        int beginTickIndex,
                                        int endTickIndex )
 {
-    RunReplayPredictionWorkerRange( m_state, config, workerPool, modelCount, beginTickIndex, endTickIndex );
+    RunReplayPredictionWorkerRange( m_state, m_profiler, config, workerPool, modelCount, beginTickIndex, endTickIndex );
 }
 
 void ReplayPredictionWorkerOperation::operator()( int beginTickIndex, int endTickIndex ) const
@@ -3257,7 +3264,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     const std::chrono::steady_clock::time_point& budgetStart = desc.budgetStart;
     const double budgetMilliseconds = desc.budgetMilliseconds;
     ReplayPredictionUpdateResult& result = desc.result;
-    PROFILE_SCOPED( "Frame/Replay/Prediction/BeginJob" );
+    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/BeginJob" );
     if ( !predictionOwner.GenerationPermitted() )
     {
         // Invariant: artifact verification is load-only. Returning before any
@@ -3420,7 +3427,10 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
 
     if ( modelCount != SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physicsEngine ).Count() ||
          modelCount != entities.Count() ||
-         !CaptureReplayPredictionBodyState( liveBodyStore, workerPool, prediction.simulation.predictionBodies ) )
+         !CaptureReplayPredictionBodyState( liveBodyStore,
+                                            workerPool,
+                                            predictionOwner.ProfilerBorrow(),
+                                            prediction.simulation.predictionBodies ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel );
         return false;
@@ -3429,7 +3439,12 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld,
                                                MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
 
-    if ( !SeedReplayPredictionEngine( prediction, physicsEngine, config, worldForces, modelCount ) )
+    if ( !SeedReplayPredictionEngine( prediction,
+                                      predictionOwner.ProfilerBorrow(),
+                                      physicsEngine,
+                                      config,
+                                      worldForces,
+                                      modelCount ) )
     {
         predictionOwner.CancelJob( clearSamplesOnCancel );
         prediction.build.dirty = true;
@@ -3440,6 +3455,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
          !CaptureReplayPredictionFrame( prediction,
                                         *prediction.simulation.predictionEngine,
                                         workerPool,
+                                        predictionOwner.ProfilerBorrow(),
                                         modelCount,
                                         0 ) )
     {
@@ -3475,7 +3491,7 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
                               double budgetMilliseconds,
                               ReplayPredictionUpdateResult& result )
 {
-    PROFILE_SCOPED( "Frame/Replay/Prediction/Slice" );
+    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice" );
     if ( !prediction.build.building )
     {
         return prediction.build.complete;
@@ -3513,17 +3529,17 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
     // the worker budget; main-thread begin, tree, and draw budgets stay bounded.
     if ( prediction.build.buildMode == ReplayPredictionBuildMode::Instant )
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Instant" );
+        PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice/Instant" );
         prediction.build.workerTask->SetBudget( prediction.build.targetTickCount );
     }
     else if ( prediction.build.buildMode == ReplayPredictionBuildMode::Undecided )
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Probe" );
+        PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice/Probe" );
         prediction.build.workerTask->SetBudget( prediction.build.probeTickBudget );
     }
     else
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/Slice/Amortized" );
+        PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Slice/Amortized" );
         prediction.build.workerTask->SetBudget( REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT );
     }
     prediction.build.workerTask->SubmitTick( workerPool );
@@ -3709,7 +3725,7 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
                              double budgetMilliseconds,
                              ReplayPredictionUpdateResult& result )
 {
-    PROFILE_SCOPED( "Frame/Replay/Prediction/Update" );
+    PROFILE_SCOPED( predictionOwner.ProfilerBorrow(), "Frame/Replay/Prediction/Update" );
     if ( !targetAvailable )
     {
         predictionOwner.ClearFutureNodeCache();

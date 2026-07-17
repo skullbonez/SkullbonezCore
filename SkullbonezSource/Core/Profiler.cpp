@@ -40,12 +40,6 @@ using namespace SkullbonezCore::Core;
 using namespace SkullbonezCore::Rendering;
 
 
-Profiler& Profiler::Instance()
-{
-    static Profiler instance;
-    return instance;
-}
-
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
 #include <algorithm>
@@ -315,8 +309,8 @@ void Profiler::RecordWorkerSample( const char* fullPath,
 }
 
 
-WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
-    : m_fullPath( fullPath ), m_hash( hash ),
+WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
+    : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ),
       m_workerIndex( SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex() ), m_startTicks( 0 ),
       m_platformProfilerOpen( false )
 {
@@ -351,7 +345,10 @@ WorkerProfilerScope::~WorkerProfilerScope()
         PlatformProfiler::CpuEnd();
         m_platformProfilerOpen = false;
     }
-    Profiler::Instance().RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
+    if ( m_profiler )
+    {
+        m_profiler->RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
+    }
 }
 
 
@@ -1730,8 +1727,9 @@ void Profiler::RenderBarOverlay( Text::TextBatch&, Rendering::IRenderCommandCont
 }
 
 
-WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
-    : m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( -1 ), m_startTicks( 0 ), m_platformProfilerOpen( false )
+WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
+    : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( -1 ), m_startTicks( 0 ),
+      m_platformProfilerOpen( false )
 {
 }
 

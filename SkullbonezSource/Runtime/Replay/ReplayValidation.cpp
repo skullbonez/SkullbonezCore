@@ -971,14 +971,17 @@ const ReplayEventSample* FindReplayGeneratedSceneConfigBeforeCheckpoint( const s
 class ScopedReplayProbeProfilerFrame
 {
   public:
-    ScopedReplayProbeProfilerFrame()
+    explicit ScopedReplayProbeProfilerFrame( SkullbonezCore::Core::Profiler* profiler ) : m_profiler( profiler )
     {
-        PROFILE_FRAME_BEGIN();
+        PROFILE_FRAME_BEGIN( m_profiler );
     }
     ~ScopedReplayProbeProfilerFrame()
     {
-        PROFILE_FRAME_END();
+        PROFILE_FRAME_END( m_profiler );
     }
+
+  private:
+    SkullbonezCore::Core::Profiler* m_profiler;
 };
 
 void FormatReplayRestoreDivergenceMessage( char* message,
@@ -1119,6 +1122,7 @@ void WriteReplayRestoreStepFailure( ReplayRestoreStepFailure& failure,
 // rollback and diagnostic logging stay in the owning transaction.
 template <typename CaptureCurrentReplaySolverHash, typename RequestInteractiveScene>
 bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
+                              SkullbonezCore::Core::Profiler* profiler,
                               ReplayRestoreStepResult& result,
                               ReplayRestoreStepFailure& failure,
                               CaptureCurrentReplaySolverHash captureCurrentReplaySolverHash,
@@ -1131,7 +1135,7 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
     result.unsupportedEvents = 0;
     context.scene.currentFrame = result.currentSceneFrame;
 
-    ScopedReplayProbeProfilerFrame profilerFrame;
+    ScopedReplayProbeProfilerFrame profilerFrame( profiler );
     while ( result.currentFrame < context.target.frameIndex )
     {
         const ReplayFrameIndex nextFrame = result.currentFrame + 1u;
@@ -1501,6 +1505,7 @@ bool EnsureReplayRestoreCheckpointTopology( ReplayRestoreOwnerContext& context,
 // contexts exist only for the duration of that cold restore command.
 template <typename CaptureCurrentReplaySolverHash, typename RequestInteractiveScene>
 bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
+                                 SkullbonezCore::Core::Profiler* profiler,
                                  const ReplayRestoreArtifactData& artifact,
                                  const ReplaySolverFrameSample& checkpoint,
                                  const ReplayV2SolverHashSample& target,
@@ -1530,6 +1535,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                           checkpoint,
                                           target };
     if ( !StepReplayRestoreTarget( stepContext,
+                                   profiler,
                                    stepResult,
                                    stepFailure,
                                    captureCurrentReplaySolverHash,
@@ -1875,6 +1881,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
     ReplayRestoreStepResult stepResult;
     ReplayRestoreStepFailure stepFailure;
     if ( !RunReplayRestoreTargetStep( restoreOwnerContext,
+                                      m_profiler,
                                       artifact,
                                       *checkpoint,
                                       *target,

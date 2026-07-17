@@ -41,6 +41,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+}
 namespace UI
 {
 class InGameUI;
@@ -90,7 +94,11 @@ class RuntimeOverlayRenderResources
 class RuntimeOverlayDiagnostics
 {
   public:
-    static std::unique_ptr<RuntimeOverlayDiagnostics> CreateForStartup();
+    static std::unique_ptr<RuntimeOverlayDiagnostics> CreateForStartup( Core::Profiler* profiler );
+
+    explicit RuntimeOverlayDiagnostics( Core::Profiler* profiler ) : m_profiler( profiler )
+    {
+    }
 
     void ApplyStartupPolicy( const RunStartupOverrides& overrides,
                              RunLaunchOptions& launchOptions,
@@ -105,6 +113,8 @@ class RuntimeOverlayDiagnostics
     friend class RuntimeOverlayPresentationEdit;
     void CommitPresentation( const RunDebugState& state );
 
+    // Lifetime: startup-bound diagnostics borrow; null when profiling is disabled.
+    Core::Profiler* m_profiler;
     RunDebugState m_presentationState;
     RuntimeOverlayRenderResources m_renderResources;
 };

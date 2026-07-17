@@ -45,11 +45,12 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
                                                bool sceneMode,
                                                bool attachedActiveFollow,
                                                bool cameraLookCaptured,
-                                               float presentationAlpha )
+                                               float presentationAlpha,
+                                               Core::Profiler* profiler )
 {
     if ( replayCameraActive )
     {
-        PROFILE_SCOPED( "Frame/Replay/Camera" );
+        PROFILE_SCOPED( profiler, "Frame/Replay/Camera" );
         cameraTime = 0.0f;
         timers.cameraTimer.StopTimer();
         timers.cameraTimer.StartTimer();

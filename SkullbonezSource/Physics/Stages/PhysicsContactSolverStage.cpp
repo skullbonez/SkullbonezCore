@@ -180,7 +180,8 @@ void PhysicsContactSolverStage::Solve( const PhysicsContactSolverStageContext& c
                                                   context.bodyStoreCount,
                                                   context.pipelineRecordCapacity,
                                                   elasticCollisions,
-                                                  context.config };
+                                                  context.config,
+                                                  context.profiler };
     m_contactSolver.Solve( solverContext, dt );
 }
 

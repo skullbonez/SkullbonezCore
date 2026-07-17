@@ -31,6 +31,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+}
 namespace Environment
 {
 class CameraCollection;
@@ -169,6 +173,15 @@ struct ReplayAuthoringMemoryStats
 class ReplayAuthoring
 {
   public:
+    explicit ReplayAuthoring( Core::Profiler* profiler = nullptr ) : m_profiler( profiler )
+    {
+    }
+
+    Core::Profiler* ProfilerBorrow() const noexcept
+    {
+        return m_profiler;
+    }
+
     const RunReplayCauseTreeState& CauseTree() const noexcept
     {
         return m_causeTree;
@@ -426,6 +439,8 @@ class ReplayAuthoring
     }
 
   private:
+    // Lifetime: startup-bound diagnostics borrow; null when profiling is disabled.
+    Core::Profiler* m_profiler;
     RunReplayCauseTreeState m_causeTree;
     RunReplayVelocityEditState m_velocityEdit;
     ReplayBranchInfo m_branch;

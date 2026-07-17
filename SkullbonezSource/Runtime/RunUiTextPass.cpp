@@ -520,7 +520,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
     if ( inputs.ui.NeedsUiTextPass() )
     {
-        PROFILE_BEGIN( "Frame/UI/BuildData" );
+        PROFILE_BEGIN( inputs.profiler, "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
         UIData.screenW = state.screenW;
         UIData.screenH = state.screenH;
@@ -1001,22 +1001,22 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                         false,
                         false );
         }
-        PROFILE_END( "Frame/UI/BuildData" );
+        PROFILE_END( inputs.profiler, "Frame/UI/BuildData" );
 
-        PROFILE_BEGIN( "Frame/UI/PreFlushText" );
+        PROFILE_BEGIN( inputs.profiler, "Frame/UI/PreFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "PreFlushText" );
             Text2d::FlushText( textBatch, renderCommands );
         }
-        PROFILE_END( "Frame/UI/PreFlushText" );
+        PROFILE_END( inputs.profiler, "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
         inputs.ui.Draw( UIData, uiRender );
-        PROFILE_BEGIN( "Frame/UI/PostFlushText" );
+        PROFILE_BEGIN( inputs.profiler, "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
             Text2d::FlushText( textBatch, renderCommands );
         }
-        PROFILE_END( "Frame/UI/PostFlushText" );
+        PROFILE_END( inputs.profiler, "Frame/UI/PostFlushText" );
         if ( inputs.ui.IsVisible() )
         {
             RenderReplayScrubberOverlayFromInputs( inputs );

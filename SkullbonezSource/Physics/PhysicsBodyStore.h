@@ -56,6 +56,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+}
 namespace Geometry
 {
 class Terrain;
@@ -398,7 +402,10 @@ class PhysicsBodyStore
     // Advances one mutable body record from its current velocities and shape
     // snapshot. Returns false when the slot is fixed, sleeping, missing, or has
     // no positive time to integrate.
-    bool IntegrateBodyPose( const ColliderStore& colliderStore, int modelIndex, float deltaSeconds );
+    bool IntegrateBodyPose( Core::Profiler* profiler,
+                            const ColliderStore& colliderStore,
+                            int modelIndex,
+                            float deltaSeconds );
     bool ApplyForces( const PhysicsWorldForces& worldForces,
                       const ColliderStore& colliderStore,
                       int modelIndex,

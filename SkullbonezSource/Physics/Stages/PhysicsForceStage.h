@@ -47,6 +47,7 @@ namespace SkullbonezCore
 {
 namespace Core
 {
+class Profiler;
 struct PhysicsExecutionConfig;
 } // namespace Core
 
@@ -74,13 +75,31 @@ class PhysicsForceStage
 
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
-    const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
+    const Math::Vector::Vector3* PrepareMutualGravityForces( Core::Profiler* profiler,
+                                                             std::span<const PhysicsBodyRecord> bodyRecords,
                                                              const PhysicsBodyHotFieldsConstView& hotFields,
                                                              std::span<const uint8_t> sleepState,
                                                              int modelCount,
                                                              const PhysicsWorldForces& worldForces,
                                                              const Core::PhysicsExecutionConfig& execution,
                                                              Threading::WorkerPool& workerPool );
+    const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
+                                                             const PhysicsBodyHotFieldsConstView& hotFields,
+                                                             std::span<const uint8_t> sleepState,
+                                                             int modelCount,
+                                                             const PhysicsWorldForces& worldForces,
+                                                             const Core::PhysicsExecutionConfig& execution,
+                                                             Threading::WorkerPool& workerPool )
+    {
+        return PrepareMutualGravityForces( nullptr,
+                                           bodyRecords,
+                                           hotFields,
+                                           sleepState,
+                                           modelCount,
+                                           worldForces,
+                                           execution,
+                                           workerPool );
+    }
     void ApplyForces( const ApplyForcesStageContext& context,
                       int modelCount,
                       Threading::WorkerPool& workerPool,

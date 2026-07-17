@@ -49,6 +49,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 
 namespace Physics
@@ -147,6 +148,7 @@ struct PersistentContactSolverContext
     int pipelineRecordCapacity = 0;
     bool elasticCollisions = false;
     const Core::EngineConfig& config;
+    Core::Profiler* profiler = nullptr;
 };
 
 struct PhysicsContactSolverStageContext
@@ -169,6 +171,7 @@ struct PhysicsContactSolverStageContext
     std::span<const ColliderRecord> colliderRecords;
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
+    Core::Profiler* profiler = nullptr;
 };
 
 class PhysicsContactCacheWakeAccess

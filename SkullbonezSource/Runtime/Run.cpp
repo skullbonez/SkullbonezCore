@@ -73,12 +73,12 @@ namespace
 {
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 
-std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup()
+std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( SkullbonezCore::Core::Profiler* profiler )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
     // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
     // the public composition-root header does not republish the UI graph.
-    return std::make_unique<SkullbonezCore::UI::InGameUI>();
+    return std::make_unique<SkullbonezCore::UI::InGameUI>( profiler );
 }
 
 SkullbonezCore::Environment::CameraMovementSettings
@@ -258,9 +258,10 @@ Run::Run( Window& window,
           Threading::WorkerPool& workerPool,
           SkullbonezCore::Core::Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
-    : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
-      m_operatorUi( CreateOperatorUiForStartup() ),
-      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
+    : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_profiler( profiler ),
+      m_sceneController( std::move( sceneQueue ) ), m_replayRuntime( profiler ),
+      m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
+      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup( profiler ) ),
       m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_assets,
@@ -275,6 +276,7 @@ Run::Run( Window& window,
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
+    m_sceneController.Physics().BindProfiler( profiler );
     m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     RefreshSceneBrowserList( m_sceneController.Browser() );
     m_sceneController.ApplyRuntimeConfig( cfg );

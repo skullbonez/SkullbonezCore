@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
   Sequences replay owners across recording, workspace, restore, prediction, and probes.
 
-Mental model:
+Summary:
   ReplayRuntime is the composition boundary between concrete replay owners. The
   application shell supplies value commands and explicit synchronous owners;
   this file orders workspace input, transactional restore, prediction,
@@ -177,7 +177,10 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
 
 } // namespace
 
-ReplayRuntime::ReplayRuntime() = default;
+ReplayRuntime::ReplayRuntime( Core::Profiler* profiler )
+    : m_profiler( profiler ), m_authoring( profiler ), m_predictionOwner( profiler ), m_visualPresentation( profiler )
+{
+}
 
 
 ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent& intent )

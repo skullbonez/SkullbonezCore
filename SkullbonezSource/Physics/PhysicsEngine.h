@@ -39,6 +39,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Runtime
 {
@@ -61,6 +62,7 @@ class PhysicsEngine
 {
   public:
     PhysicsEngine() = default;
+    void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps the PhysicsScene-owned runtime policy onto cold authoring

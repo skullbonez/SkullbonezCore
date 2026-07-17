@@ -119,7 +119,8 @@ class RuntimeDiagnostics
     static void ResetPerfLogForSceneLoad( RunPerfLogState& perfLog );
     static void ConfigurePerfLogFlush( RunPerfLogState& perfLog, bool enabled, int interval );
     // SkullbonezCore::Core::Profiler is a startup-bound optional dependency so artifact writers do
-    // not call SkullbonezCore::Core::Profiler::Instance() while ticking frames or scene automation.
+    // not reopen a process-global profiler locator while ticking frames or
+    // scene automation.
     static void
     OpenScenePerfLog( RunPerfLogState& perfLog, const char* path, int pass, SkullbonezCore::Core::Profiler* profiler );
     static bool PerfTestActive( const RunPerfLogState& perfLog );

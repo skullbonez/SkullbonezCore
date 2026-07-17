@@ -137,6 +137,11 @@ PhysicsScene::PhysicsScene()
 {
 }
 
+void PhysicsScene::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept
+{
+    m_world.BindProfiler( profiler );
+}
+
 
 void PhysicsScene::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {

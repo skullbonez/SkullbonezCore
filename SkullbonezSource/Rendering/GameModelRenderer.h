@@ -37,6 +37,7 @@ namespace SkullbonezCore
 {
 namespace Core
 {
+class Profiler;
 struct CinematicRenderConfig;
 } // namespace Core
 namespace Physics
@@ -73,18 +74,21 @@ class GameModelRenderer
                               const std::vector<uint8_t>* modelMask = nullptr,
                               bool drawMaskedModels = true,
                               Rendering::RenderVisibilityView visibilityView = Rendering::RenderVisibilityView::Main );
-    static void BuildShadowCasterBatches( const Rendering::RenderInstanceStore& renderStore,
+    static void BuildShadowCasterBatches( Core::Profiler* profiler,
+                                          const Rendering::RenderInstanceStore& renderStore,
                                           const Physics::ColliderStore& colliderStore,
                                           Threading::WorkerPool* workerPool,
                                           bool useShadowParallelPrep,
                                           Rendering::ShadowCasterBatches& outBatches );
-    static void SubmitShadowCasterBatches( const Rendering::PrimitiveRenderContext& primitiveContext,
+    static void SubmitShadowCasterBatches( Core::Profiler* profiler,
+                                           const Rendering::PrimitiveRenderContext& primitiveContext,
                                            const Rendering::ShadowCasterBatches& batches,
                                            const Math::Transformation::Matrix4& view,
                                            const Math::Transformation::Matrix4& proj,
                                            const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                            Rendering::RenderVisibilityView visibilityView );
-    static void RenderShadowCasters( const Rendering::PrimitiveRenderContext& primitiveContext,
+    static void RenderShadowCasters( Core::Profiler* profiler,
+                                     const Rendering::PrimitiveRenderContext& primitiveContext,
                                      const Rendering::RenderInstanceStore& renderStore,
                                      const Physics::ColliderStore& colliderStore,
                                      Threading::WorkerPool* workerPool,
@@ -93,7 +97,8 @@ class GameModelRenderer
                                      const Math::Transformation::Matrix4& proj,
                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                      Rendering::RenderVisibilityView visibilityView );
-    static bool GetObjectShadowBounds( const Rendering::RenderInstanceStore& renderStore,
+    static bool GetObjectShadowBounds( Core::Profiler* profiler,
+                                       const Rendering::RenderInstanceStore& renderStore,
                                        Threading::WorkerPool* workerPool,
                                        bool useShadowParallelPrep,
                                        const Math::Vector::Vector3& focus,

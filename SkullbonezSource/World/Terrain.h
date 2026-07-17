@@ -55,6 +55,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+}
 namespace Assets
 {
 class AssetSystem;
@@ -119,7 +123,8 @@ class Terrain
                  const Rendering::ShadowFrameData* shadow = nullptr,
                  const Rendering::ShadowFrameData* detailShadow =
                      nullptr );                                            // Terrain color pass with optional broad and tight shadow inputs.
-    void RenderShadowDepth( const Math::Transformation::Matrix4& lightView,
+    void RenderShadowDepth( Core::Profiler* profiler,
+                            const Math::Transformation::Matrix4& lightView,
                             const Math::Transformation::Matrix4& lightProjection,
                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic =
                                 nullptr );                                 // Depth-only terrain caster pass for directional shadows.

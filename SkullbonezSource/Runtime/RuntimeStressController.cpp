@@ -967,7 +967,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         }
         if ( action.scheduleProfileReset )
         {
-            PROFILE_SCHEDULE_RESET();
+            PROFILE_SCHEDULE_RESET( host.profiler );
         }
         return SkullbonezCore::Core::SbResult::Success();
     };

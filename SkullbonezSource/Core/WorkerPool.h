@@ -69,6 +69,7 @@ class WorkerPool
     WorkerPool& operator=( const WorkerPool& ) = delete;
 
     void Initialise( int requestedThreadCount );
+    void BindProfiler( Core::Profiler* profiler ) noexcept;
     void Shutdown();
 
     // Submits a caller-owned typed task to the fixed ring. TaskT must provide
@@ -185,6 +186,8 @@ class WorkerPool
     int m_parallelTaskCount;
     int m_parallelTaskHighWater;
     std::vector<std::thread> m_threads;
+    // Lifetime: startup-bound diagnostics borrow; worker tasks never retain it.
+    Core::Profiler* m_profiler;
     bool m_stopping;
     int m_minParallelItems;
 };
@@ -219,7 +222,7 @@ void WorkerPool::ParallelForNoAlloc( int begin,
     const auto runChunk = [&]( int, int chunkBegin, int chunkEnd )
     {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-        ::SkullbonezCore::Core::WorkerProfilerScope workerScope( markerPath, markerHash );
+        ::SkullbonezCore::Core::WorkerProfilerScope workerScope( m_profiler, markerPath, markerHash );
 #else
         static_cast<void>( markerPath );
         static_cast<void>( markerHash );

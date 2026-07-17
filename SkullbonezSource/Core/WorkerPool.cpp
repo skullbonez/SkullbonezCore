@@ -47,8 +47,13 @@ thread_local int g_workerThreadIndex = -1;
 
 WorkerPool::WorkerPool()
     : m_taskHead( 0 ), m_taskCount( 0 ), m_taskHighWater( 0 ), m_parallelTaskHead( 0 ), m_parallelTaskCount( 0 ),
-      m_parallelTaskHighWater( 0 ), m_stopping( false ), m_minParallelItems( 32 )
+      m_parallelTaskHighWater( 0 ), m_profiler( nullptr ), m_stopping( false ), m_minParallelItems( 32 )
 {
+}
+
+void WorkerPool::BindProfiler( Core::Profiler* profiler ) noexcept
+{
+    m_profiler = profiler;
 }
 
 

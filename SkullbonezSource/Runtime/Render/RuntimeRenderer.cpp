@@ -313,6 +313,7 @@ struct TornadoVisualGraphCallbackData
 
 struct ReplayGhostGraphCallbackData
 {
+    SkullbonezCore::Core::Profiler* profiler = nullptr;
     const ReplayVisualPacket* replayVisualPacket = nullptr;
     const RenderFrameContext* frame = nullptr;
     const SkullbonezCore::Core::EngineConfig* config = nullptr;
@@ -425,12 +426,13 @@ void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGr
 }
 
 void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket,
+                                   SkullbonezCore::Core::Profiler* profiler,
                                    const RenderFrameContext& frame,
                                    const SkullbonezCore::Core::EngineConfig& config,
                                    const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
                                    const Rendering::ShadowFrameData* shadow )
 {
-    PROFILE_SCOPED( "Frame/Render/ReplayPredictionGhosts" );
+    PROFILE_SCOPED( profiler, "Frame/Render/ReplayPredictionGhosts" );
     if ( visualPacket.ghostRequests.empty() )
     {
         return;
@@ -518,6 +520,7 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
         SB_FATAL( "RunRender", "ReplayPredictionGhostPass graph callback missing execution data." );
     }
     RenderReplayPredictionGhosts( *data->replayVisualPacket,
+                                  data->profiler,
                                   *data->frame,
                                   *data->config,
                                   data->cinematic,
@@ -1144,6 +1147,7 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
     AddFrameTargetWrites( graph, replayPass, useCinematicTarget );
 
     ReplayGhostGraphCallbackData callbackData;
+    callbackData.profiler = m_profiler;
     callbackData.replayVisualPacket = &replayVisualPacket;
     callbackData.frame = &frame;
     callbackData.config = &m_config;
@@ -1496,27 +1500,30 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
       m_fullscreenQuadPass( m_passResources.fullscreen ),
-      m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config ),
-      m_sceneTargetPass( m_passResources.cinematicScene ),
-      m_shadowPass( m_passResources.shadows, m_terrain, m_config, m_lifecycleLog ),
+      m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config, m_profiler ),
+      m_sceneTargetPass( m_passResources.cinematicScene, m_profiler ),
+      m_shadowPass( m_passResources.shadows, m_terrain, m_config, m_lifecycleLog, m_profiler ),
       m_reflectionPass( m_passResources.reflection,
                         m_collisionVisualizer,
                         m_config,
                         m_dxrReflectionTransforms.data(),
                         static_cast<int>( m_dxrReflectionTransforms.size() / 16 ),
-                        m_lifecycleLog ),
-      m_objectPass( m_collisionVisualizer, m_config ), m_terrainPass( m_terrain, m_config ),
-      m_waterPass( m_world, m_config ), m_tornadoVisualPass( m_terrain ),
-      m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_terrain, m_assets ),
+                        m_lifecycleLog,
+                        m_profiler ),
+      m_objectPass( m_collisionVisualizer, m_config, m_profiler ), m_terrainPass( m_terrain, m_config, m_profiler ),
+      m_waterPass( m_world, m_config, m_profiler ), m_tornadoVisualPass( m_terrain, m_profiler ),
+      m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_terrain, m_assets, m_profiler ),
       m_volumetricPass( m_passResources.cinematicScene,
                         m_passResources.volumetricLight,
                         m_passResources.fullscreen,
-                        m_config ),
+                        m_config,
+                        m_profiler ),
       m_tonemapPass( m_passResources.cinematicScene,
                      m_passResources.volumetricLight,
                      m_passResources.tonemap,
                      m_passResources.fullscreen,
-                     m_config ),
+                     m_config,
+                     m_profiler ),
       m_uiTextPass()
 {
     m_renderPassGraphScratch.ReserveForRuntimePassGraph();
@@ -1816,12 +1823,12 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     bool skyboxCallbackOwned = false;
     if ( !cinematicRender )
     {
-        PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
+        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( services.renderDiagnostics, "Frame/Render/Skybox" );
             skyboxCallbackOwned = ExecuteSkyboxThroughRenderGraph( frame );
         }
-        PROFILE_GPU_END( "Frame/Render/Skybox" );
+        PROFILE_GPU_END( m_profiler, "Frame/Render/Skybox" );
     }
 
     ReflectionPassOutput reflection;

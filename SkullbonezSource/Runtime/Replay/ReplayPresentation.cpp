@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
 Purpose:
   Initializes and owns replay presentation storage independently of ReplayRuntime.
 
-Mental model:
+Summary:
   Replay prediction and retained timelines publish values; this owner keeps the
   mutable camera, path, mask, ghost, and packet state used to turn those values
   into the exact renderer submission for one frame.
@@ -378,7 +378,7 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 }
 } // namespace
 
-ReplayPresentation::ReplayPresentation()
+ReplayPresentation::ReplayPresentation( Core::Profiler* profiler ) : m_profiler( profiler )
 {
     // Runtime allocation policy: path target selection is a live replay UI
     // action, so it rotates entries within a fixed pre-gameplay vector budget.

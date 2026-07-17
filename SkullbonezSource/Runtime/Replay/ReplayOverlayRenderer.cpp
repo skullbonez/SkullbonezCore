@@ -86,7 +86,7 @@ float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayT
 // text so rendering cannot accidentally advance or rewrite replay timelines.
 void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
 {
-    PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay" );
+    PROFILE_SCOPED( context.profiler, "Frame/Replay/ScrubberOverlay" );
     const ReplayScrubberView& scrubber = context.scrubber;
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
@@ -294,7 +294,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
                   liveAdvanceHeld ? "PLAY" : "PAUSE" );
 
         {
-            PROFILE_SCOPED( "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
+            PROFILE_SCOPED( context.profiler, "Frame/Replay/ScrubberOverlay/VelocityEditControls" );
             const UI::UIRect velocityEdit = control( ReplayScrubberControl::VelocityEdit ).drawRect;
             const bool velocityEditEnabled = solverToolsEnabled && context.velocityEdit.enabled;
             const bool velocityEditHover = solverToolsEnabled && isHotControl( ReplayScrubberControl::VelocityEdit );
@@ -819,7 +819,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
 
 void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
 {
-    PROFILE_SCOPED( "Frame/Replay/CauseTree/Overlay" );
+    PROFILE_SCOPED( context.profiler, "Frame/Replay/CauseTree/Overlay" );
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     const int screenW = context.screenW;
     const int screenH = context.screenH;

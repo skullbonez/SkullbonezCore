@@ -936,7 +936,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         }
         if ( action.scheduleProfileReset )
         {
-            PROFILE_SCHEDULE_RESET();
+            PROFILE_SCHEDULE_RESET( host.profiler );
         }
     };
     const SceneGeneratedUICommandResult modelCountCommand =

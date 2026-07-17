@@ -49,6 +49,11 @@ using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsPipelineRecord;
 using SkullbonezCore::Physics::PointJointConstraint;
 using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
+void PhysicsEngine::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept
+{
+    m_scene.BindProfiler( profiler );
+}
+
 void PhysicsEngine::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );

@@ -45,6 +45,7 @@ namespace SkullbonezCore
 {
 namespace Core
 {
+class Profiler;
 struct PhysicsExecutionConfig;
 } // namespace Core
 
@@ -111,6 +112,7 @@ struct ObjectNarrowphasePairStageContext
     float contactEpsilon = 0.0f;
     float invCellSize = 0.0f;
     float dt = 0.0f;
+    Core::Profiler* profiler = nullptr;
 };
 
 struct ObjectNarrowphaseIsland
@@ -154,7 +156,8 @@ class PhysicsNarrowphaseStage
                                                int bodyB,
                                                float invCellSize );
     void ProcessObjectNarrowphaseIsland( const ObjectNarrowphasePairStageContext& context, int islandIndex );
-    void BuildObjectNarrowphaseIslands( std::span<const std::pair<int, int>> candidatePairs,
+    void BuildObjectNarrowphaseIslands( Core::Profiler* profiler,
+                                        std::span<const std::pair<int, int>> candidatePairs,
                                         int candidatePairCount,
                                         int modelCount );
     static bool ObjectNarrowphaseIslandPrecedesByMinPairIndex( const ObjectNarrowphaseIsland& a,

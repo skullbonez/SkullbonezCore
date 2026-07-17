@@ -728,11 +728,12 @@ void Terrain::Render( const Matrix4& view,
 }
 
 
-void Terrain::RenderShadowDepth( const Matrix4& lightView,
+void Terrain::RenderShadowDepth( Core::Profiler* profiler,
+                                 const Matrix4& lightView,
                                  const Matrix4& lightProjection,
                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
-    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
+    PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
 
     if ( !m_shadowDepthShader )
     {

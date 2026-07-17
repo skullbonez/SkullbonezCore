@@ -71,6 +71,11 @@ struct DeviceInputFrame;
 struct RuntimeMouseEdges;
 } // namespace Runtime
 
+namespace Core
+{
+class Profiler;
+} // namespace Core
+
 namespace Text
 {
 class TextBatch;
@@ -353,6 +358,9 @@ struct InGameUIFrameData
 class InGameUI
 {
   public:
+    explicit InGameUI( Core::Profiler* profiler = nullptr ) : m_profiler( profiler )
+    {
+    }
     bool IsVisible() const;
     bool IsMinimized() const;
     void SetVisible( bool visible, double now = 0.0 );
@@ -403,6 +411,9 @@ class InGameUI
     void Draw( const InGameUIFrameData& data, const UIRenderContext& render );
 
   private:
+    // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
+    // draw paths borrow it without resolving process-global diagnostics state.
+    Core::Profiler* m_profiler = nullptr;
     // Persistent widget state.  Scene loads may apply SceneUIOptions, but normal
     // simulation resets preserve these values so the UI remains where the user
     // left it while the bodies/timers are rebuilt underneath.

@@ -17,12 +17,13 @@
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
         "std::make_unique<RenderBackendDX12>",
-        "std::make_unique<Run>"
+        "std::make_unique<Run>",
+        "std::make_unique<SkullbonezCore::Core::Profiler>"
       ],
       "owner": "Runtime process bootstrap",
       "phase": "startup_backend_init",
-      "reason": "WinMain creates the DX12 backend and Run composition root before steady gameplay begins.",
-      "cap": "One backend and one Run allocation per process launch.",
+      "reason": "WinMain creates the DX12 backend, Run composition root, and fixed-ring profiler owner before steady gameplay begins; explicit heap ownership keeps the profiler off the bounded launcher stack while hot owners receive only its stable borrow.",
+      "cap": "One backend, one Run, and one profiler allocation per process launch.",
       "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
     },
     {

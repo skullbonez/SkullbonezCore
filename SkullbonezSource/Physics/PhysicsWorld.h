@@ -67,6 +67,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Runtime
 {
@@ -98,6 +99,8 @@ class PhysicsWorld
     using PersistentContactSolverStats = Physics::PersistentContactSolverStats;
 
   private:
+    // Lifetime: startup-bound diagnostics borrow; stage contexts never retain it.
+    SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     PhysicsForceStage m_forceStage;
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The facade borrows its candidate span for the remaining stages.
@@ -155,6 +158,7 @@ class PhysicsWorld
 
   public:
     PhysicsWorld();
+    void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     void Clear();

@@ -81,3 +81,50 @@ files and found the ownership/lifetime boundary documented at `TextBatch`,
   for the bounded minute, reached frame 11,921 with 327 scene loads, accepted
   PID-scoped timeout shutdown, wrote its memory dump, produced empty stderr,
   and contained no fatal/crash/device-removed/assert signature.
+
+## C2 Closure Evidence
+
+Completed 2026-07-17 on `nightrunner-17th-july`. The profiler magic-static
+accessor is deleted. Process startup owns one profiler before steady gameplay,
+and runtime, render, UI, replay, physics, terrain, and worker owners carry an
+explicit stable borrow. Every CPU, GPU, and worker scope captures that supplied
+handle for its lifetime and becomes a null-safe no-op when profiling is absent;
+manual begin/end sites use the same handle. The profiler's fixed marker rings
+are startup-heap-owned rather than placed in `WinMain`'s bounded stack frame,
+with one capped allocation recorded in the central allocation-policy allowlist.
+
+`TrackedMutex` now captures `LockOrderValidator::Instance()` once in its Debug
+constructor. Its member and acquire/release calls compile out of Profile and
+Release, so no singleton lookup remains on those lock paths. `EngineLog::Get()`
+is retained and documented as the sole allowed cold/fatal diagnostics magic
+static. A source scan found no remaining `Profiler::Instance` definition or
+call and no legacy one-argument profiler macro site.
+
+The touched-source comment-style audit inspected all 74 edited source-bearing
+files. All 74 retain the required File/Purpose/Summary/Glossary/Invariants/
+Related header fields, and the new profiler borrows, scope capture, startup
+ownership, render lifetime, replay ownership, and Debug-only lock-validation
+contracts have nearby lifetime/invariant comments where needed. Formal
+evidence:
+
+- `tools\validate_tests.bat` — PASS in 17.087 seconds; 282/282 tests and
+  21,389/21,389 assertions passed.
+- `python tools\check_allocation_policy.py --self-test` and `--repo .` — PASS
+  in 8.690 seconds; the repository scan covered 370 files with 43 direct-heap,
+  136 dynamic-member, and 673 growth findings, all dispositioned with zero
+  allowlist errors.
+- `tools\validate_fast.bat` — PASS in 51.034 seconds; formatting, project
+  metadata, staged-size check, Profile/Debug ready builds, and all 282 tests
+  passed with zero build warnings/errors. Durable stdout:
+  `TestOutput/validation/agent_logs/c2_validate_fast_pass_stdout.log`.
+- `tools\validate_perf.bat` — PASS in 92.830 seconds; allocation-guard
+  `perf_1000` reported zero gameplay and reserve-policy violations, the
+  selected-ball structural probe passed, DX12 and physics performance budgets
+  and baseline comparisons passed, the four scale measurements completed, and
+  Profile/Debug ready builds reported zero warnings/errors. Durable stdout:
+  `TestOutput/validation/agent_logs/c2_validate_perf_pass_stdout.log`.
+
+No coverage floor, exclusion, instrumentation scope, coverage tool, or
+coverage-raising test changed in C2, so the direct coverage gate was not
+triggered. No behavioral baseline, golden, screenshot, or physics CSV was
+refreshed.

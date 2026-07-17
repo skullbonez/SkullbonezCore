@@ -46,6 +46,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Environment
 {
@@ -111,7 +112,8 @@ struct RunCameraState
                                    bool sceneMode,
                                    bool attachedActiveFollow,
                                    bool cameraLookCaptured,
-                                   float presentationAlpha );
+                                   float presentationAlpha,
+                                   Core::Profiler* profiler );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Environment::CameraCollection& cameras,
                        Geometry::Terrain& terrain,

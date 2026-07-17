@@ -504,6 +504,7 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 
 void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
+                      Core::Profiler* profiler,
                       Rendering::IRenderCommandContext& renderCommands,
                       Rendering::IRenderDiagnostics& renderDiagnostics,
                       int screenW,
@@ -511,7 +512,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
                       float offsetX,
                       float offsetY )
 {
-    PROFILE_GPU_BEGIN( "Frame/UI/Draw" );
+    PROFILE_GPU_BEGIN( profiler, "Frame/UI/Draw" );
     const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderCommands, &textBatch );
     drawList.Flush( immediateDraw, offsetX, offsetY );
     {
@@ -522,7 +523,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
         Text::Text2d::FlushText( textBatch, renderCommands );
     }
-    PROFILE_GPU_END( "Frame/UI/Draw" );
+    PROFILE_GPU_END( profiler, "Frame/UI/Draw" );
 }
 
 

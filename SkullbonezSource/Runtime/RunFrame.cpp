@@ -221,6 +221,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                        uiCinematicRendering,
                                                        uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
         const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.commands,
+                                                                              host.profiler,
                                                                               replayOverlay.scrubber,
                                                                               replayOverlay.prediction,
                                                                               replayOverlay.pathVisualizer,
@@ -250,7 +251,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
         const bool replayMemoryStatsRequested =
             ui.IsVisible() && !ui.IsMinimized() && ui.GetActiveTab() == SkullbonezCore::UI::InGameUITab::Memory;
         const ReplayHudStatus replayHud = replayRuntime.BuildHudStatus( replayMemoryStatsRequested );
-        PROFILE_BEGIN( "Frame/UI" );
+        PROFILE_BEGIN( host.profiler, "Frame/UI" );
         {
             RuntimeAllocation::RuntimeAllocationScope allocationScope(
                 RuntimeAllocation::RuntimeAllocationPhase::Render );
@@ -268,7 +269,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                    uiCinematicRendering,
                                    facts.secondsPerFrame );
         }
-        PROFILE_END( "Frame/UI" );
+        PROFILE_END( host.profiler, "Frame/UI" );
         const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();
         timers.lastUIDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
     }
@@ -289,13 +290,14 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
                                   DiagnosticsRuntime& diagnosticsRuntime,
                                   RunSceneState& scene,
                                   const Vector3& listenerPosition,
-                                  SkullbonezCore::Runtime::SceneController& models )
+                                  SkullbonezCore::Runtime::SceneController& models,
+                                  SkullbonezCore::Core::Profiler* profiler )
 {
 #ifndef _DEBUG
     (void)diagnosticsRuntime;
     (void)scene;
 #endif
-    PROFILE_SCOPED( "Frame/Physics/Step/ContactAudio" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Step/ContactAudio" );
 
     contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
@@ -431,7 +433,8 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
 
 void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
                             RuntimeFrameSceneView& sceneOwners,
-                            ReplayRuntime& replayRuntime )
+                            ReplayRuntime& replayRuntime,
+                            SkullbonezCore::Core::Profiler* profiler )
 {
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
@@ -443,7 +446,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     PhysicsEngine& physics = models.Physics();
     const SceneEntityStore& entities = models.Entities();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    PROFILE_SCOPED( "Frame/Physics/Step/ReplayCapture" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Step/ReplayCapture" );
     ReplayCaptureInput input;
     input.sceneFrame = scene.currentFrame;
     input.simulationSeconds = timers.simulationTimer.GetTimeSinceLastStart();
@@ -511,7 +514,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             secondsPerFrame = std::clamp( secondsPerFrame, 0.0, 0.05 );
 
             m_timers.frameTimer.StartTimer();
-            PROFILE_FRAME_BEGIN();
+            PROFILE_FRAME_BEGIN( m_profiler );
             m_timers.workTimer.StartTimer();
             // Lifetime: borrow the startup-owned renderer once for this frame
             // turn. Narrow facets keep reset, GPU-drain, UI accounting, and
@@ -533,7 +536,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                                    &frameRenderDiagnostics };
             // Lifetime: the frame views are stack-only borrow maps for this
             // turn. They are never assigned to Run or passed to retained work.
-            RuntimeFrameHostView frameHost{ m_applicationExit, m_diagnosticsRuntime, m_assets, m_workerPool, m_window };
+            RuntimeFrameHostView frameHost{ m_applicationExit,
+                                            m_diagnosticsRuntime,
+                                            m_assets,
+                                            m_workerPool,
+                                            m_window,
+                                            m_profiler };
             RuntimeFrameInteractionView frameInteraction{ m_inputRouter,
                                                           m_interaction,
                                                           m_attachedCamera,
@@ -554,7 +562,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                             m_renderer };
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
-            PROFILE_BEGIN( "Frame/Input" );
+            PROFILE_BEGIN( m_profiler, "Frame/Input" );
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
             const ReplayAutomationView automationReplayView = m_replayRuntime.BuildAutomationView();
             const ReplayInputView automationReplayInput = automationReplayView.input;
@@ -608,7 +616,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                           m_assets,
                                           ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                           m_renderDefaults.CinematicBaseline() } );
-            PROFILE_END( "Frame/Input" );
+            PROFILE_END( m_profiler, "Frame/Input" );
 
             m_sceneController.BeginCollisionVisualFrame();
             const std::string* captureScenePath = m_sceneController.CurrentPath();
@@ -672,18 +680,18 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
             if ( m_renderer.PipelineSyncEnabled() )
             {
-                PROFILE_BEGIN( "Frame/PipelineSync" );
+                PROFILE_BEGIN( m_profiler, "Frame/PipelineSync" );
                 SkullbonezCore::Core::SbResult finishResult = SkullbonezCore::Core::SbResult::Success();
                 {
                     RuntimeAllocation::RuntimeAllocationScope allocationScope(
                         RuntimeAllocation::RuntimeAllocationPhase::Render );
                     finishResult = renderLifecycle.Finish();
                 }
-                PROFILE_END( "Frame/PipelineSync" );
+                PROFILE_END( m_profiler, "Frame/PipelineSync" );
                 if ( !finishResult.ok )
                 {
                     m_timers.frameTimer.StopTimer();
-                    PROFILE_FRAME_END();
+                    PROFILE_FRAME_END( m_profiler );
                     m_applicationExit.RequestOwnedFailure( finishResult );
                     return m_applicationExit.Resolve( 0 );
                 }
@@ -694,14 +702,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                                                        m_workerPool,
                                                                                        m_config );
 
-            PROFILE_BEGIN( "Frame/Render" );
+            PROFILE_BEGIN( m_profiler, "Frame/Render" );
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
                 Render( renderModels, presentationAlpha );
             }
-            PROFILE_END( "Frame/Render" );
+            PROFILE_END( m_profiler, "Frame/Render" );
 
             const RuntimeUiTextFrameFacts uiTextFacts{ RuntimeCameraModeEnabledMask( m_sceneController ),
                                                        m_camera.mode == RunCameraMode::Attach
@@ -723,17 +731,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                       uiRender,
                                       renderModels );
 
-            PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
+            PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Capture );
                 m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(),
                                                                   m_renderBackendView.RequireCaptureBackend() );
             }
-            PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
+            PROFILE_END( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-            PROFILE_BEGIN( "Frame/PostDraw/InteractionAutomation" );
+            PROFILE_BEGIN( m_profiler, "Frame/PostDraw/InteractionAutomation" );
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
                                                       frameInteraction,
@@ -749,7 +757,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 PostQuitMessage( 0 );
             }
-            PROFILE_END( "Frame/PostDraw/InteractionAutomation" );
+            PROFILE_END( m_profiler, "Frame/PostDraw/InteractionAutomation" );
 #endif
 
             {
@@ -761,32 +769,32 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 }
             }
 
-            PROFILE_BEGIN( "Frame/PostDraw/AutoCycle" );
+            PROFILE_BEGIN( m_profiler, "Frame/PostDraw/AutoCycle" );
             TickAutoCycle();
-            PROFILE_END( "Frame/PostDraw/AutoCycle" );
+            PROFILE_END( m_profiler, "Frame/PostDraw/AutoCycle" );
 
             m_timers.workTimer.StopTimer();
             m_timers.cpuFrameWorkMs =
                 static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 
-            PROFILE_BEGIN( "Frame/VsyncWait" );
+            PROFILE_BEGIN( m_profiler, "Frame/VsyncWait" );
             SkullbonezCore::Core::SbResult presentResult = SkullbonezCore::Core::SbResult::Success();
             {
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Render );
                 presentResult = renderLifecycle.Present();
             }
-            PROFILE_END( "Frame/VsyncWait" );
+            PROFILE_END( m_profiler, "Frame/VsyncWait" );
             if ( !presentResult.ok )
             {
                 m_timers.frameTimer.StopTimer();
-                PROFILE_FRAME_END();
+                PROFILE_FRAME_END( m_profiler );
                 m_applicationExit.RequestOwnedFailure( presentResult );
                 return m_applicationExit.Resolve( 0 );
             }
 
             m_timers.frameTimer.StopTimer();
-            PROFILE_FRAME_END();
+            PROFILE_FRAME_END( m_profiler );
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             {
@@ -820,7 +828,7 @@ float Run::TickPhysics( double secondsPerFrame,
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     if ( replayInput.scrubPaused )
     {
-        PROFILE_SCOPED( "Frame/Replay/ScrubCamera" );
+        PROFILE_SCOPED( m_profiler, "Frame/Replay/ScrubCamera" );
         UpdateLogic( 0.0f, static_cast<float>( secondsPerFrame ), 1.0f );
         return 1.0f;
     }
@@ -873,15 +881,15 @@ float Run::TickPhysics( double secondsPerFrame,
         ResolvePresentationAlpha( m_config, capturePresentationPinned, tick.presentationAlpha );
     if ( tick.committedPhysicsTicks > 0 && canStepPhysics )
     {
-        PROFILE_BEGIN( "Frame/Physics" );
+        PROFILE_BEGIN( m_profiler, "Frame/Physics" );
         // Why: SimulationSystem now returns only a deterministic tick count.
         // Runtime executes the store-owned physics step directly, then applies
         // the remaining model-owned presentation sync as explicit edge work.
         for ( int tickIndex = 0; tickIndex < tick.committedPhysicsTicks; ++tickIndex )
         {
-            PROFILE_SCOPED( "Frame/Physics/Step" );
+            PROFILE_SCOPED( m_profiler, "Frame/Physics/Step" );
             {
-                PROFILE_SCOPED( "Frame/Physics/Step/PresentationCaptureBegin" );
+                PROFILE_SCOPED( m_profiler, "Frame/Physics/Step/PresentationCaptureBegin" );
                 m_sceneController.BeginPhysicsStepPresentationCapture();
             }
             if ( manipulatorPhysics )
@@ -894,7 +902,7 @@ float Run::TickPhysics( double secondsPerFrame,
 
             m_sceneController.StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
             {
-                PROFILE_SCOPED( "Frame/Physics/Step/PresentationCaptureComplete" );
+                PROFILE_SCOPED( m_profiler, "Frame/Physics/Step/PresentationCaptureComplete" );
                 m_sceneController.CompletePhysicsStepPresentationCapture();
             }
 
@@ -903,7 +911,7 @@ float Run::TickPhysics( double secondsPerFrame,
                 AfterPhysicsStep( interactionOwners, sceneOwners, presentationAlpha );
             }
         }
-        PROFILE_END( "Frame/Physics" );
+        PROFILE_END( m_profiler, "Frame/Physics" );
     }
     m_runtimeTools.TickRayCastTestLines( static_cast<float>( secondsPerFrame ) );
     m_runtimeTools.Laser().Update( static_cast<float>( secondsPerFrame ) );
@@ -971,12 +979,13 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
                                      m_diagnosticsRuntime,
                                      m_sceneController.State(),
                                      listenerPosition,
-                                     m_sceneController );
+                                     m_sceneController,
+                                     m_profiler );
     }
     const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
     if ( replayCaptured )
     {
-        CaptureReplayPostStep( interactionOwners, sceneOwners, m_replayRuntime );
+        CaptureReplayPostStep( interactionOwners, sceneOwners, m_replayRuntime, m_profiler );
     }
 #ifdef _DEBUG
     if ( replayCaptured )
@@ -1036,10 +1045,10 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
 
 bool Run::TickScreenshots()
 {
-    PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
+    PROFILE_BEGIN( m_profiler, "Frame/PostDraw/Screenshots" );
     if ( m_sceneController.CrossScenePauseLocked() && !m_inputRouter.RuntimeSnapshot().frameInput.stepHeld )
     {
-        PROFILE_END( "Frame/PostDraw/Screenshots" );
+        PROFILE_END( m_profiler, "Frame/PostDraw/Screenshots" );
         return false;
     }
 
@@ -1052,7 +1061,7 @@ bool Run::TickScreenshots()
                                     scenePath ? scenePath->c_str() : nullptr },
         m_renderBackendView.RequireCaptureBackend() );
 
-    PROFILE_END( "Frame/PostDraw/Screenshots" );
+    PROFILE_END( m_profiler, "Frame/PostDraw/Screenshots" );
 
     if ( !result.captureResult.ok )
     {
@@ -1068,7 +1077,7 @@ bool Run::TickScreenshots()
 
     if ( result.restartFrame )
     {
-        PROFILE_FRAME_END();
+        PROFILE_FRAME_END( m_profiler );
     }
 
 #ifdef _DEBUG

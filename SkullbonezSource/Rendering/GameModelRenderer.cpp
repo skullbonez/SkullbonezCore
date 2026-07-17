@@ -223,7 +223,8 @@ void FillShadowCasterRange( std::span<const RenderInstanceRecord> instances,
     }
 }
 
-bool BuildShadowCasterBatchesWithWorkers( std::span<const RenderInstanceRecord> instances,
+bool BuildShadowCasterBatchesWithWorkers( SkullbonezCore::Core::Profiler* profiler,
+                                          std::span<const RenderInstanceRecord> instances,
                                           std::span<const ColliderRecord> colliders,
                                           SkullbonezCore::Threading::WorkerPool& workerPool,
                                           int modelCount,
@@ -251,7 +252,8 @@ bool BuildShadowCasterBatchesWithWorkers( std::span<const RenderInstanceRecord> 
         chunkCount,
         [&]( int chunkIndex, int begin, int end )
         {
-            PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
+            PROFILE_WORKER_SCOPED( profiler,
+                                   "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
                                    "OrderedWorkerCollect/WorkerBuildBatches" );
             CountShadowCasterRange( instances, colliders, begin, end, counts[chunkIndex] );
         } );
@@ -273,7 +275,8 @@ bool BuildShadowCasterBatchesWithWorkers( std::span<const RenderInstanceRecord> 
         chunkCount,
         [&]( int chunkIndex, int begin, int end )
         {
-            PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
+            PROFILE_WORKER_SCOPED( profiler,
+                                   "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/"
                                    "OrderedWorkerCollect/WorkerFillBatches" );
             FillShadowCasterRange( instances, colliders, begin, end, offsets[chunkIndex], outBatches );
         } );
@@ -548,13 +551,14 @@ void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveCon
 }
 
 
-void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& renderStore,
+void GameModelRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
+                                                  const RenderInstanceStore& renderStore,
                                                   const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                                   SkullbonezCore::Threading::WorkerPool* workerPool,
                                                   bool useShadowParallelPrep,
                                                   ShadowCasterBatches& outBatches )
 {
-    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
+    PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
     const auto instances = renderStore.Records();
     outBatches.Clear();
@@ -591,8 +595,13 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
     if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && useShadowParallelPrep && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
-        if ( BuildShadowCasterBatchesWithWorkers( instances, colliders, *workerPool, modelCount, outBatches ) )
+        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/OrderedWorkerCollect" );
+        if ( BuildShadowCasterBatchesWithWorkers( profiler,
+                                                  instances,
+                                                  colliders,
+                                                  *workerPool,
+                                                  modelCount,
+                                                  outBatches ) )
         {
             return;
         }
@@ -602,7 +611,8 @@ void GameModelRenderer::BuildShadowCasterBatches( const RenderInstanceStore& ren
 }
 
 
-void GameModelRenderer::SubmitShadowCasterBatches( const PrimitiveRenderContext& primitiveContext,
+void GameModelRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
+                                                   const PrimitiveRenderContext& primitiveContext,
                                                    const ShadowCasterBatches& batches,
                                                    const Matrix4& view,
                                                    const Matrix4& proj,
@@ -629,7 +639,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const PrimitiveRenderContext&
     int submitted = 0;
 
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
+        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Spheres" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Spheres" );
 
         auto sphereBatch =
@@ -645,7 +655,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const PrimitiveRenderContext&
     }
 
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
+        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Boxes" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Boxes" );
 
         auto boxBatch = primitiveContext.renderer.BeginShadowDepthBoxBatch( primitiveContext, view, proj );
@@ -661,7 +671,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const PrimitiveRenderContext&
 
     if ( !batches.pines.empty() )
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
+        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/Pines" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Pines" );
 
         auto pineBatch = primitiveContext.renderer.BeginShadowDepthPineBatch( primitiveContext, view, proj );
@@ -677,7 +687,7 @@ void GameModelRenderer::SubmitShadowCasterBatches( const PrimitiveRenderContext&
 
     if ( !batches.convexHulls.empty() )
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
+        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/SubmitBatches/ConvexHulls" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "ConvexHulls" );
 
         for ( const auto& caster : batches.convexHulls )
@@ -702,7 +712,8 @@ void GameModelRenderer::SubmitShadowCasterBatches( const PrimitiveRenderContext&
 }
 
 
-void GameModelRenderer::RenderShadowCasters( const PrimitiveRenderContext& primitiveContext,
+void GameModelRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler,
+                                             const PrimitiveRenderContext& primitiveContext,
                                              const RenderInstanceStore& renderStore,
                                              const SkullbonezCore::Physics::ColliderStore& colliderStore,
                                              SkullbonezCore::Threading::WorkerPool* workerPool,
@@ -713,12 +724,13 @@ void GameModelRenderer::RenderShadowCasters( const PrimitiveRenderContext& primi
                                              Rendering::RenderVisibilityView visibilityView )
 {
     ShadowCasterBatches batches;
-    BuildShadowCasterBatches( renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
-    SubmitShadowCasterBatches( primitiveContext, batches, view, proj, cinematic, visibilityView );
+    BuildShadowCasterBatches( profiler, renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
+    SubmitShadowCasterBatches( profiler, primitiveContext, batches, view, proj, cinematic, visibilityView );
 }
 
 
-bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& renderStore,
+bool GameModelRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profiler* profiler,
+                                               const RenderInstanceStore& renderStore,
                                                SkullbonezCore::Threading::WorkerPool* workerPool,
                                                bool useShadowParallelPrep,
                                                const Vector3& focus,
@@ -727,7 +739,7 @@ bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& render
                                                float& outRadius,
                                                float& outHeightRange )
 {
-    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
+    PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 
     const auto instances = renderStore.Records();
 
@@ -795,7 +807,7 @@ bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& render
     if ( SHADOW_PARALLEL_PREP_WORKER_ENABLED && useShadowParallelPrep && workerPool &&
          modelCount >= SHADOW_PARALLEL_PREP_MIN_CASTERS )
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
+        PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/OrderedWorkerCollect" );
         SkullbonezCore::Threading::WorkerChunkRange chunks[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS];
         const int chunkCount =
             workerPool->BuildChunkRangesNoAlloc( 0,
@@ -806,15 +818,16 @@ bool GameModelRenderer::GetObjectShadowBounds( const RenderInstanceStore& render
         if ( chunkCount > 1 )
         {
             BoundsAccumulator chunkOutputs[SkullbonezCore::Threading::WorkerPool::MAX_PARALLEL_TASKS] = {};
-            workerPool->ParallelForChunksNoAlloc(
-                chunks,
-                chunkCount,
-                [&]( int chunkIndex, int begin, int end )
-                {
-                    PROFILE_WORKER_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/"
-                                           "OrderedWorkerCollect/WorkerScanBounds" );
-                    scanBoundsRange( begin, end, chunkOutputs[chunkIndex] );
-                } );
+            workerPool->ParallelForChunksNoAlloc( chunks,
+                                                  chunkCount,
+                                                  [&]( int chunkIndex, int begin, int end )
+                                                  {
+                                                      PROFILE_WORKER_SCOPED(
+                                                          profiler,
+                                                          "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds/"
+                                                          "OrderedWorkerCollect/WorkerScanBounds" );
+                                                      scanBoundsRange( begin, end, chunkOutputs[chunkIndex] );
+                                                  } );
             for ( int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex )
             {
                 mergeBounds( bounds, chunkOutputs[chunkIndex] );

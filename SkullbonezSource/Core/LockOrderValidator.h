@@ -18,8 +18,8 @@ Invariants:
   - TrackedMutex must match std::mutex lock/try_lock/unlock semantics for
     callers; validation is extra instrumentation, not a new locking policy.
   - Lock ids are stable for the lifetime of each TrackedMutex instance.
-  - The validator is a frozen diagnostics singleton: function-local storage, no
-    config reads, and no dependence on other singleton destruction order.
+  - Debug TrackedMutex instances cache the frozen validator once; Profile and
+    Release compile the validation member and calls out entirely.
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
@@ -64,6 +64,9 @@ class TrackedMutex
     std::mutex m_inner;
     const char* m_name;
     uint32_t m_id;
+#ifdef _DEBUG
+    LockOrderValidator* m_validator;
+#endif
 };
 
 } // namespace Threading

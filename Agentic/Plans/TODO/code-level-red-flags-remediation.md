@@ -1,7 +1,7 @@
 # Code-Level Red-Flags Remediation — Renderer Globals, Hot-Path Singletons, Friend Debt, Catch-Up Clamp, LTO Determinism
 
 Date: 2026-07-17
-Status: Active — 2/7 tasks
+Status: Active — 3/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at C0)
 Impact area: `Rendering/Text.cpp`, `Core/Profiler.*`, `Core/Log.*`,
 `Core/LockOrderValidator.*`, `Physics/PhysicsScene.h`,
@@ -76,7 +76,7 @@ re-certified as accepted policy with evidence.
   the arrays stay fixed-capacity, now as owned members. Gates:
   `validate_dx12_renderer`, then `tools\run_graphics_stress.bat 1` with
   recorded command, runtime, and exit evidence.
-- [ ] C2 — Hot-path singleton resolution removal. Per the C0 ruling: profiler
+- [x] C2 — Hot-path singleton resolution removal. Per the C0 ruling: profiler
   scopes capture the instance once per scope (or receive a plumbed handle),
   `LockOrderValidator` lookup cost leaves the per-acquisition path in
   Profile/Release builds, and `EngineLog` access is documented as the single

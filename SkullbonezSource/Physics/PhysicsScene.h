@@ -50,6 +50,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Runtime
 {
@@ -72,6 +73,7 @@ class PhysicsScene
 {
   public:
     PhysicsScene();
+    void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps current runtime policy onto cold authoring descriptors. Descriptor

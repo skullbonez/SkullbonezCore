@@ -557,9 +557,10 @@ class SkyPass
     SkyPass( SkyPassResources& skyResources,
              FullscreenPassResources& fullscreenResources,
              std::unique_ptr<Geometry::SkyBox>& skyBox,
-             const SkullbonezCore::Core::EngineConfig& config )
+             const SkullbonezCore::Core::EngineConfig& config,
+             SkullbonezCore::Core::Profiler* profiler )
         : m_skyResources( skyResources ), m_fullscreenResources( fullscreenResources ), m_skyBox( skyBox ),
-          m_config( config )
+          m_config( config ), m_profiler( profiler )
     {
     }
 
@@ -576,6 +577,7 @@ class SkyPass
     // backend teardown can replace the object without rebinding the pass.
     std::unique_ptr<Geometry::SkyBox>& m_skyBox;
     const SkullbonezCore::Core::EngineConfig& m_config;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- SceneTargetPass
@@ -588,7 +590,8 @@ class SkyPass
 class SceneTargetPass
 {
   public:
-    explicit SceneTargetPass( CinematicScenePassResources& resources ) : m_resources( resources )
+    SceneTargetPass( CinematicScenePassResources& resources, SkullbonezCore::Core::Profiler* profiler )
+        : m_resources( resources ), m_profiler( profiler )
     {
     }
 
@@ -599,6 +602,7 @@ class SceneTargetPass
 
   private:
     CinematicScenePassResources& m_resources;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- ShadowPass
@@ -614,8 +618,10 @@ class ShadowPass
     ShadowPass( ShadowPassResources& resources,
                 SceneTerrain& terrain,
                 const SkullbonezCore::Core::EngineConfig& config,
-                RenderResourceLifecycleLog& lifecycleLog )
-        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog )
+                RenderResourceLifecycleLog& lifecycleLog,
+                SkullbonezCore::Core::Profiler* profiler )
+        : m_resources( resources ), m_terrain( terrain ), m_config( config ), m_lifecycleLog( lifecycleLog ),
+          m_profiler( profiler )
     {
     }
 
@@ -651,6 +657,7 @@ class ShadowPass
     SceneTerrain& m_terrain;
     const SkullbonezCore::Core::EngineConfig& m_config;
     RenderResourceLifecycleLog& m_lifecycleLog;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
     bool m_activeTerrainHidden = false;
     bool m_activeCollisionVisualizerVisible = false;
     int m_activeWindowWidth = 1;
@@ -672,10 +679,12 @@ class ReflectionPass
                     const SkullbonezCore::Core::EngineConfig& config,
                     float* dxrReflectionTransforms,
                     int dxrReflectionTransformCapacity,
-                    RenderResourceLifecycleLog& lifecycleLog )
+                    RenderResourceLifecycleLog& lifecycleLog,
+                    SkullbonezCore::Core::Profiler* profiler )
         : m_resources( resources ), m_collisionVisualizer( collisionVisualizer ), m_config( config ),
           m_dxrReflectionTransforms( dxrReflectionTransforms ),
-          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog )
+          m_dxrReflectionTransformCapacity( dxrReflectionTransformCapacity ), m_lifecycleLog( lifecycleLog ),
+          m_profiler( profiler )
     {
     }
 
@@ -692,6 +701,7 @@ class ReflectionPass
     float* m_dxrReflectionTransforms = nullptr;
     int m_dxrReflectionTransformCapacity = 0;
     RenderResourceLifecycleLog& m_lifecycleLog;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- ObjectPass
@@ -704,8 +714,10 @@ class ReflectionPass
 class ObjectPass
 {
   public:
-    ObjectPass( Physics::CollisionVisualizer& collisionVisualizer, const SkullbonezCore::Core::EngineConfig& config )
-        : m_collisionVisualizer( collisionVisualizer ), m_config( config )
+    ObjectPass( Physics::CollisionVisualizer& collisionVisualizer,
+                const SkullbonezCore::Core::EngineConfig& config,
+                SkullbonezCore::Core::Profiler* profiler )
+        : m_collisionVisualizer( collisionVisualizer ), m_config( config ), m_profiler( profiler )
     {
     }
 
@@ -716,6 +728,7 @@ class ObjectPass
   private:
     Physics::CollisionVisualizer& m_collisionVisualizer;
     const SkullbonezCore::Core::EngineConfig& m_config;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- TerrainPass
@@ -727,8 +740,10 @@ class ObjectPass
 class TerrainPass
 {
   public:
-    TerrainPass( SceneTerrain& terrain, const SkullbonezCore::Core::EngineConfig& config )
-        : m_terrain( terrain ), m_config( config )
+    TerrainPass( SceneTerrain& terrain,
+                 const SkullbonezCore::Core::EngineConfig& config,
+                 SkullbonezCore::Core::Profiler* profiler )
+        : m_terrain( terrain ), m_config( config ), m_profiler( profiler )
     {
     }
 
@@ -741,6 +756,7 @@ class TerrainPass
     // terrain after each scene activation.
     SceneTerrain& m_terrain;
     const SkullbonezCore::Core::EngineConfig& m_config;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- WaterPass
@@ -752,8 +768,10 @@ class TerrainPass
 class WaterPass
 {
   public:
-    WaterPass( Environment::WorldEnvironment& world, const SkullbonezCore::Core::EngineConfig& config )
-        : m_world( world ), m_config( config )
+    WaterPass( Environment::WorldEnvironment& world,
+               const SkullbonezCore::Core::EngineConfig& config,
+               SkullbonezCore::Core::Profiler* profiler )
+        : m_world( world ), m_config( config ), m_profiler( profiler )
     {
     }
 
@@ -768,6 +786,7 @@ class WaterPass
   private:
     Environment::WorldEnvironment& m_world;
     const SkullbonezCore::Core::EngineConfig& m_config;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
     WaterPassDebugInfo m_debugInfo;
 };
 
@@ -780,7 +799,8 @@ class WaterPass
 class TornadoVisualPass
 {
   public:
-    explicit TornadoVisualPass( SceneTerrain& terrain ) : m_terrain( terrain )
+    TornadoVisualPass( SceneTerrain& terrain, SkullbonezCore::Core::Profiler* profiler )
+        : m_terrain( terrain ), m_profiler( profiler )
     {
     }
 
@@ -792,6 +812,7 @@ class TornadoVisualPass
     // Lifetime: borrows the stable scene terrain owner and resolves its current
     // terrain after each scene load.
     SceneTerrain& m_terrain;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
     std::vector<float> m_vertices;
     std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
     float m_liveVisualTimeSeconds = 0.0f;
@@ -812,9 +833,10 @@ class DebugOverlayPass
     DebugOverlayPass( Physics::BroadphaseVisualizer& broadphaseVisualizer,
                       Physics::PhysicsDebugVisualizer& physicsDebugVisualizer,
                       SceneTerrain& terrain,
-                      Assets::AssetSystem& assets )
+                      Assets::AssetSystem& assets,
+                      SkullbonezCore::Core::Profiler* profiler )
         : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
-          m_terrain( terrain ), m_assets( assets )
+          m_terrain( terrain ), m_assets( assets ), m_profiler( profiler )
     {
         // Invariant: tornado vector arrows are a runtime debug overlay. The
         // transient line buffer stays with the render pass so physics sampling
@@ -839,6 +861,7 @@ class DebugOverlayPass
     // terrain after each scene load.
     SceneTerrain& m_terrain;
     Assets::AssetSystem& m_assets;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- VolumetricPass
@@ -853,9 +876,10 @@ class VolumetricPass
     VolumetricPass( CinematicScenePassResources& sceneResources,
                     VolumetricLightPassResources& volumetricResources,
                     FullscreenPassResources& fullscreenResources,
-                    const SkullbonezCore::Core::EngineConfig& config )
+                    const SkullbonezCore::Core::EngineConfig& config,
+                    SkullbonezCore::Core::Profiler* profiler )
         : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
-          m_fullscreenResources( fullscreenResources ), m_config( config )
+          m_fullscreenResources( fullscreenResources ), m_config( config ), m_profiler( profiler )
     {
     }
 
@@ -869,6 +893,7 @@ class VolumetricPass
     VolumetricLightPassResources& m_volumetricResources;
     FullscreenPassResources& m_fullscreenResources;
     const SkullbonezCore::Core::EngineConfig& m_config;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- TonemapPass
@@ -885,9 +910,11 @@ class TonemapPass
                  VolumetricLightPassResources& volumetricResources,
                  TonemapPassResources& tonemapResources,
                  FullscreenPassResources& fullscreenResources,
-                 const SkullbonezCore::Core::EngineConfig& config )
+                 const SkullbonezCore::Core::EngineConfig& config,
+                 SkullbonezCore::Core::Profiler* profiler )
         : m_sceneResources( sceneResources ), m_volumetricResources( volumetricResources ),
-          m_tonemapResources( tonemapResources ), m_fullscreenResources( fullscreenResources ), m_config( config )
+          m_tonemapResources( tonemapResources ), m_fullscreenResources( fullscreenResources ), m_config( config ),
+          m_profiler( profiler )
     {
     }
 
@@ -904,6 +931,7 @@ class TonemapPass
     TonemapPassResources& m_tonemapResources;
     FullscreenPassResources& m_fullscreenResources;
     const SkullbonezCore::Core::EngineConfig& m_config;
+    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
 };
 
 /* -- UiTextPass

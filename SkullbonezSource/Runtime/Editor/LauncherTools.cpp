@@ -334,7 +334,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         Quaternion qCopy = hotState.orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
         const BoxTerrainVertexSupportProbe supportProbe =
-            ProbeBoxTerrainVertices( box, pos, orientMat, *context.terrain, context.contactEpsilon, false );
+            ProbeBoxTerrainVertices( nullptr, box, pos, orientMat, *context.terrain, context.contactEpsilon, false );
 
         if ( supportProbe.hasTerrainGaps )
         {

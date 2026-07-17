@@ -45,7 +45,8 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
-}
+class Profiler;
+} // namespace Core
 namespace Physics
 {
 class ColliderStore;
@@ -326,6 +327,10 @@ struct ReplayPredictionMemoryStats
 class ReplayPrediction
 {
   public:
+    explicit ReplayPrediction( Core::Profiler* profiler = nullptr ) : m_profiler( profiler )
+    {
+    }
+
     const RunReplayPredictionState& State() const noexcept
     {
         return m_state;
@@ -404,6 +409,10 @@ class ReplayPrediction
     bool GenerationPermitted() const noexcept
     {
         return m_generationPermitted;
+    }
+    Core::Profiler* ProfilerBorrow() const noexcept
+    {
+        return m_profiler;
     }
     void SetGenerationPermitted( bool permitted ) noexcept
     {
@@ -487,6 +496,8 @@ class ReplayPrediction
     ReplayPredictionMemoryStats CollectMemoryStats() const;
 
   private:
+    // Lifetime: startup-bound diagnostics borrow; worker slices retain no owner state.
+    Core::Profiler* m_profiler;
     RunReplayPredictionState m_state;
     bool m_generationPermitted = true;
 };

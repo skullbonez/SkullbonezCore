@@ -43,12 +43,12 @@ namespace SBUI = SkullbonezCore::UI;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 
-std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForStartup()
+std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForStartup( Core::Profiler* profiler )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
     // Allocation policy: Run keeps this heavyweight cohesive owner out of its
     // public header. The one process-lifetime allocation is bounded to startup.
-    return std::make_unique<RuntimeOverlayDiagnostics>();
+    return std::make_unique<RuntimeOverlayDiagnostics>( profiler );
 }
 
 
@@ -122,9 +122,9 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                    float contactEpsilon,
                                                    double secondsPerFrame )
 {
-    PROFILE_BEGIN( "Frame/PostPhysics" );
+    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics" );
 
-    PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
+    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
     // Why: hidden broadphase state still advances so cell fades and validation
     // gates remain coherent when the operator toggles the overlay.
     m_renderResources.m_broadphaseOverlay.SetEnabled( m_presentationState.isBroadphaseOverlay );
@@ -141,9 +141,9 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                   collisionKeys.data(),
                                                   static_cast<int>( collisionKeys.size() ) );
     scene.UpdateRequiredBroadphaseXCells( activeCells, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
-    PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
+    PROFILE_END( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
 
-    PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
+    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/CollisionVisualizer" );
     m_renderResources.m_collisionOverlay.SetEnabled( m_presentationState.isCollisionVisualizer );
     const CollisionVisualizerFrameView collisionView{ scene.BodyStore(),
                                                       scene.Colliders(),
@@ -153,9 +153,9 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                       PhysicsEngine::ReadSleepIslandVisualIds( physics ),
                                                       scene.BodyStore().Count() };
     m_renderResources.m_collisionOverlay.Update( static_cast<float>( secondsPerFrame ), collisionView );
-    PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
+    PROFILE_END( m_profiler, "Frame/PostPhysics/CollisionVisualizer" );
 
-    PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
+    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
     m_renderResources.m_physicsDebugOverlay.SetFlags( m_presentationState.physicsDebugFlags );
     m_renderResources.m_physicsDebugOverlay.SetContactLingerSeconds( m_presentationState.physicsDebugContactLinger );
     m_renderResources.m_physicsDebugOverlay.SetPipelineStageCursor(
@@ -170,12 +170,12 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                   scene.BodyStore().Count() };
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
     scene.UpdateRequiredContacts( contactEpsilon );
-    PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
+    PROFILE_END( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
-    PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
+    PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );
     scene.Physics().EndCollisionVisualFrame();
-    PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
-    PROFILE_END( "Frame/PostPhysics" );
+    PROFILE_END( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );
+    PROFILE_END( m_profiler, "Frame/PostPhysics" );
 }
 
 

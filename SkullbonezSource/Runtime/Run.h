@@ -111,6 +111,7 @@ class Run
     Window& m_window;                                              // Startup-owned native window borrowed for process lifetime.
     Threading::WorkerPool& m_workerPool;                           // Startup-owned worker service borrowed for process lifetime.
     SkullbonezCore::Core::EngineConfig& m_config;                  // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
+    SkullbonezCore::Core::Profiler* m_profiler;                    // Startup-owned profiler borrow; null outside profiling builds.
     Assets::AssetSystem m_assets;                                  // Process source-asset registry shared by scene and renderer owners.
     SceneController m_sceneController;                             // Owns scene queue, cameras, world, entities, physics, and models.
     SkullbonezCore::Core::SbResult m_lastSceneLoadResult;          // Last queue load outcome observed by startup/load-only paths.

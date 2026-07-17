@@ -40,6 +40,11 @@ namespace SkullbonezCore::Rendering
 class IRenderCommandContext;
 }
 
+namespace SkullbonezCore::Core
+{
+class Profiler;
+}
+
 namespace SkullbonezCore::Text
 {
 class TextBatch;
@@ -87,6 +92,7 @@ struct ReplayOverlayRenderContext
     // Lifetime: borrowed from the current UI/text pass; overlay code must not
     // store it after the draw call returns.
     Rendering::IRenderCommandContext& renderCommands;
+    Core::Profiler* profiler = nullptr;
     ReplayScrubberView scrubber;
     const ReplayPredictionPresentationView& prediction;
     const RunReplayPathVisualizerState& pathVisualizer;
@@ -121,6 +127,7 @@ struct ReplayPathVisualizerRenderContext
     // already published for this frame, so drawing receives prediction as a
     // read-only borrow and cannot reach worker or reveal-clock authority.
     const ReplayPredictionPresentationView& prediction;
+    Core::Profiler* profiler = nullptr;
     const RunReplayPathVisualizerState& pathVisualizer;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;

@@ -366,7 +366,7 @@ bool ReplayAuthoring::BuildCauseTreeRows(
     const RunReplayCameraState& camera,
     int& outCameraFocusedRow )
 {
-    PROFILE_SCOPED( "Frame/Replay/CauseTree/BuildRows" );
+    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/BuildRows" );
     outCameraFocusedRow = -1;
     BeginCauseTreeRowBuild();
 
@@ -973,7 +973,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
                                                             m_interaction,
                                                             m_inputRouter );
     };
-    PROFILE_SCOPED( "Frame/Replay/CauseTree/Input" );
+    PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Input" );
     // Concept: Cause-tree input owns the explanatory replay window state while
     // body focus resolves from explicit prediction, solver, and live-store
     // views captured for this input turn.
@@ -998,7 +998,7 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
 
     const auto activateReplayCameraForCauseRow = [&]( const RunReplayCauseTreeRow& row, int rowIndex )
     {
-        PROFILE_SCOPED( "Frame/Replay/CauseTree/Focus" );
+        PROFILE_SCOPED( m_profiler, "Frame/Replay/CauseTree/Focus" );
         Vector3 targetPosition = row.point;
         float targetRadius = 2.0f;
         RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::Body;
