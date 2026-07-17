@@ -97,10 +97,10 @@ ledger defect: `code-level-red-flags-remediation` contains C0-C6, seven tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 5 | 7 | 71% |
+| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 6 | 7 | 86% |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 4 | 7 | 57% |
-| **Active/future total** | **9** | **22** | **41%** |
+| **Active/future total** | **10** | **22** | **45%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -645,7 +645,7 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 5/7 | T5 eliminate the in-class declaration splice |
+| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 6/7 | T6 independent ownership review and closure gates |
 | [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 0/8 | N0 census, per-file owner rulings, and the DX12 re-partition parking lift |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 4/7 | C4-C6 resume after SceneController and monolith closure per the priority path |
 

@@ -1,7 +1,7 @@
 # Scene Controller Ownership Decomposition — Kill The Relocated God Object
 
 Date: 2026-07-17
-Status: Active — 5/7 tasks
+Status: Active — 6/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at T0)
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/Run*.cpp`,
 `Runtime/RuntimeFrameViews.h`, project filters
@@ -83,7 +83,7 @@ signatures are decomposed into narrow per-domain load participants, and the
   validation-harness owner per the T0 map, reading physics through the
   existing store boundary. Gate: `validate_full` (plus
   `validate_physics` if any physics-adjacent call order moves).
-- [ ] T5 — Eliminate the `.inl`-in-class splice. Re-home the
+- [x] T5 — Eliminate the `.inl`-in-class splice. Re-home the
   `SceneController.Objects.inl` declarations either into the class proper
   (if the T3/T4 shrink leaves a cohesive owner) or into the concrete
   store-coordination owner the census selects. No forwarding facade. Gate:

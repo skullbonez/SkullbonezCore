@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Three Round-6 remediation plans are active; baseline/golden refresh remains prohibited. |
-| Current objective | Complete SceneController T5-T6, then monolith N0-N7 and red-flags C4-C6. |
-| Active/future progress | 9 / 22 live tasks (41%); SceneController T0-T4 and red-flags C0-C3 complete. |
-| Last broad local gate | T4 `validate_full` passed in 159 seconds: 282/282 tests and every ratified coverage floor passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | T5 removes the in-class `.inl` declaration splice and requires `tools\validate_full.bat`. |
+| Current objective | Close SceneController T6, then complete monolith N0-N7 and red-flags C4-C6. |
+| Active/future progress | 10 / 22 live tasks (45%); SceneController T0-T5 and red-flags C0-C3 complete. |
+| Last broad local gate | T5 `validate_full` passed in 151 seconds: project/filter inventories matched at 713 items, 282/282 tests and every ratified coverage floor passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
+| Validation for current edits | T6 requires one independent ownership review, `tools\validate_full.bat`, and one `tools\validate_replay_visual_fidelity.bat` invocation before plan deletion. |
 
 ## Live Queue
 
