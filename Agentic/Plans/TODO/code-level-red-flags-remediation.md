@@ -1,7 +1,7 @@
 # Code-Level Red-Flags Remediation — Renderer Globals, Hot-Path Singletons, Friend Debt, Catch-Up Clamp, LTO Determinism
 
 Date: 2026-07-17
-Status: Active — 4/7 tasks
+Status: Active — 5/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at C0)
 Impact area: `Rendering/Text.cpp`, `Core/Profiler.*`, `Core/Log.*`,
 `Core/LockOrderValidator.*`, `Physics/PhysicsScene.h`,
@@ -89,7 +89,7 @@ re-certified as accepted policy with evidence.
   accessor that would expose broad mutable internals is a design failure —
   the boundary moves, not the visibility. Gate: `validate_physics`
   byte-exact.
-- [ ] C4 — Catch-up clamp ratification. Implement the owner-selected max
+- [x] C4 — Catch-up clamp ratification. Implement the owner-selected max
   ticks per frame with explicit dropped-time accounting and a diagnostics
   counter (hitch events must be visible, not silent). Fixed-step edge and
   replay determinism are unaffected on normal frames because the clamp binds

@@ -155,3 +155,41 @@ Formal evidence:
 No test, coverage scope/tooling, behavioral baseline, golden, screenshot, or
 physics CSV changed, so no direct coverage invocation or artifact refresh was
 triggered.
+
+## C4 Closure Evidence
+
+Completed 2026-07-18 on `nightrunner-17th-july`. The deterministic fixed-step
+time-scale scheduler now commits at most the owner-ratified five ticks per
+render frame. It computes requested whole ticks once, commits the bounded
+prefix, reports excess whole ticks through `SimulationTickResult`, and removes
+all requested whole ticks from the accumulator so one hitch cannot create a
+chain of five-step stalls. The fractional remainder is retained exactly.
+
+`SimulationSystem` owns cumulative dropped-tick and hitch-event counters,
+resets them with its accumulators, and exposes read-only diagnostic queries.
+Focused tests prove 12.75 requested ticks commit five, drop seven, and carry
+only the 0.75 fraction; repeated hitches accumulate exact counters; `Reset`
+clears them; and a normal five-tick frame records no hitch. The direct Profile
+test build and filtered scheduler run passed in 5.807s with 5/5 cases and
+169/169 assertions.
+
+The touched-source comment audit covered all 3/3 source-bearing files with zero
+deferrals or unchecked files. Their learning headers and local hazard/API
+comments explain the five-tick cap, whole-tick drop, fractional carry, counter
+lifetime, and unchanged normal-frame/replay contract.
+
+Formal evidence from the staged final source:
+
+- `tools\validate_tests.bat` passed in 2.827s with 91/91 test project/filter
+  items, zero build warnings/errors, and 284/284 doctests plus 21,408/21,408
+  assertions passing. Log:
+  `TestOutput/validation/agent_logs/red_flags_c4_validate_tests_stdout.log`.
+- `tools\validate_physics.bat` passed in 59.129s. Standalone physics and runtime
+  handle smoke passed; `physics_regression_varied.csv` matched the committed
+  baseline byte-exact across 44,401 lines; final Profile/Debug builds completed
+  with zero warnings/errors. Log:
+  `TestOutput/validation/agent_logs/red_flags_c4_validate_physics_stdout.log`.
+
+These regression tests protect clamp/drop arithmetic and are not coverage-floor
+work, so the direct coverage trigger does not apply. No baseline, golden,
+screenshot, replay behavior, or normal-frame schedule was refreshed or changed.

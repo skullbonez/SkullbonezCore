@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | SceneController ownership and monolith TU right-sizing are closed; one Round-6 plan remains and baseline/golden refresh remains prohibited. |
-| Current objective | Complete red-flags C4-C6. |
-| Active/future progress | 4 / 7 live tasks (57%); red-flags C0-C3 complete. |
+| Current objective | Complete red-flags C5-C6. |
+| Active/future progress | 5 / 7 live tasks (71%); red-flags C0-C4 complete. |
 | Last broad local gate | Monolith N7 `validate_full` passed in 136.167s: 722 project/filter items matched, 282/282 tests and all ten ratified coverage floors passed, Automation replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | Monolith N7 independent review is clear; final broad validation and the 60.887s DX12 stress proof passed. C4 next requires focused tests plus byte-exact physics validation. |
+| Validation for current edits | C4 `validate_tests` passed 284/284 tests and `validate_physics` matched the committed 44,401-line CSV byte-exact; proceed to C5 structural WPO narrowing. |
 
 ## Live Queue
 
@@ -375,6 +375,7 @@ plan inventory.
 
 Scene-controller ownership is complete at 7/7 and monolith TU right-sizing is
 complete at 8/8. N7 closed the 15-row final census after independent review,
-automatic coverage, full validation, and DX12 stress. Continue red-flags C4-C6
-in plan order. Do not regenerate behavioral, physics, replay, visual, or
-screenshot baselines.
+automatic coverage, full validation, and DX12 stress. C4 then closed the
+five-tick catch-up clamp with explicit drop accounting and byte-exact physics.
+Continue red-flags C5-C6 in plan order. Do not regenerate behavioral, physics,
+replay, visual, or screenshot baselines.

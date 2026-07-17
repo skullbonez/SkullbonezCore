@@ -16,6 +16,8 @@ Glossary:
     after the scheduler has updated accumulator state.
   Presentation alpha: Bounded leftover accumulator fraction used only to
     display between the previous and current completed physics poses.
+  Hitch event: A fixed-step request whose whole-tick demand exceeds the
+    per-frame catch-up cap; excess whole ticks are intentionally discarded.
 
 Invariants:
   - SimulationSystem decides tick counts only; it does not borrow model owners,
@@ -24,6 +26,7 @@ Invariants:
     private to SimulationSystem.
   - Deterministic and paused paths publish alpha 1 so capture/replay semantics
     stay on exact committed solver state.
+  - Catch-up drops whole ticks only; fractional accumulator state survives.
 
 Related:
   - SkullbonezSource/Physics/SimulationSystem.cpp
@@ -33,6 +36,8 @@ Related:
 #pragma once
 
 #include "../Runtime/RuntimeInteractionController.h"
+
+#include <cstdint>
 
 namespace SkullbonezCore
 {
@@ -58,6 +63,7 @@ struct SimulationTickResult
     float simulationDt = 0.0f;
     float cameraDt = 0.0f;
     int committedPhysicsTicks = 0;
+    int droppedPhysicsTicks = 0;    // Whole fixed-step ticks discarded by the catch-up cap this call.
     float presentationAlpha = 1.0f; // Leftover fixed-tick fraction; captures may override this to exact state.
 };
 
@@ -66,10 +72,16 @@ class SimulationSystem
   public:
     void Reset();
     SimulationTickResult Tick( const SimulationTickInput& input );
+    // Cumulative diagnostics since Reset; callers may sample them without
+    // mutating scheduler state or retaining an accumulator view.
+    uint64_t DroppedPhysicsTickCount() const noexcept;
+    uint64_t PhysicsHitchEventCount() const noexcept;
 
   private:
     float m_physicsAccumulator = 0.0f;
     float m_fixedStepTickAccumulator = 0.0f;
+    uint64_t m_droppedPhysicsTickCount = 0;
+    uint64_t m_physicsHitchEventCount = 0;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

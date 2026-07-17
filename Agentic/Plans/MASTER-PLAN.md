@@ -99,8 +99,8 @@ round-6 denominator is 7 tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 4 | 7 | 57% |
-| **Active/future total** | **4** | **7** | **57%** |
+| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 5 | 7 | 71% |
+| **Active/future total** | **5** | **7** | **71%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -148,7 +148,7 @@ historical work per commit-contract rule 4.
 One 2026-07-17 adversarial-review round-6 plan remains live (see the round-6
 section below). `scene-controller-ownership-decomposition` T0-T6 and
 `monolith-tu-right-sizing` N0-N7 are closed. Continue
-`code-level-red-flags-remediation` with C4-C6 in plan order.
+`code-level-red-flags-remediation` with C5-C6 in plan order.
 
 There is no other active implementation-plan runner. `physics-soa-simd-1000-bodies`
 closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
@@ -641,7 +641,7 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 4/7 | Execute C4 catch-up clamp, then C5 WPO narrowing and C6 independent closure review |
+| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 5/7 | Execute C5 WPO narrowing, then C6 independent closure review |
 
 ## Features
 

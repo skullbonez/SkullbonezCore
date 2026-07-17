@@ -13,6 +13,8 @@ Glossary:
   Accumulator: Stored fractional tick state that carries time across frames.
   Commit count: Number of fixed physics ticks the runtime owner must execute
     after accumulator state is updated.
+  Hitch event: A fixed-step request that exceeds the per-frame catch-up cap;
+    its excess whole ticks are dropped and counted instead of carried forward.
 
 Invariants:
   - Fixed-step mode ignores wall-clock accumulation and commits whole
@@ -38,13 +40,15 @@ using namespace SkullbonezCore::Runtime;
 
 namespace
 {
-constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
+constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 5;
 }
 
 void SimulationSystem::Reset()
 {
     m_physicsAccumulator = 0.0f;
     m_fixedStepTickAccumulator = 0.0f;
+    m_droppedPhysicsTickCount = 0;
+    m_physicsHitchEventCount = 0;
 }
 
 
@@ -78,13 +82,21 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.
         // This ignores wall-clock time so fixed-step scenes reproduce exactly.
         m_fixedStepTickAccumulator += (std::max)( 0.0f, input.timeScale );
-        const int ticksThisFrame = (std::min)( static_cast<int>( std::floor( m_fixedStepTickAccumulator ) ),
-                                               FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
-        // Hazard: enormous time_scale values must not create unbounded
-        // validation frames. Leftover fractional ticks remain deterministic.
-        m_fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
+        const int requestedWholeTicks = static_cast<int>( std::floor( m_fixedStepTickAccumulator ) );
+        const int ticksThisFrame = (std::min)( requestedWholeTicks, FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
+        const int droppedTicks = requestedWholeTicks - ticksThisFrame;
+        // Hazard: carrying excess whole ticks would turn one hitch into repeated
+        // five-step stalls. Remove all requested whole ticks, but retain the
+        // fractional remainder so ordinary time-scale cadence stays exact.
+        m_fixedStepTickAccumulator -= static_cast<float>( requestedWholeTicks );
+        if ( droppedTicks > 0 )
+        {
+            m_droppedPhysicsTickCount += static_cast<uint64_t>( droppedTicks );
+            ++m_physicsHitchEventCount;
+        }
 
         result.committedPhysicsTicks = ticksThisFrame;
+        result.droppedPhysicsTicks = droppedTicks;
 
         result.simulationDt = PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame );
         result.presentationAlpha = 1.0f;
@@ -124,4 +136,14 @@ SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
         result.presentationAlpha = std::clamp( m_physicsAccumulator / PHYSICS_FIXED_DT, 0.0f, 1.0f );
     }
     return result;
+}
+
+uint64_t SimulationSystem::DroppedPhysicsTickCount() const noexcept
+{
+    return m_droppedPhysicsTickCount;
+}
+
+uint64_t SimulationSystem::PhysicsHitchEventCount() const noexcept
+{
+    return m_physicsHitchEventCount;
 }

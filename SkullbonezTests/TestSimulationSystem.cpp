@@ -6,15 +6,18 @@ Purpose:
 
 Summary:
   SimulationSystem owns time accumulation. Rendering may read the leftover
-  fraction, but solver commits remain the same integer schedule as before.
+  fraction, while hitch tests prove excess whole ticks are dropped visibly.
 
 Glossary:
   Presentation alpha: Fraction between the previous and current completed
     physics poses, derived from time left in the fixed-step accumulator.
+  Hitch event: One fixed-step scheduling call that requests more whole ticks
+    than the five-tick catch-up cap.
 
 Invariants:
   - Deterministic fixed-step scenes and paused simulation publish exact state.
   - Presentation alpha never changes the committed physics tick count.
+  - Catch-up accounting drops whole ticks but retains fractional cadence.
 
 Related:
   - SkullbonezSource/Physics/SimulationSystem.h
@@ -78,8 +81,8 @@ TEST_CASE( "SimulationSystem produces even 144 Hz presentation cadence over 120 
         const SimulationTickResult result = simulation.Tick( input );
         currentPose += result.committedPhysicsTicks;
         const int previousPose = ( currentPose > 0 ) ? currentPose - 1 : 0;
-        const float presentedPose = static_cast<float>( previousPose )
-            + result.presentationAlpha * static_cast<float>( currentPose - previousPose );
+        const float presentedPose = static_cast<float>( previousPose ) +
+                                    result.presentationAlpha * static_cast<float>( currentPose - previousPose );
 
         if ( frame >= 2 )
         {
@@ -92,4 +95,57 @@ TEST_CASE( "SimulationSystem produces even 144 Hz presentation cadence over 120 
     // Retain the scheduler's existing float-accumulator boundary behavior;
     // interpolation changes only presentation, never committed tick count.
     CHECK( currentPose == 119 );
+}
+
+TEST_CASE( "SimulationSystem drops excess fixed-step catch-up ticks and retains the fraction" )
+{
+    SimulationSystem simulation;
+    SimulationTickInput input;
+    input.canStepPhysics = true;
+    input.isFixedStep = true;
+    input.physicsAdvance = PhysicsAdvanceState::Running;
+    input.timeScale = 12.75f;
+
+    const SimulationTickResult hitch = simulation.Tick( input );
+    CHECK( hitch.committedPhysicsTicks == 5 );
+    CHECK( hitch.droppedPhysicsTicks == 7 );
+    CHECK( hitch.simulationDt == doctest::Approx( PHYSICS_FIXED_DT * 5.0f ) );
+    CHECK( simulation.DroppedPhysicsTickCount() == 7u );
+    CHECK( simulation.PhysicsHitchEventCount() == 1u );
+
+    // The seven dropped whole ticks never reappear. Only the retained 0.75
+    // fraction combines with the next quarter-tick request.
+    input.timeScale = 0.25f;
+    const SimulationTickResult fractionalCarry = simulation.Tick( input );
+    CHECK( fractionalCarry.committedPhysicsTicks == 1 );
+    CHECK( fractionalCarry.droppedPhysicsTicks == 0 );
+    CHECK( simulation.DroppedPhysicsTickCount() == 7u );
+    CHECK( simulation.PhysicsHitchEventCount() == 1u );
+}
+
+TEST_CASE( "SimulationSystem accumulates hitch diagnostics and Reset clears the owner counters" )
+{
+    SimulationSystem simulation;
+    SimulationTickInput input;
+    input.canStepPhysics = true;
+    input.isFixedStep = true;
+    input.physicsAdvance = PhysicsAdvanceState::Running;
+
+    input.timeScale = 6.0f;
+    CHECK( simulation.Tick( input ).droppedPhysicsTicks == 1 );
+    input.timeScale = 9.5f;
+    CHECK( simulation.Tick( input ).droppedPhysicsTicks == 4 );
+    CHECK( simulation.DroppedPhysicsTickCount() == 5u );
+    CHECK( simulation.PhysicsHitchEventCount() == 2u );
+
+    simulation.Reset();
+    CHECK( simulation.DroppedPhysicsTickCount() == 0u );
+    CHECK( simulation.PhysicsHitchEventCount() == 0u );
+
+    input.timeScale = 5.0f;
+    const SimulationTickResult boundedNormalFrame = simulation.Tick( input );
+    CHECK( boundedNormalFrame.committedPhysicsTicks == 5 );
+    CHECK( boundedNormalFrame.droppedPhysicsTicks == 0 );
+    CHECK( simulation.DroppedPhysicsTickCount() == 0u );
+    CHECK( simulation.PhysicsHitchEventCount() == 0u );
 }
