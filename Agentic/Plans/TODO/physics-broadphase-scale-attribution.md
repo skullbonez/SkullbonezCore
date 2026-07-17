@@ -161,10 +161,10 @@ before B3 changes it.
     misses per queried frame. B3 is restricted to a lower-load fixed hash table
     that preserves the existing 4,096-cell admission/order contract.
 
-- [ ] **B3 — implement and prove the evidence-selected algorithmic fix.**
-  - Implement only the B2-selected path. For the leading hypothesis, exact
-    AABB enumeration uses a unique-cell append with no same-object chain scan,
-    while sampled oversized sweeps retain duplicate-aware insertion.
+- [x] **B3 — implement and prove the evidence-selected algorithmic fix.**
+  - Implement only the B2-selected path. Once the unchanged 4,096-cell primary
+    table saturates, build a fixed 8,192-slot compact lookup that distinguishes
+    admitted keys from rejected new keys without rescanning every primary slot.
   - Add regression/property coverage for candidate completeness, normalized
     deterministic order, exact-cell entry counts, and sampled-sweep duplicate
     suppression. Preserve capacity diagnostics and fatal lanes.
@@ -178,6 +178,17 @@ before B3 changes it.
   - Gate before commit: `tools\validate_tests.bat`,
     `tools\validate_physics.bat`, and `tools\validate_perf.bat` (plus
     `tools\validate_fast.bat` if tooling changes after B1).
+  - Evidence (2026-07-17):
+    `../../Reports/2026-07-17/broadphase-saturated-lookup-experiment.md`
+    records the two rejected larger-primary-table candidates and the retained
+    16 KiB cold secondary index. Across seven alternating same-tip pairs, the
+    1,000-body Step median moved +0.43% (noise) while the 2,000-body Step,
+    Broadphase, and grid-insert medians improved 76.21%, 88.53%, and 92.54%.
+    Fresh 30-frame Debug traces at both scales match the B2 controls byte for
+    byte. Tests passed 286/286 with 21,425 assertions, the physics oracle kept
+    its exact 44,401-line baseline, and the performance/allocation gate
+    completed. Touched-source comment audit: 3/3 checked, 0 deferred, 0
+    unchecked (checklist path N/A in touched-file mode).
 
 - [ ] **B4 — final review, final matrix, and campaign closure.**
   - Rerun the final 200/520/1,000/2,000 performance matrix from the exact

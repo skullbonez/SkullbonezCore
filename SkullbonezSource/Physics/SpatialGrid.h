@@ -84,6 +84,12 @@ class SpatialGrid
     // one tick. Large projectile clouds should use a dedicated ray/query path.
     static constexpr int TABLE_SIZE = 4096;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
+    // Concept: only a saturated frame touches this compact secondary index.
+    // It maps admitted keys back to the unchanged primary bucket table, so a
+    // missing 4,097th cell no longer scans all 4,096 occupied buckets.
+    static constexpr int FULL_LOOKUP_SLOT_COUNT = 8192;
+    static constexpr int FULL_LOOKUP_SLOT_MASK = FULL_LOOKUP_SLOT_COUNT - 1;
+    static constexpr uint16_t FULL_LOOKUP_EMPTY = UINT16_MAX;
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
@@ -115,6 +121,7 @@ class SpatialGrid
     int entryPoolUsed;
     int objectCount;
     int activeBucketCount;
+    bool fullBucketLookupReady;
 
     // Concept: one reset-per-rebuild value explains grid work without feeding
     // decisions back into physics. The broadphase owner is serial, so these
@@ -136,10 +143,13 @@ class SpatialGrid
 
     Bucket buckets[TABLE_SIZE];
     int activeBuckets[TABLE_SIZE];
+    uint16_t fullBucketLookup[FULL_LOOKUP_SLOT_COUNT];
     Entry entries[MAX_CELL_ENTRIES];
     uint64_t pairSeen[PAIR_WORDS];
 
     int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    void BuildFullBucketLookup();
+    int FindFullBucket( int64_t key ) const;
     void InsertCell( int index, int ix, int iy, int iz );
     void
     InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds, bool sampledSweep );

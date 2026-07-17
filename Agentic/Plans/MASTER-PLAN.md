@@ -95,8 +95,8 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | physics-soa-simd-1000-bodies (PAUSED after S6; owner rejected S7 on current evidence) | 7 | 9 | 78% |
-| physics-broadphase-scale-attribution | 3 | 5 | 60% |
-| **Active/future total** | **10** | **14** | **71%** |
+| physics-broadphase-scale-attribution | 4 | 5 | 80% |
+| **Active/future total** | **11** | **14** | **79%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -129,7 +129,7 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active priority is `physics-broadphase-scale-attribution` B3-B4. The final
+The active priority is `physics-broadphase-scale-attribution` B4. The final
 packed-source gate measures 0.9652 ms Physics Step / 0.2731 ms inclusive
 Broadphase at 1,000 bodies and 7.5576 / 6.5069 ms at 2,000. The old nested
 `GridBuild/ScalarBounds` row included insertion and could not attribute the cliff
@@ -137,10 +137,12 @@ to bounds arithmetic. B1 replaced it with mutually exclusive `GridSetup`,
 `GridInsertScalar/Simd`, and `CandidatePairsScalar/Simd` children and added
 allocation-free grid counters. B2 proved the 2,000-body scene fills all 4,096
 hash slots: about 3,660 visits per queried frame then pay a 4,096-slot failed
-probe, making scalar insertion grow 30.94x. B3 lowers hash-table load while
-preserving the existing 4,096-cell admission/order contract; B4
-closes with repeated same-tip evidence and independent review. The campaign
-does not authorize S7, a toggle-default change, or any baseline/golden refresh.
+probe, making scalar insertion grow 30.94x. B3 retained the primary table and
+added a cold 16 KiB saturated-only lookup: seven same-tip pairs kept the
+1,000-body Step neutral (+0.43% median) and improved the 2,000-body Step by
+76.21%, with byte-identical traces at both scales. B4 closes with the exact-tip
+matrix and independent review. The campaign does not authorize S7, a
+toggle-default change, or any baseline/golden refresh.
 
 The owner-paused 2026-07-16 physics SoA/SIMD campaign has completed S0-S6. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
@@ -564,7 +566,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-broadphase-scale-attribution](TODO/physics-broadphase-scale-attribution.md) | Active; B0-B2 corrected accounting and proved full-table probing owns the cliff | 3/5 | B3: lower hash-slot load without changing 4,096-cell admission or candidates |
+| [physics-broadphase-scale-attribution](TODO/physics-broadphase-scale-attribution.md) | Active; B0-B3 corrected accounting, proved the full-table cause, and removed the saturated scan | 4/5 | B4: exact-tip matrix, independent review, and closure |
 | [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 7/9; owner rejected S7 on current evidence | 7/9 | Do not start S7; only a fresh owner direction may reopen it |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 

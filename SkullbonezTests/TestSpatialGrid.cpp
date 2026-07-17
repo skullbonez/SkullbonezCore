@@ -208,6 +208,34 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
 }
 
 
+TEST_CASE( "SpatialGrid: saturated lookup preserves the 4096-cell admission contract" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( 1.0f );
+
+    for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS; ++cell )
+    {
+        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+    }
+
+    // Invariant: a second body can still join an admitted cell after the
+    // admission budget fills, but a new distinct cell remains rejected. The
+    // saturated lookup accelerates membership only; it does not expand content.
+    grid.Insert( 1, Vector3( 0.25f, 0.25f, 0.25f ), 0.0f );
+    grid.Insert( 1, Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+
+    const auto pairs = CandidatePairs( grid );
+    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
+
+    CHECK( grid.GetActiveCellCount() == SpatialGrid::MAX_BUCKETS );
+    CHECK( stats.bodyInsertions == static_cast<uint64_t>( SpatialGrid::MAX_BUCKETS + 2 ) );
+    CHECK( stats.exactAabbCellVisits == static_cast<uint64_t>( SpatialGrid::MAX_BUCKETS + 2 ) );
+    CHECK( stats.entryWrites == static_cast<uint64_t>( SpatialGrid::MAX_BUCKETS + 1 ) );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+}
+
+
 TEST_CASE( "Property invariant: prepared AABB insert/query round-trips including zero extent [seed 0x16AABB00]" )
 {
     SkullbonezTests::FixedSeed random( 0x16AABB00u );

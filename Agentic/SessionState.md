@@ -11,15 +11,15 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-16th-july` (broadphase attribution active; SoA/SIMD hard stop before S7) |
-| Current baseline | Final packed-source averages: 1,000 bodies Step/Broadphase 0.9652/0.2731 ms; 2,000 bodies 7.5576/6.5069 ms. Broadphase is inclusive; never add its nested markers. |
-| Current objective | Execute `physics-broadphase-scale-attribution` B3-B4: lower hash-table load while preserving 4,096-cell admission/candidate order, prove seven same-tip pairs, and close with final review. S7 must not start. |
-| Active/future progress | 10 / 14 tasks = 71% overall (broadphase B0-B2 3/5; SoA/SIMD paused 7/9) |
-| Last broad local gate | Broadphase B1 passed tests (285/285, 21,419 assertions), fast/query validation, the byte-exact 44,401-line physics oracle, performance/allocation/budget checks, zero-warning Profile/Debug builds, and a bounded two-frame platform-profiler launch |
-| Validation for current edits | B2 is evidence/report documentation only. B3 maps to tests + physics + performance. |
+| Current baseline | B3 final gate: 1,000 bodies Step/Broadphase 1.0418/0.2854 ms; 2,000 bodies 1.8036/0.7509 ms. Seven same-tip pairs put the 2,000-body Step improvement at 76.21% median. Broadphase is inclusive; never add its children. |
+| Current objective | Execute `physics-broadphase-scale-attribution` B4: exact-tip matrix, independent whole-campaign review, closure report, and ledger cleanup. S7 must not start. |
+| Active/future progress | 11 / 14 tasks = 79% overall (broadphase B0-B3 4/5; SoA/SIMD paused 7/9) |
+| Last broad local gate | Broadphase B3 passed 286/286 tests (21,425 assertions), the byte-exact 44,401-line physics oracle, and the performance/allocation gate; 1,000/2,000-body Debug traces match B2 byte for byte |
+| Validation for current edits | B3 code is gated. B4 requires the exact-tip performance matrix plus any gate affected by review fixes. |
 
 ## Live Queue
 
-00000000. `physics-broadphase-scale-attribution` is ACTIVE at 3/5. B0 records
+00000000. `physics-broadphase-scale-attribution` is ACTIVE at 4/5. B0 records
           that Broadphase is the inclusive total and the old nested GridBuild/
           ScalarBounds rows must not be added to it. B1 replaced them with
           mutually exclusive direct child markers and bounded grid counters;
@@ -27,10 +27,12 @@ plan inventory.
           gates all pass. B2 proved scalar grid insertion grows 30.94x because
           the 2,000-body scene fills all 4,096 hash slots and then averages
           3,660 full-table misses per queried frame; duplicate rejections are
-          zero. B3 lowers fixed hash-slot load without changing the 4,096-cell
-          admission/order contract and requires seven same-tip pairs at both
-          1,000 and 2,000 bodies; B4 closes with final gates and one independent
-          review. No S7, toggle-default, baseline, or golden change is allowed.
+          zero. B3 adds a 16 KiB saturated-only lookup without changing the
+          4,096-cell admission/order contract. Seven same-tip pairs keep the
+          1,000-body Step neutral and improve the 2,000-body Step by 76.21%; two
+          30-frame Debug traces are byte-identical to B2. B4 closes with the
+          exact-tip matrix and one independent review. No S7, toggle-default,
+          baseline, or golden change is allowed.
 
 0000000. `unit-test-coverage-campaign` is COMPLETE at 10/10 (2026-07-17; plan
          deleted under inventory rule 4; closure evidence lives in

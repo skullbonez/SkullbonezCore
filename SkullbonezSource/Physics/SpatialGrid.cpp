@@ -106,7 +106,7 @@ int16_t ClampVisualizationCell( int cell )
 
 SpatialGrid::SpatialGrid( float fCellSize )
     : cellSize( 1.0f ), inverseCellSize( 1.0f ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 ),
-      activeBucketCount( 0 )
+      activeBucketCount( 0 ), fullBucketLookupReady( false )
 {
     memset( buckets, 0, sizeof( buckets ) );
     SetCellSize( fCellSize );
@@ -139,7 +139,49 @@ void SpatialGrid::Clear()
     entryPoolUsed = 0;
     objectCount = 0;
     activeBucketCount = 0;
+    fullBucketLookupReady = false;
     frameStats = FrameStatsStorage{};
+}
+
+
+void SpatialGrid::BuildFullBucketLookup()
+{
+    // Invariant: at most 4,096 admitted buckets occupy an 8,192-slot index,
+    // so linear probing always retains an empty sentinel for a missing key.
+    std::fill_n( fullBucketLookup, FULL_LOOKUP_SLOT_COUNT, FULL_LOOKUP_EMPTY );
+    for ( int active = 0; active < activeBucketCount; ++active )
+    {
+        const int bucketIndex = activeBuckets[active];
+        int slot = static_cast<int>( static_cast<uint64_t>( buckets[bucketIndex].key ) & FULL_LOOKUP_SLOT_MASK );
+        while ( fullBucketLookup[slot] != FULL_LOOKUP_EMPTY )
+        {
+            slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
+        }
+        fullBucketLookup[slot] = static_cast<uint16_t>( bucketIndex );
+    }
+    fullBucketLookupReady = true;
+}
+
+
+int SpatialGrid::FindFullBucket( int64_t key ) const
+{
+    assert( fullBucketLookupReady && "saturated SpatialGrid lookup index missing" );
+    int slot = static_cast<int>( static_cast<uint64_t>( key ) & FULL_LOOKUP_SLOT_MASK );
+    for ( int probe = 0; probe < FULL_LOOKUP_SLOT_COUNT; ++probe )
+    {
+        const uint16_t compactBucketIndex = fullBucketLookup[slot];
+        if ( compactBucketIndex == FULL_LOOKUP_EMPTY )
+        {
+            return -1;
+        }
+        const int bucketIndex = static_cast<int>( compactBucketIndex );
+        if ( buckets[bucketIndex].key == key )
+        {
+            return bucketIndex;
+        }
+        slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
+    }
+    return -1;
 }
 
 
@@ -149,6 +191,14 @@ void SpatialGrid::Clear()
 // Output is the bucket index for this key.
 int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
+    if ( activeBucketCount >= TABLE_SIZE )
+    {
+        // Why: the legacy table is intentionally a behavior cap. The compact
+        // index distinguishes admitted keys from new rejected keys without a
+        // full primary-table probe, and is cold on unsaturated frames.
+        return FindFullBucket( key );
+    }
+
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
 
     for ( int probe = 0; probe < TABLE_SIZE; ++probe )
@@ -165,11 +215,11 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
             b.iy = cy;
             b.iz = cz;
             assert( activeBucketCount < TABLE_SIZE && "activeBuckets overflow" );
-            if ( activeBucketCount >= TABLE_SIZE )
-            {
-                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket capacity exceeded" );
-            }
             activeBuckets[activeBucketCount++] = idx;
+            if ( activeBucketCount == TABLE_SIZE )
+            {
+                BuildFullBucketLookup();
+            }
             return idx;
         }
 
