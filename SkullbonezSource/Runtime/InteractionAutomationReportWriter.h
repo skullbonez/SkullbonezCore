@@ -1,27 +1,31 @@
 /*
 File: SkullbonezSource/Runtime/InteractionAutomationReportWriter.h
 Purpose:
-  Owns interaction-probe evidence rows and emits the final JSON report.
+  Owns interaction-probe capture state, offline verification, and final reports.
 
 Summary:
-  Bounded Automation-only evidence lives here instead of on the sequencer.
-  Final serialization borrows explicit runtime owners only for the call.
+  Bounded Automation-only evidence, reveal scheduling, archive freezing, and
+  CPU-only replay projection live here instead of on the sequencer. Runtime
+  owners are borrowed only for synchronous verification and serialization.
 
 Mental model:
-  The controller sequences runtime actions; this owner accumulates only bounded
-  validation evidence and serializes it through one synchronous typed input at
-  process exit.
+  The controller sequences runtime actions and publishes typed reveal intent.
+  This owner decides when capture starts, records each presented packet, freezes
+  the archive, verifies it without presenting again, and serializes the result.
 
 Glossary:
   Evidence row: Machine-readable action, assertion, causal, or visual fact
     recorded by an Automation-only launch.
   Causal proof: Monotonic topology/reveal facts beside exact presented geometry.
+  Offline projection: CPU-only reconstruction of captured replay presentation
+    used to compare durable state without a second visible run.
   Durable artifact: Saved replay payload reloaded to prove report facts survive
     the writer/reader boundary.
 
 Invariants:
   - Evidence storage exists only in the Automation configuration.
-  - The writer never retains runtime-owner references from `Write`.
+  - The writer never retains runtime-owner references from verification or `Write`.
+  - Offline projection cannot submit rendering or start another prediction.
   - Report failure is Lane R and must not overwrite an earlier probe failure.
 
 Related:
@@ -55,6 +59,7 @@ namespace Runtime
 class RuntimeInteractionController;
 class RuntimeTools;
 class SceneController;
+struct ReplaySolverFrameSample;
 struct ReplayAutomationView;
 struct RunCameraState;
 
@@ -204,7 +209,32 @@ class InteractionAutomationReportWriter
                        const char* detail );
     void AppendAssertion( const RunInteractionAutomationReportAssertion& assertion );
     void AddScreenshot( const char* path );
+
+    // Capture commands own all mutable replay evidence. The reveal command
+    // returns only the frame intent the sequencer must publish; Finish borrows
+    // runtime owners synchronously for the CPU-only offline proof.
     void BeginReplayVisualCapture( std::size_t tickCapacity );
+    bool UpdateReplayVisualReveal( int sceneFrame,
+                                   int fixedStartFrame,
+                                   bool liveAdvanceHeld,
+                                   bool revealReady,
+                                   InteractionAutomationRunStatus& status,
+                                   ReplayFrameIndex& outRevealFrame,
+                                   bool& outResetReveal ) noexcept;
+    bool CaptureReplayVisualFrame( int sceneFrame,
+                                   const ReplayAutomationView& replay,
+                                   InteractionAutomationRunStatus& status );
+    bool FinishReplayVisualCapture( InteractionAutomationRunStatus& status,
+                                    RuntimeTools& runtimeTools,
+                                    SceneController& scene,
+                                    const ReplayAutomationView& replay );
+    bool ReplayVisualCaptureEnabled() const noexcept;
+
+    // Selection evidence is addressed by the script's two fixed slots. No
+    // mutable slot storage is exposed to the automation sequencer.
+    void ResetEditorSelectionCaptures() noexcept;
+    void CaptureEditorSelection( int slot, uint64_t fingerprint, bool valid ) noexcept;
+    bool TryEditorSelectionCapture( int slot, uint64_t& outFingerprint ) const noexcept;
     Core::SbResult Write( const InteractionAutomationReportInputs& inputs );
 
     // Report facts are centralized here so live assertions and final JSON use
@@ -241,27 +271,33 @@ class InteractionAutomationReportWriter
         return m_path;
     }
 
-    std::vector<ReplayVisualFidelityReportTick> replayVisualFidelityTicks;
-    std::vector<ReplayCausalProofTick> replayCausalProofTicks;
-    std::vector<ReplayCausalTopologyNodeReport> replayCausalTopology;
-    std::vector<ReplayVisualTrajectoryDigestState> replayVisualTrajectoryDigests;
-    std::vector<uint8_t> replayVisualPredictionArchive;
-    int replayVisualFidelityStartFrame = -1;
-    bool replayVisualFidelityCaptureEnabled = false;
-    uint64_t replayVisualFidelityTrajectoryHash = 0;
-    uint64_t replayVisualFidelityTrajectoryRecordCount = 0;
-    uint64_t replayVisualFidelityTrajectoryPointCount = 0;
-    bool replayVisualFidelityTrajectoryCaptured = false;
-    bool replayVisualOfflineProjectionComplete = false;
-    uint64_t editorSelectionCaptureFingerprints[2] = {};
-    bool editorSelectionCaptureValid[2] = {};
-
   private:
+    bool VerifyReplayVisualOfflineProjection( InteractionAutomationRunStatus& status,
+                                              RuntimeTools& runtimeTools,
+                                              SceneController& scene,
+                                              const ReplaySolverFrameSample* latestSolverSample );
+
     bool m_written = false;
     char m_path[260] = {};
     std::vector<RunInteractionAutomationReportAction> m_actionReports;
     std::vector<RunInteractionAutomationReportAssertion> m_assertionReports;
     std::vector<std::string> m_screenshots;
+    // Lifetime: these rows are bounded Automation evidence. They never escape
+    // this writer as mutable state or survive the process that records them.
+    std::vector<ReplayVisualFidelityReportTick> m_replayVisualFidelityTicks;
+    std::vector<ReplayCausalProofTick> m_replayCausalProofTicks;
+    std::vector<ReplayCausalTopologyNodeReport> m_replayCausalTopology;
+    std::vector<ReplayVisualTrajectoryDigestState> m_replayVisualTrajectoryDigests;
+    std::vector<uint8_t> m_replayVisualPredictionArchive;
+    int m_replayVisualFidelityStartFrame = -1;
+    bool m_replayVisualFidelityCaptureEnabled = false;
+    uint64_t m_replayVisualFidelityTrajectoryHash = 0;
+    uint64_t m_replayVisualFidelityTrajectoryRecordCount = 0;
+    uint64_t m_replayVisualFidelityTrajectoryPointCount = 0;
+    bool m_replayVisualFidelityTrajectoryCaptured = false;
+    bool m_replayVisualOfflineProjectionComplete = false;
+    uint64_t m_editorSelectionCaptureFingerprints[2] = {};
+    bool m_editorSelectionCaptureValid[2] = {};
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

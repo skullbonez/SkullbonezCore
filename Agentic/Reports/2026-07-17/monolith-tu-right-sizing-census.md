@@ -99,17 +99,29 @@ documentation-only, so no repository validation is required; N1 is released.
 ## N1 Automation Owner Extraction
 
 Completed on 2026-07-18. `InteractionAutomationController.cpp` fell from 4,131
-to 3,081 lines. `InteractionAutomationInputDriver` now owns mouse/key/focus
+to 2,719 lines. `InteractionAutomationInputDriver` now owns mouse/key/focus
 holds and publishes one synthetic device frame through the normal Input seam.
 `InteractionAutomationReportWriter` owns bounded action/assertion/visual/causal
-evidence, shared validation-fact calculations, durable-artifact checks, and
-final JSON serialization. Its typed `InteractionAutomationReportInputs` borrows
-runtime owners synchronously and retains none.
+evidence, reveal scheduling, presented-packet capture, archive freezing,
+CPU-only offline projection, durable-artifact checks, shared validation-fact
+calculations, and final JSON serialization. Its typed commands and
+`InteractionAutomationReportInputs` borrow runtime owners synchronously and
+retain none.
 
 Both new implementation TUs repeat the controller's exact project exclusion:
 they compile only for `Automation|x64`. The controller sequences actions and
 value results; neither extracted owner accepts a controller reference,
 backpointer, callback pack, or unrelated runtime context.
+
+The first N7 independent review reopened N1 because the controller still
+mutated the writer's public replay rows, archive bytes, trajectory digests, and
+completion flags. Remediation made every replay/editor evidence field private,
+moved row construction, archive freezing, topology collection, completion, and
+offline projection into writer-owned commands, and removed the controller's
+last direct state access. The repeat review confirmed zero mutable escape,
+backpointer, callback, broad context, or behavior change. It also verified that
+the fixed-start reveal retains the pre-remediation effective reset value: the
+capture-arm action is the sole returned `true` reset.
 
 The touched-file comment audit covered 8/8 source-bearing files with zero
 deferred. This was a touched-file audit, so no subsystem checklist plan was
@@ -206,8 +218,10 @@ Completed on 2026-07-18 under the N0 parking lift. The existing
 `Dx12DeferredReleaseOwner` moved from `RenderBackendDX12.cpp/.h` into
 `Dx12FrameOwner.cpp/.h` and `Dx12DeferredReleaseOwner.cpp`. The aggregate
 backend still composes these owners and exposes the same renderer API, while
-the implementation-only epoch, profiler-stack, upload, and retirement types
-now remain behind a DX12-private header.
+the epoch, profiler-stack, upload, and retirement declarations now live in an
+owner-private header. That header remains transitively visible through the
+backend header, so this is an implementation-ownership split rather than a
+claim that all declarations are hidden from backend consumers.
 
 `RenderBackendDX12.cpp` fell from 3,636 to 2,610 lines and its header from
 1,431 to 1,095 lines. The new frame implementation is 941 lines, the private
@@ -322,3 +336,73 @@ The required final gates passed from the staged documentation-only ruling:
   0–2400; all negative, artifact, and determinism controls detected their
   injected divergences. No golden changed. Log:
   `TestOutput/validation/agent_logs/monolith_n6_replay_visual_fidelity_stdout.log`.
+
+## N7 Final Census And Independent Ownership Review
+
+Closed on 2026-07-18. The final inventory reran the N0 command over every
+tracked `SkullbonezSource/**/*.cpp` file and found 15 translation units above
+2,000 physical lines. Every row has either a completed responsibility
+extraction or the dated, evidence-backed cohesion ruling recorded in this
+report:
+
+| Lines | Translation unit | Final disposition |
+|---:|---|---|
+| 4,444 | `Runtime/Replay/ReplayPrediction.cpp` | N6 retained one single-writer/published-prefix prediction authority after a fresh dependency pass. |
+| 3,492 | `Runtime/Replay/ReplayRecorder.cpp` | N5 retained one ordered recorder/ring/codec authority after a fresh dependency pass. |
+| 2,917 | `Runtime/Replay/ReplayV2Artifact.cpp` | N0 dated cohesion ruling retains one schema/table/hash codec boundary. |
+| 2,719 | `Runtime/InteractionAutomationController.cpp` | N1 extracted concrete input and report/capture owners; the sequencer retains parsing, targeting, action order, and typed command publication. |
+| 2,610 | `Rendering/DX12/RenderBackendDX12.cpp` | N4 moved the concrete frame and deferred-release owner implementations; the backend retains device/present composition. |
+| 2,384 | `Runtime/Render/RuntimeRenderPasses.cpp` | N0 dated cohesion ruling retains implementations of already-distinct pass owners. |
+| 2,337 | `Runtime/Render/RuntimeRenderer.cpp` | N0 dated cohesion ruling retains one pass-order/resource coordinator. |
+| 2,328 | `UI/UITabProfiler.cpp` | N0 dated cohesion ruling keeps profiler layout, hit testing, markers, and labels together. |
+| 2,226 | `Physics/PhysicsApi.cpp` | N2 fresh dependency pass retains one standalone-world store/lifecycle/query authority. |
+| 2,154 | `Runtime/Editor/RunEditorTools.cpp` | N0 dated cohesion ruling retains one editor/manipulator/launcher coordinator. |
+| 2,129 | `Runtime/Audio/ContactAudioService.cpp` | N0 dated cohesion ruling retains one bounded voice/candidate/cooldown owner. |
+| 2,098 | `Physics/PhysicsBodyStore.cpp` | N0 dated cohesion ruling retains the handle/row/span/replay store invariant. |
+| 2,076 | `Runtime/Replay/ReplayPredictionDrawing.cpp` | N0 dated cohesion ruling retains immutable prediction presentation as one responsibility. |
+| 2,026 | `Runtime/Editor/RunEditorPlacementAssets.cpp` | N0 dated cohesion ruling retains authored recipes with deterministic placement transactions. |
+| 2,018 | `Physics/ObjectContactManifold.cpp` | N0 dated cohesion ruling retains one arithmetic/order-sensitive manifold algorithm. |
+
+`UI.cpp` is now 1,240 lines and left the census through N3's concrete
+window-interaction owner. The N4 backend header is 1,095 lines. No row closed
+through a method-only translation-unit shuffle, forwarding facade, mutable
+context bag, callback pack, host backpointer, `void*`, friend edge, or new
+migration-named type.
+
+The independent N7 review first found one credible N1 ownership defect: replay
+capture state remained publicly mutable from the automation controller. That
+finding reopened N1. Remediation moved the full capture lifecycle behind the
+writer's typed synchronous command boundary; all rows, digests, archive bytes,
+flags, and editor-selection slots are now private. The repeat review confirmed
+the defect resolved and found no remaining authority escape or behavior change.
+It explicitly rechecked the fixed-start reveal intent against the pre-change
+control flow and withdrew its initial reset concern after proving both versions
+return `resetPresentedRevealFrame=false` at fixed start. The capture-arm action
+remains the sole effective `true` reset.
+
+The N7 remediation touched-file comment audit covered 3/3 source-bearing files
+with zero deferred or unchecked files. All three have current learning headers;
+the report writer now explains reveal lifecycle, capture/archive ownership,
+offline projection, synchronous borrows, and its no-second-presentation
+invariant. A direct final `Automation|x64` solution build passed with zero
+warnings/errors in 11.640s. Log:
+`TestOutput/validation/agent_logs/monolith_n7_remediation_automation_build.log`.
+
+Formal closure gates passed from the staged final source:
+
+- `tools\validate_full.bat` passed in 136.167s. The mandatory CPU umbrella
+  passed 282/282 doctests and all standalone CPU suites; its automatic
+  `tools\validate_coverage.bat` invocation passed all ten ratified subsystem
+  floors. Profile, Automation, and Debug built with zero warnings/errors; the
+  Automation exclusion and replay/prediction smoke passed; DX12 InfoQueue
+  reported zero validation errors and all three committed captures matched;
+  physics matched the 44,401-line committed CSV byte-exact. Log:
+  `TestOutput/validation/agent_logs/monolith_n7_validate_full_stdout.log`.
+- `tools\run_graphics_stress.bat 1` launched the final Profile DX12 binary as
+  PID 33828, ran the bounded minute, stopped only that PID at the script
+  timeout, and exited 0 without a crash in 60.887s. Log:
+  `TestOutput/validation/agent_logs/monolith_n7_graphics_stress_stdout.log`.
+
+No baseline, golden, screenshot, artifact schema, probe schema, allocation
+registration, or frame-buffering value changed anywhere in N7. The campaign's
+eight tasks and acceptance criteria are complete.

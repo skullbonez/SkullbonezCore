@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-17th-july` |
-| Current baseline | SceneController ownership is closed; two Round-6 plans remain and baseline/golden refresh remains prohibited. |
-| Current objective | Complete monolith N0-N7, then red-flags C4-C6. |
-| Active/future progress | 11 / 15 live tasks (73%); monolith N0-N6 and red-flags C0-C3 complete. |
-| Last broad local gate | Monolith N1 `validate_full` passed in about 2m13s: 717 project/filter items matched, 282/282 tests and every ratified coverage floor passed, the Automation boundary smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | Monolith N6 `validate_tests` and its single replay visual-fidelity mega gate passed with the immutable 2,401-tick / 200-box oracle unchanged; N7 requires independent review, `validate_full`, and a final DX12 stress proof. |
+| Current baseline | SceneController ownership and monolith TU right-sizing are closed; one Round-6 plan remains and baseline/golden refresh remains prohibited. |
+| Current objective | Complete red-flags C4-C6. |
+| Active/future progress | 4 / 7 live tasks (57%); red-flags C0-C3 complete. |
+| Last broad local gate | Monolith N7 `validate_full` passed in 136.167s: 722 project/filter items matched, 282/282 tests and all ten ratified coverage floors passed, Automation replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
+| Validation for current edits | Monolith N7 independent review is clear; final broad validation and the 60.887s DX12 stress proof passed. C4 next requires focused tests plus byte-exact physics validation. |
 
 ## Live Queue
 
@@ -373,9 +373,8 @@ plan inventory.
 
 ## Next Handoff
 
-Scene-controller ownership is complete at 7/7. Monolith N6 retains prediction
-as cohesive because worker publication, frame-bank promotion, topology,
-trajectory, markers, and reveal share one single-writer/published-prefix
-protocol; its tests and one-invocation mega gate passed. Continue with N7 and
-red-flags C4-C6. Do not regenerate behavioral, physics, replay, visual, or
+Scene-controller ownership is complete at 7/7 and monolith TU right-sizing is
+complete at 8/8. N7 closed the 15-row final census after independent review,
+automatic coverage, full validation, and DX12 stress. Continue red-flags C4-C6
+in plan order. Do not regenerate behavioral, physics, replay, visual, or
 screenshot baselines.

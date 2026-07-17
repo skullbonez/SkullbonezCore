@@ -48,8 +48,6 @@ Related:
 #include "Window.h"
 #include "Scene/SceneController.h"
 #include "Scene/SceneRuntime.h"
-#include "Replay/ReplayPredictionArchive.h"
-#include "Replay/ReplayV2Artifact.h"
 #include "InputFrame.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
@@ -75,9 +73,7 @@ Related:
 #include <sstream>
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
-using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::GameObjects;
@@ -138,57 +134,6 @@ void HashPredictionVector( uint64_t& hash, const Vector3& value )
     HashPredictionFloat( hash, value.x );
     HashPredictionFloat( hash, value.y );
     HashPredictionFloat( hash, value.z );
-}
-
-ReplayCausalProofTick BuildReplayCausalProofTick( const ReplayVisualPacket& packet )
-{
-    ReplayCausalProofTick tick;
-    tick.revealFrame = packet.header.revealFrame;
-    tick.activeTopologyHash = INTERACTION_PREDICTION_FINGERPRINT_OFFSET;
-
-    for ( const RunReplayPathTraceNode& node : packet.futureNodes )
-    {
-        if ( node.firstFrame > tick.revealFrame )
-        {
-            continue;
-        }
-        HashPredictionScalar( tick.activeTopologyHash, node.id.value );
-        HashPredictionScalar( tick.activeTopologyHash, node.parentId.value );
-        HashPredictionScalar( tick.activeTopologyHash, node.firstFrame );
-        HashPredictionScalar( tick.activeTopologyHash, node.depth );
-        HashPredictionScalar( tick.activeTopologyHash, static_cast<uint8_t>( node.contactDerived ) );
-        ++tick.activeNodeCount;
-    }
-
-    for ( const ReplayTrajectoryRecord& record : packet.trajectoryRecords )
-    {
-        if ( record.key.lane == ReplayTrajectoryLane::PastRoot || record.firstFrame > tick.revealFrame )
-        {
-            continue;
-        }
-        const std::size_t publishedPointCount = (std::min)( record.publishedPointCount, record.points.size() );
-        if ( publishedPointCount == 0 )
-        {
-            continue;
-        }
-
-        // The V0 buffer oracle already hashes every submitted point and vertex.
-        // This causal row records stable eligibility/count transitions instead
-        // of hashing internal record publication order, which is deliberately
-        // not a presentation contract.
-        ++tick.revealedRecordCount;
-        tick.revealedPointCount += static_cast<uint32_t>( publishedPointCount );
-        tick.revealedSegmentCount += static_cast<uint32_t>( publishedPointCount > 0 ? publishedPointCount - 1 : 0 );
-    }
-
-    for ( const ReplayPredictionRetainedMarker& marker : packet.retainedMarkers )
-    {
-        tick.entryMarkerCount += marker.hasEntryPose ? 1u : 0u;
-        tick.restMarkerCount += marker.hasRestPose ? 1u : 0u;
-        tick.horizonMarkerCount += marker.hasHorizonPose ? 1u : 0u;
-    }
-    tick.ghostRequestCount = static_cast<uint32_t>( packet.ghostRequests.size() );
-    return tick;
 }
 
 void HashInteractionText( uint64_t& hash, const char* text, std::size_t capacity )
@@ -2166,186 +2111,19 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     {
         const int slot = static_cast<int>( action.numberValue );
         const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, sceneController );
-        evaluation.expected = automation.reportWriter.editorSelectionCaptureValid[slot]
-                                  ? InteractionAutomationReportWriter::FormatPredictionHash(
-                                        automation.reportWriter.editorSelectionCaptureFingerprints[slot] )
+        uint64_t capturedFingerprint = 0;
+        const bool captureValid = automation.reportWriter.TryEditorSelectionCapture( slot, capturedFingerprint );
+        evaluation.expected = captureValid
+                                  ? InteractionAutomationReportWriter::FormatPredictionHash( capturedFingerprint )
                                   : "valid capture";
         evaluation.actual = fingerprint.valid
                                 ? InteractionAutomationReportWriter::FormatPredictionHash( fingerprint.hash )
                                 : "no selection";
-        evaluation.passed = automation.reportWriter.editorSelectionCaptureValid[slot] && fingerprint.valid &&
-                            fingerprint.hash == automation.reportWriter.editorSelectionCaptureFingerprints[slot];
+        evaluation.passed = captureValid && fingerprint.valid && fingerprint.hash == capturedFingerprint;
         break;
     }
     }
     return evaluation;
-}
-
-// Concept: durable topology ids are dense first-publication tokens. The vector
-// is ordered capture state, not an iterated map, so RVIS and offline projection
-// derive the same value without retaining the live schedule counter.
-
-
-bool VerifyReplayVisualOfflineProjection( InteractionAutomationController& state,
-                                          RuntimeFrameInteractionView& interactionOwners,
-                                          RuntimeFrameSceneView& sceneOwners,
-                                          const ReplaySolverFrameSample* latestSolverSample )
-{
-    if ( state.reportWriter.replayVisualOfflineProjectionComplete )
-    {
-        return true;
-    }
-    if ( state.reportWriter.replayVisualPredictionArchive.empty() ||
-         state.reportWriter.replayVisualFidelityTicks.empty() )
-    {
-        FailAutomation( state, "replay visual offline projection has no frozen prediction or RVIS rows" );
-        return false;
-    }
-
-    ReplayPrediction offlinePrediction;
-    ReplayPresentation offlinePresentation;
-    offlinePrediction.EnterOfflineVerification();
-    offlinePresentation.ResetTrajectoryVisualStats();
-    char archiveReason[192] = {};
-    RunReplayPathVisualizerState archivePath;
-    if ( !offlinePrediction.LoadArchive( state.reportWriter.replayVisualPredictionArchive,
-                                         archivePath,
-                                         archiveReason,
-                                         sizeof( archiveReason ) ) )
-    {
-        char message[320] = {};
-        sprintf_s( message,
-                   sizeof( message ),
-                   "replay visual offline projection rejected RVPD: %s",
-                   archiveReason[0] != '\0' ? archiveReason : "unknown archive failure" );
-        FailAutomation( state, message );
-        return false;
-    }
-    offlinePresentation.ApplyArchivePathState( archivePath );
-
-    // The archived value retains the final marker prefix. CPU projection starts
-    // at reveal zero and rebuilds first appearance exactly as the sole presented
-    // run did. No renderer/backend method is reachable from this function.
-    offlinePresentation.ResetTrajectoryVisualStats();
-    offlinePrediction.ResetVerificationMarkers();
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    RunEditorTracer& tracer = runtimeTools.EditorTracer();
-    SceneController& scene = sceneOwners.sceneController;
-    std::vector<ReplayVisualTrajectoryDigestState> trajectoryDigests;
-    trajectoryDigests.reserve( offlinePrediction.State().trajectoryStore.RecordCount() );
-    std::vector<uint32_t> publishedTopologyVersions;
-    publishedTopologyVersions.reserve( state.reportWriter.replayVisualFidelityTicks.size() );
-    for ( const ReplayVisualFidelityReportTick& tick : state.reportWriter.replayVisualFidelityTicks )
-    {
-        const uint32_t canonicalTopologyVersion =
-            InteractionAutomationReportWriter::CanonicalReplayArtifactTopologyVersion( tick.topologyVersion,
-                                                                                       publishedTopologyVersions );
-        const ReplayVisualArchiveSample expected =
-            InteractionAutomationReportWriter::BuildReplayVisualArchiveSample( tick, canonicalTopologyVersion );
-        offlinePrediction.SetVerificationRevealFrame( expected.revealFrame );
-        tracer.Clear();
-        const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
-        ReplayPredictionUpdateResult update;
-        offlinePrediction.PreparePresentation( scene.Entities(),
-                                               Physics::PhysicsEngine::ReadColliders( scene.Physics() ),
-                                               path.targetId,
-                                               path.targetModelRow,
-                                               path.hasTarget,
-                                               5.0,
-                                               update );
-        if ( update.targetModelRowRepaired )
-        {
-            offlinePresentation.SetPathTargetModelRow( update.repairedTargetModelRow );
-        }
-        for ( std::size_t passIndex = 0; passIndex < update.budgetExpiries.size(); ++passIndex )
-        {
-            for ( uint32_t count = 0; count < update.budgetExpiries[passIndex]; ++count )
-            {
-                offlinePresentation.RecordTrajectoryBudgetExpiry(
-                    static_cast<SkullbonezCore::Core::MainMemoryReplayBudgetPass>( passIndex ) );
-            }
-        }
-        for ( std::size_t causeIndex = 0; causeIndex < update.rebuildCauses.size(); ++causeIndex )
-        {
-            for ( uint32_t count = 0; count < update.rebuildCauses[causeIndex]; ++count )
-            {
-                offlinePresentation.RecordTrajectoryRebuildCause(
-                    static_cast<SkullbonezCore::Core::MainMemoryReplayRebuildCause>( causeIndex ) );
-            }
-        }
-        offlinePresentation.PreparePathDrawing( scene.BodyStore() );
-        const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
-        offlinePresentation.RenderPathVisualizer( prediction,
-                                                  latestSolverSample,
-                                                  scene.Physics(),
-                                                  scene.Entities(),
-                                                  tracer );
-        (void)offlinePresentation.BuildPredictionGhostDrawRequests( prediction,
-                                                                    scene.RenderPresentationRecords(),
-                                                                    scene.BodyStore() );
-        ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
-        offlinePresentation.PublishVisualPacket( projected,
-                                                 prediction,
-                                                 latestSolverSample,
-                                                 expected.replayReserveGrowthEvents );
-        projected = offlinePresentation.PublishedVisualPacketView();
-        const ReplayVisualPacketFingerprint fingerprint =
-            BuildReplayVisualPacketFingerprint( projected, trajectoryDigests );
-        char difference[192] = {};
-        if ( !ReplayVisualPacketMatchesArchiveSample( projected, expected, difference, sizeof( difference ) ) )
-        {
-            FailAutomation( state, difference );
-            return false;
-        }
-        const auto laneHashMatches = [&]( const char* lane, uint64_t expectedHash, uint64_t actualHash )
-        {
-            if ( expectedHash == actualHash )
-            {
-                return true;
-            }
-            char message[320] = {};
-            sprintf_s( message,
-                       sizeof( message ),
-                       "replay visual offline projection diverged at reveal %llu %s "
-                       "expected=0x%016llX actual=0x%016llX",
-                       static_cast<unsigned long long>( expected.revealFrame ),
-                       lane,
-                       static_cast<unsigned long long>( expectedHash ),
-                       static_cast<unsigned long long>( actualHash ) );
-            FailAutomation( state, message );
-            return false;
-        };
-        if ( !laneHashMatches( "headerStateHash", tick.headerStateHash, fingerprint.headerStateHash ) ||
-             !laneHashMatches( "trajectoryStateHash", tick.trajectoryStateHash, fingerprint.trajectoryStateHash ) ||
-             !laneHashMatches( "topologyStateHash", tick.topologyStateHash, fingerprint.topologyStateHash ) ||
-             !laneHashMatches( "markerStateHash", tick.markerStateHash, fingerprint.markerStateHash ) ||
-             !laneHashMatches( "ghostStateHash", tick.ghostStateHash, fingerprint.ghostStateHash ) )
-        {
-            return false;
-        }
-        if ( fingerprint.visualStateHash != expected.visualStateHash ||
-             fingerprint.exactHash != expected.exactPacketHash )
-        {
-            char message[320] = {};
-            sprintf_s( message,
-                       sizeof( message ),
-                       "replay visual offline projection diverged at reveal %llu hashes "
-                       "visual=0x%016llX/0x%016llX exact=0x%016llX/0x%016llX",
-                       static_cast<unsigned long long>( expected.revealFrame ),
-                       static_cast<unsigned long long>( expected.visualStateHash ),
-                       static_cast<unsigned long long>( fingerprint.visualStateHash ),
-                       static_cast<unsigned long long>( expected.exactPacketHash ),
-                       static_cast<unsigned long long>( fingerprint.exactHash ) );
-            FailAutomation( state, message );
-            return false;
-        }
-    }
-
-    // Leave the operator-visible enabled bit unchanged. The gate exits after
-    // this offline pass; the one-way generation capability guarantees these
-    // retained values cannot start another prediction.
-    state.reportWriter.replayVisualOfflineProjectionComplete = true;
-    return true;
 }
 
 bool LoadScript( InteractionAutomationController& state )
@@ -2460,11 +2238,7 @@ bool TryProjectInteractionAutomationModel( const SceneController& scene,
 void SkullbonezCore::Runtime::ClearInteractionAutomationInput( InteractionAutomationController& state )
 {
     state.inputDriver.Reset();
-    for ( int slot = 0; slot < 2; ++slot )
-    {
-        state.reportWriter.editorSelectionCaptureFingerprints[slot] = 0;
-        state.reportWriter.editorSelectionCaptureValid[slot] = false;
-    }
+    state.reportWriter.ResetEditorSelectionCaptures();
 }
 
 
@@ -2543,39 +2317,22 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     }
 
     const int frame = scene.State().currentFrame;
-    if ( state.reportWriter.replayVisualFidelityCaptureEnabled )
+    if ( state.reportWriter.ReplayVisualCaptureEnabled() )
     {
         // Invariant: the mega probe is one presented cascade. Advancing the
         // authoritative scene after the reveal would show a second, unrelated
         // wall fall and make a visually broken run appear to be test coverage.
-        if ( replayInput.liveAdvanceHeld )
+        ReplayFrameIndex revealFrame = 0;
+        bool resetReveal = false;
+        if ( state.reportWriter.UpdateReplayVisualReveal( frame,
+                                                          REPLAY_VISUAL_FIDELITY_START_FRAME,
+                                                          replayInput.liveAdvanceHeld,
+                                                          ReplayDeterministicRevealReady( replayView ),
+                                                          state.status,
+                                                          revealFrame,
+                                                          resetReveal ) )
         {
-            FailAutomation( state, "replay visual fidelity probe entered a second live playback pass" );
-        }
-        if ( state.reportWriter.replayVisualFidelityStartFrame < 0 && frame == REPLAY_VISUAL_FIDELITY_START_FRAME )
-        {
-            if ( !ReplayDeterministicRevealReady( replayView ) )
-            {
-                FailAutomation( state,
-                                "replay visual fidelity prediction was not fully published before fixed reveal start" );
-            }
-            else
-            {
-                state.reportWriter.replayVisualFidelityStartFrame = frame;
-                PublishReplayDeterministicReveal( result.replayIntent, 0, true );
-            }
-        }
-        else if ( state.reportWriter.replayVisualFidelityStartFrame < 0 && frame > REPLAY_VISUAL_FIDELITY_START_FRAME )
-        {
-            FailAutomation( state, "replay visual fidelity missed its fixed reveal start frame" );
-        }
-        if ( state.reportWriter.replayVisualFidelityStartFrame >= 0 )
-        {
-            PublishReplayDeterministicReveal(
-                result.replayIntent,
-                static_cast<ReplayFrameIndex>(
-                    (std::max)( 0, frame - state.reportWriter.replayVisualFidelityStartFrame ) ),
-                false );
+            PublishReplayDeterministicReveal( result.replayIntent, revealFrame, resetReveal );
         }
     }
     state.inputDriver.AdvanceReleases( frame );
@@ -2695,8 +2452,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         {
             const int slot = static_cast<int>( action.numberValue );
             const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, scene );
-            state.reportWriter.editorSelectionCaptureFingerprints[slot] = fingerprint.hash;
-            state.reportWriter.editorSelectionCaptureValid[slot] = fingerprint.valid;
+            state.reportWriter.CaptureEditorSelection( slot, fingerprint.hash, fingerprint.valid );
             if ( !fingerprint.valid )
             {
                 FailAutomation( state, "failed to capture editor selection state" );
@@ -2890,141 +2646,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         action.processed = true;
     }
 
-    if ( state.reportWriter.replayVisualFidelityCaptureEnabled &&
-         replayView.prediction.build.generationBeginCount > 1u )
+    if ( !state.reportWriter.CaptureReplayVisualFrame( frame, replayView, state.status ) )
     {
-        // Probe assertion lane: setup changes must be coalesced before the
-        // sole Predict action. Stop immediately if a later target, horizon, or
-        // dirty event starts a replacement future, even before reveal begins.
-        FailAutomation( state, "replay visual fidelity attempted a duplicate prediction generation" );
-        state.reportWriter.replayVisualFidelityCaptureEnabled = false;
         return result;
     }
-    if ( state.reportWriter.replayVisualFidelityCaptureEnabled &&
-         state.reportWriter.replayVisualFidelityStartFrame >= 0 &&
-         state.reportWriter.replayVisualFidelityTicks.size() < replayView.prediction.simulation.frames.size() )
-    {
-        const SkullbonezCore::Core::MainMemoryReplayTrajectorySubmissionStats& submission =
-            replayView.visualPacket.submission;
-        const ReplayVisualPacket& packet = replayView.visualPacket;
-        const ReplayVisualPacketFingerprint packetFingerprint =
-            BuildReplayVisualPacketFingerprint( packet, state.reportWriter.replayVisualTrajectoryDigests );
-        const ReplayVisualPacketBufferFacts bufferFacts = BuildReplayVisualPacketBufferFacts( packet );
-        ReplayVisualFidelityReportTick tick;
-        tick.sceneFrame = frame;
-        tick.revealFrame = replayView.prediction.revealClock.presentedFrame;
-        tick.sourceFrame = packet.header.sourceFrame;
-        tick.semanticHash = packetFingerprint.semanticHash;
-        tick.headerStateHash = packetFingerprint.headerStateHash;
-        tick.trajectoryStateHash = packetFingerprint.trajectoryStateHash;
-        tick.topologyStateHash = packetFingerprint.topologyStateHash;
-        tick.markerStateHash = packetFingerprint.markerStateHash;
-        tick.ghostStateHash = packetFingerprint.ghostStateHash;
-        tick.visualStateHash = packetFingerprint.visualStateHash;
-        tick.exactPacketHash = packetFingerprint.exactHash;
-        tick.schemaVersion = packet.header.schemaVersion;
-        tick.targetId = packet.header.targetId.value;
-        tick.branchId = packet.header.branchId;
-        tick.eventCursor = packet.header.eventCursor;
-        tick.topologyVersion = packet.header.topologyVersion;
-        tick.publishedFrameCount = packet.header.publishedFrameCount;
-        tick.predictionEnabled = packet.header.predictionEnabled;
-        tick.predictionBuilding = packet.header.predictionBuilding;
-        tick.predictionComplete = packet.header.predictionComplete;
-        tick.cameraEye = packet.header.cameraEye;
-        tick.cameraUp = packet.header.cameraUp;
-        tick.trajectoryRecordCount = static_cast<uint32_t>( packet.trajectoryRecords.size() );
-        tick.futureNodeCount = packet.header.futureNodeCount;
-        tick.retainedMarkerCount = static_cast<uint32_t>( packet.retainedMarkers.size() );
-        tick.ghostRequestCount = packet.header.ghostRequestCount;
-        tick.replayReserveGrowthEvents = packet.header.replayReserveGrowthEvents;
-        tick.hasGeometry = bufferFacts.hasGeometry;
-        tick.combinedLineHash = bufferFacts.combinedLineHash;
-        tick.combinedLineBytes = bufferFacts.combinedLineBytes;
-        tick.combinedLineVertexCount = static_cast<uint32_t>( packet.combinedLines.size() / 6u );
-        for ( uint64_t dropped : packet.trajectoryDiagnostics.droppedSegments )
-        {
-            tick.droppedSegmentCount += dropped;
-        }
-        if ( packet.header.futureNodeCount != packet.futureNodes.size() ||
-             packet.header.ghostRequestCount != packet.ghostRequests.size() )
-        {
-            FailAutomation( state, "replay visual packet header/span count mismatch" );
-        }
-        if ( const char* mismatch = FindReplayVisualPacketSubmissionSpanMismatch( packet ) )
-        {
-            char message[256] = {};
-            sprintf_s( message, sizeof( message ), "replay visual packet/submission mismatch: %s", mismatch );
-            FailAutomation( state, message );
-        }
-        // Invariant: there is one reveal generation. A reset, duplicate, or
-        // skipped presentation tick is a probe failure even when later buffers
-        // happen to converge to the approved final image.
-        const uint64_t expectedRevealFrame =
-            static_cast<uint64_t>( state.reportWriter.replayVisualFidelityTicks.size() );
-        if ( tick.revealFrame != expectedRevealFrame )
-        {
-            char message[256] = {};
-            sprintf_s( message,
-                       sizeof( message ),
-                       "replay visual reveal restarted or skipped: expected=%llu actual=%llu",
-                       static_cast<unsigned long long>( expectedRevealFrame ),
-                       static_cast<unsigned long long>( tick.revealFrame ) );
-            FailAutomation( state, message );
-        }
-        tick.ordinaryLineHash = bufferFacts.ordinaryLineHash;
-        tick.priorityLineHash = bufferFacts.priorityLineHash;
-        tick.priorityLineCanonicalHash = submission.priorityLineCanonicalHash;
-        tick.ordinaryRibbonHash = bufferFacts.ordinaryRibbonHash;
-        tick.priorityRibbonHash = bufferFacts.priorityRibbonHash;
-        tick.priorityRibbonCanonicalHash = submission.priorityRibbonCanonicalHash;
-        tick.vertexHash = bufferFacts.expandedVertexHash;
-        tick.ordinaryVertexHash = bufferFacts.ordinaryExpandedVertexHash;
-        tick.ordinaryLineBytes = bufferFacts.ordinaryLineBytes;
-        tick.priorityLineBytes = bufferFacts.priorityLineBytes;
-        tick.ordinaryRibbonBytes = bufferFacts.ordinaryRibbonBytes;
-        tick.priorityRibbonBytes = bufferFacts.priorityRibbonBytes;
-        tick.vertexBytes = bufferFacts.expandedVertexBytes;
-        tick.ordinaryVertexBytes = bufferFacts.ordinaryExpandedVertexBytes;
-        tick.ordinaryLineVertexCount = submission.ordinaryLineVertexCount;
-        tick.priorityLineVertexCount = submission.priorityLineVertexCount;
-        tick.ordinaryRibbonSegmentCount = submission.ordinaryRibbonSegmentCount;
-        tick.priorityRibbonSegmentCount = submission.priorityRibbonSegmentCount;
-        tick.vertexCount = submission.vertexCount;
-        tick.ordinaryVertexCount = submission.ordinaryVertexCount;
-        tick.segmentCount = submission.segmentCount;
-        state.reportWriter.replayVisualFidelityTicks.push_back( tick );
-        state.reportWriter.replayCausalProofTicks.push_back( BuildReplayCausalProofTick( replayView.visualPacket ) );
-
-        const std::vector<RunReplayPredictionFrame>& predictionFrames = replayView.prediction.simulation.frames;
-        if ( state.reportWriter.replayVisualFidelityTicks.size() == predictionFrames.size() &&
-             !predictionFrames.empty() )
-        {
-            const PredictionTrajectoryFingerprint revealFingerprint =
-                InteractionAutomationReportWriter::BuildPredictionTrajectoryFingerprint( replayView );
-            state.reportWriter.replayVisualFidelityTrajectoryHash = revealFingerprint.hash;
-            state.reportWriter.replayVisualFidelityTrajectoryRecordCount = revealFingerprint.recordCount;
-            state.reportWriter.replayVisualFidelityTrajectoryPointCount = revealFingerprint.pointCount;
-            state.reportWriter.replayVisualFidelityTrajectoryCaptured = revealFingerprint.Ready();
-            if ( !BuildReplayPredictionArchive( replayView.path,
-                                                replayView.prediction,
-                                                state.reportWriter.replayVisualPredictionArchive ) )
-            {
-                FailAutomation( state, "replay visual fidelity probe could not freeze prediction presentation state" );
-            }
-            state.reportWriter.replayCausalTopology.reserve( packet.futureNodes.size() );
-            for ( const RunReplayPathTraceNode& node : packet.futureNodes )
-            {
-                state.reportWriter.replayCausalTopology.push_back(
-                    ReplayCausalTopologyNodeReport{ node.id.value,
-                                                    node.parentId.value,
-                                                    node.firstFrame,
-                                                    node.depth,
-                                                    node.contactDerived } );
-            }
-        }
-    }
-
     bool allProcessed = true;
     int lastFrame = frame;
     for ( const RunInteractionAutomationAction& action : state.actions )
@@ -3035,19 +2660,11 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
 
     if ( allProcessed && frame >= lastFrame )
     {
-        if ( !state.status.failed && state.reportWriter.replayVisualFidelityCaptureEnabled &&
-             !state.reportWriter.replayVisualOfflineProjectionComplete )
-        {
-            // This is after the final reveal screenshot while live physics still
-            // holds the seed pose used by root markers. The CPU-only loop cannot
-            // become a second presented visual pass.
-            (void)VerifyReplayVisualOfflineProjection( state,
-                                                       interactionOwners,
-                                                       sceneOwners,
-                                                       replayView.latestSolverSample );
-        }
-        if ( !state.status.failed && state.reportWriter.replayVisualFidelityCaptureEnabled &&
-             state.reportWriter.replayVisualFidelityTicks.size() != replayView.prediction.simulation.frames.size() )
+        // This command runs after the final reveal screenshot while live
+        // physics still holds the seed pose used by root markers. The writer
+        // owns the CPU-only proof and cannot initiate a second presented pass.
+        if ( !state.status.failed &&
+             !state.reportWriter.FinishReplayVisualCapture( state.status, runtimeTools, scene, replayView ) )
         {
             ClearInteractionAutomationInput( state );
             return result;
