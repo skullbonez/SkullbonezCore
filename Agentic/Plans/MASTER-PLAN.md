@@ -88,14 +88,14 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-The owner activated the SoA/SIMD scale campaign after replay mass reduction
-closed. Completed historical campaigns are excluded under commit-contract rule
-4. The externally blocked validation lane remains deliberately excluded.
+The SoA/SIMD scale campaign is complete. Completed historical campaigns are
+excluded under commit-contract rule 4, so there are no active/future plan tasks
+at this tip. The externally blocked validation lane remains deliberately
+excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physics-soa-simd-1000-bodies (ACTIVE final closure) | 8 | 9 | 89% |
-| **Active/future total** | **8** | **9** | **89%** |
+| **Active/future total** | **0** | **0** | **100% (no live plans)** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -123,6 +123,9 @@ exactly S6 on 2026-07-17; completion returns the campaign to a hard pause at
 7/9. The owner then rejected S7 on the current evidence and activated the
 broadphase attribution campaign. After that campaign closed, the owner issued
 fresh direction to execute S7 as scalar-only deletion and simplification.
+S7-S8 closed on 2026-07-17; the completed plan left the active/future ledger
+under rule 4. Closure evidence lives in
+`../Reports/2026-07-17/soa-simd-closure.md`.
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -137,11 +140,12 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-`physics-soa-simd-1000-bodies` is the active plan runner at S8. S7 retained the
-byte-exact SoA scalar path; deleted every SIMD/toggle/counter artifact; replaced
-SpatialGrid's two-route storage with one bounded 8,192-cell table; made the
-coverage floor mandatory; and passed the full gate without behavioral physics
-baseline regeneration. S8 publishes closure and deletes the completed plan.
+There is no active implementation-plan runner. `physics-soa-simd-1000-bodies`
+closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
+artifact is deleted; SpatialGrid has one bounded 8,192-cell table; coverage is
+mandatory; and the full gate passed without behavioral physics baseline
+regeneration. Closure evidence is in
+`../Reports/2026-07-17/soa-simd-closure.md`.
 
 `physics-broadphase-scale-attribution` previously closed
 B0-B4 with an unchanged 4,096-row primary table, a fixed 16,384-slot lookup,
@@ -182,8 +186,8 @@ At 1,000 bodies the enabled set measures 1.0666 ms against the binding 0.80 ms
 budget; the scalar solver core retains only 0.0092 ms (0.86% of step), so its
 follow-up trigger is not met. The owner rejected SIMD cutover on the current
 evidence on 2026-07-17 and then issued fresh direction for scalar-only S7
-cleanup. S7 is complete at 8/9; the 0.80 ms SIMD cutover budget neither
-authorized nor blocked that deletion. S8 closure is active.
+cleanup. S7 completed the deletion at 8/9; the 0.80 ms SIMD cutover budget
+neither authorized nor blocked it. S8 then closed the campaign at 9/9.
 
 Portfolio ordering (2026-07-16 owner reorder, then 2026-07-17 scalar-cleanup
 direction): `unit-test-coverage-campaign` completed U0-U9 before the S7
@@ -572,7 +576,7 @@ reconciliation.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [physics-broadphase-scale-attribution](../Reports/2026-07-17/broadphase-scale-closure.md) | Complete | 5/5 | Saturated scan removed with bounded complete overflow coverage; exact-tip pairs, final matrix, comments, and independent review closed |
-| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Active final closure | 8/9 | Publish the reviewed scalar-retention verdict and delete the completed plan |
+| [physics-soa-simd-1000-bodies](../Reports/2026-07-17/soa-simd-closure.md) | Complete | 9/9 | SoA retained; SIMD and attribution-only machinery deleted; one bounded grid, mandatory coverage, independent review, and final gates closed |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Unit Test Coverage Campaign (2026-07-16, complete)

@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (S7 complete; S8 final closure active) |
+| Branch | `nightrunner-16th-july` (SoA/SIMD scalar-retention campaign complete) |
 | Current baseline | Scalar-only matrix: 1,000 bodies Step/Broadphase 1.0871/0.3005 ms; 2,000 bodies 1.8670/0.7549 ms. Broadphase is inclusive; never add its children. |
-| Current objective | Publish the reviewed scalar-retention verdict, delete the completed live plan, and leave a clean synchronized branch. |
-| Active/future progress | 8 / 9 tasks = 89% overall (SoA/SIMD S8 closure active; completed campaigns excluded under MASTER rule 4) |
+| Current objective | No active implementation plan; preserve the retained scalar SoA and completed campaign evidence. |
+| Active/future progress | 0 / 0 live tasks; portfolio complete (completed campaigns excluded under MASTER rule 4) |
 | Last broad local gate | Final `validate_full` passed: 282 tests/21,389 assertions, zero-warning builds, zero DX12 errors, matching captures, and byte-exact 44,401-line physics oracle |
-| Validation for current edits | S7 source gates are green; S8 is documentation-only and requires clean-tree/sync confirmation. |
+| Validation for current edits | None. S8 is documentation-only; S7 source gates are green. |
 
 ## Live Queue
 
@@ -35,7 +35,7 @@ plan inventory.
           GridInsert at 1,000 bodies and -75.26% / -87.39% / -91.38% at 2,000.
           B4 closed the final matrix, exact provenance, comment audit, and
           independent review. Its evidence selected the one-table S7 cleanup;
-          the attribution counters and two-route storage are now being removed.
+          the attribution counters and two-route storage are removed.
 
 0000000. `unit-test-coverage-campaign` is COMPLETE at 10/10 (2026-07-17; plan
          deleted under inventory rule 4; closure evidence lives in
@@ -70,7 +70,9 @@ plan inventory.
          contracts, and raised every Tier-3 subsystem above 50%. U9 armed the
          ratified floors, added positive translation-unit scope
          checks, resolved the independent review, and closed the campaign.
-000000. `physics-soa-simd-1000-bodies` is ACTIVE at 8/9. S0 registered the
+000000. `physics-soa-simd-1000-bodies` is COMPLETE at 9/9. Its live plan is
+        deleted under inventory rule 4 and closure evidence lives in
+        `Agentic/Reports/2026-07-17/soa-simd-closure.md`. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
         does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
@@ -106,8 +108,8 @@ plan inventory.
         to retain SoA, delete SIMD/toggle/counter complexity, simplify the grid,
         and close with full validation. S7 removed 3,190 lines, retained one
         complete 8,192-cell grid, armed mandatory coverage, passed independent
-        review, and closed the full gate. S8 documentation-only closure is
-        active.
+        review, and closed the full gate. S8 published the final verdict,
+        reconciled MASTER/SessionState, and deleted the completed plan.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -376,11 +378,12 @@ Unit-test coverage is complete at 10/10. All required translation units are
 present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
 Closure evidence, baseline deltas, the independent review, the three-file
 comment audit, and final validation live in
-`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD S7
-is complete at 8/9: SoA remains, rejected SIMD and attribution-only complexity
-are gone, one complete 8,192-cell grid remains, mandatory coverage and the full
-gate pass. S8 must publish closure and delete the completed live plan; do not
-regenerate behavioral physics baselines.
+`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD is
+complete at 9/9: SoA remains, rejected SIMD and attribution-only complexity are
+gone, one complete 8,192-cell grid remains, and mandatory coverage and the full
+gate pass. Closure evidence lives in
+`Agentic/Reports/2026-07-17/soa-simd-closure.md`. There is no active local plan;
+do not regenerate behavioral physics baselines.
 Replay mass reduction remains closed at 9/9 plus R8; the externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.
