@@ -1,7 +1,7 @@
 # Monolith Translation-Unit Right-Sizing — Finish What The Campaigns Declared Done
 
 Date: 2026-07-17
-Status: Active — 6/8 tasks
+Status: Active — 7/8 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at N0)
 Impact area: `Runtime/Replay/ReplayPrediction.cpp`,
 `Runtime/InteractionAutomationController.cpp`,
@@ -92,7 +92,7 @@ mechanical split.
   existing owner; otherwise record a fresh dated cohesion ruling superseding
   nothing. One mega-gate invocation per MASTER rule 11. Gate:
   `tools\validate_replay_visual_fidelity.bat` plus `validate_tests`.
-- [ ] N6 — `ReplayPrediction.cpp` (4,428) — the engine's largest product TU.
+- [x] N6 — `ReplayPrediction.cpp` (4,428) — the engine's largest product TU.
   Same new-evidence protocol as N5; the prediction single-writer /
   published-prefix protocol is load-bearing and must move intact or not at
   all. One mega-gate invocation. Gate:

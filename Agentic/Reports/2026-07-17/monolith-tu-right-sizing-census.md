@@ -281,3 +281,44 @@ The required final gates passed from the staged documentation-only ruling:
   determinism control detected its injected divergence. No golden changed.
   Log:
   `TestOutput/validation/agent_logs/monolith_n5_replay_visual_fidelity_stdout.log`.
+
+## N6 Replay Prediction Cohesion Ruling
+
+Completed on 2026-07-18 against the current `ReplayPrediction.cpp`,
+`ReplayPrediction.h`, and value-only presentation surface. The new-evidence
+pass tested worker scheduling/publication, simulation capture, topology and
+trajectory derivation, retained markers, baseline comparison, and past-path
+maintenance as possible responsibility boundaries:
+
+| Candidate | Fresh dependency evidence | Ruling |
+|---|---|---|
+| Worker scheduling / future simulation | The worker exclusively mutates the private prediction engine, build-frame rows, probe calibration, root trajectory slots, and next-tick cursor. Each captured frame and its trajectory point complete before `buildFrameCount` release-publishes the prefix. | Cohesive. Splitting scheduling from capture would divide the sole-writer protocol or introduce callbacks into mutable prediction state. |
+| Publication / frame-bank promotion | Readers acquire only `PublishedBuildFrameCount`. Cancellation waits for in-flight work before clearing the engine, build bank, trajectory state, or atomics. Completion swaps the entire build/committed banks, resets publication, and rebuilds the committed root trajectory. | Cohesive and load-bearing. The count, frame rows, trajectory rows, worker lifetime, and bank swap must move intact or not at all. |
+| Future topology, child trajectories, and markers | The frame thread derives all three from the same active committed-or-published prefix, reveal frame, target identity, and topology version. Child records are drawable only when their topology token matches the published future-node cache. | Cohesive. A separate owner would borrow a broad mutable state surface and coordinate cross-owner publication tokens. |
+| Baseline / divergence | Velocity mutation captures the pre-change committed future; completion updates divergence against the newly committed bank; clear/disable/authoring transitions invalidate the baseline with the job state. | Retain. It is one prediction-generation comparison transaction, not an independent subsystem. |
+| Past trajectory maintenance | The solver cursor arrives through a typed value boundary, but prediction mutates the same `ReplayTrajectoryStore` whose records are published in `PresentationView`; eviction trimming preserves record versions to avoid path flicker. | Retain under the six-owner ruling. Extracting it would re-decompose ownership or require merging separately mutable stores at presentation. |
+
+The archive codec and replay-prediction drawing mechanics already live in
+separate owner files. The remaining large TU is the state machine and the
+algorithms that mutate its one authority. A physical helper split would not
+move ownership, while a new state/context boundary would expose the exact
+worker and prefix authority the plan protects. The owner therefore ratifies
+the dated cohesion ruling: keep future simulation, publication, bank
+promotion, derived topology/trajectory/marker state, reveal coordination, and
+baseline lifecycle together. No source, schema, allocation registration,
+baseline, golden, or runtime behavior changed in N6.
+
+The required final gates passed from the staged documentation-only ruling:
+
+- `tools\validate_tests.bat` passed in 2.875s with 91/91 test project/filter
+  items, a zero-warning Profile test build, and all 282 doctests / 21,389
+  assertions passing. Log:
+  `TestOutput/validation/agent_logs/monolith_n6_validate_tests_stdout.log`.
+- The task's only invocation of
+  `tools\validate_replay_visual_fidelity.bat` passed in 430.147s. Launcher
+  control proved one engine process and one generation; 16 packet controls
+  passed; the unchanged oracle produced 2,401 ticks, 200 moved / 187 toppled
+  wall bricks, 199 causal nodes, one presented cascade, and reveal frames
+  0–2400; all negative, artifact, and determinism controls detected their
+  injected divergences. No golden changed. Log:
+  `TestOutput/validation/agent_logs/monolith_n6_replay_visual_fidelity_stdout.log`.
