@@ -811,8 +811,7 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
                        const ColliderRecord& collider,
                        const PhysicsWorldForces& worldForces,
                        float deltaSeconds,
-                       const Vector3* precomputedMutualGravityForce,
-                       bool includeGravity )
+                       const Vector3* precomputedMutualGravityForce )
 {
     Vector3 worldForce = ZERO_VECTOR;
     Vector3 worldTorque = ZERO_VECTOR;
@@ -820,10 +819,7 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     const PhysicsBuoyancySample buoyancySample = CalculateBuoyancySample( record, hot, collider, worldForces );
     const float submergedVolumePercent = buoyancySample.submergedVolumePercent;
 
-    if ( includeGravity )
-    {
-        worldForce.y += CalculateGravityForce( worldForces, record.mass );
-    }
+    worldForce.y += CalculateGravityForce( worldForces, record.mass );
     // Why: mutual gravity is accumulated in PhysicsWorld's serial pair pass,
     // then injected per body so worker force integration stays order-neutral.
     if ( precomputedMutualGravityForce )
@@ -938,13 +934,17 @@ void ApplyWorldForces( PhysicsBodyRecord& record,
     ApplyWorldImpulse( record, hot, worldForce * deltaSeconds, worldTorque * deltaSeconds );
 }
 
-// Concept: store-owned orientation completion advances the authoritative row.
+// Concept: store-owned pose integration advances the authoritative body row.
 //
-// The SIMD pilot owns position arithmetic, but orientation normalization and
-// terrain completion remain scalar store policy. The scalar reference path
-// calls the same helper after its original position expression.
-void IntegrateBodyRecordOrientation( PhysicsBodyHotState& hot, float deltaSeconds )
+// Keeping this here means solver hot paths mutate only physics records when
+// advancing position and orientation.
+void IntegrateBodyRecordPose( PhysicsBodyHotState& hot, float deltaSeconds )
 {
+    hot.linearVelocity.Simplify();
+    hot.angularVelocity.Simplify();
+
+    hot.position += hot.linearVelocity * deltaSeconds;
+
     const Vector3 omega = hot.angularVelocity;
     const float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
     if ( omegaMag > 0.0001f )
@@ -952,15 +952,6 @@ void IntegrateBodyRecordOrientation( PhysicsBodyHotState& hot, float deltaSecond
         const Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
         hot.orientation.RotateAboutAxis( axis, omegaMag * deltaSeconds );
     }
-}
-
-void IntegrateBodyRecordPose( PhysicsBodyHotState& hot, float deltaSeconds )
-{
-    hot.linearVelocity.Simplify();
-    hot.angularVelocity.Simplify();
-
-    hot.position += hot.linearVelocity * deltaSeconds;
-    IntegrateBodyRecordOrientation( hot, deltaSeconds );
 }
 
 void ApplyBodyDescriptorState( const PhysicsBodyCreateDesc& desc, PhysicsBodyRecord& cold, PhysicsBodyHotState& hot )
@@ -2048,81 +2039,11 @@ bool PhysicsBodyStore::IntegrateBodyPose( const ColliderStore& colliderStore, in
 }
 
 
-bool PhysicsBodyStore::CompleteBodyPoseIntegration( const ColliderStore& colliderStore,
-                                                    int modelIndex,
-                                                    float deltaSeconds )
-{
-    PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
-    const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
-    if ( !record || !collider || modelIndex < 0 || deltaSeconds <= 0.0f )
-    {
-        return false;
-    }
-
-    const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
-    if ( m_fixed[bodyIndex] != 0u || m_awake[bodyIndex] == 0u )
-    {
-        return false;
-    }
-
-    PhysicsBodyHotState hot;
-    hot.position = Vector3( m_positionX[bodyIndex], m_positionY[bodyIndex], m_positionZ[bodyIndex] );
-    hot.orientation = Math::Orientation::Quaternion( m_orientationX[bodyIndex],
-                                                     m_orientationY[bodyIndex],
-                                                     m_orientationZ[bodyIndex],
-                                                     m_orientationW[bodyIndex] );
-    hot.angularVelocity =
-        Vector3( m_angularVelocityX[bodyIndex], m_angularVelocityY[bodyIndex], m_angularVelocityZ[bodyIndex] );
-    IntegrateBodyRecordOrientation( hot, deltaSeconds );
-    ClampBodyToTerrainSurface( *record, hot, *collider );
-    record->submergedVolumePercent = 0.0f;
-    m_positionX[bodyIndex] = hot.position.x;
-    m_positionY[bodyIndex] = hot.position.y;
-    m_positionZ[bodyIndex] = hot.position.z;
-    hot.orientation.GetComponents( m_orientationX[bodyIndex],
-                                   m_orientationY[bodyIndex],
-                                   m_orientationZ[bodyIndex],
-                                   m_orientationW[bodyIndex] );
-    return true;
-}
-
-
 bool PhysicsBodyStore::ApplyForces( const PhysicsWorldForces& worldForces,
                                     const ColliderStore& colliderStore,
                                     int modelIndex,
                                     float deltaSeconds,
                                     const Vector3* precomputedMutualGravityForce )
-{
-    return ApplyForcesInternal( worldForces,
-                                colliderStore,
-                                modelIndex,
-                                deltaSeconds,
-                                precomputedMutualGravityForce,
-                                true );
-}
-
-
-bool PhysicsBodyStore::CompleteForcesAfterSimdGravity( const PhysicsWorldForces& worldForces,
-                                                       const ColliderStore& colliderStore,
-                                                       int modelIndex,
-                                                       float deltaSeconds,
-                                                       const Vector3* precomputedMutualGravityForce )
-{
-    return ApplyForcesInternal( worldForces,
-                                colliderStore,
-                                modelIndex,
-                                deltaSeconds,
-                                precomputedMutualGravityForce,
-                                false );
-}
-
-
-bool PhysicsBodyStore::ApplyForcesInternal( const PhysicsWorldForces& worldForces,
-                                            const ColliderStore& colliderStore,
-                                            int modelIndex,
-                                            float deltaSeconds,
-                                            const Vector3* precomputedMutualGravityForce,
-                                            bool includeGravity )
 {
     PhysicsBodyRecord* record = MutableRecordForModelIndex( modelIndex );
     const ColliderRecord* collider = ColliderRecordForModelIndex( colliderStore, modelIndex );
@@ -2155,13 +2076,7 @@ bool PhysicsBodyStore::ApplyForcesInternal( const PhysicsWorldForces& worldForce
     }
 
     ThrottleAngularVelocity( *record, hot );
-    ApplyWorldForces( *record,
-                      hot,
-                      *collider,
-                      worldForces,
-                      deltaSeconds,
-                      precomputedMutualGravityForce,
-                      includeGravity );
+    ApplyWorldForces( *record, hot, *collider, worldForces, deltaSeconds, precomputedMutualGravityForce );
     ApplyPendingImpulse( *record, hot );
     // Invariant: force and pending-impulse integration are velocity-only edits.
     // Keeping the writes narrow avoids a 20-field round trip per active body.

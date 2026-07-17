@@ -73,6 +73,37 @@ fallback and was never part of the Vector3 fatal contract.
 `TryNormalised`; it is not an external call site and its false result leaves the
 out parameter untouched.
 
+### U2 reachable-degeneracy verification matrix (2026-07-16)
+
+The survey's 12 reachable-degenerate rows include the four `TryDivided`
+call sites; they are not 16 distinct rows. The Physics case below drives all
+four production calls through immediate world-force and pending-impulse owner
+paths. Each test names this survey in its learning header or local related
+context, making the mapping searchable in both directions.
+
+| Reachable-degenerate production row | Named behavioral test |
+|---|---|
+| `GeometricMath::ComputePlane` degenerate triangle | `GeometricMath: a degenerate triangle produces the zero plane fallback` |
+| `Matrix4::LookAt` zero authored up | `Matrix4: coincident look-at falls back to identity and zero up falls back to world Y` |
+| Immediate world impulse / zero mass | `Physics impulses: zero mass and inertia absorb immediate and pending components` |
+| Immediate world torque / zero inertia | `Physics impulses: zero mass and inertia absorb immediate and pending components` |
+| Pending impulse / zero mass | `Physics impulses: zero mass and inertia absorb immediate and pending components` |
+| Pending torque / zero inertia | `Physics impulses: zero mass and inertia absorb immediate and pending components` |
+| `Camera::SetAll` zero authored up | `Camera: authored zero up remains the SetAll sentinel` |
+| `Camera::GetRightVector` coincident/parallel axes | `Camera: parallel view and up axes move right along world plus X` |
+| `Camera::GetViewVectorNormalised` coincident eye/view | `Camera: coincident eye and target move forward along world minus Z` |
+| `CameraCollection::SetPrimaryUp` zero input | `CameraCollection: SetPrimaryUp repairs zero input to world up` |
+| `CameraCollection::SetCamera` opposed tween up vectors | `CameraCollection: opposed tween up vectors cancel to world up` |
+| `Terrain::GenerateNormals` collapsed neighborhood | `Terrain: collapsed height-map posts publish world-up render normals` |
+
+Negative-space verification is recorded by
+`Vector3: plain zero normalise asserts in Debug and propagates IEEE values otherwise`.
+The Profile/Release branch executes the representative divide-by-zero and
+asserts non-finite IEEE propagation. The Debug contract was manually verified
+at source level on 2026-07-16: `Vector3::Normalise` retains its nonzero-magnitude
+CRT assertion. The Debug test branch deliberately does not trigger the dialog
+inside doctest because the harness cannot intercept it safely.
+
 ## Vector3 division operators
 
 | File:line | Expression | Classification | Disposition / specific reason |

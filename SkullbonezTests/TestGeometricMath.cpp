@@ -21,6 +21,7 @@
 // Related:
 //   - SkullbonezSource/Maths/GeometricMath.h
 //   - SkullbonezSource/Maths/GeometricStructures.h
+//   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
@@ -126,4 +127,17 @@ TEST_CASE( "GeometricMath: degenerate fatal preconditions are caller-detectable"
     const Vector3 edge1 = collinear.v2 - collinear.v1;
     const Vector3 edge2 = collinear.v3 - collinear.v2;
     CHECK( VectorMagSquared( CrossProduct( edge1, edge2 ) ) == doctest::Approx( 0.0f ) );
+}
+
+
+TEST_CASE( "GeometricMath: a degenerate triangle produces the zero plane fallback" )
+{
+    const Triangle collinear( Vector3( 0.0f, 0.0f, 0.0f ),
+                              Vector3( 1.0f, 1.0f, 1.0f ),
+                              Vector3( 2.0f, 2.0f, 2.0f ) );
+
+    const Plane plane = GeometricMath::ComputePlane( collinear );
+
+    CHECK( plane.m_normal == SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    CHECK( plane.m_distance == doctest::Approx( 0.0f ) );
 }

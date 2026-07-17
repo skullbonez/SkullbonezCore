@@ -26,6 +26,7 @@
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 
@@ -132,4 +133,91 @@ TEST_CASE( "SpatialGrid: clear removes old generation contents from queries" )
 
     CHECK( grid.GetActiveCellCount() == 0 );
     CHECK( pairs.empty() );
+}
+
+
+TEST_CASE( "SpatialGrid: minimum cell size preserves exact-edge insert and query" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( SpatialGrid::MIN_CELL_SIZE );
+    grid.Insert( 0, Vector3( 0.25f, 0.25f, 0.25f ), 0.25f );
+    grid.Insert( 1, Vector3( 0.75f, 0.25f, 0.25f ), 0.25f );
+
+    const auto pairs = CandidatePairs( grid );
+
+    CHECK( grid.GetCellSize() == SpatialGrid::MIN_CELL_SIZE );
+    CHECK( HasPair( pairs, 0, 1 ) );
+    CHECK( pairs.size() == 1u );
+}
+
+
+TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
+{
+    SpatialGrid& grid = TestGrid();
+    constexpr int kBodyCount = 4;
+    for ( int body = 0; body < kBodyCount; ++body )
+    {
+        grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
+    }
+
+    const auto pairs = CandidatePairs( grid );
+
+    // Hazard: a single crowded cell is the documented O(n^2) broadphase
+    // case. The contract is complete, deduplicated output—not hidden pruning.
+    CHECK( pairs.size() == 6u );
+    for ( int a = 0; a < kBodyCount; ++a )
+    {
+        for ( int b = a + 1; b < kBodyCount; ++b )
+        {
+            CHECK( HasPair( pairs, a, b ) );
+        }
+    }
+}
+
+
+TEST_CASE( "SpatialGrid: one fixed table retains all 8192 cells and existing-key lookup at capacity" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( 1.0f );
+    for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS - 1; ++cell )
+    {
+        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+    }
+
+    // Why: x=0 and x=8192 share a home slot under the low-bit table mask. The
+    // final row is therefore displaced through occupied slots; reinserting it
+    // at full capacity proves lookup does not mistake saturation for absence.
+    const Vector3 displacedCell( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f );
+    grid.Insert( 0, displacedCell, 0.0f );
+    grid.Insert( 1, displacedCell, 0.0f );
+    const auto pairs = CandidatePairs( grid );
+
+    CHECK( grid.GetActiveCellCount() == SpatialGrid::MAX_BUCKETS );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+}
+
+
+TEST_CASE( "Property invariant: identical sphere insert/query round-trips including zero radius [seed 0x16AABB00]" )
+{
+    SkullbonezTests::FixedSeed random( 0x16AABB00u );
+    SpatialGrid& grid = TestGrid();
+
+    // Invariant: two identical sphere bounds always share at least one cell,
+    // including the degenerate zero-radius case on a cell boundary.
+    for ( int sample = 0; sample < 64; ++sample )
+    {
+        grid.Clear();
+        const Vector3 center( random.Float( -50.0f, 50.0f ),
+                              random.Float( -50.0f, 50.0f ),
+                              random.Float( -50.0f, 50.0f ) );
+        const float radius = sample % 8 == 0 ? 0.0f : random.Float( 0.0f, 4.0f );
+
+        grid.Insert( 0, center, radius );
+        grid.Insert( 1, center, radius );
+        const auto pairs = CandidatePairs( grid );
+
+        REQUIRE( pairs.size() == 1u );
+        CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+    }
 }

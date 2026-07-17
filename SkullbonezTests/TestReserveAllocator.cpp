@@ -1,7 +1,8 @@
 //
 // File: SkullbonezTests/TestReserveAllocator.cpp
 // Purpose:
-//   Lock focused RuntimeReserveAllocator policy contracts.
+//   Lock allocation-tracker phase accounting and RuntimeReserveAllocator
+//   policy contracts.
 //
 // Summary:
 //   The allocator is a fixed-storage policy ledger. Owners register their
@@ -16,12 +17,15 @@
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
 //   Lifecycle phase: Always-on process label used by allocation and upload
 //     policies even when allocation counting is disabled.
+//   Allocation guard: Process-wide measurement mode that attributes global
+//     heap requests to lifecycle phases and flags steady-gameplay violations.
 //
 // Invariants:
 //   - Gameplay-phase owners never receive replay growth approval.
 //   - Denied growth increments policy violations and still records an event.
 //   - ResetCounters() clears counters/events without unregistering owners.
 //   - RuntimeAllocationScope publishes/restores phase independently of guard mode.
+//   - Tracker cases restore the process-wide guard to Off before returning.
 //
 // Related:
 //   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
@@ -34,6 +38,10 @@
 #include "../SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h"
 
+#include <array>
+#include <cstddef>
+#include <cstdio>
+#include <new>
 #include <string>
 
 using SkullbonezCore::Runtime::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
@@ -49,8 +57,16 @@ using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Runtime::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
 using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationPhase;
+using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationGuardMode;
+using SkullbonezCore::Runtime::Allocation::PrintRuntimeAllocationSummary;
+using SkullbonezCore::Runtime::Allocation::ResetRuntimeAllocationCounters;
 using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardEnabled;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardHasGameplayViolations;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardModeName;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardViolationCount;
 using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhaseName;
 using SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope;
 using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationGuardMode;
 using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationPhase;
@@ -115,7 +131,132 @@ void CheckEventText( const char* actual, const char* expected )
     REQUIRE( actual != nullptr );
     CHECK( std::string( actual ) == expected );
 }
+
+std::string ReadFileText( FILE* file )
+{
+    std::string text;
+    std::rewind( file );
+    char buffer[1024] = {};
+    while ( const size_t bytesRead = std::fread( buffer, 1u, sizeof( buffer ), file ) )
+    {
+        text.append( buffer, bytesRead );
+    }
+    return text;
+}
 } // namespace
+
+TEST_CASE( "RuntimeAllocationTracker: public mode and phase names cover every lifecycle label" )
+{
+    CHECK( std::string( RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode::Off ) ) == "off" );
+    CHECK( std::string( RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode::Measure ) ) == "measure" );
+    CHECK( std::string( RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode::Gameplay ) ) == "gameplay" );
+    CHECK( std::string( RuntimeAllocationGuardModeName( static_cast<RuntimeAllocationGuardMode>( 99 ) ) ) == "unknown" );
+
+    const std::array<const char*, static_cast<size_t>( RuntimeAllocationPhase::Count )> expected = {
+        "startup", "scene_load", "backend_init", "steady_gameplay", "physics",
+        "render", "replay", "capture", "diagnostics", "shutdown"
+    };
+    for ( size_t index = 0; index < expected.size(); ++index )
+    {
+        CHECK( std::string( RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( index ) ) ) ==
+               expected[index] );
+    }
+    CHECK( std::string( RuntimeAllocationPhaseName( RuntimeAllocationPhase::Count ) ) == "unknown" );
+}
+
+TEST_CASE( "RuntimeAllocationTracker: measured allocations are attributed and freed in their source phase" )
+{
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
+    REQUIRE( GetRuntimeAllocationGuardMode() == RuntimeAllocationGuardMode::Measure );
+    REQUIRE( RuntimeAllocationGuardEnabled() );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
+
+    int* scalar = new int( 17 );
+    int* array = new int[4]{};
+    REQUIRE( scalar != nullptr );
+    REQUIRE( array != nullptr );
+    delete scalar;
+    delete[] array;
+
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    FILE* output = nullptr;
+    REQUIRE( tmpfile_s( &output ) == 0 );
+    REQUIRE( output != nullptr );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Diagnostics );
+    int* reported = new int( 23 );
+    delete reported;
+    PrintRuntimeAllocationSummary( output );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    const std::string summary = ReadFileText( output );
+    std::fclose( output );
+    CHECK( summary.find( "mode=measure" ) != std::string::npos );
+    CHECK( summary.find( "phase=diagnostics" ) != std::string::npos );
+    CHECK( summary.find( "allocations=1" ) != std::string::npos );
+    CHECK( summary.find( "frees=1" ) != std::string::npos );
+    CHECK( summary.find( "PASS: no steady gameplay allocations" ) != std::string::npos );
+}
+
+TEST_CASE( "RuntimeAllocationTracker: gameplay guard reports a physics allocation violation" )
+{
+    FILE* output = nullptr;
+    REQUIRE( tmpfile_s( &output ) == 0 );
+    REQUIRE( output != nullptr );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Physics );
+
+    int* value = new int( 31 );
+    delete value;
+    const uint64_t violations = RuntimeAllocationGuardViolationCount();
+    const bool hasViolations = RuntimeAllocationGuardHasGameplayViolations();
+    PrintRuntimeAllocationSummary( output );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    const std::string summary = ReadFileText( output );
+    std::fclose( output );
+    CHECK( violations >= 1u );
+    CHECK( hasViolations );
+    CHECK( summary.find( "mode=gameplay" ) != std::string::npos );
+    CHECK( summary.find( "phase=physics" ) != std::string::npos );
+    CHECK( summary.find( "VIOLATION:" ) != std::string::npos );
+}
+
+TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve alignment and null-delete behavior" )
+{
+    struct alignas( 64 ) AlignedValue
+    {
+        unsigned char bytes[64];
+    };
+
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Measure );
+    void* scalarNothrow = ::operator new( 7u, std::nothrow );
+    void* arrayNothrow = ::operator new[]( 9u, std::nothrow );
+    void* aligned = ::operator new( sizeof( AlignedValue ), std::align_val_t( alignof( AlignedValue ) ) );
+    void* alignedArray = ::operator new[]( sizeof( AlignedValue ) * 2u,
+                                           std::align_val_t( alignof( AlignedValue ) ),
+                                           std::nothrow );
+    REQUIRE( scalarNothrow != nullptr );
+    REQUIRE( arrayNothrow != nullptr );
+    REQUIRE( aligned != nullptr );
+    REQUIRE( alignedArray != nullptr );
+    CHECK( reinterpret_cast<uintptr_t>( aligned ) % alignof( AlignedValue ) == 0u );
+    CHECK( reinterpret_cast<uintptr_t>( alignedArray ) % alignof( AlignedValue ) == 0u );
+
+    ::operator delete( scalarNothrow, std::nothrow );
+    ::operator delete[]( arrayNothrow, std::nothrow );
+    ::operator delete( aligned, std::align_val_t( alignof( AlignedValue ) ) );
+    ::operator delete[]( alignedArray,
+                         std::align_val_t( alignof( AlignedValue ) ),
+                         std::nothrow );
+    ::operator delete( nullptr );
+    ResetRuntimeAllocationCounters();
+    CHECK( RuntimeAllocationGuardViolationCount() == 0u );
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    PrintRuntimeAllocationSummary( nullptr );
+    CHECK_FALSE( RuntimeAllocationGuardEnabled() );
+}
 
 
 TEST_CASE( "RuntimeReserveAllocator: replay growth under cap grants and records bytes" )

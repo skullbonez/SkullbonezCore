@@ -904,22 +904,6 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
                        enabled ? "enabled" : "disabled" );
               return true;
           } },
-        { "--physics-simd-kernels",
-          nullptr,
-          []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool
-          {
-              static_cast<void>( args );
-              bool enabled = false;
-              if ( !ParseOptionalOnOffValue( value, enabled ) )
-              {
-                  return FailCommandLineParse( "--physics-simd-kernels expects optional on|off." );
-              }
-              config.physicsExecution.simdKernels = enabled;
-              fprintf( stdout,
-                       "[physics] Pinned AVX2/FMA kernels %s via command line.\n",
-                       enabled ? "enabled" : "disabled" );
-              return true;
-          } },
         { "--shadow-parallel-prep",
           "--parallel-shadow-prep",
           []( const char* value, ParsedArgs& args, SkullbonezCore::Core::EngineConfig& config ) -> bool

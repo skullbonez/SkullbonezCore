@@ -1,0 +1,552 @@
+//
+// File: SkullbonezTests/TestStartup.cpp
+// Purpose:
+//   Locks startup token parsing, frozen diagnostics, and launch-policy resolution.
+//
+// Summary:
+//   Exercises the production command-line and launch-resolution units without
+//   constructing a window, renderer, worker pool, or Run owner. Table-driven
+//   failure cases assert the exact Lane-R messages consumed by automation.
+//
+// Glossary:
+//   Assigned option: A value supplied as --name=value rather than a later token.
+//   Launch packet: ParsedArgs values projected into RunStartupOverrides.
+//   Lane R: Recoverable external-input failure returned to process startup.
+//
+// Invariants:
+//   - Aliases, defaults, validation order, and error strings are compatibility surface.
+//   - Suite tests use caller-owned temporary files and never launch the engine.
+//   - Every pointer in RunStartupOverrides is checked while ParsedArgs still lives.
+//
+// Related:
+//   - SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp
+//   - SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp
+//   - Agentic/Plans/TODO/unit-test-coverage-campaign.md
+//
+
+#include "../ThirdPtySource/doctest/doctest.h"
+
+#include "../SkullbonezSource/Core/Config.h"
+#include "../SkullbonezSource/Core/WorkerPool.h"
+#include "../SkullbonezSource/Runtime/RunLaunchOptions.h"
+#include "../SkullbonezSource/Runtime/Startup/StartupCommandLine.h"
+#include "../SkullbonezSource/Runtime/Startup/StartupLaunchResolution.h"
+
+#include <cstring>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <limits>
+#include <string>
+#include <vector>
+
+using SkullbonezCore::Core::EngineConfig;
+using SkullbonezCore::Runtime::GeneratedObjectTypeOverride;
+using SkullbonezCore::Runtime::RunStartupOverrides;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
+using namespace SkullbonezCore::Runtime::Startup;
+
+namespace
+{
+CommandLineView View( const char* text )
+{
+    return TokenizeCommandLine( text );
+}
+
+void CheckRunDirectiveFailure( const char* text, const char* expected )
+{
+    ParsedArgs args;
+    CHECK_FALSE( ApplyRunCliValueDirectives( View( text ), args ) );
+    CHECK( std::strcmp( GetCommandLineError(), expected ) == 0 );
+}
+
+void CheckPhysicsDebugFailure( const char* text, const char* expected )
+{
+    ParsedArgs args;
+    CHECK_FALSE( ParsePhysicsDebugOverrides( View( text ), args ) );
+    CHECK( std::strcmp( GetCommandLineError(), expected ) == 0 );
+}
+
+void CheckFullParseFailure( const char* text, const char* expected )
+{
+    EngineConfig config;
+    ParsedArgs args;
+    CHECK_FALSE( ParseCommandLine( View( text ), config, args ) );
+    CHECK( std::strcmp( GetCommandLineError(), expected ) == 0 );
+}
+
+std::string StartupArtifactPath( const char* leaf )
+{
+    std::error_code error;
+    const std::filesystem::path directory = "TestOutput/startup_unit";
+    std::filesystem::create_directories( directory, error );
+    REQUIRE_FALSE( error );
+    return ( directory / leaf ).generic_string();
+}
+
+std::string WriteSuite( const char* leaf, const char* json )
+{
+    const std::string path = StartupArtifactPath( leaf );
+    std::ofstream output( path, std::ios::binary | std::ios::trunc );
+    REQUIRE( output.is_open() );
+    output << json;
+    REQUIRE( output.good() );
+    return path;
+}
+} // namespace
+
+TEST_CASE( "Startup command line: tokenizer and option lookup preserve compatibility edges" )
+{
+    CHECK( TokenizeCommandLine( nullptr ).tokens.empty() );
+    CHECK( View( " \t " ).tokens.empty() );
+
+    const CommandLineView commandLine =
+        View( "\t--scene \"path with spaces.scene.json\" --frames=12 loose \"unterminated tail" );
+    REQUIRE( commandLine.tokens.size() == 5u );
+    CHECK( commandLine.tokens[0] == "--scene" );
+    CHECK( commandLine.tokens[1] == "path with spaces.scene.json" );
+    CHECK( commandLine.tokens[2] == "--frames=12" );
+    CHECK( commandLine.tokens[3] == "loose" );
+    CHECK( commandLine.tokens[4] == "unterminated tail" );
+    CHECK( std::strcmp( FindOptionValue( commandLine, "--scene" ), "path with spaces.scene.json" ) == 0 );
+    CHECK( std::strcmp( FindOptionValue( commandLine, "--frames" ), "12" ) == 0 );
+    CHECK( FindOptionValue( commandLine, "--missing" ) == nullptr );
+    CHECK( HasOption( commandLine, "--frames" ) );
+    CHECK_FALSE( HasOption( commandLine, "--frame" ) );
+
+    const CommandLineView aliases = View( "--value --next --under=alias --value second" );
+    CHECK( IsOptionValueMissing( FindOptionValue( aliases, "--value" ) ) );
+    CHECK( std::strcmp( FindOptionValue( aliases, "--dash", "--under" ), "alias" ) == 0 );
+    CHECK_FALSE( IsOptionValueMissing( "x" ) );
+    CHECK( IsOptionValueMissing( nullptr ) );
+}
+
+TEST_CASE( "Startup command line: primitive value parsers reject partial writes and overflow" )
+{
+    float floating = 9.0f;
+    CHECK( ParseFloatToken( "-1.25", floating ) );
+    CHECK( floating == doctest::Approx( -1.25f ) );
+    CHECK_FALSE( ParseFloatToken( "1.0tail", floating ) );
+    CHECK_FALSE( ParseFloatToken( "1e9999", floating ) );
+    CHECK_FALSE( ParseFloatToken( "", floating ) );
+
+    int integer = 0;
+    CHECK( ParseIntCommandLineToken( "-2147483648", integer ) );
+    CHECK( integer == ( std::numeric_limits<int>::min )() );
+    CHECK( ParseIntCommandLineToken( "2147483647", integer ) );
+    CHECK_FALSE( ParseIntCommandLineToken( "2147483648", integer ) );
+    CHECK_FALSE( ParseIntCommandLineToken( "3.5", integer ) );
+
+    unsigned int unsignedValue = 0;
+    CHECK( ParseUnsignedCommandLineToken( "4294967295", unsignedValue ) );
+    CHECK( unsignedValue == ( std::numeric_limits<unsigned int>::max )() );
+    CHECK_FALSE( ParseUnsignedCommandLineToken( "4294967296", unsignedValue ) );
+    // Hazard: MSVC strtoul accepts a leading minus and wraps -1 to UINT_MAX.
+    // Startup compatibility currently exposes that value; changing the parser
+    // is product behavior and belongs to a separately ruled seam task.
+    CHECK( ParseUnsignedCommandLineToken( "-1", unsignedValue ) );
+    CHECK( unsignedValue == ( std::numeric_limits<unsigned int>::max )() );
+
+    bool enabled = false;
+    CHECK( ParseOptionalOnOffValue( nullptr, enabled ) );
+    CHECK( enabled );
+    CHECK( ParseOptionalOnOffValue( "OFF", enabled ) );
+    CHECK_FALSE( enabled );
+    CHECK( ParseOptionalOnOffValue( "yes", enabled ) );
+    CHECK( enabled );
+    CHECK( ParseOptionalOnOffValue( "-2", enabled ) );
+    CHECK( enabled );
+    CHECK_FALSE( ParseOptionalOnOffValue( "sometimes", enabled ) );
+
+    RuntimeAllocationGuardMode guard = RuntimeAllocationGuardMode::Off;
+    CHECK( ParseAllocationGuardCommandLineToken( "", guard ) );
+    CHECK( guard == RuntimeAllocationGuardMode::Measure );
+    CHECK( ParseAllocationGuardCommandLineToken( "none", guard ) );
+    CHECK( guard == RuntimeAllocationGuardMode::Off );
+    CHECK( ParseAllocationGuardCommandLineToken( "warnings", guard ) );
+    CHECK( guard == RuntimeAllocationGuardMode::Gameplay );
+    CHECK_FALSE( ParseAllocationGuardCommandLineToken( "fatal", guard ) );
+
+    char path[4] = {};
+    CHECK( CopyCommandLinePath( "abc", "--output", path, sizeof( path ) ) );
+    CHECK( std::strcmp( path, "abc" ) == 0 );
+    CHECK_FALSE( CopyCommandLinePath( "abcd", "--output", path, sizeof( path ) ) );
+    CHECK( std::strcmp( GetCommandLineError(), "--output path is too long." ) == 0 );
+    CHECK_FALSE( CopyCommandLinePath( "", "--output", path, sizeof( path ) ) );
+    CHECK( std::strcmp( GetCommandLineError(), "--output requires an output path." ) == 0 );
+}
+
+TEST_CASE( "Startup launch values: every run directive family projects into owned state" )
+{
+    const CommandLineView commandLine = View(
+        "--seed 17 --frames=9 --allocation_guard gameplay "
+        "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
+        "--memory_dump TestOutput/memory.json --interaction_script script.json "
+        "--interaction_report report.json --replay off --replay_seconds 12 "
+        "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
+        "--replay_save_probe save.skreplay --replay_load load.skreplay "
+        "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
+        "--replay_restore_target_file_probe target.skreplay "
+        "--replay_restore_branch_file_probe branch.skreplay "
+        "--replay_restore_failure_file_probe failure.skreplay --replay_hashes hashes.csv "
+        "--ui_stress on --ui_stress_seed 21 --ui_stress_actions 7 "
+        "--graphics_stress on --graphics_stress_seed 22 --graphics_stress_actions 8 "
+        "--graphics_stress_scene_interval 30 --graphics_stress_memory_interval 0" );
+    ParsedArgs args;
+    REQUIRE( ApplyRunCliValueDirectives( commandLine, args ) );
+
+    CHECK( args.seedOverride == 17u );
+    CHECK( args.frameCountOverride == 9 );
+    CHECK( args.allocationGuardMode == RuntimeAllocationGuardMode::Gameplay );
+    CHECK( std::strcmp( args.liveStyleControlDir, "TestOutput/style" ) == 0 );
+    CHECK( std::strcmp( args.sceneSnapshotOutPath, "TestOutput/scene.json" ) == 0 );
+    CHECK( std::strcmp( args.memoryDumpPath, "TestOutput/memory.json" ) == 0 );
+    CHECK( std::strcmp( args.interactionScriptPath, "script.json" ) == 0 );
+    CHECK( std::strcmp( args.interactionReportPath, "report.json" ) == 0 );
+    CHECK( args.replayRecording );
+    CHECK( args.replayExplicit );
+    CHECK( args.replaySeconds == 12 );
+    CHECK( args.replayScrubProbe );
+    CHECK( args.replayScrubProbeNormalized == doctest::Approx( 0.5f ) );
+    CHECK( args.replayRestoreProbe );
+    CHECK( args.replayRestoreProbeNormalized == doctest::Approx( 0.75f ) );
+    CHECK( std::strcmp( args.replaySaveProbePath, "save.skreplay" ) == 0 );
+    CHECK( args.replayLoad );
+    CHECK( args.replayLoadProbe );
+    CHECK( std::strcmp( args.replayLoadPath, "probe.skreplay" ) == 0 );
+    CHECK( args.replayRestoreFileProbe );
+    CHECK( args.replayRestoreTargetFileProbe );
+    CHECK( args.replayRestoreBranchFileProbe );
+    CHECK( args.replayRestoreFailureFileProbe );
+    CHECK( std::strcmp( args.replayHashLogPath, "hashes.csv" ) == 0 );
+    CHECK( args.uiStress );
+    CHECK( args.uiStressSeed == 21u );
+    CHECK( args.uiStressActions == 7 );
+    CHECK( args.graphicsStress );
+    CHECK( args.graphicsStressSeed == 22u );
+    CHECK( args.graphicsStressActions == 8 );
+    CHECK( args.graphicsStressSceneIntervalFrames == 30 );
+    CHECK( args.graphicsStressMemoryIntervalFrames == 0 );
+    CHECK( args.interactiveRun );
+    CHECK( args.fixedStep );
+    CHECK( args.suppressExitDialog );
+}
+
+TEST_CASE( "Startup launch values: malformed directives keep exact recoverable messages" )
+{
+    struct FailureCase
+    {
+        const char* commandLine;
+        const char* message;
+    };
+    const FailureCase cases[] = {
+        { "--seed 0", "--seed expects a positive 32-bit integer." },
+        { "--frames -1", "--frames expects a positive integer." },
+        { "--allocation-guard fatal", "--allocation-guard expects off|measure|gameplay." },
+        { "--live-style-control", "--live-style-control expects a directory path." },
+        { "--scene-snapshot-out", "--scene-snapshot-out expects a file path." },
+        { "--memory-dump", "--memory-dump requires an output path." },
+        { "--interaction-script", "--interaction-script requires an output path." },
+        { "--interaction-report", "--interaction-report requires an output path." },
+        { "--replay maybe", "--replay expects optional on|off." },
+        { "--replay-seconds 0", "--replay-seconds expects 1..600." },
+        { "--replay-scrub-probe 0.995", "--replay-scrub-probe expects a normalized position in the range 0..0.995." },
+        { "--replay-restore-probe -0.1", "--replay-restore-probe expects a normalized position in the range 0..0.995." },
+        { "--replay-save-probe", "--replay-save-probe expects a file path." },
+        { "--replay-load", "--replay-load expects a file path." },
+        { "--replay-load-probe", "--replay-load expects a file path." },
+        { "--replay-restore-file-probe", "--replay-restore-file-probe expects a file path." },
+        { "--replay-restore-target-file-probe", "--replay-restore-target-file-probe expects a file path." },
+        { "--replay-restore-branch-file-probe", "--replay-restore-branch-file-probe expects a file path." },
+        { "--replay-restore-failure-file-probe", "--replay-restore-failure-file-probe expects a file path." },
+        { "--replay-hashes", "--replay-hashes expects a file path." },
+        { "--ui-stress maybe", "--ui-stress expects optional on|off." },
+        { "--ui-stress-seed 0", "--ui-stress-seed expects a positive 32-bit integer." },
+        { "--ui-stress-actions 33", "--ui-stress-actions expects 1..32." },
+        { "--graphics-stress maybe", "--graphics-stress expects optional on|off." },
+        { "--graphics-stress-seed 0", "--graphics-stress-seed expects a positive 32-bit integer." },
+        { "--graphics-stress-actions 65", "--graphics-stress-actions expects 1..64." },
+        { "--graphics-stress-scene-interval 601", "--graphics-stress-scene-interval expects 1..600 frames." },
+        { "--graphics-stress-memory-interval -1", "--graphics-stress-memory-interval expects 0..36000 frames." },
+    };
+    for ( const FailureCase& failure : cases )
+    {
+        CAPTURE( failure.commandLine );
+        CheckRunDirectiveFailure( failure.commandLine, failure.message );
+    }
+}
+
+TEST_CASE( "Startup physics debug: component, float, and optional switches compose deterministically" )
+{
+    ParsedArgs args;
+    REQUIRE( ParsePhysicsDebugOverrides(
+        View( "--physics_debug all --physics-debug-axes off --physics_debug_contacts on "
+              "--physics-debug-sleep=off --physics-debug-pipeline --physics-debug-terrain-contact=0 "
+              "--physics-debug-transparent --physics-debug-alpha 0.5 --physics_debug_contact_linger 1.25" ),
+        args ) );
+    CHECK( args.hasPhysicsDebugFlagsOverride );
+    CHECK( ( args.physicsDebugFlagsOverride & SkullbonezCore::Physics::PHYSICS_DEBUG_AXES ) == 0u );
+    CHECK( ( args.physicsDebugFlagsOverride & SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS ) != 0u );
+    CHECK( ( args.physicsDebugFlagsOverride & SkullbonezCore::Physics::PHYSICS_DEBUG_SLEEP ) == 0u );
+    CHECK( ( args.physicsDebugFlagsOverride & SkullbonezCore::Physics::PHYSICS_DEBUG_PIPELINE ) != 0u );
+    CHECK( ( args.physicsDebugFlagsOverride & SkullbonezCore::Physics::PHYSICS_DEBUG_TERRAIN_CONTACT ) == 0u );
+    CHECK( args.hasPhysicsDebugTransparentOverride );
+    CHECK( args.physicsDebugTransparentOverride );
+    CHECK( args.hasPhysicsDebugAlphaOverride );
+    CHECK( args.physicsDebugAlphaOverride == doctest::Approx( 0.5f ) );
+    CHECK( args.hasPhysicsDebugContactLingerOverride );
+    CHECK( args.physicsDebugContactLingerOverride == doctest::Approx( 1.25f ) );
+
+    CheckPhysicsDebugFailure(
+        "--physics-debug unknown",
+        "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
+    CheckPhysicsDebugFailure( "--physics-debug-axes maybe", "--physics-debug-axes expects optional on|off." );
+    CheckPhysicsDebugFailure(
+        "--physics-debug-transparent maybe", "--physics-debug-transparent expects optional on|off." );
+    CheckPhysicsDebugFailure( "--physics-debug-alpha 0.01", "--physics-debug-alpha expects 0.05..1.0." );
+    CheckPhysicsDebugFailure(
+        "--physics-debug-contact-linger 5.1",
+        "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
+}
+
+TEST_CASE( "Startup launch resolution: generated, hero, named, and explicit scene paths are distinct" )
+{
+    std::vector<std::string> scenes;
+    bool suiteOrScene = false;
+    REQUIRE( ParseSceneArgs( View( "" ), scenes, suiteOrScene ) );
+    REQUIRE( scenes.size() == 1u );
+    CHECK( scenes[0].empty() );
+    CHECK_FALSE( suiteOrScene );
+
+    scenes.clear();
+    REQUIRE( ParseSceneArgs( View( "--hero" ), scenes, suiteOrScene ) );
+    REQUIRE( scenes.size() == 1u );
+    CHECK( scenes[0] == "SkullbonezData/scenes/concept_12_low_poly_art_style.scene.json" );
+    CHECK( suiteOrScene );
+
+    scenes.clear();
+    suiteOrScene = false;
+    REQUIRE( ParseSceneArgs( View( "--scene prediction_ragdoll_wall_200" ), scenes, suiteOrScene ) );
+    CHECK( scenes[0] == "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json" );
+
+    scenes.clear();
+    const std::string explicitPath = StartupArtifactPath( "scene with spaces.scene.json" );
+    REQUIRE( ParseSceneArgs( View( ( "--scene \"" + explicitPath + "\"" ).c_str() ), scenes, suiteOrScene ) );
+    CHECK( scenes[0] == explicitPath );
+
+    scenes.clear();
+    REQUIRE( ParseSceneArgs( View( "--scene low-poly-hero" ), scenes, suiteOrScene ) );
+    CHECK( scenes[0] == "SkullbonezData/scenes/concept_12_low_poly_art_style.scene.json" );
+}
+
+TEST_CASE( "Startup launch resolution: suite schema and mutual-exclusion failures are frozen" )
+{
+    const std::string valid = WriteSuite(
+        "valid.suite.json",
+        R"({"format":"skullbonez.suite.json","scenes":["hero","missing.scene.json"]})" );
+    std::vector<std::string> scenes;
+    bool suiteOrScene = false;
+    REQUIRE( ParseSceneArgs( View( ( "--suite " + valid ).c_str() ), scenes, suiteOrScene ) );
+    REQUIRE( scenes.size() == 2u );
+    CHECK( scenes[0] == "SkullbonezData/scenes/concept_12_low_poly_art_style.scene.json" );
+    CHECK( scenes[1] == "missing.scene.json" );
+    CHECK( suiteOrScene );
+
+    struct SuiteFailure
+    {
+        const char* leaf;
+        const char* json;
+        const char* suffix;
+    };
+    const SuiteFailure failures[] = {
+        { "invalid-json.suite.json", "{", "invalid JSON in" },
+        { "array-root.suite.json", "[]", "root must be an object." },
+        { "missing-format.suite.json", R"({"scenes":[]})", "must declare format skullbonez.suite.json." },
+        { "missing-scenes.suite.json", R"({"format":"skullbonez.suite.json"})", "must contain a scenes array." },
+        { "bad-entry.suite.json", R"({"format":"skullbonez.suite.json","scenes":[1]})", "scenes entries must be strings." },
+    };
+    for ( const SuiteFailure& failure : failures )
+    {
+        const std::string path = WriteSuite( failure.leaf, failure.json );
+        scenes.clear();
+        CHECK_FALSE( ParseSceneArgs( View( ( "--suite " + path ).c_str() ), scenes, suiteOrScene ) );
+        CHECK( std::strstr( GetCommandLineError(), failure.suffix ) != nullptr );
+    }
+
+    scenes.clear();
+    CHECK_FALSE( ParseSceneArgs( View( "--scene" ), scenes, suiteOrScene ) );
+    CHECK( std::strcmp( GetCommandLineError(), "--scene requires a path." ) == 0 );
+    scenes.clear();
+    CHECK_FALSE( ParseSceneArgs( View( "--suite does-not-exist" ), scenes, suiteOrScene ) );
+    CHECK( std::strcmp( GetCommandLineError(), "--suite could not open 'does-not-exist'." ) == 0 );
+    scenes.clear();
+    CHECK_FALSE( ParseSceneArgs( View( "--hero --scene hero" ), scenes, suiteOrScene ) );
+    CHECK( std::strcmp( GetCommandLineError(),
+                        "--demohero, --hero, --suite, and --scene are mutually exclusive." ) == 0 );
+    scenes.clear();
+    CHECK_FALSE( ParseSceneArgs( View( "--demo-hero --hero" ), scenes, suiteOrScene ) );
+    CHECK( std::strcmp( GetCommandLineError(),
+                        "--demohero, --hero, --suite, and --scene are mutually exclusive." ) == 0 );
+}
+
+TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow parsed ownership" )
+{
+    ParsedArgs args;
+    args.timeScaleOverride = 2.0f;
+    args.fixedStep = true;
+    args.seedOverride = 99u;
+    args.noWater = true;
+    args.noSleep = true;
+    args.noContactAudio = true;
+    args.hasTornadoOverride = true;
+    args.tornadoEnabled = true;
+    args.tornadoVectors = true;
+    args.hasCinematicRenderingOverride = true;
+    args.cinematicRendering = true;
+    args.hasCinematicShadowsOverride = true;
+    args.cinematicShadows = true;
+    args.demoHeroStyle = true;
+    args.dumpAssets = true;
+    args.interactiveRun = true;
+    args.frameCountOverride = 10;
+    args.uiStress = true;
+    args.graphicsStress = true;
+    args.allocationGuardMode = RuntimeAllocationGuardMode::Measure;
+    args.objectTypeOverride = GeneratedObjectTypeOverride::AllBoxes;
+    args.hasPhysicsDebugFlagsOverride = true;
+    args.physicsDebugFlagsOverride = SkullbonezCore::Physics::PHYSICS_DEBUG_ALL;
+    args.hasPhysicsDebugTransparentOverride = true;
+    args.physicsDebugTransparentOverride = true;
+    args.hasPhysicsDebugAlphaOverride = true;
+    args.physicsDebugAlphaOverride = 0.5f;
+    args.hasPhysicsDebugContactLingerOverride = true;
+    args.physicsDebugContactLingerOverride = 1.0f;
+    args.replaySeconds = 14;
+    args.replayExplicit = true;
+    args.replayRecording = true;
+    args.showProfiler = true;
+    args.hideTopText = true;
+    args.showBroadphaseVisualizer = true;
+    strcpy_s( args.liveStyleControlDir, "style" );
+    strcpy_s( args.memoryDumpPath, "memory.json" );
+    strcpy_s( args.interactionScriptPath, "script.json" );
+    strcpy_s( args.interactionReportPath, "report.json" );
+    strcpy_s( args.replayHashLogPath, "hashes.csv" );
+    args.replayLoad = true;
+    strcpy_s( args.replayLoadPath, "load.skreplay" );
+
+    const RunStartupOverrides overrides = BuildRunStartupOverrides( args );
+    CHECK( overrides.launch.timeScaleOverride == doctest::Approx( 2.0f ) );
+    CHECK( overrides.launch.fixedStep );
+    CHECK( overrides.launch.seedOverride == 99u );
+    CHECK( overrides.launch.noWater );
+    CHECK( overrides.launch.noSleep );
+    CHECK( overrides.launch.noContactAudio );
+    CHECK( overrides.launch.tornadoEnabled );
+    CHECK( overrides.launch.tornadoVectors );
+    CHECK( overrides.launch.cinematicRendering );
+    CHECK( overrides.launch.cinematicShadows );
+    CHECK( overrides.launch.demoHeroStyle );
+    CHECK( overrides.launch.dumpTextureAssets );
+    CHECK( overrides.launch.interactiveSceneRun );
+    CHECK( overrides.launch.frameCountOverride == 10 );
+    CHECK( overrides.launch.uiStress );
+    CHECK( overrides.launch.graphicsStress );
+    CHECK( overrides.launch.generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes );
+    CHECK( overrides.launch.hasPhysicsDebugFlagsOverride );
+    CHECK( overrides.launch.physicsDebugTransparentOverride );
+    CHECK( overrides.launch.physicsDebugAlphaOverride == doctest::Approx( 0.5f ) );
+    CHECK( overrides.launch.physicsDebugContactLingerOverride == doctest::Approx( 1.0f ) );
+    CHECK( std::strcmp( overrides.liveStyleControlDirectory, "style" ) == 0 );
+    CHECK( std::strcmp( overrides.mainMemoryDumpPath, "memory.json" ) == 0 );
+    CHECK( std::strcmp( overrides.interactionScriptPath, "script.json" ) == 0 );
+    CHECK( std::strcmp( overrides.interactionReportPath, "report.json" ) == 0 );
+    CHECK( overrides.configureReplayRecording );
+    CHECK( overrides.replayRetentionSeconds == 14 );
+    CHECK( std::strcmp( overrides.replayHashLogPath, "hashes.csv" ) == 0 );
+    CHECK( std::strcmp( overrides.replayLoadPath, "load.skreplay" ) == 0 );
+    CHECK( overrides.hasInitialOverlayMode );
+    CHECK( overrides.hideTopText );
+    CHECK( overrides.showBroadphaseVisualizer );
+
+    ParsedArgs suiteDefaults;
+    suiteDefaults.isSuiteOrSceneMode = true;
+    CHECK_FALSE( BuildRunStartupOverrides( suiteDefaults ).configureReplayRecording );
+    suiteDefaults.interactiveRun = true;
+    CHECK( BuildRunStartupOverrides( suiteDefaults ).configureReplayRecording );
+}
+
+TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compose once" )
+{
+    std::string text =
+        "--renderer d3d12 --vsync off --time-scale 2 --tornado=off --tornado-vector-field on "
+        "--cinematic-rendering off --shadow-maps off --workers 0 --model-capacity 32 "
+        "--physics-parallel off --parallel-shadow-prep on --hold=off "
+        "--seed 17 --frames 3 --all-boxes --physics-debug contacts --physics-debug-alpha .5 "
+        "--fixed-step --no-water --no-sleep --mute-contact-audio --audio-smoke --load-scenes-only "
+        "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
+        "--dump-config --dump-assets --workers-self-test";
+#ifdef _DEBUG
+    text += " --physics-diag TestOutput/startup_unit/physics.ndjson --replay-scrub-test --replay-restore-test";
+#endif
+    EngineConfig config;
+    ParsedArgs args;
+    REQUIRE( ParseCommandLine( View( text.c_str() ), config, args ) );
+    REQUIRE( args.sceneList.size() == 1u );
+    CHECK( args.sceneList[0].empty() );
+    CHECK( args.timeScaleOverride == doctest::Approx( 2.0f ) );
+    CHECK( args.fixedStep );
+    CHECK( args.noWater );
+    CHECK( args.noSleep );
+    CHECK( args.noContactAudio );
+    CHECK( args.contactAudioSmoke );
+    CHECK( args.sceneLoadOnly );
+    CHECK( args.demoHeroStyle );
+    CHECK( args.showProfiler );
+    CHECK( args.hideTopText );
+    CHECK( args.automationWindowHidden );
+    CHECK( args.showBroadphaseVisualizer );
+    CHECK( args.dumpConfig );
+    CHECK( args.dumpAssets );
+    CHECK( args.workerSelfTest );
+    CHECK( args.objectTypeOverride == GeneratedObjectTypeOverride::AllBoxes );
+    CHECK( args.hasPhysicsDebugFlagsOverride );
+    CHECK( args.physicsDebugAlphaOverride == doctest::Approx( 0.5f ) );
+    CHECK_FALSE( config.runtimeRender.vsyncEnabled );
+    CHECK( config.runtimeCapacity.workerThreads == 0 );
+    CHECK( config.runtimeCapacity.gameModelCapacity == 32 );
+    CHECK_FALSE( config.physicsExecution.parallel );
+    CHECK( config.runtimeRender.shadowParallelPrep );
+#ifdef _DEBUG
+    CHECK( args.physicsDiagnosticsRequested );
+    CHECK( args.replayScrubProbe );
+    CHECK( args.replayRestoreProbe );
+#endif
+}
+
+TEST_CASE( "Startup full parse: validation precedence publishes frozen messages" )
+{
+    CheckFullParseFailure( "--scene", "--scene requires a path." );
+    CheckFullParseFailure( "--renderer gl", "--renderer expects dx12. GL and DX11 are retired runtime choices." );
+    CheckFullParseFailure( "--vsync maybe", "--vsync expects on|off." );
+    CheckFullParseFailure(
+        "--switch-interval 1", "--switch-interval is retired because DX12 is the only runtime renderer." );
+    CheckFullParseFailure( "--time-scale 0", "--time-scale expects a positive float." );
+    CheckFullParseFailure( "--model-capacity 0", "--model-capacity expects 1..8192." );
+    CheckFullParseFailure( "--physics-parallel maybe", "--physics-parallel expects optional on|off." );
+    CheckFullParseFailure( "--shadow-parallel-prep maybe", "--shadow-parallel-prep expects optional on|off." );
+    CheckFullParseFailure( "--interactive maybe", "--interactive expects optional on|off." );
+    CheckFullParseFailure( "--all-balls --all-boxes", "--all-balls and --all-boxes are mutually exclusive." );
+
+    const int maxWorkers = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
+    char workersMessage[128] = {};
+    snprintf( workersMessage, sizeof( workersMessage ), "--workers expects -1, 0, or 1..%d.", maxWorkers );
+    CheckFullParseFailure( "--workers 999999", workersMessage );
+#ifndef _DEBUG
+    CheckFullParseFailure(
+        "--physics-diag trace.ndjson",
+        "--physics-diag is only supported in Debug builds. Recompile with the Debug configuration to use queryable physics diagnostics." );
+    CheckFullParseFailure(
+        "--replay-save-probe save.skreplay", "--replay-save-probe is only supported in Debug builds." );
+#endif
+}

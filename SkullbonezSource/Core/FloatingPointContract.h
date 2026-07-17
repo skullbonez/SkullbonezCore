@@ -20,7 +20,7 @@ Glossary:
 
 Invariants:
   - Every project force-includes this file in every configuration.
-  - Contraction stays disabled before any AVX2, FMA, or SIMD policy change.
+  - Contraction stays disabled before any vector-width or optimizer policy change.
 
 Related:
   - Agentic/Plans/MASTER-PLAN.md
@@ -29,8 +29,8 @@ Related:
 */
 #pragma once
 
-// Hazard: fp-envelope-hardening disables contraction before a future AVX2/FMA
-// lane can make `a * b + c` round differently from separate operations. MSVC
+// Hazard: fp-envelope-hardening disables contraction before vector-width or
+// optimizer policy can make `a * b + c` round differently. MSVC
 // 19.51 rejects `/fp:contract-`, so all projects force-include this equivalent
 // pragma instead.
 #pragma fp_contract( off )

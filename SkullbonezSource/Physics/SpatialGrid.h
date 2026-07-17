@@ -25,6 +25,8 @@ Invariants:
     are the validation contract.
   - Inserted bounds stay finite and within MAX_WORLD_COORDINATE before any
     float-to-cell conversion.
+  - One 8,192-row table owns every live cell; the next unique cell is a Lane F
+    failure because dropping it could hide a collision.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -82,8 +84,11 @@ class SpatialGrid
     // intentionally a limited escape hatch for bullets and other rare high-speed
     // movers, not a promise that every body can sweep across the whole world in
     // one tick. Large projectile clouds should use a dedicated ray/query path.
-    static constexpr int TABLE_SIZE = 4096;
+    // One power-of-two table keeps lookup, storage, iteration, and exhaustion
+    // on the same deterministic path at both ordinary and scale-scene sizes.
+    static constexpr int TABLE_SIZE = 8192;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
+    static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
@@ -150,16 +155,6 @@ class SpatialGrid
     void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
-    // Consumes SIMD-prepared bounds in body order. Static/short-displacement
-    // rows use the prepared AABB directly; swept rows retain the grid owner's
-    // bounded exact-AABB/traversal fallback policy.
-    void InsertPreparedBounds( int index,
-                               const Vector::Vector3& position,
-                               const Vector::Vector3& displacement,
-                               float radius,
-                               const Vector::Vector3& minBounds,
-                               const Vector::Vector3& maxBounds,
-                               bool swept );
     // Emits deduplicated cell-sharing pairs. A filter can reject a known-safe
     // false positive before it is appended, but narrowphase still owns contacts.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,

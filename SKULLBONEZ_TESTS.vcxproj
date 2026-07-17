@@ -190,7 +190,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
-    <!-- fp-envelope-hardening: force contraction off in every TU before future AVX2/FMA work. -->
+    <!-- fp-envelope-hardening: force contraction off in every TU before any vector-width or contraction-policy change. -->
     <ClCompile>
       <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
     </ClCompile>
@@ -198,8 +198,10 @@
   <ItemGroup>
     <ClCompile Include="SkullbonezTests\TestAssetSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestBounds.cpp" />
+    <ClCompile Include="SkullbonezTests\TestCamera.cpp" />
     <ClCompile Include="SkullbonezTests\TestApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezTests\TestConfig.cpp" />
+    <ClCompile Include="SkullbonezTests\TestCoverageFloorContracts.cpp" />
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp" />
     <ClCompile Include="SkullbonezTests\TestDeterminism.cpp" />
     <ClCompile Include="SkullbonezTests\TestDemoDirector.cpp" />
@@ -218,12 +220,15 @@
     <ClCompile Include="SkullbonezTests\TestSceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp" />
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp" />
+    <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp" />
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp" />
     <ClCompile Include="SkullbonezTests\TestReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeInputBindings.cpp" />
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp" />
+    <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayVisualPacket.cpp" />
+    <ClCompile Include="SkullbonezTests\TestReplayArtifact.cpp" />
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezTests\TestReplayRecorderFullCaptureBoundary.cpp" />
@@ -231,6 +236,7 @@
     <ClCompile Include="SkullbonezTests\TestSolverBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezTests\TestSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezTests\TestSmoke.cpp" />
+    <ClCompile Include="SkullbonezTests\TestStartup.cpp" />
     <ClCompile Include="SkullbonezTests\TestSimulationSystem.cpp" />
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
@@ -238,12 +244,15 @@
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
@@ -256,8 +265,14 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />
@@ -271,6 +286,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThirdPtySource\doctest\doctest.h" />
+    <ClInclude Include="SkullbonezTests\TestFixedSeed.h" />
     <ClInclude Include="SkullbonezTests\TestFatalCases.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
   </ItemGroup>

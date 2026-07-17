@@ -1,7 +1,8 @@
 //
 // File: SkullbonezTests/TestRuntimeContracts.cpp
 // Purpose:
-//   Exercises logger concurrency, worker-task lifetime, and Lane F probes.
+//   Exercises result values, logger concurrency, worker-task lifetime, and
+//   Lane F probes.
 //
 // Summary:
 //   Ordinary contracts run in doctest. Contracts that must abort launch this
@@ -10,10 +11,14 @@
 // Glossary:
 //   Fatal probe: Child invocation expected to end through SB_FATAL.
 //   In-flight task: AmortizedTask range currently owned by a worker callback.
+//   Lane F: Fatal-invariant error path that records diagnostics and terminates.
+//   Lane R: Recoverable result path that returns an owned error instead of
+//     terminating the engine.
 //
 // Invariants:
 //   - Fatal child cases return normally only when the case name is unknown.
 //   - Blocking task tests release the worker before local state is destroyed.
+//   - Every threaded worker test shuts its pool down before local task state expires.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -26,6 +31,7 @@
 #include "../SkullbonezSource/Core/AmortizedTask.h"
 #include "../SkullbonezSource/Core/FatalError.h"
 #include "../SkullbonezSource/Core/Log.h"
+#include "../SkullbonezSource/Core/SbResult.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "TestFatalCases.h"
@@ -44,9 +50,12 @@
 #include <vector>
 
 using SkullbonezCore::Core::EngineLog;
+using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Threading::AmortizedTask;
+using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
+using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
 
 namespace
@@ -227,6 +236,16 @@ bool RunRuntimeFatalCase( const char* caseName )
         static SpatialGrid grid( SpatialGrid::MIN_CELL_SIZE * 0.5f );
         return true;
     }
+    if ( std::strcmp( caseName, "spatial-grid-bucket-capacity" ) == 0 )
+    {
+        static SpatialGrid grid( 1.0f );
+        grid.Clear();
+        for ( int cell = 0; cell <= SpatialGrid::MAX_BUCKETS; ++cell )
+        {
+            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+        }
+        return true;
+    }
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )
     {
         WorkerPool pool;
@@ -347,6 +366,74 @@ TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
     workerPool.Shutdown();
 }
 
+TEST_CASE( "WorkerPool: inline and threaded self-tests preserve deterministic collection" )
+{
+    for ( const int threadCount : { 0, 2 } )
+    {
+        WorkerPool pool;
+        pool.Initialise( threadCount );
+        FILE* output = nullptr;
+        REQUIRE( tmpfile_s( &output ) == 0 );
+        REQUIRE( output != nullptr );
+
+        CHECK( RunWorkerSystemSelfTest( pool, output ) );
+        CHECK( pool.IsInitialised() == ( threadCount > 0 ) );
+        CHECK( pool.GetThreadCount() == WorkerPool::ResolveThreadCount( threadCount ) );
+        CHECK( pool.GetMinParallelItems() == 32 );
+        pool.Shutdown();
+        std::fclose( output );
+    }
+
+    CHECK( WorkerPool::MaxThreadCount() >= 1 );
+    CHECK( WorkerPool::ResolveThreadCount( -1 ) >= 0 );
+    CHECK_FALSE( WorkerPool::IsCurrentThreadWorker() );
+    CHECK( WorkerPool::CurrentWorkerIndex() == -1 );
+}
+
+TEST_CASE( "WorkerPool: chunk ranges cover a half-open interval once and in order" )
+{
+    WorkerPool pool;
+    pool.Initialise( 2 );
+    WorkerChunkRange chunks[8] = {};
+
+    const int chunkCount = pool.BuildChunkRangesNoAlloc( 3, 14, 1, chunks, 8 );
+    REQUIRE( chunkCount >= 1 );
+    CHECK( chunks[0].begin == 3 );
+    CHECK( chunks[chunkCount - 1].end == 14 );
+    for ( int index = 0; index < chunkCount; ++index )
+    {
+        CHECK( chunks[index].chunkIndex == index );
+        CHECK( chunks[index].begin < chunks[index].end );
+        if ( index > 0 )
+        {
+            CHECK( chunks[index - 1].end == chunks[index].begin );
+        }
+    }
+
+    CHECK( pool.BuildChunkRangesNoAlloc( 4, 4, 1, chunks, 8 ) == 0 );
+    CHECK( pool.BuildChunkRangesNoAlloc( 0, 4, 1, nullptr, 8 ) == 0 );
+    CHECK( pool.BuildChunkRangesNoAlloc( 0, 4, 1, chunks, 0 ) == 0 );
+    pool.Shutdown();
+}
+
+TEST_CASE( "SbResult: success and formatted failure values propagate owner and message" )
+{
+    const SbResult success = SbResult::Success();
+    CHECK( success.ok );
+    CHECK( std::strcmp( success.error.owner, "" ) == 0 );
+    CHECK( std::strcmp( success.error.message, "" ) == 0 );
+
+    const SbResult failure = SbResult::Failure( "SceneParser", "invalid body %d", 17 );
+    CHECK_FALSE( failure.ok );
+    CHECK( std::strcmp( failure.error.owner, "SceneParser" ) == 0 );
+    CHECK( std::strcmp( failure.error.message, "invalid body 17" ) == 0 );
+
+    const SbResult defaultFailure = SbResult::Failure( nullptr, nullptr );
+    CHECK_FALSE( defaultFailure.ok );
+    CHECK( std::strcmp( defaultFailure.error.owner, "" ) == 0 );
+    CHECK( std::strcmp( defaultFailure.error.message, "recoverable operation failed" ) == 0 );
+}
+
 TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate in child probes" )
 {
     ExpectFatalCase( "spatial-grid-nan",
@@ -360,6 +447,9 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=nan", "minimum=0.5" } );
     ExpectFatalCase( "spatial-grid-tiny-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
+    ExpectFatalCase( "spatial-grid-bucket-capacity",
+                     { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded", "capacity=8192", "active=8192",
+                       "phase=steady_gameplay" } );
     ExpectFatalCase( "amortized-task-in-flight-destroy",
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
     ExpectFatalCase( "worker-fatal-log",

@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "mode": "enforce",
+  "owner_ratification": {
+    "date": "2026-07-16",
+    "decision": "Ratify the campaign-default tier map and line floors without amendment.",
+    "governance_ruling": "Coverage floors are a quality gate, not a frozen-count debt ratchet; the AGENTS.md ban on ratchets for migration vocabulary does not apply."
+  },
+  "scope_rulings": [
+    {
+      "date": "2026-07-17",
+      "owner": "unit-test-coverage-campaign U10",
+      "scope": "SkullbonezSource/Physics/PhysicsApi.*",
+      "decision": "Keep the standalone facade in validate_all_cpu_tests rather than the main doctest coverage floor.",
+      "reason": "RunPhysicsStandaloneSmoke already owns the facade's lifecycle, query, contact, island, and activation matrix in the combined CPU gate; duplicating that large fixed-store probe in every doctest run would not improve the store floor."
+    },
+    {
+      "date": "2026-07-17",
+      "owner": "unit-test-coverage-campaign U10",
+      "scope": "SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.*",
+      "decision": "Keep the prediction archive in the replay visual-fidelity system gate rather than the CPU artifact-codec floor.",
+      "reason": "Its public values are constructed by ReplayPrediction and ReplayPresentation owners; U5's sole mega invocation exercised the production build/load/rebuild round-trip without adding a test-only runtime seam."
+    },
+    {
+      "date": "2026-07-17",
+      "owner": "unit-test-coverage-campaign U10",
+      "scope": "SkullbonezSource/Runtime/Scene/SceneController.*",
+      "decision": "Keep the engine-loop scene controller in Tier 4 and gate only SceneRequestQueue in the CPU scene-logic floor.",
+      "reason": "U8 explicitly excludes engine-loop owners; scene request ordering remains the pure value seam and renderer/physics coordination stays system-gate owned."
+    },
+    {
+      "date": "2026-07-17",
+      "owner": "unit-test-coverage-campaign U10",
+      "scope": "SkullbonezSource/Core/AmortizedTask.cpp",
+      "decision": "Do not require the header-only template anchor to appear as an instrumented translation unit.",
+      "reason": "The cpp contains only an include and no executable product line; AmortizedTask.h remains in the core primitive denominator through its behavioral tests."
+    },
+    {
+      "date": "2026-07-17",
+      "owner": "unit-test-coverage-campaign U10",
+      "scope": "SkullbonezTests/TestRuntimeValueSeams.cpp replay overlay cases",
+      "decision": "Treat replay overlay layout and value-packet cases as pure CPU owner contracts, not artifact or presentation-fidelity tests.",
+      "reason": "They assert clamping, hit regions, and value projection without loading an artifact, launching the renderer, or changing visual-fidelity goldens; the sole U5 mega invocation remains the campaign's only replay system run."
+    }
+  ],
+  "tiers": {
+    "1": {
+      "name": "Maths and core primitives",
+      "ratified_floor_percent": 85.0
+    },
+    "2": {
+      "name": "Physics, codecs, startup, and config",
+      "ratified_floor_percent": 70.0
+    },
+    "3": {
+      "name": "Runtime logic owners",
+      "ratified_floor_percent": 50.0
+    },
+    "4": {
+      "name": "System-gate-owned platform and presentation",
+      "ratified_floor_percent": null
+    }
+  },
+  "excluded_product_globs": [
+    "SkullbonezSource/Rendering/DX12/**",
+    "SkullbonezSource/UI/**",
+    "SkullbonezSource/Physics/PhysicsApi.*",
+    "SkullbonezSource/Runtime/Window.*",
+    "SkullbonezSource/Runtime/Render/**",
+    "SkullbonezSource/Runtime/RunRender.*",
+    "SkullbonezSource/Runtime/RunUiTextPass.*",
+    "SkullbonezSource/Runtime/Replay/ReplayValidation*",
+    "SkullbonezSource/Runtime/Replay/ReplayPredictionArchive.*",
+    "SkullbonezSource/Runtime/Scene/SceneController.*",
+    "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.*"
+  ],
+  "subsystems": [
+    {
+      "name": "maths",
+      "tier": 1,
+      "floor_percent": 85.0,
+      "ratified_floor_percent": 85.0,
+      "include_globs": ["SkullbonezSource/Maths/**"],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Maths/Frustum.cpp",
+        "SkullbonezSource/Maths/GeometricMath.cpp",
+        "SkullbonezSource/Maths/Matrix4.cpp",
+        "SkullbonezSource/Maths/Quaternion.cpp",
+        "SkullbonezSource/Maths/RotationMatrix.cpp"
+      ]
+    },
+    {
+      "name": "core_primitives",
+      "tier": 1,
+      "floor_percent": 85.0,
+      "ratified_floor_percent": 85.0,
+      "include_globs": [
+        "SkullbonezSource/Core/SbResult.h",
+        "SkullbonezSource/Core/WorkerPool.*",
+        "SkullbonezSource/Core/AmortizedTask.*",
+        "SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.*",
+        "SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.*"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Core/WorkerPool.cpp",
+        "SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp",
+        "SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp"
+      ]
+    },
+    {
+      "name": "physics_stores",
+      "tier": 2,
+      "floor_percent": 70.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Physics/PhysicsBodyStore.*",
+        "SkullbonezSource/Physics/ColliderStore.*",
+        "SkullbonezSource/Physics/PhysicsFixedList.h"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Physics/ColliderStore.cpp",
+        "SkullbonezSource/Physics/PhysicsBodyStore.cpp"
+      ]
+    },
+    {
+      "name": "physics_stages_and_solver",
+      "tier": 2,
+      "floor_percent": 70.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Physics/Stages/**",
+        "SkullbonezSource/Physics/Kernels/**",
+        "SkullbonezSource/Physics/PersistentContactSolver.*",
+        "SkullbonezSource/Physics/ObjectContactManifold.*",
+        "SkullbonezSource/Physics/SleepIslandSystem.*",
+        "SkullbonezSource/Physics/SpatialGrid.*",
+        "SkullbonezSource/Physics/TerrainContactManifold.*"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Physics/ObjectContactManifold.cpp",
+        "SkullbonezSource/Physics/PersistentContactSolver.cpp",
+        "SkullbonezSource/Physics/SleepIslandSystem.cpp",
+        "SkullbonezSource/Physics/SpatialGrid.cpp",
+        "SkullbonezSource/Physics/TerrainContactManifold.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsContactSolverStage.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.Execution.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsSleepController.State.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.cpp",
+        "SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp"
+      ]
+    },
+    {
+      "name": "replay_artifact_codecs",
+      "tier": 2,
+      "floor_percent": 70.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Replay/ReplayV2Artifact.*"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Runtime/Replay/ReplayV2Artifact.cpp"
+      ]
+    },
+    {
+      "name": "startup",
+      "tier": 2,
+      "floor_percent": 70.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Startup/StartupCommandLine.*",
+        "SkullbonezSource/Runtime/Startup/StartupLaunchResolution.*"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Runtime/Startup/StartupCommandLine.cpp",
+        "SkullbonezSource/Runtime/Startup/StartupLaunchResolution.cpp"
+      ]
+    },
+    {
+      "name": "config_and_schema",
+      "tier": 2,
+      "floor_percent": 70.0,
+      "ratified_floor_percent": 70.0,
+      "include_globs": ["SkullbonezSource/Core/Config.*"],
+      "required_instrumented_sources": ["SkullbonezSource/Core/Config.cpp"]
+    },
+    {
+      "name": "runtime_input_and_interaction",
+      "tier": 3,
+      "floor_percent": 50.0,
+      "ratified_floor_percent": 50.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/InputRouter.*",
+        "SkullbonezSource/Runtime/InputController.Bindings.*",
+        "SkullbonezSource/Runtime/RuntimeInteractionController.*"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Runtime/InputController.Bindings.cpp",
+        "SkullbonezSource/Runtime/InputRouter.cpp",
+        "SkullbonezSource/Runtime/RuntimeInteractionController.cpp"
+      ]
+    },
+    {
+      "name": "scene_logic",
+      "tier": 3,
+      "floor_percent": 50.0,
+      "ratified_floor_percent": 50.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Scene/SceneRequestQueue.*"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Runtime/Scene/SceneRequestQueue.cpp"
+      ]
+    },
+    {
+      "name": "replay_value_seams",
+      "tier": 3,
+      "floor_percent": 50.0,
+      "ratified_floor_percent": 50.0,
+      "include_globs": [
+        "SkullbonezSource/Runtime/Replay/ReplayTimeline.*",
+        "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.*",
+        "SkullbonezSource/Runtime/Replay/ReplayRecorder.*"
+      ],
+      "required_instrumented_sources": [
+        "SkullbonezSource/Runtime/Replay/ReplayTimeline.cpp",
+        "SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.cpp",
+        "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp"
+      ]
+    }
+  ]
+}

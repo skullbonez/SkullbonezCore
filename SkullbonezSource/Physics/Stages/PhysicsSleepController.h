@@ -13,11 +13,15 @@ Glossary:
   Support edge: Directed relationship used to propagate grounded support.
   Underwater lock: Policy keeping a fully submerged sleeping ball dormant.
   Visual island id: Persisted debug id shared by bodies that slept together.
+  Scratch flags: Transient per-row bits reused by point-joint and explicit-wake
+    traversals; they are neither replay state nor cross-stage authority.
 
 Invariants:
   - All model-order rows are construction-reserved to scene capacity.
   - Read-only pipeline stages receive const spans; wake mutations use explicit
     scoped capability values.
+  - Packed scratch bits are written only by the serial sleep owner; no worker
+    may update a different bit in the same row concurrently.
   - No callback, host pointer, PhysicsWorld reference, or concrete sibling
     owner crosses this boundary.
 
@@ -135,6 +139,22 @@ struct PhysicsSleepIslandStageContext
     uint8_t sleepFrames = 0;
 };
 
+// Concept: related one-bit scratch decisions share one byte per model row.
+//
+// These values formerly occupied four independent byte arrays. They are safe
+// to co-locate because the sleep controller alone sequences every mutation,
+// and replay never serializes them. Named fields keep call sites bool-like
+// while the size assertion makes the cache-working-set experiment explicit.
+struct PhysicsSleepScratchFlags
+{
+    uint8_t pointJointBody : 1;
+    uint8_t islandHasPointJoint : 1;
+    uint8_t islandPointJointsRelaxed : 1;
+    uint8_t restingWakeVisited : 1;
+    uint8_t reserved : 4;
+};
+static_assert( sizeof( PhysicsSleepScratchFlags ) == 1u, "Sleep scratch flags must occupy one byte per body." );
+
 class PhysicsSleepController
 {
   private:
@@ -155,16 +175,14 @@ class PhysicsSleepController
     std::vector<uint8_t> m_sleepIslandHasSupportAnchor;
     std::vector<uint8_t> m_sleepIslandEligible;
     std::vector<uint8_t> m_sleepIslandCanSleep;
-    std::vector<uint8_t> m_sleepPointJointBody;
-    std::vector<uint8_t> m_sleepIslandHasPointJoint;
-    std::vector<uint8_t> m_sleepIslandPointJointsRelaxed;
+    std::vector<PhysicsSleepScratchFlags> m_sleepScratchFlags;
     std::vector<int> m_sleepVisualIslandIds;
     std::vector<int> m_sleepVisualIslandBodies;
-    std::vector<uint8_t> m_restingWakeVisitedScratch;
     std::vector<int> m_restingWakeQueueScratch;
     SleepIslandSystem m_sleepIslandSystem;
 
     void EnsureUnderwaterSleepLockBuffer( int modelCount );
+    void EnsureScratchFlagsSize( int modelCount );
     bool IsUnderwaterSleepLocked( int bodyCount, int index );
     bool WakeDynamicBodyState( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );
     void WakeSleepVisualIsland( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );

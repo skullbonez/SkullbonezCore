@@ -1,10 +1,10 @@
 @rem
 @rem File: tools/validate_all_cpu_tests.bat
 @rem Purpose:
-@rem   Runs every first-party CPU test gate through one fail-fast entry point.
+@rem   Runs every first-party CPU test and coverage gate through one fail-fast entry point.
 @rem
 @rem Mental model:
-@rem   This script is the test fan-in for PR validation. Each child gate still
+@rem   This script is the CPU/coverage fan-in for PR validation. Each child still
 @rem   owns its build and executable, while this wrapper owns ordering, failure
 @rem   attribution, and the combined result shown to a caller.
 @rem
@@ -38,6 +38,7 @@ set "CPU_TEST_SCRIPT_DIR=%SKULLBONEZ_CPU_TEST_SCRIPT_DIR%"
 for %%D in ("%CPU_TEST_SCRIPT_DIR%\.") do set "CPU_TEST_SCRIPT_DIR=%%~fD\"
 
 set "STATUS_TESTS=NOT RUN"
+set "STATUS_COVERAGE=NOT RUN"
 set "STATUS_INTERACTION=NOT RUN"
 set "STATUS_SCENE_PARSER=NOT RUN"
 set "STATUS_DX12_ARCH=NOT RUN"
@@ -48,7 +49,7 @@ echo   VALIDATE_ALL_CPU_TESTS - Mandatory CPU Test Umbrella
 echo ============================================================
 echo.
 
-echo [1/4] Running validate_tests.bat...
+echo [1/5] Running validate_tests.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_tests.bat" (
     set "CHILD_EXIT=99"
     goto :on_tests_missing
@@ -59,7 +60,18 @@ if not "%CHILD_EXIT%"=="0" goto :on_tests_failure
 set "STATUS_TESTS=PASS"
 
 echo.
-echo [2/4] Running validate_runtime_interaction_policy.bat...
+echo [2/5] Running validate_coverage.bat...
+if not exist "%CPU_TEST_SCRIPT_DIR%validate_coverage.bat" (
+    set "CHILD_EXIT=99"
+    goto :on_coverage_missing
+)
+call "%CPU_TEST_SCRIPT_DIR%validate_coverage.bat"
+set "CHILD_EXIT=%ERRORLEVEL%"
+if not "%CHILD_EXIT%"=="0" goto :on_coverage_failure
+set "STATUS_COVERAGE=PASS"
+
+echo.
+echo [3/5] Running validate_runtime_interaction_policy.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_runtime_interaction_policy.bat" (
     set "CHILD_EXIT=99"
     goto :on_interaction_missing
@@ -70,7 +82,7 @@ if not "%CHILD_EXIT%"=="0" goto :on_interaction_failure
 set "STATUS_INTERACTION=PASS"
 
 echo.
-echo [3/4] Running validate_scene_parser_tests.bat...
+echo [4/5] Running validate_scene_parser_tests.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_scene_parser_tests.bat" (
     set "CHILD_EXIT=99"
     goto :on_scene_parser_missing
@@ -81,7 +93,7 @@ if not "%CHILD_EXIT%"=="0" goto :on_scene_parser_failure
 set "STATUS_SCENE_PARSER=PASS"
 
 echo.
-echo [4/4] Running validate_dx12_arch_tests.bat...
+echo [5/5] Running validate_dx12_arch_tests.bat...
 if not exist "%CPU_TEST_SCRIPT_DIR%validate_dx12_arch_tests.bat" (
     set "CHILD_EXIT=99"
     goto :on_dx12_arch_missing
@@ -94,6 +106,7 @@ set "STATUS_DX12_ARCH=PASS"
 echo.
 echo ---------------- CPU test summary ----------------
 echo   validate_tests.bat                       %STATUS_TESTS%
+echo   validate_coverage.bat                    %STATUS_COVERAGE%
 echo   validate_runtime_interaction_policy.bat  %STATUS_INTERACTION%
 echo   validate_scene_parser_tests.bat          %STATUS_SCENE_PARSER%
 echo   validate_dx12_arch_tests.bat              %STATUS_DX12_ARCH%
@@ -116,6 +129,16 @@ goto :emit_failure
 :on_tests_failure
 set "STATUS_TESTS=FAIL - exit %CHILD_EXIT%"
 set "FAILED_TARGET=validate_tests.bat"
+goto :emit_failure
+
+:on_coverage_missing
+set "STATUS_COVERAGE=MISSING - exit 99"
+set "FAILED_TARGET=validate_coverage.bat"
+goto :emit_failure
+
+:on_coverage_failure
+set "STATUS_COVERAGE=FAIL - exit %CHILD_EXIT%"
+set "FAILED_TARGET=validate_coverage.bat"
 goto :emit_failure
 
 :on_interaction_missing
@@ -151,6 +174,7 @@ set "FAILED_TARGET=validate_dx12_arch_tests.bat"
 echo.
 echo ---------------- CPU test summary ----------------
 echo   validate_tests.bat                       %STATUS_TESTS%
+echo   validate_coverage.bat                    %STATUS_COVERAGE%
 echo   validate_runtime_interaction_policy.bat  %STATUS_INTERACTION%
 echo   validate_scene_parser_tests.bat          %STATUS_SCENE_PARSER%
 echo   validate_dx12_arch_tests.bat              %STATUS_DX12_ARCH%

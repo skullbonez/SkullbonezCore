@@ -179,7 +179,13 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    return -1;
+    // Lane F: dropping a unique occupied cell would silently miss collisions.
+    // The owner must raise capacity or reject the scene before simulation.
+    SB_FATAL( "Physics/SpatialGrid",
+              "SpatialGrid bucket capacity exceeded: capacity=%d active=%d key=%lld phase=steady_gameplay.",
+              TABLE_SIZE,
+              activeBucketCount,
+              static_cast<long long>( key ) );
 }
 
 
@@ -191,10 +197,6 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
     const int bi =
         FindOrCreate( key, ClampVisualizationCell( ix ), ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
-    if ( bi < 0 || bi >= TABLE_SIZE )
-    {
-        return;
-    }
 
     Bucket& b = buckets[bi];
     for ( int cur = b.head; cur != -1; cur = entries[cur].next )
@@ -416,43 +418,6 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     }
 
     Insert( index, endPosition, radius );
-}
-
-
-void SpatialGrid::InsertPreparedBounds( int index,
-                                        const Vector3& position,
-                                        const Vector3& displacement,
-                                        float radius,
-                                        const Vector3& minBounds,
-                                        const Vector3& maxBounds,
-                                        bool swept )
-{
-    if ( swept )
-    {
-        // Why: most swept rows fit the exact-AABB budget and can consume the
-        // vector-prepared bounds without repeating endpoint arithmetic. Only
-        // an oversized sweep re-enters InsertSwept so its capped traversal and
-        // tie policy remain owned here rather than leaking into the kernel.
-        ValidateBroadphaseBounds( index, minBounds, maxBounds, inverseCellSize );
-        const int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
-        const int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
-        const int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
-        const int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
-        const int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
-        const int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
-        const int64_t cellCountX = int64_t( maxX ) - int64_t( minX ) + 1;
-        const int64_t cellCountY = int64_t( maxY ) - int64_t( minY ) + 1;
-        const int64_t cellCountZ = int64_t( maxZ ) - int64_t( minZ ) + 1;
-        const bool exactAabbFits = cellCountX <= MAX_SWEPT_AABB_CELLS && cellCountY <= MAX_SWEPT_AABB_CELLS &&
-                                   cellCountZ <= MAX_SWEPT_AABB_CELLS &&
-                                   cellCountX * cellCountY * cellCountZ <= MAX_SWEPT_AABB_CELLS;
-        if ( !exactAabbFits )
-        {
-            InsertSwept( index, position, displacement, radius );
-            return;
-        }
-    }
-    InsertBounds( index, minBounds, maxBounds );
 }
 
 

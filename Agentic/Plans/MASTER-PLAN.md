@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-15
+Date: 2026-07-17
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -88,24 +88,44 @@ Rules:
 
 ### Portfolio Progress Ledger
 
-The owner activated the SoA/SIMD scale campaign after replay mass reduction
-closed. Completed historical campaigns are excluded under commit-contract rule
-4. The externally blocked validation lane remains deliberately excluded.
+The SoA/SIMD scale campaign is complete. Completed historical campaigns are
+excluded under commit-contract rule 4, so there are no active/future plan tasks
+at this tip. The externally blocked validation lane remains deliberately
+excluded.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| unit-test-coverage-campaign (ACTIVE) | 0 | 10 | 0% |
-| physics-soa-simd-1000-bodies (PAUSED at S5; resumes after U9) | 6 | 9 | 67% |
-| **Active/future total** | **6** | **19** | **32%** |
+| **Active/future total** | **0** | **0** | **100% (no live plans)** |
+
+The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
+current SIMD evidence and activated the five-task broadphase scale-attribution
+campaign. B0 corrects the accounting contract: Broadphase is an inclusive
+owner interval, while its nested GridBuild and bounds rows describe the same
+time and must never be added to it. B1-B4 instrument mutually exclusive phases,
+measure the 1,000→2,000 cliff, implement only the evidence-selected grid fix,
+and close with repeated A/B, determinism, and independent review. S7 stayed
+unchecked in that historical decision. The later 2026-07-17 owner direction
+supersedes the pause with scalar-only S7 cleanup; it does not authorize SIMD
+cutover or behavioral baseline regeneration.
+
+B4 completed that campaign on 2026-07-17. Its exact-tip paired medians are
+-1.61% Step / -7.34% inclusive Broadphase / -9.78% GridInsert at 1,000
+bodies and -75.26% / -87.39% / -91.38% at 2,000. The plan is deleted under
+inventory rule 4; closure evidence lives in
+`../Reports/2026-07-17/broadphase-scale-closure.md`.
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
-unit-test coverage campaign. Later the same day the owner REORDERED it ahead
-of the SoA/SIMD cutover ("unit tests first"): the coverage campaign is now
-active and the SoA/SIMD campaign is paused at 6/9. Rationale: byte-exact
-gates cannot verify behavior across the S7 golden regeneration, but the
-tolerance-based behavioral/property suites built by the coverage campaign
-survive it — they must exist BEFORE the cutover and pass in both SIMD toggle
-states as an added S7 precondition.
+unit-test coverage campaign, then returned to 9 on 2026-07-17 when U0-U9
+closed and the completed campaign left the active/future ledger under rule 4.
+The tolerance-based behavioral/property suites now exist before the S7
+decision and remain a binding scalar-cleanup oracle. The owner authorized
+exactly S6 on 2026-07-17; completion returns the campaign to a hard pause at
+7/9. The owner then rejected S7 on the current evidence and activated the
+broadphase attribution campaign. After that campaign closed, the owner issued
+fresh direction to execute S7 as scalar-only deletion and simplification.
+S7-S8 closed on 2026-07-17; the completed plan left the active/future ledger
+under rule 4. Closure evidence lives in
+`../Reports/2026-07-17/soa-simd-closure.md`.
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -120,7 +140,25 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active 2026-07-16 physics SoA/SIMD campaign has completed S0-S4. Its fixed-seed
+There is no active implementation-plan runner. `physics-soa-simd-1000-bodies`
+closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
+artifact is deleted; SpatialGrid has one bounded 8,192-cell table; coverage is
+mandatory; and the full gate passed without behavioral physics baseline
+regeneration. Closure evidence is in
+`../Reports/2026-07-17/soa-simd-closure.md`.
+
+`physics-broadphase-scale-attribution` previously closed
+B0-B4 with an unchanged 4,096-row primary table, a fixed 16,384-slot lookup,
+and 4,096 cold overflow rows. Exact-tip paired medians are -1.61% Step / -7.34%
+inclusive Broadphase / -9.78% GridInsert at 1,000 bodies and -75.26% / -87.39%
+/ -91.38% at 2,000. The final scalar-OFF matrix is 1.0546 ms Step at 1,000
+bodies and 2.0517 ms at 2,000. Complete deterministic cell coverage, the
+44,401-line oracle, fixed-capacity allocation rules, and independent review are
+closed. That campaign did not authorize S7, a toggle-default change, or any
+baseline/golden refresh; the later owner direction uses its measurements to
+simplify the fix while retaining complete 8,192-cell coverage.
+
+The owner-paused 2026-07-16 physics SoA/SIMD campaign has completed S0-S6. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
 body Physics Step averages 0.9978 ms on the Threadripper 3970X and the ratified
 final-cutover budget is no more than 0.80 ms. Capacity reaches 2,000 without
@@ -142,27 +180,33 @@ oracle. The pilot marker is 4.5% faster; the OFF path remains 44,401 lines
 byte-exact and full/performance gates pass. S5 added dark universal-gravity,
 mutual-pair, and broadphase-bounds kernels with masked-tail tests, passing
 chaotic-scale and focused mutual-gravity A/B oracles, and unchanged OFF-path
-proof. Paired Profile evidence is negative rather than a claimed speedup, so
-the S7 cutover budget remains binding. S6 is next: add dark narrowphase-prune
-and solver-row preparation kernels.
+proof. S6 added dedicated narrowphase-prune and solver-row preparation kernels,
+masked-tail tests, a full toggle-ON doctest pass, and the combined scale matrix.
+At 1,000 bodies the enabled set measures 1.0666 ms against the binding 0.80 ms
+budget; the scalar solver core retains only 0.0092 ms (0.86% of step), so its
+follow-up trigger is not met. The owner rejected SIMD cutover on the current
+evidence on 2026-07-17 and then issued fresh direction for scalar-only S7
+cleanup. S7 completed the deletion at 8/9; the 0.80 ms SIMD cutover budget
+neither authorized nor blocked it. S8 then closed the campaign at 9/9.
 
-Portfolio ordering (2026-07-16 owner reorder, superseding the same-day
-"after S8" decision): the `unit-test-coverage-campaign` is ACTIVE NOW and
-runs U0 → U9 to completion while the SoA/SIMD campaign is PAUSED at 6/9.
-Reason: the S7 cutover regenerates every golden, so byte-gates cannot verify
-the SIMD kernels' semantics across it — the coverage campaign's
-tolerance-based behavioral/property suites (momentum symmetry, orthonormality,
-bounds, grid round-trips, stage-contract cases) are authored against today's
-scalar behavior and become the independent oracle that survives regeneration.
-U5's single mega-gate invocation cannot collide with rule-11 budgets while
-SoA/SIMD is paused. After U9 closes, SoA/SIMD resumes at S6; then the
-owner-commissioned pre-cutover adversarial review; then and only then may S7
-be considered, with THREE preconditions now binding: (1) the ratified
-0.80 ms combined toggle-ON budget met (S5's enabled-path Profile finding is
-negative — force/gravity/broadphase kernels currently cost more than they
-save; S7 may not proceed on integration-pilot wins alone); (2) the unit and
-property suites pass with the SIMD toggle OFF and ON; (3) fresh explicit
-owner approval recorded at the time.
+Portfolio ordering (2026-07-16 owner reorder, then 2026-07-17 scalar-cleanup
+direction): `unit-test-coverage-campaign` completed U0-U9 before the S7
+decision. Its tolerance-based momentum, orthonormality, bounds, grid, and
+stage-contract cases are the independent oracle for deleting rejected code
+without a behavioral baseline refresh. The broadphase scale-attribution
+campaign is complete. S7 retained scalar SoA, deleted the measured-neutral SIMD
+experiment and attribution-only production machinery, simplified the grid, and
+passed the owner-requested full gate. A future SIMD campaign would need a new
+plan and fresh owner approval; S7 preserves no dark path.
+
+U5 provenance governance (2026-07-17 owner ratification): the two replay
+golden provenance hashes changed only because S4's v3 SIMD-toggle config bump
+changed the mechanically verified `engine.cfg` hash and its direct causal
+binding. The owner retroactively ratified that content-free reconciliation and
+adopted the standing `AGENTS.md` rule: config format/version bumps
+automatically authorize provenance-hash-only reconciliation, recorded per
+instance; payload, tolerance, or non-provenance changes still require explicit
+approval.
 
 The 2026-07-16 replay mass-reduction campaign completed R0 → R8 strictly in
 order. R0–R5 closed the census and implementation work: the
@@ -531,10 +575,11 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 6/9 (2026-07-16 owner reorder) | 6/9 | Resumes at S6 after the coverage campaign closes at U9; S7 gains the both-toggle-states test precondition |
+| [physics-broadphase-scale-attribution](../Reports/2026-07-17/broadphase-scale-closure.md) | Complete | 5/5 | Saturated scan removed with bounded complete overflow coverage; exact-tip pairs, final matrix, comments, and independent review closed |
+| [physics-soa-simd-1000-bodies](../Reports/2026-07-17/soa-simd-closure.md) | Complete | 9/9 | SoA retained; SIMD and attribution-only machinery deleted; one bounded grid, mandatory coverage, independent review, and final gates closed |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
-## Unit Test Coverage Campaign (2026-07-16, registered future)
+## Unit Test Coverage Campaign (2026-07-16, complete)
 
 Source: the 2026-07-16 owner discussion on unit coverage. The engine has
 strong system oracles over an ~4% unit layer; twice in one week the gap was
@@ -552,11 +597,13 @@ lines with versioned exclusions; floors are a quality gate, not the banned
 migration-debt ratchet (U0 records that ruling); a new gate lane
 (`validate_coverage` via OpenCppCoverage) ships report-only at U0 and is
 armed at U9; U5's adversarial artifact decode is the campaign's single
-mega-gate invocation. Execution begins only after SoA/SIMD S8 closes.
+mega-gate invocation. The campaign completed before the paused SoA/SIMD
+cutover; closure evidence is in
+`../Reports/2026-07-17/unit-test-coverage-closure.md`.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [unit-test-coverage-campaign](TODO/unit-test-coverage-campaign.md) | ACTIVE (2026-07-16 owner reorder — runs before the SoA/SIMD cutover) | 0/10 | U0(b): coverage tooling bring-up, measured baseline, tier-map ratification, governance ruling |
+| None | No active test plan | — | Coverage campaign closed; physics remains owner-paused |
 
 ## Features
 

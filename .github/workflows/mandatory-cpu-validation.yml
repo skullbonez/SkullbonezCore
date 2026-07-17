@@ -35,6 +35,26 @@ jobs:
             "image_version=$env:ImageVersion"
           ) | Set-Content -Path (Join-Path $artifactDir "hosted-runner.txt")
 
+      - name: Install pinned OpenCppCoverage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          choco install opencppcoverage --version=0.9.9.0 --yes --no-progress
+          if ($LASTEXITCODE -ne 0) {
+            throw "Chocolatey failed to install OpenCppCoverage 0.9.9.0 (exit $LASTEXITCODE)"
+          }
+          $coverageExe = "C:\Program Files\OpenCppCoverage\OpenCppCoverage.exe"
+          if (-not (Test-Path -LiteralPath $coverageExe)) {
+            throw "Pinned OpenCppCoverage executable was not installed: $coverageExe"
+          }
+          $coverageHelp = & $coverageExe --help 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            throw "OpenCppCoverage --help failed (exit $LASTEXITCODE)"
+          }
+          if (-not ($coverageHelp | Select-String -Quiet -Pattern "OpenCppCoverage Version: 0\.9\.9\.0")) {
+            throw "Installed OpenCppCoverage does not report pinned version 0.9.9.0"
+          }
+
       - name: Run mandatory hosted CPU lane
         env:
           SKORE_SIZE_DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || '' }}

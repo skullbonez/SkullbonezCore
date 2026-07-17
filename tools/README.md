@@ -12,8 +12,9 @@ validation.
 | `agent_validate.bat` | PR gate when truly unsure; delegates once to `validate_full.bat` | CPU tests + 5 engine processes |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors: preflight plus the doctest runner | ~30s |
-| `validate_all_cpu_tests.bat` | Run every mandatory CPU test target once with fail-fast attribution | incremental builds + 5 console launches |
+| `validate_all_cpu_tests.bat` | Run every mandatory CPU test and coverage gate with fail-fast attribution | incremental builds + 6 console launches |
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
+| `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |
 | `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
 | `validate_automation.bat` | Prove Profile excludes scripted diagnostics and run the replay/prediction pre-commit smoke in Automation | build + 2 engine processes |
 | `validate_scene_parser_tests.bat` | Build/run CPU-side scene/style parser contract tests | build + console test runner |
@@ -45,8 +46,8 @@ order and stops before any engine launch when a CPU target fails:
 
 1. `validate_fast.bat --preflight-only` runs formatting, production project
    metadata, staged-size policy, and the Profile build without a test launch.
-2. `validate_all_cpu_tests.bat` runs the doctest, runtime-interaction, scene
-   parser, and DX12 architecture targets exactly once.
+2. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
+   runtime-interaction, scene parser, and DX12 architecture targets.
 3. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
    the dedicated Automation executable, and runs the short replay/prediction
    interaction smoke required on every broad pre-commit pass.
@@ -54,6 +55,24 @@ order and stops before any engine launch when a CPU target fails:
    only after the mandatory CPU and automation lanes pass. Automation launches
    two engine processes, rendering launches one, and physics launches its
    standalone smoke and regression scene, for five engine processes in total.
+
+## Unit Coverage Floors
+
+`validate_coverage.bat` builds the Debug doctest runner, captures product-line
+Cobertura XML with OpenCppCoverage, then applies the versioned tier map in
+`coverage_floors.json`. It is part of `validate_all_cpu_tests.bat`, so the full
+PR gate enforces Tier 1 at 85%, Tier 2 at 70%, and Tier 3 at 50%; whole-product
+coverage remains informational.
+
+Each subsystem also lists `required_instrumented_sources`. The checker fails if
+one of those translation units disappears from the XML, preventing a link or
+project-file omission from silently shrinking a denominator. Tier-4 and
+separate-gate owners are recorded in the config's exclusions and scope rulings.
+Run the checker policy tests directly with:
+
+```bat
+python tools\check_coverage.py --self-test
+```
 
 Direct `validate_fast.bat` use still runs `SKULLBONEZ_TESTS.exe`. Its
 `--preflight-only` switch is an internal composition mode for `validate_full`;
@@ -135,7 +154,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
-| `validate_all_cpu_tests.bat` | Run all four first-party CPU test gates, stop at the first failure, print a combined summary, and preserve the child exit code |
+| `validate_all_cpu_tests.bat` | Run all five first-party CPU/coverage gates, stop at the first failure, print a combined summary, and preserve the child exit code |
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
@@ -182,8 +201,8 @@ bake; shader compiler diagnostics and a nonzero bake exit fail the build.
 `check_perf_budgets.py` absolute-budget failures return nonzero. Do not treat
 perf output as a warning-only review note unless the script itself exits 0.
 It also runs the deterministic 200/520/1,000/2,000-body physics scale matrix.
-Those four artifacts are measurement-only until the SoA/SIMD cutover ceremony;
-they report stage timing without weakening the existing DX12 and physics-bench
+Those four artifacts are measurement-only: they report stage timing for the
+retained scalar SoA path without weakening the existing DX12 and physics-bench
 baseline or absolute-budget comparisons.
 
 `validate_replay_visual_fidelity.bat` is the single replay presentation oracle.

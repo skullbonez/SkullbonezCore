@@ -34,6 +34,9 @@
     <Filter Include="Source Files\Runtime\Allocation">
       <UniqueIdentifier>{D8F59F97-F421-4B8B-AD58-274C63075BB0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Runtime\Camera">
+      <UniqueIdentifier>{35A1A48E-04AF-45B8-BCF4-AB0792DD982B}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime\Lifecycle">
       <UniqueIdentifier>{7E50E168-B6A0-41DB-A215-88D30BE362B3}</UniqueIdentifier>
     </Filter>
@@ -45,6 +48,9 @@
     </Filter>
     <Filter Include="Source Files\Runtime\Input">
       <UniqueIdentifier>{2CE81346-557B-4D79-B553-7F1DAB9BF29F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Interaction">
+      <UniqueIdentifier>{7D5AC876-4C0D-4E1D-966B-9A18B82E2788}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Render">
       <UniqueIdentifier>{BDDE69D6-F660-4474-9BE8-0666D06D289E}</UniqueIdentifier>
@@ -60,6 +66,9 @@
     </Filter>
     <Filter Include="Source Files\Runtime\Scene">
       <UniqueIdentifier>{F44133F6-7B35-4C37-BB2B-E2F8A746D8A4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Runtime\Startup">
+      <UniqueIdentifier>{0A690EBA-E39F-4CD4-BE1D-65B9AE6D6504}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Editor">
       <UniqueIdentifier>{A84A2248-37E9-4E32-9D84-7709D31D8802}</UniqueIdentifier>
@@ -85,6 +94,9 @@
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestBounds.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestCamera.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestConvexHull.cpp">
@@ -144,10 +156,16 @@
     <ClCompile Include="SkullbonezTests\TestConfig.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestCoverageFloorContracts.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPersistentContactSolver.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestPhysicsHandles.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestPhysicsStageState.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestQuaternion.cpp">
@@ -162,10 +180,19 @@
     <ClCompile Include="SkullbonezTests\TestRuntimeContracts.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestRuntimeValueSeams.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayPredictionScheduling.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestReplayVisualPacket.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestReplayArtifact.cpp">
+      <Filter>Source Files\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezTests\TestStartup.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezTests\TestInputRouter.cpp">
@@ -219,11 +246,20 @@
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
+      <Filter>Source Files\Runtime\Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp">
+      <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
@@ -261,10 +297,28 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeDefaults.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupCommandLine.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Startup\StartupLaunchResolution.cpp">
+      <Filter>Source Files\Runtime\Startup</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp">
       <Filter>Source Files\Runtime\Tools</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
+      <Filter>Source Files\Runtime\Interaction</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp">
@@ -306,6 +360,9 @@
       <Filter>External</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezTests\TestFatalCases.h">
+      <Filter>Header Files\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezTests\TestFixedSeed.h">
       <Filter>Header Files\Tests</Filter>
     </ClInclude>
   </ItemGroup>

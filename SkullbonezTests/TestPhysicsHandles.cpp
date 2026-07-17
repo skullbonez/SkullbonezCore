@@ -17,7 +17,7 @@
 //   Replay body id: Stable id used by replay/diagnostics to find a body even
 //     when a model-index hint is stale.
 //   Hot SoA fields: 32-byte-aligned component arrays that keep adjacent body
-//     values contiguous for later AVX2 kernels.
+//     values contiguous for cache-friendly stage scans.
 //
 // Invariants:
 //   - HandleForModelIndex() and ModelIndexForHandle() are inverse for live rows.
@@ -29,17 +29,22 @@
 // Related:
 //   - SkullbonezSource/Physics/PhysicsBodyStore.h
 //   - SkullbonezSource/Physics/ColliderStore.h
+//   - Agentic/Reports/2026-07-15/math-fatal-call-site-survey.md
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
+#include "TestFixedSeed.h"
 
 #include "../SkullbonezSource/Physics/ColliderStore.h"
+#include "../SkullbonezSource/Physics/PhysicsApi.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
+#include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
 #include <cstring>
 #include <cstdint>
+#include <cmath>
 
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
@@ -48,9 +53,11 @@ using SkullbonezCore::Physics::MakePhysicsSceneObjectIdFromReplayBodyId;
 using SkullbonezCore::Physics::ModelRowHint;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
+using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
+using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayRestoreService;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
@@ -96,6 +103,54 @@ ColliderStore& TestColliderStore()
     return store;
 }
 } // namespace
+
+
+TEST_CASE( "Property invariant: equal-and-opposite impulses conserve pair momentum [seed 0x16A11CE5]" )
+{
+    SkullbonezTests::FixedSeed random( 0x16A11CE5u );
+    PhysicsBodyStore& store = TestBodyStore();
+
+    // Invariant: application-point torque may change angular momentum, but the
+    // zero-offset +J/-J pair cannot change total linear momentum.
+    for ( int sample = 0; sample < 64; ++sample )
+    {
+        store.Clear();
+        const float leftMass = random.Float( 0.25f, 20.0f );
+        const float rightMass = random.Float( 0.25f, 20.0f );
+        PhysicsBodyCreateRecord left = MakeBodyRecord( 1u, Vector3( 0.0f, 0.0f, 0.0f ) );
+        left.cold.mass = leftMass;
+        left.hot.inverseMass = 1.0f / leftMass;
+        left.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ),
+                                           random.Float( -5.0f, 5.0f ),
+                                           random.Float( -5.0f, 5.0f ) );
+        PhysicsBodyCreateRecord right = MakeBodyRecord( 2u, Vector3( 0.0f, 0.0f, 0.0f ) );
+        right.cold.mass = rightMass;
+        right.hot.inverseMass = 1.0f / rightMass;
+        right.hot.linearVelocity = Vector3( random.Float( -5.0f, 5.0f ),
+                                            random.Float( -5.0f, 5.0f ),
+                                            random.Float( -5.0f, 5.0f ) );
+        const PhysicsBodyHandle leftHandle = store.CreateBodyRecord( left );
+        const PhysicsBodyHandle rightHandle = store.CreateBodyRecord( right );
+        const Vector3 momentumBefore = left.hot.linearVelocity * leftMass + right.hot.linearVelocity * rightMass;
+        const Vector3 impulse( random.Float( -12.0f, 12.0f ),
+                               random.Float( -12.0f, 12.0f ),
+                               random.Float( -12.0f, 12.0f ) );
+
+        REQUIRE( store.ApplyBodyImpulse( leftHandle, impulse, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+        REQUIRE( store.ApplyBodyImpulse( rightHandle, impulse * -1.0f, Vector3( 0.0f, 0.0f, 0.0f ) ) );
+        REQUIRE( store.ConsumePendingBodyImpulse( 0 ) );
+        REQUIRE( store.ConsumePendingBodyImpulse( 1 ) );
+
+        const auto hot = store.HotFields();
+        const Vector3 leftVelocity( hot.linearVelocityX[0], hot.linearVelocityY[0], hot.linearVelocityZ[0] );
+        const Vector3 rightVelocity( hot.linearVelocityX[1], hot.linearVelocityY[1], hot.linearVelocityZ[1] );
+        const Vector3 momentumAfter = leftVelocity * leftMass + rightVelocity * rightMass;
+        const Vector3 drift = momentumAfter - momentumBefore;
+        CHECK( fabsf( drift.x ) <= 0.0001f );
+        CHECK( fabsf( drift.y ) <= 0.0001f );
+        CHECK( fabsf( drift.z ) <= 0.0001f );
+    }
+}
 
 
 TEST_CASE( "Physics handles: body store resolves fresh handles and replay ids" )
@@ -171,6 +226,35 @@ TEST_CASE( "Physics body SoA: aligned hot fields are the sole hot-state authorit
     const auto refreshedHot = static_cast<const PhysicsBodyStore&>( store ).HotFields();
     CHECK( refreshedHot.angularVelocityZ[0] == -6.5f );
     CHECK( refreshedHot.inverseMass[0] == 0.125f );
+}
+
+
+TEST_CASE( "Physics handles: descriptor reorder preserves handle-owned pending impulse" )
+{
+    PhysicsBodyStore& store = TestBodyStore();
+    const PhysicsBodyHandle first = store.CreateBodyRecord( MakeBodyRecord( 101u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle second = store.CreateBodyRecord( MakeBodyRecord( 202u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    const Vector3 impulse( 7.0f, 8.0f, 9.0f );
+    const Vector3 applicationPoint( 1.0f, 2.0f, 3.0f );
+    REQUIRE( store.SetPendingBodyImpulse( second, impulse, applicationPoint ) );
+
+    PhysicsBodyCreateDesc reordered[2];
+    reordered[0].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( 202u );
+    reordered[0].position = Vector3( 20.0f, 0.0f, 0.0f );
+    reordered[1].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( 101u );
+    reordered[1].position = Vector3( 10.0f, 0.0f, 0.0f );
+    const uint8_t awakeRows[2] = {};
+
+    store.LoadFromDescriptors( reordered, awakeRows );
+
+    CHECK( store.HandleForModelIndex( 0 ) == second );
+    CHECK( store.HandleForModelIndex( 1 ) == first );
+    REQUIRE( store.RecordForHandle( second ) != nullptr );
+    CHECK( store.RecordForHandle( second )->hasPendingImpulse );
+    CHECK( store.RecordForHandle( second )->pendingImpulse == impulse );
+    CHECK( store.RecordForHandle( second )->pendingImpulseApplicationPoint == applicationPoint );
+    REQUIRE( store.RecordForHandle( first ) != nullptr );
+    CHECK_FALSE( store.RecordForHandle( first )->hasPendingImpulse );
 }
 
 
@@ -312,4 +396,73 @@ TEST_CASE( "Physics handles: collider destroy moves rows and rejects stale handl
     CHECK( replacement.generation != middle.generation );
     CHECK( store.Contains( replacement ) );
     CHECK_FALSE( store.Contains( middle ) );
+}
+
+
+TEST_CASE( "Physics handles: collider rows realign to compacted body handles" )
+{
+    PhysicsBodyStore& bodies = TestBodyStore();
+    ColliderStore& colliders = TestColliderStore();
+    const PhysicsBodyHandle first = bodies.CreateBodyRecord( MakeBodyRecord( 111u, Vector3( 1.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle middle = bodies.CreateBodyRecord( MakeBodyRecord( 222u, Vector3( 2.0f, 0.0f, 0.0f ) ) );
+    const PhysicsBodyHandle last = bodies.CreateBodyRecord( MakeBodyRecord( 333u, Vector3( 3.0f, 0.0f, 0.0f ) ) );
+    const PhysicsColliderHandle firstCollider = colliders.CreateColliderRecord( MakeColliderRecord( first, 111u, 1.0f ) );
+    const PhysicsColliderHandle middleCollider = colliders.CreateColliderRecord( MakeColliderRecord( middle, 222u, 2.0f ) );
+    const PhysicsColliderHandle lastCollider = colliders.CreateColliderRecord( MakeColliderRecord( last, 333u, 3.0f ) );
+
+    REQUIRE( bodies.DestroyBodyRecord( middle ) );
+    REQUIRE( colliders.DestroyColliderRecord( middleCollider ) );
+    REQUIRE( colliders.RefreshBodyBindings( bodies ) );
+
+    CHECK( colliders.HandleForModelIndex( 0 ) == firstCollider );
+    CHECK( colliders.HandleForModelIndex( 1 ) == lastCollider );
+    REQUIRE( colliders.Count() == 2 );
+    CHECK( colliders.Data()[1].body == last );
+    CHECK( colliders.Data()[1].replayBodyId == 333u );
+}
+
+
+TEST_CASE( "Physics impulses: zero mass and inertia absorb immediate and pending components" )
+{
+    PhysicsBodyStore& bodies = TestBodyStore();
+    ColliderStore& colliders = TestColliderStore();
+    PhysicsBodyCreateRecord body = MakeBodyRecord( 808u, Vector3( 0.0f, 10.0f, 0.0f ) );
+    body.cold.mass = 0.0f;
+    body.cold.rotationalInertia = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    body.hot.inverseMass = 0.0f;
+    body.hot.inverseRotationalInertia = SkullbonezCore::Math::Vector::ZERO_VECTOR;
+    body.hot.linearVelocity = Vector3( 1.0f, 2.0f, 3.0f );
+    body.hot.angularVelocity = Vector3( 0.4f, 0.5f, 0.6f );
+    const PhysicsBodyHandle handle = bodies.CreateBodyRecord( body );
+    colliders.CreateColliderRecord( MakeColliderRecord( handle, 808u, 1.0f ) );
+
+    const Vector3 mutualGravityImpulse( 9.0f, 8.0f, 7.0f );
+    REQUIRE( bodies.ApplyForces( PhysicsWorldForces{}, colliders, 0, 1.0f, &mutualGravityImpulse ) );
+    auto hot = bodies.HotFields();
+    CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );
+    CHECK( hot.linearVelocityY[0] == doctest::Approx( 2.0f ) );
+    CHECK( hot.linearVelocityZ[0] == doctest::Approx( 3.0f ) );
+    CHECK( hot.angularVelocityX[0] == doctest::Approx( 0.4f ) );
+    CHECK( hot.angularVelocityY[0] == doctest::Approx( 0.5f ) );
+    CHECK( hot.angularVelocityZ[0] == doctest::Approx( 0.6f ) );
+
+    REQUIRE( bodies.SetPendingBodyImpulse( handle,
+                                           Vector3( 3.0f, 4.0f, 5.0f ),
+                                           Vector3( 2.0f, 0.0f, 1.0f ) ) );
+    REQUIRE( bodies.ConsumePendingBodyImpulse( 0 ) );
+    hot = bodies.HotFields();
+    CHECK( hot.linearVelocityX[0] == doctest::Approx( 1.0f ) );
+    CHECK( hot.linearVelocityY[0] == doctest::Approx( 2.0f ) );
+    CHECK( hot.linearVelocityZ[0] == doctest::Approx( 3.0f ) );
+    CHECK( hot.angularVelocityX[0] == doctest::Approx( 0.4f ) );
+    CHECK( hot.angularVelocityY[0] == doctest::Approx( 0.5f ) );
+    CHECK( hot.angularVelocityZ[0] == doctest::Approx( 0.6f ) );
+    REQUIRE( bodies.RecordForHandle( handle ) != nullptr );
+    CHECK_FALSE( bodies.RecordForHandle( handle )->hasPendingImpulse );
+    CHECK( bodies.RecordForHandle( handle )->pendingImpulse == SkullbonezCore::Math::Vector::ZERO_VECTOR );
+    CHECK( bodies.RecordForHandle( handle )->pendingImpulseApplicationPoint ==
+           SkullbonezCore::Math::Vector::ZERO_VECTOR );
+
+    CHECK( std::isfinite( hot.linearVelocityX[0] ) );
+    CHECK( std::isfinite( hot.angularVelocityX[0] ) );
 }

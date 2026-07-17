@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-16
+Date: 2026-07-17
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,32 +10,69 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-15th-july` (physics SoA/SIMD campaign) |
-| Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | Execute the unit-test coverage campaign U0 → U9 (2026-07-16 owner reorder: "unit tests first"). SoA/SIMD is PAUSED at 6/9 — do not start S6 or any S task. Begin at U0(b): coverage tooling, measured baseline, tier-map ratification, governance ruling |
-| Active/future progress | 6 / 19 tasks = 32% overall (unit-test coverage 0/10 ACTIVE + SoA/SIMD 6/9 paused, resumes at S6 after U9) |
-| Last broad local gate | S4 `tools\\validate_full.bat` passed on 2026-07-16: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and 44,401-line byte-exact physics passed |
-| Validation for current edits | S5 fast/physics/performance gates passed; chaotic and mutual-gravity A/B oracles passed with zero non-finite values; the paired enabled-path performance finding is negative and remains a binding S7 concern; no baseline/golden refresh |
+| Branch | `nightrunner-16th-july` (SoA/SIMD scalar-retention campaign complete) |
+| Current baseline | Scalar-only matrix: 1,000 bodies Step/Broadphase 1.0871/0.3005 ms; 2,000 bodies 1.8670/0.7549 ms. Broadphase is inclusive; never add its children. |
+| Current objective | No active implementation plan; preserve the retained scalar SoA and completed campaign evidence. |
+| Active/future progress | 0 / 0 live tasks; portfolio complete (completed campaigns excluded under MASTER rule 4) |
+| Last broad local gate | Final `validate_full` passed: 282 tests/21,389 assertions, zero-warning builds, zero DX12 errors, matching captures, and byte-exact 44,401-line physics oracle |
+| Validation for current edits | None. S8 is documentation-only; S7 source gates are green. |
 
 ## Live Queue
 
-0000000. `unit-test-coverage-campaign` is ACTIVE at 0/10 (2026-07-16 owner
-         reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
-         the tolerance-based behavioral/property suites are the only oracle
-         that survives the golden regeneration, and S7 now requires them to
-         pass in both SIMD toggle states). SoA/SIMD is paused at 6/9 and
-         resumes at S6 only after U9 closes; do not start any S task.
-         Begin at U0(b): OpenCppCoverage bring-up,
-         `validate_coverage` lane shipped report-only, measured per-subsystem
-         baseline, tier-map/floors ratification (defaults: Tier 1 85%,
+00000000. `physics-broadphase-scale-attribution` is COMPLETE at 5/5; its plan
+          is deleted under inventory rule 4 and closure evidence lives in
+          `Agentic/Reports/2026-07-17/broadphase-scale-closure.md`. B0 records
+          that Broadphase is the inclusive total and the old nested GridBuild/
+          ScalarBounds rows must not be added to it. B1 replaced them with
+          mutually exclusive direct child markers and bounded grid counters;
+          tests, fast/query, byte-exact physics, performance, and bounded marker
+          gates all pass. B2 proved scalar grid insertion grows 30.94x because
+          the 2,000-body scene fills all 4,096 hash slots and then averages
+          3,660 full-table misses per queried frame; duplicate rejections are
+          zero. B3 retains the 4,096-row primary table, adds a fixed 16,384-slot
+          lookup and 4,096-row cold overflow tier, and fatals at 8,193 cells.
+          Exact-tip paired medians are -1.61% Step / -7.34% Broadphase / -9.78%
+          GridInsert at 1,000 bodies and -75.26% / -87.39% / -91.38% at 2,000.
+          B4 closed the final matrix, exact provenance, comment audit, and
+          independent review. Its evidence selected the one-table S7 cleanup;
+          the attribution counters and two-route storage are removed.
+
+0000000. `unit-test-coverage-campaign` is COMPLETE at 10/10 (2026-07-17; plan
+         deleted under inventory rule 4; closure evidence lives in
+         `Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`). The 2026-07-16 owner
+         reorder: unit tests came first, before the S7 decision. The
+         tolerance-based behavioral/property suites now protect the retained
+         scalar SoA path while rejected SIMD code is deleted.
+         U0 shipped OpenCppCoverage 0.9.9.0 and the report-only
+         `validate_coverage` lane, measured the per-subsystem baseline,
+         ratified the default floors (Tier 1 85%,
          Tier 2 70%, Tier 3 50%, Tier 4 excluded), and the governance ruling
          that quality-gate floors are not the banned migration-debt ratchet.
-         U5 (adversarial artifact decode) owns the campaign's single
-         mega-gate invocation and runs after the other tiers if any conflict
-         arises. Behavioral assertions only; fixed seeds; ~60 s
+         U5 (adversarial artifact decode) consumed the campaign's single
+         mega-gate invocation successfully. Its provenance-hash-only correction
+         was retroactively owner-ratified on 2026-07-17 under the permanent
+         config-version reconciliation rule in `AGENTS.md`. Behavioral
+         assertions only; fixed seeds; ~60 s
          `validate_tests` budget; floors armed at U9 with a final measured
-         report and independent anti-gaming review.
-000000. `physics-soa-simd-1000-bodies` is active at 6/9. S0 registered the
+         report and independent anti-gaming review. U1 raised Maths to 86.41%
+         and core primitives to 88.34% through behavioral contracts. U2 mapped
+         every reachable Try-API degeneracy to a named call-site test. U3 locked
+         store, grid, broadphase, force, and terrain-stage boundaries. U4 locked
+         sleep/support/underwater transitions, parallel island ordering,
+         friction/restitution bounds, and repeated manifold feature stability.
+         U5 locked canonical replay writes, malformed-table rejection, optional
+         track absence, and all full-artifact false-pass controls. U6 raised
+         startup to 91.89% with CLI, scene/suite, launch-packet, and exact-error
+         coverage. U7 added deterministic v1 config evidence and fixed-seed
+         momentum, quaternion/matrix, mutual-gravity, prepared-AABB, friction,
+         and restitution properties. U8 linked the CPU-only interaction and
+         replay-overlay value owners, locked their policy/hit-region/event-ring
+         contracts, and raised every Tier-3 subsystem above 50%. U9 armed the
+         ratified floors, added positive translation-unit scope
+         checks, resolved the independent review, and closed the campaign.
+000000. `physics-soa-simd-1000-bodies` is COMPLETE at 9/9. Its live plan is
+        deleted under inventory rule 4 and closure evidence lives in
+        `Agentic/Reports/2026-07-17/soa-simd-closure.md`. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
         does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
@@ -63,7 +100,16 @@ plan inventory.
         and 72,000-row mutual-gravity oracles passed without non-finite values;
         pre/post-optimization ON captures were byte-identical. Paired Profile
         evidence was negative, so the S7 cutover budget remains binding. S6
-        adds narrowphase-prune and solver-row preparation kernels.
+        added narrowphase-prune and solver-row preparation kernels, passed all
+        284 doctests with the toggle ON, and measured the complete enabled
+        matrix. The 1,000-body step is 1.0666 ms versus the 0.80 ms budget; the
+        retained scalar solver core is 0.0092 ms (0.86% of step). The owner
+        rejected the SIMD cutover on 2026-07-17, then explicitly directed S7
+        to retain SoA, delete SIMD/toggle/counter complexity, simplify the grid,
+        and close with full validation. S7 removed 3,190 lines, retained one
+        complete 8,192-cell grid, armed mandatory coverage, passed independent
+        review, and closed the full gate. S8 published the final verdict,
+        reconciled MASTER/SessionState, and deleted the completed plan.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -328,11 +374,16 @@ plan inventory.
 
 ## Next Handoff
 
-Physics SoA/SIMD is active at 6/9 after S5 added default-OFF force,
-mutual-gravity, and broadphase AVX2/FMA kernels, passed the chaotic-scale and
-focused mutual-gravity A/B oracles, and retained 44,401-line byte-exact
-OFF-path proof. Its paired enabled-path performance evidence is negative, so
-the S7 budget remains a hard cutover precondition. Continue with S6's dark
-narrowphase-prune and solver-row preparation kernels. Replay mass reduction remains closed at 9/9 plus R8;
-the externally administered validation-gate V3 lane remains blocked and
-excluded from the ledger.
+Unit-test coverage is complete at 10/10. All required translation units are
+present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
+Closure evidence, baseline deltas, the independent review, the three-file
+comment audit, and final validation live in
+`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD is
+complete at 9/9: SoA remains, rejected SIMD and attribution-only complexity are
+gone, one complete 8,192-cell grid remains, and mandatory coverage and the full
+gate pass. Closure evidence lives in
+`Agentic/Reports/2026-07-17/soa-simd-closure.md`. There is no active local plan;
+do not regenerate behavioral physics baselines.
+Replay mass reduction remains closed at 9/9 plus R8; the externally
+administered validation-gate V3 lane remains blocked and excluded from the
+ledger.

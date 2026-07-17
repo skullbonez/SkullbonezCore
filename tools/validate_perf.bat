@@ -19,8 +19,7 @@
 @rem     algorithmic path without relying on machine-specific frame timings.
 @rem   Scale matrix: Measurement-only 200/520/1,000/2,000-body artifacts used
 @rem     to ratify and track the physics fixed-step budget. These rows are
-@rem     reported but do not compare against a committed baseline before the
-@rem     SIMD cutover ceremony.
+@rem     reported but do not compare against a committed timing baseline.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use

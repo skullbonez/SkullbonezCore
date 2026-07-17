@@ -1,45 +1,32 @@
 /*
 File: SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
 Purpose:
-  Implements deterministic force dispatch plus dark AVX2/FMA integration,
-  universal-gravity, and mutual-gravity pair kernels.
+  Implements exact mutual gravity and deterministic per-body force dispatch.
 
 Summary:
   Scenes through 512 bodies may build pair forces on bounded worker chunks,
   then always reduce those values in the original serial order. Larger scenes
   bypass pair storage and execute the original exact nested-loop accumulation.
   The same owner dispatches ordinary force application without retaining any
-  store, sleep, or remaining-time reference. When explicitly enabled, it sends
-  eight-row blocks to integration and gravity kernels, vector-builds pair-table
-  rows for worlds through 512 bodies, and leaves store-owned force completion
-  and the certified serial pair reduction in their original model order.
+  store, sleep, or remaining-time reference.
 
 Glossary:
   Pair-build worker: Worker that computes disjoint pair slots without reducing.
   Reduction: Model-order addition/subtraction of retained pair forces.
   Receive predicate: Dynamic, positive-inverse-mass, awake body eligibility.
-  Dark kernel: An AVX2/FMA path selected only by the default-OFF v3 execution
-    toggle until the S7 cutover ceremony.
 
 Invariants:
-  - Toggle OFF retains the original float expressions, loop order, and
-    byte-exact physics gate behavior.
+  - Float expressions and loop order are unchanged from the P2 implementation.
   - The pair table never represents more than 512 bodies (130,816 rows).
-  - SIMD pair construction writes independent rows; model-order reduction is
-    still scalar, and the >512 fallback never enters the AVX2 kernel.
-  - SIMD gravity runs before store completion so gravity is applied exactly
-    once while drag, buoyancy, torque, and pending impulses retain one owner.
+  - Apply-forces worker dispatch uses the same threshold, label, and hash.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.h
-  - SkullbonezSource/Physics/Stages/Kernels/ForceKernel.h
   - SkullbonezSource/Physics/PhysicsWorldForces.h
   - SkullbonezTests/TestDeterminism.cpp
 */
 #include "PhysicsForceStage.h"
 
-#include "Kernels/IntegrationKernel.h"
-#include "Kernels/ForceKernel.h"
 #include "PhysicsStageContexts.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Config.h"
@@ -93,7 +80,7 @@ bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields,
 void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                const Physics::ColliderStore& colliderStore,
                                const Physics::PhysicsWorldForces& worldForces,
-                               const Physics::PhysicsBodyHotFieldsView& hotFields,
+                               const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                std::span<const uint8_t> sleepState,
                                std::vector<float>& timeRemaining,
                                const Vector3* mutualGravityForces,
@@ -103,7 +90,7 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     // Invariant: this is the extracted body of the former applyForcesAt lambda.
     // Sleeping rows must keep their cached pose and consume no remaining time;
     // awake dynamic rows still receive the same force application call.
-    if ( hotFields.fixed[static_cast<std::size_t>( bodyIndex )] != 0u )
+    if ( IsSolverBodyFixed( hotFields, bodyIndex ) )
     {
         return;
     }
@@ -116,61 +103,14 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
     (void)bodyStore.ApplyForces( worldForces, colliderStore, bodyIndex, dt, mutualGravityForce );
 }
 
-void ApplyForcesSimdBlock( const Physics::ApplyForcesStageContext& context, int modelCount, int blockIndex )
-{
-    const int bodyBegin = blockIndex * Physics::Kernels::FORCE_LANE_COUNT;
-    const int laneCount = (std::min)( Physics::Kernels::FORCE_LANE_COUNT, modelCount - bodyBegin );
-    for ( int lane = 0; lane < laneCount; ++lane )
-    {
-        const int bodyIndex = bodyBegin + lane;
-        if ( context.sleepState[static_cast<std::size_t>( bodyIndex )] != 0u )
-        {
-            context.timeRemaining[static_cast<std::size_t>( bodyIndex )] = 0.0f;
-        }
-    }
-
-    const uint32_t completionMask = Physics::Kernels::ApplyGravityAvx2( context.hotFields,
-                                                                        context.sleepState,
-                                                                        bodyBegin,
-                                                                        modelCount,
-                                                                        context.worldForces.gravity,
-                                                                        context.dt );
-    for ( int lane = 0; lane < laneCount; ++lane )
-    {
-        if ( ( completionMask & ( 1u << lane ) ) == 0u )
-        {
-            continue;
-        }
-        const int bodyIndex = bodyBegin + lane;
-        const Vector3* mutualGravityForce =
-            context.mutualGravityForces ? &context.mutualGravityForces[bodyIndex] : nullptr;
-        (void)context.bodyStore.CompleteForcesAfterSimdGravity( context.worldForces,
-                                                                context.colliderStore,
-                                                                bodyIndex,
-                                                                context.dt,
-                                                                mutualGravityForce );
-    }
-}
-
-struct ApplyForcesSimdBlockContext
-{
-    const Physics::ApplyForcesStageContext& context;
-    int modelCount = 0;
-
-    void operator()( int blockIndex ) const
-    {
-        ApplyForcesSimdBlock( context, modelCount, blockIndex );
-    }
-};
-
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
                                    const Physics::ColliderStore& colliderStore,
-                                   const Physics::PhysicsBodyHotFieldsView& hotFields,
+                                   const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                    std::span<const uint8_t> sleepState,
                                    std::span<const float> timeRemaining,
                                    int bodyIndex )
 {
-    if ( hotFields.fixed[static_cast<size_t>( bodyIndex )] != 0u || sleepState[bodyIndex] )
+    if ( IsSolverBodyFixed( hotFields, bodyIndex ) || sleepState[bodyIndex] )
     {
         return;
     }
@@ -179,43 +119,6 @@ void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
         (void)bodyStore.IntegrateBodyPose( colliderStore, bodyIndex, timeRemaining[bodyIndex] );
     }
 }
-
-// Invariant: the kernel owns position/velocity arithmetic only. The stage uses
-// its returned mask to preserve the scalar owner and order for orientation,
-// terrain clamping, and water-sample invalidation.
-void IntegrateRemainingSimdBlock( const Physics::IntegrateRemainingStageContext& context,
-                                  int modelCount,
-                                  int blockIndex )
-{
-    const int bodyBegin = blockIndex * Physics::Kernels::INTEGRATION_LANE_COUNT;
-    const uint32_t activeMask = Physics::Kernels::IntegratePositionAvx2( context.hotFields,
-                                                                         context.sleepState,
-                                                                         context.timeRemaining,
-                                                                         bodyBegin,
-                                                                         modelCount );
-    for ( int lane = 0; lane < Physics::Kernels::INTEGRATION_LANE_COUNT; ++lane )
-    {
-        if ( ( activeMask & ( 1u << lane ) ) == 0u )
-        {
-            continue;
-        }
-        const int bodyIndex = bodyBegin + lane;
-        (void)context.bodyStore.CompleteBodyPoseIntegration( context.colliderStore,
-                                                             bodyIndex,
-                                                             context.timeRemaining[bodyIndex] );
-    }
-}
-
-struct IntegrateRemainingSimdBlockContext
-{
-    const Physics::IntegrateRemainingStageContext& context;
-    int modelCount = 0;
-
-    void operator()( int blockIndex ) const
-    {
-        IntegrateRemainingSimdBlock( context, modelCount, blockIndex );
-    }
-};
 } // namespace
 
 namespace SkullbonezCore
@@ -392,23 +295,6 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
             const bool bodyAReceives = hotFields.fixed[bodyAIndex] == 0u && hotFields.inverseMass[bodyAIndex] > 0.0f &&
                                        ( i >= static_cast<int>( sleepState.size() ) || sleepState[i] == 0 );
             const std::size_t rowOffset = MutualGravityRowOffset( i, modelCount );
-            if ( execution.simdKernels )
-            {
-                for ( int bodyBBegin = i + 1; bodyBBegin < modelCount; bodyBBegin += Kernels::FORCE_LANE_COUNT )
-                {
-                    Kernels::BuildMutualGravityPairsAvx2(
-                        bodyRecords,
-                        hotFields,
-                        sleepState,
-                        i,
-                        bodyBBegin,
-                        modelCount,
-                        softenedDistanceSq,
-                        gravitationalConstant,
-                        m_mutualGravityPairForces.data() + rowOffset + static_cast<std::size_t>( bodyBBegin - i - 1 ) );
-                }
-                continue;
-            }
             for ( int j = i + 1; j < modelCount; ++j )
             {
                 const PhysicsBodyRecord& bodyB = bodyRecords[static_cast<std::size_t>( j )];
@@ -510,34 +396,6 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
                                      const Core::PhysicsExecutionConfig& execution ) const
 {
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    if ( execution.simdKernels )
-    {
-        const int blockCount = ( modelCount + Kernels::FORCE_LANE_COUNT - 1 ) / Kernels::FORCE_LANE_COUNT;
-        const ApplyForcesSimdBlockContext simdBlocks{ context, modelCount };
-        PROFILE_BEGIN( "Frame/Physics/ApplyForces/SimdKernel" );
-        if ( execution.parallel && execution.parallelApplyForces )
-        {
-            workerPool.ParallelForNoAlloc(
-                0,
-                blockCount,
-                simdBlocks,
-                ( PHYSICS_PARALLEL_MIN_BODIES + Kernels::FORCE_LANE_COUNT - 1 ) / Kernels::FORCE_LANE_COUNT,
-                "Frame/Physics/ApplyForces/WorkerBodies",
-                PHYSICS_APPLY_FORCES_WORKER_HASH );
-        }
-        else
-        {
-            for ( int blockIndex = 0; blockIndex < blockCount; ++blockIndex )
-            {
-                simdBlocks( blockIndex );
-            }
-        }
-        PROFILE_END( "Frame/Physics/ApplyForces/SimdKernel" );
-        PROFILE_END( "Frame/Physics/ApplyForces" );
-        return;
-    }
-
-    PROFILE_BEGIN( "Frame/Physics/ApplyForces/ScalarBodyLoop" );
     if ( execution.parallel && execution.parallelApplyForces )
     {
         workerPool.ParallelForNoAlloc( 0,
@@ -554,7 +412,6 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
             context( x );
         }
     }
-    PROFILE_END( "Frame/Physics/ApplyForces/ScalarBodyLoop" );
     PROFILE_END( "Frame/Physics/ApplyForces" );
 }
 
@@ -563,33 +420,6 @@ void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext
                                             Threading::WorkerPool& workerPool,
                                             const Core::PhysicsExecutionConfig& execution ) const
 {
-    if ( execution.simdKernels )
-    {
-        const int blockCount = ( modelCount + Kernels::INTEGRATION_LANE_COUNT - 1 ) / Kernels::INTEGRATION_LANE_COUNT;
-        const IntegrateRemainingSimdBlockContext simdBlocks{ context, modelCount };
-        PROFILE_BEGIN( "Frame/Physics/Integrate/SimdPilot" );
-        if ( execution.parallel && execution.parallelIntegrate )
-        {
-            workerPool.ParallelForNoAlloc(
-                0,
-                blockCount,
-                simdBlocks,
-                ( PHYSICS_PARALLEL_MIN_BODIES + Kernels::INTEGRATION_LANE_COUNT - 1 ) / Kernels::INTEGRATION_LANE_COUNT,
-                "Frame/Physics/Integrate/WorkerBodies",
-                PHYSICS_INTEGRATE_WORKER_HASH );
-        }
-        else
-        {
-            for ( int blockIndex = 0; blockIndex < blockCount; ++blockIndex )
-            {
-                simdBlocks( blockIndex );
-            }
-        }
-        PROFILE_END( "Frame/Physics/Integrate/SimdPilot" );
-        return;
-    }
-
-    PROFILE_BEGIN( "Frame/Physics/Integrate/ScalarBodyLoop" );
     if ( execution.parallel && execution.parallelIntegrate )
     {
         workerPool.ParallelForNoAlloc( 0,
@@ -606,7 +436,6 @@ void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext
             context( x );
         }
     }
-    PROFILE_END( "Frame/Physics/Integrate/ScalarBodyLoop" );
 }
 
 uint64_t PhysicsForceStage::CollectDynamicMemoryBytes() const

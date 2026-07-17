@@ -185,12 +185,9 @@ uint64_t PhysicsSleepController::CollectDynamicMemoryBytes() const
     bytes += VectorCapacityBytes( m_sleepIslandHasSupportAnchor );
     bytes += VectorCapacityBytes( m_sleepIslandEligible );
     bytes += VectorCapacityBytes( m_sleepIslandCanSleep );
-    bytes += VectorCapacityBytes( m_sleepPointJointBody );
-    bytes += VectorCapacityBytes( m_sleepIslandHasPointJoint );
-    bytes += VectorCapacityBytes( m_sleepIslandPointJointsRelaxed );
+    bytes += VectorCapacityBytes( m_sleepScratchFlags );
     bytes += VectorCapacityBytes( m_sleepVisualIslandIds );
     bytes += VectorCapacityBytes( m_sleepVisualIslandBodies );
-    bytes += VectorCapacityBytes( m_restingWakeVisitedScratch );
     bytes += VectorCapacityBytes( m_restingWakeQueueScratch );
     return bytes;
 }

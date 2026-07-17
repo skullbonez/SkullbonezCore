@@ -8,7 +8,7 @@
 @rem   its owning script; mandatory broad ordering remains in validate_full.
 @rem
 @rem Glossary:
-@rem   CPU umbrella: The four first-party CPU test targets run fail-fast through
+@rem   CPU umbrella: Five first-party CPU/coverage gates run fail-fast through
 @rem   validate_all_cpu_tests.bat.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
