@@ -82,12 +82,13 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
         case SceneRequestType::LoadBrowserIndex:
             eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
             accepted = executeSceneLoadRequest(
-                m_sceneController.LoadSceneFromBrowserIndex( request.index,
-                                                             interaction.operatorUi.SceneNavigation().browser ) );
+                interaction.operatorUi.SceneNavigation().LoadSceneFromBrowserIndex( request.index,
+                                                                                    m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::LoadDemoScene:
             eventCode = ReplayOwnerEventCode::SceneLoadDemo;
-            accepted = executeSceneLoadRequest( m_sceneController.LoadDemoSceneFromUI() );
+            accepted = executeSceneLoadRequest(
+                interaction.operatorUi.SceneNavigation().LoadDemoScene( m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::ResetCurrentScene:
             eventCode = ReplayOwnerEventCode::SceneReset;

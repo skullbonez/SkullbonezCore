@@ -1295,18 +1295,6 @@
       "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.cpp",
-      "patterns": [
-        ".push_back(",
-        ".reserve("
-      ],
-      "owner": "Runtime scene-load storage surface",
-      "phase": "scene_load",
-      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
-      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
-      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp",
       "patterns": [
         ".push_back("

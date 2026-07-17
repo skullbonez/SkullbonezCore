@@ -1,7 +1,7 @@
 # Scene Controller Decomposition Round 2 — Split The Ratified Aggregate
 
 Date: 2026-07-18
-Status: Active — 1/7 tasks
+Status: Active — 2/7 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/RunFrame.cpp`,
 `Runtime/RunInput.cpp`, `Runtime/InputFrame.cpp`, UI navigation consumers,
@@ -75,7 +75,7 @@ owners genuinely participate, not because bags merge.
   post-split load participant list. Owner ratifies map and branch before any
   edit. Evidence: dated census under `Agentic/Reports/`. Gate: none
   (documentation).
-- [ ] S1 — Finish the navigation-policy move. Relocate
+- [x] S1 — Finish the navigation-policy move. Relocate
   `AdjacentCinematicModeBrowserIndex`, `LoadAdjacentSceneFromBrowser`,
   `LoadSceneFromBrowserIndex`, and `LoadDemoSceneFromUI` decision logic to
   the UI-owned `SceneNavigationModel`, leaving the scene owner a value-only
@@ -120,6 +120,16 @@ owners genuinely participate, not because bags merge.
   memory accounting uses a diagnostics boundary over const owner views. Reuse
   branch `nightrunner-17th-july`. Evidence:
   `../../Reports/2026-07-18/scene-controller-round-2-census.md`.
+- S1 evidence (2026-07-18): browser, demo, and cinematic navigation policy now
+  lives on `SceneNavigationModel`; the model borrows `SceneRuntime` only while
+  producing value `SceneLoadRequest` records, and `SceneController` retains no
+  navigation relay. Two focused cases passed 16/16 assertions. The touched-file
+  comment audit inspected 9/9 source-bearing files with zero deferred. Allocation
+  policy self-test and repository scan passed (`scanned=377`,
+  `allowlist_errors=0`), and the final `tools\validate_full.bat` gate passed in
+  161.165s: every CPU lane, Automation/replay smoke, DX12 validation and captures,
+  and byte-exact physics passed. No baseline or golden was refreshed. Log:
+  `TestOutput/validation/agent_logs/scene_round2_s1_validate_full_final_stdout.log`.
 - Round-6 closure evidence
   (`Agentic/Reports/2026-07-17/scene-controller-ownership-closure.md`) is
   the baseline census; contradicting it requires the fresh S0 measurements.

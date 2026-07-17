@@ -705,12 +705,10 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             const int currentSceneBrowserIndex =
                 CurrentSceneBrowserIndex( m_sceneController, m_UI.SceneNavigation().browser );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
-            const int cinematicIndex = m_sceneController.AdjacentCinematicModeBrowserIndex(
-                direction,
-                m_UI.SceneNavigation().browser.selectedCineModeSceneIndex,
-                currentSceneBrowserIndex,
-                isCinematicTabActive,
-                m_UI.SceneNavigation().browser );
+            UI::SceneNavigationModel& sceneNavigation = m_UI.SceneNavigation();
+            const int cinematicIndex = sceneNavigation.AdjacentCinematicModeBrowserIndex( direction,
+                                                                                          currentSceneBrowserIndex,
+                                                                                          isCinematicTabActive );
             const bool appliedCinematic =
                 cinematicIndex >= 0 &&
                 ApplyCinematicModeFromBrowserIndex(
@@ -725,10 +723,9 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                     cinematicIndex );
             if ( !appliedCinematic )
             {
-                executeSceneLoadRequest(
-                    m_sceneController.LoadAdjacentSceneFromBrowser( direction,
-                                                                    currentSceneBrowserIndex,
-                                                                    m_UI.SceneNavigation().browser ) );
+                executeSceneLoadRequest( sceneNavigation.LoadAdjacentScene( direction,
+                                                                            currentSceneBrowserIndex,
+                                                                            m_sceneController.Runtime() ) );
             }
             break;
         }

@@ -331,17 +331,6 @@ class SceneController
     int Append( std::string path );
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
-    // Scene navigation policy stays with the queue/browser owner. Returned
-    // requests are value-only and retain no caller callback or context.
-    SceneLoadRequest LoadSceneFromBrowserIndex( int index, const RunSceneBrowserState& browser );
-    SceneLoadRequest LoadDemoSceneFromUI();
-    int AdjacentCinematicModeBrowserIndex( int direction,
-                                           int selectedCineModeSceneIndex,
-                                           int currentSceneBrowserIndex,
-                                           bool isCinematicTabActive,
-                                           const RunSceneBrowserState& browser ) const;
-    SceneLoadRequest
-    LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex, const RunSceneBrowserState& browser );
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;

@@ -107,11 +107,11 @@ small findings hardening (5 tasks).
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | 1 | 7 | 14% |
+| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | 2 | 7 | 29% |
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 0 | 8 | 0% |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 0 | 5 | 0% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
-| **Active/future total** | **1** | **25** | **4%** |
+| **Active/future total** | **2** | **25** | **8%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -700,7 +700,7 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | Active | 1/7 | S1 navigation-policy move onto `SceneNavigationModel` |
+| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | Active | 2/7 | S2 typed water-settings command and bounded post-step contact outputs |
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 0/8 | D0 state census and owner-ratified owner map |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active — blocked on scene plan | 0/5 | N0 rename census after round-2 scene split lands |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | Active — blocked on DX12 plan | 0/5 | H0 rulings census after backend decomposition lands |

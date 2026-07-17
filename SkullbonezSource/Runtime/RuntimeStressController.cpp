@@ -1170,7 +1170,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         {
             selectedSceneIndex = stress.NextInt( static_cast<int>( ui.SceneNavigation().browser.paths.size() ) );
             selectedSceneSource = "browser";
-            request = sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex, ui.SceneNavigation().browser );
+            request = ui.SceneNavigation().LoadSceneFromBrowserIndex( selectedSceneIndex, sceneController.Runtime() );
         }
 
         if ( executeSceneLoadRequest( request ) )

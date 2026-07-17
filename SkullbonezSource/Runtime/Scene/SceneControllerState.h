@@ -34,6 +34,9 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+class SceneRuntime;
+struct SceneLoadRequest;
+
 struct RunSceneBrowserState
 {
     std::vector<std::string> paths;
@@ -59,6 +62,16 @@ struct SceneNavigationModel
     // UI owner's lifetime; runtime consumers may borrow but never retain them.
     Runtime::RunSceneBrowserState browser;
     Runtime::RunSceneUIOverrideState overrides;
+
+    // Browser policy borrows only the concrete queue owner for one synchronous
+    // decision. The returned request owns no callback, pointer, or runtime
+    // context and can cross the lifecycle submission boundary by value.
+    Runtime::SceneLoadRequest LoadSceneFromBrowserIndex( int index, Runtime::SceneRuntime& scene );
+    Runtime::SceneLoadRequest LoadDemoScene( Runtime::SceneRuntime& scene );
+    int
+    AdjacentCinematicModeBrowserIndex( int direction, int currentSceneBrowserIndex, bool isCinematicTabActive ) const;
+    Runtime::SceneLoadRequest
+    LoadAdjacentScene( int direction, int currentSceneBrowserIndex, Runtime::SceneRuntime& scene );
 };
 } // namespace UI
 } // namespace SkullbonezCore

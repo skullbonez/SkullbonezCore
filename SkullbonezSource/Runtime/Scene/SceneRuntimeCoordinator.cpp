@@ -1,227 +1,36 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.cpp
 Purpose:
-  Implements SceneController navigation and value-only load decisions.
+  Implements SceneController lifecycle requests and UI command submission.
 
 Summary:
-  SceneController chooses which queued or browser scene should load and returns
-  an accepted value request without retaining caller behavior.
+  SceneController owns reset/advance lifecycle policy and accepts owner-specific
+  UI commands. Browser and cinematic selection policy lives on the UI-owned
+  SceneNavigationModel and reaches this boundary only as a value request.
 
 Glossary:
-  Browser scene: Scene path discovered from `SkullbonezData/scenes`.
   Load decision: Value-only request naming the chosen queue row and load flags.
-  Cinematic deck: Queue range of cinematic/concept scene paths.
+  UI command: One-frame operator intent submitted to the fixed scene request
+    ring for execution at the frame checkpoint.
 
 Invariants:
-  - SceneController navigation methods return values; they do not retain load callbacks.
-  - Browser-to-queue matching uses normalized path strings.
-  - Cinematic deck navigation must match SceneRuntime's filename rules.
+  - Reset and advance requests contain values only; no callback or UI owner is
+    retained by SceneController.
+  - UI command submission preserves same-frame request order.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h
-  - SkullbonezSource/Runtime/Scene/SceneController.h
+  - SkullbonezSource/Runtime/Scene/SceneNavigationModel.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeCoordinator.h"
 #include "SceneController.h"
 #include "../../UI/UICommands.h"
 
-#include <algorithm>
-#include <cstring>
-
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace
-{
-const char* FileNameFromPath( const char* path )
-{
-    if ( !path )
-    {
-        return "";
-    }
-
-    const char* slash = strrchr( path, '/' );
-    const char* backslash = strrchr( path, '\\' );
-    const char* separator = slash;
-    if ( backslash && ( !separator || backslash > separator ) )
-    {
-        separator = backslash;
-    }
-    return separator ? separator + 1 : path;
-}
-
-std::string NormalizeScenePath( const std::string& path )
-{
-    std::string normalized = path;
-    std::replace( normalized.begin(), normalized.end(), '\\', '/' );
-    return normalized;
-}
-
-bool IsCineScenePath( const std::string& path )
-{
-    const char* name = FileNameFromPath( path.c_str() );
-    return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
-           strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
-}
-} // namespace
-
-
-SceneLoadRequest SceneController::LoadSceneFromBrowserIndex( int index, const RunSceneBrowserState& browser )
-{
-    const std::vector<std::string>& sceneBrowserPaths = browser.paths;
-    if ( index < 0 || index >= static_cast<int>( sceneBrowserPaths.size() ) )
-    {
-        return SceneLoadRequest::None();
-    }
-
-    const std::string selectedPath = NormalizeScenePath( sceneBrowserPaths[index] );
-    const int queuedIndex = FindNormalizedPath( selectedPath );
-    if ( queuedIndex >= 0 )
-    {
-        if ( queuedIndex != CurrentIndex() )
-        {
-            return SceneLoadRequest::Load( queuedIndex, true, true, false, true );
-        }
-        return SceneLoadRequest::AcceptedWithoutLoad( true );
-    }
-
-    return SceneLoadRequest::Load( Append( selectedPath ), true, true, false, true );
-}
-
-
-SceneLoadRequest SceneController::LoadDemoSceneFromUI()
-{
-    const int demoIndex = FindGeneratedDemo();
-    if ( demoIndex >= 0 )
-    {
-        return SceneLoadRequest::Load( demoIndex, true, true, false, true );
-    }
-
-    return SceneLoadRequest::Load( Append( "" ), true, true, false, true );
-}
-
-
-int SceneController::AdjacentCinematicModeBrowserIndex( int direction,
-                                                        int selectedCineModeSceneIndex,
-                                                        int currentSceneBrowserIndex,
-                                                        bool isCinematicTabActive,
-                                                        const RunSceneBrowserState& browser ) const
-{
-    const std::vector<std::string>& sceneBrowserPaths = browser.paths;
-    if ( direction == 0 )
-    {
-        return -1;
-    }
-
-    std::vector<int> cineIndices;
-    cineIndices.reserve( sceneBrowserPaths.size() );
-    int currentPosition = -1;
-    for ( int i = 0; i < static_cast<int>( sceneBrowserPaths.size() ); ++i )
-    {
-        if ( IsCineScenePath( sceneBrowserPaths[i] ) )
-        {
-            if ( i == selectedCineModeSceneIndex )
-            {
-                currentPosition = static_cast<int>( cineIndices.size() );
-            }
-            cineIndices.push_back( i );
-        }
-    }
-
-    if ( cineIndices.empty() )
-    {
-        return -1;
-    }
-
-    const int currentSceneIndex = currentSceneBrowserIndex;
-    if ( currentPosition < 0 && currentSceneIndex >= 0 && IsCineScenePath( sceneBrowserPaths[currentSceneIndex] ) )
-    {
-        for ( int i = 0; i < static_cast<int>( cineIndices.size() ); ++i )
-        {
-            if ( cineIndices[i] == currentSceneIndex )
-            {
-                currentPosition = i;
-                break;
-            }
-        }
-    }
-
-    const bool cineContext = currentPosition >= 0 || selectedCineModeSceneIndex >= 0 || isCinematicTabActive;
-    if ( !cineContext )
-    {
-        return -1;
-    }
-
-    const int cineCount = static_cast<int>( cineIndices.size() );
-    const int nextPosition = currentPosition < 0
-                                 ? ( direction < 0 ? cineCount - 1 : 0 )
-                                 : ( currentPosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-    return cineIndices[nextPosition];
-}
-
-
-SceneLoadRequest SceneController::LoadAdjacentSceneFromBrowser( int direction,
-                                                                int currentSceneBrowserIndex,
-                                                                const RunSceneBrowserState& browser )
-{
-    const std::vector<std::string>& sceneBrowserPaths = browser.paths;
-    if ( direction == 0 )
-    {
-        return SceneLoadRequest::None();
-    }
-
-    if ( CurrentQueueIsCinematicDeck() )
-    {
-        return SceneLoadRequest::Load( AdjacentQueueIndex( direction ), true, true, false );
-    }
-
-    const int sceneCount = static_cast<int>( sceneBrowserPaths.size() );
-    if ( sceneCount <= 0 )
-    {
-        return SceneLoadRequest::None();
-    }
-
-    const int currentIndex = currentSceneBrowserIndex;
-    if ( currentIndex >= 0 && IsCineScenePath( sceneBrowserPaths[currentIndex] ) )
-    {
-        std::vector<int> cineIndices;
-        cineIndices.reserve( sceneBrowserPaths.size() );
-        int currentCinePosition = -1;
-        for ( int i = 0; i < sceneCount; ++i )
-        {
-            if ( IsCineScenePath( sceneBrowserPaths[i] ) )
-            {
-                if ( i == currentIndex )
-                {
-                    currentCinePosition = static_cast<int>( cineIndices.size() );
-                }
-                cineIndices.push_back( i );
-            }
-        }
-        if ( !cineIndices.empty() && currentCinePosition >= 0 )
-        {
-            const int cineCount = static_cast<int>( cineIndices.size() );
-            const int nextCinePosition = ( currentCinePosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-            return LoadSceneFromBrowserIndex( cineIndices[nextCinePosition], browser );
-        }
-    }
-
-    int nextIndex = 0;
-    if ( currentIndex < 0 )
-    {
-        nextIndex = direction < 0 ? sceneCount - 1 : 0;
-    }
-    else
-    {
-        nextIndex = ( currentIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
-    }
-
-    return LoadSceneFromBrowserIndex( nextIndex, browser );
-}
-
-
 SceneLoadRequest
 SceneController::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {

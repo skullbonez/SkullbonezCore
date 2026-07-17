@@ -31,6 +31,7 @@ Related:
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
 #include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
@@ -140,6 +141,51 @@ TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
     CHECK_FALSE( load.markManualReset );
 
     CHECK_FALSE( SceneLoadRequest::Load( -1, true, true, true ).accepted );
+}
+
+TEST_CASE( "UI scene navigation owns browser queue and demo decisions" )
+{
+    SkullbonezCore::UI::SceneNavigationModel navigation;
+    navigation.browser.paths = { "SkullbonezData\\scenes\\alpha.scene.json", "SkullbonezData/scenes/beta.scene.json" };
+    SceneRuntime scene( std::vector<std::string>{ "SkullbonezData/scenes/alpha.scene.json" } );
+    scene.BeginLoad( 0 );
+
+    const SceneLoadRequest current = navigation.LoadSceneFromBrowserIndex( 0, scene );
+    CHECK( current.accepted );
+    CHECK_FALSE( current.HasLoad() );
+    CHECK( current.enterInteractiveSceneRun );
+
+    const SceneLoadRequest appended = navigation.LoadSceneFromBrowserIndex( 1, scene );
+    CHECK( appended.HasLoad() );
+    CHECK( appended.index == 1 );
+    CHECK( scene.PathAt( 1 ) == "SkullbonezData/scenes/beta.scene.json" );
+    CHECK_FALSE( navigation.LoadSceneFromBrowserIndex( -1, scene ).accepted );
+
+    const SceneLoadRequest demo = navigation.LoadDemoScene( scene );
+    CHECK( demo.HasLoad() );
+    CHECK( demo.index == 2 );
+    CHECK( scene.PathAt( 2 ).empty() );
+    CHECK( navigation.LoadDemoScene( scene ).index == 2 );
+}
+
+TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
+{
+    SkullbonezCore::UI::SceneNavigationModel navigation;
+    navigation.browser.paths = { "ordinary.scene.json",
+                                 "concept_one.scene.json",
+                                 "ordinary_two.scene.json",
+                                 "cinematic_two.scene.json" };
+    navigation.browser.selectedCineModeSceneIndex = 1;
+    SceneRuntime scene( std::vector<std::string>{ "ordinary.scene.json" } );
+    scene.BeginLoad( 0 );
+
+    CHECK( navigation.AdjacentCinematicModeBrowserIndex( 1, 0, false ) == 3 );
+    CHECK( navigation.AdjacentCinematicModeBrowserIndex( -1, 0, false ) == 3 );
+    CHECK( navigation.AdjacentCinematicModeBrowserIndex( 0, 0, true ) == -1 );
+
+    const SceneLoadRequest adjacent = navigation.LoadAdjacentScene( 1, 1, scene );
+    CHECK( adjacent.HasLoad() );
+    CHECK( scene.PathAt( adjacent.index ) == "cinematic_two.scene.json" );
 }
 
 TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
