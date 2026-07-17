@@ -95,8 +95,7 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | physics-soa-simd-1000-bodies (PAUSED after S6; owner rejected S7 on current evidence) | 7 | 9 | 78% |
-| physics-broadphase-scale-attribution | 4 | 5 | 80% |
-| **Active/future total** | **11** | **14** | **79%** |
+| **Active/future total** | **7** | **9** | **78%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -106,6 +105,12 @@ time and must never be added to it. B1-B4 instrument mutually exclusive phases,
 measure the 1,000→2,000 cliff, implement only the evidence-selected grid fix,
 and close with repeated A/B, determinism, and independent review. S7 stays
 unchecked and must not start.
+
+B4 completed that campaign on 2026-07-17. Its exact-tip paired medians are
+-1.61% Step / -7.34% inclusive Broadphase / -9.78% GridInsert at 1,000
+bodies and -75.26% / -87.39% / -91.38% at 2,000. The plan is deleted under
+inventory rule 4; closure evidence lives in
+`../Reports/2026-07-17/broadphase-scale-closure.md`.
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign, then returned to 9 on 2026-07-17 when U0-U9
@@ -129,20 +134,15 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active priority is `physics-broadphase-scale-attribution` B4. The final
-packed-source gate measures 0.9652 ms Physics Step / 0.2731 ms inclusive
-Broadphase at 1,000 bodies and 7.5576 / 6.5069 ms at 2,000. The old nested
-`GridBuild/ScalarBounds` row included insertion and could not attribute the cliff
-to bounds arithmetic. B1 replaced it with mutually exclusive `GridSetup`,
-`GridInsertScalar/Simd`, and `CandidatePairsScalar/Simd` children and added
-allocation-free grid counters. B2 proved the 2,000-body scene fills all 4,096
-hash slots: about 3,660 visits per queried frame then pay a 4,096-slot failed
-probe, making scalar insertion grow 30.94x. B3 retained the primary table and
-added a cold 16 KiB saturated-only lookup: seven same-tip pairs kept the
-1,000-body Step neutral (+0.43% median) and improved the 2,000-body Step by
-76.21%, with byte-identical traces at both scales. B4 closes with the exact-tip
-matrix and independent review. The campaign does not authorize S7, a
-toggle-default change, or any baseline/golden refresh.
+There is no active plan runner. `physics-broadphase-scale-attribution` closed
+B0-B4 with an unchanged 4,096-row primary table, a fixed 16,384-slot lookup,
+and 4,096 cold overflow rows. Exact-tip paired medians are -1.61% Step / -7.34%
+inclusive Broadphase / -9.78% GridInsert at 1,000 bodies and -75.26% / -87.39%
+/ -91.38% at 2,000. The final scalar-OFF matrix is 1.0546 ms Step at 1,000
+bodies and 2.0517 ms at 2,000. Complete deterministic cell coverage, the
+44,401-line oracle, fixed-capacity allocation rules, and independent review are
+closed. The campaign did not authorize S7, a toggle-default change, or any
+baseline/golden refresh.
 
 The owner-paused 2026-07-16 physics SoA/SIMD campaign has completed S0-S6. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
@@ -181,7 +181,7 @@ orthonormality, bounds, grid, and stage-contract cases are the independent
 oracle that survives golden regeneration. U5 consumed the campaign's single
 mega-gate invocation. The owner authorized exactly S6 on 2026-07-17, then
 rejected S7 on the current evidence. SoA/SIMD is paused at 7/9 and the
-broadphase scale-attribution campaign is active. S7 remains unchecked; if a
+broadphase scale-attribution campaign is complete. S7 remains unchecked; if a
 future owner direction ever reopens it, THREE preconditions remain binding:
 (1) the ratified
 0.80 ms combined toggle-ON budget met (S5's enabled-path Profile finding is
@@ -566,11 +566,11 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-broadphase-scale-attribution](TODO/physics-broadphase-scale-attribution.md) | Active; B0-B3 corrected accounting, proved the full-table cause, and removed the saturated scan | 4/5 | B4: exact-tip matrix, independent review, and closure |
+| [physics-broadphase-scale-attribution](../Reports/2026-07-17/broadphase-scale-closure.md) | Complete | 5/5 | Saturated scan removed with bounded complete overflow coverage; exact-tip pairs, final matrix, comments, and independent review closed |
 | [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 7/9; owner rejected S7 on current evidence | 7/9 | Do not start S7; only a fresh owner direction may reopen it |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
-## Unit Test Coverage Campaign (2026-07-16, active)
+## Unit Test Coverage Campaign (2026-07-16, complete)
 
 Source: the 2026-07-16 owner discussion on unit coverage. The engine has
 strong system oracles over an ~4% unit layer; twice in one week the gap was

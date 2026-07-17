@@ -41,7 +41,7 @@ layout. The stage's owned-memory accounting includes the full 160 KiB.
 | 16,384 primary buckets | 384 KiB | +7.36% (+2.91% to +11.17%) | -76.61% / -88.80% / -92.88% | Reject: clear common-scale regression |
 | 8,192 primary buckets | 128 KiB | +1.60% (-0.93% to +4.97%) | -77.08% / -89.53% / -93.62% | Reject: common-scale insert regression |
 | 8,192-slot membership-only lookup | 16 KiB | +0.43% (-2.75% to +3.01%) | -76.21% / -88.53% / -92.54% | Reject at review: preserved silent cell drops |
-| 16,384-slot lookup plus 4,096 cold buckets | 160 KiB startup-fixed | +0.65% (-0.45% to +2.45%) | -75.33% / -87.05% / -91.04% | Retain: neutral Step at 1,000; bounded, complete, deterministic |
+| 16,384-slot lookup plus 4,096 cold buckets, cold miss handler | 160 KiB startup-fixed | -1.61% (-4.37% to +4.26%) | -75.26% / -87.39% / -91.38% | Retain: faster at both scales; bounded, complete, deterministic |
 
 The membership-only candidate's paired executable was 4,705,792 bytes with
 SHA-256
@@ -89,10 +89,10 @@ Raw and analyzed artifacts are under the ignored
 | **Median** | **-76.21%** | **-88.53%** | **-92.54%** | **-9.28%** |
 | **Range** | **-76.52% to -75.97%** | **-88.76% to -88.39%** | **-92.78% to -92.41%** | **-11.40% to -5.12%** |
 
-## Seven alternating retained-design pairs
+## Superseded pre-inline retained-design pairs
 
-These are the acceptance pairs for the final overflow-safe source, not the
-rejected membership-only mechanism. The control executable is the pre-B3
+These pairs cover the first overflow-safe source, not the final acceptance
+source and not the rejected membership-only mechanism. The control executable is the pre-B3
 `0f203592` build. The candidate was built from the uncommitted remediation
 working tree after `d8cce716`; consequently the analyzer's embedded
 `d8cce7168` field identifies the last commit only and is not presented as the
@@ -133,20 +133,66 @@ than hidden by the Step result.
 | **Median** | **-75.33%** | **-87.05%** | **-91.04%** | **+2.43%** |
 | **Range** | **-75.52% to -75.09%** | **-87.21% to -86.92%** | **-91.20% to -90.91%** | **-2.24% to +7.96%** |
 
+## Definitive committed-tip retained-design pairs
+
+These are the acceptance pairs from exact committed source `91da621c8`.
+Candidate SHA-256 is
+`AE0F2E627F74B85C7D42D4A4F7BE21DC970F9A97AAE0042D260F5A59F3B6BCFB`
+(4,710,400 bytes); saved control SHA-256 is
+`AB9DDC514C895AF5A7B886D0530FF0457E6C6F8918C2EEC0E01F3F59B4529D03`
+(4,692,480 bytes). Every process used explicit SIMD OFF and
+`SKULLBONEZ_PLATFORM_PROFILER_MARKERS=0` in both lanes. This corrects the
+asymmetric default where the candidate emitted PIX markers but the saved
+control lacked platform-marker support. All 28 stderr logs are empty. Raw and
+analyzed artifacts are under ignored directory
+`TestOutput/broadphase_attribution/b3_pairs_final_91da621c8_markers_off/`.
+
+### Committed 1,000-body pairs
+
+| Pair | Step C->N (delta) | Broadphase C->N (delta) | Grid insert C->N (delta) | Candidate pairs C->N (delta) |
+|---:|---:|---:|---:|---:|
+| 1 | 1.0995->1.1021 (+0.24%) | 0.2983->0.2757 (-7.58%) | 0.2209->0.1966 (-11.00%) | 0.0283->0.0286 (+1.06%) |
+| 2 | 1.0919->1.0522 (-3.64%) | 0.2972->0.2745 (-7.64%) | 0.2197->0.1971 (-10.29%) | 0.0283->0.0284 (+0.35%) |
+| 3 | 1.0932->1.0454 (-4.37%) | 0.2998->0.2725 (-9.11%) | 0.2230->0.1956 (-12.29%) | 0.0283->0.0282 (-0.35%) |
+| 4 | 1.0437->1.0882 (+4.26%) | 0.2855->0.2759 (-3.36%) | 0.2091->0.1970 (-5.79%) | 0.0281->0.0285 (+1.42%) |
+| 5 | 1.0912->1.0736 (-1.61%) | 0.2983->0.2764 (-7.34%) | 0.2209->0.1993 (-9.78%) | 0.0285->0.0284 (-0.35%) |
+| 6 | 1.0666->1.0669 (+0.03%) | 0.2949->0.2795 (-5.22%) | 0.2181->0.2022 (-7.29%) | 0.0280->0.0285 (+1.79%) |
+| 7 | 1.0879->1.0677 (-1.86%) | 0.2955->0.2770 (-6.26%) | 0.2182->0.2001 (-8.29%) | 0.0283->0.0279 (-1.41%) |
+| **Median** | **-1.61%** | **-7.34%** | **-9.78%** | **+0.35%** |
+| **Range** | **-4.37% to +4.26%** | **-9.11% to -3.36%** | **-12.29% to -5.79%** | **-1.41% to +1.79%** |
+
+### Committed 2,000-body pairs
+
+| Pair | Step C->N (delta) | Broadphase C->N (delta) | Grid insert C->N (delta) | Candidate pairs C->N (delta) |
+|---:|---:|---:|---:|---:|
+| 1 | 8.2674->2.0602 (-75.08%) | 7.0807->0.8927 (-87.39%) | 6.7873->0.5862 (-91.36%) | 0.1007->0.1152 (+14.40%) |
+| 2 | 8.3579->2.0244 (-75.78%) | 7.1088->0.8841 (-87.56%) | 6.8099->0.5807 (-91.47%) | 0.1069->0.1139 (+6.55%) |
+| 3 | 8.3077->2.0790 (-74.98%) | 7.1055->0.9032 (-87.29%) | 6.8010->0.5977 (-91.21%) | 0.1031->0.1153 (+11.83%) |
+| 4 | 8.3301->2.0613 (-75.26%) | 7.1192->0.8910 (-87.49%) | 6.8244->0.5725 (-91.61%) | 0.1018->0.1148 (+12.77%) |
+| 5 | 8.3226->2.0817 (-74.99%) | 7.1022->0.9000 (-87.33%) | 6.7999->0.5948 (-91.25%) | 0.1024->0.1136 (+10.94%) |
+| 6 | 8.3595->2.0497 (-75.48%) | 7.1441->0.9014 (-87.38%) | 6.8302->0.5887 (-91.38%) | 0.1036->0.1141 (+10.14%) |
+| 7 | 8.3599->2.0447 (-75.54%) | 7.1051->0.8884 (-87.50%) | 6.8026->0.5847 (-91.41%) | 0.1033->0.1146 (+10.94%) |
+| **Median** | **-75.26%** | **-87.39%** | **-91.38%** | **+10.94%** |
+| **Range** | **-75.78% to -74.98%** | **-87.56% to -87.29%** | **-91.61% to -91.21%** | **+6.55% to +14.40%** |
+
+The candidate-pair phase increases at 2,000 because the corrected grid now
+feeds it cells that the legacy saturated table silently dropped. The Step,
+inclusive Broadphase, and insertion improvements include that restored work.
+
 ## Corrected final matrix
 
 The formal performance gate from the retained overflow source produced:
 
 | Bodies | Physics Step | Broadphase inclusive | GridInsertScalar | CandidatePairsScalar | FastSmallSweepAugment |
 |---:|---:|---:|---:|---:|---:|
-| 200 | 0.1117 ms | 0.0274 ms | 0.0215 ms | 0.0022 ms | 0.0026 ms |
-| 520 | 0.8314 ms | 0.1631 ms | 0.1382 ms | 0.0099 ms | 0.0112 ms |
-| 1,000 | 1.0754 ms | 0.2983 ms | 0.2218 ms | 0.0276 ms | 0.0430 ms |
-| 2,000 | 2.0020 ms | 0.8945 ms | 0.5913 ms | 0.1122 ms | 0.1788 ms |
+| 200 | 0.0999 ms | 0.0209 ms | 0.0154 ms | 0.0020 ms | 0.0026 ms |
+| 520 | 0.8121 ms | 0.1351 ms | 0.1102 ms | 0.0100 ms | 0.0114 ms |
+| 1,000 | 1.0546 ms | 0.2741 ms | 0.1970 ms | 0.0279 ms | 0.0442 ms |
+| 2,000 | 2.0517 ms | 0.8904 ms | 0.5876 ms | 0.1138 ms | 0.1795 ms |
 
-Against B0's packed-source 2,000-body Step reference, Step improves 73.51%.
-Against B2's instrumented attribution, Broadphase improves 86.61% and grid
-insertion improves 90.72%. The corrected design is about
+Against B0's packed-source 2,000-body Step reference, Step improves 72.85%.
+Against B2's instrumented attribution, Broadphase improves 86.67% and grid
+insertion improves 90.78%. The corrected design is about
 0.20 ms slower than the rejected membership-only candidate at 2,000 bodies
 because it performs the missing work, but it retains nearly all of the
 algorithmic win and restores conservative coverage.
@@ -213,11 +259,11 @@ campaign-wide total.
 
 ## Formal gates
 
-- `tools\validate_tests.bat`: passed 288/288 cases and 21,444 assertions after
-  saturated copy/assignment coverage was added.
+- `tools\validate_tests.bat`: passed 290/290 cases and 21,452 assertions after
+  saturated copy/assignment and compact-transition coverage was added; 7.450 seconds.
 - `tools\validate_physics.bat`: passed; the 44,401-line varied-scene oracle
   remained byte-exact and Profile/Debug builds had zero warnings and errors.
-- `tools\validate_perf.bat`: completed in 113.349 seconds; allocation policy,
+- `tools\validate_perf.bat`: completed in 94.443 seconds; allocation policy,
   the gameplay allocation guard, owned-memory accounting, absolute budgets,
   and comparisons passed.
 - Touched-source comment audit is reconciled in the B4 closure report.

@@ -3,7 +3,8 @@
 Date: 2026-07-16
 Status: PAUSED at 7/9 (S0-S6 complete). The owner lifted the hold for S6 only
 on 2026-07-17, then explicitly rejected S7 on the current evidence and ordered
-the separate broadphase scale-attribution campaign. S7 remains unchecked and
+the separate broadphase scale-attribution campaign, which completed without
+authorizing cutover. S7 remains unchecked and
 must not start without a fresh owner direction. The completed
 `unit-test-coverage-campaign` supplies tolerance-based behavioral/property
 suites if a future direction ever reopens the S7 cutover. Its preconditions
@@ -222,8 +223,9 @@ path) until S7 flips the default in one owner-approved ceremony.
 - [ ] **S7 — REJECTED on current evidence; do not start.** The 2026-07-17
       owner decision leaves this checkbox open at 7/9: the final same-tip SIMD
       result is a wash and the enabled 1,000-body step misses the 0.80 ms
-      budget. The active work is the separate broadphase scale-attribution
-      campaign. Only a fresh owner direction may reopen the following cutover
+      budget. The separate broadphase scale-attribution campaign closed at a
+      1.0546 ms scalar-OFF Step, still above the cutover budget. Only a fresh
+      owner direction may reopen the following cutover
       ceremony. Preconditions:
       replay-mass-reduction closed; S0 budget met or beaten with toggle ON
       on the benchmark matrix; all dark-kernel A/B reports reviewed. Then,

@@ -10,16 +10,18 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (broadphase attribution active; SoA/SIMD hard stop before S7) |
-| Current baseline | B3 final gate: 1,000 bodies Step/Broadphase 1.0418/0.2854 ms; 2,000 bodies 1.8036/0.7509 ms. Seven same-tip pairs put the 2,000-body Step improvement at 76.21% median. Broadphase is inclusive; never add its children. |
-| Current objective | Execute `physics-broadphase-scale-attribution` B4: exact-tip matrix, independent whole-campaign review, closure report, and ledger cleanup. S7 must not start. |
-| Active/future progress | 11 / 14 tasks = 79% overall (broadphase B0-B3 4/5; SoA/SIMD paused 7/9) |
-| Last broad local gate | Broadphase B3 passed 286/286 tests (21,425 assertions), the byte-exact 44,401-line physics oracle, and the performance/allocation gate; 1,000/2,000-body Debug traces match B2 byte for byte |
-| Validation for current edits | B3 code is gated. B4 requires the exact-tip performance matrix plus any gate affected by review fixes. |
+| Branch | `nightrunner-16th-july` (broadphase campaign complete; SoA/SIMD hard stop before S7) |
+| Current baseline | Final scalar-OFF matrix: 1,000 bodies Step/Broadphase 1.0546/0.2741 ms; 2,000 bodies 2.0517/0.8904 ms. Exact-tip pair medians: Step -1.61% / -75.26%. Broadphase is inclusive; never add its children. |
+| Current objective | No active plan runner. Preserve the completed broadphase fix and the SoA/SIMD pause; S7 must not start without fresh owner direction. |
+| Active/future progress | 7 / 9 tasks = 78% overall (SoA/SIMD paused 7/9; completed broadphase campaign excluded under MASTER rule 4) |
+| Last broad local gate | 290/290 tests (21,452 assertions), byte-exact 44,401-line physics oracle, and performance/allocation gate passed; exact-tip paired evidence and independent review are closed |
+| Validation for current edits | Documentation-only closure reconciliation; no further repository validation required. |
 
 ## Live Queue
 
-00000000. `physics-broadphase-scale-attribution` is ACTIVE at 4/5. B0 records
+00000000. `physics-broadphase-scale-attribution` is COMPLETE at 5/5; its plan
+          is deleted under inventory rule 4 and closure evidence lives in
+          `Agentic/Reports/2026-07-17/broadphase-scale-closure.md`. B0 records
           that Broadphase is the inclusive total and the old nested GridBuild/
           ScalarBounds rows must not be added to it. B1 replaced them with
           mutually exclusive direct child markers and bounded grid counters;
@@ -27,12 +29,13 @@ plan inventory.
           gates all pass. B2 proved scalar grid insertion grows 30.94x because
           the 2,000-body scene fills all 4,096 hash slots and then averages
           3,660 full-table misses per queried frame; duplicate rejections are
-          zero. B3 adds a 16 KiB saturated-only lookup without changing the
-          4,096-cell admission/order contract. Seven same-tip pairs keep the
-          1,000-body Step neutral and improve the 2,000-body Step by 76.21%; two
-          30-frame Debug traces are byte-identical to B2. B4 closes with the
-          exact-tip matrix and one independent review. No S7, toggle-default,
-          baseline, or golden change is allowed.
+          zero. B3 retains the 4,096-row primary table, adds a fixed 16,384-slot
+          lookup and 4,096-row cold overflow tier, and fatals at 8,193 cells.
+          Exact-tip paired medians are -1.61% Step / -7.34% Broadphase / -9.78%
+          GridInsert at 1,000 bodies and -75.26% / -87.39% / -91.38% at 2,000.
+          B4 closed the final matrix, exact provenance, comment audit, and
+          independent review. No S7, toggle-default, baseline, or golden change
+          occurred.
 
 0000000. `unit-test-coverage-campaign` is COMPLETE at 10/10 (2026-07-17; plan
          deleted under inventory rule 4; closure evidence lives in
@@ -373,7 +376,8 @@ Closure evidence, baseline deltas, the independent review, the three-file
 comment audit, and final validation live in
 `Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD S6
 is complete and the campaign is paused at 7/9; the owner rejected S7 on the
-current evidence. Execute broadphase attribution B1-B4 and do not begin S7.
+current evidence. Broadphase attribution B1-B4 is complete; preserve its
+retained fix and do not begin S7.
 Replay mass reduction remains closed at 9/9 plus R8; the externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.
