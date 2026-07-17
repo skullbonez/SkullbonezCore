@@ -1,7 +1,7 @@
 # Sleep Scratch Bitfield Experiment
 
-Date: 2026-07-17  
-Branch: `nightrunner-16th-july`  
+Date: 2026-07-17
+Branch: `nightrunner-16th-july`
 Owner: physics
 
 ## Question
