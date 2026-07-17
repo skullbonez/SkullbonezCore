@@ -23,6 +23,7 @@ Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
 */
 #include "SceneController.h"
+#include "../RuntimeValidationHarness.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Config.h"
@@ -451,63 +452,8 @@ std::size_t SceneController::PendingRequestCount() const
 }
 
 
-std::vector<RunRequiredContactState>& SceneController::RequiredContacts()
-{
-    return m_runtime.RequiredContacts();
-}
-
-
-const std::vector<RunRequiredContactState>& SceneController::RequiredContacts() const
-{
-    return m_runtime.RequiredContacts();
-}
-
-
-std::vector<RunRequiredBroadphaseXCellsState>& SceneController::RequiredBroadphaseXCells()
-{
-    return m_runtime.RequiredBroadphaseXCells();
-}
-
-
-const std::vector<RunRequiredBroadphaseXCellsState>& SceneController::RequiredBroadphaseXCells() const
-{
-    return m_runtime.RequiredBroadphaseXCells();
-}
-
-
-void SceneController::ClearRequiredAutomationGates()
-{
-    m_runtime.ClearRequiredAutomationGates();
-}
-
-
-void SceneController::UpdateRequiredContacts( float contactEpsilon )
-{
-    m_runtime.UpdateRequiredContacts( *this, contactEpsilon );
-}
-
-
-bool SceneController::RequiredContactsComplete() const
-{
-    return m_runtime.RequiredContactsComplete();
-}
-
-
-void SceneController::UpdateRequiredBroadphaseXCells(
-    const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-    int activeCellCount )
-{
-    m_runtime.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount );
-}
-
-
-bool SceneController::RequiredBroadphaseXCellsComplete() const
-{
-    return m_runtime.RequiredBroadphaseXCellsComplete();
-}
-
-
-SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
+SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateTracker& automationGates,
+                                                       bool proceedAllowed,
                                                        bool perfTestActive,
                                                        bool screenshotSaved,
                                                        bool manualCameraActive,
@@ -520,8 +466,8 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
     }
 
     ++m_runtime.State().currentFrame;
-    const bool hasRequiredSceneGate = !RequiredContacts().empty() || !RequiredBroadphaseXCells().empty();
-    const bool requiredSceneComplete = RequiredContactsComplete() && RequiredBroadphaseXCellsComplete();
+    const bool hasRequiredSceneGate = automationGates.HasRequirements();
+    const bool requiredSceneComplete = automationGates.Complete();
 
     const auto finishInteractiveOrQueueNext = [&]( const char* reason )
     {
@@ -564,33 +510,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
         }
         if ( !frameCountCompletesScene )
         {
-            // Probe diagnostics belong to the scene gate owner so callers do not
-            // reopen its mutable contact/broadphase rows to explain a failure.
-            for ( const RunRequiredContactState& contact : RequiredContacts() )
-            {
-                if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
-                {
-                    fprintf( stderr, "[scene] required_contact missing: %s <-> %s\n", contact.nameA, contact.nameB );
-                }
-            }
-            for ( const RunRequiredBroadphaseXCellsState& cells : RequiredBroadphaseXCells() )
-            {
-                if ( !cells.activated )
-                {
-                    fprintf( stderr,
-                             "[scene] required_broadphase_x_cells missing: x %d..%d y %d z %d first_missing=%d "
-                             "active_cells=%d observed_x=%s%d..%d\n",
-                             cells.minCellX,
-                             cells.maxCellX,
-                             cells.cellY,
-                             cells.cellZ,
-                             cells.lastMissingCellX,
-                             cells.lastActiveCellCount,
-                             cells.hasObservedXRange ? "" : "none ",
-                             cells.lastObservedMinX,
-                             cells.lastObservedMaxX );
-                }
-            }
+            automationGates.PrintMissingRequirements();
             return result;
         }
         finishInteractiveOrQueueNext( result.finishReason ? result.finishReason : "frame_count" );

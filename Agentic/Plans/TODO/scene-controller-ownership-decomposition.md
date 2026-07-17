@@ -1,7 +1,7 @@
 # Scene Controller Ownership Decomposition — Kill The Relocated God Object
 
 Date: 2026-07-17
-Status: Active — 4/7 tasks
+Status: Active — 5/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at T0)
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/Run*.cpp`,
 `Runtime/RuntimeFrameViews.h`, project filters
@@ -78,7 +78,7 @@ signatures are decomposed into narrow per-domain load participants, and the
 - [x] T3 — Move browser and UI override state to their consumer boundary per
   the T0-ratified map, with value-only requests flowing back into the scene
   request ring. Gate: `validate_full`.
-- [ ] T4 — Move automation contact/broadphase gate state
+- [x] T4 — Move automation contact/broadphase gate state
   (`RequiredContacts`, `RequiredBroadphaseXCells`) behind the automation /
   validation-harness owner per the T0 map, reading physics through the
   existing store boundary. Gate: `validate_full` (plus

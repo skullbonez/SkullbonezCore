@@ -310,24 +310,15 @@ SceneAuthoredCameraContext BuildSceneAuthoredCameraContext( SkullbonezCore::Envi
     return SceneAuthoredCameraContext{ cameras, terrain };
 }
 
-SceneAuthoredModelContext
-BuildSceneAuthoredModelContext( RunSceneState& sceneState,
-                                SkullbonezCore::Environment::WorldEnvironment& world,
-                                SkullbonezCore::Geometry::Terrain* terrain,
-                                SkullbonezCore::Runtime::SceneController& models,
-                                SceneEntityStore& entities,
-                                SkullbonezCore::Physics::PhysicsEngine& physics,
-                                std::vector<RunRequiredContactState>& requiredContacts,
-                                std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells )
+SceneAuthoredModelContext BuildSceneAuthoredModelContext( RunSceneState& sceneState,
+                                                          SkullbonezCore::Environment::WorldEnvironment& world,
+                                                          SkullbonezCore::Geometry::Terrain* terrain,
+                                                          SkullbonezCore::Runtime::SceneController& models,
+                                                          SceneEntityStore& entities,
+                                                          SkullbonezCore::Physics::PhysicsEngine& physics,
+                                                          SceneAutomationGateTracker& automationGates )
 {
-    return SceneAuthoredModelContext{ sceneState,
-                                      world,
-                                      terrain,
-                                      models,
-                                      entities,
-                                      physics,
-                                      requiredContacts,
-                                      requiredBroadphaseXCells };
+    return SceneAuthoredModelContext{ sceneState, world, terrain, models, entities, physics, automationGates };
 }
 
 SceneGeneratedCameraContext BuildSceneGeneratedCameraContext( SkullbonezCore::Environment::CameraCollection& cameras,
@@ -652,7 +643,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     contactAudio.ResetSimpleLinearHistory();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio );
     renderer.ResetSceneRuntimePolicyFromConfig();
-    m_sceneController.ClearRequiredAutomationGates();
+    validationHarness.SceneGates().ResetForLoad();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
 
     m_sceneController.Cameras().Reset();
@@ -999,8 +990,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                 m_sceneController,
                                                 m_sceneController.Entities(),
                                                 m_sceneController.Physics(),
-                                                m_sceneController.RequiredContacts(),
-                                                m_sceneController.RequiredBroadphaseXCells() ),
+                                                validationHarness.SceneGates() ),
                 scene );
             if ( !authoredSetup.ok )
             {

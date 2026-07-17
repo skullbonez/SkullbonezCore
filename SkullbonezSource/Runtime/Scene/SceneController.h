@@ -104,6 +104,7 @@ class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
+class SceneAutomationGateTracker;
 class RuntimeRenderer;
 class RuntimeTools;
 class SimulationSystem;
@@ -218,7 +219,8 @@ class SceneController
     void MarkInteractiveRunComplete();
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
-    SceneFrameAdvanceResult AdvanceFrame( bool proceedAllowed,
+    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateTracker& automationGates,
+                                          bool proceedAllowed,
                                           bool perfTestActive,
                                           bool screenshotSaved,
                                           bool manualCameraActive,
@@ -285,17 +287,6 @@ class SceneController
     // Cold replay restore shrinks every scene-lifetime row owner as one
     // transaction; ReplayRuntime never writes topology through model facades.
     bool TrimForReplayRestore( int bodyCount );
-
-    std::vector<RunRequiredContactState>& RequiredContacts();
-    const std::vector<RunRequiredContactState>& RequiredContacts() const;
-    std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
-    const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
-    void ClearRequiredAutomationGates();
-    void UpdateRequiredContacts( float contactEpsilon );
-    bool RequiredContactsComplete() const;
-    void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-                                         int activeCellCount );
-    bool RequiredBroadphaseXCellsComplete() const;
 
     SceneRuntime& Runtime();
     const SceneRuntime& Runtime() const;

@@ -34,8 +34,6 @@ Related:
 
 #include "../../Core/SbResult.h"
 
-#include <vector>
-
 namespace SkullbonezCore
 {
 namespace Environment
@@ -61,29 +59,7 @@ namespace Runtime
 class TestScene;
 struct RunSceneState;
 class SceneEntityStore;
-
-struct RunRequiredContactState
-{
-    char nameA[64] = {};
-    char nameB[64] = {};
-    int bodyA = -1;
-    int bodyB = -1;
-    bool touched = false;
-};
-
-struct RunRequiredBroadphaseXCellsState
-{
-    int minCellX = 0;
-    int maxCellX = 0;
-    int cellY = 0;
-    int cellZ = 0;
-    int lastActiveCellCount = 0;
-    int lastObservedMinX = 0;
-    int lastObservedMaxX = 0;
-    int lastMissingCellX = -1;
-    bool hasObservedXRange = false;
-    bool activated = false;
-};
+class SceneAutomationGateTracker;
 
 struct SceneAuthoredCameraContext
 {
@@ -99,8 +75,7 @@ struct SceneAuthoredModelContext
     Runtime::SceneController& models;
     SceneEntityStore& entities;
     Physics::PhysicsEngine& physics;
-    std::vector<RunRequiredContactState>& requiredContacts;
-    std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells;
+    SceneAutomationGateTracker& automationGates;
 };
 
 struct SceneSimpleRagdollAppendContext

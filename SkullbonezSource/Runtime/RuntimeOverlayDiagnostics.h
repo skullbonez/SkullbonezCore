@@ -52,6 +52,7 @@ class InGameUI;
 namespace Runtime
 {
 class SceneController;
+class RuntimeValidationHarness;
 class RuntimeOverlayDiagnostics;
 class RuntimeRenderer;
 struct RunLaunchOptions;
@@ -103,7 +104,10 @@ class RuntimeOverlayDiagnostics
     void ApplyStartupPolicy( const RunStartupOverrides& overrides,
                              RunLaunchOptions& launchOptions,
                              UI::InGameUI& operatorUi );
-    void UpdatePostPhysics( SceneController& scene, float contactEpsilon, double secondsPerFrame );
+    void UpdatePostPhysics( SceneController& scene,
+                            RuntimeValidationHarness& validationHarness,
+                            float contactEpsilon,
+                            double secondsPerFrame );
     RuntimeRenderFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
     RunDebugState PresentationSnapshot() const;
     RuntimeOverlayPresentationEdit EditPresentation();

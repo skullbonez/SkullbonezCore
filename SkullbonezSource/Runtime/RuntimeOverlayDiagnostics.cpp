@@ -25,6 +25,7 @@ Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
 */
 #include "RuntimeOverlayDiagnostics.h"
+#include "RuntimeValidationHarness.h"
 
 #include <algorithm>
 
@@ -119,6 +120,7 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
 
 
 void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
+                                                   RuntimeValidationHarness& validationHarness,
                                                    float contactEpsilon,
                                                    double secondsPerFrame )
 {
@@ -140,7 +142,9 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                   activeCellCount,
                                                   collisionKeys.data(),
                                                   static_cast<int>( collisionKeys.size() ) );
-    scene.UpdateRequiredBroadphaseXCells( activeCells, (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
+    validationHarness.SceneGates().UpdateRequiredBroadphaseXCells(
+        activeCells,
+        (std::min)( activeCellCount, SpatialGrid::MAX_BUCKETS ) );
     PROFILE_END( m_profiler, "Frame/PostPhysics/BroadphaseVisualizer" );
 
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/CollisionVisualizer" );
@@ -169,7 +173,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
                                                   PhysicsEngine::ReadPipelineTrace( physics ),
                                                   scene.BodyStore().Count() };
     m_renderResources.m_physicsDebugOverlay.Update( static_cast<float>( secondsPerFrame ), physicsDebugView );
-    scene.UpdateRequiredContacts( contactEpsilon );
+    validationHarness.SceneGates().UpdateRequiredContacts( scene, contactEpsilon );
     PROFILE_END( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );

@@ -37,6 +37,7 @@ Related:
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneAuthoredSetup.h"
+#include "../RuntimeValidationHarness.h"
 #include "../../Assets/AssetKeys.h"
 #include "SceneRuntime.h"
 #include "../CameraCollection.h"
@@ -880,38 +881,35 @@ void SceneAuthoredSetup::SetUpRequiredContacts( SceneAuthoredModelContext contex
 {
     // Lifetime: Required contacts store body indices resolved for this load.
     // Scene reloads must rebuild them because model storage is recreated.
-    context.requiredContacts.clear();
-    context.requiredContacts.reserve( static_cast<size_t>( scene.GetRequiredContactCount() ) );
+    context.automationGates.ReserveRequiredContacts( static_cast<std::size_t>( scene.GetRequiredContactCount() ) );
     for ( int i = 0; i < scene.GetRequiredContactCount(); ++i )
     {
         const SceneRequiredContact& contact = scene.GetRequiredContact( i );
-        RunRequiredContactState state;
-        strcpy_s( state.nameA, sizeof( state.nameA ), contact.nameA );
-        strcpy_s( state.nameB, sizeof( state.nameB ), contact.nameB );
-        state.bodyA = FindModelByName( context.entities, state.nameA );
-        state.bodyB = FindModelByName( context.entities, state.nameB );
-        if ( state.bodyA < 0 || state.bodyB < 0 )
+        const int bodyA = FindModelByName( context.entities, contact.nameA );
+        const int bodyB = FindModelByName( context.entities, contact.nameB );
+        if ( bodyA < 0 || bodyB < 0 )
         {
-            fprintf( stderr, "[scene] required_contact could not resolve '%s' <-> '%s'\n", state.nameA, state.nameB );
+            fprintf( stderr,
+                     "[scene] required_contact could not resolve '%s' <-> '%s'\n",
+                     contact.nameA,
+                     contact.nameB );
         }
-        context.requiredContacts.push_back( state );
+        context.automationGates.AppendRequiredContact( contact.nameA, contact.nameB, bodyA, bodyB );
     }
 }
 
 
 void SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const TestScene& scene )
 {
-    context.requiredBroadphaseXCells.clear();
-    context.requiredBroadphaseXCells.reserve( static_cast<size_t>( scene.GetRequiredBroadphaseXCellCount() ) );
+    context.automationGates.ReserveRequiredBroadphaseXCells(
+        static_cast<std::size_t>( scene.GetRequiredBroadphaseXCellCount() ) );
     for ( int i = 0; i < scene.GetRequiredBroadphaseXCellCount(); ++i )
     {
         const SceneRequiredBroadphaseXCells& sceneCells = scene.GetRequiredBroadphaseXCell( i );
-        RunRequiredBroadphaseXCellsState state;
-        state.minCellX = sceneCells.minCellX;
-        state.maxCellX = sceneCells.maxCellX;
-        state.cellY = sceneCells.cellY;
-        state.cellZ = sceneCells.cellZ;
-        context.requiredBroadphaseXCells.push_back( state );
+        context.automationGates.AppendRequiredBroadphaseXCells( sceneCells.minCellX,
+                                                                sceneCells.maxCellX,
+                                                                sceneCells.cellY,
+                                                                sceneCells.cellZ );
     }
 }
 

@@ -662,6 +662,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
 
             m_overlayDiagnostics->UpdatePostPhysics( m_sceneController,
+                                                     *m_validationHarness,
                                                      m_config.bodySimulation.contactEpsilon,
                                                      secondsPerFrame );
 
@@ -1216,7 +1217,8 @@ bool Run::TickSceneAdvance()
     const bool sceneProceedAllowed =
         !m_sceneController.CrossScenePauseLocked() || m_inputRouter.RuntimeSnapshot().frameInput.stepHeld;
     const SceneFrameAdvanceResult result =
-        m_sceneController.AdvanceFrame( sceneProceedAllowed,
+        m_sceneController.AdvanceFrame( m_validationHarness->SceneGates(),
+                                        sceneProceedAllowed,
                                         m_diagnosticsRuntime.PerfTestActive(),
                                         m_diagnosticsRuntime.Capture().Screenshot().isScreenshotSaved,
                                         RunCameraModeUsesManualControls( m_camera.mode,
