@@ -1,7 +1,7 @@
 # Scene Controller Ownership Decomposition — Kill The Relocated God Object
 
 Date: 2026-07-17
-Status: Active — 2/7 tasks
+Status: Active — 3/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at T0)
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/Run*.cpp`,
 `Runtime/RuntimeFrameViews.h`, project filters
@@ -67,7 +67,7 @@ signatures are decomposed into narrow per-domain load participants, and the
 - [x] T1 — Rename the member-style parameters. Mechanical rename of every
   `m_`-prefixed parameter in `SceneController` public signatures to plain
   names. No behavior change. Gate: `validate_fast`.
-- [ ] T2 — Decompose the load surface into phase participants. Split scene
+- [x] T2 — Decompose the load surface into phase participants. Split scene
   load into typed per-phase borrow structs owned by the scene subsystem (for
   example: config/policy inputs, physics-and-store rebuild participants,
   presentation reset participants, diagnostics/replay notification

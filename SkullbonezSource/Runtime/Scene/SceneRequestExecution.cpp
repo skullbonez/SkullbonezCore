@@ -46,28 +46,10 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& config,
-                                      RunLaunchOptions& launchOptions,
-                                      const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                                      const RunStartupState& startup,
-                                      DiagnosticsRuntime& diagnosticsRuntime,
-                                      RunTimerState& timers,
-                                      SkullbonezCore::Assets::AssetSystem& assets,
-                                      Threading::WorkerPool& workerPool,
-                                      Window& window,
-                                      InputRouter& inputRouter,
-                                      RuntimeInteractionController& interaction,
-                                      RunCameraState& camera,
-                                      AttachedCameraState& attachedCamera,
-                                      SimulationSystem& simulation,
-                                      ReplayRuntime& replayRuntime,
-                                      SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
-                                      UI::InGameUI& operatorUi,
-                                      RuntimeOverlayDiagnostics& overlays,
-                                      RuntimeValidationHarness& validationHarness,
-                                      RuntimeTools& runtimeTools,
-                                      const RuntimeRenderBackendView& renderBackendView,
-                                      RuntimeRenderer& renderer )
+bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
+                                      SceneLoadHostParticipants host,
+                                      SceneLoadInteractionParticipants interaction,
+                                      SceneLoadPresentationParticipants presentation )
 {
     SceneController& m_sceneController = *this;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
@@ -76,31 +58,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& config
         {
             return false;
         }
-        return m_sceneController
-            .Load( request,
-                   config,
-                   launchOptions,
-                   defaultCinematicRender,
-                   startup,
-                   diagnosticsRuntime,
-                   timers,
-                   assets,
-                   workerPool,
-                   window,
-                   inputRouter,
-                   interaction,
-                   camera,
-                   attachedCamera,
-                   simulation,
-                   replayRuntime,
-                   contactAudio,
-                   operatorUi,
-                   overlays,
-                   validationHarness,
-                   runtimeTools,
-                   renderBackendView,
-                   renderer )
-            .ok;
+        return m_sceneController.Load( request, policy, host, interaction, presentation ).ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )
@@ -144,9 +102,9 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& config
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const RunDebugState presentation = overlays.PresentationSnapshot();
-                const SkullbonezCore::Core::SbResult saveResult =
-                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentation, renderer, camera } );
+                const RunDebugState presentationState = presentation.overlays.PresentationSnapshot();
+                const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
+                    SceneDefaultsSaveView{ presentationState, presentation.renderer, interaction.camera } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
@@ -162,7 +120,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& config
         // no serialized action that a restore could mistake for applied state.
         if ( accepted )
         {
-            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
+            presentation.replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
                 ReplayEventKind::OwnerAction,
                 0,
                 true,

@@ -133,6 +133,48 @@ struct SceneDefaultsSaveView
     const RunCameraState& camera;
 };
 
+// Concept: scene loading borrows four phase-oriented values instead of
+// accepting the process shell's complete owner graph as one flat call. Each
+// value is synchronous-only, contains at most six concrete owners, and is
+// never retained by SceneController.
+struct SceneLoadPolicyInputs
+{
+    SkullbonezCore::Core::EngineConfig& config;
+    RunLaunchOptions& launchOptions;
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender;
+    const RunStartupState& startup;
+    Assets::AssetSystem& assets;
+    Threading::WorkerPool& workerPool;
+};
+
+struct SceneLoadHostParticipants
+{
+    Window& window;
+    RunTimerState& timers;
+    DiagnosticsRuntime& diagnosticsRuntime;
+    SimulationSystem& simulation;
+};
+
+struct SceneLoadInteractionParticipants
+{
+    InputRouter& inputRouter;
+    RuntimeInteractionController& interaction;
+    RunCameraState& camera;
+    AttachedCameraState& attachedCamera;
+    RuntimeTools& runtimeTools;
+    UI::InGameUI& operatorUi;
+};
+
+struct SceneLoadPresentationParticipants
+{
+    Audio::ContactAudioService& contactAudio;
+    ReplayRuntime& replayRuntime;
+    RuntimeOverlayDiagnostics& overlays;
+    RuntimeValidationHarness& validationHarness;
+    const RuntimeRenderBackendView& renderBackendView;
+    RuntimeRenderer& renderer;
+};
+
 // Concept: scene creation returns the recoverable authoring result together
 // with the physics handle published by the successful cross-store commit.
 struct SceneEntityCreateResult
@@ -215,56 +257,20 @@ class SceneController
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
-    // Lifetime: cold load orchestration borrows each concrete owner only for
-    // this call. The explicit list is intentional: no Run backpointer or broad
-    // mutable context is retained behind the scene boundary.
+    // Lifetime: cold load orchestration borrows each phase value only for this
+    // call. No Run backpointer or complete mutable context is retained behind
+    // the scene boundary.
     SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         SkullbonezCore::Core::EngineConfig& config,
-                                         RunLaunchOptions& launchOptions,
-                                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                                         const RunStartupState& startup,
-                                         DiagnosticsRuntime& diagnosticsRuntime,
-                                         RunTimerState& timers,
-                                         Assets::AssetSystem& assets,
-                                         Threading::WorkerPool& workerPool,
-                                         Window& window,
-                                         InputRouter& inputRouter,
-                                         RuntimeInteractionController& interaction,
-                                         RunCameraState& camera,
-                                         AttachedCameraState& attachedCamera,
-                                         SimulationSystem& simulation,
-                                         ReplayRuntime& replayRuntime,
-                                         Runtime::Audio::ContactAudioService& contactAudio,
-                                         UI::InGameUI& operatorUi,
-                                         RuntimeOverlayDiagnostics& overlays,
-                                         RuntimeValidationHarness& validationHarness,
-                                         RuntimeTools& runtimeTools,
-                                         const RuntimeRenderBackendView& renderBackendView,
-                                         RuntimeRenderer& renderer );
+                                         SceneLoadPolicyInputs policy,
+                                         SceneLoadHostParticipants host,
+                                         SceneLoadInteractionParticipants interaction,
+                                         SceneLoadPresentationParticipants presentation );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
-    bool ExecutePending( SkullbonezCore::Core::EngineConfig& config,
-                         RunLaunchOptions& launchOptions,
-                         const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                         const RunStartupState& startup,
-                         DiagnosticsRuntime& diagnosticsRuntime,
-                         RunTimerState& timers,
-                         Assets::AssetSystem& assets,
-                         Threading::WorkerPool& workerPool,
-                         Window& window,
-                         InputRouter& inputRouter,
-                         RuntimeInteractionController& interaction,
-                         RunCameraState& camera,
-                         AttachedCameraState& attachedCamera,
-                         SimulationSystem& simulation,
-                         ReplayRuntime& replayRuntime,
-                         Runtime::Audio::ContactAudioService& contactAudio,
-                         UI::InGameUI& operatorUi,
-                         RuntimeOverlayDiagnostics& overlays,
-                         RuntimeValidationHarness& validationHarness,
-                         RuntimeTools& runtimeTools,
-                         const RuntimeRenderBackendView& renderBackendView,
-                         RuntimeRenderer& renderer );
+    bool ExecutePending( SceneLoadPolicyInputs policy,
+                         SceneLoadHostParticipants host,
+                         SceneLoadInteractionParticipants interaction,
+                         SceneLoadPresentationParticipants presentation );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily

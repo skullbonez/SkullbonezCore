@@ -519,31 +519,38 @@ void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field,
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult
-SceneController::Load( const SceneLoadRequest& request,
-                       SkullbonezCore::Core::EngineConfig& config,
-                       RunLaunchOptions& launchOptions,
-                       const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
-                       const RunStartupState& startup,
-                       DiagnosticsRuntime& diagnosticsRuntime,
-                       RunTimerState& timers,
-                       SkullbonezCore::Assets::AssetSystem& assets,
-                       Threading::WorkerPool& workerPool,
-                       Window& window,
-                       InputRouter& inputRouter,
-                       RuntimeInteractionController& interaction,
-                       RunCameraState& camera,
-                       AttachedCameraState& attachedCamera,
-                       SimulationSystem& simulation,
-                       ReplayRuntime& replayRuntime,
-                       SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
-                       UI::InGameUI& operatorUi,
-                       RuntimeOverlayDiagnostics& overlays,
-                       RuntimeValidationHarness& validationHarness,
-                       RuntimeTools& runtimeTools,
-                       const RuntimeRenderBackendView& renderBackendView,
-                       RuntimeRenderer& renderer )
+SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request,
+                                                      SceneLoadPolicyInputs policy,
+                                                      SceneLoadHostParticipants host,
+                                                      SceneLoadInteractionParticipants interactionParticipants,
+                                                      SceneLoadPresentationParticipants presentation )
 {
+    // Lifetime: these aliases make the long load transaction readable without
+    // recovering a retained context. They refer only to the four caller-owned
+    // phase values and die with this synchronous call.
+    SkullbonezCore::Core::EngineConfig& config = policy.config;
+    RunLaunchOptions& launchOptions = policy.launchOptions;
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender = policy.defaultCinematicRender;
+    const RunStartupState& startup = policy.startup;
+    SkullbonezCore::Assets::AssetSystem& assets = policy.assets;
+    Threading::WorkerPool& workerPool = policy.workerPool;
+    Window& window = host.window;
+    RunTimerState& timers = host.timers;
+    DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
+    SimulationSystem& simulation = host.simulation;
+    InputRouter& inputRouter = interactionParticipants.inputRouter;
+    RuntimeInteractionController& interaction = interactionParticipants.interaction;
+    RunCameraState& camera = interactionParticipants.camera;
+    AttachedCameraState& attachedCamera = interactionParticipants.attachedCamera;
+    RuntimeTools& runtimeTools = interactionParticipants.runtimeTools;
+    UI::InGameUI& operatorUi = interactionParticipants.operatorUi;
+    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = presentation.contactAudio;
+    ReplayRuntime& replayRuntime = presentation.replayRuntime;
+    RuntimeOverlayDiagnostics& overlays = presentation.overlays;
+    RuntimeValidationHarness& validationHarness = presentation.validationHarness;
+    const RuntimeRenderBackendView& renderBackendView = presentation.renderBackendView;
+    RuntimeRenderer& renderer = presentation.renderer;
+
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
     RunDebugState& m_debug = presentationEdit.State();
     // Operator sleep policy is physics-owned and survives ordinary scene

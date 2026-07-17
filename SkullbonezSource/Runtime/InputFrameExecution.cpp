@@ -350,31 +350,29 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             return false;
         }
         presentationEdit.Commit();
-        const bool loaded = m_sceneController
-                                .Load( request,
-                                       m_config,
-                                       m_launchOptions,
-                                       m_renderDefaults.CinematicBaseline(),
-                                       m_startup,
-                                       m_diagnosticsRuntime,
-                                       m_timers,
-                                       m_assets,
-                                       m_workerPool,
-                                       m_window,
-                                       m_inputRouter,
-                                       m_interaction,
-                                       m_camera,
-                                       m_attachedCamera.State(),
-                                       m_simulation,
-                                       m_replayRuntime,
-                                       m_contactAudio,
-                                       interactionOwners.operatorUi,
-                                       sceneOwners.overlays,
-                                       m_validationHarness,
-                                       m_runtimeTools,
-                                       m_renderBackendView,
-                                       m_renderer )
-                                .ok;
+        const bool loaded =
+            m_sceneController
+                .Load( request,
+                       SceneLoadPolicyInputs{ m_config,
+                                              m_launchOptions,
+                                              m_renderDefaults.CinematicBaseline(),
+                                              m_startup,
+                                              m_assets,
+                                              m_workerPool },
+                       SceneLoadHostParticipants{ m_window, m_timers, m_diagnosticsRuntime, m_simulation },
+                       SceneLoadInteractionParticipants{ m_inputRouter,
+                                                         m_interaction,
+                                                         m_camera,
+                                                         m_attachedCamera.State(),
+                                                         m_runtimeTools,
+                                                         interactionOwners.operatorUi },
+                       SceneLoadPresentationParticipants{ m_contactAudio,
+                                                          m_replayRuntime,
+                                                          sceneOwners.overlays,
+                                                          m_validationHarness,
+                                                          m_renderBackendView,
+                                                          m_renderer } )
+                .ok;
         presentationEdit.Refresh();
         return loaded;
     };
@@ -1026,28 +1024,29 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         const bool processedDefaults = DrainRenderDefaultRequests();
         const bool processedCapture = DrainCaptureRequests();
         presentationEdit.Commit();
-        const bool processedScene = m_sceneController.ExecutePending( m_config,
-                                                                      m_launchOptions,
-                                                                      m_renderDefaults.CinematicBaseline(),
-                                                                      m_startup,
-                                                                      m_diagnosticsRuntime,
-                                                                      m_timers,
-                                                                      m_assets,
-                                                                      m_workerPool,
-                                                                      m_window,
-                                                                      m_inputRouter,
-                                                                      m_interaction,
-                                                                      m_camera,
-                                                                      m_attachedCamera.State(),
-                                                                      m_simulation,
-                                                                      m_replayRuntime,
-                                                                      m_contactAudio,
-                                                                      interactionOwners.operatorUi,
-                                                                      sceneOwners.overlays,
-                                                                      m_validationHarness,
-                                                                      m_runtimeTools,
-                                                                      m_renderBackendView,
-                                                                      m_renderer );
+        const SceneLoadPolicyInputs sceneLoadPolicy{ m_config,
+                                                     m_launchOptions,
+                                                     m_renderDefaults.CinematicBaseline(),
+                                                     m_startup,
+                                                     m_assets,
+                                                     m_workerPool };
+        const SceneLoadHostParticipants sceneLoadHost{ m_window, m_timers, m_diagnosticsRuntime, m_simulation };
+        const SceneLoadInteractionParticipants sceneLoadInteraction{ m_inputRouter,
+                                                                     m_interaction,
+                                                                     m_camera,
+                                                                     m_attachedCamera.State(),
+                                                                     m_runtimeTools,
+                                                                     interactionOwners.operatorUi };
+        const SceneLoadPresentationParticipants sceneLoadPresentation{ m_contactAudio,
+                                                                       m_replayRuntime,
+                                                                       sceneOwners.overlays,
+                                                                       m_validationHarness,
+                                                                       m_renderBackendView,
+                                                                       m_renderer };
+        const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
+                                                                      sceneLoadHost,
+                                                                      sceneLoadInteraction,
+                                                                      sceneLoadPresentation );
         presentationEdit.Refresh();
         if ( processedCapture || processedDefaults || processedScene )
         {

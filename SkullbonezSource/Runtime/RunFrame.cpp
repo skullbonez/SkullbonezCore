@@ -1110,31 +1110,30 @@ bool Run::TickScreenshots()
     {
         const SceneLoadRequest request = m_sceneController.AdvanceScene( m_diagnosticsRuntime.PerfTestActive(),
                                                                          m_sceneController.State().isInteractiveRun );
-        const bool advanced = request.HasLoad() && m_sceneController
-                                                       .Load( request,
-                                                              m_config,
-                                                              m_launchOptions,
-                                                              m_renderDefaults.CinematicBaseline(),
-                                                              m_startup,
-                                                              m_diagnosticsRuntime,
-                                                              m_timers,
-                                                              m_assets,
-                                                              m_workerPool,
-                                                              m_window,
-                                                              m_inputRouter,
-                                                              m_interaction,
-                                                              m_camera,
-                                                              m_attachedCamera.State(),
-                                                              m_simulation,
-                                                              m_replayRuntime,
-                                                              m_contactAudio,
-                                                              *m_operatorUi,
-                                                              *m_overlayDiagnostics,
-                                                              *m_validationHarness,
-                                                              m_runtimeTools,
-                                                              m_renderBackendView,
-                                                              m_renderer )
-                                                       .ok;
+        const bool advanced =
+            request.HasLoad() &&
+            m_sceneController
+                .Load( request,
+                       SceneLoadPolicyInputs{ m_config,
+                                              m_launchOptions,
+                                              m_renderDefaults.CinematicBaseline(),
+                                              m_startup,
+                                              m_assets,
+                                              m_workerPool },
+                       SceneLoadHostParticipants{ m_window, m_timers, m_diagnosticsRuntime, m_simulation },
+                       SceneLoadInteractionParticipants{ m_inputRouter,
+                                                         m_interaction,
+                                                         m_camera,
+                                                         m_attachedCamera.State(),
+                                                         m_runtimeTools,
+                                                         *m_operatorUi },
+                       SceneLoadPresentationParticipants{ m_contactAudio,
+                                                          m_replayRuntime,
+                                                          *m_overlayDiagnostics,
+                                                          *m_validationHarness,
+                                                          m_renderBackendView,
+                                                          m_renderer } )
+                .ok;
         if ( !advanced )
         {
             if ( result.completion == RuntimeCaptureCompletion::Screenshot )
@@ -1241,28 +1240,25 @@ bool Run::TickSceneAdvance()
     {
         loadSucceeded = m_sceneController
                             .Load( result.loadRequest,
-                                   m_config,
-                                   m_launchOptions,
-                                   m_renderDefaults.CinematicBaseline(),
-                                   m_startup,
-                                   m_diagnosticsRuntime,
-                                   m_timers,
-                                   m_assets,
-                                   m_workerPool,
-                                   m_window,
-                                   m_inputRouter,
-                                   m_interaction,
-                                   m_camera,
-                                   m_attachedCamera.State(),
-                                   m_simulation,
-                                   m_replayRuntime,
-                                   m_contactAudio,
-                                   *m_operatorUi,
-                                   *m_overlayDiagnostics,
-                                   *m_validationHarness,
-                                   m_runtimeTools,
-                                   m_renderBackendView,
-                                   m_renderer )
+                                   SceneLoadPolicyInputs{ m_config,
+                                                          m_launchOptions,
+                                                          m_renderDefaults.CinematicBaseline(),
+                                                          m_startup,
+                                                          m_assets,
+                                                          m_workerPool },
+                                   SceneLoadHostParticipants{ m_window, m_timers, m_diagnosticsRuntime, m_simulation },
+                                   SceneLoadInteractionParticipants{ m_inputRouter,
+                                                                     m_interaction,
+                                                                     m_camera,
+                                                                     m_attachedCamera.State(),
+                                                                     m_runtimeTools,
+                                                                     *m_operatorUi },
+                                   SceneLoadPresentationParticipants{ m_contactAudio,
+                                                                      m_replayRuntime,
+                                                                      *m_overlayDiagnostics,
+                                                                      *m_validationHarness,
+                                                                      m_renderBackendView,
+                                                                      m_renderer } )
                             .ok;
     }
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )

@@ -1068,28 +1068,20 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         }
         return sceneController
             .Load( request,
-                   config,
-                   launchOptions,
-                   defaultCinematicRender,
-                   startup,
-                   diagnosticsRuntime,
-                   timers,
-                   assets,
-                   workerPool,
-                   *window,
-                   inputRouter,
-                   interaction,
-                   camera,
-                   attachedCamera.State(),
-                   simulation,
-                   replayRuntime,
-                   contactAudio,
-                   interactionOwners.operatorUi,
-                   sceneOwners.overlays,
-                   presentationOwners.validationHarness,
-                   runtimeTools,
-                   renderBackendView,
-                   renderer )
+                   SceneLoadPolicyInputs{ config, launchOptions, defaultCinematicRender, startup, assets, workerPool },
+                   SceneLoadHostParticipants{ *window, timers, diagnosticsRuntime, simulation },
+                   SceneLoadInteractionParticipants{ inputRouter,
+                                                     interaction,
+                                                     camera,
+                                                     attachedCamera.State(),
+                                                     runtimeTools,
+                                                     interactionOwners.operatorUi },
+                   SceneLoadPresentationParticipants{ contactAudio,
+                                                      replayRuntime,
+                                                      sceneOwners.overlays,
+                                                      presentationOwners.validationHarness,
+                                                      renderBackendView,
+                                                      renderer } )
             .ok;
     };
 
