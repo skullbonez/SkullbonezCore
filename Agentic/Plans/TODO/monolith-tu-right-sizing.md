@@ -1,7 +1,7 @@
 # Monolith Translation-Unit Right-Sizing — Finish What The Campaigns Declared Done
 
 Date: 2026-07-17
-Status: Active — 1/8 tasks
+Status: Active — 2/8 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at N0)
 Impact area: `Runtime/Replay/ReplayPrediction.cpp`,
 `Runtime/InteractionAutomationController.cpp`,
@@ -63,7 +63,7 @@ mechanical split.
   with line-range evidence, and obtain per-file owner rulings: split targets,
   cohesion claims to test, and the DX12 parking lift. Ratify the branch.
   Evidence: dated report under `Agentic/Reports/`.
-- [ ] N1 — `InteractionAutomationController.cpp` (4,131). This automation
+- [x] N1 — `InteractionAutomationController.cpp` (4,131). This automation
   harness is one class covering CLI parsing, input injection, probe
   sequencing, and report emission. Extract at least the probe/report emission
   and the input-injection driver into owner-named automation TUs with typed

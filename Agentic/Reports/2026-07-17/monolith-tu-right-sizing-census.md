@@ -95,3 +95,33 @@ must refresh after implementation.
 
 The owner ratified these rulings and branch on 2026-07-17. N0 is
 documentation-only, so no repository validation is required; N1 is released.
+
+## N1 Automation Owner Extraction
+
+Completed on 2026-07-18. `InteractionAutomationController.cpp` fell from 4,131
+to 3,081 lines. `InteractionAutomationInputDriver` now owns mouse/key/focus
+holds and publishes one synthetic device frame through the normal Input seam.
+`InteractionAutomationReportWriter` owns bounded action/assertion/visual/causal
+evidence, shared validation-fact calculations, durable-artifact checks, and
+final JSON serialization. Its typed `InteractionAutomationReportInputs` borrows
+runtime owners synchronously and retains none.
+
+Both new implementation TUs repeat the controller's exact project exclusion:
+they compile only for `Automation|x64`. The controller sequences actions and
+value results; neither extracted owner accepts a controller reference,
+backpointer, callback pack, or unrelated runtime context.
+
+The touched-file comment audit covered 8/8 source-bearing files with zero
+deferred. This was a touched-file audit, so no subsystem checklist plan was
+required; all four new files contain complete learning headers, the project
+filter rule remains explicit, and local ownership/invariant comments are
+current.
+
+The first formal `tools\validate_full.bat` attempt stopped in preflight before
+build/runtime validation because the four new project items lacked semantic
+filter-rule prefixes. The rule was extended with the two owner names and its
+direct check passed. The complete rerun then passed in about 2m13s: 282/282
+doctests, all ratified coverage floors, the Profile exclusion plus Automation
+replay/prediction smoke, zero DX12 validation errors with committed captures,
+and the byte-exact 44,401-line physics baseline. Evidence:
+`TestOutput/validation/agent_logs/monolith_n1_validate_full_stdout.log`.

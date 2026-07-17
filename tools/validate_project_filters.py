@@ -302,6 +302,8 @@ RUNTIME_INPUT_PREFIXES = (
 RUNTIME_AUTOMATION_PREFIXES = (
     "GraphicsStressController",
     "InteractionAutomationController",
+    "InteractionAutomationInputDriver",
+    "InteractionAutomationReportWriter",
     "RuntimeStressController",
     "RuntimeValidationHarness",
 )

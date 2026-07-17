@@ -415,13 +415,16 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                                                   overrides.interactionReportPath );
     if ( !result.ok )
     {
-        (void)WriteInteractionAutomationReport( m_interactionAutomation,
-                                                m_sceneController,
-                                                m_runtimeTools,
-                                                m_replayRuntime.BuildAutomationView(),
-                                                m_interaction,
-                                                m_camera,
-                                                *m_operatorUi );
+        const ReplayAutomationView replay = m_replayRuntime.BuildAutomationView();
+        (void)m_interactionAutomation.reportWriter.Write(
+            InteractionAutomationReportInputs{ m_interactionAutomation.status,
+                                               m_interactionAutomation.scriptPath,
+                                               m_sceneController,
+                                               m_runtimeTools,
+                                               replay,
+                                               m_interaction,
+                                               m_camera,
+                                               *m_operatorUi } );
     }
     return result;
 #else

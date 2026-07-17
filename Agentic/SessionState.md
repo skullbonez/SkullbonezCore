@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | SceneController ownership is closed; two Round-6 plans remain and baseline/golden refresh remains prohibited. |
 | Current objective | Complete monolith N0-N7, then red-flags C4-C6. |
-| Active/future progress | 5 / 15 live tasks (33%); monolith N0 and red-flags C0-C3 complete. |
-| Last broad local gate | Scene T6 `validate_full` passed in 3m25s: project/filter inventories matched at 713 items, 282/282 tests and every ratified coverage floor passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. The single replay-fidelity invocation also passed in 7m16s. |
-| Validation for current edits | Monolith N1 maps to `tools\validate_full.bat`; defer the formal gate until commit preparation. |
+| Active/future progress | 6 / 15 live tasks (40%); monolith N0-N1 and red-flags C0-C3 complete. |
+| Last broad local gate | Monolith N1 `validate_full` passed in about 2m13s: 717 project/filter items matched, 282/282 tests and every ratified coverage floor passed, the Automation boundary smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
+| Validation for current edits | Monolith N2 is a fresh cohesion pass plus `tools\validate_physics.bat`; defer the formal gate until commit preparation. |
 
 ## Live Queue
 
