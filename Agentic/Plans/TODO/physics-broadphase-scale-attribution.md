@@ -1,0 +1,206 @@
+# Physics Broadphase Scale Attribution And Cell-Insertion Campaign
+
+Date: 2026-07-17
+Status: ACTIVE — B0 complete; execute B1-B4 in order
+Owner: Physics broadphase (`PhysicsBroadphaseStage` and `SpatialGrid`)
+Branch: `nightrunner-16th-july`
+
+## Owner Direction
+
+Explain and reduce the superlinear broadphase cost in the fixed-seed scale
+matrix. Show performance evidence while working, stop double-counting nested
+broadphase markers, and execute this campaign to completion.
+
+The separate `physics-soa-simd-1000-bodies` campaign remains PAUSED at 7/9.
+Its S7 cutover is rejected for the current evidence and MUST NOT start during
+this campaign. The SIMD toggle remains dark by default and no golden or
+behavioral baseline refresh is authorized here.
+
+## Problem And Current Evidence
+
+The final packed-source performance gate on 2026-07-17 measured:
+
+| Bodies | Physics Step avg | Broadphase avg | GridBuild avg | ScalarBounds avg |
+|---:|---:|---:|---:|---:|
+| 1,000 | 0.9652 ms | 0.2731 ms | 0.2282 ms | 0.1942 ms |
+| 2,000 | 7.5576 ms | 6.5069 ms | 6.3252 ms | 6.2088 ms |
+
+`Broadphase` is the inclusive owner total. `GridBuild` is nested inside it,
+and `ScalarBounds` is nested inside `GridBuild`; adding those values reports
+the same work two or three times. Worse, `ScalarBounds` currently encloses
+bounds arithmetic *and* every `SpatialGrid::Insert*` call, so the marker name
+cannot attribute the 2,000-body cliff to arithmetic.
+
+Source inspection identifies a concrete, unproven hypothesis:
+`SpatialGrid::InsertCell` scans the full occupied bucket chain to reject a
+same-object duplicate for every exact AABB cell visit. Exact AABB enumeration
+visits each cell once, so that scan may be redundant on the common path and
+may turn crowded-cell insertion superlinear. Sampled oversized sweeps can
+revisit cells and still require duplicate rejection. B1-B2 must measure this
+before B3 changes it.
+
+## Goal
+
+1. Make every direct broadphase child marker a mutually exclusive phase and
+   report the inclusive parent separately.
+2. Attribute the 1,000→2,000 scale cliff with bounded, allocation-free grid
+   counters and focused SkullScope queries.
+3. Implement only the evidence-selected deterministic optimization.
+4. Preserve candidate completeness/order, byte-exact physics, fixed-capacity
+   runtime behavior, and the default-OFF SIMD contract.
+5. Close with repeated same-tip A/B evidence, final mapped validation, an
+   independent review, and an explicit record that S7 was not started.
+
+## Non-Goals
+
+- No S7 SIMD cutover, toggle-default change, golden regeneration, or replay
+  provenance edit.
+- No fast-math, reassociation, FTZ/DAZ, nondeterministic container, runtime
+  allocation, broadphase false-negative policy, or object-identity change.
+- No blanket exclusion of sleeping bodies. A moving awake body must still be
+  able to find and wake a sleeping collision target.
+- No cell-size or scene-data tuning until counters disprove the insertion
+  hypothesis; authored data changes are outside the first-line remedy.
+- No sum of `Broadphase` with any descendant marker. Reports show the parent
+  total and an exclusive-child breakdown as two views of the same interval.
+
+## Measurement Contract
+
+- Performance executable: Profile x64, explicit `--physics-simd-kernels off`.
+- Scenes: fixed-seed 1,000 and 2,000 body scale scenes; 1,140 measured frames
+  per perf artifact after the profiler warmup.
+- Before/after decision: save the pre-change executable and SHA-256, build the
+  candidate from the same git tip, then run seven alternating process pairs
+  per scene. Use median paired deltas; do not compare unrelated gate runs.
+- Required timing rows: Physics Step, inclusive Broadphase, GridSetup,
+  GridInsertScalar, CandidatePairsScalar, and the remaining exclusive direct
+  children. SIMD marker names stay parallel but are not cutover evidence.
+- Required grid facts per sampled frame: bodies inserted, exact-AABB cell
+  visits, sampled-sweep cell visits, entry writes, duplicate rejections,
+  bucket-chain entries inspected, active cells, maximum occupancy, raw pair
+  combinations, unique pairs, filter rejects, and emitted candidates.
+- SkullScope raw NDJSON/SQLite files remain on disk. The model reads only
+  bounded `summary`/`broadphase` query output, with exact commands and byte/
+  character accounting recorded in the attribution report.
+- Every report labels markers `inclusive` or `exclusive`. Direct exclusive
+  children may be summed; an inclusive parent is never added to descendants.
+- All user-requested work and substantial builds, launches, queries, and
+  validation runs record elapsed wall time.
+
+## Decision Tree
+
+1. If B2 shows bucket-chain inspection dominating exact insert work and exact
+   inserts produce no legitimate duplicate rejection, B3 separates unique
+   exact-cell insertion from duplicate-aware sampled-sweep insertion.
+2. Otherwise, retain the instrumentation and choose the largest measured
+   exclusive phase:
+   - pair combinations/dedup → bounded bucket/pair-generation change;
+   - cell visits/active cells → same-tip cell-size experiment, with candidate
+     completeness tests and no authored-default change unless independently
+     justified;
+   - sampled sweeps → preserve CCD coverage while reducing repeated sampled
+     cell work.
+3. Sleeper exclusion requires a separate static/dynamic-grid design and proof
+   that awake movers still pair with sleepers. It is not an implicit fallback.
+4. A candidate is reverted if 1,000-body performance regresses beyond process
+   noise, candidate bytes/order change, the 44,401-line oracle changes, or any
+   required validation fails.
+
+## Tasks
+
+- [x] **B0 — register the evidence and execution contract.**
+  - Record the corrected inclusive interpretation of the existing markers,
+    the fixed-seed current measurements, the testable insertion hypothesis,
+    the same-tip A/B method, the decision tree, and the S7 prohibition.
+  - Register 1/5 in MASTER and SessionState. Documentation-only; no repository
+    validation required.
+
+- [ ] **B1 — make accounting exclusive and expose bounded attribution facts.**
+  - Replace the nested `GridBuild/{Scalar,Simd}Bounds` timing tree with direct,
+    non-overlapping broadphase children: GridSetup, GridInsertScalar/Simd, and
+    CandidatePairsScalar/Simd. Retain `Broadphase` only as the inclusive total.
+  - Add one reset-per-rebuild `SpatialGridFrameStats` value. Counter updates are
+    serial, fixed-width, allocation-free, and do not participate in replay or
+    physics decisions.
+  - Extend the existing SkullScope broadphase row and query schema with the
+    bounded counters; extend focused grid/query tests so missing, renamed, or
+    semantically wrong fields fail.
+  - Inspect every touched source-bearing file with the comment-style audit.
+  - Gate: focused tests while iterating; before commit run
+    `tools\validate_tests.bat`, `tools\validate_fast.bat`,
+    `tools\validate_physics.bat`, `tools\validate_perf.bat`, and
+    `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers`.
+
+- [ ] **B2 — collect and publish scale attribution before optimizing.**
+  - Generate fixed-seed Profile artifacts for 1,000 and 2,000 bodies with the
+    new exclusive markers and explicit SIMD OFF.
+  - Generate bounded Debug SkullScope traces, run focused summary/broadphase
+    queries, and record raw artifact sizes separately from GPT-read output.
+  - Publish a report that reconciles inclusive Broadphase against its direct
+    exclusive phases, compares per-body/cell/pair counter growth, identifies
+    the dominant mechanism, and names the single B3 candidate selected by the
+    decision tree.
+  - Acceptance: no optimization code lands in B2; every claim is traceable to
+    a marker or counter and no marker interval is counted twice.
+  - Documentation-only commit after evidence collection; no additional gate.
+
+- [ ] **B3 — implement and prove the evidence-selected algorithmic fix.**
+  - Implement only the B2-selected path. For the leading hypothesis, exact
+    AABB enumeration uses a unique-cell append with no same-object chain scan,
+    while sampled oversized sweeps retain duplicate-aware insertion.
+  - Add regression/property coverage for candidate completeness, normalized
+    deterministic order, exact-cell entry counts, and sampled-sweep duplicate
+    suppression. Preserve capacity diagnostics and fatal lanes.
+  - Save the control executable, record both executable SHAs, and run seven
+    alternating same-tip pairs at 1,000 and 2,000 bodies. Report every pair,
+    medians, ranges, and the exclusive-phase movement.
+  - Acceptance: 1,000-body is neutral or faster; 2,000-body improvement is
+    repeatable; candidate output and the byte-exact physics oracle are
+    unchanged. A failed candidate is reverted and B2's next measured path is
+    attempted without weakening the contract.
+  - Gate before commit: `tools\validate_tests.bat`,
+    `tools\validate_physics.bat`, and `tools\validate_perf.bat` (plus
+    `tools\validate_fast.bat` if tooling changes after B1).
+
+- [ ] **B4 — final review, final matrix, and campaign closure.**
+  - Rerun the final 200/520/1,000/2,000 performance matrix from the exact
+    source tip and publish a closure report with before/after exclusive
+    accounting, determinism evidence, validation output, and timings.
+  - Run one fresh independent whole-campaign rubber-duck review covering
+    candidate completeness, CCD/sample duplicate handling, capacity/fatal
+    behavior, marker accounting, hot-path allocation, determinism, tests, and
+    report honesty. Fix every credible finding and rerun affected gates.
+  - Reconcile the comment audit and `git ls-files` inventory for every touched
+    source file. Sync CodeGraph after the source changes.
+  - Update the SoA/SIMD plan, MASTER, and SessionState: S7 was explicitly
+    rejected on current evidence and not started; its checkbox stays open and
+    the campaign remains paused at 7/9 unless the owner later issues a fresh
+    direction.
+  - Delete this completed plan under MASTER inventory rule 4, retain the
+    reports as evidence, commit the 5/5 closure, and push the branch.
+
+## Validation Map
+
+| Scope | Required gate |
+|---|---|
+| `SpatialGrid*`, broadphase stage, physics diagnostics | `tools\validate_tests.bat`, `tools\validate_physics.bat`, `tools\validate_perf.bat` |
+| `tools/physics_query.py` or query regression data | `tools\validate_fast.bat`, then the changed focused query check |
+| Profiler marker names | `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers` |
+| Documentation-only B0/B2 | No repository validation |
+| Final uncertain aggregate | Add `tools\validate_full.bat` only if the final diff crosses beyond the mapped physics/tool scope |
+
+All Profile/Debug builds must report zero warnings and zero errors. Physics
+validation must keep the 44,401-line varied-scene CSV byte-exact. No baseline,
+golden, or provenance refresh is part of this campaign.
+
+## Closure Evidence
+
+B4 must leave:
+
+- `Agentic/Reports/2026-07-17/broadphase-scale-attribution.md`;
+- `Agentic/Reports/2026-07-17/broadphase-scale-optimization.md`;
+- `Agentic/Reports/2026-07-17/broadphase-scale-closure.md`;
+- final validation commands/results and run timings;
+- independent-review prompt/result accounting;
+- comment-audit checked/deferred/unchecked counts;
+- explicit SoA/SIMD S7 no-go wording with S7 still unchecked.

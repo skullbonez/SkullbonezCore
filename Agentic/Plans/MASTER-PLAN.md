@@ -94,8 +94,18 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| physics-soa-simd-1000-bodies (PAUSED after S6; S7 forbidden pending review and decision) | 7 | 9 | 78% |
-| **Active/future total** | **7** | **9** | **78%** |
+| physics-soa-simd-1000-bodies (PAUSED after S6; owner rejected S7 on current evidence) | 7 | 9 | 78% |
+| physics-broadphase-scale-attribution | 1 | 5 | 20% |
+| **Active/future total** | **8** | **14** | **57%** |
+
+The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
+current SIMD evidence and activated the five-task broadphase scale-attribution
+campaign. B0 corrects the accounting contract: Broadphase is an inclusive
+owner interval, while its nested GridBuild and bounds rows describe the same
+time and must never be added to it. B1-B4 instrument mutually exclusive phases,
+measure the 1,000→2,000 cliff, implement only the evidence-selected grid fix,
+and close with repeated A/B, determinism, and independent review. S7 stays
+unchecked and must not start.
 
 The denominator grew 9 → 19 on 2026-07-16 when the owner registered the
 unit-test coverage campaign, then returned to 9 on 2026-07-17 when U0-U9
@@ -103,8 +113,8 @@ closed and the completed campaign left the active/future ledger under rule 4.
 The tolerance-based behavioral/property suites now exist before the S7 golden
 regeneration and remain a binding cutover precondition. The owner authorized
 exactly S6 on 2026-07-17; completion returns the campaign to a hard pause at
-7/9. An owner-commissioned adversarial review and explicit decision are next;
-S7 remains forbidden.
+7/9. The owner then rejected S7 on the current evidence and activated the
+broadphase attribution campaign; S7 remains unchecked and forbidden.
 
 The denominator grew 8 → 9 on 2026-07-16 when the owner ruled finding R3-F1
 (schedule-sensitive artifact bookkeeping nondeterminism) into scope as task
@@ -118,6 +128,16 @@ completed at 10/10 on `15th-of-July-Night-Runner` and leave the ledger as
 historical work per commit-contract rule 4.
 
 ## Current Execution Priority
+
+The active priority is `physics-broadphase-scale-attribution` B1-B4. The final
+packed-source gate measures 0.9652 ms Physics Step / 0.2731 ms inclusive
+Broadphase at 1,000 bodies and 7.5576 / 6.5069 ms at 2,000. The old nested
+`GridBuild/ScalarBounds` row includes insertion and cannot attribute the cliff
+to bounds arithmetic. B1 first replaces the nested accounting with mutually
+exclusive direct child markers and allocation-free grid counters; B2 publishes
+the measured attribution; B3 implements the selected algorithmic fix; B4
+closes with repeated same-tip evidence and independent review. The campaign
+does not authorize S7, a toggle-default change, or any baseline/golden refresh.
 
 The owner-paused 2026-07-16 physics SoA/SIMD campaign has completed S0-S6. Its fixed-seed
 200/520/1,000/2,000-body matrix measures the scalar-AoS reference; the 1,000-
@@ -145,18 +165,20 @@ proof. S6 added dedicated narrowphase-prune and solver-row preparation kernels,
 masked-tail tests, a full toggle-ON doctest pass, and the combined scale matrix.
 At 1,000 bodies the enabled set measures 1.0666 ms against the binding 0.80 ms
 budget; the scalar solver core retains only 0.0092 ms (0.86% of step), so its
-follow-up trigger is not met. The campaign is paused at 7/9: adversarial review
-and an explicit owner decision come next, and S7 must not start.
+follow-up trigger is not met. The owner rejected S7 on the current evidence on
+2026-07-17. The campaign stays paused at 7/9 with S7 unchecked; it must not
+start unless the owner later issues a fresh direction.
 
 Portfolio ordering (2026-07-16 owner reorder, superseding the same-day
 "after S8" decision): `unit-test-coverage-campaign` completed U0-U9 on
 2026-07-17 before the SoA/SIMD cutover. Its tolerance-based momentum,
 orthonormality, bounds, grid, and stage-contract cases are the independent
 oracle that survives golden regeneration. U5 consumed the campaign's single
-mega-gate invocation. The owner authorized exactly S6 on 2026-07-17; SoA/SIMD
-is now paused at 7/9. The owner-commissioned pre-cutover adversarial review
-follows, and only then may S7 be considered, with THREE preconditions
-binding: (1) the ratified
+mega-gate invocation. The owner authorized exactly S6 on 2026-07-17, then
+rejected S7 on the current evidence. SoA/SIMD is paused at 7/9 and the
+broadphase scale-attribution campaign is active. S7 remains unchecked; if a
+future owner direction ever reopens it, THREE preconditions remain binding:
+(1) the ratified
 0.80 ms combined toggle-ON budget met (S5's enabled-path Profile finding is
 negative — force/gravity/broadphase kernels currently cost more than they
 save; S7 may not proceed on integration-pilot wins alone); (2) the unit and
@@ -539,7 +561,8 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 7/9 after the one-step S6 authorization | 7/9 | Owner adversarial review, then explicit decision; do not start S7 |
+| [physics-broadphase-scale-attribution](TODO/physics-broadphase-scale-attribution.md) | Active; B0 registered the corrected accounting and evidence contract | 1/5 | B1: exclusive markers plus bounded grid counters |
+| [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 7/9; owner rejected S7 on current evidence | 7/9 | Do not start S7; only a fresh owner direction may reopen it |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
 ## Unit Test Coverage Campaign (2026-07-16, active)

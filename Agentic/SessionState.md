@@ -10,14 +10,22 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (SoA/SIMD S6 complete; hard stop before S7) |
-| Current baseline | Scalar-AoS 1,000-body Physics Step averages 0.9978 ms on the Threadripper 3970X; final AVX2/FMA acceptance budget is no more than 0.80 ms |
-| Current objective | SoA/SIMD S6 is complete under the one-step owner authorization. Pause at 7/9; next is the owner adversarial review, then an explicit decision. Do not start S7. |
-| Active/future progress | 7 / 9 tasks = 78% overall (completed unit-test coverage campaign excluded; SoA/SIMD paused after S6) |
-| Last broad local gate | S6 `tools\\validate_full.bat` passed in 115.20 s: CPU umbrella, zero-warning builds, replay smoke, DX12 screenshots with zero InfoQueue errors, and the 44,401-line byte-exact default-OFF physics baseline passed |
-| Validation for current edits | Fast, tests, armed coverage, physics, performance, and full gates pass; 284 cases / 21,403 assertions and physics stages/solver coverage 71.34% ≥70% |
+| Branch | `nightrunner-16th-july` (broadphase attribution active; SoA/SIMD hard stop before S7) |
+| Current baseline | Final packed-source averages: 1,000 bodies Step/Broadphase 0.9652/0.2731 ms; 2,000 bodies 7.5576/6.5069 ms. Broadphase is inclusive; never add its nested markers. |
+| Current objective | Execute `physics-broadphase-scale-attribution` B1-B4: exclusive accounting, bounded counters, measured attribution, evidence-selected fix, final review. S7 is rejected on current evidence and must not start. |
+| Active/future progress | 8 / 14 tasks = 57% overall (broadphase B0 1/5; SoA/SIMD paused 7/9) |
+| Last broad local gate | Sleep scratch bitfield final `tools\\validate_perf.bat` passed in ~95 s: allocation, replay, DX12, physics bench, scale matrix, budgets, and zero-warning Profile/Debug builds passed |
+| Validation for current edits | B0 is documentation-only. B1 maps to tests + fast + physics + performance + platform-profiler marker validation. |
 
 ## Live Queue
+
+00000000. `physics-broadphase-scale-attribution` is ACTIVE at 1/5. B0 records
+          that Broadphase is the inclusive total and the old nested GridBuild/
+          ScalarBounds rows must not be added to it. B1 will add mutually
+          exclusive direct child markers and bounded grid counters before B2
+          selects any optimization. B3 requires seven same-tip pairs at both
+          1,000 and 2,000 bodies; B4 closes with final gates and one independent
+          review. No S7, toggle-default, baseline, or golden change is allowed.
 
 0000000. `unit-test-coverage-campaign` is COMPLETE at 10/10 (2026-07-17; plan
          deleted under inventory rule 4; closure evidence lives in
@@ -85,8 +93,9 @@ plan inventory.
         added narrowphase-prune and solver-row preparation kernels, passed all
         284 doctests with the toggle ON, and measured the complete enabled
         matrix. The 1,000-body step is 1.0666 ms versus the 0.80 ms budget; the
-        retained scalar solver core is 0.0092 ms (0.86% of step). Next is the
-        owner adversarial review and explicit S7 decision; do not start S7.
+        retained scalar solver core is 0.0092 ms (0.86% of step). The owner
+        rejected S7 on the current evidence on 2026-07-17; keep it unchecked
+        and do not start it without a fresh owner direction.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -356,8 +365,8 @@ present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
 Closure evidence, baseline deltas, the independent review, the three-file
 comment audit, and final validation live in
 `Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD S6
-is complete and the campaign is paused at 7/9. Next is the owner-commissioned
-adversarial review and an explicit decision; do not begin S7.
+is complete and the campaign is paused at 7/9; the owner rejected S7 on the
+current evidence. Execute broadphase attribution B1-B4 and do not begin S7.
 Replay mass reduction remains closed at 9/9 plus R8; the externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.
