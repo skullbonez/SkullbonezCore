@@ -11,11 +11,11 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-17th-july` |
-| Current baseline | SceneController ownership and monolith TU right-sizing are closed; one Round-6 plan remains and baseline/golden refresh remains prohibited. |
-| Current objective | Complete red-flags C5-C6. |
-| Active/future progress | 5 / 7 live tasks (71%); red-flags C0-C4 complete. |
+| Current baseline | SceneController ownership and monolith TU right-sizing are closed; red-flags C5 narrowed optimized solver arithmetic behind native-object boundaries, and baseline/golden refresh remains prohibited. |
+| Current objective | Complete red-flags C6 independent review and closure. |
+| Active/future progress | 6 / 7 live tasks (86%); red-flags C0-C5 complete. |
 | Last broad local gate | Monolith N7 `validate_full` passed in 136.167s: 722 project/filter items matched, 282/282 tests and all ten ratified coverage floors passed, Automation replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | C4 `validate_tests` passed 284/284 tests and `validate_physics` matched the committed 44,401-line CSV byte-exact; proceed to C5 structural WPO narrowing. |
+| Validation for current edits | C5 paired `validate_perf` runs passed; two sequential clean `Profile-WPO` rebuilds completed at zero warnings/errors, and `validate_physics` matched the committed 44,401-line CSV byte-exact after each. Proceed to C6 review and final gates. |
 
 ## Live Queue
 
@@ -377,5 +377,5 @@ Scene-controller ownership is complete at 7/7 and monolith TU right-sizing is
 complete at 8/8. N7 closed the 15-row final census after independent review,
 automatic coverage, full validation, and DX12 stress. C4 then closed the
 five-tick catch-up clamp with explicit drop accounting and byte-exact physics.
-Continue red-flags C5-C6 in plan order. Do not regenerate behavioral, physics,
+Continue red-flags C6 closure. Do not regenerate behavioral, physics,
 replay, visual, or screenshot baselines.

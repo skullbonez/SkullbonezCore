@@ -1,7 +1,7 @@
 # Code-Level Red-Flags Remediation — Renderer Globals, Hot-Path Singletons, Friend Debt, Catch-Up Clamp, LTO Determinism
 
 Date: 2026-07-17
-Status: Active — 5/7 tasks
+Status: Active — 6/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at C0)
 Impact area: `Rendering/Text.cpp`, `Core/Profiler.*`, `Core/Log.*`,
 `Core/LockOrderValidator.*`, `Physics/PhysicsScene.h`,
@@ -95,7 +95,7 @@ re-certified as accepted policy with evidence.
   replay determinism are unaffected on normal frames because the clamp binds
   only during hitches; prove it. Gates: `validate_physics` byte-exact plus
   `validate_tests` covering the clamp/drop arithmetic.
-- [ ] C5 — LTO determinism exposure. Execute the C0-selected lane:
+- [x] C5 — LTO determinism exposure. Execute the C0-selected lane:
   (a) structural — evaluate disabling WPO/LTCG for the physics-owning
   project or isolating solver-critical TUs from cross-module inlining, with
   before/after perf evidence from `validate_perf` and a byte-exact
@@ -129,6 +129,15 @@ five ticks with explicit dropped-time facts and counters; and C5 structurally
 narrows WPO/LTCG for solver-critical physics translation units. The evidence
 and complete call-site census are recorded in
 `Agentic/Reports/2026-07-17/code-level-red-flags-census.md`.
+
+C5 closure (2026-07-18): Release and `Profile-WPO` retain product-wide LTCG,
+while `ObjectContactManifold.cpp`, `TerrainContactManifold.cpp`, and
+`PersistentContactSolver.cpp` compile as native non-WPO objects. Two consecutive
+warning-free clean optimized rebuilds each passed the unchanged 44,401-line
+physics oracle byte-exact; paired `validate_perf` runs remained inside noise.
+The build split, timings, binary provenance hashes, and the allocation-allowlist
+repair discovered by the gate are recorded in
+`Agentic/Reports/2026-07-18/code-level-red-flags-lto-determinism.md`.
 
 ## Acceptance
 

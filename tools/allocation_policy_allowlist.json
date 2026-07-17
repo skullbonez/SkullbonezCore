@@ -1190,16 +1190,62 @@
     {
       "path": "SkullbonezSource/Runtime/InteractionAutomationController.cpp",
       "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Interaction automation controller",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Automation script parsing grows the action list only during validation startup, outside steady gameplay.",
+      "cap": "Bounded by the explicitly supplied automation script action count.",
+      "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; replace the parser vector with bounded validation storage if the script schema gains a hard action cap."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/InteractionAutomationReportWriter.cpp",
+      "patterns": [
         ".emplace_back(",
         ".push_back(",
         ".reserve(",
         ".resize("
       ],
-      "owner": "Interaction automation controller",
+      "owner": "Interaction automation report writer",
       "phase": "startup_scene_load_diagnostics",
-      "reason": "Automation script parsing and report assembly grow only during validation startup and artifact writing, outside steady gameplay.",
-      "cap": "Bounded by the explicitly supplied automation script action count and generated report rows.",
-      "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; interaction-state-machine cleanup may split parser and executor ownership."
+      "reason": "Report, replay-proof, and JSON artifact assembly grow only inside the cold validation harness and artifact-writing path, outside steady gameplay.",
+      "cap": "Bounded by the supplied automation action count, replay validation tick capacity, and generated report rows.",
+      "removal_or_wrapper_plan": "Keep growth inside the cold report owner; replace its vectors with bounded validation storage when report schemas gain hard row caps."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/InteractionAutomationReportWriter.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Interaction automation report writer",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "The cold validation report owner retains bounded action, assertion, screenshot, and replay-proof rows for artifact assembly outside steady gameplay.",
+      "cap": "Bounded by the supplied automation action count and replay validation tick capacity.",
+      "removal_or_wrapper_plan": "Replace report vectors with bounded validation storage when report schemas gain hard row caps."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/RuntimeValidationHarness.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Runtime validation harness",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Required-contact and broadphase expectations are parsed and reserved only while preparing a validation run, outside steady gameplay.",
+      "cap": "Bounded by the explicitly supplied validation requirements.",
+      "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/RuntimeValidationHarness.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Runtime validation harness",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "The cold validation owner retains parsed contact and broadphase expectations outside steady gameplay.",
+      "cap": "Bounded by the explicitly supplied validation requirements.",
+      "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
     },
     {
       "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
@@ -1224,18 +1270,6 @@
       "reason": "The optional PrimitiveBatchRenderer reconstructs its single backend-bound value only after a successful device/resource rebuild.",
       "cap": "Exactly one optional PrimitiveBatchRenderer instance.",
       "removal_or_wrapper_plan": "Replace optional emplacement with an in-place RuntimeRenderer-owned value when backend rebuild can rebind the resource factory without reconstructing the owner."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
-      "patterns": [
-        ".push_back(",
-        ".reserve("
-      ],
-      "owner": "Runtime scene-load storage surface",
-      "phase": "scene_load",
-      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
-      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
-      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneRuntime.cpp",
