@@ -198,3 +198,45 @@ The separate interactive smoke launched the final Profile DX12 binary with
 It completed the bounded run, captured 393 physics samples, and exited 0 in
 5.499s without a crash. Evidence:
 `TestOutput/validation/agent_logs/monolith_n3_ui_stress_stdout.log`.
+
+## N4 DX12 Frame And Retirement Owner Extraction
+
+Completed on 2026-07-18 under the N0 parking lift. The existing
+`Dx12FrameOwner`, its draw/upload/release capability views, and
+`Dx12DeferredReleaseOwner` moved from `RenderBackendDX12.cpp/.h` into
+`Dx12FrameOwner.cpp/.h` and `Dx12DeferredReleaseOwner.cpp`. The aggregate
+backend still composes these owners and exposes the same renderer API, while
+the implementation-only epoch, profiler-stack, upload, and retirement types
+now remain behind a DX12-private header.
+
+`RenderBackendDX12.cpp` fell from 3,636 to 2,610 lines and its header from
+1,431 to 1,095 lines. The new frame implementation is 941 lines, the private
+header 394, and the deferred-release implementation 153. Normalized comparison
+against the pre-N4 source proved the 900-line frame/capability body, 124-line
+retirement body, and 338-line declaration block identical before formatting.
+The `FRAME_COUNT = 2` latency invariant, command-recording transitions, upload
+policy, covering-fence rules, public backend methods, project configuration,
+baselines, goldens, and screenshots did not change. Neither owner retains an
+aggregate-backend pointer or obtains unrelated renderer authority.
+
+The project/filter checker now recognizes both owner-named DX12 prefixes; its
+direct check reports 722 project items and 722 filter items with zero errors.
+The touched-source comment audit covered 6/6 files with zero deferred or
+unchecked: the five DX12 source/header files and the small prefix-map edit in
+the checker's existing documented semantic table.
+
+Formal commit-gate evidence from the final staged source:
+
+- `tools\validate_fast.bat` passed in 54.356s: 256 headers/implementations were
+  clean, all 722 project/filter items matched, eight staged candidates had
+  zero size violations, Profile and Debug built with zero warnings/errors, and
+  all 282 doctests / 21,389 assertions passed. Log:
+  `TestOutput/validation/agent_logs/monolith_n4_validate_fast_stdout.log`.
+- `tools\validate_dx12_renderer.bat` passed in 51.656s: the Profile build and
+  DX12 suite succeeded, InfoQueue reported zero validation errors, and all
+  three committed screenshot baselines matched. Log:
+  `TestOutput/validation/agent_logs/monolith_n4_validate_dx12_renderer_stdout.log`.
+- `tools\run_graphics_stress.bat 1` ran the final Profile DX12 binary for the
+  bounded minute, stopped PID 45448 through the script's PID timeout, and
+  exited 0 in 61.627s without a crash. Log:
+  `TestOutput/validation/agent_logs/monolith_n4_graphics_stress_stdout.log`.

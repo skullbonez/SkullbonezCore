@@ -2,13 +2,14 @@
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
 Purpose:
   Declares the production DX12 renderer plus concrete texture, pipeline,
-  geometry, deferred-release, and raytracing owners.
+  geometry, and raytracing owners.
 
 Summary:
   RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
   texture residency and binding state, Dx12PipelineOwner retains the ordinary
   raster recipe, Dx12GeometryOwner retains bounded geometry resources, and
-  Dx12RaytracingOwner retains the optional reflection path.
+  Dx12RaytracingOwner retains the optional reflection path. The private frame
+  epoch and retirement owners live in Dx12FrameOwner.h.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -50,6 +51,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -74,6 +76,7 @@ Related:
 #include "RenderDeviceDX12.h"
 #include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
+#include "Dx12FrameOwner.h"
 #include "BLASDX12.h"
 #include "TLASDX12.h"
 #include "SBTDX12.h"
@@ -94,7 +97,6 @@ namespace Rendering
 class ShaderDX12;
 class Dx12PipelineOwner;
 class Dx12TextureOwner;
-class Dx12FrameOwner;
 class RenderBackendDX12;
 
 
@@ -183,344 +185,6 @@ struct GpuTimerStateDX12
     bool slotWritten[DX12_TIMER_HEAP_SIZE] = {};                   // true for each timestamp slot that had EndQuery recorded this frame
 };
 
-struct DeferredResourceReleaseDX12
-{
-    ID3D12Resource* resource = nullptr;
-    UINT staticDescriptorIndex = UINT_MAX;                         // Optional persistent row released by the same covering fence.
-    Dx12CpuDescriptorAllocator* cpuDescriptorAllocator = nullptr;  // Optional RTV/DSV allocator sharing the fence proof.
-    UINT cpuDescriptorIndex = UINT_MAX;
-    UINT64 fenceValue = 0;
-    bool fenceAssigned = false;
-};
-
-// Lifetime: resources invalidated while command work may still reference them
-// are quarantined here until a covering fence or terminal drain proves release.
-class Dx12DeferredReleaseOwner
-{
-  public:
-    // Bounded above the 128 static-row heap so every row can retire alongside
-    // a resource while leaving headroom for resource-only readbacks/uploads.
-    // The stress churn is the runtime high-water proof for this fixed queue.
-    static constexpr size_t MAX_PENDING_RETIREMENTS = 512;
-    void Quarantine( ID3D12Resource* resource,
-                     UINT descriptorIndex = UINT_MAX,
-                     Dx12CpuDescriptorAllocator* cpuAllocator = nullptr,
-                     UINT cpuDescriptorIndex = UINT_MAX );
-    void QuarantineStaticDescriptor( UINT descriptorIndex );
-    void AssignFence( UINT64 fenceValue );
-    void ReleaseCompleted( Dx12RenderDevice& device,
-                           Dx12DescriptorAllocator& descriptors,
-                           Dx12SubmittedWorkState& submittedWork,
-                           bool releaseUnfenced );
-    bool Empty() const;
-    size_t Count() const;
-
-  private:
-    std::array<DeferredResourceReleaseDX12, MAX_PENDING_RETIREMENTS> m_pending = {};
-    size_t m_pendingCount = 0;
-};
-
-struct Dx12PlatformProfilerGpuScopeDX12
-{
-    static constexpr size_t NAME_CHARS = 256;
-    char name[NAME_CHARS] = {};
-    uint32_t hash = 0;
-};
-
-// Capability: draw callers may enter a recording epoch, but cannot submit,
-// wait, retire resources, or inspect fault/profiler state through this handle.
-class Dx12DrawGate
-{
-  public:
-    explicit Dx12DrawGate( Dx12FrameOwner& owner ) : m_owner( owner )
-    {
-    }
-    bool PrepareDraw();
-    bool PrepareFramebufferBind();
-    bool PreparePipelineDraw( VertexFormat12 format,
-                              bool instanced,
-                              const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer );
-    bool CanRecord() const;
-
-  private:
-    Dx12FrameOwner& m_owner;
-};
-
-// Capability: shader/dynamic-geometry callers may reserve and fill frame
-// upload rows, but cannot reach submission, retirement, fault, or PIX policy.
-class Dx12UploadReservations
-{
-  public:
-    explicit Dx12UploadReservations( Dx12FrameOwner& owner ) : m_owner( owner )
-    {
-    }
-    D3D12_GPU_VIRTUAL_ADDRESS
-    ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
-    D3D12_GPU_VIRTUAL_ADDRESS
-    ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
-    void CancelPendingConstantUpload();
-    uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
-
-  private:
-    Dx12FrameOwner& m_owner;
-};
-
-// Capability: resource wrappers may surrender one COM reference for
-// fence-proven release; they cannot inspect or advance the retirement queue.
-class Dx12ResourceRelease
-{
-  public:
-    explicit Dx12ResourceRelease( Dx12FrameOwner& owner ) : m_owner( owner )
-    {
-    }
-    void Retire( ID3D12Resource* resource );
-    void Retire( ID3D12Resource* resource, UINT descriptorIndex );
-    void Retire( ID3D12Resource* resource,
-                 UINT descriptorIndex,
-                 Dx12CpuDescriptorAllocator& cpuAllocator,
-                 UINT cpuDescriptorIndex );
-    void RetireStaticDescriptor( UINT descriptorIndex );
-
-  private:
-    Dx12FrameOwner& m_owner;
-};
-
-// Concept: one owner governs the complete command/frame epoch.
-//
-// It owns every state row whose invariant crosses Close, Execute, Signal, Wait,
-// allocator reuse, PIX suspension, upload reuse, or deferred release. The three
-// references are stable composition relationships, not rebindable context.
-class Dx12FrameOwner
-{
-  public:
-    // Why: two frame owners bound uncapped input-to-display latency and restore
-    // the smoother camera pacing observed before the three-frame experiment.
-    // Raise this to three only if profiling proves allocator-reuse waits are
-    // limiting a GPU-heavy workload enough to justify the extra queued frame.
-    static constexpr int FRAME_COUNT = 2;
-    static constexpr int PROFILER_STACK_CAPACITY = 64;
-
-    Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures );
-
-    Dx12DrawGate& DrawGate()
-    {
-        return m_drawGate;
-    }
-    Dx12UploadReservations& UploadReservations()
-    {
-        return m_uploadReservations;
-    }
-    Dx12ResourceRelease& ResourceRelease()
-    {
-        return m_resourceRelease;
-    }
-    SkullbonezCore::Core::SbResult EnsureOpen();
-    SkullbonezCore::Core::SbResult SubmitClosed();
-    SkullbonezCore::Core::SbResult WaitForGpu();
-    SkullbonezCore::Core::SbResult FlushUploadBuffer();
-    SkullbonezCore::Core::SbResult CommitClose( HRESULT result, const char* operation );
-    SkullbonezCore::Core::SbResult CommitWait( const SkullbonezCore::Core::SbResult& result );
-    SkullbonezCore::Core::SbResult RetainFailure( const SkullbonezCore::Core::SbResult& result );
-    SkullbonezCore::Core::SbResult RetainDeviceLoss( const char* operation, HRESULT result );
-    SkullbonezCore::Core::SbResult SignalFrame( UINT64& outFenceValue );
-    SkullbonezCore::Core::SbResult WaitForFrameFence( UINT64 fenceValue );
-    // Capability targets: these methods implement the operation inside the
-    // owner; capability subobjects only forward their restricted surface.
-    bool PrepareDraw();
-    bool PrepareFramebufferBind();
-    bool PreparePipelineDraw( VertexFormat12 format,
-                              bool instanced,
-                              const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer );
-    D3D12_GPU_VIRTUAL_ADDRESS
-    ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
-    D3D12_GPU_VIRTUAL_ADDRESS
-    ReserveGeometryUpload( UINT64 vertexBytes, UINT64 constantBytes, RenderUploadCategory vertexCategory );
-    D3D12_GPU_VIRTUAL_ADDRESS ReserveConstantUpload( UINT64 size );
-    void CancelPendingConstantUpload();
-    uint8_t* UploadPointer( D3D12_GPU_VIRTUAL_ADDRESS address ) const;
-    uint64_t UploadFlushCount() const
-    {
-        return m_uploadFlushCount;
-    }
-    uint64_t UploadDropCount() const
-    {
-        return m_uploadDropCount;
-    }
-    const SkullbonezCore::Core::SbResult& CurrentResult() const
-    {
-        return m_recording.CurrentResult();
-    }
-    bool HasFailure() const
-    {
-        return m_recording.HasFailure();
-    }
-    bool CanRecord() const
-    {
-        return m_recording.CanRecord();
-    }
-    bool IsOpen() const
-    {
-        return m_recording.IsOpen();
-    }
-    bool DeviceHealthy() const
-    {
-        return m_deviceHealth.CanIssueDeviceWork();
-    }
-    bool DeviceLost() const
-    {
-        return m_deviceHealth.IsLost();
-    }
-    bool HasSubmittedWork() const
-    {
-        return m_submittedWork.HasSubmittedWork();
-    }
-    bool CanReleaseWithoutFence() const
-    {
-        return m_submittedWork.CanReleaseWithoutFence();
-    }
-    void AbandonSubmittedWork()
-    {
-        m_submittedWork.AbandonForRemovedDevice();
-    }
-    void ConfigureFaultInjection( const char* token )
-    {
-        m_faultInjection.Configure( token );
-    }
-    void ResetForDevice();
-    void ResetAfterShutdown();
-    void PublishSrvHeap( ID3D12DescriptorHeap* heap )
-    {
-        m_srvHeap = heap;
-    }
-    ID3D12Resource*& RenderTarget( UINT index )
-    {
-        return m_renderTargets[index];
-    }
-    ID3D12Resource* RenderTarget( UINT index ) const
-    {
-        return m_renderTargets[index];
-    }
-    UINT FrameIndex() const
-    {
-        return m_frameIndex;
-    }
-    UINT AllocatorIndex() const
-    {
-        return m_allocatorIndex;
-    }
-    UINT64 FrameFenceValue( UINT index ) const
-    {
-        return m_frameFenceValues[index];
-    }
-    void SetFrameFenceValue( UINT index, UINT64 value )
-    {
-        m_frameFenceValues[index] = value;
-    }
-    void AdvanceFrameIndices();
-    void RefreshFrameIndex();
-    RenderGraphResourceAccess BackBufferAccess() const
-    {
-        return m_backBufferAccess;
-    }
-    void SetBackBufferAccess( RenderGraphResourceAccess access )
-    {
-        m_backBufferAccess = access;
-    }
-    Dx12DescriptorAllocator& Descriptors()
-    {
-        return m_descriptors;
-    }
-    const Dx12DescriptorAllocator& Descriptors() const
-    {
-        return m_descriptors;
-    }
-    Dx12FrameUploadSystem& Uploads()
-    {
-        return m_uploads;
-    }
-    const Dx12FrameUploadSystem& Uploads() const
-    {
-        return m_uploads;
-    }
-    void RetireResource( ID3D12Resource* resource );
-    void RetireResource( ID3D12Resource* resource, UINT descriptorIndex );
-    void RetireResource( ID3D12Resource* resource,
-                         UINT descriptorIndex,
-                         Dx12CpuDescriptorAllocator& cpuAllocator,
-                         UINT cpuDescriptorIndex );
-    void RetireStaticDescriptor( UINT descriptorIndex );
-    void AssignRetirementFence( UINT64 fenceValue )
-    {
-        m_retirement.AssignFence( fenceValue );
-    }
-    void ReleaseCompletedRetirements( bool releaseUnfenced );
-    bool RetirementEmpty() const
-    {
-        return m_retirement.Empty();
-    }
-    size_t RetirementCount() const
-    {
-        return m_retirement.Count();
-    }
-    int ProfilerDepth() const
-    {
-        return m_profilerStackState.Depth();
-    }
-    Dx12PlatformProfilerGpuScopeDX12& ProfilerScope( int index )
-    {
-        return m_profilerScopes[index];
-    }
-    bool CommitProfilerBegin()
-    {
-        return m_profilerStackState.CommitBegin( PROFILER_STACK_CAPACITY );
-    }
-    bool CommitProfilerEnd()
-    {
-        return m_profilerStackState.CommitEnd();
-    }
-    void AssertProfilerClosed( const char* reason ) const;
-    int SuspendProfilerForSubmit( const char* reason );
-    void RestoreProfilerAfterSubmit( int suspendedDepth );
-    void BeginProfilerEvent( const char* name, uint32_t hash );
-    void EndProfilerEvent();
-    ID3D12Device* Device() const;
-    ID3D12GraphicsCommandList* CommandList() const;
-    void ActivateShader( ShaderDX12* shader );
-
-  private:
-    void WriteFaultProbe() const;
-    bool PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category );
-
-    Dx12RenderDevice& m_device;
-    Dx12PipelineOwner& m_pipeline;
-    Dx12TextureOwner& m_textures;
-    Dx12CommandRecordingState m_recording;
-    Dx12SubmittedWorkState m_submittedWork;
-    Dx12DeviceHealthState m_deviceHealth;
-    Dx12FaultInjectionState m_faultInjection;
-    Dx12PlatformProfilerGpuStackState m_profilerStackState;
-    std::array<Dx12PlatformProfilerGpuScopeDX12, PROFILER_STACK_CAPACITY> m_profilerScopes = {};
-    Dx12DescriptorAllocator m_descriptors;
-    Dx12FrameUploadSystem m_uploads;
-    Dx12DeferredReleaseOwner m_retirement;
-    ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
-    UINT64 m_frameFenceValues[FRAME_COUNT] = {};
-    ID3D12DescriptorHeap* m_srvHeap = nullptr;
-    UINT m_allocatorIndex = 0;
-    UINT m_frameIndex = 0;
-    RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;
-    D3D12_GPU_VIRTUAL_ADDRESS m_pendingConstantAddress = 0;
-    UINT64 m_pendingConstantBytes = 0;
-    uint64_t m_uploadFlushCount = 0;
-    uint64_t m_uploadDropCount = 0;
-    uint64_t m_uploadCategoryDropCount[RENDER_UPLOAD_CATEGORY_COUNT] = {};
-    Dx12DrawGate m_drawGate;
-    Dx12UploadReservations m_uploadReservations;
-    Dx12ResourceRelease m_resourceRelease;
-};
 
 // Capability: texture creation and mip generation may record resource work,
 // allocate descriptor rows, reserve upload bytes, and retire textures. The

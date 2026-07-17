@@ -1,7 +1,7 @@
 # Monolith Translation-Unit Right-Sizing — Finish What The Campaigns Declared Done
 
 Date: 2026-07-17
-Status: Active — 2/8 tasks
+Status: Active — 5/8 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at N0)
 Impact area: `Runtime/Replay/ReplayPrediction.cpp`,
 `Runtime/InteractionAutomationController.cpp`,
@@ -78,7 +78,7 @@ mechanical split.
   responsibility clusters the census identifies (layout constants must stay
   with their hit-test consumers per the UI invariant). Gate: `validate_fast`
   plus one interactive smoke run.
-- [ ] N4 — `RenderBackendDX12.cpp` (3,636) + header (1,431). Requires the N0
+- [x] N4 — `RenderBackendDX12.cpp` (3,636) + header (1,431). Requires the N0
   parking lift. Extract the census-selected cluster (candidates: swapchain /
   present path, readback/screenshot, render-graph transient materialization)
   into concrete Dx12 owner files consistent with the existing
