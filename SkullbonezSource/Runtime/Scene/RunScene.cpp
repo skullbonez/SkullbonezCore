@@ -544,6 +544,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     AttachedCameraState& attachedCamera = interactionParticipants.attachedCamera;
     RuntimeTools& runtimeTools = interactionParticipants.runtimeTools;
     UI::InGameUI& operatorUi = interactionParticipants.operatorUi;
+    UI::SceneNavigationModel& sceneNavigation = operatorUi.SceneNavigation();
     SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = presentation.contactAudio;
     ReplayRuntime& replayRuntime = presentation.replayRuntime;
     RuntimeOverlayDiagnostics& overlays = presentation.overlays;
@@ -600,6 +601,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     SceneController& runtime = m_sceneController;
     const SceneRuntimeLoadBeginResult loadBegin =
         PrepareSceneRuntimeLoad( runtime,
+                                 sceneNavigation.overrides,
                                  renderer,
                                  m_debug,
                                  camera,
@@ -625,7 +627,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     diagnosticsRuntime.BeforeSceneUnload( SceneState() );
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
-    CommitSceneRuntimeLoad( runtime, loadBegin );
+    CommitSceneRuntimeLoad( runtime, sceneNavigation, loadBegin );
     if ( request.markManualReset )
     {
         runtime.MarkManualReset();
@@ -759,9 +761,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                              m_sceneController,
                                              m_sceneController.Physics(),
                                              launchOptions.generatedObjectTypeOverride ),
-            SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
-                                             m_sceneController.UIOverrides().solverBallCountOverride,
-                                             m_sceneController.UIOverrides().solverBoxCountOverride,
+            SceneGeneratedPopulationRequest{ sceneNavigation.overrides.modelCountOverride,
+                                             sceneNavigation.overrides.solverBallCountOverride,
+                                             sceneNavigation.overrides.solverBoxCountOverride,
                                              0,
                                              0,
                                              SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODELS },
@@ -774,7 +776,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         }
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ launchOptions,
                                                               SceneState(),
-                                                              m_sceneController.Browser(),
+                                                              sceneNavigation.browser,
                                                               m_sceneController,
                                                               m_sceneController.Entities(),
                                                               assets,
@@ -975,9 +977,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                              m_sceneController,
                                              m_sceneController.Physics(),
                                              launchOptions.generatedObjectTypeOverride ),
-            SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
-                                             m_sceneController.UIOverrides().solverBallCountOverride,
-                                             m_sceneController.UIOverrides().solverBoxCountOverride,
+            SceneGeneratedPopulationRequest{ sceneNavigation.overrides.modelCountOverride,
+                                             sceneNavigation.overrides.solverBallCountOverride,
+                                             sceneNavigation.overrides.solverBoxCountOverride,
                                              scene.GetSolverBallCount(),
                                              scene.GetSolverBoxCount(),
                                              0 },
@@ -1069,6 +1071,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     if ( shouldPreserveRuntimeState )
     {
         RestoreSceneRuntimeResetSnapshot( m_sceneController,
+                                          sceneNavigation.overrides,
                                           renderer,
                                           m_debug,
                                           camera,
@@ -1081,9 +1084,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     {
         SceneState().timeScale = launchOptions.timeScaleOverride;
     }
-    if ( m_sceneController.UIOverrides().timeScaleOverride > 0.0f )
+    if ( sceneNavigation.overrides.timeScaleOverride > 0.0f )
     {
-        SceneState().timeScale = m_sceneController.UIOverrides().timeScaleOverride;
+        SceneState().timeScale = sceneNavigation.overrides.timeScaleOverride;
     }
     if ( launchOptions.fixedStep )
     {
@@ -1226,6 +1229,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     timers.RestartForSceneActivation();
     const ReplaySceneTimelineResetInput replayReset =
         DescribeReplaySceneTimeline( m_sceneController,
+                                     sceneNavigation.overrides,
                                      SceneState(),
                                      startup.gameModelCapacity,
                                      static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
@@ -1382,13 +1386,13 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     }
     SetTouchedCinematicSceneProperties( root, State().uiCinematicOverrideMask, State().cinematicRender );
 
-    if ( UIOverrides().modelCountOverride >= 0 )
+    if ( view.uiOverrides.modelCountOverride >= 0 )
     {
-        simulation["solverBalls"] = UIOverrides().modelCountOverride;
+        simulation["solverBalls"] = view.uiOverrides.modelCountOverride;
         simulation.erase( "solverBoxes" );
     }
-    else if ( State().solverBallCount > 0 || State().solverBoxCount > 0 || UIOverrides().solverBallCountOverride >= 0 ||
-              UIOverrides().solverBoxCountOverride >= 0 )
+    else if ( State().solverBallCount > 0 || State().solverBoxCount > 0 ||
+              view.uiOverrides.solverBallCountOverride >= 0 || view.uiOverrides.solverBoxCountOverride >= 0 )
     {
         simulation["solverBalls"] = State().solverBallCount;
         simulation["solverBoxes"] = State().solverBoxCount;

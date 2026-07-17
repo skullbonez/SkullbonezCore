@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Three Round-6 remediation plans are active; baseline/golden refresh remains prohibited. |
-| Current objective | Complete SceneController T3-T6, then monolith N0-N7 and red-flags C4-C6. |
-| Active/future progress | 7 / 22 live tasks (32%); SceneController T0-T2 and red-flags C0-C3 complete. |
-| Last broad local gate | T2 `validate_full` passed in 185.207 seconds: 282/282 tests and coverage floors passed, DX12 reported zero validation errors with unchanged captures, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | T3 moves browser/UI override ownership and requires `tools\validate_full.bat` at its commit gate. |
+| Current objective | Complete SceneController T4-T6, then monolith N0-N7 and red-flags C4-C6. |
+| Active/future progress | 8 / 22 live tasks (36%); SceneController T0-T3 and red-flags C0-C3 complete. |
+| Last broad local gate | T3 `validate_full` passed in 147 seconds after a 6.9-second header-format preflight correction: 282/282 tests and coverage floors passed, DX12 reported zero validation errors with unchanged captures, and the 44,401-line physics CSV matched byte-exact. |
+| Validation for current edits | T4 moves automation gate ownership and requires `tools\validate_full.bat`; add `tools\validate_physics.bat` only if physics call order moves. |
 
 ## Live Queue
 

@@ -7,8 +7,9 @@ Purpose:
 Summary:
   SceneController owns scene queue, load transactions, frame completion policy,
   camera slots, replaceable terrain, world settings, physics topology, fixed
-  entity records, browser navigation, and the ordered request batch. The process
-  shell supplies explicit cold-operation owners and sequences returned results.
+  entity records, value-only browser navigation decisions, and the ordered
+  request batch. InGameUI owns browser/override state; the process shell supplies
+  explicit cold-operation owners and sequences returned results.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -131,6 +132,7 @@ struct SceneDefaultsSaveView
     const RunDebugState& debug;
     const RuntimeRenderer& renderer;
     const RunCameraState& camera;
+    const RunSceneUIOverrideState& uiOverrides;
 };
 
 // Concept: scene loading borrows four phase-oriented values instead of
@@ -193,12 +195,6 @@ class SceneController
 
     RunSceneState& State();
     const RunSceneState& State() const;
-    // Concept: Browser and UI override state are scene-owned policy inputs; Run
-    // borrows them through this controller instead of storing parallel fields.
-    RunSceneBrowserState& Browser();
-    const RunSceneBrowserState& Browser() const;
-    RunSceneUIOverrideState& UIOverrides();
-    const RunSceneUIOverrideState& UIOverrides() const;
     SceneEntityStore& Entities();
     const SceneEntityStore& Entities() const;
     Environment::CameraCollection& Cameras();
@@ -247,13 +243,15 @@ class SceneController
     int AdjacentQueueIndex( int direction ) const;
     // Scene navigation policy stays with the queue/browser owner. Returned
     // requests are value-only and retain no caller callback or context.
-    SceneLoadRequest LoadSceneFromBrowserIndex( int index );
+    SceneLoadRequest LoadSceneFromBrowserIndex( int index, const RunSceneBrowserState& browser );
     SceneLoadRequest LoadDemoSceneFromUI();
     int AdjacentCinematicModeBrowserIndex( int direction,
                                            int selectedCineModeSceneIndex,
                                            int currentSceneBrowserIndex,
-                                           bool isCinematicTabActive ) const;
-    SceneLoadRequest LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex );
+                                           bool isCinematicTabActive,
+                                           const RunSceneBrowserState& browser ) const;
+    SceneLoadRequest
+    LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex, const RunSceneBrowserState& browser );
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
@@ -305,8 +303,6 @@ class SceneController
   private:
     SceneRuntime m_runtime;                  // Scene queue and active scene-run state
     SceneRequestQueue m_requests;            // Fixed scene-only deferred intent ring.
-    RunSceneBrowserState m_browser;          // Discovered scene paths and live cine/concept selection.
-    RunSceneUIOverrideState m_uiOverrides;   // Live Scene-tab overrides preserved across reset when requested.
     int m_perfPass = 0;                      // Scene navigation pass index for two-pass performance captures.
     bool m_crossScenePauseLocked = false;    // Operator scene-flow lock preserved across load transactions.
     SceneEntityStore m_entities;             // Fixed scene-lifetime identity and durable presentation metadata.

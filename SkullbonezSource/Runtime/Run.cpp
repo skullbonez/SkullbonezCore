@@ -272,13 +272,13 @@ Run::Run( Window& window,
                                    m_sceneController.World(),
                                    m_overlayDiagnostics->RenderResources(),
                                    profiler },
-                  RenderSceneView{ m_sceneController, m_sceneController.Browser() } )
+                  RenderSceneView{ m_sceneController, m_operatorUi->SceneNavigation().browser } )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Physics().BindProfiler( profiler );
     m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
-    RefreshSceneBrowserList( m_sceneController.Browser() );
+    RefreshSceneBrowserList( m_operatorUi->SceneNavigation().browser );
     m_sceneController.ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
@@ -553,6 +553,7 @@ void Run::Initialise()
 
     const ReplaySceneTimelineResetInput timelineReset =
         DescribeReplaySceneTimeline( m_sceneController,
+                                     m_operatorUi->SceneNavigation().overrides,
                                      m_sceneController.State(),
                                      m_startup.gameModelCapacity,
                                      static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
@@ -588,6 +589,7 @@ void Run::Initialise()
                                                       m_config,
                                                       m_assets,
                                                       m_workerPool,
+                                                      m_operatorUi->SceneNavigation().overrides,
                                                       m_launchOptions.generatedObjectTypeOverride,
                                                       m_startup.gameModelCapacity };
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(

@@ -68,9 +68,9 @@ bool IsCineScenePath( const std::string& path )
 } // namespace
 
 
-SceneLoadRequest SceneController::LoadSceneFromBrowserIndex( int index )
+SceneLoadRequest SceneController::LoadSceneFromBrowserIndex( int index, const RunSceneBrowserState& browser )
 {
-    const std::vector<std::string>& sceneBrowserPaths = m_browser.paths;
+    const std::vector<std::string>& sceneBrowserPaths = browser.paths;
     if ( index < 0 || index >= static_cast<int>( sceneBrowserPaths.size() ) )
     {
         return SceneLoadRequest::None();
@@ -106,9 +106,10 @@ SceneLoadRequest SceneController::LoadDemoSceneFromUI()
 int SceneController::AdjacentCinematicModeBrowserIndex( int direction,
                                                         int selectedCineModeSceneIndex,
                                                         int currentSceneBrowserIndex,
-                                                        bool isCinematicTabActive ) const
+                                                        bool isCinematicTabActive,
+                                                        const RunSceneBrowserState& browser ) const
 {
-    const std::vector<std::string>& sceneBrowserPaths = m_browser.paths;
+    const std::vector<std::string>& sceneBrowserPaths = browser.paths;
     if ( direction == 0 )
     {
         return -1;
@@ -161,9 +162,11 @@ int SceneController::AdjacentCinematicModeBrowserIndex( int direction,
 }
 
 
-SceneLoadRequest SceneController::LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex )
+SceneLoadRequest SceneController::LoadAdjacentSceneFromBrowser( int direction,
+                                                                int currentSceneBrowserIndex,
+                                                                const RunSceneBrowserState& browser )
 {
-    const std::vector<std::string>& sceneBrowserPaths = m_browser.paths;
+    const std::vector<std::string>& sceneBrowserPaths = browser.paths;
     if ( direction == 0 )
     {
         return SceneLoadRequest::None();
@@ -201,7 +204,7 @@ SceneLoadRequest SceneController::LoadAdjacentSceneFromBrowser( int direction, i
         {
             const int cineCount = static_cast<int>( cineIndices.size() );
             const int nextCinePosition = ( currentCinePosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
-            return LoadSceneFromBrowserIndex( cineIndices[nextCinePosition] );
+            return LoadSceneFromBrowserIndex( cineIndices[nextCinePosition], browser );
         }
     }
 
@@ -215,7 +218,7 @@ SceneLoadRequest SceneController::LoadAdjacentSceneFromBrowser( int direction, i
         nextIndex = ( currentIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
     }
 
-    return LoadSceneFromBrowserIndex( nextIndex );
+    return LoadSceneFromBrowserIndex( nextIndex, browser );
 }
 
 

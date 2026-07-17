@@ -33,6 +33,7 @@ Related:
 #include "../RuntimeValidationHarness.h"
 #include "../InputFrame.h"
 #include "SceneRuntimeCreate.h"
+#include "../../UI/UI.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -80,7 +81,9 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
         {
         case SceneRequestType::LoadBrowserIndex:
             eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
-            accepted = executeSceneLoadRequest( m_sceneController.LoadSceneFromBrowserIndex( request.index ) );
+            accepted = executeSceneLoadRequest(
+                m_sceneController.LoadSceneFromBrowserIndex( request.index,
+                                                             interaction.operatorUi.SceneNavigation().browser ) );
             break;
         case SceneRequestType::LoadDemoScene:
             eventCode = ReplayOwnerEventCode::SceneLoadDemo;
@@ -95,16 +98,19 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
         case SceneRequestType::CreateScene:
             eventCode = ReplayOwnerEventCode::SceneCreate;
             eventText = request.text;
-            accepted = executeSceneLoadRequest(
-                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneController.Browser() },
-                                   request.text ) );
+            accepted = executeSceneLoadRequest( CreateSceneFromUI(
+                SceneRuntimeCreateContext{ m_sceneController, interaction.operatorUi.SceneNavigation().browser },
+                request.text ) );
             break;
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
                 const RunDebugState presentationState = presentation.overlays.PresentationSnapshot();
                 const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                    SceneDefaultsSaveView{ presentationState, presentation.renderer, interaction.camera } );
+                    SceneDefaultsSaveView{ presentationState,
+                                           presentation.renderer,
+                                           interaction.camera,
+                                           interaction.operatorUi.SceneNavigation().overrides } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );

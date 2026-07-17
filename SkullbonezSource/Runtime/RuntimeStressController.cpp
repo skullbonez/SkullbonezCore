@@ -262,10 +262,10 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
         const float timeScale = StressHarness::NextFloat( stress, 0.10f, 4.00f );
         if ( allowRuntimeChurn )
         {
-            // Concept: Scene-tab churn goes through the scene controller so
+            // Concept: Scene-tab churn writes the UI-owned navigation model so
             // reset preservation and generated-scene rebuilds see one owner.
-            sceneController.UIOverrides().timeScaleOverride = timeScale;
-            scene.timeScale = sceneController.UIOverrides().timeScaleOverride;
+            ui.SceneNavigation().overrides.timeScaleOverride = timeScale;
+            scene.timeScale = ui.SceneNavigation().overrides.timeScaleOverride;
             simulation.Reset();
         }
         break;
@@ -318,6 +318,7 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
 SceneRuntimeStyleContext
 BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
                                  RunSceneState& scene,
+                                 RunSceneBrowserState& browser,
                                  SceneController& sceneController,
                                  SkullbonezCore::Runtime::SceneController& models,
                                  const SkullbonezCore::Assets::AssetSystem& assets,
@@ -326,7 +327,7 @@ BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
 {
     return SceneRuntimeStyleContext{ launchOptions,
                                      scene,
-                                     sceneController.Browser(),
+                                     browser,
                                      models,
                                      sceneController.Entities(),
                                      assets,
@@ -397,10 +398,11 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     }
     case 3:
     {
-        const int browserCount = static_cast<int>( sceneController.Browser().paths.size() );
+        const int browserCount = static_cast<int>( ui.SceneNavigation().browser.paths.size() );
         const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
         (void)ApplyCinematicModeFromBrowserIndex( BuildGraphicsStressStyleContext( launchOptions,
                                                                                    scene,
+                                                                                   ui.SceneNavigation().browser,
                                                                                    sceneController,
                                                                                    models,
                                                                                    assets,
@@ -464,7 +466,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     case 15:
     {
         const float timeScale = stress.NextFloat( 0.05f, 4.0f );
-        sceneController.UIOverrides().timeScaleOverride = timeScale;
+        ui.SceneNavigation().overrides.timeScaleOverride = timeScale;
         scene.timeScale = timeScale;
         simulation.Reset();
         break;
@@ -484,7 +486,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         break;
     }
     case 17:
-        sceneController.UIOverrides().modelCountOverride = 32 + stress.NextInt( 512 );
+        ui.SceneNavigation().overrides.modelCountOverride = 32 + stress.NextInt( 512 );
         break;
     case 18:
         launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
@@ -926,7 +928,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
     {
         return SceneRuntimeGeneratedControlContext{ m_sceneController.State(),
-                                                    m_sceneController.UIOverrides(),
+                                                    m_UI.SceneNavigation().overrides,
                                                     m_camera,
                                                     m_sceneController,
                                                     m_config,
@@ -952,6 +954,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         {
             const ReplaySceneTimelineResetInput reset =
                 DescribeReplaySceneTimeline( m_sceneController,
+                                             m_UI.SceneNavigation().overrides,
                                              m_sceneController.State(),
                                              m_startup.gameModelCapacity,
                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
@@ -1163,11 +1166,11 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
             selectedSceneSource = "queue";
             request = SceneLoadRequest::Load( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
         }
-        else if ( !sceneController.Browser().paths.empty() )
+        else if ( !ui.SceneNavigation().browser.paths.empty() )
         {
-            selectedSceneIndex = stress.NextInt( static_cast<int>( sceneController.Browser().paths.size() ) );
+            selectedSceneIndex = stress.NextInt( static_cast<int>( ui.SceneNavigation().browser.paths.size() ) );
             selectedSceneSource = "browser";
-            request = sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
+            request = sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex, ui.SceneNavigation().browser );
         }
 
         if ( executeSceneLoadRequest( request ) )

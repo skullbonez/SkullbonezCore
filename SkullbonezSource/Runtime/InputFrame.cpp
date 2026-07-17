@@ -509,15 +509,15 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RunTimerState& timers = sceneOwners.timers;
     SceneController& sceneController = sceneOwners.sceneController;
     Window& window = host.window;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame;
     result.frameActive = true;
 
-    const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, sceneController.Browser() );
+    const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
     const HWND windowHandle = window.NativeWindowHandle();
     InGameUIInputResult UIResult = ui.UpdateInput(
         inputRouter.DeviceFrame(),
@@ -532,8 +532,8 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
         runtimeTools.Editor().objectType,
         static_cast<int>( camera.mode ),
         facts.cameraModeEnabledMask,
-        sceneController.Browser().namePtrs.empty() ? nullptr : sceneController.Browser().namePtrs.data(),
-        static_cast<int>( sceneController.Browser().namePtrs.size() ),
+        ui.SceneNavigation().browser.namePtrs.empty() ? nullptr : ui.SceneNavigation().browser.namePtrs.data(),
+        static_cast<int>( ui.SceneNavigation().browser.namePtrs.size() ),
         selectedSceneBrowserIndex );
     switch ( UIResult.nativeMouseCapture )
     {
@@ -617,6 +617,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RunTimerState& timers = sceneOwners.timers;
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
     RunDebugState& debug = presentationEdit.State();
@@ -868,7 +869,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     }
     RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
     const RunSimulationUICommandResult runSimulationCommands = ApplyRunSimulationUICommands(
-        RunSimulationUICommandContext{ sceneController.State(), sceneController.UIOverrides(), config, workerPool },
+        RunSimulationUICommandContext{ sceneController.State(), ui.SceneNavigation().overrides, config, workerPool },
         uiCommands.sceneOptions,
         uiCommands.run,
         uiCommands.profiler );
@@ -902,7 +903,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
     {
         return SceneRuntimeGeneratedControlContext{ sceneController.State(),
-                                                    sceneController.UIOverrides(),
+                                                    ui.SceneNavigation().overrides,
                                                     camera,
                                                     sceneController,
                                                     liveConfig,
@@ -921,6 +922,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         {
             const ReplaySceneTimelineResetInput reset =
                 DescribeReplaySceneTimeline( sceneController,
+                                             ui.SceneNavigation().overrides,
                                              sceneController.State(),
                                              facts.gameModelCapacity,
                                              static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
@@ -1012,7 +1014,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         result.enterInteractiveScene = true;
         ApplyCinematicModeUICommand( SceneRuntimeStyleContext{ launchOptions,
                                                                sceneController.State(),
-                                                               sceneController.Browser(),
+                                                               ui.SceneNavigation().browser,
                                                                sceneController,
                                                                sceneController.Entities(),
                                                                assets,

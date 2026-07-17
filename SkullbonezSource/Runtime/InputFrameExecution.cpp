@@ -703,19 +703,20 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             const int direction = event.action == RuntimeInputAction::NavigateScenePrevious ? -1 : 1;
             EnterInteractiveSceneRun();
             const int currentSceneBrowserIndex =
-                CurrentSceneBrowserIndex( m_sceneController, m_sceneController.Browser() );
+                CurrentSceneBrowserIndex( m_sceneController, m_UI.SceneNavigation().browser );
             const bool isCinematicTabActive = m_UI.GetActiveTab() == InGameUITab::Cinematic;
             const int cinematicIndex = m_sceneController.AdjacentCinematicModeBrowserIndex(
                 direction,
-                m_sceneController.Browser().selectedCineModeSceneIndex,
+                m_UI.SceneNavigation().browser.selectedCineModeSceneIndex,
                 currentSceneBrowserIndex,
-                isCinematicTabActive );
+                isCinematicTabActive,
+                m_UI.SceneNavigation().browser );
             const bool appliedCinematic =
                 cinematicIndex >= 0 &&
                 ApplyCinematicModeFromBrowserIndex(
                     SceneRuntimeStyleContext{ m_launchOptions,
                                               SceneState(),
-                                              m_sceneController.Browser(),
+                                              m_UI.SceneNavigation().browser,
                                               m_sceneController,
                                               m_sceneController.Entities(),
                                               m_assets,
@@ -725,7 +726,9 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             if ( !appliedCinematic )
             {
                 executeSceneLoadRequest(
-                    m_sceneController.LoadAdjacentSceneFromBrowser( direction, currentSceneBrowserIndex ) );
+                    m_sceneController.LoadAdjacentSceneFromBrowser( direction,
+                                                                    currentSceneBrowserIndex,
+                                                                    m_UI.SceneNavigation().browser ) );
             }
             break;
         }
@@ -860,6 +863,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     {
         const ReplaySceneTimelineResetInput timelineReset =
             DescribeReplaySceneTimeline( m_sceneController,
+                                         m_UI.SceneNavigation().overrides,
                                          SceneState(),
                                          m_startup.gameModelCapacity,
                                          static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
@@ -883,6 +887,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                            m_config,
                                                            m_assets,
                                                            m_workerPool,
+                                                           m_UI.SceneNavigation().overrides,
                                                            m_launchOptions.generatedObjectTypeOverride,
                                                            m_startup.gameModelCapacity };
         const ReplayLiveRestoreOutcome restoreOutcome =

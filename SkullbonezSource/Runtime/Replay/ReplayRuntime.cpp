@@ -234,6 +234,7 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
 
 ReplaySceneTimelineResetInput
 ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                       const RunSceneUIOverrideState& uiOverrides,
                                                        const RunSceneState& scene,
                                                        int gameModelCapacity,
                                                        uint32_t generatedObjectTypeOverride )
@@ -249,9 +250,9 @@ ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sc
     replayReset.rngSeed = scene.rngSeed;
     replayReset.gameModelCapacity = gameModelCapacity;
     replayReset.generatedObjectTypeOverride = generatedObjectTypeOverride;
-    replayReset.hasUiModelCountOverride = sceneController.UIOverrides().modelCountOverride >= 0;
-    replayReset.hasUiSolverCountOverride = sceneController.UIOverrides().solverBallCountOverride >= 0 ||
-                                           sceneController.UIOverrides().solverBoxCountOverride >= 0;
+    replayReset.hasUiModelCountOverride = uiOverrides.modelCountOverride >= 0;
+    replayReset.hasUiSolverCountOverride =
+        uiOverrides.solverBallCountOverride >= 0 || uiOverrides.solverBoxCountOverride >= 0;
     return replayReset;
 }
 

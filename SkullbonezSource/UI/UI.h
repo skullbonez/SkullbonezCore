@@ -22,10 +22,14 @@ Glossary:
     were merged, silenced, budgeted, or submitted by the Sound tab model.
   Simple contact audio: Optional linear-energy path for thuds, exposed as an
     obvious Sound-tab section so the old contact-row classifier can be bypassed.
+  Scene navigation model: UI-owned browser rows and generated-scene overrides
+    borrowed synchronously by runtime navigation and load transactions.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - Scene browser pointer views and live overrides share InGameUI's lifetime;
+    runtime owners never retain a backpointer to this model.
 
 Related:
   - SkullbonezSource/UI/UI.cpp
@@ -37,6 +41,7 @@ Related:
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
 #include "../Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../Runtime/Scene/SceneControllerState.h"
 #include "../Rendering/IShader.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "UIButton.h"
@@ -392,6 +397,14 @@ class InGameUI
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
     void ResetResources( Rendering::IRenderResourceFactory* resources );
+    SceneNavigationModel& SceneNavigation()
+    {
+        return m_sceneNavigation;
+    }
+    const SceneNavigationModel& SceneNavigation() const
+    {
+        return m_sceneNavigation;
+    }
 
     InGameUIInputResult UpdateInput( const Runtime::DeviceInputFrame& deviceFrame,
                                      const Runtime::RuntimeMouseEdges& mouse,
@@ -414,6 +427,7 @@ class InGameUI
     // Lifetime: Init owns this profiler beyond the cohesive UI owner; input and
     // draw paths borrow it without resolving process-global diagnostics state.
     Core::Profiler* m_profiler = nullptr;
+    SceneNavigationModel m_sceneNavigation;
     // Persistent widget state.  Scene loads may apply SceneUIOptions, but normal
     // simulation resets preserve these values so the UI remains where the user
     // left it while the bodies/timers are rebuilt underneath.

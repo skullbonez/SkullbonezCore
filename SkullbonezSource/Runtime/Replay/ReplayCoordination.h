@@ -64,6 +64,7 @@ struct ReplayStartupLoadInput;
 struct RunCameraState;
 struct RunMousePickupState;
 struct RunSceneState;
+struct RunSceneUIOverrideState;
 
 namespace ReplayInteractionOperations
 {
@@ -293,6 +294,7 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
 }
 
 ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                           const RunSceneUIOverrideState& uiOverrides,
                                                            const RunSceneState& scene,
                                                            int gameModelCapacity,
                                                            uint32_t generatedObjectTypeOverride );

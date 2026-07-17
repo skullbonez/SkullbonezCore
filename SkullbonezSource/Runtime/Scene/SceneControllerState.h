@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneControllerState.h
 Purpose:
-  Defines scene-controller-owned browser and UI override state.
+  Defines the UI-owned scene navigation model and its browser/override values.
 
 Summary:
-  SceneController owns scene discovery and live scene-tab override values. Run
-  borrows these shelves through the controller while broader scene loading still
-  coordinates through the composition root.
+  InGameUI owns scene discovery and live scene-tab override values as one
+  cohesive navigation model. Runtime code borrows individual values only for
+  synchronous navigation, load, replay, and reset operations.
 
 Glossary:
   Scene browser: UI-facing list of authored scene paths plus stable name
@@ -21,7 +21,7 @@ Invariants:
     `0.0f` means no override, and count values below zero mean unset.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneController.h
+  - SkullbonezSource/UI/UI.h
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
@@ -50,4 +50,15 @@ struct RunSceneUIOverrideState
     int solverBoxCountOverride = -1;
 };
 } // namespace Runtime
+
+namespace UI
+{
+struct SceneNavigationModel
+{
+    // Invariant: browser pointer views and live override sentinels share the
+    // UI owner's lifetime; runtime consumers may borrow but never retain them.
+    Runtime::RunSceneBrowserState browser;
+    Runtime::RunSceneUIOverrideState overrides;
+};
+} // namespace UI
 } // namespace SkullbonezCore

@@ -187,6 +187,7 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
 
 
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
+                                                     const RunSceneUIOverrideState& uiOverrides,
                                                      const RuntimeRenderer& renderer,
                                                      const RunDebugState& debug,
                                                      const RunCameraState& camera,
@@ -222,14 +223,16 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
     {
         // Lifetime: Snapshot before BeginLoad mutates scene bookkeeping so the
         // restore policy sees the live operator-owned state from the old run.
-        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, renderer, debug, camera );
+        result.resetSnapshot = CaptureSceneRuntimeResetSnapshot( controller, uiOverrides, renderer, debug, camera );
     }
     result.shouldLoad = true;
     return result;
 }
 
 
-void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoadBeginResult& prepared )
+void CommitSceneRuntimeLoad( SceneController& controller,
+                             UI::SceneNavigationModel& navigation,
+                             const SceneRuntimeLoadBeginResult& prepared )
 {
     // Invariant: preparation has already validated the index and drained the
     // device; this is the first mutation of scene/controller state.
@@ -239,14 +242,14 @@ void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoad
     }
     if ( !prepared.shouldPreserveRuntimeState )
     {
-        ClearSceneRuntimeUIOverrides( controller );
+        ClearSceneRuntimeUIOverrides( navigation.overrides );
     }
     controller.BeginLoad( prepared.index );
     if ( !prepared.shouldPreserveRuntimeState )
     {
-        controller.Browser().selectedCineModeSceneIndex =
+        navigation.browser.selectedCineModeSceneIndex =
             ( !prepared.scenePath->empty() && IsCineScenePath( *prepared.scenePath ) )
-                ? SceneBrowserIndexForPath( controller.Browser(), *prepared.scenePath )
+                ? SceneBrowserIndexForPath( navigation.browser, *prepared.scenePath )
                 : -1;
     }
 }

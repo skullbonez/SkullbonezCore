@@ -1353,6 +1353,7 @@ struct ReplayRestoreOwnerContext
     SkullbonezCore::Threading::WorkerPool& workerPool;
     SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::Runtime::SceneController& models;
+    RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
     int gameModelCapacity = 0;
 };
@@ -1404,11 +1405,9 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
     context.scene.rngSeed = static_cast<unsigned int>( event.value3 );
     context.scene.rngState = static_cast<unsigned int>( event.value3 );
     context.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
-    context.sceneController.UIOverrides().modelCountOverride = uiModelCount ? event.value0 : -1;
-    context.sceneController.UIOverrides().solverBallCountOverride =
-        uiSolverCounts || exactSolverCounts ? event.value1 : -1;
-    context.sceneController.UIOverrides().solverBoxCountOverride =
-        uiSolverCounts || exactSolverCounts ? event.value2 : -1;
+    context.uiOverrides.modelCountOverride = uiModelCount ? event.value0 : -1;
+    context.uiOverrides.solverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
+    context.uiOverrides.solverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
     if ( exactSolverCounts || uiSolverCounts )
     {
@@ -1835,6 +1834,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                                    topologyOwners.workerPool,
                                                    transaction.sampleOwners.sceneController.World(),
                                                    transaction.sampleOwners.sceneController,
+                                                   topologyOwners.uiOverrides,
                                                    topologyOwners.generatedObjectTypeOverride,
                                                    topologyOwners.gameModelCapacity };
     if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,

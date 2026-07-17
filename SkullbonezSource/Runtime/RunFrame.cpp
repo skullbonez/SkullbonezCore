@@ -163,7 +163,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
     // Lifetime: the two owner views and value-only facts exist only for this
     // late UI call; no render or UI owner retains them.
-    const RunSceneBrowserState& uiSceneBrowser = sceneController.Browser();
+    const RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
     const std::string* uiScenePath = sceneController.CurrentPath();
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
@@ -610,7 +610,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
-                                          m_sceneController.Browser(),
+                                          m_operatorUi->SceneNavigation().browser,
                                           m_sceneController,
                                           m_sceneController.Entities(),
                                           m_assets,
@@ -934,7 +934,7 @@ float Run::TickPhysics( double secondsPerFrame,
             directorPrediction,
             SceneRuntimeStyleContext{ m_launchOptions,
                                       m_sceneController.State(),
-                                      m_sceneController.Browser(),
+                                      m_operatorUi->SceneNavigation().browser,
                                       m_sceneController,
                                       m_sceneController.Entities(),
                                       m_assets,
@@ -993,6 +993,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
         RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
         const ReplaySceneTimelineResetInput timelineReset =
             DescribeReplaySceneTimeline( m_sceneController,
+                                         m_operatorUi->SceneNavigation().overrides,
                                          m_sceneController.State(),
                                          m_startup.gameModelCapacity,
                                          static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
@@ -1021,6 +1022,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
                                                           m_config,
                                                           m_assets,
                                                           m_workerPool,
+                                                          m_operatorUi->SceneNavigation().overrides,
                                                           m_launchOptions.generatedObjectTypeOverride,
                                                           m_startup.gameModelCapacity };
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
@@ -1300,7 +1302,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
         directorPrediction,
         SceneRuntimeStyleContext{ m_launchOptions,
                                   m_sceneController.State(),
-                                  m_sceneController.Browser(),
+                                  m_operatorUi->SceneNavigation().browser,
                                   m_sceneController,
                                   m_sceneController.Entities(),
                                   m_assets,
