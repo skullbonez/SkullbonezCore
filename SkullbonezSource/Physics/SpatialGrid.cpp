@@ -185,10 +185,11 @@ void SpatialGrid::Clear()
 // Output is the bucket index for this key.
 int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
-    if ( activeBucketCount >= TABLE_SIZE && fullBucketLookupReady )
+    if ( fullBucketLookupReady )
     {
-        // Why: once a genuinely new post-saturation cell appears, every key is
-        // indexed and the bounded overflow tier owns subsequent lookups.
+        // Why: readiness already implies primary saturation. Testing the flag
+        // directly keeps the unsaturated per-cell route to one predictable
+        // branch while the bounded overflow tier owns all indexed lookups.
         return FindOrCreateFullBucket( key, cx, cy, cz );
     }
 
@@ -241,15 +242,13 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
     const int bi =
         FindOrCreate( key, ClampVisualizationCell( ix ), ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
-    if ( bi < 0 )
+    // Why: one unsigned range check preserves the legacy primary-cell branch
+    // shape. Negative and overflow results both enter the cold validation path.
+    if ( static_cast<unsigned int>( bi ) >= static_cast<unsigned int>( TABLE_SIZE ) )
     {
-        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid bucket index out of bounds" );
-    }
-    if ( bi >= TABLE_SIZE )
-    {
-        if ( bi >= TOTAL_BUCKET_COUNT )
+        if ( bi < 0 || bi >= TOTAL_BUCKET_COUNT )
         {
-            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid overflow bucket index out of bounds" );
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid bucket index out of bounds" );
         }
         InsertOverflowCellEntry( index, bi - TABLE_SIZE );
         return;
