@@ -186,8 +186,10 @@ void SpatialGrid::Clear()
 // Look up or create a bucket for the given hash key.
 // Uses LINEAR PROBING: if the target slot is occupied by a different key,
 // try the next slot, then the next, etc.
-// Output is the bucket index for this key.
-int SpatialGrid::FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
+// Output is the primary bucket index, or -1 for a saturated-table miss.
+// Why: this is the pre-saturation per-cell lookup. Keeping it small enough to
+// inline avoids charging ordinary scenes for overflow admission machinery.
+__forceinline int SpatialGrid::FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
 
@@ -217,26 +219,20 @@ int SpatialGrid::FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy,
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    if ( activeBucketCount >= TABLE_SIZE )
+    // Lane F: every primary row must be active before a full probe can miss.
+    // A compact bounds call may already have admitted overflow rows, so the
+    // active count can legitimately exceed the physical primary capacity.
+    if ( activeBucketCount < TABLE_SIZE )
     {
-        // Why: filling the primary table is common at 1,000 bodies, but that
-        // scene usually only revisits admitted keys. Delay the 32 KiB rebuild
-        // until a probe proves that a genuinely new cell needs the overflow
-        // tier. A bounds call that crossed saturation may route here again, so
-        // preserve its already-built lookup rather than rebuilding it.
-        if ( activeBucketCount == TABLE_SIZE )
-        {
-            BuildFullBucketLookup();
-        }
-        return FindOrCreateFullBucket( key, cx, cy, cz );
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid primary lookup exhausted before reaching admission capacity" );
     }
-
-    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid primary lookup exhausted before reaching its admission capacity" );
+    assert( activeBucketCount >= TABLE_SIZE && "primary lookup exhausted before saturation" );
+    return -1;
 }
 
 
 template <SpatialGrid::BucketLookupRoute Route>
-void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int iz )
+__forceinline void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int iz )
 {
     // The same object can overlap a cell through multiple sampled bounds during
     // a swept insert. Before appending, scan this bucket's linked list so one
@@ -263,9 +259,13 @@ void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int iz )
         bi = FindOrCreatePrimaryBucket( key, visualizationX, visualizationY, visualizationZ );
     }
     // Why: one unsigned range check preserves the legacy primary-cell branch
-    // shape. Negative and overflow results both enter the cold validation path.
+    // shape. Negative primary misses and overflow rows both enter cold code.
     if ( static_cast<unsigned int>( bi ) >= static_cast<unsigned int>( TABLE_SIZE ) )
     {
+        if ( bi < 0 )
+        {
+            bi = FindOrCreateAfterPrimaryMiss( key, visualizationX, visualizationY, visualizationZ );
+        }
         if ( bi < 0 || bi >= TOTAL_BUCKET_COUNT )
         {
             SB_FATAL( "Physics/SpatialGrid", "SpatialGrid bucket index out of bounds" );
@@ -307,14 +307,14 @@ void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int iz )
 
 
 template <SpatialGrid::BucketLookupRoute Route>
-void SpatialGrid::InsertBoundsCells( int index,
-                                     int minX,
-                                     int minY,
-                                     int minZ,
-                                     int maxX,
-                                     int maxY,
-                                     int maxZ,
-                                     bool sampledSweep )
+__forceinline void SpatialGrid::InsertBoundsCells( int index,
+                                                   int minX,
+                                                   int minY,
+                                                   int minZ,
+                                                   int maxX,
+                                                   int maxY,
+                                                   int maxZ,
+                                                   bool sampledSweep )
 {
     for ( int ix = minX; ix <= maxX; ++ix )
     {
@@ -387,6 +387,21 @@ __declspec(noinline) void SpatialGrid::BuildFullBucketLookup()
         }
         overflowStorage->lookup[slot] = static_cast<uint16_t>( bucketIndex );
     }
+}
+
+
+// Why: a new cell after primary saturation is exceptional at 1,000 bodies.
+// Keeping its compact-index rebuild and admission outside the inline lookup
+// restores the pre-campaign common-path shape while retaining full coverage.
+__declspec(noinline) int
+SpatialGrid::FindOrCreateAfterPrimaryMiss( int64_t key, int16_t cx, int16_t cy, int16_t cz )
+{
+    assert( activeBucketCount >= TABLE_SIZE && "primary miss before saturation" );
+    if ( activeBucketCount == TABLE_SIZE )
+    {
+        BuildFullBucketLookup();
+    }
+    return FindOrCreateFullBucket( key, cx, cy, cz );
 }
 
 

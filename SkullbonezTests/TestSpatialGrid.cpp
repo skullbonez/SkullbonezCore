@@ -323,6 +323,35 @@ TEST_CASE( "SpatialGrid: one bounds call can cross primary saturation and keep e
 }
 
 
+TEST_CASE( "SpatialGrid: compact bounds hand off every miss after first overflow admission" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( 1.0f );
+
+    for ( int cell = 0; cell < SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1; ++cell )
+    {
+        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+    }
+
+    const Vector3 noDisplacement( 0.0f, 0.0f, 0.0f );
+    const Vector3 minimum( static_cast<float>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 ), 0.0f, 0.0f );
+    constexpr int compactCrossingCellCount = 3;
+    const Vector3 maximum(
+        static_cast<float>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 2 + compactCrossingCellCount ), 0.0f, 0.0f );
+    grid.InsertPreparedBounds( 1, minimum, noDisplacement, 0.0f, minimum, maximum, false );
+    grid.InsertPreparedBounds( 2, minimum, noDisplacement, 0.0f, minimum, maximum, false );
+
+    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
+    CHECK( grid.GetActiveCellCount() == SpatialGrid::PRIMARY_BUCKET_CAPACITY + compactCrossingCellCount - 1 );
+    CHECK( stats.exactAabbCellVisits ==
+           static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 + compactCrossingCellCount * 2 ) );
+    CHECK( stats.entryWrites ==
+           static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 + compactCrossingCellCount * 2 ) );
+    const std::vector<std::pair<int, int>> expected{ { 1, 2 } };
+    CHECK( CandidatePairs( grid ) == expected );
+}
+
+
 TEST_CASE( "Property invariant: prepared AABB insert/query round-trips including zero extent [seed 0x16AABB00]" )
 {
     SkullbonezTests::FixedSeed random( 0x16AABB00u );

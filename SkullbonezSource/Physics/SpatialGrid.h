@@ -170,6 +170,7 @@ class SpatialGrid
 
     int FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     void BuildFullBucketLookup();
+    int FindOrCreateAfterPrimaryMiss( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     int FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     Bucket& BucketAt( int bucketIndex );
     const Bucket& BucketAt( int bucketIndex ) const;
