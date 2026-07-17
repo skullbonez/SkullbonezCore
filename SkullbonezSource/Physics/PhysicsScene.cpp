@@ -73,6 +73,7 @@ using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsScene;
+using SkullbonezCore::Physics::PhysicsSceneReadView;
 using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 
 
@@ -856,82 +857,26 @@ bool PhysicsScene::ShouldEmitCollisionTimeDiagnostics() const
     return m_world.ShouldEmitCollisionTimeDiagnostics();
 }
 
-
-std::span<const int> PhysicsScene::GetFixedContactHighlightBodies() const
+PhysicsSceneReadView PhysicsScene::ReadView() const noexcept
 {
-    return m_world.GetFixedContactHighlightBodies();
-}
-
-
-const PhysicsBodyStore& PhysicsScene::BodyStore() const
-{
-    return m_bodyStore;
-}
-
-
-const ColliderStore& PhysicsScene::Colliders() const
-{
-    return m_colliderStore;
-}
-
-
-const SkullbonezCore::Math::CollisionDetection::SpatialGrid& PhysicsScene::GetSpatialGrid() const
-{
-    return m_world.GetSpatialGrid();
-}
-
-
-const std::vector<int64_t>& PhysicsScene::GetCollisionCellKeys() const
-{
-    return m_world.GetCollisionCellKeys();
-}
-
-
-const std::vector<uint8_t>& PhysicsScene::GetCollisionVisualContacts() const
-{
-    return m_world.GetCollisionVisualContacts();
-}
-
-
-std::span<const uint8_t> PhysicsScene::GetSleepStates() const
-{
-    return m_world.GetSleepStates();
-}
-
-
-std::span<const int> PhysicsScene::GetSleepIslandVisualIds() const
-{
-    return m_world.GetSleepIslandVisualIds();
-}
-
-
-std::span<const uint8_t> PhysicsScene::GetSleepSupportedStates() const
-{
-    return m_world.GetSleepSupportedStates();
-}
-
-
-std::span<const uint8_t> PhysicsScene::GetSleepInhibitedStates() const
-{
-    return m_world.GetSleepInhibitedStates();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PhysicsDebugContact>& PhysicsScene::GetPhysicsDebugContacts() const
-{
-    return m_world.GetPhysicsDebugContacts();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord>& PhysicsScene::GetPhysicsPipelineTrace() const
-{
-    return m_world.GetPhysicsPipelineTrace();
-}
-
-
-const std::vector<SkullbonezCore::Physics::PointJointConstraint>& PhysicsScene::GetPointJointConstraints() const
-{
-    return m_world.GetPointJointConstraints();
+    // Invariant: this is the sole read projection across the PhysicsScene /
+    // PhysicsEngine boundary. Every field is immutable and aliases its owner;
+    // adding command or mutable-store authority here would recreate the friend.
+    return {
+        .bodies = m_bodyStore,
+        .colliders = m_colliderStore,
+        .spatialGrid = m_world.GetSpatialGrid(),
+        .fixedContactHighlightBodies = m_world.GetFixedContactHighlightBodies(),
+        .collisionCellKeys = m_world.GetCollisionCellKeys(),
+        .collisionVisualContacts = m_world.GetCollisionVisualContacts(),
+        .sleepStates = m_world.GetSleepStates(),
+        .sleepIslandVisualIds = m_world.GetSleepIslandVisualIds(),
+        .sleepSupportedStates = m_world.GetSleepSupportedStates(),
+        .sleepInhibitedStates = m_world.GetSleepInhibitedStates(),
+        .debugContacts = m_world.GetPhysicsDebugContacts(),
+        .pipelineTrace = m_world.GetPhysicsPipelineTrace(),
+        .pointJointConstraints = m_world.GetPointJointConstraints(),
+    };
 }
 
 

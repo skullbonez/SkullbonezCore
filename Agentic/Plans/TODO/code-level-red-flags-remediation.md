@@ -1,7 +1,7 @@
 # Code-Level Red-Flags Remediation — Renderer Globals, Hot-Path Singletons, Friend Debt, Catch-Up Clamp, LTO Determinism
 
 Date: 2026-07-17
-Status: Active — 3/7 tasks
+Status: Active — 4/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at C0)
 Impact area: `Rendering/Text.cpp`, `Core/Profiler.*`, `Core/Log.*`,
 `Core/LockOrderValidator.*`, `Physics/PhysicsScene.h`,
@@ -83,7 +83,7 @@ re-certified as accepted policy with evidence.
   allowed cold-path magic static or converted to explicit ownership. No
   telemetry values change. Gates: `validate_perf` (hot-path change) plus
   `validate_tests`.
-- [ ] C3 — Delete `friend class PhysicsEngine` from `PhysicsScene`. Give
+- [x] C3 — Delete `friend class PhysicsEngine` from `PhysicsScene`. Give
   `PhysicsEngine` the narrow typed accessors the census shows it actually
   needs, then remove the friend edge and the transitional comment. Any
   accessor that would expose broad mutable internals is a design failure —

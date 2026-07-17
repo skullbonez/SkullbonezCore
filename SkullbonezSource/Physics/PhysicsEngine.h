@@ -15,6 +15,8 @@ Glossary:
     dynamic bodies and wakes same-tree parts after an accepted impulse.
   Physics material: Runtime policy for collider friction and sphere drag.
   Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
+  Scene read view: Exact immutable store and diagnostic projection supplied by
+    PhysicsScene without granting the facade private access.
   Descriptor refresh: Cold authoring edge that replaces body rows from explicit
     values supplied by the model collection owner.
 
@@ -171,8 +173,8 @@ class PhysicsEngine
     bool ShouldEmitCollisionTimeDiagnostics() const;
 
     // Immutable dense views are an explicit PhysicsEngine query contract for
-    // renderer, replay, diagnostics, and cold tools. They expose no mutation
-    // and remove the former transitional friend facade.
+    // renderer, replay, diagnostics, and cold tools. Each is projected from
+    // PhysicsSceneReadView without friendship or mutable-store authority.
     static const PhysicsBodyStore& ReadBodies( const PhysicsEngine& engine );
     static const ColliderStore& ReadColliders( const PhysicsEngine& engine );
     static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );

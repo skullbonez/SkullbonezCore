@@ -128,3 +128,30 @@ No coverage floor, exclusion, instrumentation scope, coverage tool, or
 coverage-raising test changed in C2, so the direct coverage gate was not
 triggered. No behavioral baseline, golden, screenshot, or physics CSV was
 refreshed.
+
+## C3 Closure Evidence
+
+Completed 2026-07-17 on `nightrunner-17th-july`. `PhysicsScene` now publishes
+one typed `PhysicsSceneReadView` containing exactly the thirteen immutable
+store, broadphase, sleep, contact, pipeline, and constraint borrows ratified at
+C0. The thirteen existing `PhysicsEngine::Read*` APIs project from that value;
+no caller-facing API changes and no mutable store authority were introduced.
+The thirteen private `PhysicsScene` forwarding getters and
+`friend class PhysicsEngine` are deleted.
+
+The touched-source comment-style audit inspected all four edited source files
+with zero deferrals. The view documents its frame-local borrow lifetime and
+the boundary invariant that adding command or mutable-store authority would
+recreate the friend edge. Focused Profile compilation passed in 15.507 seconds.
+Formal evidence:
+
+- `tools\validate_physics.bat` — PASS in 66.985 seconds; the standalone physics
+  and runtime-handle mirror smoke passed, `physics_regression_varied.csv`
+  matched the committed baseline byte-for-byte across 44,401 lines, and the
+  final Profile/Debug ready builds succeeded with zero warnings/errors.
+  Durable stdout:
+  `TestOutput/validation/agent_logs/c3_validate_physics_stdout.log`.
+
+No test, coverage scope/tooling, behavioral baseline, golden, screenshot, or
+physics CSV changed, so no direct coverage invocation or artifact refresh was
+triggered.
