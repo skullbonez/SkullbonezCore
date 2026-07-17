@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-17
+Date: 2026-07-18
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -11,13 +11,20 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-17th-july` |
-| Current baseline | SceneController ownership and monolith TU right-sizing are closed; red-flags C5 narrowed optimized solver arithmetic behind native-object boundaries, and baseline/golden refresh remains prohibited. |
-| Current objective | Complete red-flags C6 independent review and closure. |
-| Active/future progress | 6 / 7 live tasks (86%); red-flags C0-C5 complete. |
-| Last broad local gate | Monolith N7 `validate_full` passed in 136.167s: 722 project/filter items matched, 282/282 tests and all ten ratified coverage floors passed, Automation replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | C5 paired `validate_perf` runs passed; two sequential clean `Profile-WPO` rebuilds completed at zero warnings/errors, and `validate_physics` matched the committed 44,401-line CSV byte-exact after each. Proceed to C6 review and final gates. |
+| Current baseline | All active/future MASTER plans are closed. Round-6 scene ownership, monolith right-sizing, and code-level red-flags remediation completed without baseline, golden, screenshot, or coverage-floor refresh. |
+| Current objective | None; await new owner direction. |
+| Active/future progress | 0 / 0 live tasks; 100% by the no-live-plan convention. |
+| Last broad local gate | Red-flags C6 `validate_full` passed in 134.228s: 284/284 tests and all ten ratified coverage floors passed, Automation/replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
+| Validation for current edits | Final `validate_full` passed; `tools\run_graphics_stress.bat 1` completed its PID-scoped one-minute DX12 run in 60.826s. C6 repeat independent review reported no remaining blocker. |
 
 ## Live Queue
+
+NOW. No live local implementation plan remains. Round-6 C0-C6 closed after a
+     repeat independent review, direct `Profile-WPO` oracle/performance proof,
+     the broad gate, and bounded DX12 stress. Closure evidence is in
+     `Agentic/Reports/2026-07-18/code-level-red-flags-closure.md`. The GPU-hosted
+     CI activation lane remains externally blocked and excluded from the
+     active/future denominator.
 
 00000000. `physics-broadphase-scale-attribution` is COMPLETE at 5/5; its plan
           is deleted under inventory rule 4 and closure evidence lives in
@@ -319,14 +326,14 @@ plan inventory.
   unless the owner explicitly restores a plan to `TODO/`.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
-- Round-6 work executes on `nightrunner-17th-july`. Replay-touching tasks run
-  their plan-mapped single visual mega-gate invocation against the unchanged
-  200-box manifest. Refactors do not authorize baseline refresh.
+- Round-6 work completed on `nightrunner-17th-july`. Its plan-mapped replay,
+  baseline, coverage, and graphics-stress restrictions remain recorded in the
+  closure reports.
 - Every plan-runner commit and plan-implementation prompt starts with the
   resolved MASTER progress header: plan name, completed plan tasks, and rounded
-  active/future portfolio completion. That percentage covers only the active
-  decomposition and future spline plans, not completed historical plans or the
-  externally blocked validation lane. Ordinary commits do not claim plan
+  active/future portfolio completion. With no live plans the ledger reports
+  0/0 and 100% by convention; completed historical plans and the externally
+  blocked validation lane remain excluded. Ordinary commits do not claim plan
   progress.
 - A completed plan may remain in the tip tree only when MASTER explicitly marks
   it as evidence for an unmet aggregate closure gate; it is deleted when that

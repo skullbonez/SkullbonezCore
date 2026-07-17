@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-17
+Date: 2026-07-18
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -94,13 +94,15 @@ remains deliberately excluded. Scene-controller ownership closed at 7/7 and
 monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the live ledger
 under rule 4. Their closure evidence is in
 `../Reports/2026-07-17/scene-controller-ownership-closure.md` and
-`../Reports/2026-07-17/monolith-tu-right-sizing-census.md`. The remaining
-round-6 denominator is 7 tasks.
+`../Reports/2026-07-17/monolith-tu-right-sizing-census.md`. Code-level red-flags
+C0-C6 closed on 2026-07-18 and also left the live ledger under rule 4. Its
+closure evidence is in
+`../Reports/2026-07-18/code-level-red-flags-closure.md`. There are no live
+active/future implementation tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 6 | 7 | 86% |
-| **Active/future total** | **6** | **7** | **86%** |
+| **Active/future total** | **0** | **0** | **100% (no live plans)** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -145,12 +147,13 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-One 2026-07-17 adversarial-review round-6 plan remains live (see the round-6
-section below). `scene-controller-ownership-decomposition` T0-T6 and
-`monolith-tu-right-sizing` N0-N7 are closed. Continue
-`code-level-red-flags-remediation` with C6 independent closure review.
+There is no active implementation-plan runner. The three 2026-07-17
+adversarial-review round-6 plans are closed: scene-controller ownership T0-T6,
+monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The final
+independent review and broad/DX12 stress gates passed without baseline or
+golden refresh.
 
-There is no other active implementation-plan runner. `physics-soa-simd-1000-bodies`
+`physics-soa-simd-1000-bodies`
 closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
 artifact is deleted; SpatialGrid has one bounded 8,192-cell table; coverage is
 mandatory; and the full gate passed without behavioral physics baseline
@@ -641,7 +644,9 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 6/7 | Execute C6 independent closure review and final gates |
+| [scene-controller ownership closure](../Reports/2026-07-17/scene-controller-ownership-closure.md) | Complete | 7/7 | Concrete scene owners and final independent ownership review closed |
+| [monolith TU right-sizing closure](../Reports/2026-07-17/monolith-tu-right-sizing-census.md) | Complete | 8/8 | All named oversized TUs received owner rulings and mapped closure evidence |
+| [code-level red-flags closure](../Reports/2026-07-18/code-level-red-flags-closure.md) | Complete | 7/7 | Repeat independent review, full gate, and bounded graphics stress closed |
 
 ## Features
 
@@ -685,11 +690,10 @@ Binding:
   and closes `tools\validate_replay_visual_fidelity.bat`, then every M0-M8
   decomposition task reruns it against the unchanged approved 200-box manifest.
   Refactors cannot authorize a baseline refresh.
-- The active decomposition and future spline plans execute on
-  `nightrunner-14th-july` by explicit 2026-07-14 owner decision. Decomposition
-  retains the unchanged passing baseline provenance requirement; spline
-  presentation changes still require explicit approval before any golden
-  manifest refresh.
+- The completed decomposition and future spline plans executed on
+  `nightrunner-14th-july` by explicit 2026-07-14 owner decision. Their
+  unchanged baseline provenance and approved presentation evidence remain
+  recorded in their closure reports.
 - 2026-07-11 owner ruling (definitive): no `SimulationController` — the
   implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
   frame-order split stands. No unified `EntityId` registry —

@@ -51,10 +51,10 @@ the two sequential runs above are the warning-free replacements.
 
 ## Performance Evidence
 
-`tools\validate_perf.bat` passed before and after the change on the same machine.
-The measured configuration is ordinary `Profile`, whose physics project was
-already non-WPO, making it the correct guard against an accidental broader
-build-policy or runtime change:
+The initial `tools\validate_perf.bat` pair passed before and after the change
+on the same machine. That gate measures ordinary `Profile`, whose physics
+project was already non-WPO, so it remains the mapped regression guard against
+an accidental broader build-policy or runtime change:
 
 | Lane | Before average | After average | Delta | Result |
 |---|---:|---:|---:|---|
@@ -64,6 +64,54 @@ build-policy or runtime change:
 Both runs also passed the allocation guard, selected-ball structural probe,
 absolute budgets, baseline comparisons, and the measurement-only scale matrix.
 Run times were 93.925s before and 91.617s after.
+
+Independent C6 review correctly reopened C5 because ordinary `Profile` did not
+exercise the changed `Profile-WPO` item metadata. The remediation performed a
+controlled optimized A/B on the same final source. The before build temporarily
+set only the three solver-critical items back to WPO, then clean rebuilt the
+core project warning-free. The after build restored the committed non-WPO item
+metadata and clean rebuilt warning-free twice. The temporary metadata was not
+committed and the final project diff is unchanged from the C5 implementation.
+
+| Optimized lane | All three TUs WPO | Three-TU boundary | Delta |
+|---|---:|---:|---:|
+| Whole frame average | 0.3678 ms | 0.3662 ms | -0.44% |
+| Whole frame p99 | 0.6778 ms | 0.7090 ms | +0.0312 ms |
+| `Frame/Physics` average | 0.0552 ms | 0.0583 ms | +0.0031 ms |
+| `Frame/Physics` p99 | 0.1091 ms | 0.1183 ms | +0.0092 ms |
+
+Both captures contain 2,340 frames. The small physics movement remains only
+7.8% of the ratified 0.75 ms average budget, while whole-frame average improved;
+this is accepted as measurement noise rather than a meaningful product cost.
+
+The two clean current-boundary rebuilds then ran the same `Profile-WPO`
+1200-scene-frame replay-hash oracle. Each presentation and solver artifact has
+2,402 non-comment rows and zero non-comment differences. The normalized
+presentation SHA-256 is
+`75f6f5bfd665404b641e83aea5d7994998bd352fe1f3b51623e8684faedac6a6` in
+both runs; the normalized solver SHA-256 is
+`647d45237a34836c2985600a30034594747e35b31b6317a4425e8f3d04d2ede6` in
+both runs. Raw artifact hashes differ only because the two comment headers spell
+the same scene path with `/` versus `\`; every machine-consumed CSV row is
+byte-identical. This directly exercises the optimized configuration changed by
+C5 and closes the independent review's evidence gap.
+
+The recorded commands were:
+
+```bat
+MSBuild.exe SKULLBONEZ_CORE.vcxproj /t:Rebuild /p:Configuration=Profile-WPO /p:Platform=x64 /m:1
+Profile-WPO\SKULLBONEZ_CORE.exe --vsync off --fixed-step --no-contact-audio --scene SkullbonezData/scenes/physics_bench_varied.scene.json
+Profile-WPO\SKULLBONEZ_CORE.exe --vsync off --fixed-step --no-contact-audio --replay on --replay-hashes TestOutput\validation\agent_logs\red_flags_c5_profile_wpo_oracle_N.csv --scene SkullbonezData/scenes/physics_bench_varied.scene.json
+```
+
+The temporary all-WPO rebuild took 32.907s. The two final-boundary clean
+rebuilds took 34.409s and 34.301s. All three completed with zero warnings and
+zero errors. The benchmark CSV SHA-256 values were
+`9335A1B800465D5366C6F1359EB7BDDC257CD53F166826460928FBBC55BA1715`
+before and
+`F6F9494B6A0204E2CC9DF0A1490F4A2FBC95ECDC50CD2137AABEBCF0B26C9EE2`
+after; these are performance captures, not determinism artifacts, so their
+contents are compared through the metrics above.
 
 ## Validation-Discovered Governance Repair
 
@@ -95,3 +143,14 @@ checker self-test plus repository scan completed in 8.782s.
 - `TestOutput/validation/agent_logs/red_flags_c5_validate_perf_after_stdout.log`
 - `TestOutput/validation/agent_logs/red_flags_c5_validate_fast.log`
 - `TestOutput/validation/agent_logs/red_flags_c5_allocation_policy.log`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_perf_before_build.log`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_perf_before.csv`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_before_perf.json`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_oracle_rebuild_1.log`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_oracle_rebuild_2.log`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_oracle_1.csv`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_oracle_1.solver.csv`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_oracle_2.csv`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_oracle_2.solver.csv`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_perf_after.csv`
+- `TestOutput/validation/agent_logs/red_flags_c5_profile_wpo_after_perf.json`
