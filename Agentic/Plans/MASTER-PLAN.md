@@ -97,12 +97,21 @@ under rule 4. Their closure evidence is in
 `../Reports/2026-07-17/monolith-tu-right-sizing-census.md`. Code-level red-flags
 C0-C6 closed on 2026-07-18 and also left the live ledger under rule 4. Its
 closure evidence is in
-`../Reports/2026-07-18/code-level-red-flags-closure.md`. There are no live
-active/future implementation tasks.
+`../Reports/2026-07-18/code-level-red-flags-closure.md`.
+
+The denominator grew 0 → 25 on 2026-07-18 when the owner registered the four
+adversarial-review round-7 plans from the same-day hostile review at tip
+06a17ff31: scene-controller decomposition round 2 (7 tasks), DX12 backend
+ownership decomposition (8 tasks), naming and identity debt (5 tasks), and
+small findings hardening (5 tasks).
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| **Active/future total** | **0** | **0** | **100% (no live plans)** |
+| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | 0 | 7 | 0% |
+| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 0 | 8 | 0% |
+| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 0 | 5 | 0% |
+| [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
+| **Active/future total** | **0** | **25** | **0%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -147,11 +156,21 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-There is no active implementation-plan runner. The three 2026-07-17
-adversarial-review round-6 plans are closed: scene-controller ownership T0-T6,
-monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The final
-independent review and broad/DX12 stress gates passed without baseline or
-golden refresh.
+The 2026-07-18 adversarial-review round-7 lane is the active critical path.
+Binding execution order (shared-file conflicts drive the sequencing):
+
+1. `scene-controller-decomposition-round-2` (S0-S6)
+2. `dx12-backend-ownership-decomposition` (D0-D7) — may run in parallel with
+   the scene plan on its own branch when the owner staggers merges
+3. `naming-and-identity-debt` (N0-N4) — strictly after the scene plan (both
+   touch `Scene/*`)
+4. `small-findings-hardening` (H0-H4) — strictly after the DX12 plan (H2
+   rebases on the finalized pipeline-owner surface)
+
+The three 2026-07-17 round-6 plans are closed: scene-controller ownership
+T0-T6, monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The
+final independent review and broad/DX12 stress gates passed without baseline
+or golden refresh.
 
 `physics-soa-simd-1000-bodies`
 closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
@@ -647,6 +666,44 @@ closure failures; each plan ends with one independent review.
 | [scene-controller ownership closure](../Reports/2026-07-17/scene-controller-ownership-closure.md) | Complete | 7/7 | Concrete scene owners and final independent ownership review closed |
 | [monolith TU right-sizing closure](../Reports/2026-07-17/monolith-tu-right-sizing-census.md) | Complete | 8/8 | All named oversized TUs received owner rulings and mapped closure evidence |
 | [code-level red-flags closure](../Reports/2026-07-18/code-level-red-flags-closure.md) | Complete | 7/7 | Repeat independent review, full gate, and bounded graphics stress closed |
+
+## Adversarial Review Remediation Round 7 (2026-07-18)
+
+Source: 2026-07-18 owner-commissioned hostile full-tree review at the
+`nightrunner-17th-july` tip 06a17ff31 (post-round-6). The owner ruled four
+areas into scope on 2026-07-18: `SceneController` remains a ratified
+multi-domain aggregate after round 6 (~120 public methods; navigation policy,
+water input, audio notify, and ragdoll queries still on the lifecycle owner;
+~20 owners still flow through every load); `RenderBackendDX12` is one class
+implementing seven interfaces across 9,437 lines with descriptor, readback,
+graph-transient, diagnostics, and shader-development state still resident;
+vestigial-identity naming (`TestScene` as the production scene type,
+`GameModelRenderer` outliving `GameModel`, `RuntimeTuning`,
+`Run*`/`Runtime*` prefix soup); and the minor red-flag set (the
+`LockOrderValidator` singleton, `PSOKey12` pointer-as-identity, the unruled
+153-site cast inventory, unfenced `nlohmann::json` reachability, two unruled
+UI tab TUs).
+
+Owner exclusions recorded 2026-07-18: the seven render consumer interfaces
+are retained unchanged for future consumers — no merging, splitting, or
+signature change in any round-7 plan. `FRAME_COUNT` stays 2 (round-6 ruling
+carries forward).
+
+Standing rules binding all four plans: zero behavioral baseline, golden,
+screenshot, or coverage-floor refresh; replay-touching tasks run the
+one-invocation 200-box mega gate per inventory rule 11; DX12-touching tasks
+carry the mandatory bounded graphics-stress proof per inventory rule 10;
+every extraction is a concrete owner with typed boundaries — mechanical TU
+splits, forwarding facades, and context bags are closure failures; renames
+must leave `SkullbonezData/` and `TestOutput/baselines/` byte-identical;
+each plan ends with one independent review.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | Active | 0/7 | S0 census refresh and owner-ratified split map |
+| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 0/8 | D0 state census and owner-ratified owner map |
+| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active — blocked on scene plan | 0/5 | N0 rename census after round-2 scene split lands |
+| [small-findings-hardening](TODO/small-findings-hardening.md) | Active — blocked on DX12 plan | 0/5 | H0 rulings census after backend decomposition lands |
 
 ## Features
 

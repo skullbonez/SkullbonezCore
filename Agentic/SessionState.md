@@ -11,20 +11,29 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-17th-july` |
-| Current baseline | All active/future MASTER plans are closed. Round-6 scene ownership, monolith right-sizing, and code-level red-flags remediation completed without baseline, golden, screenshot, or coverage-floor refresh. |
-| Current objective | None; await new owner direction. |
-| Active/future progress | 0 / 0 live tasks; 100% by the no-live-plan convention. |
+| Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
+| Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
+| Active/future progress | 0 / 25 live tasks; 0%. |
 | Last broad local gate | Red-flags C6 `validate_full` passed in 134.228s: 284/284 tests and all ten ratified coverage floors passed, Automation/replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
 | Validation for current edits | Final `validate_full` passed; `tools\run_graphics_stress.bat 1` completed its PID-scoped one-minute DX12 run in 60.826s. C6 repeat independent review reported no remaining blocker. |
 
 ## Live Queue
 
-NOW. No live local implementation plan remains. Round-6 C0-C6 closed after a
-     repeat independent review, direct `Profile-WPO` oracle/performance proof,
-     the broad gate, and bounded DX12 stress. Closure evidence is in
-     `Agentic/Reports/2026-07-18/code-level-red-flags-closure.md`. The GPU-hosted
-     CI activation lane remains externally blocked and excluded from the
-     active/future denominator.
+NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
+     tasks, registered in MASTER-PLAN with binding order
+     scene-controller-round-2 → dx12-backend-ownership-decomposition (parallel
+     allowed) → naming-and-identity-debt (after scene) →
+     small-findings-hardening (after DX12). Owner exclusions: the seven render
+     consumer interfaces stay unchanged for future consumers; FRAME_COUNT
+     stays 2. Next action: S0 census and D0 census, each ending in an
+     owner-ratified map before any edit.
+
+00. Round-6 C0-C6 closed after a repeat independent review, direct
+    `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
+    stress. Closure evidence is in
+    `Agentic/Reports/2026-07-18/code-level-red-flags-closure.md`. The
+    GPU-hosted CI activation lane remains externally blocked and excluded from
+    the active/future denominator.
 
 00000000. `physics-broadphase-scale-attribution` is COMPLETE at 5/5; its plan
           is deleted under inventory rule 4 and closure evidence lives in
