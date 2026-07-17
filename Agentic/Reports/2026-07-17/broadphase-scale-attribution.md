@@ -1,8 +1,8 @@
 # Broadphase Scale Attribution
 
-Date: 2026-07-17  
-Branch: `nightrunner-16th-july`  
-Instrumentation tip: `1712f132a`  
+Date: 2026-07-17
+Branch: `nightrunner-16th-july`
+Instrumentation tip: `1712f132a`
 SIMD state: explicitly OFF
 
 ## Ruling
