@@ -46,28 +46,28 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_config,
-                                      RunLaunchOptions& m_launchOptions,
-                                      const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
-                                      const RunStartupState& m_startup,
-                                      DiagnosticsRuntime& m_diagnosticsRuntime,
-                                      RunTimerState& m_timers,
+bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& config,
+                                      RunLaunchOptions& launchOptions,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                                      const RunStartupState& startup,
+                                      DiagnosticsRuntime& diagnosticsRuntime,
+                                      RunTimerState& timers,
                                       SkullbonezCore::Assets::AssetSystem& assets,
                                       Threading::WorkerPool& workerPool,
                                       Window& window,
-                                      InputRouter& m_inputRouter,
-                                      RuntimeInteractionController& m_interaction,
-                                      RunCameraState& m_camera,
+                                      InputRouter& inputRouter,
+                                      RuntimeInteractionController& interaction,
+                                      RunCameraState& camera,
                                       AttachedCameraState& attachedCamera,
-                                      SimulationSystem& m_simulation,
-                                      ReplayRuntime& m_replayRuntime,
-                                      SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
+                                      SimulationSystem& simulation,
+                                      ReplayRuntime& replayRuntime,
+                                      SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
                                       UI::InGameUI& operatorUi,
                                       RuntimeOverlayDiagnostics& overlays,
                                       RuntimeValidationHarness& validationHarness,
-                                      RuntimeTools& m_runtimeTools,
-                                      const RuntimeRenderBackendView& m_renderBackendView,
-                                      RuntimeRenderer& m_renderer )
+                                      RuntimeTools& runtimeTools,
+                                      const RuntimeRenderBackendView& renderBackendView,
+                                      RuntimeRenderer& renderer )
 {
     SceneController& m_sceneController = *this;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
@@ -78,28 +78,28 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         }
         return m_sceneController
             .Load( request,
-                   m_config,
-                   m_launchOptions,
-                   m_defaultCinematicRender,
-                   m_startup,
-                   m_diagnosticsRuntime,
-                   m_timers,
+                   config,
+                   launchOptions,
+                   defaultCinematicRender,
+                   startup,
+                   diagnosticsRuntime,
+                   timers,
                    assets,
                    workerPool,
                    window,
-                   m_inputRouter,
-                   m_interaction,
-                   m_camera,
+                   inputRouter,
+                   interaction,
+                   camera,
                    attachedCamera,
-                   m_simulation,
-                   m_replayRuntime,
-                   m_contactAudio,
+                   simulation,
+                   replayRuntime,
+                   contactAudio,
                    operatorUi,
                    overlays,
                    validationHarness,
-                   m_runtimeTools,
-                   m_renderBackendView,
-                   m_renderer )
+                   runtimeTools,
+                   renderBackendView,
+                   renderer )
             .ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
@@ -145,8 +145,8 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
                 const RunDebugState presentation = overlays.PresentationSnapshot();
-                const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                    SceneDefaultsSaveView{ presentation, m_renderer, m_camera } );
+                const SkullbonezCore::Core::SbResult saveResult =
+                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentation, renderer, camera } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
@@ -162,7 +162,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         // no serialized action that a restore could mistake for applied state.
         if ( accepted )
         {
-            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
+            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
                 ReplayEventKind::OwnerAction,
                 0,
                 true,

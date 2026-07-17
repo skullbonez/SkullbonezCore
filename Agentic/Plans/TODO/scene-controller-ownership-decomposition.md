@@ -1,7 +1,7 @@
 # Scene Controller Ownership Decomposition — Kill The Relocated God Object
 
 Date: 2026-07-17
-Status: Active — 1/7 tasks
+Status: Active — 2/7 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at T0)
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/Run*.cpp`,
 `Runtime/RuntimeFrameViews.h`, project filters
@@ -64,7 +64,7 @@ signatures are decomposed into narrow per-domain load participants, and the
   broadphase gates toward the validation/automation boundary), and what each
   load phase actually needs. Owner ratifies the map and the branch before any
   edit. Evidence: dated census table committed under `Agentic/Reports/`.
-- [ ] T1 — Rename the member-style parameters. Mechanical rename of every
+- [x] T1 — Rename the member-style parameters. Mechanical rename of every
   `m_`-prefixed parameter in `SceneController` public signatures to plain
   names. No behavior change. Gate: `validate_fast`.
 - [ ] T2 — Decompose the load surface into phase participants. Split scene

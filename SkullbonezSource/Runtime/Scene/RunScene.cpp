@@ -521,28 +521,28 @@ void ApplyTornadoDefaultsForActiveScene( TornadoFieldConfig& field,
 
 SkullbonezCore::Core::SbResult
 SceneController::Load( const SceneLoadRequest& request,
-                       SkullbonezCore::Core::EngineConfig& m_config,
-                       RunLaunchOptions& m_launchOptions,
-                       const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
-                       const RunStartupState& m_startup,
-                       DiagnosticsRuntime& m_diagnosticsRuntime,
-                       RunTimerState& m_timers,
+                       SkullbonezCore::Core::EngineConfig& config,
+                       RunLaunchOptions& launchOptions,
+                       const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender,
+                       const RunStartupState& startup,
+                       DiagnosticsRuntime& diagnosticsRuntime,
+                       RunTimerState& timers,
                        SkullbonezCore::Assets::AssetSystem& assets,
                        Threading::WorkerPool& workerPool,
                        Window& window,
-                       InputRouter& m_inputRouter,
-                       RuntimeInteractionController& m_interaction,
-                       RunCameraState& m_camera,
-                       AttachedCameraState& m_attachedCamera,
-                       SimulationSystem& m_simulation,
-                       ReplayRuntime& m_replayRuntime,
-                       SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                       UI::InGameUI& m_UI,
+                       InputRouter& inputRouter,
+                       RuntimeInteractionController& interaction,
+                       RunCameraState& camera,
+                       AttachedCameraState& attachedCamera,
+                       SimulationSystem& simulation,
+                       ReplayRuntime& replayRuntime,
+                       SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
+                       UI::InGameUI& operatorUi,
                        RuntimeOverlayDiagnostics& overlays,
                        RuntimeValidationHarness& validationHarness,
-                       RuntimeTools& m_runtimeTools,
-                       const RuntimeRenderBackendView& m_renderBackendView,
-                       RuntimeRenderer& m_renderer )
+                       RuntimeTools& runtimeTools,
+                       const RuntimeRenderBackendView& renderBackendView,
+                       RuntimeRenderer& renderer )
 {
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
     RunDebugState& m_debug = presentationEdit.State();
@@ -562,7 +562,7 @@ SceneController::Load( const SceneLoadRequest& request,
         {
             State().isInteractiveRun = true;
             State().isExitOnComplete = false;
-            m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+            diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
         }
         return SkullbonezCore::Core::SbResult::Success();
     }
@@ -593,11 +593,11 @@ SceneController::Load( const SceneLoadRequest& request,
     SceneController& runtime = m_sceneController;
     const SceneRuntimeLoadBeginResult loadBegin =
         PrepareSceneRuntimeLoad( runtime,
-                                 m_renderer,
+                                 renderer,
                                  m_debug,
-                                 m_camera,
-                                 m_renderBackendView.deviceLifecycle,
-                                 request.enterInteractiveSceneRun || m_launchOptions.interactiveSceneRun,
+                                 camera,
+                                 renderBackendView.deviceLifecycle,
+                                 request.enterInteractiveSceneRun || launchOptions.interactiveSceneRun,
                                  index,
                                  suppressExitOnComplete,
                                  preserveRuntimeState );
@@ -615,7 +615,7 @@ SceneController::Load( const SceneLoadRequest& request,
     }
     SceneLifecycleConsumerMask beforeUnloadConsumers =
         SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
-    m_diagnosticsRuntime.BeforeSceneUnload( SceneState() );
+    diagnosticsRuntime.BeforeSceneUnload( SceneState() );
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
     CommitSceneRuntimeLoad( runtime, loadBegin );
@@ -626,7 +626,7 @@ SceneController::Load( const SceneLoadRequest& request,
     if ( request.enterInteractiveSceneRun )
     {
         State().isExitOnComplete = false;
-        m_diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
+        diagnosticsRuntime.Capture().Screenshot().isScreenshotAndExit = false;
     }
 
     const bool suppressAutomationExit = loadBegin.suppressAutomationExit;
@@ -636,46 +636,46 @@ SceneController::Load( const SceneLoadRequest& request,
     SceneLifecycleConsumerMask afterClearConsumers = 0;
 
     // Reset scene-local state; operator HUD preferences are restored below.
-    SceneState().ResetForLoad( m_config.cinematicRender );
-    m_diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
-    m_simulation.Reset();
+    SceneState().ResetForLoad( config.cinematicRender );
+    diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
+    simulation.Reset();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
-    m_contactAudio.ResetSimpleLinearHistory();
+    contactAudio.ResetSimpleLinearHistory();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio );
-    m_renderer.ResetSceneRuntimePolicyFromConfig();
+    renderer.ResetSceneRuntimePolicyFromConfig();
     m_sceneController.ClearRequiredAutomationGates();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
 
     m_sceneController.Cameras().Reset();
     m_sceneController.Clear();
 
-    m_runtimeTools.CancelMousePickup( m_inputRouter, m_interaction );
-    AttachedCameraController::Reset( m_attachedCamera );
+    runtimeTools.CancelMousePickup( inputRouter, interaction );
+    AttachedCameraController::Reset( attachedCamera );
     {
-        m_replayRuntime.ClearInteractionForSceneLoad( ReplaySceneTimelineResetOwners{
-            m_inputRouter,
-            m_interaction,
+        replayRuntime.ClearInteractionForSceneLoad( ReplaySceneTimelineResetOwners{
+            inputRouter,
+            interaction,
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
-            m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
-            m_attachedCamera.activeFollow,
-            m_camera.director.grabbed } );
+            camera,
+            NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+            attachedCamera.activeFollow,
+            camera.director.grabbed } );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
-        m_runtimeTools.ClearEditorInteractionForTransition( false,
-                                                            m_sceneController,
-                                                            m_sceneController.Physics(),
-                                                            m_interaction );
-        m_runtimeTools.ClearEditorHistory();
-        m_interaction.ResetForScene( InteractionExitReason::LoadScene );
+        runtimeTools.ClearEditorInteractionForTransition( false,
+                                                          m_sceneController,
+                                                          m_sceneController.Physics(),
+                                                          interaction );
+        runtimeTools.ClearEditorHistory();
+        interaction.ResetForScene( InteractionExitReason::LoadScene );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction );
     }
-    m_camera.ResetForSceneLoad( !scenePath.empty() );
-    m_runtimeTools.ClearRayCastTestLines();
+    camera.ResetForSceneLoad( !scenePath.empty() );
+    runtimeTools.ClearRayCastTestLines();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools );
     m_debug.ResetForSceneLoad();
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
-    m_timers.ResetSceneMeasurements();
+    timers.ResetSceneMeasurements();
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
@@ -699,11 +699,11 @@ SceneController::Load( const SceneLoadRequest& request,
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
-        m_config.runtimeCapacity.gameModelCapacity = m_startup.gameModelCapacity;
-        ApplySceneWorkerThreadSetting( m_config, workerPool, m_startup.workerThreads );
-        if ( m_launchOptions.seedOverride > 0 )
+        config.runtimeCapacity.gameModelCapacity = startup.gameModelCapacity;
+        ApplySceneWorkerThreadSetting( config, workerPool, startup.workerThreads );
+        if ( launchOptions.seedOverride > 0 )
         {
-            rngSeed = m_launchOptions.seedOverride;
+            rngSeed = launchOptions.seedOverride;
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
@@ -711,20 +711,20 @@ SceneController::Load( const SceneLoadRequest& request,
             UseDefaultTerrain( m_sceneController.Terrain(),
                                assets,
                                m_sceneController.World(),
-                               m_config,
+                               config,
                                assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                "terrain.raw",
-                                                               m_config.assetPaths.terrainRaw.c_str() ),
-                               m_renderBackendView.deviceLifecycle,
-                               m_renderBackendView.renderResources );
+                                                               config.assetPaths.terrainRaw.c_str() ),
+                               renderBackendView.deviceLifecycle,
+                               renderBackendView.renderResources );
         if ( !terrainResult.ok )
         {
             m_lastSceneLoadResult = terrainResult;
             LogSceneLoadFailure( terrainResult, scenePath );
             return m_lastSceneLoadResult;
         }
-        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_sceneController.Terrain().Get() );
-        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), m_launchOptions.noWater );
+        ApplyConfiguredWorldEnvironment( m_sceneController.World(), config, m_sceneController.Terrain().Get() );
+        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
@@ -733,12 +733,12 @@ SceneController::Load( const SceneLoadRequest& request,
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
-            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
-                                                                                           change.previousFluidHeight,
-                                                                                           change.previousFluidDensity,
-                                                                                           change.gravity,
-                                                                                           change.fluidHeight,
-                                                                                           change.fluidDensity ) );
+            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                         change.previousFluidHeight,
+                                                                                         change.previousFluidDensity,
+                                                                                         change.gravity,
+                                                                                         change.fluidHeight,
+                                                                                         change.fluidDensity ) );
         }
 
         SceneState().isSceneMode = false;
@@ -746,12 +746,12 @@ SceneController::Load( const SceneLoadRequest& request,
             BuildSceneGeneratedCameraContext( m_sceneController.Cameras(), *m_sceneController.Terrain().Get() ) );
         const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
-                                             m_config,
+                                             config,
                                              m_sceneController.World(),
                                              m_sceneController.Terrain().Get(),
                                              m_sceneController,
                                              m_sceneController.Physics(),
-                                             m_launchOptions.generatedObjectTypeOverride ),
+                                             launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
                                              m_sceneController.UIOverrides().solverBallCountOverride,
                                              m_sceneController.UIOverrides().solverBoxCountOverride,
@@ -765,17 +765,16 @@ SceneController::Load( const SceneLoadRequest& request,
             LogSceneLoadFailure( generatedSetup.status, scenePath );
             return m_lastSceneLoadResult;
         }
-        ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ m_launchOptions,
+        ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ launchOptions,
                                                               SceneState(),
                                                               m_sceneController.Browser(),
                                                               m_sceneController,
                                                               m_sceneController.Entities(),
                                                               assets,
-                                                              ActiveSceneCinematicConfig( SceneState(), m_config ),
-                                                              m_defaultCinematicRender } );
-        const char* rendererName = m_renderBackendView.renderDiagnostics
-                                       ? m_renderBackendView.renderDiagnostics->GetRendererName()
-                                       : "unknown";
+                                                              ActiveSceneCinematicConfig( SceneState(), config ),
+                                                              defaultCinematicRender } );
+        const char* rendererName =
+            renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
         window.SetTitleText( titleText );
@@ -797,26 +796,26 @@ SceneController::Load( const SceneLoadRequest& request,
         {
             sceneTornadoSystem = scene.GetTornadoSystemConfig();
         }
-        m_config.runtimeCapacity.gameModelCapacity =
-            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : m_startup.gameModelCapacity;
+        config.runtimeCapacity.gameModelCapacity =
+            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : startup.gameModelCapacity;
         ApplySceneWorkerThreadSetting(
-            m_config,
+            config,
             workerPool,
-            scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads() : m_startup.workerThreads );
+            scene.HasWorkerThreadOverride() ? scene.GetWorkerThreads() : startup.workerThreads );
         SceneState().isScenePhysics = scene.IsPhysicsEnabled();
         SceneState().isSceneText = scene.IsTextEnabled();
-        m_diagnosticsRuntime.ConfigurePerfLogFlush( scene.IsPerfLogFlushEnabled(), scene.GetPerfLogFlushInterval() );
+        diagnosticsRuntime.ConfigurePerfLogFlush( scene.IsPerfLogFlushEnabled(), scene.GetPerfLogFlushInterval() );
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
         m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
         m_debug.physicsDebugContactLinger = scene.GetPhysicsDebugContactLinger();
         if ( scene.HasVsyncOverride() )
         {
-            m_renderer.SetVsyncEnabled( scene.IsVsyncEnabled() );
+            renderer.SetVsyncEnabled( scene.IsVsyncEnabled() );
         }
         if ( scene.HasPipelineSyncOverride() )
         {
-            m_renderer.SetPipelineSyncEnabled( scene.IsPipelineSyncEnabled() );
+            renderer.SetPipelineSyncEnabled( scene.IsPipelineSyncEnabled() );
         }
         m_debug.isTextOnly = scene.IsTextOnly();
         SceneState().isEditableScene = scene.IsEditableScene();
@@ -831,7 +830,7 @@ SceneController::Load( const SceneLoadRequest& request,
         m_debug.isWaterNoReflect = waterReflectionMode == 2;
         if ( m_debug.isWaterFreezeDebug )
         {
-            m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+            m_debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
         }
         SceneState().timeScale = scene.GetTimeScale();
         SceneState().isFixedStep = scene.IsFixedStep();
@@ -844,21 +843,21 @@ SceneController::Load( const SceneLoadRequest& request,
         SceneState().hasCinematicGamma = scene.HasCinematicGamma();
         SceneState().cinematicGamma = scene.GetCinematicGamma();
         SceneState().cinematicOverrideMask = scene.GetCinematicOverrideMask();
-        SceneState().cinematicRender = m_config.cinematicRender;
+        SceneState().cinematicRender = config.cinematicRender;
         ApplyCinematicSceneOverrides( SceneState().cinematicRender,
                                       SceneState().cinematicOverrideMask,
                                       scene.GetCinematicRenderConfig() );
 
         const SceneUIOptions& UIOptions = scene.GetUIOptions();
-        const double UINow = m_timers.simulationTimer.GetTotalTime();
+        const double UINow = timers.simulationTimer.GetTotalTime();
         bool isAutomationScene = scene.IsExitOnComplete() || scene.IsScreenshotAndExit() ||
                                  scene.GetScreenshotFrame() >= 0 || scene.GetScreenshotMs() >= 0 ||
                                  scene.GetScreenshotInterval() > 0 || scene.GetPerfLogPath()[0] != '\0';
 #ifdef _DEBUG
-        isAutomationScene = isAutomationScene || m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
+        isAutomationScene = isAutomationScene || diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #endif
-        ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext{ m_UI,
-                                                                  m_diagnosticsRuntime,
+        ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext{ operatorUi,
+                                                                  diagnosticsRuntime,
                                                                   m_debug,
                                                                   UINow,
                                                                   preserveUIState,
@@ -866,7 +865,7 @@ SceneController::Load( const SceneLoadRequest& request,
                                     UIOptions );
         SceneState().targetFrameCount = scene.GetFrameCount();
         SceneState().isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
-        m_diagnosticsRuntime.ApplySceneAutomationOptions( scene, suppressAutomationExit, m_perfPass );
+        diagnosticsRuntime.ApplySceneAutomationOptions( scene, suppressAutomationExit, m_perfPass );
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a launcher snapshot can
         // replay an unseeded/random scene or deliberately override a scene file seed.
@@ -874,9 +873,9 @@ SceneController::Load( const SceneLoadRequest& request,
         {
             rngSeed = scene.GetSeed();
         }
-        if ( m_launchOptions.seedOverride > 0 )
+        if ( launchOptions.seedOverride > 0 )
         {
-            rngSeed = m_launchOptions.seedOverride;
+            rngSeed = launchOptions.seedOverride;
         }
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
@@ -889,12 +888,12 @@ SceneController::Load( const SceneLoadRequest& request,
                 UseFlatSlopeTerrain( m_sceneController.Terrain(),
                                      assets,
                                      m_sceneController.World(),
-                                     m_config,
+                                     config,
                                      scene.GetFlatBaseY(),
                                      scene.GetFlatSlopeX(),
                                      scene.GetFlatSlopeZ(),
-                                     m_renderBackendView.deviceLifecycle,
-                                     m_renderBackendView.renderResources );
+                                     renderBackendView.deviceLifecycle,
+                                     renderBackendView.renderResources );
             if ( !terrainResult.ok )
             {
                 m_lastSceneLoadResult = terrainResult;
@@ -912,12 +911,12 @@ SceneController::Load( const SceneLoadRequest& request,
                 UseDefaultTerrain( m_sceneController.Terrain(),
                                    assets,
                                    m_sceneController.World(),
-                                   m_config,
+                                   config,
                                    assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                    "terrain.raw",
-                                                                   m_config.assetPaths.terrainRaw.c_str() ),
-                                   m_renderBackendView.deviceLifecycle,
-                                   m_renderBackendView.renderResources );
+                                                                   config.assetPaths.terrainRaw.c_str() ),
+                                   renderBackendView.deviceLifecycle,
+                                   renderBackendView.renderResources );
             if ( !terrainResult.ok )
             {
                 m_lastSceneLoadResult = terrainResult;
@@ -927,19 +926,19 @@ SceneController::Load( const SceneLoadRequest& request,
             SceneState().hasFlatSlope = false;
         }
 
-        ApplyConfiguredWorldEnvironment( m_sceneController.World(), m_config, m_sceneController.Terrain().Get() );
+        ApplyConfiguredWorldEnvironment( m_sceneController.World(), config, m_sceneController.Terrain().Get() );
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
             m_sceneController.World() = WorldEnvironment( scene.GetWorldFluidHeight(),
                                                           scene.GetWorldFluidDensity(),
-                                                          m_config.worldForces.gasDensity,
+                                                          config.worldForces.gasDensity,
                                                           scene.GetWorldGravity() );
             m_sceneController.World().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
-            m_sceneController.World().BindRuntimeConfig( m_config );
+            m_sceneController.World().BindRuntimeConfig( config );
             UpdateWorldTerrainBounds( m_sceneController.World(), m_sceneController.Terrain().Get() );
         }
-        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), m_launchOptions.noWater );
+        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // World sliders/keyboard water edits are part of the live scene controls.
@@ -949,12 +948,12 @@ SceneController::Load( const SceneLoadRequest& request,
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
-            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
-                                                                                           change.previousFluidHeight,
-                                                                                           change.previousFluidDensity,
-                                                                                           change.gravity,
-                                                                                           change.fluidHeight,
-                                                                                           change.fluidDensity ) );
+            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                         change.previousFluidHeight,
+                                                                                         change.previousFluidDensity,
+                                                                                         change.gravity,
+                                                                                         change.fluidHeight,
+                                                                                         change.fluidDensity ) );
         }
 
         SceneAuthoredSetup::SetUpCameras(
@@ -963,12 +962,12 @@ SceneController::Load( const SceneLoadRequest& request,
 
         const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
-                                             m_config,
+                                             config,
                                              m_sceneController.World(),
                                              m_sceneController.Terrain().Get(),
                                              m_sceneController,
                                              m_sceneController.Physics(),
-                                             m_launchOptions.generatedObjectTypeOverride ),
+                                             launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ m_sceneController.UIOverrides().modelCountOverride,
                                              m_sceneController.UIOverrides().solverBallCountOverride,
                                              m_sceneController.UIOverrides().solverBoxCountOverride,
@@ -1004,25 +1003,24 @@ SceneController::Load( const SceneLoadRequest& request,
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
         m_sceneController.Physics().SetPhysicsRegressionLogPath(
-            m_diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
+            diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
         m_sceneController.Physics().SetPhysicsCollisionTimeLogPath(
-            m_diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
-        if ( m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
+            diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
+        if ( diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
         {
-            m_sceneController.Physics().SetPhysicsDiagnosticsPath( m_diagnosticsRuntime.PhysicsDiagnostics().path );
+            m_sceneController.Physics().SetPhysicsDiagnosticsPath( diagnosticsRuntime.PhysicsDiagnostics().path );
         }
 #endif
 
         // Ball-tracking camera: enabled when scene specifies a positive track_height
         if ( scene.GetTrackHeight() > 0.0f )
         {
-            m_camera.trackHeight = scene.GetTrackHeight();
-            m_camera.trackBallRow.value = 0;
-            m_camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
+            camera.trackHeight = scene.GetTrackHeight();
+            camera.trackBallRow.value = 0;
+            camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
-        const char* rendererName = m_renderBackendView.renderDiagnostics
-                                       ? m_renderBackendView.renderDiagnostics->GetRendererName()
-                                       : "unknown";
+        const char* rendererName =
+            renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
         char titleText[256];
         sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         window.SetTitleText( titleText );
@@ -1032,16 +1030,16 @@ SceneController::Load( const SceneLoadRequest& request,
         const bool hasSnapshotState =
             scene.GetBallStateCount() > 0 || scene.GetBoxStateCount() > 0 || scene.GetConvexHullStateCount() > 0;
 #ifdef _DEBUG
-        const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState() &&
-                                              !m_diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
+        const bool shouldPauseSnapshotState =
+            hasSnapshotState && scene.ShouldPauseSnapshotState() && !diagnosticsRuntime.PhysicsDiagnostics().isEnabled;
 #else
         const bool shouldPauseSnapshotState = hasSnapshotState && scene.ShouldPauseSnapshotState();
 #endif
         if ( shouldPauseSnapshotState )
         {
-            m_interaction.EnterInspect();
-            m_camera.mode = RunCameraMode::Inspect;
-            m_camera.cameraTime = 0.0f;
+            interaction.EnterInspect();
+            camera.mode = RunCameraMode::Inspect;
+            camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;
             unbounded.m_xMax = 99999.9f;
@@ -1049,11 +1047,11 @@ SceneController::Load( const SceneLoadRequest& request,
             unbounded.m_zMax = 99999.9f;
             uint32_t activeCam = m_sceneController.Cameras().GetSelectedCameraName();
             m_sceneController.Cameras().SetCameraXZBounds( activeCam, unbounded );
-            m_inputRouter.RequestCursorVisible( false );
-            m_camera.input.xMove = 0;
-            m_camera.input.yMove = 0;
-            m_camera.hasMouseLookLastClient = false;
-            m_camera.needsMouseLookReset = true;
+            inputRouter.RequestCursorVisible( false );
+            camera.input.xMove = 0;
+            camera.input.yMove = 0;
+            camera.hasMouseLookLastClient = false;
+            camera.needsMouseLookReset = true;
             Input::ResetMouseLookDeltas();
         }
     }
@@ -1064,23 +1062,23 @@ SceneController::Load( const SceneLoadRequest& request,
     if ( shouldPreserveRuntimeState )
     {
         RestoreSceneRuntimeResetSnapshot( m_sceneController,
-                                          m_renderer,
+                                          renderer,
                                           m_debug,
-                                          m_camera,
+                                          camera,
                                           resetSnapshot,
                                           suppressExitOnComplete );
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
-    if ( m_launchOptions.timeScaleOverride > 0.0f )
+    if ( launchOptions.timeScaleOverride > 0.0f )
     {
-        SceneState().timeScale = m_launchOptions.timeScaleOverride;
+        SceneState().timeScale = launchOptions.timeScaleOverride;
     }
     if ( m_sceneController.UIOverrides().timeScaleOverride > 0.0f )
     {
         SceneState().timeScale = m_sceneController.UIOverrides().timeScaleOverride;
     }
-    if ( m_launchOptions.fixedStep )
+    if ( launchOptions.fixedStep )
     {
         SceneState().isFixedStep = true;
     }
@@ -1090,35 +1088,35 @@ SceneController::Load( const SceneLoadRequest& request,
         Physics::TornadoSystemConfig tornadoSystem;
         ApplyTornadoDefaultsForActiveScene( tornadoField,
                                             m_sceneController.World(),
-                                            ActiveSceneCinematicConfig( SceneState(), m_config ) );
+                                            ActiveSceneCinematicConfig( SceneState(), config ) );
         if ( hasSceneTornadoSystem )
         {
             tornadoSystem = sceneTornadoSystem;
             tornadoField.enabled = false;
-            m_renderer.SetTornadoVisualEnabled( true );
+            renderer.SetTornadoVisualEnabled( true );
         }
         m_sceneController.Physics().SetTornadoFieldConfig( tornadoField );
         m_sceneController.Physics().SetTornadoSystemConfig( tornadoSystem );
     }
     Physics::TornadoFieldConfig tornadoField = m_sceneController.Physics().GetTornadoFieldConfig();
     Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Physics().GetTornadoSystemConfig();
-    if ( m_launchOptions.hasTornadoOverride )
+    if ( launchOptions.hasTornadoOverride )
     {
         if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
         {
-            tornadoSystem.enabled = m_launchOptions.tornadoEnabled;
+            tornadoSystem.enabled = launchOptions.tornadoEnabled;
             tornadoField.enabled = false;
         }
         else
         {
-            tornadoField.enabled = m_launchOptions.tornadoEnabled;
+            tornadoField.enabled = launchOptions.tornadoEnabled;
         }
-        if ( m_renderer.TornadoVisualAutoEnableWithTornado() )
+        if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
-            m_renderer.SetTornadoVisualEnabled( m_launchOptions.tornadoEnabled );
+            renderer.SetTornadoVisualEnabled( launchOptions.tornadoEnabled );
         }
     }
-    if ( m_launchOptions.tornadoVectors )
+    if ( launchOptions.tornadoVectors )
     {
         tornadoField.visualizeVelocityField = true;
         tornadoSystem.visualizeVelocityField = true;
@@ -1135,55 +1133,55 @@ SceneController::Load( const SceneLoadRequest& request,
     {
         m_sceneController.Physics().SetSleepEnabled( retainedPhysicsSleepEnabled );
     }
-    if ( m_launchOptions.frameCountOverride > 0 )
+    if ( launchOptions.frameCountOverride > 0 )
     {
-        SceneState().targetFrameCount = m_launchOptions.frameCountOverride;
+        SceneState().targetFrameCount = launchOptions.frameCountOverride;
         SceneState().isExitOnComplete = true;
     }
-    if ( m_launchOptions.uiStress )
+    if ( launchOptions.uiStress )
     {
-        m_diagnosticsRuntime.UIStress().enabled = true;
-        m_diagnosticsRuntime.UIStress().randomState = m_launchOptions.uiStressSeed;
-        m_diagnosticsRuntime.UIStress().actionsPerFrame = m_launchOptions.uiStressActions;
-        m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
-        m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
+        diagnosticsRuntime.UIStress().enabled = true;
+        diagnosticsRuntime.UIStress().randomState = launchOptions.uiStressSeed;
+        diagnosticsRuntime.UIStress().actionsPerFrame = launchOptions.uiStressActions;
+        operatorUi.SetVisible( true, timers.simulationTimer.GetTotalTime() );
+        operatorUi.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
     }
-    if ( m_launchOptions.graphicsStress )
+    if ( launchOptions.graphicsStress )
     {
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.
-        validationHarness.ResumeGraphicsStressAfterSceneLoad( m_launchOptions );
+        validationHarness.ResumeGraphicsStressAfterSceneLoad( launchOptions );
         SceneState().isInteractiveRun = true;
         SceneState().targetFrameCount = 0;
         SceneState().isTestComplete = false;
         SceneState().isExitOnComplete = false;
-        m_diagnosticsRuntime.Capture().ResetScreenshot();
-        m_diagnosticsRuntime.ClosePerfLog();
-        m_diagnosticsRuntime.ResetPerfLogForSceneLoad();
-        m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
-        m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
+        diagnosticsRuntime.Capture().ResetScreenshot();
+        diagnosticsRuntime.ClosePerfLog();
+        diagnosticsRuntime.ResetPerfLogForSceneLoad();
+        operatorUi.SetVisible( true, timers.simulationTimer.GetTotalTime() );
+        operatorUi.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
     }
-    if ( m_launchOptions.hasCinematicShadowsOverride )
+    if ( launchOptions.hasCinematicShadowsOverride )
     {
-        ActiveSceneCinematicConfig( SceneState(), m_config ).shadow.enabled = m_launchOptions.cinematicShadows;
+        ActiveSceneCinematicConfig( SceneState(), config ).shadow.enabled = launchOptions.cinematicShadows;
         SceneState().cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     }
-    if ( m_launchOptions.hasPhysicsDebugFlagsOverride )
+    if ( launchOptions.hasPhysicsDebugFlagsOverride )
     {
-        m_debug.physicsDebugFlags = m_launchOptions.physicsDebugFlagsOverride;
+        m_debug.physicsDebugFlags = launchOptions.physicsDebugFlagsOverride;
     }
-    if ( m_launchOptions.hasPhysicsDebugTransparentOverride )
+    if ( launchOptions.hasPhysicsDebugTransparentOverride )
     {
-        m_debug.isPhysicsDebugTransparent = m_launchOptions.physicsDebugTransparentOverride;
+        m_debug.isPhysicsDebugTransparent = launchOptions.physicsDebugTransparentOverride;
     }
-    if ( m_launchOptions.hasPhysicsDebugAlphaOverride )
+    if ( launchOptions.hasPhysicsDebugAlphaOverride )
     {
-        m_debug.physicsDebugAlpha = m_launchOptions.physicsDebugAlphaOverride;
+        m_debug.physicsDebugAlpha = launchOptions.physicsDebugAlphaOverride;
     }
-    if ( m_launchOptions.hasPhysicsDebugContactLingerOverride )
+    if ( launchOptions.hasPhysicsDebugContactLingerOverride )
     {
-        m_debug.physicsDebugContactLinger = m_launchOptions.physicsDebugContactLingerOverride;
+        m_debug.physicsDebugContactLinger = launchOptions.physicsDebugContactLingerOverride;
     }
 
 #ifdef _DEBUG
@@ -1193,7 +1191,7 @@ SceneController::Load( const SceneLoadRequest& request,
         SceneState().currentSceneIndex,
         SceneState().loadCount,
         scenePath.empty() ? "generated" : scenePath.c_str(),
-        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown",
+        renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown",
         SceneState().targetFrameCount,
         SceneState().rngSeed,
         SceneState().isFixedStep ? 1 : 0,
@@ -1203,42 +1201,42 @@ SceneController::Load( const SceneLoadRequest& request,
 #endif
 
 #ifdef _DEBUG
-    m_diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
+    diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
         m_sceneController,
         SceneState(),
-        m_config,
+        config,
         scenePath.c_str(),
-        m_renderBackendView.renderDiagnostics ? m_renderBackendView.renderDiagnostics->GetRendererName() : "unknown" );
+        renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown" );
 #endif
 
     // Runtime swap policy is chosen after config/scene overrides are resolved.
-    if ( m_renderBackendView.deviceLifecycle )
+    if ( renderBackendView.deviceLifecycle )
     {
-        m_renderBackendView.deviceLifecycle->SetVsyncEnabled( m_renderer.VsyncEnabled() );
+        renderBackendView.deviceLifecycle->SetVsyncEnabled( renderer.VsyncEnabled() );
     }
 
     // Restart timers
-    m_timers.RestartForSceneActivation();
+    timers.RestartForSceneActivation();
     const ReplaySceneTimelineResetInput replayReset =
         DescribeReplaySceneTimeline( m_sceneController,
                                      SceneState(),
-                                     m_startup.gameModelCapacity,
-                                     static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-    m_replayRuntime.ResetSceneTimeline(
+                                     startup.gameModelCapacity,
+                                     static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
+    replayRuntime.ResetSceneTimeline(
         replayReset,
         ReplaySceneTimelineResetOwners{
-            m_inputRouter,
-            m_interaction,
+            inputRouter,
+            interaction,
             &m_sceneController.Cameras(),
             m_sceneController.Terrain().Get(),
-            m_camera,
-            NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
-            m_attachedCamera.activeFollow,
-            m_camera.director.grabbed } );
+            camera,
+            NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
+            attachedCamera.activeFollow,
+            camera.director.grabbed } );
     afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
 
     const SkullbonezCore::Core::SbResult rayTracingResult =
-        m_renderer.InitialiseSceneRayTracing( m_renderBackendView, m_startup.gameModelCapacity );
+        renderer.InitialiseSceneRayTracing( renderBackendView, startup.gameModelCapacity );
     if ( !rayTracingResult.ok )
     {
         m_lastSceneLoadResult = rayTracingResult;
