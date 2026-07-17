@@ -89,13 +89,17 @@ Rules:
 ### Portfolio Progress Ledger
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
-excluded under commit-contract rule 4, so there are no active/future plan tasks
-at this tip. The externally blocked validation lane remains deliberately
-excluded.
+excluded under commit-contract rule 4. The externally blocked validation lane
+remains deliberately excluded. The denominator grew 0 → 21 on 2026-07-17 when
+the owner activated the three adversarial-review round-6 remediation plans
+from the same day's hostile full-tree review.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| **Active/future total** | **0** | **0** | **100% (no live plans)** |
+| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 0 | 7 | 0% |
+| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
+| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 0 | 6 | 0% |
+| **Active/future total** | **0** | **21** | **0%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -140,7 +144,16 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-There is no active implementation-plan runner. `physics-soa-simd-1000-bodies`
+The three 2026-07-17 adversarial-review round-6 plans are the live portfolio
+(see the round-6 section below). Recommended order: `code-level-red-flags-
+remediation` C1-C3 (small isolated wins), then
+`scene-controller-ownership-decomposition` (largest architectural payoff),
+then `monolith-tu-right-sizing` (most gate-expensive; its replay tasks each
+consume one mega-gate invocation). Each plan's T0/N0/C0 census-and-rulings
+task must complete before its implementation tasks start, and the remaining
+red-flags/clamp/LTO tasks sequence per that plan's internal order.
+
+There is no other active implementation-plan runner. `physics-soa-simd-1000-bodies`
 closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
 artifact is deleted; SpatialGrid has one bounded 8,192-cell table; coverage is
 mandatory; and the full gate passed without behavioral physics baseline
@@ -604,6 +617,36 @@ cutover; closure evidence is in
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | None | No active test plan | — | Coverage campaign closed; physics remains owner-paused |
+
+## Adversarial Review Remediation Round 6 (2026-07-17)
+
+Source: 2026-07-17 owner-commissioned hostile full-tree review at the `main`
+tip `0d77d51a4`. The owner ruled three findings into scope on 2026-07-17 and
+excluded any frame-buffering change (`FRAME_COUNT` stays 2): the relocated
+`SceneController` god object with its 22-parameter load surface and
+`.inl`-in-class splice; surviving >2,000-line product monolith TUs
+(`ReplayPrediction.cpp` 4,428, `InteractionAutomationController.cpp` 4,131,
+`RenderBackendDX12.cpp` 3,636 + 1,431-line header, `ReplayRecorder.cpp`
+3,492, `UI.cpp` 2,501, `PhysicsApi.cpp` 2,226); and the code-level red-flag
+set (Text.cpp mutable file-scope statics, hot-path singleton resolution, the
+`PhysicsScene`/`PhysicsEngine` friend edge, the 32-tick catch-up clamp, and
+the per-binary LTO determinism exposure).
+
+Standing rules binding all three plans: zero behavioral baseline, golden, or
+screenshot refresh (the only narrow exception is the owner-approved catch-up
+clamp path recorded in the red-flags plan); replay-touching tasks run the
+one-invocation 200-box mega gate per inventory rule 11 and honor the
+mass-reduction R6 cohesion rulings, which are re-litigated only with new
+evidence; DX12-touching tasks carry the mandatory bounded graphics-stress
+proof per inventory rule 10; every extraction is a concrete owner with typed
+boundaries — mechanical TU splits, forwarding facades, and context bags are
+closure failures; each plan ends with one independent review.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 0/7 | T0 ownership census and owner-ratified target map |
+| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 0/8 | N0 census, per-file owner rulings, and the DX12 re-partition parking lift |
+| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 0/6 | C0 census plus clamp-value and LTO-lane owner rulings |
 
 ## Features
 
