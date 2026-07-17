@@ -1,19 +1,15 @@
 # Physics SoA/SIMD — 1,000+ Bodies Under An AVX2-Certified Envelope
 
 Date: 2026-07-16
-Status: PAUSED at 7/9 (S0-S6 complete). The owner lifted the hold for S6 only
-on 2026-07-17, then explicitly rejected S7 on the current evidence and ordered
-the separate broadphase scale-attribution campaign, which completed without
-authorizing cutover. S7 remains unchecked and
-must not start without a fresh owner direction. The completed
-`unit-test-coverage-campaign` supplies tolerance-based behavioral/property
-suites if a future direction ever reopens the S7 cutover. Its preconditions
-still include: the unit/property suites pass with the SIMD toggle OFF and ON,
-the 0.80 ms combined budget is met, and fresh explicit owner approval is
-recorded at that time.
-Impact area: `PhysicsBodyStore` layout, all seven physics stage owners, new
-SIMD kernel TUs, build `/arch` policy, FP determinism envelope, and — at the
-S7 cutover only — every physics baseline and replay golden
+Status: ACTIVE at 8/9 (S0-S7 complete; S8 closure active). On 2026-07-17 the
+owner rejected the SIMD cutover and explicitly directed S7 to retain the
+byte-exact SoA layout, delete all SIMD/toggle complexity, simplify the
+SpatialGrid correctness fix, remove attribution-only production counters, and
+close with full validation. S7 is green; S8 publishes closure and deletes this
+completed plan. No physics behavioral baseline regeneration is authorized.
+Impact area: retained `PhysicsBodyStore` SoA layout, scalar physics stage
+owners, rejected SIMD deletion, bounded SpatialGrid storage, config migration,
+coverage enforcement, and provenance-only replay manifest reconciliation
 Owner: physics
 
 ---
@@ -58,49 +54,38 @@ while every loop keeps its current iteration order and scalar arithmetic
 changes no float result. These tasks run under the EXISTING byte-exact gates
 with zero baseline refresh, exactly like every prior campaign.
 
-**Event 2 — widening (S4-S6 behind a toggle, S7 cutover): result-changing.**
-8-wide kernels reorder accumulation and use explicit FMA, so they cannot be
-byte-exact against today. They ship dark (toggle OFF = byte-exact scalar SoA
-path) until S7 flips the default in one owner-approved ceremony.
+**Event 2 — widening experiment (S4-S6), rejected at S7.** The 8-wide kernels
+reordered accumulation and used explicit FMA, so they could not be byte-exact
+against the scalar oracle. Their measured result did not justify a cutover;
+S7 therefore deletes the kernels and toggle and retains scalar SoA.
 
 ## Non-Goals
 
 - No runtime CPU dispatch, no per-machine code paths, no FTZ/DAZ — denormal
   handling stays IEEE because flush-to-zero silently changes results and is
   process-global state.
-- No solver-core vectorization in this plan: the persistent-contact
-  iteration is gather-heavy and dependency-chained; S6 converts only its
-  row *preparation*. Core-iteration SIMD is a recorded follow-up with a
-  measurement trigger, not a silent scope creep.
-- No permanent dual scalar/SIMD paths after S7: the toggle and the scalar
-  kernel bodies are deleted at cutover (the SoA-scalar loops that remain are
-  the tail/reference forms the kernels themselves need).
+- No solver vectorization remains in this plan. S7 deletes S6's experimental
+  row-preparation kernel; any future widening needs a new measured plan.
+- No permanent dual scalar/SIMD paths after S7: the SIMD side, toggle, and
+  cutover plumbing are deleted. The retained product path is scalar SoA.
 - No sleep/wake policy, contact, or gameplay behavior changes. The 512-body
   parallel-gravity cap and its serial fallback keep their semantics on the
   new layout.
-- No manifold hysteresis — still deferred; but S7's recertification is the
-  recorded trigger to re-examine that deferral, since knife edges WILL move.
+- No manifold hysteresis. S7 retains scalar arithmetic and the existing
+  byte-exact behavioral envelope.
 
 ## Binding Design Rules
 
-1. **Bit-neutral until S7.** Every task S0-S6 ends with the unchanged
-   byte-exact `validate_physics` gate (toggle OFF), and S1-S3 must also be
-   byte-exact with the toggle ON (toggle does nothing until kernels exist).
-   Revert-on-diff; never fix forward a float difference before S7.
-2. **Explicit intrinsics in dedicated kernel TUs.** AVX2/FMA via
-   `immintrin.h` in `Physics/Stages/Kernels/*.cpp` only. The global
-   `fp_contract(off)` pin stays: it governs *compiler-generated* contraction;
-   explicit `_mm256_fmadd_ps` is an intentional, documented operation, and
-   the envelope doc records that distinction. No `/arch:AVX2` on any
-   project-wide configuration before S7 — project-wide arch changes alter
-   codegen (and results) everywhere, which is exactly the accidental
-   vectorization the diagnosis caught.
-3. **Deterministic width handling.** Kernel results must be independent of
-   body count modulo 8: remainder lanes use masked loads/stores computing
-   the identical per-lane arithmetic, never a scalar tail with different
-   rounding shape. Worker chunk boundaries remain a pure function of body
-   count (existing rule), and kernels never accumulate across lane
-   boundaries except through documented, fixed-order reductions.
+1. **Bit-neutral product path throughout.** S0-S6 historically ended with the
+   unchanged byte-exact scalar gate. S7 retains that path and does not refresh
+   behavioral baselines; revert-on-diff rather than fixing forward.
+2. **Experimental intrinsics stay isolated and leave no residue.** S4-S6 kept
+   AVX2/FMA in dedicated kernel TUs and never changed project-wide codegen.
+   Because the owner rejected cutover, S7 deletes those TUs and their per-file
+   build policy while retaining the global `fp_contract(off)` determinism pin.
+3. **Historical width evidence is not product complexity.** S4-S6 proved
+   masked remainder behavior while the experiment was live. S7 deletes every
+   lane kernel and leaves the existing fixed worker-chunk ordering unchanged.
 4. **Alignment through the allocation policy.** SoA arrays are 32-byte
    aligned via the existing preallocation owners; allowlist rows update in
    the same commit; checker self-test + repo scan on every allocation-moving
@@ -110,11 +95,11 @@ path) until S7 flips the default in one owner-approved ceremony.
    Stage-owner boundaries from the PhysicsWorld campaign are load-bearing:
    a kernel belongs to exactly one stage owner and reads/writes only that
    stage's declared inputs/outputs.
-6. **S7 is the only task allowed to touch baselines or goldens**, and it may
-   not start while any other campaign with a zero-refresh requirement is
-   live (the replay mass-reduction campaign must be closed first).
-7. Comment standard throughout; kernel TUs get `Hazard:` notes on lane
-   masking, alignment assumptions, and FMA rounding.
+6. **S7 does not refresh behavioral baselines or goldens.** Config v4 may
+   reconcile replay provenance hashes only under the standing mechanically
+   verified owner ruling; replay mass reduction is already closed.
+7. Comment standard throughout. S4-S6 kernel hazards remain recorded in their
+   reports; S7 removes those source files and audits every retained source edit.
 
 ## Task Checklist
 
@@ -220,74 +205,59 @@ path) until S7 flips the default in one owner-approved ceremony.
       records two dedicated AVX2/FMA TUs, masked-tail coverage, the 2,000,000-
       row A/B envelope, an all-284 toggle-ON doctest pass, the complete enabled
       200/520/1,000/2,000 matrix, and the retained scalar-core measurement.
-- [ ] **S7 — REJECTED on current evidence; do not start.** The 2026-07-17
-      owner decision leaves this checkbox open at 7/9: the final same-tip SIMD
-      result is a wash and the enabled 1,000-body step misses the 0.80 ms
-      budget. The separate broadphase scale-attribution campaign closed at a
-      1.0546 ms scalar-OFF Step, still above the cutover budget. Only a fresh
-      owner direction may reopen the following cutover
-      ceremony. Preconditions:
-      replay-mass-reduction closed; S0 budget met or beaten with toggle ON
-      on the benchmark matrix; all dark-kernel A/B reports reviewed. Then,
-      in one ordered commit series with explicit owner approval recorded:
-      (1) flip `simdKernels` default ON and set project-wide `/arch:AVX2`
-      (the certified envelope now includes it — SSE-only machines are no
-      longer supported targets, stated in README/envelope docs);
-      (2) regenerate from final binaries: the 44,401-line varied CSV, deep
-      physics baselines, SkullScope baselines, physics query goldens, the
-      200-box replay golden manifest (one generation, owner-approved), and
-      perf baselines;
-      (3) update the determinism-envelope documentation: certified envelope
-      is now MSVC v143 + `/fp:precise` + `fp_contract(off)` + AVX2/FMA
-      kernels + regenerated content, and the fixture-boundary rules from
-      fp-envelope-hardening are re-affirmed against the new bits;
-      (4) delete the toggle and dead scalar kernel bodies;
-      (5) rerun the full gate suite green against the regenerated set:
-      `validate_full`, `validate_physics_deep`, mega gate, `validate_perf`.
-      A failure at any step reverts the entire series — there is no
-      half-cut-over state on the branch.
+- [x] **S7 — Retain SoA; remove rejected SIMD and production complexity.**
+      Delete all SIMD kernel TUs, scalar/SIMD branches, toggle/config/CLI/build
+      plumbing, and SIMD-specific tests. Replace the two-route SpatialGrid
+      storage with one fixed 8,192-cell open-addressed table that preserves
+      complete coverage through capacity and fails fatally at exhaustion.
+      Remove attribution-only frame counters and query schema. Bump engine
+      config to v4 with a deterministic v3-to-v4 migration that removes the
+      obsolete key. Reconcile replay manifests only when the final config hash
+      changes, under the standing provenance-hash-only owner ruling. Wire the
+      ratified coverage floor into the mandatory CPU umbrella. Run format,
+      coverage, performance, replay-fidelity, and owner-requested full gates.
+      Evidence: `Agentic/Reports/2026-07-17/soa-simd-s7-scalar-cleanup.md`
+      records 3,190 deleted lines, the single complete 8,192-row grid, config
+      v4/provenance-only migration, mandatory coverage, honest mixed-scale
+      performance, 30/30 comment audit, resolved independent review, and a
+      green final full gate with byte-exact physics.
 - [ ] **S8 — Final review and closure.** Independent review across the whole
-      campaign: layout bit-neutrality history (S1-S3 gates all green in git
-      history), kernel ownership (each kernel inside exactly one stage
-      owner, no cross-stage reach), masked-tail correctness spot checks, no
-      dispatch/FTZ/dual-path residue, baseline regeneration completeness
-      (no stale golden anywhere — grep the baseline inventory against the
-      gate scripts). Budget acceptance stated with measured numbers vs the
-      S0 ratified target. Closure report, MASTER/SessionState updates, plan
-      deleted per inventory rule 4. Manifold-hysteresis deferral formally
-      re-examined and re-ruled (kept deferred or activated) as recorded in
-      the fp-envelope plan.
+      campaign: the SoA scalar layout and bit-neutral S1-S3 history remain;
+      no SIMD kernel, toggle, CLI, config, project, or test residue remains;
+      SpatialGrid has one bounded storage/lookup path with explicit fatal
+      exhaustion; coverage floors are merge-gated; touched comments meet the
+      repository standard; final gates are green. Record measured performance
+      honestly against S0 and the retained SoA result. Publish the closure
+      report, update MASTER/SessionState, and delete the plan per inventory
+      rule 4.
 
 ## Dependencies And Decisions
 
-- Queued behind `replay-mass-reduction` (S7's golden regeneration is
-  incompatible with that campaign's zero-refresh rule; and one active
-  campaign at a time keeps the runner's ledger honest). S0-S3 could in
-  principle run earlier as a parallel lane since they are bit-neutral, but
-  only with an explicit owner instruction to run two lanes.
+- The `replay-mass-reduction` dependency is closed. S7 performs no behavioral
+  golden regeneration and is the only active plan runner.
 - Owner rulings 2026-07-16: scale target 1,000+; AVX2+FMA pinned, no
-  dispatch; single cutover; hot-field SoA store. S0(d) ratifies the numeric
-  budget; S7 requires a fresh explicit approval for the regeneration
-  ceremony itself.
+  dispatch; single cutover; hot-field SoA store. S0(d) ratified the numeric
+  budget. The 2026-07-17 owner ruling rejected that cutover and instead
+  authorized scalar-only cleanup with no behavioral regeneration.
 - Prior enablers relied upon: `FloatingPointContract.h` pin, the honest
   determinism-envelope contract, PhysicsWorld stage owners, and the
   worker-pool fixed-chunk determinism rules.
-- Hardware note for the reference machine: S0 must record CPU model; the
-  certified envelope binds validation evidence to AVX2-capable hardware
-  from S4 onward (A/B runs) and exclusively from S7.
+- Hardware note: S4-S6 A/B evidence remains bound to the recorded AVX2-capable
+  reference machine. The retained S7 scalar product path has no AVX2 runtime
+  requirement.
 
 ## Acceptance
 
-- S0-ratified budget met at 1,000 bodies with the final cut-over binary,
-  measured on the reference machine and recorded next to the S0 baseline.
-- S1-S6 history shows byte-exact toggle-OFF gates at every commit; S7 is
-  the only baseline-touching commit series in the campaign.
-- No runtime dispatch, no FTZ/DAZ, no dual paths, no `/arch` change before
-  S7 (grep + build-log proof).
-- Kernel divergence reports exist for every kernel with recorded tolerances
-  and stability evidence.
-- S8 independent review records zero credible findings; regenerated
-  baseline inventory is complete against every gate script.
+- The byte-exact SoA layout and scalar path remain; the rejected SIMD kernels,
+  toggle, CLI/config/build plumbing, and dedicated SIMD tests are deleted.
+- SpatialGrid retains complete bounded coverage through 8,192 unique cells and
+  produces an owner-attributed fatal diagnostic on the next unique cell.
+- No behavioral physics baseline regeneration occurs. Replay provenance hashes
+  may change only as a mechanically verified consequence of config v4.
+- The coverage floor is part of the mandatory CPU umbrella and final coverage,
+  performance, replay-fidelity, and full gates pass.
+- S8 independent review records zero credible findings and the closure report
+  states the retained SoA performance honestly against S0.
 
 ## Validation
 
@@ -297,6 +267,7 @@ path) until S7 flips the default in one owner-approved ceremony.
   allocation checks.
 - S4-S6: byte-exact `validate_physics` (toggle OFF) + A/B kernel reports +
   `validate_perf` per kernel task.
-- S7: full regenerated-suite proof (`validate_full`,
-  `validate_physics_deep`, mega gate, `validate_perf`).
-- S8: closure evidence per the checklist. All outputs pasted per task.
+- S7: `tools\migrate_data_formats.py --check`, `validate_coverage`,
+  `validate_perf`, `validate_replay_visual_fidelity`, and `validate_full`.
+- S8: independent closure evidence plus a clean-tree confirmation. All outputs
+  are recorded per task.

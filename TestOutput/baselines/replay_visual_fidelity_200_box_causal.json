@@ -7,7 +7,7 @@
   "fixedStep": true,
   "target": "prediction_striker_ball",
   "horizonSeconds": 20.0,
-  "visualBaselineSha256": "f4a247de2d7778b17d93f8dd421dad678aed145f96a100f9f4e84f35c64b82f4",
+  "visualBaselineSha256": "77f2044158694097e55a92d348ad2529d982e8730878ea89c767786cf7fe56df",
   "targetId": 1,
   "topologyCount": 199,
   "topology": [

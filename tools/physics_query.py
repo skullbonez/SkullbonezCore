@@ -47,7 +47,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 6
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -319,16 +319,6 @@ def create_schema(conn):
             active_cells integer,
             max_cell_occupancy integer,
             collision_cell_count integer,
-            body_insertions integer,
-            exact_aabb_cell_visits integer,
-            sampled_sweep_cell_visits integer,
-            entry_writes integer,
-            duplicate_rejections integer,
-            bucket_chain_entries_inspected integer,
-            raw_pair_combinations integer,
-            unique_pairs integer,
-            filter_rejections integer,
-            grid_emitted_candidates integer,
             primary key(run_id, frame)
         );
 
@@ -840,13 +830,9 @@ def insert_broadphase(conn, item):
         """
         insert or replace into broadphase(
             run_id, frame, candidate_pairs, contact_pairs, rejected_pairs, active_cells,
-            max_cell_occupancy, collision_cell_count, body_insertions,
-            exact_aabb_cell_visits, sampled_sweep_cell_visits, entry_writes,
-            duplicate_rejections, bucket_chain_entries_inspected,
-            raw_pair_combinations, unique_pairs, filter_rejections,
-            grid_emitted_candidates
+            max_cell_occupancy, collision_cell_count
         )
-        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        values(?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             item.get("run"),
@@ -857,16 +843,6 @@ def insert_broadphase(conn, item):
             as_int(item.get("active_cells")),
             as_int(item.get("max_cell_occupancy")),
             as_int(item.get("collision_cell_count")),
-            as_int(item.get("body_insertions")),
-            as_int(item.get("exact_aabb_cell_visits")),
-            as_int(item.get("sampled_sweep_cell_visits")),
-            as_int(item.get("entry_writes")),
-            as_int(item.get("duplicate_rejections")),
-            as_int(item.get("bucket_chain_entries_inspected")),
-            as_int(item.get("raw_pair_combinations")),
-            as_int(item.get("unique_pairs")),
-            as_int(item.get("filter_rejections")),
-            as_int(item.get("grid_emitted_candidates")),
         ),
     )
 
@@ -1996,13 +1972,9 @@ def query_broadphase(conn, cache, args):
     where = ["run_id=?"]
     params = [run_id]
     apply_frame_where(where, params, frame_range=args.frames)
-    columns = "*" if args.attribution else (
-        "run_id, frame, candidate_pairs, contact_pairs, rejected_pairs, "
-        "active_cells, max_cell_occupancy, collision_cell_count"
-    )
     rows = conn.execute(
         f"""
-        select {columns} from broadphase
+        select * from broadphase
         where {' and '.join(where)}
         order by candidate_pairs desc
         limit ?
@@ -2552,11 +2524,6 @@ def build_parser():
     broadphase = sub.add_parser("broadphase", help="Broadphase pair/grid diagnostics.")
     add_common(broadphase)
     broadphase.add_argument("--frames", default=None)
-    broadphase.add_argument(
-        "--attribution",
-        action="store_true",
-        help="Include allocation-free grid insertion and pair-generation counters.",
-    )
     broadphase.set_defaults(func=query_broadphase)
 
     solver = sub.add_parser("solver", help="Persistent contact solver cache/projection diagnostics.")

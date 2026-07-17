@@ -50,9 +50,7 @@ struct ApplyForcesStageContext
     const ColliderStore& colliderStore;
     const PhysicsWorldForces& worldForces;
     std::span<const PhysicsBodyRecord> bodyRecords;
-    // Lifetime: mutable solely for the borrowed SIMD gravity velocity write;
-    // store completion remains the owner of every other force-side mutation.
-    PhysicsBodyHotFieldsView hotFields;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;
     std::vector<float>& timeRemaining;
     const Math::Vector::Vector3* mutualGravityForces = nullptr;
@@ -68,7 +66,7 @@ struct IntegrateRemainingStageContext
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
     std::span<const PhysicsBodyRecord> bodyRecords;
-    PhysicsBodyHotFieldsView hotFields;
+    PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;
     std::span<const float> timeRemaining;
 

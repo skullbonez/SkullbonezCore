@@ -40,7 +40,6 @@ Related:
 
 #include "SpatialGrid.h"
 #include "SolverBroadphaseStage.h"
-#include "Stages/Kernels/NarrowphasePruneKernel.h"
 #include "../Core/FatalError.h"
 #include <algorithm>
 #include <cfloat>
@@ -52,13 +51,6 @@ using namespace SkullbonezCore::Math::Vector;
 
 namespace
 {
-// Hazard: a bounds call that first activates overflow can leave later cells in
-// the primary specialization. Keep that one-time fallback bounded; larger
-// spans use the readiness-aware transition loop instead of repeating 4,096-slot
-// primary probes for the rest of a permitted large span. The compact cap limits
-// that fallback to at most 63 * 4,096 = 258,048 one-time slot probes.
-constexpr int64_t MAX_PRIMARY_TRANSITION_SCAN_CELLS = 64;
-
 void ValidateBroadphaseBounds( int index, const Vector3& minBounds, const Vector3& maxBounds, float inverseCellSize )
 {
     const bool finite = std::isfinite( minBounds.x ) && std::isfinite( minBounds.y ) && std::isfinite( minBounds.z ) &&
@@ -113,42 +105,10 @@ int16_t ClampVisualizationCell( int cell )
 
 SpatialGrid::SpatialGrid( float fCellSize )
     : cellSize( 1.0f ), inverseCellSize( 1.0f ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 ),
-      activeBucketCount( 0 ), overflowBucketCount( 0 ), overflowStorage( std::make_unique<OverflowStorage>() )
+      activeBucketCount( 0 )
 {
     memset( buckets, 0, sizeof( buckets ) );
     SetCellSize( fCellSize );
-}
-
-
-SpatialGrid::SpatialGrid( const SpatialGrid& other ) : SpatialGrid( other.cellSize )
-{
-    *this = other;
-}
-
-
-SpatialGrid& SpatialGrid::operator=( const SpatialGrid& other )
-{
-    if ( this == &other )
-    {
-        return *this;
-    }
-
-    // Lifetime: each copy retains its own startup-owned cold block. Replay
-    // assignment copies bytes into that existing block and never allocates.
-    cellSize = other.cellSize;
-    inverseCellSize = other.inverseCellSize;
-    generation = other.generation;
-    entryPoolUsed = other.entryPoolUsed;
-    objectCount = other.objectCount;
-    activeBucketCount = other.activeBucketCount;
-    frameStats = other.frameStats;
-    memcpy( buckets, other.buckets, sizeof( buckets ) );
-    memcpy( activeBuckets, other.activeBuckets, sizeof( activeBuckets ) );
-    memcpy( entries, other.entries, sizeof( entries ) );
-    memcpy( pairSeen, other.pairSeen, sizeof( pairSeen ) );
-    overflowBucketCount = other.overflowBucketCount;
-    *overflowStorage = *other.overflowStorage;
-    return *this;
 }
 
 
@@ -178,18 +138,14 @@ void SpatialGrid::Clear()
     entryPoolUsed = 0;
     objectCount = 0;
     activeBucketCount = 0;
-    overflowBucketCount = 0;
-    frameStats = FrameStatsStorage{};
 }
 
 
 // Look up or create a bucket for the given hash key.
 // Uses LINEAR PROBING: if the target slot is occupied by a different key,
 // try the next slot, then the next, etc.
-// Output is the primary bucket index, or -1 for a saturated-table miss.
-// Why: this is the pre-saturation per-cell lookup. Keeping it small enough to
-// inline avoids charging ordinary scenes for overflow admission machinery.
-__forceinline int SpatialGrid::FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
+// Output is the bucket index for this key.
+int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
 
@@ -207,6 +163,10 @@ __forceinline int SpatialGrid::FindOrCreatePrimaryBucket( int64_t key, int16_t c
             b.iy = cy;
             b.iz = cz;
             assert( activeBucketCount < TABLE_SIZE && "activeBuckets overflow" );
+            if ( activeBucketCount >= TABLE_SIZE )
+            {
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket capacity exceeded" );
+            }
             activeBuckets[activeBucketCount++] = idx;
             return idx;
         }
@@ -219,65 +179,28 @@ __forceinline int SpatialGrid::FindOrCreatePrimaryBucket( int64_t key, int16_t c
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    // Lane F: every primary row must be active before a full probe can miss.
-    // A compact bounds call may already have admitted overflow rows, so the
-    // active count can legitimately exceed the physical primary capacity.
-    if ( activeBucketCount < TABLE_SIZE )
-    {
-        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid primary lookup exhausted before reaching admission capacity" );
-    }
-    assert( activeBucketCount >= TABLE_SIZE && "primary lookup exhausted before saturation" );
-    return -1;
+    // Lane F: dropping a unique occupied cell would silently miss collisions.
+    // The owner must raise capacity or reject the scene before simulation.
+    SB_FATAL( "Physics/SpatialGrid",
+              "SpatialGrid bucket capacity exceeded: capacity=%d active=%d key=%lld phase=steady_gameplay.",
+              TABLE_SIZE,
+              activeBucketCount,
+              static_cast<long long>( key ) );
 }
 
 
-template <SpatialGrid::BucketLookupRoute Route>
-__forceinline void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int iz )
+void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
 {
     // The same object can overlap a cell through multiple sampled bounds during
     // a swept insert. Before appending, scan this bucket's linked list so one
     // object contributes at most once to a cell's candidate-pair list.
     const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
-    const int16_t visualizationX = ClampVisualizationCell( ix );
-    const int16_t visualizationY = ClampVisualizationCell( iy );
-    const int16_t visualizationZ = ClampVisualizationCell( iz );
-    int bi = -1;
-    if constexpr ( Route == BucketLookupRoute::Full )
-    {
-        bi = FindOrCreateFullBucket( key, visualizationX, visualizationY, visualizationZ );
-    }
-    else if constexpr ( Route == BucketLookupRoute::Transitioning )
-    {
-        // Why: only a bounds call that could cross primary capacity pays this
-        // per-cell readiness branch. Once its first new overflow cell builds
-        // the compact index, all remaining cells avoid a full primary scan.
-        bi = activeBucketCount > TABLE_SIZE ? FindOrCreateFullBucket( key, visualizationX, visualizationY, visualizationZ )
-                                            : FindOrCreatePrimaryBucket( key, visualizationX, visualizationY, visualizationZ );
-    }
-    else
-    {
-        bi = FindOrCreatePrimaryBucket( key, visualizationX, visualizationY, visualizationZ );
-    }
-    // Why: one unsigned range check preserves the legacy primary-cell branch
-    // shape. Negative primary misses and overflow rows both enter cold code.
-    if ( static_cast<unsigned int>( bi ) >= static_cast<unsigned int>( TABLE_SIZE ) )
-    {
-        if ( bi < 0 )
-        {
-            bi = FindOrCreateAfterPrimaryMiss( key, visualizationX, visualizationY, visualizationZ );
-        }
-        if ( bi < 0 || bi >= TOTAL_BUCKET_COUNT )
-        {
-            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid bucket index out of bounds" );
-        }
-        InsertOverflowCellEntry( index, bi - TABLE_SIZE );
-        return;
-    }
+    const int bi =
+        FindOrCreate( key, ClampVisualizationCell( ix ), ClampVisualizationCell( iy ), ClampVisualizationCell( iz ) );
 
     Bucket& b = buckets[bi];
     for ( int cur = b.head; cur != -1; cur = entries[cur].next )
     {
-        ++frameStats.bucketChainEntriesInspected;
         assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
         if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
         {
@@ -285,7 +208,6 @@ __forceinline void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int
         }
         if ( entries[cur].objectIndex == index )
         {
-            ++frameStats.duplicateRejections;
             return;
         }
     }
@@ -301,217 +223,12 @@ __forceinline void SpatialGrid::InsertCellRouted( int index, int ix, int iy, int
     b.head = entryPoolUsed;
     ++entryPoolUsed;
     ++b.count;
-    ++frameStats.entryWrites;
-    frameStats.maxBucketOccupancy = (std::max)( frameStats.maxBucketOccupancy, b.count );
-}
-
-
-template <SpatialGrid::BucketLookupRoute Route>
-__forceinline void SpatialGrid::InsertBoundsCells( int index,
-                                                   int minX,
-                                                   int minY,
-                                                   int minZ,
-                                                   int maxX,
-                                                   int maxY,
-                                                   int maxZ,
-                                                   bool sampledSweep )
-{
-    for ( int ix = minX; ix <= maxX; ++ix )
-    {
-        for ( int iy = minY; iy <= maxY; ++iy )
-        {
-            for ( int iz = minZ; iz <= maxZ; ++iz )
-            {
-                if ( sampledSweep )
-                {
-                    ++frameStats.sampledSweepCellVisits;
-                }
-                else
-                {
-                    ++frameStats.exactAabbCellVisits;
-                }
-                InsertCellRouted<Route>( index, ix, iy, iz );
-            }
-        }
-    }
-}
-
-
-// Why: ordinary body bounds need one routing branch, not the full saturation
-// decision tree. Keeping large-span and overflow routing out of line preserves
-// the compact pre-overflow InsertBounds layout measured by this campaign.
-__declspec(noinline) void SpatialGrid::InsertBoundsCellsUncommon( int index,
-                                                                  int minX,
-                                                                  int minY,
-                                                                  int minZ,
-                                                                  int maxX,
-                                                                  int maxY,
-                                                                  int maxZ,
-                                                                  bool sampledSweep,
-                                                                  int64_t cellVisitCount )
-{
-    if ( activeBucketCount > TABLE_SIZE )
-    {
-        // Invariant: the first overflow admission cannot occur until the
-        // compact lookup is fully built, so a count above primary capacity is
-        // the hot-state proof that direct full lookup is ready.
-        InsertBoundsCells<BucketLookupRoute::Full>( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
-    }
-    else if ( int64_t( activeBucketCount ) + cellVisitCount <= TABLE_SIZE )
-    {
-        InsertBoundsCells<BucketLookupRoute::Primary>( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
-    }
-    else
-    {
-        InsertBoundsCells<BucketLookupRoute::Transitioning>(
-            index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
-    }
-}
-
-
-// Why: keep the 32 KiB cold-table rebuild out of the hot primary-cell
-// specialization. MSVC otherwise inlined the fill and 4,096-row rebuild under
-// LTCG, increasing hot code size and register pressure even when never taken.
-__declspec(noinline) void SpatialGrid::BuildFullBucketLookup()
-{
-    // Invariant: at most 8,192 admitted buckets occupy a 16,384-slot index,
-    // so linear probing always retains an empty sentinel for a missing key.
-    std::fill_n( overflowStorage->lookup, FULL_LOOKUP_SLOT_COUNT, FULL_LOOKUP_EMPTY );
-    for ( int active = 0; active < activeBucketCount; ++active )
-    {
-        const int bucketIndex = activeBuckets[active];
-        int slot = static_cast<int>( static_cast<uint64_t>( buckets[bucketIndex].key ) & FULL_LOOKUP_SLOT_MASK );
-        while ( overflowStorage->lookup[slot] != FULL_LOOKUP_EMPTY )
-        {
-            slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
-        }
-        overflowStorage->lookup[slot] = static_cast<uint16_t>( bucketIndex );
-    }
-}
-
-
-// Why: a new cell after primary saturation is exceptional at 1,000 bodies.
-// Keeping its compact-index rebuild and admission outside the inline lookup
-// restores the pre-campaign common-path shape while retaining full coverage.
-__declspec(noinline) int
-SpatialGrid::FindOrCreateAfterPrimaryMiss( int64_t key, int16_t cx, int16_t cy, int16_t cz )
-{
-    assert( activeBucketCount >= TABLE_SIZE && "primary miss before saturation" );
-    if ( activeBucketCount == TABLE_SIZE )
-    {
-        BuildFullBucketLookup();
-    }
-    return FindOrCreateFullBucket( key, cx, cy, cz );
-}
-
-
-SpatialGrid::Bucket& SpatialGrid::BucketAt( int bucketIndex )
-{
-    return bucketIndex < TABLE_SIZE ? buckets[bucketIndex] : overflowStorage->buckets[bucketIndex - TABLE_SIZE];
-}
-
-
-const SpatialGrid::Bucket& SpatialGrid::BucketAt( int bucketIndex ) const
-{
-    return bucketIndex < TABLE_SIZE ? buckets[bucketIndex] : overflowStorage->buckets[bucketIndex - TABLE_SIZE];
-}
-
-
-// Why: keep the saturated 16,384-slot probe and overflow admission out of the
-// primary specialization; LTCG otherwise makes never-taken overflow machinery
-// part of the 1,000-body instruction footprint.
-__declspec(noinline) int
-SpatialGrid::FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz )
-{
-    // Invariant: callers enter directly only after one overflow admission;
-    // the primary route may enter at exactly TABLE_SIZE immediately after it
-    // builds this index and before admitting that first overflow bucket.
-    assert( activeBucketCount >= TABLE_SIZE && "saturated SpatialGrid lookup index missing" );
-    int slot = static_cast<int>( static_cast<uint64_t>( key ) & FULL_LOOKUP_SLOT_MASK );
-    for ( int probe = 0; probe < FULL_LOOKUP_SLOT_COUNT; ++probe )
-    {
-        const uint16_t compactBucketIndex = overflowStorage->lookup[slot];
-        if ( compactBucketIndex == FULL_LOOKUP_EMPTY )
-        {
-            if ( overflowBucketCount >= OVERFLOW_BUCKET_COUNT )
-            {
-                // Lane F: dropping a cell could hide a real collision. The
-                // fixed cold tier is the complete runtime admission budget.
-                SB_FATAL( "Physics/SpatialGrid",
-                          "SpatialGrid bucket capacity exceeded: capacity=%d active=%d primary=%d overflow=%d "
-                          "phase=steady_gameplay.",
-                          TOTAL_BUCKET_COUNT,
-                          activeBucketCount,
-                          TABLE_SIZE,
-                          OVERFLOW_BUCKET_COUNT );
-            }
-
-            const int bucketIndex = TABLE_SIZE + overflowBucketCount++;
-            Bucket& bucket = BucketAt( bucketIndex );
-            bucket.key = key;
-            bucket.generation = generation;
-            bucket.head = -1;
-            bucket.count = 0;
-            bucket.ix = cx;
-            bucket.iy = cy;
-            bucket.iz = cz;
-            overflowStorage->lookup[slot] = static_cast<uint16_t>( bucketIndex );
-            ++activeBucketCount;
-            return bucketIndex;
-        }
-        const int bucketIndex = static_cast<int>( compactBucketIndex );
-        if ( BucketAt( bucketIndex ).key == key )
-        {
-            return bucketIndex;
-        }
-        slot = ( slot + 1 ) & FULL_LOOKUP_SLOT_MASK;
-    }
-
-    // Lane F: the table is capped at 50% load, so exhausting every probe is
-    // impossible unless the lookup metadata was corrupted.
-    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid saturated lookup exhausted all probe slots" );
-}
-
-
-__declspec(noinline) void SpatialGrid::InsertOverflowCellEntry( int index, int overflowIndex )
-{
-    // Why: overflow insertion is deliberately out of line so the common
-    // primary path retains direct buckets[] access and its original branches.
-    Bucket& b = overflowStorage->buckets[overflowIndex];
-    for ( int cur = b.head; cur != -1; cur = entries[cur].next )
-    {
-        ++frameStats.bucketChainEntriesInspected;
-        assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
-        if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
-        {
-            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid overflow entry chain index out of bounds" );
-        }
-        if ( entries[cur].objectIndex == index )
-        {
-            ++frameStats.duplicateRejections;
-            return;
-        }
-    }
-
-    if ( entryPoolUsed >= MAX_CELL_ENTRIES )
-    {
-        assert( false && "SpatialGrid cell entry capacity exceeded" );
-        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell entry capacity exceeded" );
-    }
-
-    entries[entryPoolUsed].objectIndex = index;
-    entries[entryPoolUsed].next = b.head;
-    b.head = entryPoolUsed;
-    ++entryPoolUsed;
-    ++b.count;
-    ++frameStats.entryWrites;
-    frameStats.maxBucketOccupancy = (std::max)( frameStats.maxBucketOccupancy, b.count );
 }
 
 
 // Insert an object into all grid cells touched by an explicit AABB.
 // Bounds are inclusive after conversion to grid coordinates.
-void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds, bool sampledSweep )
+void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds )
 {
     assert( index >= 0 && "Insert: negative object index" );
     if ( index < 0 || index >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
@@ -551,20 +268,15 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
                   MAX_CELL_ENTRIES );
     }
 
-    const int64_t cellVisitCount = cellCountX * cellCountY * cellCountZ;
-
-    // Why: bitwise conjunction evaluates two cheap hot-state comparisons and
-    // emits one common-route decision. The no-inline helper owns every large
-    // or already-overflowed case so its branches cannot inflate this path.
-    if ( ( activeBucketCount <= TABLE_SIZE ) & ( cellVisitCount <= MAX_PRIMARY_TRANSITION_SCAN_CELLS ) )
+    for ( int ix = minX; ix <= maxX; ++ix )
     {
-        // Invariant: this can leave at most 63 later cells on the one-time
-        // primary fallback if a compact bounds call activates overflow.
-        InsertBoundsCells<BucketLookupRoute::Primary>( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep );
-    }
-    else
-    {
-        InsertBoundsCellsUncommon( index, minX, minY, minZ, maxX, maxY, maxZ, sampledSweep, cellVisitCount );
+        for ( int iy = minY; iy <= maxY; ++iy )
+        {
+            for ( int iz = minZ; iz <= maxZ; ++iz )
+            {
+                InsertCell( index, ix, iy, iz );
+            }
+        }
     }
 }
 
@@ -574,11 +286,9 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
 //   min = floor((P - R) / cellSize)  to  max = floor((P + R) / cellSize)
 void SpatialGrid::Insert( int index, const Vector3& position, float radius )
 {
-    ++frameStats.bodyInsertions;
     InsertBounds( index,
                   Vector3( position.x - radius, position.y - radius, position.z - radius ),
-                  Vector3( position.x + radius, position.y + radius, position.z + radius ),
-                  false );
+                  Vector3( position.x + radius, position.y + radius, position.z + radius ) );
 }
 
 
@@ -586,13 +296,6 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
 // Narrowphase still computes the exact time-of-impact; this only prevents the
 // broadphase from skipping a fast body that starts outside the target cell.
 void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius )
-{
-    ++frameStats.bodyInsertions;
-    InsertSweptBounds( index, position, displacement, radius );
-}
-
-
-void SpatialGrid::InsertSweptBounds( int index, const Vector3& position, const Vector3& displacement, float radius )
 {
     const Vector3 endPosition = position + displacement;
     const Vector3 minBounds( (std::min)( position.x, endPosition.x ) - radius,
@@ -623,17 +326,14 @@ void SpatialGrid::InsertSweptBounds( int index, const Vector3& position, const V
     {
         // For normal fast movers, the swept bounding box is still small enough
         // to insert exactly. That covers every cell touched between start and end.
-        InsertBounds( index, minBounds, maxBounds, false );
+        InsertBounds( index, minBounds, maxBounds );
         return;
     }
 
     const float distanceSq = displacement * displacement;
     if ( distanceSq <= TOLERANCE )
     {
-        InsertBounds( index,
-                      Vector3( position.x - radius, position.y - radius, position.z - radius ),
-                      Vector3( position.x + radius, position.y + radius, position.z + radius ),
-                      false );
+        Insert( index, position, radius );
         return;
     }
 
@@ -690,10 +390,7 @@ void SpatialGrid::InsertSweptBounds( int index, const Vector3& position, const V
     axisTraversal( position.y, displacement.y, cy, stepY, tMaxY, tDeltaY );
     axisTraversal( position.z, displacement.z, cz, stepZ, tMaxZ, tDeltaZ );
 
-    InsertBounds( index,
-                  Vector3( position.x - radius, position.y - radius, position.z - radius ),
-                  Vector3( position.x + radius, position.y + radius, position.z + radius ),
-                  true );
+    Insert( index, position, radius );
     int visitedCells = 0;
     while ( ( cx != endX || cy != endY || cz != endZ ) && visitedCells < MAX_SWEPT_TRAVERSED_CELLS )
     {
@@ -716,56 +413,11 @@ void SpatialGrid::InsertSweptBounds( int index, const Vector3& position, const V
         }
 
         const float t = (std::max)( 0.0f, (std::min)( 1.0f, nextT ) );
-        const Vector3 samplePosition = position + displacement * t;
-        InsertBounds( index,
-                      Vector3( samplePosition.x - radius, samplePosition.y - radius, samplePosition.z - radius ),
-                      Vector3( samplePosition.x + radius, samplePosition.y + radius, samplePosition.z + radius ),
-                      true );
+        Insert( index, position + displacement * t, radius );
         ++visitedCells;
     }
 
-    InsertBounds( index,
-                  Vector3( endPosition.x - radius, endPosition.y - radius, endPosition.z - radius ),
-                  Vector3( endPosition.x + radius, endPosition.y + radius, endPosition.z + radius ),
-                  true );
-}
-
-
-void SpatialGrid::InsertPreparedBounds( int index,
-                                        const Vector3& position,
-                                        const Vector3& displacement,
-                                        float radius,
-                                        const Vector3& minBounds,
-                                        const Vector3& maxBounds,
-                                        bool swept )
-{
-    ++frameStats.bodyInsertions;
-    if ( swept )
-    {
-        // Why: most swept rows fit the exact-AABB budget and can consume the
-        // vector-prepared bounds without repeating endpoint arithmetic. Only
-        // an oversized sweep re-enters InsertSwept so its capped traversal and
-        // tie policy remain owned here rather than leaking into the kernel.
-        ValidateBroadphaseBounds( index, minBounds, maxBounds, inverseCellSize );
-        const int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
-        const int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
-        const int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
-        const int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
-        const int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
-        const int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
-        const int64_t cellCountX = int64_t( maxX ) - int64_t( minX ) + 1;
-        const int64_t cellCountY = int64_t( maxY ) - int64_t( minY ) + 1;
-        const int64_t cellCountZ = int64_t( maxZ ) - int64_t( minZ ) + 1;
-        const bool exactAabbFits = cellCountX <= MAX_SWEPT_AABB_CELLS && cellCountY <= MAX_SWEPT_AABB_CELLS &&
-                                   cellCountZ <= MAX_SWEPT_AABB_CELLS &&
-                                   cellCountX * cellCountY * cellCountZ <= MAX_SWEPT_AABB_CELLS;
-        if ( !exactAabbFits )
-        {
-            InsertSweptBounds( index, position, displacement, radius );
-            return;
-        }
-    }
-    InsertBounds( index, minBounds, maxBounds, false );
+    Insert( index, endPosition, radius );
 }
 
 
@@ -782,10 +434,6 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                                      const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
 {
     outPairs.clear();
-    frameStats.rawPairCombinations = 0;
-    frameStats.uniquePairs = 0;
-    frameStats.filterRejections = 0;
-    frameStats.emittedCandidates = 0;
 
     // Dedup bits are frame-local; stale bits would hide candidate pairs.
     assert( objectCount >= 0 && objectCount <= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS && "objectCount OOB" );
@@ -801,50 +449,19 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
     }
     memset( pairSeen, 0, wordsNeeded * sizeof( uint64_t ) );
 
-    std::pair<int, int> pendingPairs[SkullbonezCore::Physics::Kernels::NARROWPHASE_PRUNE_LANE_COUNT] = {};
-    int pendingPairCount = 0;
-    auto appendPair = [&]( int a, int b )
+    // Iterate only buckets that were actually touched this frame.
+    for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
     {
-        assert( outPairs.size() < outPairs.capacity() && "SpatialGrid candidate pair reserve exhausted" );
-        if ( outPairs.size() >= outPairs.capacity() )
+        int bi = activeBuckets[activeIndex];
+        assert( bi >= 0 && bi < TABLE_SIZE && "active bucket index OOB" );
+        if ( bi < 0 || bi >= TABLE_SIZE )
         {
-            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair reserve exhausted" );
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket index out of bounds" );
         }
-        outPairs.emplace_back( a, b );
-        ++frameStats.emittedCandidates;
-    };
-    auto flushPendingPairs = [&]()
-    {
-        if ( pendingPairCount == 0 )
-        {
-            return;
-        }
-        const std::span<const std::pair<int, int>> pairs( pendingPairs, static_cast<size_t>( pendingPairCount ) );
-        const uint32_t accepted = SkullbonezCore::Physics::Kernels::PruneNarrowphasePairsAvx2( filter->hotFields,
-                                                                                               filter->colliderRecords,
-                                                                                               pairs,
-                                                                                               filter->modelCount,
-                                                                                               filter->dt,
-                                                                                               filter->contactSkin );
-        for ( int lane = 0; lane < pendingPairCount; ++lane )
-        {
-            if ( ( accepted & ( 1u << lane ) ) != 0u )
-            {
-                appendPair( pendingPairs[lane].first, pendingPairs[lane].second );
-            }
-            else
-            {
-                ++frameStats.filterRejections;
-            }
-        }
-        pendingPairCount = 0;
-    };
-
-    const auto emitBucketPairs = [&]( Bucket& b )
-    {
+        Bucket& b = buckets[bi];
         if ( b.generation != generation || b.count < 2 )
         {
-            return;
+            continue;
         }
 
         // Collect cell indices into a local buffer for O(c^2) pair generation
@@ -881,7 +498,6 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         {
             for ( int j = i + 1; j < cellCount; ++j )
             {
-                ++frameStats.rawPairCombinations;
                 int a = cellIndices[i];
                 int bIdx = cellIndices[j];
 
@@ -916,133 +532,19 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                 if ( !( pairSeen[word] & bit ) )
                 {
                     pairSeen[word] |= bit;
-                    ++frameStats.uniquePairs;
-                    if ( filter && filter->simdKernels )
-                    {
-                        pendingPairs[pendingPairCount++] = std::pair<int, int>( a, bIdx );
-                        if ( pendingPairCount == SkullbonezCore::Physics::Kernels::NARROWPHASE_PRUNE_LANE_COUNT )
-                        {
-                            flushPendingPairs();
-                        }
-                        continue;
-                    }
                     if ( filter && !SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, bIdx ) )
                     {
-                        ++frameStats.filterRejections;
                         continue;
                     }
-                    appendPair( a, bIdx );
-                }
-            }
-        }
-    };
-
-    // Why: keep the unsaturated traversal byte-shaped like the legacy loop.
-    // The mirrored overflow lambda above is invoked only for cold rows.
-    const int primaryActiveCount = (std::min)( activeBucketCount, TABLE_SIZE );
-    for ( int activeIndex = 0; activeIndex < primaryActiveCount; ++activeIndex )
-    {
-        const int bi = activeBuckets[activeIndex];
-        assert( bi >= 0 && bi < TABLE_SIZE && "primary active bucket index OOB" );
-        if ( bi < 0 || bi >= TABLE_SIZE )
-        {
-            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid primary active bucket index out of bounds" );
-        }
-        Bucket& b = buckets[bi];
-        if ( b.generation != generation || b.count < 2 )
-        {
-            continue;
-        }
-
-        int cellIndices[SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS];
-        int cellCount = 0;
-        int cur = b.head;
-        while ( cur != -1 )
-        {
-            assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
-            if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
-            {
-                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid entry chain index out of bounds" );
-            }
-            const int objIdx = entries[cur].objectIndex;
-            assert( objIdx >= 0 && objIdx < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS &&
-                    "objectIndex OOB in entry chain" );
-            if ( objIdx < 0 || objIdx >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
-            {
-                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid object index out of bounds in entry chain" );
-            }
-            if ( cellCount >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
-            {
-                assert( false && "cell index staging overflow" );
-                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid cell index staging overflow" );
-            }
-            cellIndices[cellCount++] = objIdx;
-            cur = entries[cur].next;
-        }
-
-        for ( int i = 0; i < cellCount - 1; ++i )
-        {
-            for ( int j = i + 1; j < cellCount; ++j )
-            {
-                ++frameStats.rawPairCombinations;
-                int a = cellIndices[i];
-                int bIdx = cellIndices[j];
-                if ( a == bIdx )
-                {
-                    continue;
-                }
-                if ( a > bIdx )
-                {
-                    const int tmp = a;
-                    a = bIdx;
-                    bIdx = tmp;
-                }
-                assert( a < bIdx && "pair ordering violated: a must be less than bIdx" );
-                if ( a >= bIdx )
-                {
-                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair ordering violated" );
-                }
-                const int pairIdx = bIdx * ( bIdx - 1 ) / 2 + a;
-                const int word = pairIdx >> 6;
-                assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
-                if ( word < 0 || word >= PAIR_WORDS )
-                {
-                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair dedup index out of bounds" );
-                }
-                const uint64_t bit = uint64_t( 1 ) << ( pairIdx & 63 );
-                if ( pairSeen[word] & bit )
-                {
-                    continue;
-                }
-                pairSeen[word] |= bit;
-                ++frameStats.uniquePairs;
-                if ( filter && filter->simdKernels )
-                {
-                    pendingPairs[pendingPairCount++] = std::pair<int, int>( a, bIdx );
-                    if ( pendingPairCount == SkullbonezCore::Physics::Kernels::NARROWPHASE_PRUNE_LANE_COUNT )
+                    assert( outPairs.size() < outPairs.capacity() && "SpatialGrid candidate pair reserve exhausted" );
+                    if ( outPairs.size() >= outPairs.capacity() )
                     {
-                        flushPendingPairs();
+                        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair reserve exhausted" );
                     }
-                    continue;
+                    outPairs.emplace_back( a, bIdx );
                 }
-                if ( filter && !SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, bIdx ) )
-                {
-                    ++frameStats.filterRejections;
-                    continue;
-                }
-                appendPair( a, bIdx );
             }
         }
-    }
-    for ( int overflowIndex = 0; overflowIndex < overflowBucketCount; ++overflowIndex )
-    {
-        emitBucketPairs( overflowStorage->buckets[overflowIndex] );
-    }
-    // Invariant: the final partial block still runs the AVX2 masked-lane path;
-    // it is flushed only after all grid buckets so candidate order is unchanged.
-    if ( filter && filter->simdKernels )
-    {
-        flushPendingPairs();
     }
 }
 
@@ -1054,8 +556,8 @@ void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
     int count = ( activeBucketCount < maxCells ) ? activeBucketCount : maxCells;
     for ( int i = 0; i < count; ++i )
     {
-        const int bi = i < TABLE_SIZE ? activeBuckets[i] : i;
-        const Bucket& b = BucketAt( bi );
+        int bi = activeBuckets[i];
+        const Bucket& b = buckets[bi];
         outCells[i].ix = b.ix;
         outCells[i].iy = b.iy;
         outCells[i].iz = b.iz;

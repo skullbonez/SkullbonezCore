@@ -17,7 +17,7 @@
 //   Replay body id: Stable id used by replay/diagnostics to find a body even
 //     when a model-index hint is stale.
 //   Hot SoA fields: 32-byte-aligned component arrays that keep adjacent body
-//     values contiguous for later AVX2 kernels.
+//     values contiguous for cache-friendly stage scans.
 //
 // Invariants:
 //   - HandleForModelIndex() and ModelIndexForHandle() are inverse for live rows.

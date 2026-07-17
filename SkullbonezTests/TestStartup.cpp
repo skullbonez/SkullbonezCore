@@ -481,7 +481,7 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
     std::string text =
         "--renderer d3d12 --vsync off --time-scale 2 --tornado=off --tornado-vector-field on "
         "--cinematic-rendering off --shadow-maps off --workers 0 --model-capacity 32 "
-        "--physics-parallel off --physics-simd-kernels off --parallel-shadow-prep on --hold=off "
+        "--physics-parallel off --parallel-shadow-prep on --hold=off "
         "--seed 17 --frames 3 --all-boxes --physics-debug contacts --physics-debug-alpha .5 "
         "--fixed-step --no-water --no-sleep --mute-contact-audio --audio-smoke --load-scenes-only "
         "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
@@ -516,7 +516,6 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
     CHECK( config.runtimeCapacity.workerThreads == 0 );
     CHECK( config.runtimeCapacity.gameModelCapacity == 32 );
     CHECK_FALSE( config.physicsExecution.parallel );
-    CHECK_FALSE( config.physicsExecution.simdKernels );
     CHECK( config.runtimeRender.shadowParallelPrep );
 #ifdef _DEBUG
     CHECK( args.physicsDiagnosticsRequested );
@@ -535,7 +534,6 @@ TEST_CASE( "Startup full parse: validation precedence publishes frozen messages"
     CheckFullParseFailure( "--time-scale 0", "--time-scale expects a positive float." );
     CheckFullParseFailure( "--model-capacity 0", "--model-capacity expects 1..8192." );
     CheckFullParseFailure( "--physics-parallel maybe", "--physics-parallel expects optional on|off." );
-    CheckFullParseFailure( "--physics-simd-kernels maybe", "--physics-simd-kernels expects optional on|off." );
     CheckFullParseFailure( "--shadow-parallel-prep maybe", "--shadow-parallel-prep expects optional on|off." );
     CheckFullParseFailure( "--interactive maybe", "--interactive expects optional on|off." );
     CheckFullParseFailure( "--all-balls --all-boxes", "--all-balls and --all-boxes are mutually exclusive." );

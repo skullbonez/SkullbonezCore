@@ -473,9 +473,20 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     m_physicsDiagnosticsPrevEnergy = totalEnergy;
     m_physicsDiagnosticsHasPrevEnergy = true;
 
-    const int activeCellCount = m_spatialGrid.GetActiveCellCount();
-    const SpatialGrid::FrameStats gridStats = m_spatialGrid.GetFrameStats();
-    const int maxCellOccupancy = gridStats.maxBucketOccupancy;
+    int activeCellCount = m_spatialGrid.GetActiveCellCount();
+    int maxCellOccupancy = 0;
+    if ( activeCellCount > 0 )
+    {
+        std::vector<SpatialGrid::ActiveCell> activeCells( activeCellCount );
+        m_spatialGrid.GetActiveCells( activeCells.data(), activeCellCount );
+        for ( const SpatialGrid::ActiveCell& cell : activeCells )
+        {
+            if ( cell.objectCount > maxCellOccupancy )
+            {
+                maxCellOccupancy = cell.objectCount;
+            }
+        }
+    }
 
     std::vector<std::pair<int, int>> contactPairs;
     contactPairs.reserve( m_persistentContacts.size() );
@@ -515,11 +526,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
     SkullbonezCore::Core::Log().Writef(
         m_physicsDiagnosticsPath,
         "{\"kind\":\"broadphase\",\"run\":\"%s\",\"frame\":%d,\"candidate_pairs\":%zu,\"contact_pairs\":%zu,"
-        "\"rejected_pairs\":%d,\"active_cells\":%d,\"max_cell_occupancy\":%d,\"collision_cell_count\":%zu,"
-        "\"body_insertions\":%llu,\"exact_aabb_cell_visits\":%llu,\"sampled_sweep_cell_visits\":%llu,"
-        "\"entry_writes\":%llu,\"duplicate_rejections\":%llu,\"bucket_chain_entries_inspected\":%llu,"
-        "\"raw_pair_combinations\":%llu,\"unique_pairs\":%llu,\"filter_rejections\":%llu,"
-        "\"grid_emitted_candidates\":%llu}\n",
+        "\"rejected_pairs\":%d,\"active_cells\":%d,\"max_cell_occupancy\":%d,\"collision_cell_count\":%zu}\n",
         m_physicsDiagnosticsRunId,
         frame,
         m_candidatePairs.size(),
@@ -527,17 +534,7 @@ void SkullScope::EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frameIn
         rejectedPairs,
         activeCellCount,
         maxCellOccupancy,
-        m_collisionCellKeys.size(),
-        static_cast<unsigned long long>( gridStats.bodyInsertions ),
-        static_cast<unsigned long long>( gridStats.exactAabbCellVisits ),
-        static_cast<unsigned long long>( gridStats.sampledSweepCellVisits ),
-        static_cast<unsigned long long>( gridStats.entryWrites ),
-        static_cast<unsigned long long>( gridStats.duplicateRejections ),
-        static_cast<unsigned long long>( gridStats.bucketChainEntriesInspected ),
-        static_cast<unsigned long long>( gridStats.rawPairCombinations ),
-        static_cast<unsigned long long>( gridStats.uniquePairs ),
-        static_cast<unsigned long long>( gridStats.filterRejections ),
-        static_cast<unsigned long long>( gridStats.emittedCandidates ) );
+        m_collisionCellKeys.size() );
 
     if ( m_candidatePairs.size() > (std::max)( 128, modelCount * 8 ) || maxCellOccupancy > 32 )
     {

@@ -7,9 +7,6 @@ Summary:
   The stage rebuilds the spatial grid, preserves conservative fast-projectile
   augmentation, prunes fixed/joint/sleep-only pairs in their original order,
   and records the same bounded pipeline evidence as the certified facade code.
-  The default-OFF dark path can prepare eight conservative bounds and prune
-  eight deduplicated candidate pairs at a time; SpatialGrid still owns cell
-  traversal, capacity, and pair order.
 
 Glossary:
   Broadphase filter: Shape-aware cheap predicate applied while grid pairs form.
@@ -17,21 +14,17 @@ Glossary:
   Sleep-pruned pair: Pair of dormant bodies with no awake energy to create work.
 
 Invariants:
-  - Toggle OFF retains the P0 float expressions and byte-exact insertion path.
-  - Toggle ON consumes prepared bounds strictly in model order; vector code
-    never owns buckets, deduplication, or candidate ordering.
+  - Float expressions and loop order remain on the certified scalar path.
   - `remove_if` predicates preserve their original diagnostic side effects.
   - No hot-path vector operation may exceed construction-time capacity.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.h
-  - SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.h
   - SkullbonezSource/Physics/SolverBroadphaseStage.h
   - SkullbonezSource/Physics/PhysicsWorld.cpp
 */
 #include "PhysicsBroadphaseStage.h"
 
-#include "Kernels/BroadphaseKernel.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
@@ -335,7 +328,6 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         context.modelCount,
         context.dt,
         context.contactSkin,
-        context.config.physicsExecution.simdKernels,
     };
     {
         // Invariant: Broadphase is the inclusive owner marker. Every direct
@@ -361,40 +353,8 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_spatialGrid.Clear();
         m_collisionCellKeys.clear();
     }
-    if ( context.config.physicsExecution.simdKernels )
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridInsertSimd" );
-        for ( int bodyBegin = 0; bodyBegin < context.modelCount; bodyBegin += Kernels::BROADPHASE_LANE_COUNT )
-        {
-            Kernels::BroadphaseBoundsBlock bounds;
-            Kernels::BuildBroadphaseBoundsAvx2( context.hotFields,
-                                                context.colliderRecords,
-                                                bodyBegin,
-                                                context.modelCount,
-                                                context.dt,
-                                                context.contactSkin,
-                                                bounds );
-            for ( int lane = 0; lane < Kernels::BROADPHASE_LANE_COUNT; ++lane )
-            {
-                if ( ( bounds.validBits & ( 1u << lane ) ) == 0u )
-                {
-                    continue;
-                }
-                const int bodyIndex = bodyBegin + lane;
-                m_spatialGrid.InsertPreparedBounds(
-                    bodyIndex,
-                    SolverBodyPosition( context.hotFields, bodyIndex ),
-                    Vector3( bounds.displacementX[lane], bounds.displacementY[lane], bounds.displacementZ[lane] ),
-                    bounds.radius[lane],
-                    Vector3( bounds.minX[lane], bounds.minY[lane], bounds.minZ[lane] ),
-                    Vector3( bounds.maxX[lane], bounds.maxY[lane], bounds.maxZ[lane] ),
-                    ( bounds.sweptBits & ( 1u << lane ) ) != 0u );
-            }
-        }
-    }
-    else
-    {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridInsertScalar" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridInsert" );
         for ( int i = 0; i < context.modelCount; ++i )
         {
             const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;
@@ -411,14 +371,8 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             }
         }
     }
-    if ( context.config.physicsExecution.simdKernels )
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/CandidatePairsSimd" );
-        m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
-    }
-    else
-    {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/CandidatePairsScalar" );
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/CandidatePairs" );
         m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
     }
 
@@ -567,10 +521,7 @@ void PhysicsBroadphaseStage::AppendCollisionCellKey( int64_t collisionCellKey )
 
 uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 {
-    // Invariant: out-of-line fixed grid storage is still owned memory. Count it
-    // beside vector capacities so diagnostics and budget gates see all bytes.
-    return m_spatialGrid.CollectDynamicMemoryBytes() + VectorCapacityBytes( m_candidatePairs ) +
-           VectorCapacityBytes( m_collisionCellKeys );
+    return VectorCapacityBytes( m_candidatePairs ) + VectorCapacityBytes( m_collisionCellKeys );
 }
 
 

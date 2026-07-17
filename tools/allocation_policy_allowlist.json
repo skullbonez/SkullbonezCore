@@ -2,17 +2,6 @@
   "schema": 1,
   "allowed": [
     {
-      "path": "SkullbonezSource/Physics/SpatialGrid.cpp",
-      "patterns": [
-        "std::make_unique<OverflowStorage>"
-      ],
-      "owner": "SpatialGrid saturated-cell storage",
-      "phase": "physics_owner_startup",
-      "reason": "Each grid preallocates one fixed 160 KiB cold overflow tier before steady gameplay while preserving the common-path grid and broadphase-owner layout.",
-      "cap": "One fixed OverflowStorage allocation per SpatialGrid instance; no resize, reserve, replacement, or gameplay growth.",
-      "removal_or_wrapper_plan": "Move this fixed block into a typed startup arena if physics owners gain arena-backed lifetime storage; never allocate or grow it from Insert or pair generation."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Runtime::SceneController>",

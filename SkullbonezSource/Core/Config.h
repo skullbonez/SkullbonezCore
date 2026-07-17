@@ -26,8 +26,8 @@ Invariants:
     accepted range, dump position, and every validation-sensitive consumer.
   - `terrainRaw` selects both render and collision geometry; an asset-path move
     must still receive physics validation at the formal gate.
-  - Format version 2 adds only the mutual-gravity execution toggle; legacy
-    version-1 files select its true default and do not change physics results.
+  - Format version 4 removes the rejected SIMD toggle. Version-3 files remain
+    readable while the cold migration tool deletes that obsolete row.
 
 Related:
   - SkullbonezSource/Core/Config.cpp
@@ -48,7 +48,7 @@ namespace SkullbonezCore
 namespace Core
 {
 
-inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 3;
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 4;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -232,9 +232,6 @@ struct PhysicsExecutionConfig
     bool parallelNarrowphase = false;
     bool parallelTerrainDetect = true;
     bool parallelIntegrate = true;
-    // Dark until the S7 cutover. Enabled binaries use the pinned AVX2/FMA
-    // integration kernels; no runtime CPU dispatch or feature probing occurs.
-    bool simdKernels = false;
 };
 
 // Heightfield scale and sampling policy shared by rendered terrain and

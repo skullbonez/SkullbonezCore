@@ -88,19 +88,6 @@ TEST_CASE( "SpatialGrid: insert/query returns a single deduplicated pair" )
     CHECK( grid.GetActiveCellCount() == 1 );
     REQUIRE( pairs.size() == 1 );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
-
-    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
-    CHECK( stats.bodyInsertions == 2u );
-    CHECK( stats.exactAabbCellVisits == 2u );
-    CHECK( stats.sampledSweepCellVisits == 0u );
-    CHECK( stats.entryWrites == 2u );
-    CHECK( stats.duplicateRejections == 0u );
-    CHECK( stats.bucketChainEntriesInspected == 1u );
-    CHECK( stats.rawPairCombinations == 1u );
-    CHECK( stats.uniquePairs == 1u );
-    CHECK( stats.filterRejections == 0u );
-    CHECK( stats.emittedCandidates == 1u );
-    CHECK( stats.maxBucketOccupancy == 2 );
 }
 
 
@@ -149,26 +136,6 @@ TEST_CASE( "SpatialGrid: clear removes old generation contents from queries" )
 }
 
 
-TEST_CASE( "SpatialGrid: oversized sampled sweep attributes duplicate cell rejection" )
-{
-    SpatialGrid& grid = TestGrid();
-    grid.InsertSwept( 0, Vector3( 5.0f, 5.0f, 5.0f ), Vector3( 120.0f, 120.0f, 120.0f ), 6.0f );
-    grid.Insert( 1, Vector3( 125.0f, 125.0f, 125.0f ), 1.0f );
-
-    const auto pairs = CandidatePairs( grid, 64 );
-    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
-
-    // Why: oversized sweeps sample overlapping sphere bounds along the grid
-    // traversal. Unlike exact AABB enumeration, these samples legitimately
-    // revisit cells and exercise the duplicate-aware insertion contract.
-    CHECK( HasPair( pairs, 0, 1 ) );
-    CHECK( stats.bodyInsertions == 2u );
-    CHECK( stats.sampledSweepCellVisits > 0u );
-    CHECK( stats.duplicateRejections > 0u );
-    CHECK( stats.sampledSweepCellVisits + stats.exactAabbCellVisits > stats.entryWrites );
-}
-
-
 TEST_CASE( "SpatialGrid: minimum cell size preserves exact-edge insert and query" )
 {
     SpatialGrid& grid = TestGrid();
@@ -208,173 +175,46 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
 }
 
 
-TEST_CASE( "SpatialGrid: primary saturation admits colliding overflow keys in deterministic order" )
+TEST_CASE( "SpatialGrid: one fixed table retains all 8192 cells and existing-key lookup at capacity" )
 {
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
-
-    const auto fillPrimary = [&]()
+    for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS - 1; ++cell )
     {
-        for ( int cell = 0; cell < SpatialGrid::PRIMARY_BUCKET_CAPACITY; ++cell )
-        {
-            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
-        }
-    };
-    fillPrimary();
+        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+    }
 
-    // Invariant: x=0, 16,384, and 32,768 share a low-14-bit lookup home slot.
-    // The cold tier must probe through both collisions, retain each new cell,
-    // and emit pairs in first-admitted cell order.
-    grid.Insert( 1, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 2, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 3, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 4, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
-
+    // Why: x=0 and x=8192 share a home slot under the low-bit table mask. The
+    // final row is therefore displaced through occupied slots; reinserting it
+    // at full capacity proves lookup does not mistake saturation for absence.
+    const Vector3 displacedCell( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f );
+    grid.Insert( 0, displacedCell, 0.0f );
+    grid.Insert( 1, displacedCell, 0.0f );
     const auto pairs = CandidatePairs( grid );
-    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
-    const std::vector<std::pair<int, int>> firstOrder{ { 1, 2 }, { 3, 4 } };
 
-    CHECK( grid.GetActiveCellCount() == SpatialGrid::PRIMARY_BUCKET_CAPACITY + 2 );
-    CHECK( stats.bodyInsertions == static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY + 4 ) );
-    CHECK( stats.exactAabbCellVisits == static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY + 4 ) );
-    CHECK( stats.entryWrites == static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY + 4 ) );
-    CHECK( pairs == firstOrder );
-
-    grid.Clear();
-    fillPrimary();
-    grid.Insert( 3, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 4, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 1, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
-    grid.Insert( 2, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
-    const std::vector<std::pair<int, int>> rebuiltOrder{ { 3, 4 }, { 1, 2 } };
-    CHECK( CandidatePairs( grid ) == rebuiltOrder );
+    CHECK( grid.GetActiveCellCount() == SpatialGrid::MAX_BUCKETS );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
 }
 
 
-TEST_CASE( "SpatialGrid: saturated copies own independent overflow storage" )
-{
-    SpatialGrid& source = TestGrid();
-    source.SetCellSize( 1.0f );
-    source.Clear();
-    const auto fillPrimary = []( SpatialGrid& grid )
-    {
-        for ( int cell = 0; cell < SpatialGrid::PRIMARY_BUCKET_CAPACITY; ++cell )
-        {
-            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
-        }
-    };
-    fillPrimary( source );
-    source.Insert( 1, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
-    source.Insert( 2, Vector3( 16384.25f, 0.25f, 0.25f ), 0.0f );
-    source.Insert( 3, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
-    source.Insert( 4, Vector3( 32768.25f, 0.25f, 0.25f ), 0.0f );
-    const std::vector<std::pair<int, int>> expected{ { 1, 2 }, { 3, 4 } };
-
-    // Lifetime: static storage keeps each large hot grid off the test stack.
-    // Copy construction allocates its own cold block; assignment reuses the
-    // target's existing block and must not alias either source.
-    static SpatialGrid copyConstructed( source );
-    static SpatialGrid assigned( 1.0f );
-    assigned = source;
-    CHECK( source.CollectDynamicMemoryBytes() == 160u * 1024u );
-    CHECK( CandidatePairs( copyConstructed ) == expected );
-    CHECK( CandidatePairs( assigned ) == expected );
-
-    source.Clear();
-    CHECK( CandidatePairs( copyConstructed ) == expected );
-    CHECK( CandidatePairs( assigned ) == expected );
-
-    copyConstructed.Clear();
-    fillPrimary( copyConstructed );
-    copyConstructed.Insert( 5, Vector3( 49152.25f, 0.25f, 0.25f ), 0.0f );
-    copyConstructed.Insert( 6, Vector3( 49152.25f, 0.25f, 0.25f ), 0.0f );
-    const std::vector<std::pair<int, int>> copyOnly{ { 5, 6 } };
-    CHECK( CandidatePairs( copyConstructed ) == copyOnly );
-    CHECK( CandidatePairs( assigned ) == expected );
-}
-
-
-TEST_CASE( "SpatialGrid: one bounds call can cross primary saturation and keep every cell" )
-{
-    SpatialGrid& grid = TestGrid();
-    grid.SetCellSize( 1.0f );
-
-    for ( int cell = 0; cell < SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1; ++cell )
-    {
-        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
-    }
-
-    const Vector3 noDisplacement( 0.0f, 0.0f, 0.0f );
-    const Vector3 minimum( static_cast<float>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 ), 0.0f, 0.0f );
-    constexpr int crossingCellCount = 66;
-    const Vector3 maximum(
-        static_cast<float>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 2 + crossingCellCount ), 0.0f, 0.0f );
-    grid.InsertPreparedBounds( 1, minimum, noDisplacement, 0.0f, minimum, maximum, false );
-    grid.InsertPreparedBounds( 2, minimum, noDisplacement, 0.0f, minimum, maximum, false );
-
-    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
-    CHECK( grid.GetActiveCellCount() == SpatialGrid::PRIMARY_BUCKET_CAPACITY + crossingCellCount - 1 );
-    CHECK( stats.exactAabbCellVisits ==
-           static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 + crossingCellCount * 2 ) );
-    CHECK( stats.entryWrites ==
-           static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 + crossingCellCount * 2 ) );
-    const std::vector<std::pair<int, int>> expected{ { 1, 2 } };
-    CHECK( CandidatePairs( grid ) == expected );
-}
-
-
-TEST_CASE( "SpatialGrid: compact bounds hand off every miss after first overflow admission" )
-{
-    SpatialGrid& grid = TestGrid();
-    grid.SetCellSize( 1.0f );
-
-    for ( int cell = 0; cell < SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1; ++cell )
-    {
-        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
-    }
-
-    const Vector3 noDisplacement( 0.0f, 0.0f, 0.0f );
-    const Vector3 minimum( static_cast<float>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 ), 0.0f, 0.0f );
-    constexpr int compactCrossingCellCount = 3;
-    const Vector3 maximum(
-        static_cast<float>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 2 + compactCrossingCellCount ), 0.0f, 0.0f );
-    grid.InsertPreparedBounds( 1, minimum, noDisplacement, 0.0f, minimum, maximum, false );
-    grid.InsertPreparedBounds( 2, minimum, noDisplacement, 0.0f, minimum, maximum, false );
-
-    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
-    CHECK( grid.GetActiveCellCount() == SpatialGrid::PRIMARY_BUCKET_CAPACITY + compactCrossingCellCount - 1 );
-    CHECK( stats.exactAabbCellVisits ==
-           static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 + compactCrossingCellCount * 2 ) );
-    CHECK( stats.entryWrites ==
-           static_cast<uint64_t>( SpatialGrid::PRIMARY_BUCKET_CAPACITY - 1 + compactCrossingCellCount * 2 ) );
-    const std::vector<std::pair<int, int>> expected{ { 1, 2 } };
-    CHECK( CandidatePairs( grid ) == expected );
-}
-
-
-TEST_CASE( "Property invariant: prepared AABB insert/query round-trips including zero extent [seed 0x16AABB00]" )
+TEST_CASE( "Property invariant: identical sphere insert/query round-trips including zero radius [seed 0x16AABB00]" )
 {
     SkullbonezTests::FixedSeed random( 0x16AABB00u );
     SpatialGrid& grid = TestGrid();
 
-    // Invariant: two identical prepared bounds always share at least one cell,
-    // even when min == max on every axis at a cell boundary.
+    // Invariant: two identical sphere bounds always share at least one cell,
+    // including the degenerate zero-radius case on a cell boundary.
     for ( int sample = 0; sample < 64; ++sample )
     {
         grid.Clear();
         const Vector3 center( random.Float( -50.0f, 50.0f ),
                               random.Float( -50.0f, 50.0f ),
                               random.Float( -50.0f, 50.0f ) );
-        const Vector3 extent =
-            ( sample % 8 == 0 )
-                ? Vector3( 0.0f, 0.0f, 0.0f )
-                : Vector3( random.Float( 0.0f, 4.0f ), random.Float( 0.0f, 4.0f ), random.Float( 0.0f, 4.0f ) );
-        const Vector3 minimum = center - extent;
-        const Vector3 maximum = center + extent;
+        const float radius = sample % 8 == 0 ? 0.0f : random.Float( 0.0f, 4.0f );
 
-        const Vector3 noDisplacement( 0.0f, 0.0f, 0.0f );
-        grid.InsertPreparedBounds( 0, center, noDisplacement, 0.0f, minimum, maximum, false );
-        grid.InsertPreparedBounds( 1, center, noDisplacement, 0.0f, minimum, maximum, false );
+        grid.Insert( 0, center, radius );
+        grid.Insert( 1, center, radius );
         const auto pairs = CandidatePairs( grid );
 
         REQUIRE( pairs.size() == 1u );

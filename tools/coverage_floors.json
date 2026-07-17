@@ -151,10 +151,7 @@
         "SkullbonezSource/Physics/Stages/PhysicsSleepController.State.cpp",
         "SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp",
         "SkullbonezSource/Physics/Stages/PhysicsStepDiagnostics.cpp",
-        "SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp",
-        "SkullbonezSource/Physics/Stages/Kernels/BroadphaseKernel.cpp",
-        "SkullbonezSource/Physics/Stages/Kernels/ForceKernel.cpp",
-        "SkullbonezSource/Physics/Stages/Kernels/IntegrationKernel.cpp"
+        "SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp"
       ]
     },
     {

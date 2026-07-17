@@ -361,7 +361,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
-    CHECK( configText.find( "format_version = 3" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 4" ) != std::string::npos );
 
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
@@ -381,6 +381,66 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK_FALSE( filesystemError );
 }
 
+TEST_CASE( "RenderDefaultsStore v3 writers remove only the rejected SIMD row" )
+{
+    namespace fs = std::filesystem;
+    std::error_code filesystemError;
+    const fs::path originalPath = fs::current_path( filesystemError );
+    REQUIRE_FALSE( filesystemError );
+
+    const auto verifyWriter = [&]( bool cinematicSave, const char* fixtureName )
+    {
+        const fs::path testRoot = originalPath / "TestOutput" / fixtureName;
+        const fs::path dataRoot = testRoot / "SkullbonezData";
+        fs::create_directories( dataRoot, filesystemError );
+        REQUIRE_FALSE( filesystemError );
+        {
+            std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
+            REQUIRE( configFile.is_open() );
+            configFile << "format_version = 3\n"
+                          "physics_simd_kernels = 1\n"
+                          "owner_unknown_key = retain-me\n";
+            REQUIRE( configFile.good() );
+        }
+
+        RenderDefaultsStore store;
+        if ( cinematicSave )
+        {
+            store.SubmitCinematicSave();
+        }
+        else
+        {
+            store.SubmitOrdinarySave();
+        }
+
+        fs::current_path( testRoot, filesystemError );
+        REQUIRE_FALSE( filesystemError );
+        const RenderDefaultsSaveBatchResult result =
+            store.DrainAtFrameCheckpoint( SkullbonezCore::Core::OrdinaryRenderConfig{},
+                                          SkullbonezCore::Core::CinematicRenderConfig{} );
+        fs::current_path( originalPath, filesystemError );
+        REQUIRE_FALSE( filesystemError );
+
+        std::string configText;
+        {
+            std::ifstream configFile( dataRoot / "engine.cfg" );
+            REQUIRE( configFile.is_open() );
+            configText.assign( std::istreambuf_iterator<char>( configFile ), std::istreambuf_iterator<char>() );
+        }
+        CHECK( result.status.ok );
+        CHECK( result.savedCount == 1 );
+        CHECK( configText.find( "format_version = 4" ) != std::string::npos );
+        CHECK( configText.find( "physics_simd_kernels" ) == std::string::npos );
+        CHECK( configText.find( "owner_unknown_key = retain-me" ) != std::string::npos );
+
+        fs::remove_all( testRoot, filesystemError );
+        REQUIRE_FALSE( filesystemError );
+    };
+
+    verifyWriter( false, "owner_request_v3_ordinary_writer" );
+    verifyWriter( true, "owner_request_v3_cinematic_writer" );
+}
+
 TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
 {
     namespace fs = std::filesystem;
@@ -391,7 +451,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     const fs::path dataRoot = testRoot / "SkullbonezData";
     fs::create_directories( dataRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const std::string originalText = "format_version = 4\nordinary_sun_intensity = 1.00\n";
+    const std::string originalText = "format_version = 5\nordinary_sun_intensity = 1.00\n";
     {
         std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
         REQUIRE( configFile.is_open() );

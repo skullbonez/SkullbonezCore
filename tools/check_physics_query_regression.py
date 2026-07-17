@@ -82,19 +82,6 @@ QUERIES = [
     ("compare_self", ["compare", str(TRACE), "--limit", "8"]),
 ]
 
-ATTRIBUTION_FIELDS = {
-    "body_insertions",
-    "exact_aabb_cell_visits",
-    "sampled_sweep_cell_visits",
-    "entry_writes",
-    "duplicate_rejections",
-    "bucket_chain_entries_inspected",
-    "raw_pair_combinations",
-    "unique_pairs",
-    "filter_rejections",
-    "grid_emitted_candidates",
-}
-
 def remove_if_exists(path):
     try:
         path.unlink()
@@ -186,24 +173,6 @@ def run_queries():
     return packet
 
 
-def verify_broadphase_attribution(trace):
-    # Invariant: attribution is opt-in so the long-lived default query packet
-    # stays stable, while missing or renamed counter fields still fail the gate.
-    packet = run_query_set(
-        trace,
-        [("broadphase_attribution", ["broadphase", "--attribution", "--limit", "1"])],
-    )["broadphase_attribution"]
-    rows = packet.get("broadphase", [])
-    if not rows:
-        raise RuntimeError("broadphase attribution query returned no rows")
-    missing = sorted(ATTRIBUTION_FIELDS.difference(rows[0]))
-    if missing:
-        raise RuntimeError(f"broadphase attribution fields missing: {', '.join(missing)}")
-    null_fields = sorted(field for field in ATTRIBUTION_FIELDS if rows[0].get(field) is None)
-    if null_fields:
-        raise RuntimeError(f"broadphase attribution fields are null: {', '.join(null_fields)}")
-
-
 def canonical_json(packet):
     return json.dumps(packet, indent=2, sort_keys=True) + "\n"
 
@@ -245,8 +214,6 @@ def main():
     try:
         print("  Generating SkullScope trace from physics_bench_varied.scene.json...")
         generate_trace(TRACE, [])
-        print("  Verifying opt-in broadphase attribution fields...")
-        verify_broadphase_attribution(TRACE)
         print("  Running SkullScope query packet...")
         current_text = canonical_json(run_queries())
         return compare_or_update(current_text, args.update)

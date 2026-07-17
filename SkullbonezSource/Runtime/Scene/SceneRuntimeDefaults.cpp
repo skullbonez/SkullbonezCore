@@ -92,6 +92,14 @@ bool ReplaceConfigLine( std::vector<std::string>& lines, const char* key, const 
     return replaced;
 }
 
+void EraseConfigLines( std::vector<std::string>& lines, const char* key )
+{
+    lines.erase( std::remove_if( lines.begin(),
+                                 lines.end(),
+                                 [key]( const std::string& line ) { return ConfigLineMatchesKey( line, key ); } ),
+                 lines.end() );
+}
+
 std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
 {
     for ( std::size_t i = 0; i < lines.size(); ++i )
@@ -256,6 +264,11 @@ bool WriteConfigLines( const std::string& configPath, const std::vector<std::str
 
 void StampCurrentConfigVersion( std::vector<std::string>& lines )
 {
+    // Invariant: native Save Defaults is a config writer and must apply the
+    // owned v3->v4 deletion, not merely relabel v3 text as current. Unknown
+    // rows remain untouched; only the rejected SIMD toggle is removed.
+    EraseConfigLines( lines, "physics_simd_kernels" );
+
     char version[16] = {};
     sprintf_s( version, "%u", SkullbonezCore::Core::ENGINE_CONFIG_FORMAT_VERSION );
     if ( ReplaceConfigLine( lines, "format_version", version ) )

@@ -14,12 +14,14 @@
 #     key after the sibling apply-forces execution key.
 #   Config v3: Adds the default-off pinned SIMD-kernel key after the integration
 #     execution key; old content remains on the byte-exact scalar path.
+#   Config v4: Removes the rejected SIMD-kernel key; the retained engine path is
+#     scalar-only over the byte-certified SoA body layout.
 #
 # Invariants:
 #   - Rewriting an already-current file is byte-idempotent.
 #   - Future versions fail and are never downgraded.
 #   - Scene/style JSON is outside this tool; its v1->v2 path remains parser-owned.
-#   - Config migrations insert only their owned key and preserve existing rows.
+#   - Config migrations edit only their owned rows and preserve unrelated rows.
 #
 # Related:
 #   - tools/bake_hulls.py
@@ -39,7 +41,7 @@ import bake_hulls
 
 
 ASSET_LIBRARY_VERSION = 1
-CONFIG_VERSION = 3
+CONFIG_VERSION = 4
 ASSET_FORMAT = "skullbonez.asset_library.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
 
@@ -128,6 +130,12 @@ def migrate_config_text(text: str, path: Path) -> str:
         insert_at = integrate_row + 1 if integrate_row is not None else len(lines)
         lines.insert(insert_at, f"{simd_kernel_key} = 0")
 
+    # Named v3->v4 step: the owner rejected the SIMD cutover. Remove every
+    # obsolete toggle row so migrated content cannot imply a dormant path that
+    # no longer exists. Applying this normalization to current files also makes
+    # --check catch a manually retained v4 row.
+    lines = [line for line in lines if line.partition("=")[0].strip() != simd_kernel_key]
+
     return "\n".join(lines) + "\n"
 
 
@@ -182,14 +190,21 @@ def self_test() -> None:
 
     config_path = Path("engine.cfg")
     config = migrate_config_text("# config\nscreen_x = 1\n", config_path)
-    assert "format_version = 3\n" in config
+    assert "format_version = 4\n" in config
     assert "physics_parallel_mutual_gravity = 1\n" in config
-    assert "physics_simd_kernels = 0\n" in config
+    assert "physics_simd_kernels" not in config
     assert migrate_config_text(config, config_path) == config
+    v3_config = migrate_config_text(
+        "format_version = 3\nphysics_parallel_integrate = 1\nphysics_simd_kernels = 1\nscreen_x = 2\n",
+        config_path,
+    )
+    assert "format_version = 4\n" in v3_config
+    assert "physics_simd_kernels" not in v3_config
+    assert "screen_x = 2\n" in v3_config
     try:
-        migrate_config_text("format_version = 4\n", config_path)
+        migrate_config_text("format_version = 5\n", config_path)
     except MigrationError as exc:
-        assert "newer than current version 3" in str(exc)
+        assert "newer than current version 4" in str(exc)
     else:
         raise AssertionError("future config version must fail")
 

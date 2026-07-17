@@ -277,7 +277,8 @@ Every DX12 modification also requires the mandatory bounded graphics-stress
 run defined below.
 
 `validate_full.bat` and its `agent_validate.bat` alias are the mandatory broad
-superset. A new standalone CPU test executable must join
+superset. The CPU umbrella includes the ratified product coverage floors. A new
+standalone CPU test executable must join
 `validate_all_cpu_tests.bat`, `tools/README.md`, and the file-to-gate mapping in
 the same commit; a test target reachable only through a direct script or
 `validate_select.bat` is not merge-gated.
@@ -286,7 +287,7 @@ the same commit; a test target reachable only through a direct script or
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
 | Main doctest unit tests only | `tools\validate_tests.bat` | build + console test runner |
-| Standalone/combined CPU test targets | `tools\validate_all_cpu_tests.bat` | incremental builds + 5 console test launches |
+| Standalone/combined CPU test targets | `tools\validate_all_cpu_tests.bat` | incremental builds + 6 console test launches |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
 | Shader or render backend | `tools\validate_dx12_renderer.bat`, then `tools\run_graphics_stress.bat 1` | ~3 min |
 | DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat`, then `tools\run_graphics_stress.bat 1` | ~3 min |

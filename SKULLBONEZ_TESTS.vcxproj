@@ -190,7 +190,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
-    <!-- fp-envelope-hardening: force contraction off in every TU before future AVX2/FMA work. -->
+    <!-- fp-envelope-hardening: force contraction off in every TU before any vector-width or contraction-policy change. -->
     <ClCompile>
       <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
     </ClCompile>

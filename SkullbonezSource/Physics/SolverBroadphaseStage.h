@@ -49,7 +49,6 @@ struct BroadphaseCandidateFilterContext
     int modelCount = 0;
     float dt = 0.0f;
     float contactSkin = 0.0f;
-    bool simdKernels = false;
 };
 
 // Invariant: fixed-step candidate owners may append only inside construction-

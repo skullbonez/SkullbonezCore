@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (broadphase campaign complete; SoA/SIMD hard stop before S7) |
-| Current baseline | Final scalar-OFF matrix: 1,000 bodies Step/Broadphase 1.0546/0.2741 ms; 2,000 bodies 2.0517/0.8904 ms. Exact-tip pair medians: Step -1.61% / -75.26%. Broadphase is inclusive; never add its children. |
-| Current objective | No active plan runner. Preserve the completed broadphase fix and the SoA/SIMD pause; S7 must not start without fresh owner direction. |
-| Active/future progress | 7 / 9 tasks = 78% overall (SoA/SIMD paused 7/9; completed broadphase campaign excluded under MASTER rule 4) |
-| Last broad local gate | 290/290 tests (21,452 assertions), byte-exact 44,401-line physics oracle, and performance/allocation gate passed; exact-tip paired evidence and independent review are closed |
-| Validation for current edits | Documentation-only closure reconciliation; no further repository validation required. |
+| Branch | `nightrunner-16th-july` (S7 complete; S8 final closure active) |
+| Current baseline | Scalar-only matrix: 1,000 bodies Step/Broadphase 1.0871/0.3005 ms; 2,000 bodies 1.8670/0.7549 ms. Broadphase is inclusive; never add its children. |
+| Current objective | Publish the reviewed scalar-retention verdict, delete the completed live plan, and leave a clean synchronized branch. |
+| Active/future progress | 8 / 9 tasks = 89% overall (SoA/SIMD S8 closure active; completed campaigns excluded under MASTER rule 4) |
+| Last broad local gate | Final `validate_full` passed: 282 tests/21,389 assertions, zero-warning builds, zero DX12 errors, matching captures, and byte-exact 44,401-line physics oracle |
+| Validation for current edits | S7 source gates are green; S8 is documentation-only and requires clean-tree/sync confirmation. |
 
 ## Live Queue
 
@@ -34,17 +34,15 @@ plan inventory.
           Exact-tip paired medians are -1.61% Step / -7.34% Broadphase / -9.78%
           GridInsert at 1,000 bodies and -75.26% / -87.39% / -91.38% at 2,000.
           B4 closed the final matrix, exact provenance, comment audit, and
-          independent review. No S7, toggle-default, baseline, or golden change
-          occurred.
+          independent review. Its evidence selected the one-table S7 cleanup;
+          the attribution counters and two-route storage are now being removed.
 
 0000000. `unit-test-coverage-campaign` is COMPLETE at 10/10 (2026-07-17; plan
          deleted under inventory rule 4; closure evidence lives in
          `Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`). The 2026-07-16 owner
-         reorder: unit tests come FIRST, before the SoA/SIMD S7 cutover —
-         the tolerance-based behavioral/property suites are the only oracle
-         that survives the golden regeneration, and S7 now requires them to
-         pass in both SIMD toggle states). SoA/SIMD is paused at 7/9 after the
-         S6-only authorization; do not start S7.
+         reorder: unit tests came first, before the S7 decision. The
+         tolerance-based behavioral/property suites now protect the retained
+         scalar SoA path while rejected SIMD code is deleted.
          U0 shipped OpenCppCoverage 0.9.9.0 and the report-only
          `validate_coverage` lane, measured the per-subsystem baseline,
          ratified the default floors (Tier 1 85%,
@@ -72,7 +70,7 @@ plan inventory.
          contracts, and raised every Tier-3 subsystem above 50%. U9 armed the
          ratified floors, added positive translation-unit scope
          checks, resolved the independent review, and closed the campaign.
-000000. `physics-soa-simd-1000-bodies` is PAUSED at 7/9. S0 registered the
+000000. `physics-soa-simd-1000-bodies` is ACTIVE at 8/9. S0 registered the
         campaign, authored fixed-seed 200/520/1,000/2,000-body scale scenes,
         measured the scalar-AoS matrix, confirmed the 2,000-body stretch scene
         does not exhaust fixed capacity, and ratified a 0.80 ms average Physics
@@ -104,8 +102,12 @@ plan inventory.
         284 doctests with the toggle ON, and measured the complete enabled
         matrix. The 1,000-body step is 1.0666 ms versus the 0.80 ms budget; the
         retained scalar solver core is 0.0092 ms (0.86% of step). The owner
-        rejected S7 on the current evidence on 2026-07-17; keep it unchecked
-        and do not start it without a fresh owner direction.
+        rejected the SIMD cutover on 2026-07-17, then explicitly directed S7
+        to retain SoA, delete SIMD/toggle/counter complexity, simplify the grid,
+        and close with full validation. S7 removed 3,190 lines, retained one
+        complete 8,192-cell grid, armed mandatory coverage, passed independent
+        review, and closed the full gate. S8 documentation-only closure is
+        active.
 00000. `replay-mass-reduction` completed at 9/9 plus R8 on 2026-07-16. R0 closed the 42-file,
        33,783-line census, D1-D8 duplication dispositions, Release/Profile
        map-attributed baselines (498,264/456,044 bytes), owner ratification,
@@ -374,10 +376,11 @@ Unit-test coverage is complete at 10/10. All required translation units are
 present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
 Closure evidence, baseline deltas, the independent review, the three-file
 comment audit, and final validation live in
-`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD S6
-is complete and the campaign is paused at 7/9; the owner rejected S7 on the
-current evidence. Broadphase attribution B1-B4 is complete; preserve its
-retained fix and do not begin S7.
+`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD S7
+is complete at 8/9: SoA remains, rejected SIMD and attribution-only complexity
+are gone, one complete 8,192-cell grid remains, mandatory coverage and the full
+gate pass. S8 must publish closure and delete the completed live plan; do not
+regenerate behavioral physics baselines.
 Replay mass reduction remains closed at 9/9 plus R8; the externally
 administered validation-gate V3 lane remains blocked and excluded from the
 ledger.

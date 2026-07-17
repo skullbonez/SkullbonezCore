@@ -25,6 +25,8 @@ Invariants:
     are the validation contract.
   - Inserted bounds stay finite and within MAX_WORLD_COORDINATE before any
     float-to-cell conversion.
+  - One 8,192-row table owns every live cell; the next unique cell is a Lane F
+    failure because dropping it could hide a collision.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -40,7 +42,6 @@ Related:
 #include <cstring>
 #include <cmath>
 #include <cassert>
-#include <memory>
 #include "../Core/Common.h"
 #include "../Runtime/Scene/SceneCapacity.h"
 #include "../Maths/Vector3.h"
@@ -83,18 +84,11 @@ class SpatialGrid
     // intentionally a limited escape hatch for bullets and other rare high-speed
     // movers, not a promise that every body can sweep across the whole world in
     // one tick. Large projectile clouds should use a dedicated ray/query path.
-    static constexpr int TABLE_SIZE = 4096;
+    // One power-of-two table keeps lookup, storage, iteration, and exhaustion
+    // on the same deterministic path at both ordinary and scale-scene sizes.
+    static constexpr int TABLE_SIZE = 8192;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
-    static constexpr int OVERFLOW_BUCKET_COUNT = 4096;
-    static constexpr int TOTAL_BUCKET_COUNT = TABLE_SIZE + OVERFLOW_BUCKET_COUNT;
-    // Concept: only a primary-saturated frame touches this compact index. It
-    // maps both primary and cold overflow keys to their stable bucket rows, so
-    // lookup stays bounded without dropping broadphase coverage.
-    static constexpr int FULL_LOOKUP_SLOT_COUNT = 16384;
-    static constexpr int FULL_LOOKUP_SLOT_MASK = FULL_LOOKUP_SLOT_COUNT - 1;
-    static constexpr uint16_t FULL_LOOKUP_EMPTY = UINT16_MAX;
-    static_assert( TOTAL_BUCKET_COUNT < FULL_LOOKUP_EMPTY,
-                   "SpatialGrid bucket indices must not collide with the compact lookup sentinel" );
+    static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
     static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
@@ -120,12 +114,6 @@ class SpatialGrid
         int16_t ix, iy, iz;  // Cell grid coordinates (stored for visualization)
     };
 
-    struct OverflowStorage
-    {
-        uint16_t lookup[FULL_LOOKUP_SLOT_COUNT];
-        Bucket buckets[OVERFLOW_BUCKET_COUNT];
-    };
-
     float cellSize;
     float inverseCellSize;
     uint32_t generation;
@@ -133,69 +121,17 @@ class SpatialGrid
     int objectCount;
     int activeBucketCount;
 
-    // Concept: one reset-per-rebuild value explains grid work without feeding
-    // decisions back into physics. The broadphase owner is serial, so these
-    // fixed-width counters need no atomics and allocate no runtime storage.
-    struct FrameStatsStorage
-    {
-        uint64_t bodyInsertions = 0;
-        uint64_t exactAabbCellVisits = 0;
-        uint64_t sampledSweepCellVisits = 0;
-        uint64_t entryWrites = 0;
-        uint64_t duplicateRejections = 0;
-        uint64_t bucketChainEntriesInspected = 0;
-        uint64_t rawPairCombinations = 0;
-        uint64_t uniquePairs = 0;
-        uint64_t filterRejections = 0;
-        uint64_t emittedCandidates = 0;
-        int maxBucketOccupancy = 0;
-    } frameStats;
-
     Bucket buckets[TABLE_SIZE];
     int activeBuckets[TABLE_SIZE];
     Entry entries[MAX_CELL_ENTRIES];
     uint64_t pairSeen[PAIR_WORDS];
-    // Lifetime: one startup allocation owns the fixed cold tier for this grid.
-    // Keeping its 160 KiB out of line preserves both the grid and containing
-    // broadphase owner's common-scale layout; it never grows during gameplay.
-    int overflowBucketCount;
-    std::unique_ptr<OverflowStorage> overflowStorage;
 
-    enum class BucketLookupRoute
-    {
-        Primary,
-        Full,
-        Transitioning,
-    };
-
-    int FindOrCreatePrimaryBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
-    void BuildFullBucketLookup();
-    int FindOrCreateAfterPrimaryMiss( int64_t key, int16_t cx, int16_t cy, int16_t cz );
-    int FindOrCreateFullBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
-    Bucket& BucketAt( int bucketIndex );
-    const Bucket& BucketAt( int bucketIndex ) const;
-    void InsertOverflowCellEntry( int index, int overflowIndex );
-    template <BucketLookupRoute Route>
-    void InsertCellRouted( int index, int ix, int iy, int iz );
-    template <BucketLookupRoute Route>
-    void InsertBoundsCells( int index, int minX, int minY, int minZ, int maxX, int maxY, int maxZ, bool sampledSweep );
-    void InsertBoundsCellsUncommon( int index,
-                                    int minX,
-                                    int minY,
-                                    int minZ,
-                                    int maxX,
-                                    int maxY,
-                                    int maxZ,
-                                    bool sampledSweep,
-                                    int64_t cellVisitCount );
-    void
-    InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds, bool sampledSweep );
-    void
-    InsertSweptBounds( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
+    int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    void InsertCell( int index, int ix, int iy, int iz );
+    void InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
 
   public:
-    static constexpr int PRIMARY_BUCKET_CAPACITY = TABLE_SIZE;
-    static constexpr int MAX_BUCKETS = TOTAL_BUCKET_COUNT;
+    static constexpr int MAX_BUCKETS = TABLE_SIZE;
     // PhysicsWorld already clamps authored settings to this lower bound. Keep
     // the grid's own constructor/setter equally strict so direct users cannot
     // create cell coordinates outside the integer representation envelope.
@@ -211,26 +147,7 @@ class SpatialGrid
         int objectCount;
     };
 
-    // Read-only, frame-local attribution. These counters describe work only;
-    // replay, candidate admission, and solver behavior never consume them.
-    struct FrameStats
-    {
-        uint64_t bodyInsertions = 0;
-        uint64_t exactAabbCellVisits = 0;
-        uint64_t sampledSweepCellVisits = 0;
-        uint64_t entryWrites = 0;
-        uint64_t duplicateRejections = 0;
-        uint64_t bucketChainEntriesInspected = 0;
-        uint64_t rawPairCombinations = 0;
-        uint64_t uniquePairs = 0;
-        uint64_t filterRejections = 0;
-        uint64_t emittedCandidates = 0;
-        int maxBucketOccupancy = 0;
-    };
-
     SpatialGrid( float fCellSize );
-    SpatialGrid( const SpatialGrid& other );
-    SpatialGrid& operator=( const SpatialGrid& other );
     void Clear();
     // Sets the cell diameter used by the next broadphase rebuild. Callers must
     // rebuild the grid after changing it; existing bucket entries keep their
@@ -238,16 +155,6 @@ class SpatialGrid
     void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
-    // Consumes SIMD-prepared bounds in body order. Static/short-displacement
-    // rows use the prepared AABB directly; swept rows retain the grid owner's
-    // bounded exact-AABB/traversal fallback policy.
-    void InsertPreparedBounds( int index,
-                               const Vector::Vector3& position,
-                               const Vector::Vector3& displacement,
-                               float radius,
-                               const Vector::Vector3& minBounds,
-                               const Vector::Vector3& maxBounds,
-                               bool swept );
     // Emits deduplicated cell-sharing pairs. A filter can reject a known-safe
     // false positive before it is appended, but narrowphase still owns contacts.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
@@ -259,24 +166,6 @@ class SpatialGrid
     int GetActiveCellCount() const
     {
         return activeBucketCount;
-    }
-    uint64_t CollectDynamicMemoryBytes() const
-    {
-        return static_cast<uint64_t>( sizeof( OverflowStorage ) );
-    }
-    FrameStats GetFrameStats() const
-    {
-        return FrameStats{ frameStats.bodyInsertions,
-                           frameStats.exactAabbCellVisits,
-                           frameStats.sampledSweepCellVisits,
-                           frameStats.entryWrites,
-                           frameStats.duplicateRejections,
-                           frameStats.bucketChainEntriesInspected,
-                           frameStats.rawPairCombinations,
-                           frameStats.uniquePairs,
-                           frameStats.filterRejections,
-                           frameStats.emittedCandidates,
-                           frameStats.maxBucketOccupancy };
     }
     void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
 };

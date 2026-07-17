@@ -151,14 +151,9 @@ PHYSICS_SOLVER_PREFIXES = (
 )
 
 PHYSICS_STAGE_PREFIXES = (
-    "BroadphaseKernel",
-    "ForceKernel",
-    "IntegrationKernel",
-    "NarrowphasePruneKernel",
     "PhysicsBroadphaseStage",
     "PhysicsContactSolverStage",
     "PhysicsForceStage",
-    "SolverRowKernel",
     "PhysicsNarrowphaseStage",
     "PhysicsSleepController",
     "PhysicsStageContexts",

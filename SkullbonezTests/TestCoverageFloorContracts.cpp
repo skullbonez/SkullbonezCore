@@ -202,10 +202,6 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     CHECK( std::isfinite( hot.linearVelocityY[0] ) );
     CHECK( std::isfinite( hot.angularVelocityZ[0] ) );
     CHECK( hot.linearVelocityY[0] > body.hot.linearVelocity.y );
-    const float velocityAfterGravityAndBuoyancy = hot.linearVelocityY[0];
-    REQUIRE( bodies.CompleteForcesAfterSimdGravity( forces, colliders, 0, 1.0f / 120.0f, nullptr ) );
-    CHECK( std::isfinite( bodies.HotFields().linearVelocityY[0] ) );
-    CHECK( bodies.HotFields().linearVelocityY[0] != doctest::Approx( velocityAfterGravityAndBuoyancy ) );
 }
 } // namespace
 
