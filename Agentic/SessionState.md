@@ -12,20 +12,23 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-16th-july` (broadphase attribution active; SoA/SIMD hard stop before S7) |
 | Current baseline | Final packed-source averages: 1,000 bodies Step/Broadphase 0.9652/0.2731 ms; 2,000 bodies 7.5576/6.5069 ms. Broadphase is inclusive; never add its nested markers. |
-| Current objective | Execute `physics-broadphase-scale-attribution` B2-B4: measured attribution, evidence-selected fix, and final review. S7 is rejected on current evidence and must not start. |
-| Active/future progress | 9 / 14 tasks = 64% overall (broadphase B0-B1 2/5; SoA/SIMD paused 7/9) |
+| Current objective | Execute `physics-broadphase-scale-attribution` B3-B4: lower hash-table load while preserving 4,096-cell admission/candidate order, prove seven same-tip pairs, and close with final review. S7 must not start. |
+| Active/future progress | 10 / 14 tasks = 71% overall (broadphase B0-B2 3/5; SoA/SIMD paused 7/9) |
 | Last broad local gate | Broadphase B1 passed tests (285/285, 21,419 assertions), fast/query validation, the byte-exact 44,401-line physics oracle, performance/allocation/budget checks, zero-warning Profile/Debug builds, and a bounded two-frame platform-profiler launch |
-| Validation for current edits | B1 is fully gated. B2 is evidence/report documentation only; B3 maps to tests + physics + performance. |
+| Validation for current edits | B2 is evidence/report documentation only. B3 maps to tests + physics + performance. |
 
 ## Live Queue
 
-00000000. `physics-broadphase-scale-attribution` is ACTIVE at 2/5. B0 records
+00000000. `physics-broadphase-scale-attribution` is ACTIVE at 3/5. B0 records
           that Broadphase is the inclusive total and the old nested GridBuild/
           ScalarBounds rows must not be added to it. B1 replaced them with
           mutually exclusive direct child markers and bounded grid counters;
           tests, fast/query, byte-exact physics, performance, and bounded marker
-          gates all pass. B2 now selects one optimization from fixed-seed
-          Profile markers and bounded SkullScope attribution. B3 requires seven same-tip pairs at both
+          gates all pass. B2 proved scalar grid insertion grows 30.94x because
+          the 2,000-body scene fills all 4,096 hash slots and then averages
+          3,660 full-table misses per queried frame; duplicate rejections are
+          zero. B3 lowers fixed hash-slot load without changing the 4,096-cell
+          admission/order contract and requires seven same-tip pairs at both
           1,000 and 2,000 bodies; B4 closes with final gates and one independent
           review. No S7, toggle-default, baseline, or golden change is allowed.
 

@@ -1,7 +1,7 @@
 # Physics Broadphase Scale Attribution And Cell-Insertion Campaign
 
 Date: 2026-07-17
-Status: ACTIVE — B0-B1 complete; execute B2-B4 in order
+Status: ACTIVE — B0-B2 complete; execute B3-B4 in order
 Owner: Physics broadphase (`PhysicsBroadphaseStage` and `SpatialGrid`)
 Branch: `nightrunner-16th-july`
 
@@ -142,7 +142,7 @@ before B3 changes it.
     mode). The initial unbounded marker launch was interrupted after it exposed
     the missing frame limit; the authoritative rerun used `--frames 2`.
 
-- [ ] **B2 — collect and publish scale attribution before optimizing.**
+- [x] **B2 — collect and publish scale attribution before optimizing.**
   - Generate fixed-seed Profile artifacts for 1,000 and 2,000 bodies with the
     new exclusive markers and explicit SIMD OFF.
   - Generate bounded Debug SkullScope traces, run focused summary/broadphase
@@ -154,6 +154,12 @@ before B3 changes it.
   - Acceptance: no optimization code lands in B2; every claim is traceable to
     a marker or counter and no marker interval is counted twice.
   - Documentation-only commit after evidence collection; no additional gate.
+  - Evidence (2026-07-17):
+    `../../Reports/2026-07-17/broadphase-scale-attribution.md` rejects the
+    duplicate-scan hypothesis. `GridInsertScalar` grows 30.94x because the
+    2,000-body scene fills all 4,096 hash slots and averages 3,660 full-table
+    misses per queried frame. B3 is restricted to a lower-load fixed hash table
+    that preserves the existing 4,096-cell admission/order contract.
 
 - [ ] **B3 — implement and prove the evidence-selected algorithmic fix.**
   - Implement only the B2-selected path. For the leading hypothesis, exact
