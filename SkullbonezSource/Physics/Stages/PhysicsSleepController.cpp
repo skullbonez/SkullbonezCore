@@ -95,12 +95,9 @@ PhysicsSleepController::PhysicsSleepController()
     m_sleepIslandHasSupportAnchor.reserve( bodyCapacity );
     m_sleepIslandEligible.reserve( bodyCapacity );
     m_sleepIslandCanSleep.reserve( bodyCapacity );
-    m_sleepPointJointBody.reserve( bodyCapacity );
-    m_sleepIslandHasPointJoint.reserve( bodyCapacity );
-    m_sleepIslandPointJointsRelaxed.reserve( bodyCapacity );
+    m_sleepScratchFlags.reserve( bodyCapacity );
     m_sleepVisualIslandIds.reserve( bodyCapacity );
     m_sleepVisualIslandBodies.reserve( bodyCapacity );
-    m_restingWakeVisitedScratch.reserve( bodyCapacity );
     m_restingWakeQueueScratch.reserve( bodyCapacity );
 }
 
@@ -120,12 +117,9 @@ void PhysicsSleepController::Clear()
     m_sleepIslandHasSupportAnchor.clear();
     m_sleepIslandEligible.clear();
     m_sleepIslandCanSleep.clear();
-    m_sleepPointJointBody.clear();
-    m_sleepIslandHasPointJoint.clear();
-    m_sleepIslandPointJointsRelaxed.clear();
+    m_sleepScratchFlags.clear();
     m_sleepVisualIslandIds.clear();
     m_sleepVisualIslandBodies.clear();
-    m_restingWakeVisitedScratch.clear();
     m_restingWakeQueueScratch.clear();
     m_nextSleepIslandVisualId = 1;
 }
@@ -151,6 +145,14 @@ void PhysicsSleepController::EnsureUnderwaterSleepLockBuffer( int modelCount )
     if ( modelCount >= 0 && static_cast<int>( m_underwaterSleepLocked.size() ) != modelCount )
     {
         m_underwaterSleepLocked.resize( static_cast<std::size_t>( modelCount ), 0 );
+    }
+}
+
+void PhysicsSleepController::EnsureScratchFlagsSize( int modelCount )
+{
+    if ( modelCount >= 0 && static_cast<int>( m_sleepScratchFlags.size() ) != modelCount )
+    {
+        m_sleepScratchFlags.assign( static_cast<std::size_t>( modelCount ), PhysicsSleepScratchFlags{} );
     }
 }
 
@@ -250,7 +252,11 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
     const int modelCount = (std::min)( bodyStore.Count(), static_cast<int>( bodyRecords.size() ) );
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
-    m_sleepPointJointBody.assign( modelCount, 0 );
+    EnsureScratchFlagsSize( modelCount );
+    for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
+    {
+        flags.pointJointBody = 0u;
+    }
     m_sleepIslandHasAwake.assign( modelCount, 0 );
     m_sleepIslandCanSleep.assign( modelCount, 0 );
     for ( int i = 0; i < modelCount; ++i )
@@ -267,13 +273,13 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
         {
             continue;
         }
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
+        m_sleepScratchFlags[a].pointJointBody = 1u;
+        m_sleepScratchFlags[b].pointJointBody = 1u;
         sleepIslands.Unite( a, b );
     }
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] == 0 || IsSolverBodyFixed( hotRead, i ) )
+        if ( m_sleepScratchFlags[i].pointJointBody == 0u || IsSolverBodyFixed( hotRead, i ) )
         {
             continue;
         }
@@ -299,7 +305,7 @@ void PhysicsSleepController::WakePointJointConnectedBodies(
                                                pointJointConstraints };
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] == 0 || IsSolverBodyFixed( hotRead, i ) || m_sleepState[i] == 0 )
+        if ( m_sleepScratchFlags[i].pointJointBody == 0u || IsSolverBodyFixed( hotRead, i ) || m_sleepState[i] == 0 )
         {
             continue;
         }
@@ -322,9 +328,13 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
     m_sleepIslandHasSupportAnchor.assign( modelCount, 0 );
     m_sleepIslandEligible.assign( modelCount, 1 );
     m_sleepIslandCanSleep.assign( modelCount, 1 );
-    m_sleepPointJointBody.assign( modelCount, 0 );
-    m_sleepIslandHasPointJoint.assign( modelCount, 0 );
-    m_sleepIslandPointJointsRelaxed.assign( modelCount, 1 );
+    EnsureScratchFlagsSize( modelCount );
+    for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
+    {
+        flags.pointJointBody = 0u;
+        flags.islandHasPointJoint = 0u;
+        flags.islandPointJointsRelaxed = 1u;
+    }
     for ( int i = 0; i < modelCount; ++i )
     {
         m_sleepIslandParent[i] = i;
@@ -348,8 +358,8 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         {
             continue;
         }
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
+        m_sleepScratchFlags[a].pointJointBody = 1u;
+        m_sleepScratchFlags[b].pointJointBody = 1u;
         sleepIslands.Unite( a, b );
     }
 
@@ -391,9 +401,9 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         {
             m_sleepIslandHasSupportAnchor[root] = 1;
         }
-        if ( m_sleepPointJointBody[x] != 0 )
+        if ( m_sleepScratchFlags[x].pointJointBody != 0u )
         {
-            m_sleepIslandHasPointJoint[root] = 1;
+            m_sleepScratchFlags[root].islandHasPointJoint = 1u;
         }
     }
 
@@ -423,7 +433,7 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
                                            constraint.slack * POINT_JOINT_SLEEP_SLACK_TOLERANCE_SCALE );
         if ( distance > allowedDistance )
         {
-            m_sleepIslandPointJointsRelaxed[sleepIslands.Find( a )] = 0;
+            m_sleepScratchFlags[sleepIslands.Find( a )].islandPointJointsRelaxed = 0u;
         }
     }
 
@@ -446,8 +456,8 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
                                              context.persistentRestingContactCounts[x] > 0;
         const bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
         const bool pointJointMember =
-            x < static_cast<int>( m_sleepPointJointBody.size() ) && m_sleepPointJointBody[x] != 0;
-        const bool pointJointIsland = m_sleepIslandHasPointJoint[root] != 0;
+            x < static_cast<int>( m_sleepScratchFlags.size() ) && m_sleepScratchFlags[x].pointJointBody != 0u;
+        const bool pointJointIsland = m_sleepScratchFlags[root].islandHasPointJoint != 0u;
         float quietLinearSq = context.sleepLinearSq;
         float quietAngularSq = context.sleepAngularSq;
         if ( pointJointMember && pointJointIsland && islandHasSupportAnchor )
@@ -471,8 +481,8 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
                                                !( quiet && hasRestingObjectContact && islandHasSupportAnchor ) &&
                                                !pointJointAnchoredSupport;
         const bool pointJointErrorBlocksSleep = pointJointMember &&
-                                                root < static_cast<int>( m_sleepIslandPointJointsRelaxed.size() ) &&
-                                                m_sleepIslandPointJointsRelaxed[root] == 0;
+                                                root < static_cast<int>( m_sleepScratchFlags.size() ) &&
+                                                m_sleepScratchFlags[root].islandPointJointsRelaxed == 0u;
         if ( !quiet || !supported || terrainInhibitBlocksSleep || pointJointErrorBlocksSleep )
         {
             m_sleepIslandEligible[root] = 0;

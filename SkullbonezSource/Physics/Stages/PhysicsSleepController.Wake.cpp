@@ -200,7 +200,11 @@ void PhysicsSleepController::WakePointJointIsland( const PhysicsSleepWakeContext
     }
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
-    m_sleepPointJointBody.assign( modelCount, 0 );
+    EnsureScratchFlagsSize( modelCount );
+    for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
+    {
+        flags.pointJointBody = 0u;
+    }
     for ( int i = 0; i < modelCount; ++i )
     {
         m_sleepIslandParent[i] = i;
@@ -214,18 +218,18 @@ void PhysicsSleepController::WakePointJointIsland( const PhysicsSleepWakeContext
         {
             continue;
         }
-        m_sleepPointJointBody[a] = 1;
-        m_sleepPointJointBody[b] = 1;
+        m_sleepScratchFlags[a].pointJointBody = 1u;
+        m_sleepScratchFlags[b].pointJointBody = 1u;
         sleepIslands.Unite( a, b );
     }
-    if ( m_sleepPointJointBody[index] == 0 )
+    if ( m_sleepScratchFlags[index].pointJointBody == 0u )
     {
         return;
     }
     const int root = sleepIslands.Find( index );
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepPointJointBody[i] != 0 && sleepIslands.Find( i ) == root )
+        if ( m_sleepScratchFlags[i].pointJointBody != 0u && sleepIslands.Find( i ) == root )
         {
             WakeDynamicBodyState( context, i, dt, applyForces );
         }
@@ -244,15 +248,19 @@ void PhysicsSleepController::WakeRestingContactIsland( const PhysicsSleepWakeCon
     {
         return;
     }
-    if ( modelCount > static_cast<int>( m_restingWakeVisitedScratch.capacity() ) ||
+    if ( modelCount > static_cast<int>( m_sleepScratchFlags.capacity() ) ||
          modelCount > static_cast<int>( m_restingWakeQueueScratch.capacity() ) )
     {
         assert( false && "Physics resting-wake scratch capacity exceeded" );
         SB_FATAL( "Physics/PhysicsSleepController", "Physics resting-wake scratch capacity exceeded" );
     }
-    m_restingWakeVisitedScratch.assign( static_cast<std::size_t>( modelCount ), 0 );
+    EnsureScratchFlagsSize( modelCount );
+    for ( PhysicsSleepScratchFlags& flags : m_sleepScratchFlags )
+    {
+        flags.restingWakeVisited = 0u;
+    }
     m_restingWakeQueueScratch.clear();
-    m_restingWakeVisitedScratch[static_cast<std::size_t>( index )] = 1;
+    m_sleepScratchFlags[static_cast<std::size_t>( index )].restingWakeVisited = 1u;
     m_restingWakeQueueScratch.push_back( index );
     const auto hasPersistentContactEdge = [&]( int a, int b )
     {
@@ -287,7 +295,7 @@ void PhysicsSleepController::WakeRestingContactIsland( const PhysicsSleepWakeCon
         const int current = m_restingWakeQueueScratch[cursor];
         for ( int candidate = 0; candidate < modelCount; ++candidate )
         {
-            if ( m_restingWakeVisitedScratch[static_cast<std::size_t>( candidate )] ||
+            if ( m_sleepScratchFlags[static_cast<std::size_t>( candidate )].restingWakeVisited != 0u ||
                  candidate >= static_cast<int>( m_sleepState.size() ) || m_sleepState[candidate] == 0 ||
                  IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), candidate ) ||
                  IsUnderwaterSleepLocked( modelCount, candidate ) ||
@@ -295,7 +303,7 @@ void PhysicsSleepController::WakeRestingContactIsland( const PhysicsSleepWakeCon
             {
                 continue;
             }
-            m_restingWakeVisitedScratch[static_cast<std::size_t>( candidate )] = 1;
+            m_sleepScratchFlags[static_cast<std::size_t>( candidate )].restingWakeVisited = 1u;
             m_restingWakeQueueScratch.push_back( candidate );
             WakeDynamicBodyState( context, candidate, dt, applyForces );
         }
