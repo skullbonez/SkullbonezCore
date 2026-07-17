@@ -97,9 +97,9 @@ round-6 denominator is 15 tasks.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
+| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 1 | 8 | 13% |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 4 | 7 | 57% |
-| **Active/future total** | **4** | **15** | **27%** |
+| **Active/future total** | **5** | **15** | **33%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -641,7 +641,7 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 0/8 | N0 census, per-file owner rulings, and the DX12 re-partition parking lift |
+| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 1/8 | N1 automation input-driver and report-writer extraction |
 | [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 4/7 | C4-C6 resume after SceneController and monolith closure per the priority path |
 
 ## Features

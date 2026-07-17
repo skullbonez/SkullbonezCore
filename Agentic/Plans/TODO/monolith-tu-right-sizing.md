@@ -1,8 +1,8 @@
 # Monolith Translation-Unit Right-Sizing — Finish What The Campaigns Declared Done
 
 Date: 2026-07-17
-Status: Active — 0/8 tasks
-Branch: owner decision at N0 (feature branch; never directly on `main`)
+Status: Active — 1/8 tasks
+Branch: `nightrunner-17th-july` (owner-ratified at N0)
 Impact area: `Runtime/Replay/ReplayPrediction.cpp`,
 `Runtime/InteractionAutomationController.cpp`,
 `Rendering/DX12/RenderBackendDX12.cpp/.h`, `Runtime/Replay/ReplayRecorder.cpp`,
@@ -58,7 +58,7 @@ mechanical split.
 
 ## Tasks
 
-- [ ] N0 — Census, rulings, and order. Regenerate the oversized-TU inventory
+- [x] N0 — Census, rulings, and order. Regenerate the oversized-TU inventory
   (product configs only), map each file's internal responsibility clusters
   with line-range evidence, and obtain per-file owner rulings: split targets,
   cohesion claims to test, and the DX12 parking lift. Ratify the branch.
@@ -113,6 +113,18 @@ mechanical split.
 - Every replay task consumes exactly one mega-gate invocation, one engine
   process, one prediction generation; a diff is a revert, never fix-forward.
 - Allocation-allowlist rows move with their code in the same commit.
+
+Owner-ratified N0 decisions (2026-07-17): use branch
+`nightrunner-17th-july`; use the complete 16-TU product inventory and current
+line-range map in
+`Agentic/Reports/2026-07-17/monolith-tu-right-sizing-census.md`; execute the N1
+automation input-driver/report-writer split and N3 window-interaction owner;
+record conditional cohesion decisions at N2/N5/N6 only after their fresh
+dependency passes; retain the dated cohesion rulings for the other ten TUs;
+and lift the Round-3 DX12 parking only for moving the existing frame/deferred-
+release owners and implementation-only declarations in N4. No baseline,
+golden, screenshot, artifact-format, frame-buffering, or behavior change is
+authorized.
 
 ## Acceptance
 

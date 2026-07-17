@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | SceneController ownership is closed; two Round-6 plans remain and baseline/golden refresh remains prohibited. |
 | Current objective | Complete monolith N0-N7, then red-flags C4-C6. |
-| Active/future progress | 4 / 15 live tasks (27%); red-flags C0-C3 complete. |
+| Active/future progress | 5 / 15 live tasks (33%); monolith N0 and red-flags C0-C3 complete. |
 | Last broad local gate | Scene T6 `validate_full` passed in 3m25s: project/filter inventories matched at 713 items, 282/282 tests and every ratified coverage floor passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. The single replay-fidelity invocation also passed in 7m16s. |
-| Validation for current edits | Monolith N0 is documentation-only; no repository validation is required. |
+| Validation for current edits | Monolith N1 maps to `tools\validate_full.bat`; defer the formal gate until commit preparation. |
 
 ## Live Queue
 
