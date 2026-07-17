@@ -1,7 +1,7 @@
 # Physics Broadphase Scale Attribution And Cell-Insertion Campaign
 
 Date: 2026-07-17
-Status: ACTIVE — B0 complete; execute B1-B4 in order
+Status: ACTIVE — B0-B1 complete; execute B2-B4 in order
 Owner: Physics broadphase (`PhysicsBroadphaseStage` and `SpatialGrid`)
 Branch: `nightrunner-16th-july`
 
@@ -115,7 +115,7 @@ before B3 changes it.
   - Register 1/5 in MASTER and SessionState. Documentation-only; no repository
     validation required.
 
-- [ ] **B1 — make accounting exclusive and expose bounded attribution facts.**
+- [x] **B1 — make accounting exclusive and expose bounded attribution facts.**
   - Replace the nested `GridBuild/{Scalar,Simd}Bounds` timing tree with direct,
     non-overlapping broadphase children: GridSetup, GridInsertScalar/Simd, and
     CandidatePairsScalar/Simd. Retain `Broadphase` only as the inclusive total.
@@ -130,6 +130,17 @@ before B3 changes it.
     `tools\validate_tests.bat`, `tools\validate_fast.bat`,
     `tools\validate_physics.bat`, `tools\validate_perf.bat`, and
     `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers`.
+  - Evidence (2026-07-17): the direct children are now `GridSetup`, one of
+    `GridInsertScalar/Simd`, and one of `CandidatePairsScalar/Simd`; the
+    reset-per-rebuild counters flow through opt-in SkullScope query schema 7.
+    Tests passed 285/285 with 21,419 assertions; fast validation passed with
+    zero-warning Profile/Debug builds; the focused query packet remained an
+    exact golden match; physics retained the byte-exact 44,401-line oracle;
+    performance completed with clean allocation/budget checks; and the bounded
+    two-frame platform-profiler launch exited 0. Touched-file comment audit:
+    7/7 checked, 0 deferred, 0 unchecked (checklist path N/A in touched-file
+    mode). The initial unbounded marker launch was interrupted after it exposed
+    the missing frame limit; the authoritative rerun used `--frames 2`.
 
 - [ ] **B2 — collect and publish scale attribution before optimizing.**
   - Generate fixed-seed Profile artifacts for 1,000 and 2,000 bodies with the

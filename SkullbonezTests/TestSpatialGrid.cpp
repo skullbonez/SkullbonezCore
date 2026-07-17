@@ -88,6 +88,19 @@ TEST_CASE( "SpatialGrid: insert/query returns a single deduplicated pair" )
     CHECK( grid.GetActiveCellCount() == 1 );
     REQUIRE( pairs.size() == 1 );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+
+    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
+    CHECK( stats.bodyInsertions == 2u );
+    CHECK( stats.exactAabbCellVisits == 2u );
+    CHECK( stats.sampledSweepCellVisits == 0u );
+    CHECK( stats.entryWrites == 2u );
+    CHECK( stats.duplicateRejections == 0u );
+    CHECK( stats.bucketChainEntriesInspected == 1u );
+    CHECK( stats.rawPairCombinations == 1u );
+    CHECK( stats.uniquePairs == 1u );
+    CHECK( stats.filterRejections == 0u );
+    CHECK( stats.emittedCandidates == 1u );
+    CHECK( stats.maxBucketOccupancy == 2 );
 }
 
 
@@ -133,6 +146,26 @@ TEST_CASE( "SpatialGrid: clear removes old generation contents from queries" )
 
     CHECK( grid.GetActiveCellCount() == 0 );
     CHECK( pairs.empty() );
+}
+
+
+TEST_CASE( "SpatialGrid: oversized sampled sweep attributes duplicate cell rejection" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.InsertSwept( 0, Vector3( 5.0f, 5.0f, 5.0f ), Vector3( 120.0f, 120.0f, 120.0f ), 6.0f );
+    grid.Insert( 1, Vector3( 125.0f, 125.0f, 125.0f ), 1.0f );
+
+    const auto pairs = CandidatePairs( grid, 64 );
+    const SpatialGrid::FrameStats stats = grid.GetFrameStats();
+
+    // Why: oversized sweeps sample overlapping sphere bounds along the grid
+    // traversal. Unlike exact AABB enumeration, these samples legitimately
+    // revisit cells and exercise the duplicate-aware insertion contract.
+    CHECK( HasPair( pairs, 0, 1 ) );
+    CHECK( stats.bodyInsertions == 2u );
+    CHECK( stats.sampledSweepCellVisits > 0u );
+    CHECK( stats.duplicateRejections > 0u );
+    CHECK( stats.sampledSweepCellVisits + stats.exactAabbCellVisits > stats.entryWrites );
 }
 
 
@@ -188,11 +221,10 @@ TEST_CASE( "Property invariant: prepared AABB insert/query round-trips including
         const Vector3 center( random.Float( -50.0f, 50.0f ),
                               random.Float( -50.0f, 50.0f ),
                               random.Float( -50.0f, 50.0f ) );
-        const Vector3 extent = ( sample % 8 == 0 )
-                                   ? Vector3( 0.0f, 0.0f, 0.0f )
-                                   : Vector3( random.Float( 0.0f, 4.0f ),
-                                              random.Float( 0.0f, 4.0f ),
-                                              random.Float( 0.0f, 4.0f ) );
+        const Vector3 extent =
+            ( sample % 8 == 0 )
+                ? Vector3( 0.0f, 0.0f, 0.0f )
+                : Vector3( random.Float( 0.0f, 4.0f ), random.Float( 0.0f, 4.0f ), random.Float( 0.0f, 4.0f ) );
         const Vector3 minimum = center - extent;
         const Vector3 maximum = center + extent;
 

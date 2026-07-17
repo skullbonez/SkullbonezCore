@@ -116,6 +116,24 @@ class SpatialGrid
     int objectCount;
     int activeBucketCount;
 
+    // Concept: one reset-per-rebuild value explains grid work without feeding
+    // decisions back into physics. The broadphase owner is serial, so these
+    // fixed-width counters need no atomics and allocate no runtime storage.
+    struct FrameStatsStorage
+    {
+        uint64_t bodyInsertions = 0;
+        uint64_t exactAabbCellVisits = 0;
+        uint64_t sampledSweepCellVisits = 0;
+        uint64_t entryWrites = 0;
+        uint64_t duplicateRejections = 0;
+        uint64_t bucketChainEntriesInspected = 0;
+        uint64_t rawPairCombinations = 0;
+        uint64_t uniquePairs = 0;
+        uint64_t filterRejections = 0;
+        uint64_t emittedCandidates = 0;
+        int maxBucketOccupancy = 0;
+    } frameStats;
+
     Bucket buckets[TABLE_SIZE];
     int activeBuckets[TABLE_SIZE];
     Entry entries[MAX_CELL_ENTRIES];
@@ -123,7 +141,10 @@ class SpatialGrid
 
     int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     void InsertCell( int index, int ix, int iy, int iz );
-    void InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
+    void
+    InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds, bool sampledSweep );
+    void
+    InsertSweptBounds( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -140,6 +161,23 @@ class SpatialGrid
     {
         int16_t ix, iy, iz;
         int objectCount;
+    };
+
+    // Read-only, frame-local attribution. These counters describe work only;
+    // replay, candidate admission, and solver behavior never consume them.
+    struct FrameStats
+    {
+        uint64_t bodyInsertions = 0;
+        uint64_t exactAabbCellVisits = 0;
+        uint64_t sampledSweepCellVisits = 0;
+        uint64_t entryWrites = 0;
+        uint64_t duplicateRejections = 0;
+        uint64_t bucketChainEntriesInspected = 0;
+        uint64_t rawPairCombinations = 0;
+        uint64_t uniquePairs = 0;
+        uint64_t filterRejections = 0;
+        uint64_t emittedCandidates = 0;
+        int maxBucketOccupancy = 0;
     };
 
     SpatialGrid( float fCellSize );
@@ -171,6 +209,20 @@ class SpatialGrid
     int GetActiveCellCount() const
     {
         return activeBucketCount;
+    }
+    FrameStats GetFrameStats() const
+    {
+        return FrameStats{ frameStats.bodyInsertions,
+                           frameStats.exactAabbCellVisits,
+                           frameStats.sampledSweepCellVisits,
+                           frameStats.entryWrites,
+                           frameStats.duplicateRejections,
+                           frameStats.bucketChainEntriesInspected,
+                           frameStats.rawPairCombinations,
+                           frameStats.uniquePairs,
+                           frameStats.filterRejections,
+                           frameStats.emittedCandidates,
+                           frameStats.maxBucketOccupancy };
     }
     void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
 };

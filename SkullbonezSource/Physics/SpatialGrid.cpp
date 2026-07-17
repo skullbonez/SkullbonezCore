@@ -139,6 +139,7 @@ void SpatialGrid::Clear()
     entryPoolUsed = 0;
     objectCount = 0;
     activeBucketCount = 0;
+    frameStats = FrameStatsStorage{};
 }
 
 
@@ -200,6 +201,7 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     Bucket& b = buckets[bi];
     for ( int cur = b.head; cur != -1; cur = entries[cur].next )
     {
+        ++frameStats.bucketChainEntriesInspected;
         assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
         if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
         {
@@ -207,6 +209,7 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
         }
         if ( entries[cur].objectIndex == index )
         {
+            ++frameStats.duplicateRejections;
             return;
         }
     }
@@ -222,12 +225,14 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     b.head = entryPoolUsed;
     ++entryPoolUsed;
     ++b.count;
+    ++frameStats.entryWrites;
+    frameStats.maxBucketOccupancy = (std::max)( frameStats.maxBucketOccupancy, b.count );
 }
 
 
 // Insert an object into all grid cells touched by an explicit AABB.
 // Bounds are inclusive after conversion to grid coordinates.
-void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds )
+void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds, bool sampledSweep )
 {
     assert( index >= 0 && "Insert: negative object index" );
     if ( index < 0 || index >= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
@@ -273,6 +278,14 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
         {
             for ( int iz = minZ; iz <= maxZ; ++iz )
             {
+                if ( sampledSweep )
+                {
+                    ++frameStats.sampledSweepCellVisits;
+                }
+                else
+                {
+                    ++frameStats.exactAabbCellVisits;
+                }
                 InsertCell( index, ix, iy, iz );
             }
         }
@@ -285,9 +298,11 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
 //   min = floor((P - R) / cellSize)  to  max = floor((P + R) / cellSize)
 void SpatialGrid::Insert( int index, const Vector3& position, float radius )
 {
+    ++frameStats.bodyInsertions;
     InsertBounds( index,
                   Vector3( position.x - radius, position.y - radius, position.z - radius ),
-                  Vector3( position.x + radius, position.y + radius, position.z + radius ) );
+                  Vector3( position.x + radius, position.y + radius, position.z + radius ),
+                  false );
 }
 
 
@@ -295,6 +310,13 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
 // Narrowphase still computes the exact time-of-impact; this only prevents the
 // broadphase from skipping a fast body that starts outside the target cell.
 void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius )
+{
+    ++frameStats.bodyInsertions;
+    InsertSweptBounds( index, position, displacement, radius );
+}
+
+
+void SpatialGrid::InsertSweptBounds( int index, const Vector3& position, const Vector3& displacement, float radius )
 {
     const Vector3 endPosition = position + displacement;
     const Vector3 minBounds( (std::min)( position.x, endPosition.x ) - radius,
@@ -325,14 +347,17 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     {
         // For normal fast movers, the swept bounding box is still small enough
         // to insert exactly. That covers every cell touched between start and end.
-        InsertBounds( index, minBounds, maxBounds );
+        InsertBounds( index, minBounds, maxBounds, false );
         return;
     }
 
     const float distanceSq = displacement * displacement;
     if ( distanceSq <= TOLERANCE )
     {
-        Insert( index, position, radius );
+        InsertBounds( index,
+                      Vector3( position.x - radius, position.y - radius, position.z - radius ),
+                      Vector3( position.x + radius, position.y + radius, position.z + radius ),
+                      false );
         return;
     }
 
@@ -389,7 +414,10 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     axisTraversal( position.y, displacement.y, cy, stepY, tMaxY, tDeltaY );
     axisTraversal( position.z, displacement.z, cz, stepZ, tMaxZ, tDeltaZ );
 
-    Insert( index, position, radius );
+    InsertBounds( index,
+                  Vector3( position.x - radius, position.y - radius, position.z - radius ),
+                  Vector3( position.x + radius, position.y + radius, position.z + radius ),
+                  true );
     int visitedCells = 0;
     while ( ( cx != endX || cy != endY || cz != endZ ) && visitedCells < MAX_SWEPT_TRAVERSED_CELLS )
     {
@@ -412,11 +440,18 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
         }
 
         const float t = (std::max)( 0.0f, (std::min)( 1.0f, nextT ) );
-        Insert( index, position + displacement * t, radius );
+        const Vector3 samplePosition = position + displacement * t;
+        InsertBounds( index,
+                      Vector3( samplePosition.x - radius, samplePosition.y - radius, samplePosition.z - radius ),
+                      Vector3( samplePosition.x + radius, samplePosition.y + radius, samplePosition.z + radius ),
+                      true );
         ++visitedCells;
     }
 
-    Insert( index, endPosition, radius );
+    InsertBounds( index,
+                  Vector3( endPosition.x - radius, endPosition.y - radius, endPosition.z - radius ),
+                  Vector3( endPosition.x + radius, endPosition.y + radius, endPosition.z + radius ),
+                  true );
 }
 
 
@@ -428,6 +463,7 @@ void SpatialGrid::InsertPreparedBounds( int index,
                                         const Vector3& maxBounds,
                                         bool swept )
 {
+    ++frameStats.bodyInsertions;
     if ( swept )
     {
         // Why: most swept rows fit the exact-AABB budget and can consume the
@@ -449,11 +485,11 @@ void SpatialGrid::InsertPreparedBounds( int index,
                                    cellCountX * cellCountY * cellCountZ <= MAX_SWEPT_AABB_CELLS;
         if ( !exactAabbFits )
         {
-            InsertSwept( index, position, displacement, radius );
+            InsertSweptBounds( index, position, displacement, radius );
             return;
         }
     }
-    InsertBounds( index, minBounds, maxBounds );
+    InsertBounds( index, minBounds, maxBounds, false );
 }
 
 
@@ -470,6 +506,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                                      const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
 {
     outPairs.clear();
+    frameStats.rawPairCombinations = 0;
+    frameStats.uniquePairs = 0;
+    frameStats.filterRejections = 0;
+    frameStats.emittedCandidates = 0;
 
     // Dedup bits are frame-local; stale bits would hide candidate pairs.
     assert( objectCount >= 0 && objectCount <= SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS && "objectCount OOB" );
@@ -495,6 +535,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
             SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair reserve exhausted" );
         }
         outPairs.emplace_back( a, b );
+        ++frameStats.emittedCandidates;
     };
     auto flushPendingPairs = [&]()
     {
@@ -514,6 +555,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
             if ( ( accepted & ( 1u << lane ) ) != 0u )
             {
                 appendPair( pendingPairs[lane].first, pendingPairs[lane].second );
+            }
+            else
+            {
+                ++frameStats.filterRejections;
             }
         }
         pendingPairCount = 0;
@@ -568,6 +613,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         {
             for ( int j = i + 1; j < cellCount; ++j )
             {
+                ++frameStats.rawPairCombinations;
                 int a = cellIndices[i];
                 int bIdx = cellIndices[j];
 
@@ -602,6 +648,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                 if ( !( pairSeen[word] & bit ) )
                 {
                     pairSeen[word] |= bit;
+                    ++frameStats.uniquePairs;
                     if ( filter && filter->simdKernels )
                     {
                         pendingPairs[pendingPairCount++] = std::pair<int, int>( a, bIdx );
@@ -613,6 +660,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                     }
                     if ( filter && !SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, bIdx ) )
                     {
+                        ++frameStats.filterRejections;
                         continue;
                     }
                     appendPair( a, bIdx );

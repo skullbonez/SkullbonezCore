@@ -329,7 +329,10 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         context.config.physicsExecution.simdKernels,
     };
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild" );
+        // Invariant: Broadphase is the inclusive owner marker. Every direct
+        // child below is mutually exclusive so reports can sum children once
+        // without adding a nested interval a second time.
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridSetup" );
         float largestBroadphaseRadius = 0.0f;
         for ( int i = 0; i < context.modelCount; ++i )
         {
@@ -348,66 +351,66 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_spatialGrid.SetCellSize( (std::min)( configuredCell, sceneCell ) );
         m_spatialGrid.Clear();
         m_collisionCellKeys.clear();
-        if ( context.config.physicsExecution.simdKernels )
+    }
+    if ( context.config.physicsExecution.simdKernels )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridInsertSimd" );
+        for ( int bodyBegin = 0; bodyBegin < context.modelCount; bodyBegin += Kernels::BROADPHASE_LANE_COUNT )
         {
-            PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild/SimdBounds" );
-            for ( int bodyBegin = 0; bodyBegin < context.modelCount; bodyBegin += Kernels::BROADPHASE_LANE_COUNT )
+            Kernels::BroadphaseBoundsBlock bounds;
+            Kernels::BuildBroadphaseBoundsAvx2( context.hotFields,
+                                                context.colliderRecords,
+                                                bodyBegin,
+                                                context.modelCount,
+                                                context.dt,
+                                                context.contactSkin,
+                                                bounds );
+            for ( int lane = 0; lane < Kernels::BROADPHASE_LANE_COUNT; ++lane )
             {
-                Kernels::BroadphaseBoundsBlock bounds;
-                Kernels::BuildBroadphaseBoundsAvx2( context.hotFields,
-                                                    context.colliderRecords,
-                                                    bodyBegin,
-                                                    context.modelCount,
-                                                    context.dt,
-                                                    context.contactSkin,
-                                                    bounds );
-                for ( int lane = 0; lane < Kernels::BROADPHASE_LANE_COUNT; ++lane )
+                if ( ( bounds.validBits & ( 1u << lane ) ) == 0u )
                 {
-                    if ( ( bounds.validBits & ( 1u << lane ) ) == 0u )
-                    {
-                        continue;
-                    }
-                    const int bodyIndex = bodyBegin + lane;
-                    m_spatialGrid.InsertPreparedBounds(
-                        bodyIndex,
-                        SolverBodyPosition( context.hotFields, bodyIndex ),
-                        Vector3( bounds.displacementX[lane], bounds.displacementY[lane], bounds.displacementZ[lane] ),
-                        bounds.radius[lane],
-                        Vector3( bounds.minX[lane], bounds.minY[lane], bounds.minZ[lane] ),
-                        Vector3( bounds.maxX[lane], bounds.maxY[lane], bounds.maxZ[lane] ),
-                        ( bounds.sweptBits & ( 1u << lane ) ) != 0u );
+                    continue;
                 }
+                const int bodyIndex = bodyBegin + lane;
+                m_spatialGrid.InsertPreparedBounds(
+                    bodyIndex,
+                    SolverBodyPosition( context.hotFields, bodyIndex ),
+                    Vector3( bounds.displacementX[lane], bounds.displacementY[lane], bounds.displacementZ[lane] ),
+                    bounds.radius[lane],
+                    Vector3( bounds.minX[lane], bounds.minY[lane], bounds.minZ[lane] ),
+                    Vector3( bounds.maxX[lane], bounds.maxY[lane], bounds.maxZ[lane] ),
+                    ( bounds.sweptBits & ( 1u << lane ) ) != 0u );
             }
         }
-        else
+    }
+    else
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridInsertScalar" );
+        for ( int i = 0; i < context.modelCount; ++i )
         {
-            PROFILE_SCOPED( "Frame/Physics/Broadphase/GridBuild/ScalarBounds" );
-            for ( int i = 0; i < context.modelCount; ++i )
+            const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;
+            const Vector3 displacement =
+                PhysicsBodyLinearVelocity( context.hotFields, static_cast<size_t>( i ) ) * context.dt;
+            const float displacementSq = Vector::VectorMagSquared( displacement );
+            if ( !IsSolverBodyFixed( context.hotFields, i ) && displacementSq > radius * radius )
             {
-                const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;
-                const Vector3 displacement =
-                    PhysicsBodyLinearVelocity( context.hotFields, static_cast<size_t>( i ) ) * context.dt;
-                const float displacementSq = Vector::VectorMagSquared( displacement );
-                if ( !IsSolverBodyFixed( context.hotFields, i ) && displacementSq > radius * radius )
-                {
-                    m_spatialGrid.InsertSwept( i, SolverBodyPosition( context.hotFields, i ), displacement, radius );
-                }
-                else
-                {
-                    m_spatialGrid.Insert( i, SolverBodyPosition( context.hotFields, i ), radius );
-                }
+                m_spatialGrid.InsertSwept( i, SolverBodyPosition( context.hotFields, i ), displacement, radius );
+            }
+            else
+            {
+                m_spatialGrid.Insert( i, SolverBodyPosition( context.hotFields, i ), radius );
             }
         }
-        if ( context.config.physicsExecution.simdKernels )
-        {
-            PROFILE_SCOPED( "Frame/Physics/Broadphase/NarrowphasePruneSimd" );
-            m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
-        }
-        else
-        {
-            PROFILE_SCOPED( "Frame/Physics/Broadphase/NarrowphasePruneScalar" );
-            m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
-        }
+    }
+    if ( context.config.physicsExecution.simdKernels )
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/CandidatePairsSimd" );
+        m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
+    }
+    else
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/CandidatePairsScalar" );
+        m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
     }
 
     {

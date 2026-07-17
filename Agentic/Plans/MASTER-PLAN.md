@@ -95,8 +95,8 @@ closed. Completed historical campaigns are excluded under commit-contract rule
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | physics-soa-simd-1000-bodies (PAUSED after S6; owner rejected S7 on current evidence) | 7 | 9 | 78% |
-| physics-broadphase-scale-attribution | 1 | 5 | 20% |
-| **Active/future total** | **8** | **14** | **57%** |
+| physics-broadphase-scale-attribution | 2 | 5 | 40% |
+| **Active/future total** | **9** | **14** | **64%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -129,13 +129,14 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The active priority is `physics-broadphase-scale-attribution` B1-B4. The final
+The active priority is `physics-broadphase-scale-attribution` B2-B4. The final
 packed-source gate measures 0.9652 ms Physics Step / 0.2731 ms inclusive
 Broadphase at 1,000 bodies and 7.5576 / 6.5069 ms at 2,000. The old nested
-`GridBuild/ScalarBounds` row includes insertion and cannot attribute the cliff
-to bounds arithmetic. B1 first replaces the nested accounting with mutually
-exclusive direct child markers and allocation-free grid counters; B2 publishes
-the measured attribution; B3 implements the selected algorithmic fix; B4
+`GridBuild/ScalarBounds` row included insertion and could not attribute the cliff
+to bounds arithmetic. B1 replaced it with mutually exclusive `GridSetup`,
+`GridInsertScalar/Simd`, and `CandidatePairsScalar/Simd` children and added
+allocation-free grid counters; B2 publishes the measured attribution; B3
+implements the selected algorithmic fix; B4
 closes with repeated same-tip evidence and independent review. The campaign
 does not authorize S7, a toggle-default change, or any baseline/golden refresh.
 
@@ -561,7 +562,7 @@ reconciliation.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-broadphase-scale-attribution](TODO/physics-broadphase-scale-attribution.md) | Active; B0 registered the corrected accounting and evidence contract | 1/5 | B1: exclusive markers plus bounded grid counters |
+| [physics-broadphase-scale-attribution](TODO/physics-broadphase-scale-attribution.md) | Active; B0-B1 registered and implemented corrected accounting plus bounded counters | 2/5 | B2: publish fixed-seed marker/counter attribution before optimizing |
 | [physics-soa-simd-1000-bodies](TODO/physics-soa-simd-1000-bodies.md) | Paused at 7/9; owner rejected S7 on current evidence | 7/9 | Do not start S7; only a fresh owner direction may reopen it |
 | [replay-mass-reduction](../Reports/2026-07-16/replay-mass-reduction-closure.md) | Complete | 9/9 + R8 | Product compilation is -1 TU/-2,354 lines; exact artifact SHA, clear review, and final tests/full/perf/allocation/mega gates are closed |
 
