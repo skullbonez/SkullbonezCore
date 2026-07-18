@@ -1,8 +1,8 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 1/8 tasks (P0 complete; P1 next under the owner-clarified
-determinism-transition rules below)
+Status: Blocked — 1/8 tasks (P0 complete; P1 implementation and required core
+evidence pass, but two exact transition artifacts await owner approval)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -296,6 +296,23 @@ explained or the task is not done.
     Gauss-Seidel solving, not emitter-set loss. This causal evidence is why
     independently evolved pair-set equality is now expected to fail while
     same-state emitter and solver-visible membership remains mandatory.
+  - 2026-07-18 checkpoint: the final same-state dual-driver oracle passed raw
+    and final membership for all six scenes in both driver directions over 360
+    ticks. The complete 0/1/4-worker matrix is byte-identical, the focused
+    SpatialGrid tests pass, and final-source `validate_perf` and
+    `validate_physics` pass. The canonical transition moved only the authorized
+    varied and known-issue physics baselines so far.
+  - **Owner-gated blocker:** the one-process replay visual-fidelity run passes
+    behavior and reports only the expected transition mismatch
+    `causal.topologyCount: 199 -> 200`; committing that golden still requires
+    explicit per-instance approval. The mechanically regenerated
+    `physics_query_varied.json` also changes because the authorized varied CSV
+    changed (`supported_rows: 617 -> 621` plus derived event identities and
+    floats), but the P1 artifact policy currently authorizes no other baseline
+    class. Neither artifact is moved until the owner approves it or amends the
+    policy. Per owner direction, this true blocker is recorded and execution
+    continues on the independent ImGui/Tracy campaign rather than falsely
+    checking P1 complete.
 
 - [ ] P2 — Persistent incremental grid.
   - Implementation: retire the per-frame generation bump as the rebuild

@@ -19,6 +19,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Canonical pair order: Ascending normalized `(minIndex, maxIndex)` order,
+  independent of cell-bucket discovery history.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -27,6 +29,8 @@ Invariants:
     float-to-cell conversion.
   - One 8,192-row table owns every live cell; the next unique cell is a Lane F
     failure because dropping it could hide a collision.
+  - Candidate discovery may follow bucket/list order, but solver-visible output
+    is canonical and uses fixed-capacity staging owned by this grid.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -60,8 +64,9 @@ namespace CollisionDetection
 ------------------------------------------------------------------------------------------------------------------------------------------
 
     Zero-allocation uniform spatial grid for broadphase collision detection.  Uses open-addressing hash table with
-    generation stamping (no per-frame clearing) and a flat index pool with linked lists per cell.  Pair deduplication
-    via triangular bit array.  Complexity: O(n + k) where n = objects and k = candidate pairs.
+    generation stamping (no per-frame clearing) and a flat index pool with linked lists per cell. Pair deduplication
+    uses a triangular bit array; fixed radix staging emits ascending normalized pairs independent of discovery order.
+    Complexity: O(n + k) where n = objects and k = candidate pairs.
     No heap allocations after construction.
 
     Layman version:
@@ -94,6 +99,7 @@ class SpatialGrid
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
+    static constexpr int MAX_CANDIDATE_PAIRS = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
     static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
                                             ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2 +
                                         63 ) /
@@ -114,6 +120,12 @@ class SpatialGrid
         int16_t ix, iy, iz;  // Cell grid coordinates (stored for visualization)
     };
 
+    struct CandidatePairNode
+    {
+        int maxIndex; // Larger normalized body index for one accepted pair.
+        int next;     // Next node with the same smaller body index; -1 ends the list.
+    };
+
     float cellSize;
     float inverseCellSize;
     uint32_t generation;
@@ -125,10 +137,21 @@ class SpatialGrid
     int activeBuckets[TABLE_SIZE];
     Entry entries[MAX_CELL_ENTRIES];
     uint64_t pairSeen[PAIR_WORDS];
+    // Canonical pair staging is fixed storage owned by the grid. Cell traversal
+    // may discover pairs in any bucket/list order, but emission is always sorted
+    // by normalized body identity before narrowphase sees it.
+    int candidatePairHeads[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+    CandidatePairNode candidatePairNodes[MAX_CANDIDATE_PAIRS];
+    int candidatePairSortKeys[MAX_CANDIDATE_PAIRS];
+    int candidatePairSortScratch[MAX_CANDIDATE_PAIRS];
 
     int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     void InsertCell( int index, int ix, int iy, int iz );
     void InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
+    void ResetCandidatePairDedup();
+    bool MarkCandidatePairFirstSeen( int a,
+                                     int b,
+                                     const Physics::BroadphaseCandidateFilterContext* filter );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -155,10 +178,19 @@ class SpatialGrid
     void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
-    // Emits deduplicated cell-sharing pairs. A filter can reject a known-safe
-    // false positive before it is appended, but narrowphase still owns contacts.
+    // Emits deduplicated cell-sharing pairs in ascending normalized body-index
+    // order. A filter can reject a known-safe false positive before it is
+    // staged, but narrowphase still owns contacts.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                             const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
+#if defined( _DEBUG )
+    // P1 transition oracle only: emits the pre-transition bucket-history order
+    // from the same grid state so Debug runs can compare work membership without
+    // evolving a second simulation.
+    void GetCandidatePairsLegacyForOracle(
+        std::vector<std::pair<int, int>>& outPairs,
+        const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
+#endif
     float GetCellSize() const
     {
         return cellSize;

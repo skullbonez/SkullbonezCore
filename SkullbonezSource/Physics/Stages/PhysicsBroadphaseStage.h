@@ -15,10 +15,14 @@ Glossary:
   Fast-sweep augmentation: Conservative segment check that protects tiny,
     high-speed bodies from depending only on grid-cell overlap.
   Collision-cell key: Deterministic diagnostic hash of a contact midpoint cell.
+  Same-state oracle: Debug-only comparison that runs legacy and canonical pair
+    construction from one broadphase input state before either can evolve it.
 
 Invariants:
-  - Candidate order, pruning order, profiler markers, and trace emission order
-    match the certified P0 PhysicsWorld implementation.
+  - Solver-visible candidates use the P1 canonical `(minIndex, maxIndex)`
+    order; rare fast-sweep additions are re-canonicalized before pruning.
+  - Pruning predicates and pipeline-trace side effects keep their established
+    per-pair order after that explicit canonical transition.
   - Returned spans remain valid only until the next Run or Clear call.
   - Candidate and collision-key vectors are reserved at construction and never
     grow beyond their fixed runtime capacities.
@@ -79,6 +83,16 @@ class PhysicsBroadphaseStage
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
     std::vector<std::pair<int, int>> m_candidatePairs;
     std::vector<int64_t> m_collisionCellKeys;
+#if defined( _DEBUG )
+    // P1 same-state transition oracle. These buffers are construction-reserved,
+    // included in Debug memory accounting, and absent from Release's canonical
+    // production path.
+    std::vector<std::pair<int, int>> m_pairOracleShadowPairs;
+    std::vector<std::pair<int, int>> m_pairOracleNormalizedDriverPairs;
+    bool m_pairOracleEnabled = false;
+    bool m_pairOracleLegacyDrives = false;
+    uint64_t m_pairOracleTickCount = 0;
+#endif
 
   public:
     PhysicsBroadphaseStage();

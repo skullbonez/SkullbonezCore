@@ -11,26 +11,21 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-18th-july` |
-| Current baseline | Physics scale P0 is complete with zero baseline, golden, screenshot, authored-format, or coverage-floor refresh. |
-| Current objective | Obtain the explicit P1 protocol amendment for two-driver same-state raw/final pair equivalence; P2-P7 cannot cross the dependency barrier. |
-| Active/future progress | 1 / 8 live tasks; 13%. |
-| Last broad local gate | P0 `validate_full` passed in approximately 132s: 292/292 tests, 21,458 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, screenshots, and byte-exact physics passed. |
-| Validation for current edits | Same-binary legacy/canonical runs place deterministic state divergence at row/frame 102 and candidate-set drift at tick 152. Independent read-only review says protocol revision is technically required. Source remains reverted; final edits are documentation-only, so no repository validation is required. |
+| Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
+| Current objective | Execute ImGui/Tracy E0 while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 1 / 26 live tasks; 4%. |
+| Last broad local gate | P1 final-source `validate_perf` and `validate_physics` passed; Debug/Profile/Automation builds reported zero warnings/errors, focused SpatialGrid tests passed 8/8, and every required 0/1/4-worker CSV was byte-identical. |
+| Validation for current edits | P1's 12-run same-state oracle passed raw/final membership at 360 ticks. The one-process replay gate has one owner-gated topology-golden mismatch (199 -> 200), and the deep lane requires an out-of-policy mechanically derived query golden. E0 is documentation-only. |
 
 ## Live Queue
 
-NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
-     (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
-     parallel-eligible physics lane (persistent broadphase, zero-cost
-     sleepers, bandwidth diet, owner-gated graph-colored solver). P0 is
-     complete at 1/8. P1 is owner-blocked: five six-scene probe captures matched,
-     but `physics_bench_varied` differed at fixed ticks 152 and 332 because pair
-     `(18,20)` disappeared after canonical solver history. The implementation
-     and probe were reverted and no artifact moved. P2-P7 cannot cross the P1
-     dependency barrier. Same-binary causal evidence and independent review now
-     narrow the required owner amendment to two-driver same-state comparison of
-     raw and final normalized sets. P6 is not pre-authorized and still returns
-     to an owner decision at P5. Evidence:
+NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
+     remains 1/8: its canonical source, 12-run same-state oracle, 18-run worker
+     matrix, focused tests, perf gate, core physics gate, and authorized physics
+     baselines pass, but replay topology 199 -> 200 and the derived varied-query
+     golden require exact owner authority. Under the owner's continue-on-blocker
+     direction, ImGui/Tracy is active at E0 (0/18) for the documentation-only
+     coexistence inventory. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four

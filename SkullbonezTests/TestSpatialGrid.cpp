@@ -14,10 +14,12 @@
 //     cell and still need narrowphase testing.
 //   Generation clear: O(1) clear that marks old buckets stale instead of
 //     zeroing the whole table.
+//   Canonical pair order: Ascending `(smaller index, larger index)` order that
+//     is independent of the order in which cells discover the pair.
 //
 // Invariants:
 //   - Output pair vectors must reserve capacity before GetCandidatePairs().
-//   - Candidate pairs are normalized as (smaller index, larger index).
+//   - Candidate pairs are normalized and emitted in ascending canonical order.
 //   - Clear() is the public removal path; there is no per-object remove API.
 //
 // Related:
@@ -172,6 +174,27 @@ TEST_CASE( "SpatialGrid: one degenerate cell emits every unique pair once" )
             CHECK( HasPair( pairs, a, b ) );
         }
     }
+}
+
+
+TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertion history" )
+{
+    SpatialGrid& grid = TestGrid();
+    constexpr int insertionOrder[] = { 3, 1, 4, 0, 2 };
+    for ( int body : insertionOrder )
+    {
+        grid.Insert( body, Vector3( 5.0f, 5.0f, 5.0f ), 0.1f );
+    }
+
+    const auto pairs = CandidatePairs( grid );
+    const std::vector<std::pair<int, int>> expected = {
+        { 0, 1 }, { 0, 2 }, { 0, 3 }, { 0, 4 }, { 1, 2 },
+        { 1, 3 }, { 1, 4 }, { 2, 3 }, { 2, 4 }, { 3, 4 },
+    };
+
+    // Invariant: solver work order is a function of normalized body identity,
+    // never the bucket-creation or linked-list order used to discover a pair.
+    CHECK( pairs == expected );
 }
 
 

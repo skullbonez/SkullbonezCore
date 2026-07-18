@@ -187,25 +187,17 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is the active plan. P0 is
-complete at 1/8 with the sleeping-heavy 5,000-body scene, fixed before matrix,
-capacity propagation, profiler counters, 0/1/4-worker determinism, mapped
-gates, comment audit, and independent review recorded in
-`../Reports/2026-07-18/body-count-scale-measurements.md`. Begin P1 with the
-Debug-only same-state dual-driver candidate-pair oracle: normalized raw and
-final solver-visible pair membership must match on identical input state in
-both driver directions across all six scenes. Independently evolved legacy and
-canonical runs are expected to diverge after their solver order changes. Only
-after the same-state oracle passes may P1 transition affected physics baselines;
-the replay golden still requires explicit per-instance owner approval. P6 is
-pre-authorized only when the binding P5 measurement trigger passes. A false
-trigger, failed P6 oracle/gate, unavailable per-instance replay-golden approval,
-or immaterial measured gain parks P6 as a completed deferred outcome and
-continues directly to P7 without changing the eight-task denominator. Every
-other task keeps zero behavioral-artifact refresh.
+`physics-body-count-scale-campaign` (P0-P7) is blocked at P1 and remains 1/8.
+The canonical emitter, Debug-only same-state dual-driver raw/final oracle,
+0/1/4 worker matrix, focused tests, `validate_perf`, and `validate_physics` all
+pass from final source. Two transition artifacts remain owner-gated: the
+one-process replay run's sole `causal.topologyCount: 199 -> 200` golden change,
+and the mechanically derived `physics_query_varied.json` update that is outside
+P1's current allowed baseline classes. Neither artifact is committed and P1 is
+not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is the next plan and begins only after
-physics P7 closes. It adds a development-only ImGui docked editor and Tracy
+`imgui-tracy-editor-campaign` (E0-E17) is active at E0 under the owner's
+direction to note genuine blockers and continue. It adds a development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
 comparison. The default is editor-heavy on the left, game viewport centered,
 Inspector/World/Rendering/Diagnostics plus compact Causality on the right, and
@@ -792,7 +784,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 ready | 1/8 | Resume canonical pair-order implementation with the owner-clarified same-state dual-driver raw/final membership oracle; transition only affected physics baselines after it passes, and refresh the replay golden only with explicit per-instance approval |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Blocked — P1 owner-gated | 1/8 | Await exact approval for replay topology 199 -> 200 and the mechanically derived `physics_query_varied.json`; retain the validated canonical implementation and authorized physics baselines |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 
@@ -819,7 +811,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Future | 0/18 | Begin E0 only after `physics-body-count-scale-campaign` P7 closes |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0 | 0/18 | Inventory the complete legacy interaction surface under the owner's continue-on-blocker exception |
 
 ## Features
 

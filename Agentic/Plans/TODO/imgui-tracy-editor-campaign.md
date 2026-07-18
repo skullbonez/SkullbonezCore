@@ -1,6 +1,7 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Future — starts only after `physics-body-count-scale-campaign` closes
+Status: Active — E0 starts under the owner's continue-on-blocker direction
+while physics P1 awaits two explicit transition-artifact approvals
 Owner direction: 2026-07-18
 Ledger: E0-E17 (0/18 complete)
 

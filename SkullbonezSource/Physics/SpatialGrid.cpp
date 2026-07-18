@@ -421,20 +421,8 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 }
 
 
-// Collect all candidate collision pairs from the grid.
-// For each bucket with 2+ objects, generate all (i,j) pairs from that cell.
-// Uses a bitset to deduplicate (a ball in multiple cells would otherwise
-// generate the same pair multiple times).
-//
-// Output: vector of (indexA, indexB) pairs where A < B.
-// These pairs still need NARROW-PHASE testing (actual sphere overlap check).
-// The optional typed filter is deterministic broadphase value logic applied
-// before vector append; no callback or erased owner state enters the hot loop.
-void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                                     const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+void SpatialGrid::ResetCandidatePairDedup()
 {
-    outPairs.clear();
-
     // Dedup bits are frame-local; stale bits would hide candidate pairs.
     assert( objectCount >= 0 && objectCount <= SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS &&
             "objectCount OOB" );
@@ -449,8 +437,53 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         wordsNeeded = PAIR_WORDS;
     }
     memset( pairSeen, 0, wordsNeeded * sizeof( uint64_t ) );
+}
 
-    // Iterate only buckets that were actually touched this frame.
+
+bool SpatialGrid::MarkCandidatePairFirstSeen(
+    int a,
+    int b,
+    const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+{
+    // Triangular index: b*(b-1)/2 + a (requires the normalized a < b pair).
+    assert( a >= 0 && a < b && b < objectCount && "candidate pair identity out of bounds" );
+    if ( a < 0 || a >= b || b >= objectCount )
+    {
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair identity out of bounds" );
+    }
+    const int pairIndex = b * ( b - 1 ) / 2 + a;
+    const int word = pairIndex >> 6;
+    assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
+    if ( word < 0 || word >= PAIR_WORDS )
+    {
+        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair dedup index out of bounds" );
+    }
+    const uint64_t bit = uint64_t( 1 ) << ( pairIndex & 63 );
+    if ( pairSeen[word] & bit )
+    {
+        return false;
+    }
+
+    pairSeen[word] |= bit;
+    return !filter || SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, b );
+}
+
+
+// Concept: discovery order is not solver order.
+//
+// Buckets and their linked lists are storage details whose order changes when
+// the grid becomes persistent. Each newly discovered pair is therefore staged
+// under its smaller body index, radix-sorted by its larger index, and only then
+// emitted. The result is the history-free (minIndex,maxIndex) order that P1
+// makes the byte-exact baseline for later broadphase work.
+void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
+                                     const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+{
+    outPairs.clear();
+    ResetCandidatePairDedup();
+    std::fill_n( candidatePairHeads, objectCount, -1 );
+    int candidatePairNodeCount = 0;
+
     for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
     {
         int bi = activeBuckets[activeIndex];
@@ -515,39 +548,150 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                     bIdx = tmp;
                 }
 
-                // Triangular index: bIdx*(bIdx-1)/2 + a  (requires a < bIdx)
-                assert( a < bIdx && "pair ordering violated: a must be less than bIdx" );
-                if ( a >= bIdx )
+                if ( !MarkCandidatePairFirstSeen( a, bIdx, filter ) )
                 {
-                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair ordering violated" );
+                    continue;
                 }
-                int pairIdx = bIdx * ( bIdx - 1 ) / 2 + a;
-                int word = pairIdx >> 6;
-                assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
-                if ( word < 0 || word >= PAIR_WORDS )
-                {
-                    SB_FATAL( "Physics/SpatialGrid", "SpatialGrid pair dedup index out of bounds" );
-                }
-                uint64_t bit = uint64_t( 1 ) << ( pairIdx & 63 );
 
-                if ( !( pairSeen[word] & bit ) )
+                const size_t callerCapacity = outPairs.capacity();
+                if ( candidatePairNodeCount >= MAX_CANDIDATE_PAIRS ||
+                     static_cast<size_t>( candidatePairNodeCount ) >= callerCapacity )
                 {
-                    pairSeen[word] |= bit;
-                    if ( filter && !SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, bIdx ) )
-                    {
-                        continue;
-                    }
-                    assert( outPairs.size() < outPairs.capacity() && "SpatialGrid candidate pair reserve exhausted" );
-                    if ( outPairs.size() >= outPairs.capacity() )
-                    {
-                        SB_FATAL( "Physics/SpatialGrid", "SpatialGrid candidate pair reserve exhausted" );
-                    }
-                    outPairs.emplace_back( a, bIdx );
+                    // Lane F: growing or dropping the list would respectively
+                    // violate the runtime allocation policy or hide a collision.
+                    SB_FATAL( "Physics/SpatialGrid",
+                              "Canonical candidate list exhausted: owner=Physics/SpatialGrid "
+                              "capacity=%zu fixed_capacity=%d high_water=%d phase=steady_gameplay.",
+                              callerCapacity,
+                              MAX_CANDIDATE_PAIRS,
+                              candidatePairNodeCount );
                 }
+                candidatePairNodes[candidatePairNodeCount] = CandidatePairNode{ bIdx, candidatePairHeads[a] };
+                candidatePairHeads[a] = candidatePairNodeCount++;
+            }
+        }
+    }
+
+    // Two stable radix passes sort each per-minimum list across the 13 bits of
+    // the supported 8,192-body index. Total work is proportional to bodies plus
+    // accepted pairs and uses only the grid's fixed staging arrays.
+    for ( int minIndex = 0; minIndex < objectCount; ++minIndex )
+    {
+        int pairCount = 0;
+        for ( int nodeIndex = candidatePairHeads[minIndex]; nodeIndex != -1;
+              nodeIndex = candidatePairNodes[nodeIndex].next )
+        {
+            candidatePairSortKeys[pairCount++] = candidatePairNodes[nodeIndex].maxIndex;
+        }
+        if ( pairCount == 0 )
+        {
+            continue;
+        }
+
+        int lowCounts[128] = {};
+        int lowOffsets[128] = {};
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            ++lowCounts[candidatePairSortKeys[pairIndex] & 0x7f];
+        }
+        for ( int digit = 1; digit < 128; ++digit )
+        {
+            lowOffsets[digit] = lowOffsets[digit - 1] + lowCounts[digit - 1];
+        }
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            const int value = candidatePairSortKeys[pairIndex];
+            candidatePairSortScratch[lowOffsets[value & 0x7f]++] = value;
+        }
+
+        int highCounts[64] = {};
+        int highOffsets[64] = {};
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            ++highCounts[( candidatePairSortScratch[pairIndex] >> 7 ) & 0x3f];
+        }
+        for ( int digit = 1; digit < 64; ++digit )
+        {
+            highOffsets[digit] = highOffsets[digit - 1] + highCounts[digit - 1];
+        }
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            const int value = candidatePairSortScratch[pairIndex];
+            candidatePairSortKeys[highOffsets[( value >> 7 ) & 0x3f]++] = value;
+        }
+        for ( int pairIndex = 0; pairIndex < pairCount; ++pairIndex )
+        {
+            outPairs.emplace_back( minIndex, candidatePairSortKeys[pairIndex] );
+        }
+    }
+}
+
+
+#if defined( _DEBUG )
+void SpatialGrid::GetCandidatePairsLegacyForOracle(
+    std::vector<std::pair<int, int>>& outPairs,
+    const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+{
+    outPairs.clear();
+    ResetCandidatePairDedup();
+
+    for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
+    {
+        const int bucketIndex = activeBuckets[activeIndex];
+        assert( bucketIndex >= 0 && bucketIndex < TABLE_SIZE && "active bucket index OOB" );
+        if ( bucketIndex < 0 || bucketIndex >= TABLE_SIZE )
+        {
+            SB_FATAL( "Physics/SpatialGrid", "SpatialGrid active bucket index out of bounds" );
+        }
+        const Bucket& bucket = buckets[bucketIndex];
+        if ( bucket.generation != generation || bucket.count < 2 )
+        {
+            continue;
+        }
+
+        int cellIndices[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+        int cellCount = 0;
+        for ( int current = bucket.head; current != -1; current = entries[current].next )
+        {
+            assert( current >= 0 && current < MAX_CELL_ENTRIES && "entry chain index OOB" );
+            if ( current < 0 || current >= MAX_CELL_ENTRIES ||
+                 cellCount >= SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
+            {
+                SB_FATAL( "Physics/SpatialGrid", "SpatialGrid legacy-oracle staging out of bounds" );
+            }
+            cellIndices[cellCount++] = entries[current].objectIndex;
+        }
+
+        for ( int i = 0; i < cellCount - 1; ++i )
+        {
+            for ( int j = i + 1; j < cellCount; ++j )
+            {
+                int a = cellIndices[i];
+                int b = cellIndices[j];
+                if ( a == b )
+                {
+                    continue;
+                }
+                if ( a > b )
+                {
+                    std::swap( a, b );
+                }
+                if ( !MarkCandidatePairFirstSeen( a, b, filter ) )
+                {
+                    continue;
+                }
+                if ( outPairs.size() >= outPairs.capacity() )
+                {
+                    SB_FATAL( "Physics/SpatialGrid",
+                              "Legacy oracle candidate reserve exhausted: capacity=%zu phase=diagnostic.",
+                              outPairs.capacity() );
+                }
+                outPairs.emplace_back( a, b );
             }
         }
     }
 }
+#endif
 
 
 // Active cell info is written into the caller-provided array.
