@@ -3,6 +3,77 @@
 Date: 2026-07-18
 Status: Authoritative inventory of every live repository plan
 
+## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
+
+This directive supersedes any lower text that calls Physics P1 owner-blocked,
+requires exact legacy/new evolved-output equality, or requires another owner
+response for the two already identified P1 transition artifacts.
+
+Execution order is binding:
+
+1. Finish all automatable ImGui/Tracy E15-E17 implementation, focused coverage,
+   validation, review, and handoff work first. If E14-E17 acceptance is held
+   only by the existing Physics P1 replay golden or unavailable hands-on owner
+   evaluation, retain the validated checkpoint, record that dependency, and do
+   not stop.
+2. Loop back to Physics P1 before starting any new plan. Perform the complete
+   bounded-divergence assessment below, transition the accepted artifacts, and
+   close P1. Do not wait for another owner response.
+3. Reconcile and close any ImGui/Tracy checkboxes or replay gates that were held
+   only by the old P1 golden, then continue Physics P2-P7 in order.
+4. Only after both live campaigns have exhausted their automatable work may the
+   next MASTER plan begin. A genuinely unavailable hands-on evaluation is
+   recorded for later owner review; it does not prevent the physics loopback.
+
+### Task-Scoped Bounded Deterministic Divergence
+
+An explicitly planned physics work-order transition may produce deterministic
+behavioral divergence. Exact equality against the pre-transition evolved run is
+not required, and a fresh owner response is not required to update the artifact
+classes named by the owning plan. The implementing/reviewing model is authorized
+to accept the transition when it records a reasoned causal assessment that all
+of the following hold:
+
+- old and new implementations consume equivalent work from identical input
+  state, using the plan's same-state oracle or an equally direct proof;
+- the new implementation is byte-exact across its required repeat runs and
+  worker counts;
+- the **complete** artifact delta is inspected rather than accepting the first
+  reported mismatch alone;
+- the shape and scale of divergence are plausible consequences of the changed
+  code and remain bounded: preserved identities and structural relationships,
+  localized additions/removals or timing movement, and no unexplained wholesale
+  rewiring;
+- no body/work loss, NaN, explosive energy, invariant failure, crash, warning,
+  allocation-policy failure, or unrelated scene/config/schema/render change is
+  hidden by the refresh; and
+- the mapped gates pass against the accepted artifacts from the final binary.
+
+Membership overlap, additions/removals, parent/depth/type changes, timing-drift
+distribution, state error, energy behavior, and cross-scene consistency are
+decision evidence, not frozen global percentage ratchets. The model must judge
+them in the context of the specific code change and explain why the result is
+bounded rather than chaotic. Widespread unexplained divergence, nondeterminism,
+or an implausible causal shape is rejected and reverted/deferred; it is never
+normalized by updating a baseline.
+
+For the current P1 instance, the known replay causal delta retains all 199 old
+nodes, adds only body 11, removes none, and changes zero parent, depth, or
+contact/motion classifications. Of the 199 retained nodes, 123 keep the same
+first frame; absolute timing drift has median 0, p95 97, and maximum 246 over a
+2,401-tick horizon. This is prima-facie bounded order-transition evidence, not
+mass chaotic divergence. The reviewing model must still inspect the remaining
+complete replay/query delta, but it is authorized to accept and commit the
+causal replay golden and mechanically derived `physics_query_varied.json`
+without another owner response when the rules above hold. Use the existing
+one-process/one-generation artifact for assessment and offline reconciliation;
+do not launch a second replay generation merely to approve it.
+
+After an accepted transition, the new committed artifacts become exact again:
+P2-P5, P7, and ordinary ImGui/replay work do not receive a general divergence or
+golden-refresh allowance. P6 receives the same bounded-transition authority only
+if its existing automatic evidence gate activates it.
+
 ## Inventory Rules
 
 1. Live implementation plans are listed here and stored under `TODO/`, except
