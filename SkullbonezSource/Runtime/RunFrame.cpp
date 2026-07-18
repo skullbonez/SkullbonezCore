@@ -82,7 +82,9 @@ Related:
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UI.h"
+#include "../UI/UITabEditor.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <cstdint>
@@ -182,11 +184,14 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     // Invariant: build this common value once. The legacy draw pass and the
     // secondary editor receive this exact object, not independently sampled owners.
     facts.operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
-                                       scene.currentSceneIndex,
-                                       sceneController.QueueSize(),
+                                       uiSceneBrowser.namePtrs.empty() ? nullptr : uiSceneBrowser.namePtrs.data(),
+                                       CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
+                                       static_cast<int>( uiSceneBrowser.namePtrs.size() ),
                                        scene.currentFrame,
                                        sceneController.Scene().SceneEntityCount(),
-                                       scene.timeScale };
+                                       scene.timeScale,
+                                       uiScenePath && !uiScenePath->empty(),
+                                       false };
     facts.operatorEditorView.property = { sceneController.Scene().Environment().GetGravity(),
                                           sceneController.Scene().Environment().GetFluidSurfaceHeight(),
                                           sceneController.Scene().Environment().GetFluidDensity() };
@@ -204,13 +209,43 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                         sharedReplayHud.solverWindowReduced };
     facts.operatorEditorView.surfaces = { ui.IsVisible(), facts.operatorEditorView.surfaces.secondaryVisible };
     const RunEditorPlacementState& sharedEditor = runtimeTools.Editor();
+    facts.operatorEditorView.scene.dirty = sharedEditor.history.IsDirty();
     facts.operatorEditorView.tools = { sharedEditor.editorModeEnabled,
                                        sharedEditor.placementModeEnabled,
                                        sharedEditor.placeStaticObject,
                                        sceneController.CrossScenePauseLocked(),
                                        scene.isFixedStep,
+                                       sharedEditor.autoTerrainAlign,
                                        static_cast<int>( sharedEditor.history.UndoDepth() ),
                                        static_cast<int>( sharedEditor.history.RedoDepth() ) };
+    const SceneEntityStore& hierarchyEntities = sceneController.Scene().Entities();
+    const int selectedHierarchyRow =
+        RunInternal::PeekSelectedEditorModelIndex( sharedEditor, sceneController.Scene().BodyStore() );
+    facts.operatorEditorView.hierarchy.totalRowCount = static_cast<uint32_t>( hierarchyEntities.Count() );
+    const uint32_t hierarchyRowCount = (std::min)( facts.operatorEditorView.hierarchy.totalRowCount,
+                                                   SkullbonezCore::UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
+    facts.operatorEditorView.hierarchy.rowCount = hierarchyRowCount;
+    facts.operatorEditorView.hierarchy.truncated = facts.operatorEditorView.hierarchy.totalRowCount > hierarchyRowCount;
+    for ( uint32_t index = 0u; index < hierarchyRowCount; ++index )
+    {
+        const SceneEntityRecord& entity = hierarchyEntities.At( static_cast<int>( index ) );
+        SkullbonezCore::UI::OperatorEditorHierarchyRow& row = facts.operatorEditorView.hierarchy.rows[index];
+        row.displayName = entity.displayName;
+        row.sceneObjectId = entity.sceneObjectId.value;
+        row.groupRootObjectId = entity.behaviorGroup.rootObjectId.value;
+        row.groupPartIndex = entity.behaviorGroup.partIndex;
+        row.assetBacked = entity.asset.isAssetBacked;
+        row.visible = entity.editorVisible;
+        row.locked = entity.editorLocked;
+        row.selected = static_cast<int>( index ) == selectedHierarchyRow;
+        if ( row.selected )
+        {
+            facts.operatorEditorView.hierarchy.selectedSceneObjectId = row.sceneObjectId;
+        }
+    }
+    facts.operatorEditorView.assets = { sharedEditor.objectType,
+                                        SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
+                                        host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
     const ReplayOverlay::ReplayOverlayStateView replayOverlay =

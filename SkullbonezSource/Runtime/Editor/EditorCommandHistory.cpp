@@ -11,6 +11,7 @@ Summary:
 Glossary:
   Redo suffix: Stored commands after the cursor that are not currently applied.
   Overflow shift: Fixed 63-entry copy that discards the oldest command.
+  Clean cursor: History position represented by the last successful authored save.
 
 Invariants:
   - Pending queries never move the cursor.
@@ -73,6 +74,7 @@ void EditorCommandHistory::Clear()
 {
     m_count = 0;
     m_cursor = 0;
+    m_cleanCursor = 0;
 }
 
 
@@ -81,6 +83,7 @@ void EditorCommandHistory::InvalidateForNonUndoableEdit()
     // Hazard: retaining either side of history across an edit with no inverse
     // would let a later undo/redo apply facts captured for a different world.
     Clear();
+    m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
 }
 
 
@@ -89,6 +92,13 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
     if ( entry.kind == EditorCommandKind::None )
     {
         return;
+    }
+    // Hazard: a branch from before the clean cursor removes the only route
+    // back to the saved state, so equality with a future cursor is no longer
+    // meaningful until the next successful save.
+    if ( m_cleanCursor <= EDITOR_COMMAND_HISTORY_CAPACITY && m_cleanCursor > m_cursor )
+    {
+        m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
     }
     m_count = m_cursor;
     if ( m_count < EDITOR_COMMAND_HISTORY_CAPACITY )
@@ -100,6 +110,14 @@ void EditorCommandHistory::Push( const EditorCommandEntry& entry )
 
     // Invariant: overflow is bounded editor work. The oldest inverse command
     // is discarded without allocating or changing the remaining order.
+    if ( m_cleanCursor == 0 )
+    {
+        m_cleanCursor = EDITOR_COMMAND_HISTORY_CAPACITY + 1;
+    }
+    else if ( m_cleanCursor <= EDITOR_COMMAND_HISTORY_CAPACITY )
+    {
+        --m_cleanCursor;
+    }
     for ( std::size_t index = 1; index < EDITOR_COMMAND_HISTORY_CAPACITY; ++index )
     {
         m_entries[index - 1] = m_entries[index];
@@ -141,6 +159,18 @@ bool EditorCommandHistory::CommitRedo()
     }
     ++m_cursor;
     return true;
+}
+
+
+void EditorCommandHistory::MarkClean()
+{
+    m_cleanCursor = m_cursor;
+}
+
+
+bool EditorCommandHistory::IsDirty() const
+{
+    return m_cleanCursor > EDITOR_COMMAND_HISTORY_CAPACITY || m_cursor != m_cleanCursor;
 }
 
 

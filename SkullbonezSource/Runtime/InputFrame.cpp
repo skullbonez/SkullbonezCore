@@ -813,6 +813,56 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         result.enterInteractiveScene = true;
         recordUIAction( RuntimeInputAction::ToggleEditorTerrainAlign );
     }
+    SceneWorld& editorWorld = sceneController.Scene();
+    if ( uiCommands.editor.requestSelectSceneObject && runtimeTools.Editor().editorModeEnabled )
+    {
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = uiCommands.editor.requestedSceneObjectId;
+        const int modelIndex = editorWorld.Entities().FindBySceneObjectId( sceneObjectId );
+        const SceneEntityRecord* entity = editorWorld.Entities().TryGet( modelIndex );
+        if ( entity )
+        {
+            RuntimeInteractionCommand command;
+            command.type = RuntimeInteractionCommandType::SetEditorSelection;
+            command.body = entity->body;
+            command.collider = editorWorld.Colliders().HandleForSceneObjectId( sceneObjectId );
+            command.claimSelectionOwner = false;
+            if ( runtimeTools.ApplySelectionCommand( command, editorWorld ) )
+            {
+                result.enterInteractiveScene = true;
+            }
+        }
+    }
+    // Invariant: hierarchy metadata is a live editor concern. Typed secondary
+    // commands cannot mutate scene presentation or edit locks while play mode
+    // owns the frame, even if a stale packet crosses the mode transition.
+    if ( uiCommands.editor.requestSetEntityVisible && runtimeTools.Editor().editorModeEnabled )
+    {
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = uiCommands.editor.visibilitySceneObjectId;
+        result.enterInteractiveScene =
+            editorWorld.SetEditorEntityVisible( sceneObjectId, uiCommands.editor.requestedEntityVisible ) ||
+            result.enterInteractiveScene;
+    }
+    if ( uiCommands.editor.requestSetEntityLocked && runtimeTools.Editor().editorModeEnabled )
+    {
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = uiCommands.editor.lockSceneObjectId;
+        result.enterInteractiveScene =
+            editorWorld.SetEditorEntityLocked( sceneObjectId, uiCommands.editor.requestedEntityLocked ) ||
+            result.enterInteractiveScene;
+    }
+    if ( uiCommands.editor.requestDuplicateSelection && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.DuplicateEditorSelection( editorWorld, sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+    }
+    if ( uiCommands.editor.requestDeleteSelection && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.DeleteEditorSelection( editorWorld, sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+        recordUIAction( RuntimeInputAction::DeleteEditorSelection );
+    }
     if ( uiCommands.editor.requestUndo && runtimeTools.Editor().editorModeEnabled &&
          runtimeTools.UndoEditorCommand( sceneController.Scene(), sceneController.State() ) )
     {

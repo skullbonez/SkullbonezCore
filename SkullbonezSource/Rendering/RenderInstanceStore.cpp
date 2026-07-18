@@ -202,6 +202,7 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
     record.boundingRadius = collider.boundingRadius;
     record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
     record.shadowCasterStream = presentation.shadowCasterStream;
+    record.editorVisible = presentation.editorVisible;
     record.isFixed = hotState.fixed;
     record.fixedContactAlpha = presentation.fixedContactAlpha;
     record.audioContactAlpha = presentation.audioContactAlpha;
@@ -300,6 +301,18 @@ void RenderInstanceStore::NotifyAudioContact( int modelIndex, float highlightSec
         record->audioContactSeconds = highlightSeconds;
         record->audioContactAlpha = ContactAlpha( record->audioContactSeconds, 0.1f );
     }
+}
+
+bool RenderInstanceStore::SetEditorVisible( int modelIndex, bool visible )
+{
+    RenderInstancePresentationRecord* presentation = MutablePresentationRecordForModelIndex( modelIndex );
+    if ( !presentation || modelIndex < 0 || modelIndex >= Count() )
+    {
+        return false;
+    }
+    presentation->editorVisible = visible;
+    m_instances[static_cast<std::size_t>( modelIndex )].editorVisible = visible;
+    return true;
 }
 
 void RenderInstanceStore::TickContactFeedback( int modelCount, float deltaSeconds )
@@ -471,6 +484,7 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         record.boundingRadius = collider.boundingRadius;
         record.shapeKind = ShapeKindFromCollider( collider.shapeKind );
         record.shadowCasterStream = presentationRecord.shadowCasterStream;
+        record.editorVisible = presentationRecord.editorVisible;
         record.isFixed = hotFields.fixed[index] != 0u;
         record.fixedContactAlpha = presentationRecord.fixedContactAlpha;
         record.audioContactAlpha = presentationRecord.audioContactAlpha;

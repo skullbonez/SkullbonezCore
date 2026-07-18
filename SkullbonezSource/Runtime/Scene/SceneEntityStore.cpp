@@ -215,6 +215,8 @@ void SceneEntityStore::CommitAppend( const SceneEntityCreateDesc& entity, Physic
     record.asset = entity.asset;
     record.behaviorGroup = entity.behaviorGroup;
     CopyBounded( record.displayName, sizeof( record.displayName ), entity.displayName );
+    record.editorVisible = entity.editorVisible;
+    record.editorLocked = entity.editorLocked;
 }
 
 void SceneEntityStore::UpdateBodyHandleAt( int index,

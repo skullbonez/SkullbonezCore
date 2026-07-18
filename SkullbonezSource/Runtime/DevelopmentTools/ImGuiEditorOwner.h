@@ -196,6 +196,12 @@ class ImGuiEditorOwner
     bool m_tracyViewerAvailable = false;
     char m_tracyViewerPath[512] = {};
     char m_tracyLaunchFeedback[160] = "Viewer not launched";
+    char m_newSceneName[64] = "NewScene";
+    char m_sceneFilter[64] = {};
+    char m_hierarchyFilter[64] = {};
+    char m_assetFilter[64] = {};
+    bool m_focusSceneCreate = false;
+    bool m_focusSceneFilter = false;
     ImGuiEditorCommands m_frameCommands;
     UI::OperatorEditorCommandQueues m_pendingOperatorEditorCommands;
     SkullbonezCore::Core::SbResult m_frameCommandStatus = SkullbonezCore::Core::SbResult::Success();

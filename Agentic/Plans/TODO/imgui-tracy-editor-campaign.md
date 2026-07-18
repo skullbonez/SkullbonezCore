@@ -1,6 +1,6 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 10/18 tasks (E0-E9 complete; E10 next) under the owner's
+Status: Active — 11/18 tasks (E0-E10 complete; E11 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
@@ -372,7 +372,7 @@ It does **not** authorize removal from the legacy UI.
     304-case suite, UI/stress/full/allocation/Release gates, and clean shipping
     exclusion with no oracle or authored-data change.
 
-- [ ] E10 — Deliver the left editor workflow from top-left downward.
+- [x] E10 — Deliver the left editor workflow from top-left downward.
   - `Scene & Modes`: edit/play state, selection mode, placement mode, active
     scene, create/load/reset actions, and concise undo/redo/dirty feedback.
   - `Hierarchy`: filterable scene-object tree/list, stable scene identity,
@@ -388,6 +388,13 @@ It does **not** authorize removal from the legacy UI.
     and reset workflows are usable without opening a generic debug tab.
   - Gates: `tools\validate_ui.bat`, `tools\validate_full.bat` for scene/runtime
     paths, and relevant editor interaction probes.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e10-left-editor-workflow.md` records
+    the typed Scene & Modes, stable-ID Hierarchy, registered Assets/Create
+    workflow, real session visibility/lock behavior, accurate clean cursor,
+    native select/duplicate/delete/undo/redo/load/reset matrix, 23/23 comment
+    audit, UI/DX12/stress/perf/full/allocation/Release gates, and clean shipping
+    exclusion with no authored-data, baseline, or golden change.
 
 - [ ] E11 — Make the central game viewport an editor-grade surface.
   - Reserve the central dock node for the game render target and derive its

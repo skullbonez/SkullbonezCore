@@ -1050,47 +1050,47 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                     m_runtimeTools.Editor(),
                                                     m_replayRuntime.BuildInputView() ) );
         }
+    }
 
-        // Invariant: persistence samples final UI-mutated values before a
-        // same-frame scene reset can replace config. Capture keeps its
-        // historical pre-render input checkpoint; automation remains post-render.
-        const bool processedDefaults = DrainRenderDefaultRequests();
-        const bool processedCapture = DrainCaptureRequests();
-        presentationEdit.Commit();
-        const SceneLoadPolicyInputs sceneLoadPolicy{ m_config,
-                                                     m_launchOptions,
-                                                     m_renderDefaults.CinematicBaseline(),
-                                                     m_startup,
-                                                     m_assets,
-                                                     m_workerPool };
-        const SceneLoadHostParticipants sceneLoadHost{ m_timers, m_diagnosticsRuntime, m_simulation };
-        const SceneLoadInteractionParticipants sceneLoadInteraction{
-            m_inputRouter,
-            m_interaction,
-            m_camera,
-            m_attachedCamera.State(),
-            m_runtimeTools,
-            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
-        const SceneLoadPresentationParticipants sceneLoadPresentation{ m_replayRuntime,
-                                                                       sceneOwners.overlays,
-                                                                       m_renderBackendView,
-                                                                       m_renderer };
-        SceneLoadConsumerOutputs sceneLoadOutputs;
-        const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
-                                                                      sceneLoadHost,
-                                                                      sceneLoadInteraction,
-                                                                      sceneLoadPresentation,
-                                                                      sceneLoadOutputs );
-        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
-                                       m_window,
-                                       interactionOwners.operatorUi,
-                                       m_contactAudio,
-                                       m_validationHarness,
-                                       m_launchOptions );
-        presentationEdit.Refresh();
-        if ( processedCapture || processedDefaults || processedScene )
-        {
-        }
+    // Invariant: UI capture gates world/camera controls, not deferred owner
+    // commands. Persistence samples final UI-mutated values before a same-frame
+    // scene reset can replace config, even while an ImGui text field owns keys.
+    const bool processedDefaults = DrainRenderDefaultRequests();
+    const bool processedCapture = DrainCaptureRequests();
+    presentationEdit.Commit();
+    const SceneLoadPolicyInputs sceneLoadPolicy{ m_config,
+                                                 m_launchOptions,
+                                                 m_renderDefaults.CinematicBaseline(),
+                                                 m_startup,
+                                                 m_assets,
+                                                 m_workerPool };
+    const SceneLoadHostParticipants sceneLoadHost{ m_timers, m_diagnosticsRuntime, m_simulation };
+    const SceneLoadInteractionParticipants sceneLoadInteraction{
+        m_inputRouter,
+        m_interaction,
+        m_camera,
+        m_attachedCamera.State(),
+        m_runtimeTools,
+        CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
+    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_replayRuntime,
+                                                                   sceneOwners.overlays,
+                                                                   m_renderBackendView,
+                                                                   m_renderer };
+    SceneLoadConsumerOutputs sceneLoadOutputs;
+    const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
+                                                                  sceneLoadHost,
+                                                                  sceneLoadInteraction,
+                                                                  sceneLoadPresentation,
+                                                                  sceneLoadOutputs );
+    ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                   m_window,
+                                   interactionOwners.operatorUi,
+                                   m_contactAudio,
+                                   m_validationHarness,
+                                   m_launchOptions );
+    presentationEdit.Refresh();
+    if ( processedCapture || processedDefaults || processedScene )
+    {
     }
     commitPointerPresentation();
 }

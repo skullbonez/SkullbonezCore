@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E10 left-rail Scene & Modes, Hierarchy, and Assets/Create workflows while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
-| Active/future progress | 11 / 26 live tasks; 42%. |
-| Last broad local gate | E9 final-source `validate_full` passed the CPU umbrella, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact 44,401-line physics regression; UI/stress, mapped owner tests, allocation, Release build, and executable exclusion evidence also passed. |
-| Validation for current edits | E9 owns the deterministic dock shell and reset path. E10 changes editor-facing scene/runtime workflows and requires UI, relevant interaction probes, and `validate_full` at the commit boundary. |
+| Current objective | Execute ImGui/Tracy E11 central game viewport work while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 12 / 26 live tasks; 46%. |
+| Last broad local gate | E10 final-source `validate_full` passed the CPU umbrella, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact 44,401-line physics regression; UI, DX12, one-minute stress, perf, allocation, Release build, and executable exclusion evidence also passed. |
+| Validation for current edits | E10 owns the left Scene & Modes, stable-ID Hierarchy, and registered Assets/Create workflow. E11 changes central viewport input/render coordination and requires UI, DX12 renderer, and bounded graphics-stress gates at the commit boundary. |
 
 ## Live Queue
 
@@ -24,7 +24,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E10 (10/18). E0 froze the complete
+     direction, ImGui/Tracy is active at E11 (11/18). E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -62,6 +62,11 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      and byte-stable operator reset. Three responsive captures and UI/stress,
      tests, full, allocation, and Release gates passed without oracle or
      authored-data changes. Evidence:
+     E10 added typed scene/mode commands, a fixed stable-ID hierarchy,
+     registered asset/create controls, real session visibility and lock
+     behavior, and accurate clean/dirty history. The native editor matrix and
+     UI, DX12, bounded stress, perf, full, allocation, and Release-exclusion
+     gates passed without oracle or authored-data changes. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
@@ -72,7 +77,8 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      `Agentic/Reports/2026-07-19/imgui-tracy-e6-dx12-frame.md` and
      `Agentic/Reports/2026-07-19/imgui-tracy-e7-win32-input.md` and
      `Agentic/Reports/2026-07-19/imgui-tracy-e8-editor-exchange.md` and
-     `Agentic/Reports/2026-07-19/imgui-tracy-e9-dock-shell.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e9-dock-shell.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e10-left-editor-workflow.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -499,13 +505,13 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
 
 ## Next Handoff
 
-Continue with ImGui/Tracy E10. Build the left rail from the top down: Scene &
-Modes, filterable stable-identity Hierarchy, and registered Assets/Create.
-Route select/create/place/duplicate/delete/undo/redo/save/load/reset through
-typed commands and established owners, preserve multi-select/visibility/lock
-rules, and keep reusable objects on registered asset instances. Exercise the
-editor interaction workflows, then run `tools\validate_ui.bat` and
-`tools\validate_full.bat` at the E10 commit boundary.
+Continue with ImGui/Tracy E11. Make the central dock an editor-grade game
+viewport with an explicit content rectangle, aspect/DPI mapping, hover/focus
+input authority, compact camera/gizmo/snapping/presentation overlays,
+selection/picking, typed asset drop placement, bounded resize behavior, and
+zero-error DX12 ownership. Exercise multiple DPI/aspect mappings, then run
+`tools\validate_ui.bat`, `tools\validate_dx12_renderer.bat`, and
+`tools\run_graphics_stress.bat 1` at the E11 commit boundary.
 
 Physics P1 remains blocked only on exact owner authority for the one-process
 replay `causal.topologyCount: 199 -> 200` golden transition and the mechanically

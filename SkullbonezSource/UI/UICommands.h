@@ -284,6 +284,16 @@ struct UIEditorCommands
     int requestedObjectType = -1;
     bool requestUndo = false;              // Ask the editor history owner to undo one committed command.
     bool requestRedo = false;              // Ask the editor history owner to redo one committed command.
+    bool requestSelectSceneObject = false; // Resolve stable scene identity at the editor-owner boundary.
+    uint32_t requestedSceneObjectId = 0u;
+    bool requestDeleteSelection = false;
+    bool requestDuplicateSelection = false;
+    bool requestSetEntityVisible = false;
+    bool requestedEntityVisible = true;
+    uint32_t visibilitySceneObjectId = 0u;
+    bool requestSetEntityLocked = false;
+    bool requestedEntityLocked = false;
+    uint32_t lockSceneObjectId = 0u;
 };
 
 struct UISceneOptionCommands

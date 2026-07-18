@@ -4,6 +4,10 @@ Purpose:
   Owns the concrete scene-lifetime world: entities, physics, cameras, terrain,
   environment settings, and render-instance presentation.
 
+Summary:
+  SceneWorld commits aligned entity/body/collider/render topology and exposes
+  stable-identity operations, including transient editor visibility and locks.
+
 Mental model:
   SceneController decides when a scene lifecycle advances. SceneWorld owns what
   that scene is. Callers borrow one explicit SceneWorld, then address the
@@ -145,6 +149,10 @@ class SceneWorld
 
     SceneEntityStore& Entities();
     const SceneEntityStore& Entities() const;
+    // Editor flags resolve durable scene identity at this owner boundary.
+    // Visibility also updates the paired render row; locks gate edit commands.
+    bool SetEditorEntityVisible( Physics::PhysicsSceneObjectId sceneObjectId, bool visible );
+    bool SetEditorEntityLocked( Physics::PhysicsSceneObjectId sceneObjectId, bool locked );
     Environment::CameraCollection& Cameras();
     const Environment::CameraCollection& Cameras() const;
     Environment::WorldEnvironment& Environment();

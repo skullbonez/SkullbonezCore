@@ -614,8 +614,9 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
 {
     using namespace SkullbonezCore::UI;
     static_assert( std::is_trivially_copyable_v<OperatorEditorCommandQueues> );
-    static_assert( OperatorEditorSceneCommandQueue::capacity == 4u );
+    static_assert( OperatorEditorSceneCommandQueue::capacity == 8u );
     static_assert( OperatorEditorPropertyCommandQueue::capacity == 4u );
+    static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
 
     InGameUICommands legacy;
     legacy.scene.resetScene = true;
@@ -695,18 +696,105 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
 {
     using namespace SkullbonezCore::UI;
     OperatorEditorFrameView first;
-    first.scene = { "SkullbonezData/scenes/varied.scene.json", 3, 8, 42, 200, 0.75f };
+    const char* sceneOptions[] = { "varied", "terrain" };
+    first.scene.sceneName = "SkullbonezData/scenes/varied.scene.json";
+    first.scene.sceneOptions = sceneOptions;
+    first.scene.currentSceneIndex = 0;
+    first.scene.sceneCount = 2;
+    first.scene.currentFrame = 42;
+    first.scene.modelCount = 200;
+    first.scene.timeScale = 0.75f;
+    first.scene.canSaveCurrentScene = true;
+    first.scene.dirty = true;
     first.property = { -9.81f, 4.0f, 998.0f };
     first.rendering = { true, true, false, true, 0.5f };
     first.replay = { 1, 30, 64, 30, 20, false, true };
     first.surfaces = { true, true };
-    first.tools = { true, true, false, true, false, 3, 2 };
+    first.tools = { true, true, false, true, false, true, 3, 2 };
+    first.hierarchy.rowCount = 1u;
+    first.hierarchy.totalRowCount = 1u;
+    first.hierarchy.selectedSceneObjectId = 91u;
+    first.hierarchy.rows[0] = { "Crate", 91u, 91u, 0, true, true, false, true };
+    first.assets = { 2, 37, true };
     const OperatorEditorFrameView same = first;
     CHECK( FingerprintOperatorEditorFrameView( first ) == FingerprintOperatorEditorFrameView( same ) );
 
     OperatorEditorFrameView changed = first;
     changed.replay.solverRetentionSeconds = 21;
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.hierarchy.rows[0].locked = true;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+}
+
+TEST_CASE( "Operator editor scene hierarchy and asset intents project through typed owner packets" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues secondary;
+
+    OperatorEditorSceneCommand create;
+    create.type = OperatorEditorSceneCommandType::CreateScene;
+    strcpy_s( create.sceneName, "typed-editor-scene" );
+    REQUIRE( SubmitOperatorEditorCommand( secondary.scene, create ).ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.scene,
+                 OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.scene,
+                 OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SaveCurrentScene } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.scene,
+                 OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetSceneDefaults } )
+                 .ok );
+
+    for ( const OperatorEditorToolCommand& command : {
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 91u },
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityVisible, 91u, 0, false },
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityLocked, 91u, 0, true },
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 30 },
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, true },
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::ToggleTerrainAlign },
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::DuplicateSelection },
+              OperatorEditorToolCommand{ OperatorEditorToolCommandType::DeleteSelection } } )
+    {
+        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, command ).ok );
+    }
+
+    InGameUICommands projected;
+    REQUIRE( ProjectOperatorEditorCommands( secondary, projected ).ok );
+    CHECK( projected.scene.createScene );
+    CHECK( std::strcmp( projected.scene.requestedSceneName, "typed-editor-scene" ) == 0 );
+    CHECK( projected.scene.requestedSceneIndex == 4 );
+    CHECK( projected.scene.saveSceneDefaults );
+    CHECK( projected.scene.resetSceneDefaults );
+    CHECK( projected.editor.requestSelectSceneObject );
+    CHECK( projected.editor.requestedSceneObjectId == 91u );
+    CHECK( projected.editor.requestSetEntityVisible );
+    CHECK_FALSE( projected.editor.requestedEntityVisible );
+    CHECK( projected.editor.visibilitySceneObjectId == 91u );
+    CHECK( projected.editor.requestSetEntityLocked );
+    CHECK( projected.editor.requestedEntityLocked );
+    CHECK( projected.editor.lockSceneObjectId == 91u );
+    CHECK( projected.editor.requestedObjectType == 30 );
+    CHECK( projected.editor.enterPlacementMode );
+    CHECK( projected.editor.requestPlaceStatic );
+    CHECK( projected.editor.requestedPlaceStatic );
+    CHECK( projected.editor.toggleTerrainAlign );
+    CHECK( projected.editor.requestDuplicateSelection );
+    CHECK( projected.editor.requestDeleteSelection );
+
+    OperatorEditorToolCommandQueue malformed;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     malformed,
+                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+                     .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     malformed,
+                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 37 } )
+                     .ok );
 }
 
 TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )

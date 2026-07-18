@@ -32,6 +32,7 @@ Related:
 #include "../RuntimeOverlayDiagnostics.h"
 #include "../RuntimeValidationHarness.h"
 #include "../InputFrame.h"
+#include "../Tools/RuntimeTools.h"
 #include "SceneRuntimeCreate.h"
 #include "../../UI/UI.h"
 
@@ -125,6 +126,12 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
                     std::fflush( stderr );
                 }
                 accepted = saveResult.ok;
+                if ( accepted )
+                {
+                    // Invariant: only the completed authored write advances
+                    // the editor's clean cursor; a failed Lane-R save remains dirty.
+                    interaction.runtimeTools.Editor().history.MarkClean();
+                }
                 break;
             }
         }

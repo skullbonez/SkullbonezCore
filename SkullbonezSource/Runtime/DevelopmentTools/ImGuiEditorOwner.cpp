@@ -36,6 +36,7 @@ Related:
 #include "../Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
+#include "../../UI/UITabEditor.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -133,6 +134,60 @@ const char* SceneDisplayName( const char* path ) noexcept
         separator = backslash;
     }
     return separator ? separator + 1 : path;
+}
+
+char LowerAscii( char value ) noexcept
+{
+    return value >= 'A' && value <= 'Z' ? static_cast<char>( value - 'A' + 'a' ) : value;
+}
+
+bool ContainsAsciiInsensitive( const char* text, const char* filter ) noexcept
+{
+    if ( !filter || filter[0] == '\0' )
+    {
+        return true;
+    }
+    if ( !text )
+    {
+        return false;
+    }
+    for ( const char* start = text; *start != '\0'; ++start )
+    {
+        const char* candidate = start;
+        const char* query = filter;
+        while ( *candidate != '\0' && *query != '\0' && LowerAscii( *candidate ) == LowerAscii( *query ) )
+        {
+            ++candidate;
+            ++query;
+        }
+        if ( *query == '\0' )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+const char* AssetCategoryForObjectType( int objectType ) noexcept
+{
+    using namespace SkullbonezCore::UI::EditorTab;
+    if ( objectType <= OBJECT_SPHERE )
+    {
+        return "Primitives";
+    }
+    if ( objectType <= OBJECT_ROOT_LARGE )
+    {
+        return "Hull Props";
+    }
+    if ( objectType <= OBJECT_TREE_PINE_SHEDDING )
+    {
+        return "Trees";
+    }
+    if ( objectType <= OBJECT_RAGDOLL_SLEEP )
+    {
+        return "Characters";
+    }
+    return "Registered Assets";
 }
 
 } // namespace
@@ -587,8 +642,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             m_frameCommandStatus = UI::SubmitOperatorEditorCommand( queue, command );
         }
     };
-    const auto submitTool = [&]( UI::OperatorEditorToolCommandType type )
-    { submit( m_frameCommands.operatorEditor.tools, UI::OperatorEditorToolCommand{ type } ); };
+    const auto submitTool =
+        [&]( UI::OperatorEditorToolCommandType type, uint32_t sceneObjectId = 0u, int value = 0, bool enabled = false )
+    {
+        submit( m_frameCommands.operatorEditor.tools,
+                UI::OperatorEditorToolCommand{ type, sceneObjectId, value, enabled } );
+    };
     const auto launchTracyViewer = [&]()
     {
         if ( !m_tracyViewerAvailable )
@@ -623,21 +682,49 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         return;
     }
 
+    bool selectedEntityLocked = false;
+    for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
+    {
+        if ( view.hierarchy.rows[index].sceneObjectId == view.hierarchy.selectedSceneObjectId )
+        {
+            selectedEntityLocked = view.hierarchy.rows[index].locked;
+            break;
+        }
+    }
+
     if ( ImGui::BeginMenuBar() )
     {
         if ( ImGui::BeginMenu( "File" ) )
         {
-            ImGui::MenuItem( "New Scene...", nullptr, false, false );
-            DrawDisabledReason( "Scene creation arrives with the E10 editor workflow" );
-            ImGui::MenuItem( "Load Scene...", nullptr, false, false );
-            DrawDisabledReason( "Use Scene & Modes until the E10 browser is complete" );
-            ImGui::MenuItem( "Save Scene", "Ctrl+S", false, false );
-            DrawDisabledReason( "Saving is enabled with the E10 dirty-state workflow" );
+            if ( ImGui::MenuItem( "New Scene..." ) )
+            {
+                m_showSceneAndModes = true;
+                m_focusSceneCreate = true;
+            }
+            if ( ImGui::MenuItem( "Load Scene..." ) )
+            {
+                m_showSceneAndModes = true;
+                m_focusSceneFilter = true;
+            }
+            if ( ImGui::MenuItem( "Save Scene", "Ctrl+S", false, view.scene.canSaveCurrentScene ) )
+            {
+                submit( m_frameCommands.operatorEditor.scene,
+                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
+            }
+            if ( !view.scene.canSaveCurrentScene )
+            {
+                DrawDisabledReason( "The generated demo has no authored scene path" );
+            }
             ImGui::Separator();
             if ( ImGui::MenuItem( "Reset Current Scene" ) )
             {
                 submit( m_frameCommands.operatorEditor.scene,
                         UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+            }
+            if ( ImGui::MenuItem( "Reset To Authored Defaults", nullptr, false, view.scene.canSaveCurrentScene ) )
+            {
+                submit( m_frameCommands.operatorEditor.scene,
+                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
             }
             if ( ImGui::MenuItem( "Hide Editor" ) )
             {
@@ -660,6 +747,16 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             if ( ImGui::MenuItem( "Redo", "Ctrl+Y", false, view.tools.editorModeEnabled && view.tools.redoDepth > 0 ) )
             {
                 submitTool( UI::OperatorEditorToolCommandType::Redo );
+            }
+            const bool hasSelection = view.hierarchy.selectedSceneObjectId != 0u;
+            const bool hasMutableSelection = hasSelection && !selectedEntityLocked;
+            if ( ImGui::MenuItem( "Duplicate", "Ctrl+D", false, view.tools.editorModeEnabled && hasMutableSelection ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::DuplicateSelection );
+            }
+            if ( ImGui::MenuItem( "Delete", "Del", false, view.tools.editorModeEnabled && hasMutableSelection ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::DeleteSelection );
             }
             ImGui::Separator();
             if ( ImGui::MenuItem( view.tools.editorModeEnabled ? "Exit Edit Mode" : "Enter Edit Mode", "`" ) )
@@ -731,7 +828,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         ResolveImGuiEditorLayoutEnvelope( static_cast<int>( ImGui::GetContentRegionAvail().x ),
                                           static_cast<int>( ImGui::GetContentRegionAvail().y ) );
     const char* modeLabel = view.tools.editorModeEnabled ? "EDIT" : "PLAY";
-    const char* placementLabel = shellEnvelope.compactToolbarLabels ? "PLACE" : "PLACEMENT";
+    const char* placementLabel = view.tools.placementModeEnabled
+                                     ? ( shellEnvelope.compactToolbarLabels ? "PLACE*" : "PLACEMENT ACTIVE" )
+                                     : ( shellEnvelope.compactToolbarLabels ? "PLACE" : "PLACEMENT" );
     const float toolbarHeight = 34.0f * m_frameInput.dpiScale;
     ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 8.0f, 5.0f ) );
     if ( ImGui::BeginChild( "##SkoreEditorToolbar", ImVec2( 0.0f, toolbarHeight ), ImGuiChildFlags_Borders ) )
@@ -804,13 +903,113 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::SceneAndModes, &m_showSceneAndModes ) )
         {
-            ImGui::TextUnformatted( view.tools.editorModeEnabled ? "Edit mode" : "Play mode" );
-            ImGui::Text( "Scene %d / %d", view.scene.currentSceneIndex + 1, view.scene.sceneCount );
+            ImGui::TextUnformatted( "MODE" );
+            if ( ImGui::Button( view.tools.editorModeEnabled ? "EDIT ACTIVE" : "ENTER EDIT" ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled( !view.tools.editorModeEnabled );
+            if ( ImGui::Button( view.tools.placementModeEnabled ? "PLACE ACTIVE" : "PLACE" ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::TogglePlacementMode );
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if ( ImGui::Button( view.tools.crossScenePauseLocked ? "RESUME" : "PAUSE" ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::ToggleCrossScenePause );
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled( !view.tools.crossScenePauseLocked );
+            if ( ImGui::Button( "STEP" ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::StepPausedScene );
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SeparatorText( "Scene" );
+            ImGui::Text( "%s%s", SceneDisplayName( view.scene.sceneName ), view.scene.dirty ? "  * modified" : "" );
+            if ( m_focusSceneFilter )
+            {
+                ImGui::SetKeyboardFocusHere();
+                m_focusSceneFilter = false;
+            }
+            ImGui::InputTextWithHint( "##SceneFilter", "Filter scenes", m_sceneFilter, sizeof( m_sceneFilter ) );
+            const char* activeScene = SceneDisplayName( view.scene.sceneName );
+            if ( ImGui::BeginCombo( "Active", activeScene ) )
+            {
+                bool anyVisible = false;
+                for ( int index = 0; index < view.scene.sceneCount && view.scene.sceneOptions; ++index )
+                {
+                    const char* label =
+                        view.scene.sceneOptions[index] ? view.scene.sceneOptions[index] : "Unnamed scene";
+                    if ( !ContainsAsciiInsensitive( label, m_sceneFilter ) )
+                    {
+                        continue;
+                    }
+                    anyVisible = true;
+                    if ( ImGui::Selectable( label, index == view.scene.currentSceneIndex ) )
+                    {
+                        submit(
+                            m_frameCommands.operatorEditor.scene,
+                            UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::SetCurrentSceneIndex,
+                                                            index } );
+                    }
+                }
+                if ( !anyVisible )
+                {
+                    ImGui::TextDisabled( "No matching scenes" );
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::BeginDisabled( !view.scene.canSaveCurrentScene );
+            if ( ImGui::Button( "Save" ) )
+            {
+                submit( m_frameCommands.operatorEditor.scene,
+                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::SaveCurrentScene } );
+            }
+            ImGui::EndDisabled();
+            if ( !view.scene.canSaveCurrentScene )
+            {
+                DrawDisabledReason( "Generated demo scenes have no authored save path" );
+            }
+            ImGui::SameLine();
             if ( ImGui::Button( "Reset Current Scene" ) )
             {
                 submit( m_frameCommands.operatorEditor.scene,
                         UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
             }
+            ImGui::SameLine();
+            ImGui::BeginDisabled( !view.scene.canSaveCurrentScene );
+            if ( ImGui::Button( "Defaults" ) )
+            {
+                submit( m_frameCommands.operatorEditor.scene,
+                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SeparatorText( "Create" );
+            if ( m_focusSceneCreate )
+            {
+                ImGui::SetKeyboardFocusHere();
+                m_focusSceneCreate = false;
+            }
+            ImGui::InputTextWithHint( "##NewSceneName", "New scene name", m_newSceneName, sizeof( m_newSceneName ) );
+            ImGui::SameLine();
+            ImGui::BeginDisabled( m_newSceneName[0] == '\0' );
+            if ( ImGui::Button( "Create Scene" ) )
+            {
+                UI::OperatorEditorSceneCommand create;
+                create.type = UI::OperatorEditorSceneCommandType::CreateScene;
+                strncpy_s( create.sceneName, m_newSceneName, _TRUNCATE );
+                submit( m_frameCommands.operatorEditor.scene, create );
+            }
+            ImGui::EndDisabled();
+            ImGui::TextDisabled( "Undo %d  |  Redo %d  |  %s",
+                                 view.tools.undoDepth,
+                                 view.tools.redoDepth,
+                                 view.scene.dirty ? "unsaved edits" : "clean" );
         }
         ImGui::End();
     }
@@ -819,8 +1018,99 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::Hierarchy, &m_showHierarchy ) )
         {
-            ImGui::Text( "%d scene objects", view.scene.modelCount );
-            DrawDisabledWrapped( "Filter and stable selection arrive in E10" );
+            ImGui::Text( "%u / %u scene objects", view.hierarchy.rowCount, view.hierarchy.totalRowCount );
+            ImGui::InputTextWithHint( "##HierarchyFilter",
+                                      "Filter by name",
+                                      m_hierarchyFilter,
+                                      sizeof( m_hierarchyFilter ) );
+            ImGui::Separator();
+            ImGui::BeginChild( "##HierarchyRows",
+                               ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ),
+                               ImGuiChildFlags_Borders );
+            bool anyVisible = false;
+            for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
+            {
+                const UI::OperatorEditorHierarchyRow& row = view.hierarchy.rows[index];
+                if ( !ContainsAsciiInsensitive( row.displayName, m_hierarchyFilter ) )
+                {
+                    continue;
+                }
+
+                anyVisible = true;
+                ImGui::PushID( static_cast<int>( row.sceneObjectId ) );
+                if ( ImGui::SmallButton( row.visible ? "eye" : "hidden" ) )
+                {
+                    submitTool( UI::OperatorEditorToolCommandType::SetEntityVisible,
+                                row.sceneObjectId,
+                                0,
+                                !row.visible );
+                }
+                ImGui::SameLine();
+                if ( ImGui::SmallButton( row.locked ? "locked" : "open" ) )
+                {
+                    submitTool( UI::OperatorEditorToolCommandType::SetEntityLocked, row.sceneObjectId, 0, !row.locked );
+                }
+                ImGui::SameLine();
+                const char* displayName =
+                    row.displayName && row.displayName[0] != '\0' ? row.displayName : "Unnamed object";
+                if ( ImGui::Selectable( displayName, row.selected, ImGuiSelectableFlags_AllowDoubleClick ) )
+                {
+                    submitTool( UI::OperatorEditorToolCommandType::SelectSceneObject, row.sceneObjectId );
+                }
+                if ( ImGui::BeginPopupContextItem( "##HierarchyContext" ) )
+                {
+                    if ( ImGui::MenuItem( "Select" ) )
+                    {
+                        submitTool( UI::OperatorEditorToolCommandType::SelectSceneObject, row.sceneObjectId );
+                    }
+                    if ( ImGui::MenuItem( row.visible ? "Hide" : "Show" ) )
+                    {
+                        submitTool( UI::OperatorEditorToolCommandType::SetEntityVisible,
+                                    row.sceneObjectId,
+                                    0,
+                                    !row.visible );
+                    }
+                    if ( ImGui::MenuItem( row.locked ? "Unlock" : "Lock" ) )
+                    {
+                        submitTool( UI::OperatorEditorToolCommandType::SetEntityLocked,
+                                    row.sceneObjectId,
+                                    0,
+                                    !row.locked );
+                    }
+                    ImGui::BeginDisabled( row.locked || !row.selected );
+                    if ( ImGui::MenuItem( "Duplicate" ) )
+                    {
+                        submitTool( UI::OperatorEditorToolCommandType::DuplicateSelection );
+                    }
+                    if ( ImGui::MenuItem( "Delete" ) )
+                    {
+                        submitTool( UI::OperatorEditorToolCommandType::DeleteSelection );
+                    }
+                    ImGui::EndDisabled();
+                    ImGui::EndPopup();
+                }
+                if ( ImGui::IsItemHovered() && row.assetBacked )
+                {
+                    ImGui::SetTooltip( "Registered asset group root %u, part %d",
+                                       row.groupRootObjectId,
+                                       row.groupPartIndex );
+                }
+                ImGui::PopID();
+            }
+            if ( !anyVisible )
+            {
+                ImGui::TextDisabled( "No matching scene objects" );
+            }
+            ImGui::EndChild();
+            if ( view.hierarchy.truncated )
+            {
+                ImGui::TextDisabled( "Showing the first %u objects; narrow the filter after simplifying the scene.",
+                                     view.hierarchy.rowCount );
+            }
+            else
+            {
+                ImGui::TextDisabled( "Single selection uses stable scene identity; asset groups select as one root." );
+            }
         }
         ImGui::End();
     }
@@ -829,8 +1119,66 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::AssetsCreate, &m_showAssetsCreate ) )
         {
-            ImGui::TextUnformatted( view.tools.placeStaticObject ? "Placement: static" : "Placement: dynamic" );
-            DrawDisabledWrapped( "Registered asset browser arrives in E10" );
+            ImGui::InputTextWithHint( "##AssetFilter", "Search assets", m_assetFilter, sizeof( m_assetFilter ) );
+            bool placeStatic = view.tools.placeStaticObject;
+            if ( ImGui::Checkbox( "Static", &placeStatic ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, placeStatic );
+            }
+            ImGui::SameLine();
+            bool terrainAlign = view.tools.autoTerrainAlign;
+            if ( ImGui::Checkbox( "Align to terrain", &terrainAlign ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::ToggleTerrainAlign );
+            }
+            ImGui::Separator();
+            ImGui::BeginChild( "##AssetRows",
+                               ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ),
+                               ImGuiChildFlags_Borders );
+            const char* previousCategory = nullptr;
+            bool anyVisible = false;
+            for ( int objectType = 0; objectType < view.assets.objectTypeCount; ++objectType )
+            {
+                const char* label = UI::EditorTab::ObjectLabel( objectType );
+                if ( !ContainsAsciiInsensitive( label, m_assetFilter ) )
+                {
+                    continue;
+                }
+                anyVisible = true;
+                const char* category = AssetCategoryForObjectType( objectType );
+                if ( previousCategory != category )
+                {
+                    ImGui::SeparatorText( category );
+                    previousCategory = category;
+                }
+
+                const bool registeredUnavailable =
+                    objectType >= UI::EditorTab::OBJECT_BRICK_HOUSE_SLEEP && !view.assets.registeredLibraryAvailable;
+                ImGui::PushID( objectType );
+                ImGui::BeginDisabled( registeredUnavailable );
+                if ( ImGui::Selectable( label, objectType == view.assets.selectedObjectType ) )
+                {
+                    submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType, 0u, objectType );
+                }
+                if ( ImGui::BeginDragDropSource( ImGuiDragDropFlags_SourceAllowNullID ) )
+                {
+                    ImGui::SetDragDropPayload( "SKORE_ASSET_OBJECT_TYPE", &objectType, sizeof( objectType ) );
+                    ImGui::Text( "Place %s", label );
+                    ImGui::EndDragDropSource();
+                }
+                ImGui::EndDisabled();
+                if ( registeredUnavailable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
+                {
+                    ImGui::SetTooltip( "Registered asset library assetlib.buildings is unavailable" );
+                }
+                ImGui::PopID();
+            }
+            if ( !anyVisible )
+            {
+                ImGui::TextDisabled( "No matching assets" );
+            }
+            ImGui::EndChild();
+            ImGui::TextDisabled( "Click or drag an asset to enter placement mode." );
         }
         ImGui::End();
     }
@@ -844,11 +1192,27 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             gameViewportHovered = ImGui::IsWindowHovered( ImGuiHoveredFlags_RootAndChildWindows );
             gameViewportFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
             const ImVec2 available = ImGui::GetContentRegionAvail();
-            ImGui::SetCursorPos( ImVec2( 18.0f, 18.0f ) );
-            ImGui::TextDisabled( "GAME VIEWPORT  |  reserved %d x %d",
-                                 static_cast<int>( available.x ),
-                                 static_cast<int>( available.y ) );
-            DrawDisabledWrapped( "DX12 image, picking, gizmos, and DPI mapping arrive in E11" );
+            const ImVec2 dropOrigin = ImGui::GetCursorScreenPos();
+            ImGui::InvisibleButton( "##GameViewportDropSurface", available );
+            if ( ImGui::BeginDragDropTarget() )
+            {
+                if ( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SKORE_ASSET_OBJECT_TYPE" ) )
+                {
+                    if ( payload->DataSize == sizeof( int ) )
+                    {
+                        submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType,
+                                    0u,
+                                    *static_cast<const int*>( payload->Data ) );
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+            ImGui::GetWindowDrawList()->AddText( ImVec2( dropOrigin.x + 18.0f, dropOrigin.y + 18.0f ),
+                                                 ImGui::GetColorU32( ImGuiCol_TextDisabled ),
+                                                 "GAME VIEWPORT | drop assets here" );
+            ImGui::GetWindowDrawList()->AddText( ImVec2( dropOrigin.x + 18.0f, dropOrigin.y + 40.0f ),
+                                                 ImGui::GetColorU32( ImGuiCol_TextDisabled ),
+                                                 "DX12 image, picking, gizmos, and DPI mapping arrive in E11" );
         }
         ImGui::End();
     }
@@ -931,8 +1295,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
         {
             const float framesPerSecond = m_frameInput.deltaSeconds > 0.0f ? 1.0f / m_frameInput.deltaSeconds : 0.0f;
-            ImGui::Text( "%s  |  %d objects  |  undo %d / redo %d  |  %.1f FPS  |  Tracy %s",
+            ImGui::Text( "%s%s  |  %d objects  |  undo %d / redo %d  |  %.1f FPS  |  Tracy %s",
                          view.tools.editorModeEnabled ? "EDIT" : "PLAY",
+                         view.tools.placementModeEnabled ? "/PLACE" : "",
                          view.scene.modelCount,
                          view.tools.undoDepth,
                          view.tools.redoDepth,

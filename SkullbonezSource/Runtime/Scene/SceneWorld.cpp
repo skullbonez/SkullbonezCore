@@ -392,6 +392,7 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
 
     Rendering::RenderInstancePresentationRecord renderPresentation;
     renderPresentation.material = entity.renderMaterial;
+    renderPresentation.editorVisible = entity.editorVisible;
     strncpy_s( renderPresentation.displayName,
                sizeof( renderPresentation.displayName ),
                entity.displayName,
@@ -505,6 +506,31 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
     }
     AssertSceneCreationTopology( modelCount - 1 );
     return !BodyStore().Contains( body );
+}
+
+
+bool SceneWorld::SetEditorEntityVisible( PhysicsSceneObjectId sceneObjectId, bool visible )
+{
+    const int modelIndex = Entities().FindBySceneObjectId( sceneObjectId );
+    SceneEntityRecord* entity = Entities().TryGetMutable( modelIndex );
+    if ( !entity || !m_renderInstanceStore.SetEditorVisible( modelIndex, visible ) )
+    {
+        return false;
+    }
+    entity->editorVisible = visible;
+    return true;
+}
+
+
+bool SceneWorld::SetEditorEntityLocked( PhysicsSceneObjectId sceneObjectId, bool locked )
+{
+    SceneEntityRecord* entity = Entities().TryGetMutable( Entities().FindBySceneObjectId( sceneObjectId ) );
+    if ( !entity )
+    {
+        return false;
+    }
+    entity->editorLocked = locked;
+    return true;
 }
 
 
@@ -825,6 +851,7 @@ void SceneWorld::RefreshRenderInstances( float presentationAlpha )
         }
         const SceneEntityRecord& entity = Entities().At( i );
         presentation->material = entity.renderMaterial;
+        presentation->editorVisible = entity.editorVisible;
         presentation->shadowCasterStream =
             ResolveRegisteredShadowCasterStream( colliderRecords[static_cast<std::size_t>( i )],
                                                  presentation->material );

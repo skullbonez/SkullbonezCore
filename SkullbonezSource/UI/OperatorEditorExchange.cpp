@@ -30,6 +30,7 @@ Related:
 #include "OperatorEditorExchange.h"
 
 #include "UICommands.h"
+#include "UITabEditor.h"
 
 #include <cmath>
 #include <cstring>
@@ -85,7 +86,7 @@ bool SameSceneIdentity( const OperatorEditorSceneCommand& left, const OperatorEd
 
 bool SameScenePayload( const OperatorEditorSceneCommand& left, const OperatorEditorSceneCommand& right )
 {
-    return left.sceneIndex == right.sceneIndex;
+    return left.sceneIndex == right.sceneIndex && std::strcmp( left.sceneName, right.sceneName ) == 0;
 }
 
 bool SamePropertyIdentity( const OperatorEditorPropertyCommand& left, const OperatorEditorPropertyCommand& right )
@@ -121,12 +122,21 @@ bool SameReplayPayload( const OperatorEditorReplayCommand& left, const OperatorE
 
 bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEditorToolCommand& right )
 {
-    return left.type == right.type;
+    if ( left.type != right.type )
+    {
+        return false;
+    }
+    // Entity flag actions are independent per durable scene object. Selection
+    // remains one action identity so two front ends cannot select two objects
+    // in the same turn without producing a Lane-R conflict.
+    return ( left.type != OperatorEditorToolCommandType::SetEntityVisible &&
+             left.type != OperatorEditorToolCommandType::SetEntityLocked ) ||
+           left.sceneObjectId == right.sceneObjectId;
 }
 
-bool SameToolPayload( const OperatorEditorToolCommand&, const OperatorEditorToolCommand& )
+bool SameToolPayload( const OperatorEditorToolCommand& left, const OperatorEditorToolCommand& right )
 {
-    return true;
+    return left.sceneObjectId == right.sceneObjectId && left.value == right.value && left.enabled == right.enabled;
 }
 
 template <typename Queue, typename Submit>
@@ -179,13 +189,23 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorSceneC
                                                             bool* duplicate )
 {
     if ( command.type != OperatorEditorSceneCommandType::ResetCurrentScene &&
-         command.type != OperatorEditorSceneCommandType::SetCurrentSceneIndex )
+         command.type != OperatorEditorSceneCommandType::ResetSceneDefaults &&
+         command.type != OperatorEditorSceneCommandType::SetCurrentSceneIndex &&
+         command.type != OperatorEditorSceneCommandType::SaveCurrentScene &&
+         command.type != OperatorEditorSceneCommandType::CreateScene )
     {
         return SkullbonezCore::Core::SbResult::Failure( OWNER, "Scene command has an unknown action type" );
     }
     if ( command.type == OperatorEditorSceneCommandType::SetCurrentSceneIndex && command.sceneIndex < 0 )
     {
         return SkullbonezCore::Core::SbResult::Failure( OWNER, "Scene index command requires a non-negative index" );
+    }
+    if ( command.type == OperatorEditorSceneCommandType::CreateScene &&
+         ( command.sceneName[0] == '\0' ||
+           std::memchr( command.sceneName, '\0', sizeof( command.sceneName ) ) == nullptr ) )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER,
+                                                        "Create-scene command requires a bounded non-empty name" );
     }
     return SubmitBounded( queue, command, SameSceneIdentity, SameScenePayload, duplicate );
 }
@@ -254,6 +274,26 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCo
     case OperatorEditorToolCommandType::Redo:
     case OperatorEditorToolCommandType::ToggleCrossScenePause:
     case OperatorEditorToolCommandType::StepPausedScene:
+    case OperatorEditorToolCommandType::DeleteSelection:
+    case OperatorEditorToolCommandType::DuplicateSelection:
+        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+    case OperatorEditorToolCommandType::SelectSceneObject:
+    case OperatorEditorToolCommandType::SetEntityVisible:
+    case OperatorEditorToolCommandType::SetEntityLocked:
+        if ( command.sceneObjectId == 0u )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER,
+                                                            "Hierarchy command requires a stable scene object id" );
+        }
+        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+    case OperatorEditorToolCommandType::SetPlacementObjectType:
+        if ( command.value < 0 || command.value >= EditorTab::OBJECT_TYPE_COUNT )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Placement command has an invalid object type" );
+        }
+        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+    case OperatorEditorToolCommandType::SetPlaceStatic:
+    case OperatorEditorToolCommandType::ToggleTerrainAlign:
         return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
     default:
         return SkullbonezCore::Core::SbResult::Failure( OWNER, "Tool command has an unknown action type" );
@@ -269,6 +309,25 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
         result = SubmitOperatorEditorCommand(
             normalized.scene,
             OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+    }
+    if ( result.ok && commands.scene.resetSceneDefaults )
+    {
+        result = SubmitOperatorEditorCommand(
+            normalized.scene,
+            OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetSceneDefaults, -1 } );
+    }
+    if ( result.ok && commands.scene.saveSceneDefaults )
+    {
+        result = SubmitOperatorEditorCommand(
+            normalized.scene,
+            OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SaveCurrentScene, -1 } );
+    }
+    if ( result.ok && commands.scene.createScene )
+    {
+        OperatorEditorSceneCommand create;
+        create.type = OperatorEditorSceneCommandType::CreateScene;
+        strncpy_s( create.sceneName, commands.scene.requestedSceneName, _TRUNCATE );
+        result = SubmitOperatorEditorCommand( normalized.scene, create );
     }
     if ( result.ok && commands.scene.requestedSceneIndex >= 0 )
     {
@@ -319,6 +378,22 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     normalizeTool( commands.editor.requestRedo, OperatorEditorToolCommandType::Redo );
     normalizeTool( commands.scene.toggleCrossScenePause, OperatorEditorToolCommandType::ToggleCrossScenePause );
     normalizeTool( commands.scene.requestSingleStep, OperatorEditorToolCommandType::StepPausedScene );
+    if ( result.ok && commands.editor.requestedObjectType >= 0 )
+    {
+        result = SubmitOperatorEditorCommand(
+            normalized.tools,
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType,
+                                       0u,
+                                       commands.editor.requestedObjectType } );
+    }
+    if ( result.ok && commands.editor.requestPlaceStatic )
+    {
+        result = SubmitOperatorEditorCommand( normalized.tools,
+                                              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlaceStatic,
+                                                                         0u,
+                                                                         0,
+                                                                         commands.editor.requestedPlaceStatic } );
+    }
     if ( !result.ok )
     {
         return result;
@@ -326,6 +401,10 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
 
     commands.operatorEditor = normalized;
     commands.scene.resetScene = false;
+    commands.scene.resetSceneDefaults = false;
+    commands.scene.saveSceneDefaults = false;
+    commands.scene.createScene = false;
+    commands.scene.requestedSceneName[0] = '\0';
     commands.scene.requestedSceneIndex = -1;
     commands.sceneOptions.requestedTimeScale = -1.0f;
     commands.water.requestWorldGravity = false;
@@ -335,6 +414,8 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     commands.editor.togglePlacementMode = false;
     commands.editor.requestUndo = false;
     commands.editor.requestRedo = false;
+    commands.editor.requestedObjectType = -1;
+    commands.editor.requestPlaceStatic = false;
     commands.scene.toggleCrossScenePause = false;
     commands.scene.requestSingleStep = false;
     return SkullbonezCore::Core::SbResult::Success();
@@ -420,6 +501,10 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     const OperatorEditorCommandQueues& canonical = validated.commands;
 
     commands.scene.resetScene = false;
+    commands.scene.resetSceneDefaults = false;
+    commands.scene.saveSceneDefaults = false;
+    commands.scene.createScene = false;
+    commands.scene.requestedSceneName[0] = '\0';
     commands.scene.requestedSceneIndex = -1;
     commands.sceneOptions.requestedTimeScale = -1.0f;
     commands.water.requestWorldGravity = false;
@@ -429,6 +514,14 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     commands.editor.togglePlacementMode = false;
     commands.editor.requestUndo = false;
     commands.editor.requestRedo = false;
+    commands.editor.requestedObjectType = -1;
+    commands.editor.enterPlacementMode = false;
+    commands.editor.requestPlaceStatic = false;
+    commands.editor.requestSelectSceneObject = false;
+    commands.editor.requestDeleteSelection = false;
+    commands.editor.requestDuplicateSelection = false;
+    commands.editor.requestSetEntityVisible = false;
+    commands.editor.requestSetEntityLocked = false;
     commands.scene.toggleCrossScenePause = false;
     commands.scene.requestSingleStep = false;
 
@@ -439,9 +532,22 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
         {
             commands.scene.resetScene = true;
         }
+        else if ( command.type == OperatorEditorSceneCommandType::ResetSceneDefaults )
+        {
+            commands.scene.resetSceneDefaults = true;
+        }
         else if ( command.type == OperatorEditorSceneCommandType::SetCurrentSceneIndex )
         {
             commands.scene.requestedSceneIndex = command.sceneIndex;
+        }
+        else if ( command.type == OperatorEditorSceneCommandType::SaveCurrentScene )
+        {
+            commands.scene.saveSceneDefaults = true;
+        }
+        else if ( command.type == OperatorEditorSceneCommandType::CreateScene )
+        {
+            commands.scene.createScene = true;
+            strncpy_s( commands.scene.requestedSceneName, command.sceneName, _TRUNCATE );
         }
     }
     for ( uint32_t index = 0u; index < canonical.property.count; ++index )
@@ -477,7 +583,8 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     }
     for ( uint32_t index = 0u; index < canonical.tools.count; ++index )
     {
-        switch ( canonical.tools.commands[index].type )
+        const OperatorEditorToolCommand& command = canonical.tools.commands[index];
+        switch ( command.type )
         {
         case OperatorEditorToolCommandType::ToggleEditorMode:
             commands.editor.toggleEditorMode = true;
@@ -497,6 +604,37 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
         case OperatorEditorToolCommandType::StepPausedScene:
             commands.scene.requestSingleStep = true;
             break;
+        case OperatorEditorToolCommandType::SelectSceneObject:
+            commands.editor.requestSelectSceneObject = true;
+            commands.editor.requestedSceneObjectId = command.sceneObjectId;
+            break;
+        case OperatorEditorToolCommandType::DeleteSelection:
+            commands.editor.requestDeleteSelection = true;
+            break;
+        case OperatorEditorToolCommandType::DuplicateSelection:
+            commands.editor.requestDuplicateSelection = true;
+            break;
+        case OperatorEditorToolCommandType::SetPlacementObjectType:
+            commands.editor.requestedObjectType = command.value;
+            commands.editor.enterPlacementMode = true;
+            break;
+        case OperatorEditorToolCommandType::SetPlaceStatic:
+            commands.editor.requestPlaceStatic = true;
+            commands.editor.requestedPlaceStatic = command.enabled;
+            break;
+        case OperatorEditorToolCommandType::ToggleTerrainAlign:
+            commands.editor.toggleTerrainAlign = true;
+            break;
+        case OperatorEditorToolCommandType::SetEntityVisible:
+            commands.editor.requestSetEntityVisible = true;
+            commands.editor.visibilitySceneObjectId = command.sceneObjectId;
+            commands.editor.requestedEntityVisible = command.enabled;
+            break;
+        case OperatorEditorToolCommandType::SetEntityLocked:
+            commands.editor.requestSetEntityLocked = true;
+            commands.editor.lockSceneObjectId = command.sceneObjectId;
+            commands.editor.requestedEntityLocked = command.enabled;
+            break;
         default:
             break;
         }
@@ -514,6 +652,13 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.scene.currentFrame );
     HashValue( hash, view.scene.modelCount );
     HashValue( hash, view.scene.timeScale );
+    HashValue( hash, view.scene.canSaveCurrentScene );
+    HashValue( hash, view.scene.dirty );
+    for ( int index = 0; index < view.scene.sceneCount && view.scene.sceneOptions; ++index )
+    {
+        const char* option = view.scene.sceneOptions[index] ? view.scene.sceneOptions[index] : "";
+        HashBytes( hash, option, std::strlen( option ) );
+    }
     // Invariant: hash semantic fields individually. Object padding is not
     // initialized by the language and therefore cannot be deterministic input.
     HashValue( hash, view.property.worldGravity );
@@ -538,8 +683,32 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.tools.placeStaticObject );
     HashValue( hash, view.tools.crossScenePauseLocked );
     HashValue( hash, view.tools.fixedStep );
+    HashValue( hash, view.tools.autoTerrainAlign );
     HashValue( hash, view.tools.undoDepth );
     HashValue( hash, view.tools.redoDepth );
+    const uint32_t hierarchyCount = view.hierarchy.rowCount <= OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY
+                                        ? view.hierarchy.rowCount
+                                        : OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY;
+    HashValue( hash, hierarchyCount );
+    HashValue( hash, view.hierarchy.totalRowCount );
+    HashValue( hash, view.hierarchy.selectedSceneObjectId );
+    HashValue( hash, view.hierarchy.truncated );
+    for ( uint32_t index = 0u; index < hierarchyCount; ++index )
+    {
+        const OperatorEditorHierarchyRow& row = view.hierarchy.rows[index];
+        const char* label = row.displayName ? row.displayName : "";
+        HashBytes( hash, label, std::strlen( label ) );
+        HashValue( hash, row.sceneObjectId );
+        HashValue( hash, row.groupRootObjectId );
+        HashValue( hash, row.groupPartIndex );
+        HashValue( hash, row.assetBacked );
+        HashValue( hash, row.visible );
+        HashValue( hash, row.locked );
+        HashValue( hash, row.selected );
+    }
+    HashValue( hash, view.assets.selectedObjectType );
+    HashValue( hash, view.assets.objectTypeCount );
+    HashValue( hash, view.assets.registeredLibraryAvailable );
     return hash;
 }
 } // namespace SkullbonezCore::UI

@@ -34,7 +34,7 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E9)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E10)
 */
 #pragma once
 
@@ -50,11 +50,47 @@ struct OperatorEditorSceneView
 {
     // Lifetime: sceneName is borrowed only for the current presentation frame.
     const char* sceneName = "";
+    // Lifetime: sceneOptions and every pointed-to label are borrowed from the
+    // scene-navigation owner for this one synchronous presentation frame.
+    const char* const* sceneOptions = nullptr;
     int currentSceneIndex = -1;
     int sceneCount = 0;
     int currentFrame = 0;
     int modelCount = 0;
     float timeScale = 1.0f;
+    bool canSaveCurrentScene = false;
+    bool dirty = false;
+};
+
+inline constexpr uint32_t OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY = 512u;
+
+struct OperatorEditorHierarchyRow
+{
+    // Lifetime: displayName is borrowed from SceneEntityStore for this frame.
+    const char* displayName = "";
+    uint32_t sceneObjectId = 0u;
+    uint32_t groupRootObjectId = 0u;
+    int groupPartIndex = -1;
+    bool assetBacked = false;
+    bool visible = true;
+    bool locked = false;
+    bool selected = false;
+};
+
+struct OperatorEditorHierarchyView
+{
+    OperatorEditorHierarchyRow rows[OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY] = {};
+    uint32_t rowCount = 0u;
+    uint32_t totalRowCount = 0u;
+    uint32_t selectedSceneObjectId = 0u;
+    bool truncated = false;
+};
+
+struct OperatorEditorAssetView
+{
+    int selectedObjectType = 0;
+    int objectTypeCount = 0;
+    bool registeredLibraryAvailable = false;
 };
 
 struct OperatorEditorPropertyView
@@ -97,6 +133,7 @@ struct OperatorEditorToolView
     bool placeStaticObject = false;
     bool crossScenePauseLocked = false;
     bool fixedStep = false;
+    bool autoTerrainAlign = false;
     int undoDepth = 0;
     int redoDepth = 0;
 };
@@ -109,18 +146,24 @@ struct OperatorEditorFrameView
     OperatorEditorReplayView replay;
     OperatorEditorSurfaceView surfaces;
     OperatorEditorToolView tools;
+    OperatorEditorHierarchyView hierarchy;
+    OperatorEditorAssetView assets;
 };
 
 enum class OperatorEditorSceneCommandType : uint8_t
 {
     ResetCurrentScene,
-    SetCurrentSceneIndex
+    ResetSceneDefaults,
+    SetCurrentSceneIndex,
+    SaveCurrentScene,
+    CreateScene
 };
 
 struct OperatorEditorSceneCommand
 {
     OperatorEditorSceneCommandType type = OperatorEditorSceneCommandType::ResetCurrentScene;
     int sceneIndex = -1;
+    char sceneName[64] = {};
 };
 
 enum class OperatorEditorPropertyCommandType : uint8_t
@@ -165,12 +208,23 @@ enum class OperatorEditorToolCommandType : uint8_t
     Undo,
     Redo,
     ToggleCrossScenePause,
-    StepPausedScene
+    StepPausedScene,
+    SelectSceneObject,
+    DeleteSelection,
+    DuplicateSelection,
+    SetPlacementObjectType,
+    SetPlaceStatic,
+    ToggleTerrainAlign,
+    SetEntityVisible,
+    SetEntityLocked
 };
 
 struct OperatorEditorToolCommand
 {
     OperatorEditorToolCommandType type = OperatorEditorToolCommandType::ToggleEditorMode;
+    uint32_t sceneObjectId = 0u;
+    int value = 0;
+    bool enabled = false;
 };
 
 template <typename Command, uint32_t Capacity> struct OperatorEditorCommandQueue
@@ -185,11 +239,11 @@ template <typename Command, uint32_t Capacity> struct OperatorEditorCommandQueue
     }
 };
 
-using OperatorEditorSceneCommandQueue = OperatorEditorCommandQueue<OperatorEditorSceneCommand, 4u>;
+using OperatorEditorSceneCommandQueue = OperatorEditorCommandQueue<OperatorEditorSceneCommand, 8u>;
 using OperatorEditorPropertyCommandQueue = OperatorEditorCommandQueue<OperatorEditorPropertyCommand, 4u>;
 using OperatorEditorRenderingCommandQueue = OperatorEditorCommandQueue<OperatorEditorRenderingCommand, 2u>;
 using OperatorEditorReplayCommandQueue = OperatorEditorCommandQueue<OperatorEditorReplayCommand, 2u>;
-using OperatorEditorToolCommandQueue = OperatorEditorCommandQueue<OperatorEditorToolCommand, 6u>;
+using OperatorEditorToolCommandQueue = OperatorEditorCommandQueue<OperatorEditorToolCommand, 16u>;
 
 struct OperatorEditorCommandQueues
 {

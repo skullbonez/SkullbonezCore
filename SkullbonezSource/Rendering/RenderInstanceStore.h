@@ -130,6 +130,7 @@ struct RenderInstanceRecord
     float boundingRadius = 0.0f;                                         // Conservative render/shadow bounds radius.
     RenderInstanceShapeKind shapeKind = RenderInstanceShapeKind::Sphere; // Cheap draw-path shape discriminator.
     ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Owner-prepared opaque submission bin.
+    bool editorVisible = true;                                           // Session-only hierarchy visibility; false suppresses raster/shadow submission.
     bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
     float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
@@ -147,6 +148,7 @@ struct RenderInstancePresentationRecord
 {
     RenderMaterial material;                                             // Backend-neutral material intent.
     ShadowCasterStream shadowCasterStream = ShadowCasterStream::None;    // Scene-owner stream choice copied into the draw row.
+    bool editorVisible = true;                                           // Scene editor visibility copied into the prepared draw row.
     char displayName[64] = {};                                           // Presentation/debug label paired with the model slot.
     bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
@@ -177,6 +179,9 @@ class RenderInstanceStore
     uint64_t PresentationCapacityBytes() const;
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
     void NotifyAudioContact( int modelIndex, float highlightSeconds );
+    // Updates both paired presentation rows immediately; false means the dense
+    // model row is stale or outside the active scene topology.
+    bool SetEditorVisible( int modelIndex, bool visible );
     void TickContactFeedback( int modelCount, float deltaSeconds );
     void Clear();
     void BeginPhysicsStepPoseCapture( const Physics::PhysicsBodyStore& bodyStore );
