@@ -10,8 +10,9 @@ Summary:
   raster recipe, Dx12GeometryOwner retains bounded geometry resources, and
   Dx12RaytracingOwner retains the optional reflection path. Dx12DescriptorHeaps
   owns every descriptor table and row allocator, Dx12BackbufferCapture owns
-  screenshot readback/quarantine, and the private frame epoch and retirement
-  owners live in Dx12FrameOwner.h.
+  screenshot readback/quarantine, Dx12GraphTransientPool owns physical graph
+  targets and their balanced binding transaction, and the private frame epoch
+  and retirement owners live in Dx12FrameOwner.h.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -53,6 +54,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
@@ -77,6 +79,7 @@ Related:
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "Dx12BackbufferCapture.h"
+#include "Dx12GraphTransientPool.h"
 #include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
 #include "Dx12DescriptorHeaps.h"
@@ -697,6 +700,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Lifetime: uncertain screenshot resources remain inside this owner until
     // shutdown proves both command-queue and present-queue completion.
     Dx12BackbufferCapture m_backbufferCapture;
+    // Lifetime: graph pool borrows the concrete device, descriptor, frame,
+    // texture, and pipeline owners declared above. It holds no raw heap pointer
+    // and releases its native slots before those owners shut down.
+    Dx12GraphTransientPool m_graphTransientPool;
     ID3D12Device* Device() const
     {
         return m_renderDevice.Device();
@@ -749,26 +756,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
-    // Lifetime: resource owners transfer COM references here when a framebuffer
-    // or texture is invalidated before the GPU has necessarily consumed the
-    // command stream that mentioned it.
-    // Graph-created transient targets use the backend descriptor allocators, but
-    // they are tracked in their own pool so material/object texture tables do
-    // not become the owner of frame-target lifetime. A pool slot may be reused
-    // only when the graph compiler has already proven descriptor and lifetime
-    // compatibility for that slot.
-    std::vector<GraphTransientResourceDX12> m_graphTransientResources;
-    // Maps logical graph handles from the latest compile to physical pool slots
-    // so callbacks can resolve the resource named by their pass declaration.
-    std::vector<GraphTransientBindingDX12> m_graphTransientBindings;
-    GraphTransientMaterializationStatsDX12 m_graphTransientStats;
-    bool m_graphRenderTargetActive = false;
-    RenderGraphResourceHandle m_activeGraphRenderTarget;
-    D3D12_CPU_DESCRIPTOR_HANDLE m_savedGraphRTV = {};
-    D3D12_CPU_DESCRIPTOR_HANDLE m_savedGraphDSV = {};
-    DXGI_FORMAT m_savedGraphRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-
-
     // --- Internal helpers ---
     SkullbonezCore::Core::SbResult WaitForGpu();
     SkullbonezCore::Core::SbResult EnsureCommandListOpen();
@@ -784,9 +771,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
     void ReportArchitectureStats( const char* reason ) const;
-    GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource );
-    const GraphTransientResourceDX12* FindGraphTransientSlot( RenderGraphResourceHandle resource ) const;
-    void ReleaseGraphTransientResources( const char* reason );
     void ReportDeviceLost( const char* context, HRESULT result ) const;
     void CheckDXRSupport();
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
@@ -1025,12 +1009,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                             UINT fboSrvIndex = UINT_MAX,
                             UINT fboDepthSrvIndex = UINT_MAX,
                             DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
-    bool ExecuteGraphTransition( const char* passName,
-                                 const char* resourceName,
-                                 ID3D12Resource* resource,
-                                 RenderGraphResourceAccess before,
-                                 RenderGraphResourceAccess after,
-                                 UINT subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES );
     bool ExecuteGraphUavBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource );
 
     // Reserve CPU-written upload memory for the current command stream.

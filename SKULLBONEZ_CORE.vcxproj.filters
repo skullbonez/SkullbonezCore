@@ -577,6 +577,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -1224,6 +1227,9 @@
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.h">

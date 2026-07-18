@@ -185,6 +185,7 @@ RUNTIME_DEBUG_PREFIXES = (*PHYSICS_DEBUG_PREFIXES, "RunDebugState")
 DX12_RENDERING_PREFIXES = (
     "BLASDX12",
     "Dx12BackbufferCapture",
+    "Dx12GraphTransientPool",
     "Dx12CachedPsoStore",
     "Dx12DeferredReleaseOwner",
     "Dx12DescriptorHeaps",

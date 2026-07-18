@@ -25,7 +25,7 @@ Invariants:
     logical transient allocation.
 
 Related:
-  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp
   - SkullbonezSource/Rendering/RenderGraph.h
   - Agentic/Reference/comment-style-guide.md
 */
@@ -68,7 +68,7 @@ inline bool ReleaseGraphTransientPoolSlotResourceDX12( GraphTransientResourceDX1
 
     // Lifetime: native texture release belongs to the graph transient pool slot,
     // not to material/object texture ownership. The caller unregisters any engine
-    // texture handle first because the backend texture registry owns that mapping;
+    // texture handle first because the texture owner owns that mapping;
     // this helper then retires only the DX12 resource and descriptor identities
     // cached on the physical pool slot.
     slot.resource->Release();

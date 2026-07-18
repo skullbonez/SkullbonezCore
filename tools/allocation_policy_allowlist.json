@@ -717,6 +717,17 @@
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
+      "path": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Rendering/DX12 graph transient pool",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "The extracted graph owner preserves the existing warm-up materialization vectors; steady frames reuse compiler-assigned physical slots and logical bindings.",
+      "cap": "Bounded by RENDER_GRAPH_MAX_RESOURCES and the compiler's transient allocation count.",
+      "removal_or_wrapper_plan": "Replace both graph transient vectors with fixed-capacity stores when the renderer adopts an owned graph-pool capacity contract."
+    },
+    {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
       "patterns": [
         ".resize("
@@ -728,15 +739,15 @@
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
-      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
+      "path": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp",
       "patterns": [
         ".push_back("
       ],
-      "owner": "Rendering backend/resource static STL surface",
+      "owner": "Rendering/DX12 graph transient pool",
       "phase": "backend_init_scene_resource_preallocation",
-      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
-      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+      "reason": "The extracted graph owner preserves the existing warm-up materialization vectors; steady frames reuse compiler-assigned physical slots and logical bindings.",
+      "cap": "Bounded by RENDER_GRAPH_MAX_RESOURCES and the compiler's transient allocation count.",
+      "removal_or_wrapper_plan": "Replace both graph transient vectors with fixed-capacity stores when the renderer adopts an owned graph-pool capacity contract."
     },
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h",

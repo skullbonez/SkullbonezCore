@@ -81,7 +81,7 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   (`m_uncertainReadbackResources`) into a concrete capture owner
   implementing the `IRenderCaptureBackend` operations' state. Gate:
   renderer + stress.
-- [ ] D3 — Render-graph transient owner. Move
+- [x] D3 — Render-graph transient owner. Move
   `m_graphTransientResources` / bindings / stats and the active-graph
   render-target save/restore block into a concrete graph-transient owner;
   it borrows the descriptor owner, never raw heap pointers. Gate:
@@ -162,6 +162,21 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   53.234 s with zero InfoQueue errors and all committed captures accepted; and
   `run_graphics_stress.bat 1` ran crash-free for 61.620 s. No baseline,
   golden, screenshot, or coverage-floor file changed.
+- D3 evidence (2026-07-18): `Dx12GraphTransientPool` now owns physical graph
+  slots, logical bindings, materialization statistics, and the balanced active
+  render-target transaction including saved RTV, DSV, and target format. It
+  borrows concrete device, descriptor, frame, texture, and pipeline owners; it
+  stores no backend or raw descriptor-heap pointer. The pre-existing bounded
+  warm-up vector policy rows moved with the owner and the allocation-policy
+  self-test plus repo scan passed with zero allowlist errors. The seven retained
+  consumer interfaces are byte-identical and `FRAME_COUNT` remains 2. Comment
+  audit: `../../Reports/2026-07-18/dx12-backend-d3-comment-audit.md`, 6/6
+  checked with none deferred. Final gates: project filters passed with 734/734
+  items; `validate_fast` passed in 57.184 s with formatting, Profile and Debug
+  builds, and 291/291 tests with 21,455/21,455 assertions;
+  `validate_dx12_renderer` passed in 53.893 s with zero InfoQueue errors and all
+  committed captures accepted; and `run_graphics_stress.bat 1` ran crash-free
+  for 62.072 s. No baseline, golden, screenshot, or coverage-floor file changed.
 
 ## Acceptance
 
