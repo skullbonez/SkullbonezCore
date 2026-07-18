@@ -38,7 +38,7 @@ struct PhysicsColliderHandle;
 
 namespace SkullbonezCore::Runtime
 {
-class SceneController;
+class SceneWorld;
 
 namespace ReplayValidationInternal
 {
@@ -54,9 +54,9 @@ inline constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 inline constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SUPPORTED =
     REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE;
 
-const Physics::PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneController& collection, int modelIndex );
+const Physics::PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneWorld& world, int modelIndex );
 
-const Physics::ColliderRecord* TryGetEditorTransformColliderRecord( const SceneController& collection,
+const Physics::ColliderRecord* TryGetEditorTransformColliderRecord( const SceneWorld& world,
                                                                     Physics::PhysicsColliderHandle colliderHandle,
                                                                     int modelIndex,
                                                                     uint32_t replayBodyId );

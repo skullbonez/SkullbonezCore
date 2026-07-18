@@ -444,20 +444,20 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
         {
             // Lifetime: the save view borrows cold owner arrays only for this
             // synchronous file write; editor input retains none of the rows.
-            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.models.Scene().Physics() );
-            const SceneSaveView saveView{ context.entities,
-                                          context.models.Scene().BodyStore(),
-                                          context.models.Scene().Colliders(),
+            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.world.Physics() );
+            const SceneSaveView saveView{ context.world.Entities(),
+                                          context.world.BodyStore(),
+                                          context.world.Colliders(),
                                           joints.data(),
                                           static_cast<int>( joints.size() ),
-                                          context.world.GetGravity(),
-                                          context.world.GetFluidSurfaceHeight(),
-                                          context.world.GetFluidDensity(),
-                                          context.world.GetMutualGravitySettings() };
+                                          context.world.Environment().GetGravity(),
+                                          context.world.Environment().GetFluidSurfaceHeight(),
+                                          context.world.Environment().GetFluidDensity(),
+                                          context.world.Environment().GetMutualGravitySettings() };
             const SceneSaveRequest request{ path,
-                                            context.cameras.GetCameraTranslation(),
-                                            context.cameras.GetCameraView(),
-                                            context.cameras.GetCameraUp(),
+                                            context.world.Cameras().GetCameraTranslation(),
+                                            context.world.Cameras().GetCameraView(),
+                                            context.world.Cameras().GetCameraUp(),
                                             context.scene.isScenePhysics,
                                             context.scene.isSceneText };
             const SkullbonezCore::Core::SbResult saveResult = SceneSnapshotWriter::Save( saveView, request );

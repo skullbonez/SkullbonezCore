@@ -103,11 +103,11 @@ bool IsSceneJsonFile( const std::filesystem::path& path )
     return name.size() > 11 && name.compare( name.size() - 11, 11, ".scene.json" ) == 0;
 }
 
-int SceneBrowserIndexForPath( const RunSceneBrowserState& sceneBrowser, const std::string& scenePath )
+int SceneBrowserIndexForPath( const std::vector<std::string>& browserPaths, const std::string& scenePath )
 {
-    for ( int i = 0; i < static_cast<int>( sceneBrowser.paths.size() ); ++i )
+    for ( int i = 0; i < static_cast<int>( browserPaths.size() ); ++i )
     {
-        if ( ScenePathEqualsNormalizedPath( sceneBrowser.paths[i], scenePath ) )
+        if ( ScenePathEqualsNormalizedPath( browserPaths[i], scenePath ) )
         {
             return i;
         }
@@ -182,7 +182,7 @@ int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneB
         return -1;
     }
 
-    return SceneBrowserIndexForPath( sceneBrowser, *currentScenePath );
+    return SceneBrowserIndexForPath( sceneBrowser.paths, *currentScenePath );
 }
 
 
@@ -231,7 +231,7 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
 
 
 void CommitSceneRuntimeLoad( SceneController& controller,
-                             UI::SceneNavigationModel& navigation,
+                             SceneLoadNavigationState& navigation,
                              const SceneRuntimeLoadBeginResult& prepared )
 {
     // Invariant: preparation has already validated the index and drained the
@@ -247,9 +247,9 @@ void CommitSceneRuntimeLoad( SceneController& controller,
     controller.BeginLoad( prepared.index );
     if ( !prepared.shouldPreserveRuntimeState )
     {
-        navigation.browser.selectedCineModeSceneIndex =
+        navigation.selectedCineModeSceneIndex =
             ( !prepared.scenePath->empty() && IsCineScenePath( *prepared.scenePath ) )
-                ? SceneBrowserIndexForPath( navigation.browser, *prepared.scenePath )
+                ? SceneBrowserIndexForPath( navigation.browserPaths, *prepared.scenePath )
                 : -1;
     }
 }

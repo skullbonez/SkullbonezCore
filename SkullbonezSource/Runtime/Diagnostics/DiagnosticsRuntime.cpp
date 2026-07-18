@@ -42,7 +42,6 @@ Related:
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Scene/TestScene.h"
-#include "../Scene/SceneController.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
 
@@ -544,10 +543,9 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         // the overlay is active, the same key owns overlay visibility.
         if ( context.sceneMode && context.cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
         {
-            const int sceneEntityCount = context.sceneEntities.Scene().SceneEntityCount();
-            if ( sceneEntityCount > 0 )
+            if ( context.sceneEntityCount > 0 )
             {
-                context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % sceneEntityCount;
+                context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % context.sceneEntityCount;
             }
         }
         else
@@ -1091,12 +1089,12 @@ void DiagnosticsRuntime::SetPhysicsCollisionTimeLogOverride( const char* path )
 }
 
 
-void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Runtime::SceneController& models,
+void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
     RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics(),
-                                                   models,
+                                                   physics,
                                                    path,
                                                    fixedStepForcedByDiagnostics );
 }
@@ -1113,7 +1111,7 @@ void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
 }
 
 
-void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Runtime::SceneController& models,
+void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
                                                      const RunSceneState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
@@ -1122,7 +1120,7 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Runtime::SceneController& m
     // Lifetime: RuntimeDiagnostics owns the trace file/session. This boundary
     // only supplies current runtime state and never caches trace handles.
     RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(),
-                                                    models,
+                                                    physics,
                                                     scene,
                                                     config,
                                                     scenePath,

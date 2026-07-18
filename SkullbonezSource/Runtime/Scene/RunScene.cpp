@@ -449,23 +449,20 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SkullbonezCore::Core::SbResult
-SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
-                                  const RunSceneState& sceneState,
-                                  const SceneEntityStore& entities,
-                                  const SkullbonezCore::Runtime::SceneController& modelCollection,
-                                  const WorldEnvironment& world,
-                                  const CameraCollection& cameras,
-                                  bool waterHidden,
-                                  bool terrainHidden )
+SkullbonezCore::Core::SbResult SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
+                                                                 const RunSceneState& sceneState,
+                                                                 const SceneWorld& sceneWorld,
+                                                                 bool waterHidden,
+                                                                 bool terrainHidden )
 {
-    // Lifetime: editable persistence borrows the active scene's owner arrays
-    // only for the synchronous write; scene reload may replace them afterward.
-    const auto& joints =
-        SkullbonezCore::Physics::PhysicsEngine::ReadPointJointConstraints( modelCollection.Scene().Physics() );
-    const SceneSaveView saveView{ entities,
-                                  modelCollection.Scene().BodyStore(),
-                                  modelCollection.Scene().Colliders(),
+    // Lifetime: editable persistence borrows the concrete scene world only for
+    // this synchronous write; scene reload may replace its stores afterward.
+    const WorldEnvironment& world = sceneWorld.Environment();
+    const CameraCollection& cameras = sceneWorld.Cameras();
+    const auto& joints = SkullbonezCore::Physics::PhysicsEngine::ReadPointJointConstraints( sceneWorld.Physics() );
+    const SceneSaveView saveView{ sceneWorld.Entities(),
+                                  sceneWorld.BodyStore(),
+                                  sceneWorld.Colliders(),
                                   joints.data(),
                                   static_cast<int>( joints.size() ),
                                   world.GetGravity(),
@@ -509,10 +506,13 @@ void SceneLoadConsumerOutputs::ResetForLoad()
 {
     uiActivation = SceneUiActivation{};
     automationGates.Reset();
+    navigation = SceneLoadNavigationState{};
     windowTitle[0] = '\0';
     hasWindowTitle = false;
     resetContactAudioHistory = false;
     applyAutomationGates = false;
+    applyNavigation = false;
+    refreshSceneBrowser = false;
     resumeGraphicsStress = false;
 }
 
@@ -538,6 +538,17 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
     {
         window.SetTitleText( outputs.windowTitle );
     }
+    if ( outputs.applyNavigation )
+    {
+        ApplySceneLoadNavigationState( operatorUi.SceneNavigation(), outputs.navigation );
+    }
+    if ( outputs.refreshSceneBrowser )
+    {
+        // Why: scene creation writes editor-authored IO inside the scene owner,
+        // but UI keeps display names and stable c-string views. Rebuild those
+        // views after the request batch returns to the UI boundary.
+        RefreshSceneBrowserList( operatorUi.SceneNavigation().browser );
+    }
     ApplySceneUiActivation( operatorUi, outputs.uiActivation );
     if ( outputs.resumeGraphicsStress )
     {
@@ -546,10 +557,10 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
 }
 
 SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request,
-                                                      SceneLoadPolicyInputs policy,
-                                                      SceneLoadHostParticipants host,
-                                                      SceneLoadInteractionParticipants interactionParticipants,
-                                                      SceneLoadPresentationParticipants presentation,
+                                                      const SceneLoadPolicyInputs& policy,
+                                                      const SceneLoadHostParticipants& host,
+                                                      const SceneLoadInteractionParticipants& interactionParticipants,
+                                                      const SceneLoadPresentationParticipants& presentation,
                                                       SceneLoadConsumerOutputs& consumerOutputs )
 {
     // Lifetime: these aliases make the long load transaction readable without
@@ -569,13 +580,15 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     RunCameraState& camera = interactionParticipants.camera;
     AttachedCameraState& attachedCamera = interactionParticipants.attachedCamera;
     RuntimeTools& runtimeTools = interactionParticipants.runtimeTools;
-    UI::SceneNavigationModel& sceneNavigation = interactionParticipants.navigation;
     ReplayRuntime& replayRuntime = presentation.replayRuntime;
     RuntimeOverlayDiagnostics& overlays = presentation.overlays;
     const RuntimeRenderBackendView& renderBackendView = presentation.renderBackendView;
     RuntimeRenderer& renderer = presentation.renderer;
 
+    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
     consumerOutputs.ResetForLoad();
+    consumerOutputs.navigation = interactionParticipants.navigation;
+    SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
 
     RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
     RunDebugState& m_debug = presentationEdit.State();
@@ -622,7 +635,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         return mode;
     };
     SkullbonezCore::Core::SbResult m_lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
     SceneController& runtime = m_sceneController;
     const SceneRuntimeLoadBeginResult loadBegin =
         PrepareSceneRuntimeLoad( runtime,
@@ -653,6 +665,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
     CommitSceneRuntimeLoad( runtime, sceneNavigation, loadBegin );
+    consumerOutputs.applyNavigation = true;
     if ( request.markManualReset )
     {
         runtime.MarkManualReset();
@@ -672,13 +685,12 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     // Reset scene-local state; operator HUD preferences are restored below.
     SceneState().ResetForLoad( config.cinematicRender );
     diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
+    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     simulation.Reset();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
     consumerOutputs.resetContactAudioHistory = true;
-    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio );
     renderer.ResetSceneRuntimePolicyFromConfig();
     consumerOutputs.applyAutomationGates = true;
-    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
 
     m_sceneController.Scene().Cameras().Reset();
     m_sceneController.Scene().Clear();
@@ -696,10 +708,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             attachedCamera.activeFollow,
             camera.director.grabbed } );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
-        runtimeTools.ClearEditorInteractionForTransition( false,
-                                                          m_sceneController,
-                                                          m_sceneController.Scene().Physics(),
-                                                          interaction );
+        runtimeTools.ClearEditorInteractionForTransition( false, m_sceneController.Scene(), interaction );
         runtimeTools.ClearEditorHistory();
         interaction.ResetForScene( InteractionExitReason::LoadScene );
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction );
@@ -799,14 +808,17 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             LogSceneLoadFailure( generatedSetup.status, scenePath );
             return m_lastSceneLoadResult;
         }
+        RunSceneBrowserState styleBrowser;
+        styleBrowser.paths = sceneNavigation.browserPaths;
+        styleBrowser.selectedCineModeSceneIndex = sceneNavigation.selectedCineModeSceneIndex;
         ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext{ launchOptions,
                                                               SceneState(),
-                                                              sceneNavigation.browser,
-                                                              m_sceneController,
-                                                              m_sceneController.Scene().Entities(),
+                                                              styleBrowser,
+                                                              m_sceneController.Scene(),
                                                               assets,
                                                               ActiveSceneCinematicConfig( SceneState(), config ),
                                                               defaultCinematicRender } );
+        sceneNavigation.selectedCineModeSceneIndex = styleBrowser.selectedCineModeSceneIndex;
         const char* rendererName =
             renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
         sprintf_s( consumerOutputs.windowTitle, "%s [%s]", TITLE_TEXT, rendererName );
@@ -1232,7 +1244,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
 #ifdef _DEBUG
     diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
-        m_sceneController,
+        m_sceneController.Scene().Physics(),
         SceneState(),
         config,
         scenePath.c_str(),
@@ -1295,10 +1307,7 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
         const SkullbonezCore::Core::SbResult saveResult =
             SaveCurrentEditableSceneSnapshot( *scenePath,
                                               State(),
-                                              Scene().Entities(),
-                                              *this,
-                                              Scene().Environment(),
-                                              Scene().Cameras(),
+                                              Scene(),
                                               view.debug.isWaterHidden,
                                               view.debug.isTerrainHidden );
         return saveResult;

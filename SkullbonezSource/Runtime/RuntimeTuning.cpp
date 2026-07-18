@@ -33,7 +33,7 @@ Related:
 #include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderer.h"
 #include "../Core/WorkerPool.h"
-#include "Scene/SceneController.h"
+#include "Scene/SceneWorld.h"
 #include "../Physics/SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UILayout.h"
@@ -755,8 +755,7 @@ bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext contex
         return false;
     }
 
-    context.modelCollection.Scene().Physics().SetSleepEnabled(
-        !context.modelCollection.Scene().Physics().IsSleepEnabled() );
+    context.world.Physics().SetSleepEnabled( !context.world.Physics().IsSleepEnabled() );
     return true;
 }
 
@@ -792,10 +791,10 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
     }
     if ( runtimePhysicsConfigChanged )
     {
-        // Invariant: SceneController caches per-model runtime tuning so
+        // Invariant: SceneWorld caches per-model runtime tuning so
         // existing bodies and newly added bodies must observe the same live
         // physics settings immediately after UI config edits.
-        context.modelCollection.Scene().ApplyRuntimeConfig( liveConfig );
+        context.world.ApplyRuntimeConfig( liveConfig );
     }
     return result;
 }
@@ -805,8 +804,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     // Why: RunInput owns input-mode bookkeeping, while this helper owns the
     // physics-facing mutation and single sync point for accepted tornado edits.
     TornadoUICommandResult result;
-    Physics::TornadoFieldConfig tornadoField = context.modelCollection.Scene().Physics().GetTornadoFieldConfig();
-    Physics::TornadoSystemConfig tornadoSystem = context.modelCollection.Scene().Physics().GetTornadoSystemConfig();
+    Physics::TornadoFieldConfig tornadoField = context.world.Physics().GetTornadoFieldConfig();
+    Physics::TornadoSystemConfig tornadoSystem = context.world.Physics().GetTornadoSystemConfig();
     TornadoVisualSettings tornadoVisual = context.renderer.TornadoVisualSettingsSnapshot();
     bool tornadoFieldChanged = false;
     const bool hasTornadoSystem = !tornadoSystem.vortices.empty();
@@ -911,8 +910,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( tornadoFieldChanged )
     {
-        context.modelCollection.Scene().Physics().SetTornadoFieldConfig( tornadoField );
-        context.modelCollection.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
+        context.world.Physics().SetTornadoFieldConfig( tornadoField );
+        context.world.Physics().SetTornadoSystemConfig( tornadoSystem );
     }
     context.renderer.SetTornadoVisualSettings( tornadoVisual );
     return result;

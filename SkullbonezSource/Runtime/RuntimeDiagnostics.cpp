@@ -35,7 +35,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/Log.h"
-#include "Scene/SceneController.h"
+#include "../Physics/PhysicsEngine.h"
 #include "../Core/Profiler.h"
 #include "Audio/ContactAudioService.h"
 #include "Replay/ReplayRecorder.h"
@@ -465,14 +465,14 @@ void RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( RunPerfLogState& pe
 }
 
 void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                                    Runtime::SceneController& models,
+                                                    Physics::PhysicsEngine& physics,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
     strcpy_s( diagnostics.path, sizeof( diagnostics.path ), path );
     diagnostics.isEnabled = diagnostics.path[0] != '\0';
     diagnostics.fixedStepForcedByDiagnostics = fixedStepForcedByDiagnostics;
-    models.Scene().Physics().SetPhysicsDiagnosticsPath( diagnostics.path );
+    physics.SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
 void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
@@ -502,7 +502,7 @@ void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
 }
 
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                     Runtime::SceneController& models,
+                                                     Physics::PhysicsEngine& physics,
                                                      const RunSceneState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
@@ -517,7 +517,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     sprintf_s( diagnostics.currentRunId, sizeof( diagnostics.currentRunId ), "run_%04d", diagnostics.runSequence );
     diagnostics.isRunActive = true;
     diagnostics.contactAudioEventSequence = 0;
-    models.Scene().Physics().SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
+    physics.SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
 
     const char* solverName = "solver";
     std::string escapedScene = JsonEscape( scenePath && scenePath[0] != '\0' ? scenePath : "generated" );

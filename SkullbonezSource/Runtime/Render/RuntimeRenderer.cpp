@@ -1491,12 +1491,10 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
 }
 
 
-RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend,
-                                  const RenderWorldView& world,
-                                  const RenderSceneView& scene )
-    : m_lifecycleLog( backend.deviceLifecycle, scene.sceneController.State() ), m_assets( world.assets ),
-      m_cameras( world.cameras ), m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ),
-      m_world( world.worldEnvironment ), m_primitiveBatches( std::in_place, backend.renderResources ),
+RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene )
+    : m_lifecycleLog( backend.deviceLifecycle, scene ), m_assets( world.assets ), m_cameras( world.cameras ),
+      m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ), m_world( world.worldEnvironment ),
+      m_primitiveBatches( std::in_place, backend.renderResources ),
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),

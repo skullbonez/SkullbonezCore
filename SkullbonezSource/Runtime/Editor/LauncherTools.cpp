@@ -33,7 +33,7 @@ Related:
 #include "../RunLaunchOptions.h"
 #include "../Scene/SceneGeneratedSetup.h"
 #include "../Scene/SceneRuntime.h"
-#include "../Scene/SceneController.h"
+#include "../Scene/SceneWorld.h"
 #include "../../World/WorldEnvironment.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
@@ -52,7 +52,6 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Environment::CameraCollection;
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Runtime::SceneController;
 
 #ifdef _DEBUG
 namespace
@@ -99,8 +98,7 @@ const PhysicsBodyRecord* LauncherReproBodyForCollider( const PhysicsBodyStore& b
 } // namespace
 
 
-bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
-                                            SkullbonezCore::Environment::CameraCollection* cameras,
+bool RuntimeTools::PickLauncherReproTarget( const SceneWorld& world,
                                             int& outIndex,
                                             float& outRayT,
                                             float& outCrosshairDistance ) const
@@ -109,13 +107,9 @@ bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
     outRayT = 0.0f;
     outCrosshairDistance = 0.0f;
 
-    if ( !cameras )
-    {
-        return false;
-    }
-
-    const Vector3& camPos = cameras->GetCameraTranslation();
-    Vector3 rayDir = cameras->GetCameraView() - camPos;
+    const CameraCollection& cameras = world.Cameras();
+    const Vector3& camPos = cameras.GetCameraTranslation();
+    Vector3 rayDir = cameras.GetCameraView() - camPos;
     float rayMagSq = VectorMagSquared( rayDir );
     if ( rayMagSq < TOLERANCE )
     {
@@ -131,8 +125,8 @@ bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
     // sphere around its current physics body position, then chooses the nearest
     // sphere pierced by the camera ray. The body record remains only the cold
     // identity table for the eventual snapshot row.
-    const ColliderStore& colliderStore = collection.Scene().Colliders();
-    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
+    const ColliderStore& colliderStore = world.Colliders();
+    const PhysicsBodyStore& bodyStore = world.BodyStore();
     const auto colliders = colliderStore.Records();
     const auto hotFields = bodyStore.HotFields();
     for ( const ColliderRecord& collider : colliders )
@@ -202,13 +196,13 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     int targetIndex = -1;
     float rayT = 0.0f;
     float crosshairDistance = 0.0f;
-    if ( !PickLauncherReproTarget( context.collection, context.cameras, targetIndex, rayT, crosshairDistance ) )
+    if ( !PickLauncherReproTarget( context.world, targetIndex, rayT, crosshairDistance ) )
     {
         return LauncherReproSnapshotStatus::NoTarget;
     }
 
-    const ColliderStore& colliderStore = context.collection.Scene().Colliders();
-    const PhysicsBodyStore& bodyStore = context.collection.Scene().BodyStore();
+    const ColliderStore& colliderStore = context.world.Colliders();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
     if ( !collider )
     {
@@ -250,7 +244,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     float shapeDrag = collider->dragCoefficient;
     float mass = body->mass;
     float restitution = collider->restitution;
-    const char* name = context.entities.At( targetIndex ).displayName;
+    const char* name = context.world.Entities().At( targetIndex ).displayName;
     if ( !name || name[0] == '\0' )
     {
         name = "<unnamed>";
@@ -280,16 +274,16 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         generatedObjectOverride = "all_boxes";
         generatedObjectArg = " --all-boxes";
     }
-    const Vector3& camPos = context.cameras->GetCameraTranslation();
-    const Vector3& camView = context.cameras->GetCameraView();
-    const Vector3& camUp = context.cameras->GetCameraUp();
+    const Vector3& camPos = context.world.Cameras().GetCameraTranslation();
+    const Vector3& camView = context.world.Cameras().GetCameraView();
+    const Vector3& camUp = context.world.Cameras().GetCameraUp();
 
     int sleeping = 0;
     int sleepSupported = 0;
     int sleepInhibited = 0;
     int collisionVisualContact = 0;
     int sleepIslandVisualId = 0;
-    const Physics::PhysicsEngine& physics = context.collection.Scene().Physics();
+    const Physics::PhysicsEngine& physics = context.world.Physics();
     const auto sleepStates = PhysicsEngine::ReadSleepStates( physics );
     if ( targetIndex < static_cast<int>( sleepStates.size() ) )
     {
@@ -319,22 +313,23 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     bool terrainAtCenter = false;
     float terrainHeight = 0.0f;
     Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
-    if ( context.terrain && context.terrain->IsInBounds( pos.x, pos.z ) )
+    Geometry::Terrain* terrain = context.world.Terrain().Get();
+    if ( terrain && terrain->IsInBounds( pos.x, pos.z ) )
     {
-        context.terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, terrainHeight, terrainNormal );
+        terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, terrainHeight, terrainNormal );
         terrainAtCenter = true;
     }
 
     int boxTerrainSupportedVertices = -1;
     float boxMinTerrainGap = 0.0f;
     float boxMaxTerrainGap = 0.0f;
-    if ( std::holds_alternative<BoundingBox>( shape ) && context.terrain )
+    if ( std::holds_alternative<BoundingBox>( shape ) && terrain )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
         Quaternion qCopy = hotState.orientation;
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
         const BoxTerrainVertexSupportProbe supportProbe =
-            ProbeBoxTerrainVertices( nullptr, box, pos, orientMat, *context.terrain, context.contactEpsilon, false );
+            ProbeBoxTerrainVertices( nullptr, box, pos, orientMat, *terrain, context.contactEpsilon, false );
 
         if ( supportProbe.hasTerrainGaps )
         {
@@ -369,7 +364,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
-    fprintf( f, "model_count,%d\n", context.collection.Scene().SceneEntityCount() );
+    fprintf( f, "model_count,%d\n", context.world.SceneEntityCount() );
     fprintf( f, "vsync_enabled,%d\n", context.vsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", context.pipelineSyncEnabled ? 1 : 0 );
     if ( context.sceneState.isSceneMode )
@@ -401,9 +396,9 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "water_hidden,%d\n", context.debug.isWaterHidden ? 1 : 0 );
     fprintf( f, "terrain_hidden,%d\n", context.debug.isTerrainHidden ? 1 : 0 );
     fprintf( f, "collision_visualizer,%d\n", context.debug.isCollisionVisualizer ? 1 : 0 );
-    fprintf( f, "world_gravity,%.6f\n", context.world.GetGravity() );
-    fprintf( f, "world_fluid_height,%.6f\n", context.world.GetFluidSurfaceHeight() );
-    fprintf( f, "world_fluid_density,%.6f\n", context.world.GetFluidDensity() );
+    fprintf( f, "world_gravity,%.6f\n", context.world.Environment().GetGravity() );
+    fprintf( f, "world_fluid_height,%.6f\n", context.world.Environment().GetFluidSurfaceHeight() );
+    fprintf( f, "world_fluid_density,%.6f\n", context.world.Environment().GetFluidDensity() );
     fprintf( f, "cfg_friction_coeff,%.6f\n", context.frictionCoeff );
     fprintf( f, "cfg_contact_epsilon,%.6f\n", context.contactEpsilon );
     fprintf( f, "camera_eye,%.6f,%.6f,%.6f\n", camPos.x, camPos.y, camPos.z );

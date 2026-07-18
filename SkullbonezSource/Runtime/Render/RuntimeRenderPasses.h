@@ -71,7 +71,7 @@ struct PhysicsPipelineRecord;
 
 namespace Runtime
 {
-class SceneController;
+class SceneWorld;
 }
 
 namespace Environment
@@ -391,9 +391,10 @@ struct UiTextPassState
     bool crossScenePauseLocked = false;
     const RunSceneState& scene;
     const RenderPresentationSettings& renderPresentation;
-    const Runtime::SceneController& modelOwner;
+    // Lifetime: one world borrow supplies the environment and physics facets;
+    // the overlay cannot traverse scene lifecycle or request authority.
+    const SceneWorld& world;
     const SkullbonezCore::Core::EngineConfig& config;
-    const Environment::WorldEnvironment& world;
     const RunRayCastTestState& rayCastTest;
     const RunEditorPlacementState& editor;
     const RuntimeInputContext& runtimeInput;

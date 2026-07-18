@@ -41,7 +41,8 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "RunCameraState.h"
 #include "RuntimeFileWriter.h"
-#include "Scene/SceneController.h"
+#include "Scene/SceneRuntime.h"
+#include "Scene/SceneWorld.h"
 #include "Tools/RuntimeTools.h"
 
 #include "../Physics/PhysicsEngine.h"
@@ -481,7 +482,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::TryEditorSelect
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVisualOfflineProjection(
     InteractionAutomationRunStatus& status,
     RuntimeTools& runtimeTools,
-    SceneController& scene,
+    SceneWorld& world,
     const ReplaySolverFrameSample* latestSolverSample )
 {
     if ( m_replayVisualOfflineProjectionComplete )
@@ -534,8 +535,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         tracer.Clear();
         const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
         ReplayPredictionUpdateResult update;
-        offlinePrediction.PreparePresentation( scene.Scene().Entities(),
-                                               Physics::PhysicsEngine::ReadColliders( scene.Scene().Physics() ),
+        offlinePrediction.PreparePresentation( world.Entities(),
+                                               Physics::PhysicsEngine::ReadColliders( world.Physics() ),
                                                path.targetId,
                                                path.targetModelRow,
                                                path.hasTarget,
@@ -561,16 +562,16 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
                     static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
             }
         }
-        offlinePresentation.PreparePathDrawing( scene.Scene().BodyStore() );
+        offlinePresentation.PreparePathDrawing( world.BodyStore() );
         const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
         offlinePresentation.RenderPathVisualizer( prediction,
                                                   latestSolverSample,
-                                                  scene.Scene().Physics(),
-                                                  scene.Scene().Entities(),
+                                                  world.Physics(),
+                                                  world.Entities(),
                                                   tracer );
         (void)offlinePresentation.BuildPredictionGhostDrawRequests( prediction,
-                                                                    scene.Scene().RenderPresentationRecords(),
-                                                                    scene.Scene().BodyStore() );
+                                                                    world.RenderPresentationRecords(),
+                                                                    world.BodyStore() );
         ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
         offlinePresentation.PublishVisualPacket( projected,
                                                  prediction,
@@ -639,7 +640,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
 bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::FinishReplayVisualCapture(
     InteractionAutomationRunStatus& status,
     RuntimeTools& runtimeTools,
-    SceneController& scene,
+    SceneWorld& world,
     const ReplayAutomationView& replay )
 {
     if ( !m_replayVisualFidelityCaptureEnabled )
@@ -648,7 +649,7 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::FinishReplayVis
     }
     if ( !status.failed && !m_replayVisualOfflineProjectionComplete )
     {
-        (void)VerifyReplayVisualOfflineProjection( status, runtimeTools, scene, replay.latestSolverSample );
+        (void)VerifyReplayVisualOfflineProjection( status, runtimeTools, world, replay.latestSolverSample );
     }
     return status.failed || m_replayVisualFidelityTicks.size() == replay.prediction.simulation.frames.size();
 }
@@ -1002,7 +1003,9 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
 {
     InteractionAutomationRunStatus& status = inputs.status;
     const char* scriptPath = inputs.scriptPath;
-    const SceneController& scene = inputs.scene;
+    const SceneWorld& world = inputs.world;
+    const RunSceneState& scene = inputs.scene;
+    const char* scenePath = inputs.scenePath;
     const RuntimeTools& runtimeTools = inputs.runtimeTools;
     const ReplayAutomationView& replay = inputs.replay;
     const RuntimeInteractionController& interaction = inputs.interaction;
@@ -1204,11 +1207,11 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
                                                   { "contactDerived", node.contactDerived } } );
     }
 
-    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.Scene().BodyStore() );
+    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < scene.Scene().SceneEntityCount() )
+    if ( selectedIndex >= 0 && selectedIndex < world.SceneEntityCount() )
     {
-        selectedName = scene.Scene().Entities().At( selectedIndex ).displayName;
+        selectedName = world.Entities().At( selectedIndex ).displayName;
     }
     const bool gizmoVisible =
         selectedIndex >= 0 &&
@@ -1285,9 +1288,9 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
             ( firstZ + secondZ ) * ( firstZ + secondZ ) + ( firstW + secondW ) * ( firstW + secondW );
         return (std::min)( directDelta, antipodalDelta );
     };
-    for ( int modelIndex = 0; modelIndex < scene.Scene().SceneEntityCount(); ++modelIndex )
+    for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
     {
-        const SceneEntityRecord& entity = scene.Scene().Entities().At( modelIndex );
+        const SceneEntityRecord& entity = world.Entities().At( modelIndex );
         if ( strncmp( entity.displayName, "prediction_wall_brick_", 22u ) != 0 )
         {
             continue;
@@ -1305,9 +1308,8 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         const RunReplayPredictionBodySample* firstBody =
             findPredictionBodyByModelRow( predictionFirstFrame, modelIndex );
         const RunReplayPredictionBodySample* lastBody = findPredictionBodyByModelRow( predictionLastFrame, modelIndex );
-        const Physics::PhysicsColliderHandle colliderHandle =
-            scene.Scene().Colliders().HandleForModelIndex( modelIndex );
-        const Physics::ColliderRecord* collider = scene.Scene().Colliders().RecordForHandle( colliderHandle );
+        const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
+        const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
         const SkullbonezCore::Math::CollisionDetection::BoundingBox* wallBrickShape =
             collider ? std::get_if<SkullbonezCore::Math::CollisionDetection::BoundingBox>( &collider->shape ) : nullptr;
         const auto grounded = [&]( const RunReplayPredictionBodySample& body )
@@ -1418,7 +1420,6 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         directorPhaseRevealRate = phase.revealRate;
     }
 
-    const std::string* scenePath = scene.CurrentPath();
     const SkullbonezCore::Core::MainMemoryReplayStats replayMemoryStats = replay.memoryStats;
     uint64_t trajectoryDroppedTotal = 0;
     for ( std::size_t laneIndex = 0; laneIndex < SkullbonezCore::Core::MAIN_MEMORY_REPLAY_TRAJECTORY_LANE_COUNT;
@@ -1428,9 +1429,9 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
     }
     Json report;
     report["ok"] = !status.failed;
-    report["scene"] = scenePath ? *scenePath : "";
+    report["scene"] = scenePath ? scenePath : "";
     report["script"] = scriptPath;
-    report["framesRun"] = scene.State().currentFrame;
+    report["framesRun"] = scene.currentFrame;
     report["actions"] = actions;
     report["assertions"] = assertions;
     report["screenshots"] = screenshots;

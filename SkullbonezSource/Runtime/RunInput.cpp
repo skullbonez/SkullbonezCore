@@ -80,7 +80,6 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
     SceneController& models = sceneOwners.sceneController;
     Environment::CameraCollection& cameras = models.Scene().Cameras();
     Geometry::Terrain* terrain = models.Scene().Terrain().Get();
-    PhysicsEngine& physics = models.Scene().Physics();
     const bool attachedCameraFollow = interactionOwners.attachedCamera.State().activeFollow;
     const bool directorGrabbed = camera.director.grabbed;
     const bool enteringReplay = transition.workspace == RuntimeWorkspace::Replay;
@@ -126,10 +125,7 @@ void InputRouter::ApplyInteractionTransitionCleanup( const RuntimeInteractionTra
          ( IsEditorWorldOwner( transition.previousOwner ) && !editorOwnerSwitchWithinEdit &&
            !inspectGizmoClaimWithinInspect ) )
     {
-        runtimeTools.ClearEditorInteractionForTransition( enteringReplay || enteringTool,
-                                                          models,
-                                                          physics,
-                                                          interaction );
+        runtimeTools.ClearEditorInteractionForTransition( enteringReplay || enteringTool, models.Scene(), interaction );
         if ( ReleasePointerToUi(
                  EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime.BuildInputView() ) ) )
         {
@@ -241,7 +237,6 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
     RunCameraState& camera = interactionOwners.camera;
     SceneController& models = sceneOwners.sceneController;
     SceneEntityStore& entities = models.Scene().Entities();
-    PhysicsEngine& physics = models.Scene().Physics();
     RunSceneState& scene = models.State();
     Geometry::Terrain* terrain = models.Scene().Terrain().Get();
     Environment::CameraCollection& cameras = models.Scene().Cameras();
@@ -331,7 +326,7 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
             pickupInput.clampedRayDirection = input.clampedRayDirection;
         }
         const MousePickupPointerResult pickupResult =
-            runtimeTools.RouteMousePickupPointer( pickupInput, models, *this, interaction );
+            runtimeTools.RouteMousePickupPointer( pickupInput, models.Scene(), *this, interaction );
         result.enteredInteractiveScene |= pickupResult.enteredInteractive;
         consumed = pickupResult.consumed;
     }
@@ -339,12 +334,8 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
     if ( !consumed && RunCameraModeIsAttached( input.cameraMode ) && input.leftPressed && !input.suppressWorldAction )
     {
         AttachedCameraTargetSelection selection;
-        if ( attachedCamera.PickTarget( models.Scene(),
-                                        cameras,
-                                        input.hasWorldRay,
-                                        input.rayOrigin,
-                                        input.rayDirection,
-                                        selection ) )
+        if ( attachedCamera
+                 .PickTarget( models.Scene(), input.hasWorldRay, input.rayOrigin, input.rayDirection, selection ) )
         {
             RuntimeInteractionCommand command;
             command.type = RuntimeInteractionCommandType::SetEditorSelection;
@@ -352,7 +343,7 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
             command.claimSelectionOwner = false;
-            runtimeTools.ApplySelectionCommand( command, models );
+            runtimeTools.ApplySelectionCommand( command, models.Scene() );
             ApplyPointerPresentation(
                 EvaluateRuntimePointerPresentation( *this, runtimeTools.Editor(), replayRuntime.BuildInputView() ) );
         }
@@ -399,11 +390,8 @@ RuntimePointerRouteResult InputRouter::RouteRuntimePointer( const RuntimePointer
                                                  input.suppressWorldAction,
                                                  input.uiWantsNativeCursor,
                                                  input.activeModelCapacity },
-                                               cameras,
-                                               models,
-                                               physics,
-                                               scene,
-                                               terrain );
+                                               models.Scene(),
+                                               scene );
         if ( launcherResult.recordReplayEvent )
         {
             replayRuntime.SubmitEvent( launcherResult.replayEvent );
@@ -440,7 +428,8 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode,
     AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
     SceneController& m_sceneController = sceneOwners.sceneController;
     const bool authoredScene = m_sceneController.State().isSceneMode;
-    const uint32_t enabledMask = RuntimeCameraModeEnabledMask( m_sceneController );
+    const uint32_t enabledMask = RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                               m_sceneController.Scene().SceneEntityCount() );
     const int modeIndex = static_cast<int>( mode );
     if ( modeIndex < 0 || modeIndex >= static_cast<int>( RunCameraMode::Count ) )
     {
@@ -555,10 +544,8 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode,
         }
 
         AttachedCameraTargetSelection selection;
-        const AttachedCameraSeedResult seedResult = m_attachedCamera.SeedTarget( m_sceneController.Scene(),
-                                                                                 m_sceneController.Scene().Cameras(),
-                                                                                 seedIndex,
-                                                                                 selection );
+        const AttachedCameraSeedResult seedResult =
+            m_attachedCamera.SeedTarget( m_sceneController.Scene(), seedIndex, selection );
         if ( seedResult == AttachedCameraSeedResult::SelectedSeed )
         {
             RuntimeInteractionCommand command;
@@ -567,7 +554,7 @@ void InputRouter::ApplyCameraMode( RunCameraMode mode,
             command.collider = selection.collider;
             command.selectionScope = RuntimeInteractionSelectionScope::Inspect;
             command.claimSelectionOwner = false;
-            m_runtimeTools.ApplySelectionCommand( command, m_sceneController );
+            m_runtimeTools.ApplySelectionCommand( command, m_sceneController.Scene() );
         }
         if ( seedResult != AttachedCameraSeedResult::Failed )
         {
@@ -599,7 +586,8 @@ void InputRouter::CycleCameraMode( RuntimeFrameInteractionView& interactionOwner
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SceneController& sceneController = sceneOwners.sceneController;
     const bool authoredScene = sceneController.State().isSceneMode;
-    const uint32_t enabledMask = RuntimeCameraModeEnabledMask( sceneController );
+    const uint32_t enabledMask =
+        RuntimeCameraModeEnabledMask( sceneController.State().isSceneMode, sceneController.Scene().SceneEntityCount() );
     int current = static_cast<int>( camera.mode );
     if ( current < 0 || current >= static_cast<int>( RunCameraMode::Count ) )
     {
@@ -663,20 +651,21 @@ bool InputRouter::HandleUnfocusedFrame( RuntimeFrameInteractionView& interaction
     // Invariant: focus loss releases every active tool capture and refreshes
     // action memory so refocus cannot replay stale drag/key edges.
     interaction.CancelCameraLookGesture();
-    replayRuntime.ApplyInputFocusLoss( &sceneController.Scene().Cameras(),
-                                       sceneController.Scene().Terrain().Get(),
-                                       camera,
-                                       NormalizeRuntimeCameraMode( replayRuntime.BuildInputView().restoreCameraMode,
-                                                                   sceneController.State().isSceneMode,
-                                                                   RuntimeCameraModeEnabledMask( sceneController ) ),
-                                       attachedCamera.State().activeFollow,
-                                       camera.director.grabbed,
-                                       interaction,
-                                       *this );
+    replayRuntime.ApplyInputFocusLoss(
+        &sceneController.Scene().Cameras(),
+        sceneController.Scene().Terrain().Get(),
+        camera,
+        NormalizeRuntimeCameraMode( replayRuntime.BuildInputView().restoreCameraMode,
+                                    sceneController.State().isSceneMode,
+                                    RuntimeCameraModeEnabledMask( sceneController.State().isSceneMode,
+                                                                  sceneController.Scene().SceneEntityCount() ) ),
+        attachedCamera.State().activeFollow,
+        camera.director.grabbed,
+        interaction,
+        *this );
     CancelPointerPresentation();
     runtimeTools.CancelMousePickup( *this, interaction );
-    RunInternal::ResetEditorUnfocusedInputState(
-        { runtimeTools.Editor(), sceneController, sceneController.Scene().Physics(), interaction } );
+    RunInternal::ResetEditorUnfocusedInputState( { runtimeTools.Editor(), sceneController.Scene(), interaction } );
     InputController::ResetUnfocusedInput( camera );
     InputController::BeginFrame( runtimeInput,
                                  BuildRuntimeInputModeState( camera.mode,
@@ -724,11 +713,8 @@ void InputRouter::DispatchCaptureActions( InputActions& actions,
         SB_FATAL( "InputRouter", "Fixed input action capacity exhausted while routing capture actions." );
     }
 
-    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ sceneController,
-                                                                        sceneController.Scene().Entities(),
+    const RunInternal::EditorSaveHotkeyContext editorSaveHotkeyContext{ sceneController.Scene(),
                                                                         sceneController.State(),
-                                                                        sceneController.Scene().Environment(),
-                                                                        sceneController.Scene().Cameras(),
                                                                         diagnosticsRuntime.Capture() };
     // Invariant: side-effect dispatch consumes only accepted semantic events.
     // It must not reopen hardware polling or maintain a second edge latch.

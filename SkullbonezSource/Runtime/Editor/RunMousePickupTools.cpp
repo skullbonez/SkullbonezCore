@@ -32,7 +32,7 @@ Related:
 #include "../RuntimeInteractionController.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimePickService.h"
-#include "../Scene/SceneController.h"
+#include "../Scene/SceneWorld.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsEngine.h"
 
@@ -54,7 +54,7 @@ using Physics::PhysicsBodyRecord;
 using Physics::PhysicsBodyStore;
 
 MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePickupPointerInput& input,
-                                                                const Runtime::SceneController& collection,
+                                                                const SceneWorld& world,
                                                                 InputRouter& inputRouter,
                                                                 RuntimeInteractionController& interaction )
 {
@@ -132,8 +132,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 
     RuntimePickRequest request;
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
-    request.bodyStore = &collection.Scene().BodyStore();
-    request.colliderStore = &collection.Scene().Colliders();
+    request.bodyStore = &world.BodyStore();
+    request.colliderStore = &world.Colliders();
     request.rayOrigin = input.rayOrigin;
     request.rayDirection = input.rayDirection;
 
@@ -143,7 +143,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
         return routeResult;
     }
 
-    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
+    const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
     const int pickedBodyIndex = bodyStore.ModelIndexForHandle( result.body );
     if ( !pickedBody || pickedBodyIndex < 0 )
@@ -202,8 +202,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 }
 
 
-void RuntimeTools::ApplyMousePickupPhysicsStep( Runtime::SceneController& models,
-                                                Physics::PhysicsEngine& physics,
+void RuntimeTools::ApplyMousePickupPhysicsStep( SceneWorld& world,
                                                 InputRouter& inputRouter,
                                                 RuntimeInteractionController& interaction )
 {
@@ -216,7 +215,8 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( Runtime::SceneController& models
     // physics write so deleted/reused body slots cannot receive a stale tool
     // impulse.
     RunMousePickupState& pickup = m_mousePickup;
-    const PhysicsBodyStore& bodyStore = models.Scene().BodyStore();
+    Physics::PhysicsEngine& physics = world.Physics();
+    const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
     if ( !bodyRecord || bodyIndex < 0 )
@@ -261,8 +261,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( Runtime::SceneController& models
 }
 
 
-void RuntimeTools::RestoreMousePickupAngularVelocity( Runtime::SceneController& models,
-                                                      Physics::PhysicsEngine& physics,
+void RuntimeTools::RestoreMousePickupAngularVelocity( SceneWorld& world,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction )
 {
@@ -272,7 +271,8 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( Runtime::SceneController& 
     }
 
     RunMousePickupState& pickup = m_mousePickup;
-    const PhysicsBodyStore& bodyStore = models.Scene().BodyStore();
+    Physics::PhysicsEngine& physics = world.Physics();
+    const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
     if ( !bodyRecord || bodyIndex < 0 )

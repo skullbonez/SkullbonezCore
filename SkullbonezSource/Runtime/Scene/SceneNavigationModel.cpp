@@ -28,6 +28,7 @@ Related:
 #include "SceneControllerState.h"
 #include "SceneRuntime.h"
 #include "SceneRuntimeCoordinator.h"
+#include "../Allocation/RuntimeAllocationTracker.h"
 
 #include <cstring>
 
@@ -43,17 +44,16 @@ bool IsCineScenePath( const std::string& path )
     return strncmp( name, "concept_", 8 ) == 0 || strncmp( name, "cinematic_", 10 ) == 0 ||
            strstr( name, "_cine_" ) != nullptr || strstr( name, "cine_" ) == name;
 }
-} // namespace
 
-
-Runtime::SceneLoadRequest SceneNavigationModel::LoadSceneFromBrowserIndex( int index, Runtime::SceneRuntime& scene )
+Runtime::SceneLoadRequest
+LoadSceneFromBrowserPaths( const std::vector<std::string>& paths, int index, Runtime::SceneRuntime& scene )
 {
-    if ( index < 0 || index >= static_cast<int>( browser.paths.size() ) )
+    if ( index < 0 || index >= static_cast<int>( paths.size() ) )
     {
         return Runtime::SceneLoadRequest::None();
     }
 
-    const std::string selectedPath = Runtime::NormalizeSceneQueuePath( browser.paths[index] );
+    const std::string selectedPath = Runtime::NormalizeSceneQueuePath( paths[index] );
     const int queuedIndex = scene.FindNormalizedPath( selectedPath );
     if ( queuedIndex >= 0 )
     {
@@ -65,6 +65,13 @@ Runtime::SceneLoadRequest SceneNavigationModel::LoadSceneFromBrowserIndex( int i
     }
 
     return Runtime::SceneLoadRequest::Load( scene.Append( selectedPath ), true, true, false, true );
+}
+} // namespace
+
+
+Runtime::SceneLoadRequest SceneNavigationModel::LoadSceneFromBrowserIndex( int index, Runtime::SceneRuntime& scene )
+{
+    return LoadSceneFromBrowserPaths( browser.paths, index, scene );
 }
 
 
@@ -206,4 +213,35 @@ SceneNavigationModel::LoadAdjacentScene( int direction, int currentSceneBrowserI
     return LoadSceneFromBrowserIndex( nextIndex, scene );
 }
 } // namespace UI
+
+namespace Runtime
+{
+SceneLoadRequest SceneLoadNavigationState::LoadSceneFromBrowserIndex( int index, SceneRuntime& scene ) const
+{
+    return UI::LoadSceneFromBrowserPaths( browserPaths, index, scene );
+}
+
+SceneLoadRequest SceneLoadNavigationState::LoadDemoScene( SceneRuntime& scene ) const
+{
+    const int demoIndex = scene.FindGeneratedDemo();
+    return demoIndex >= 0 ? SceneLoadRequest::Load( demoIndex, true, true, false, true )
+                          : SceneLoadRequest::Load( scene.Append( "" ), true, true, false, true );
+}
+
+SceneLoadNavigationState CaptureSceneLoadNavigationState( const UI::SceneNavigationModel& navigation )
+{
+    Allocation::RuntimeAllocationScope allocationScope( Allocation::RuntimeAllocationPhase::SceneLoad );
+    SceneLoadNavigationState state;
+    state.browserPaths = navigation.browser.paths;
+    state.overrides = navigation.overrides;
+    state.selectedCineModeSceneIndex = navigation.browser.selectedCineModeSceneIndex;
+    return state;
+}
+
+void ApplySceneLoadNavigationState( UI::SceneNavigationModel& navigation, const SceneLoadNavigationState& state )
+{
+    navigation.overrides = state.overrides;
+    navigation.browser.selectedCineModeSceneIndex = state.selectedCineModeSceneIndex;
+}
+} // namespace Runtime
 } // namespace SkullbonezCore

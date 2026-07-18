@@ -36,6 +36,10 @@ namespace Core
 {
 class Profiler;
 } // namespace Core
+namespace Physics
+{
+class PhysicsEngine;
+}
 namespace Runtime
 {
 class SceneController;
@@ -62,7 +66,8 @@ struct DiagnosticsKeyboardShortcutContext
     // the edge and diagnostics mutates only debug presentation state.
     RunDebugState& debug;
     int& cameraTrackBallIndex;
-    const Runtime::SceneController& sceneEntities;
+    // Value-only entity count keeps diagnostics outside scene lifecycle authority.
+    int sceneEntityCount = 0;
     const Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
     bool sceneMode = false;
     double simulationSeconds = 0.0;
@@ -168,11 +173,11 @@ class DiagnosticsRuntime
     void SetPhysicsRegressionLogOverride( const char* path );
     void SetPhysicsCollisionTimeLogOverride( const char* path );
     void
-    SetPhysicsDiagnosticsPath( Runtime::SceneController& models, const char* path, bool fixedStepForcedByDiagnostics );
+    SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path, bool fixedStepForcedByDiagnostics );
     void LogSceneFinished( SceneController& scene,
                            const Rendering::IRenderDiagnostics* renderDiagnostics,
                            const char* reason );
-    void BeginPhysicsDiagnosticsRun( Runtime::SceneController& models,
+    void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
                                      const RunSceneState& scene,
                                      const SkullbonezCore::Core::EngineConfig& config,
                                      const char* scenePath,

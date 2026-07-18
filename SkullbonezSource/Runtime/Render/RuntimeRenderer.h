@@ -92,7 +92,7 @@ class RuntimeRenderer
         bool consequenceGradeRequested = false;           // True while replay prediction should fade into the causality look.
     };
 
-    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, const RenderSceneView& scene );
+    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene );
     ~RuntimeRenderer();
 
     const RenderPresentationSettings& PresentationSettings() const

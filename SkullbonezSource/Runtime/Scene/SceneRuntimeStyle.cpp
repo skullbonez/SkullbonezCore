@@ -29,7 +29,7 @@ Related:
 #include "SceneRuntimeStyle.h"
 #include "../WindowConstants.h"
 #include "../RunDebugState.h"
-#include "SceneController.h"
+#include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Scene/TestScene.h"
 
@@ -148,9 +148,10 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
     return strcmp( material.target, displayName ) == 0;
 }
 
-void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& models )
+void ResetObjectMaterials( SceneWorld& world )
 {
-    for ( int modelIndex = 0; modelIndex < models.Scene().SceneEntityCount(); ++modelIndex )
+    SceneEntityStore& entities = world.Entities();
+    for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
     {
         if ( !entities.IsSimpleRagdollPart( modelIndex ) )
         {
@@ -160,14 +161,15 @@ void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& mo
     }
 }
 
-void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, const TestScene& styleScene )
+void ApplyObjectMaterials( SceneWorld& world, const TestScene& styleScene )
 {
-    ResetObjectMaterials( entities, models );
-    const auto colliders = models.Scene().Colliders().Records();
+    SceneEntityStore& entities = world.Entities();
+    ResetObjectMaterials( world );
+    const auto colliders = world.Colliders().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
-        for ( int modelIndex = 0; modelIndex < models.Scene().SceneEntityCount(); ++modelIndex )
+        for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
@@ -300,7 +302,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
             context.scene.cinematicOverrideMask = 0;
             context.scene.uiCinematicOverrideMask = 0;
         }
-        ResetObjectMaterials( context.entities, context.models );
+        ResetObjectMaterials( context.world );
         context.sceneBrowser.selectedCineModeSceneIndex = -1;
         return true;
     }
@@ -334,7 +336,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
         context.scene.cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
         context.scene.uiCinematicOverrideMask = 0;
     }
-    ApplyObjectMaterials( context.entities, context.models, lookScene );
+    ApplyObjectMaterials( context.world, lookScene );
     context.sceneBrowser.selectedCineModeSceneIndex = index;
     return true;
 }
@@ -343,7 +345,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
 void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene )
 {
     context.launchOptions.hasCinematicRenderingOverride = false;
-    ApplyObjectMaterials( context.entities, context.models, styleScene );
+    ApplyObjectMaterials( context.world, styleScene );
 
     context.activeCinematic = context.defaultCinematic;
     ApplyCinematicSceneOverrides( context.activeCinematic,

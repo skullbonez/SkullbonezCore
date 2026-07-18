@@ -43,11 +43,10 @@ namespace Core
 class EngineConfig;
 class Profiler;
 } // namespace Core
-namespace Runtime
+namespace Physics
 {
-class SceneController;
+class PhysicsEngine;
 }
-
 namespace Runtime
 {
 namespace Audio
@@ -133,14 +132,16 @@ class RuntimeDiagnostics
 #ifdef _DEBUG
     static void SetPhysicsRegressionLogOverride( RunPerfLogState& perfLog, const char* path );
     static void SetPhysicsCollisionTimeLogOverride( RunPerfLogState& perfLog, const char* path );
+    // Diagnostics receives the physics owner directly; artifact setup never
+    // needs scene lifecycle, request, or world-presentation authority.
     static void SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                           Runtime::SceneController& models,
+                                           Physics::PhysicsEngine& physics,
                                            const char* path,
                                            bool fixedStepForcedByDiagnostics );
     static void
     LogSceneFinished( RunSceneState& scene, const char* scenePath, const char* rendererName, const char* reason );
     static void BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                            Runtime::SceneController& models,
+                                            Physics::PhysicsEngine& physics,
                                             const RunSceneState& scene,
                                             const SkullbonezCore::Core::EngineConfig& config,
                                             const char* scenePath,

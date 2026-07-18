@@ -79,18 +79,19 @@ class RunEditorTracer;
 class RuntimeInteractionController;
 class CaptureController;
 class SceneEntityStore;
+class SceneWorld;
 struct RunEditorPlacementState;
 struct RunSceneState;
 
 namespace RunInternal
 {
+// Lifetime: editor command contexts borrow SceneWorld once per synchronous
+// action; helpers resolve physics, terrain, environment, and entity rows
+// locally instead of accepting parallel routes to the same authority.
 struct EditorSaveHotkeyContext
 {
-    Runtime::SceneController& models;
-    const SceneEntityStore& entities;
+    SceneWorld& world;
     const RunSceneState& scene;
-    Environment::WorldEnvironment& world;
-    Environment::CameraCollection& cameras;
     CaptureController& capture;
 };
 
@@ -112,11 +113,8 @@ struct EditorPlacementPreviewContext
 struct EditorObjectPlacementContext
 {
     RunEditorPlacementState& editor;
-    Runtime::SceneController& models;
-    Physics::PhysicsEngine& physics;
+    SceneWorld& world;
     RunSceneState& scene;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain;
     const Assets::AssetSystem& assets;
     int activeModelCapacity;
 };
@@ -147,8 +145,7 @@ struct EditorObjectPlacementResult
 struct EditorGizmoContext
 {
     RunEditorPlacementState& editor;
-    Runtime::SceneController& models;
-    Physics::PhysicsEngine& physics;
+    SceneWorld& world;
     RuntimeInteractionController& interaction;
 };
 
@@ -256,17 +253,13 @@ bool TryResolveEditorBodyCollider( const Physics::PhysicsBodyStore& bodyStore,
                                    int modelIndex,
                                    const Physics::PhysicsBodyRecord*& outBody,
                                    const Physics::ColliderRecord*& outCollider );
-bool TryGetEditorSelectionFrame( const Runtime::SceneController& collection,
-                                 const Physics::PhysicsBodyStore& bodyStore,
-                                 const Physics::ColliderStore& colliderStore,
+bool TryGetEditorSelectionFrame( const SceneWorld& world,
                                  Physics::PhysicsBodyHandle selectedBodyHandle,
                                  Physics::PhysicsColliderHandle selectedColliderHandle,
                                  int selectedIndex,
                                  Math::Vector::Vector3& outOrigin,
                                  float& outRadius );
-bool TryTraceEditorSelectionOverlayFromStores( const Runtime::SceneController& collection,
-                                               const Physics::PhysicsBodyStore& bodyStore,
-                                               const Physics::ColliderStore& colliderStore,
+bool TryTraceEditorSelectionOverlayFromStores( const SceneWorld& world,
                                                Physics::PhysicsBodyHandle selectedBodyHandle,
                                                Physics::PhysicsColliderHandle selectedColliderHandle,
                                                int selectedIndex,
@@ -274,20 +267,13 @@ bool TryTraceEditorSelectionOverlayFromStores( const Runtime::SceneController& c
                                                Math::Vector::Vector3& outOrigin,
                                                float& outRadius );
 void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
-                                       const Runtime::SceneController& collection,
-                                       const Physics::PhysicsBodyStore& bodyStore,
+                                       const SceneWorld& world,
                                        bool allowRagdollGroup );
 int ValidCapturedEditorGizmoGroupCount( const RunEditorPlacementState& editor, int modelCount );
-void WakeEditorPhysicsBody( Runtime::SceneController& collection, Physics::PhysicsEngine& physics, int modelIndex );
-void SeedEditorPhysicsBodyAsleep( Runtime::SceneController& collection,
-                                  Physics::PhysicsEngine& physics,
-                                  int modelIndex );
-bool ResetEditorModelMotionAndWake( Runtime::SceneController& collection,
-                                    Physics::PhysicsEngine& physics,
-                                    int index,
-                                    Physics::PhysicsBodyUpdateDesc update );
-bool ResetEditorModelMotionAndWake( Runtime::SceneController& collection,
-                                    Physics::PhysicsEngine& physics,
+void WakeEditorPhysicsBody( SceneWorld& world, int modelIndex );
+void SeedEditorPhysicsBodyAsleep( SceneWorld& world, int modelIndex );
+bool ResetEditorModelMotionAndWake( SceneWorld& world, int index, Physics::PhysicsBodyUpdateDesc update );
+bool ResetEditorModelMotionAndWake( SceneWorld& world,
                                     int index,
                                     Physics::PhysicsBodyUpdateDesc update,
                                     Physics::PhysicsColliderCreateDesc colliderDesc );

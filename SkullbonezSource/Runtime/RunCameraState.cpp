@@ -39,8 +39,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 namespace SkullbonezCore::Runtime
 {
 void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
-                                               Environment::CameraCollection& cameras,
-                                               const Runtime::SceneWorld& models,
+                                               Runtime::SceneWorld& world,
                                                bool replayCameraActive,
                                                bool sceneMode,
                                                bool attachedActiveFollow,
@@ -48,6 +47,7 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
                                                float presentationAlpha,
                                                Core::Profiler* profiler )
 {
+    Environment::CameraCollection& cameras = world.Cameras();
     if ( replayCameraActive )
     {
         PROFILE_SCOPED( profiler, "Frame/Replay/Camera" );
@@ -90,7 +90,7 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
         }
         Vector3 targetPosition;
         Quaternion targetOrientation;
-        if ( models.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
+        if ( world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
         {
             cameras.SetViewCoordinates( targetPosition );
         }
@@ -107,9 +107,7 @@ void RunCameraState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 }
 
 
-void RunCameraState::TickControls( Environment::CameraCollection& cameras,
-                                   Geometry::Terrain& terrain,
-                                   Runtime::SceneWorld& models,
+void RunCameraState::TickControls( Runtime::SceneWorld& world,
                                    AttachedCameraController& attachedCamera,
                                    const SkullbonezCore::Core::EngineConfig& config,
                                    bool editorModeEnabled,
@@ -118,6 +116,8 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
                                    float cameraDt,
                                    float presentationAlpha )
 {
+    Environment::CameraCollection& cameras = world.Cameras();
+    Geometry::Terrain& terrain = *world.Terrain().Get();
     constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
     const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
                                          attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
@@ -142,7 +142,7 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
             static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
         const float orbitPitchDelta =
             static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
-        (void)attachedCamera.TickFollow( models, cameras, orbitYawDelta, orbitPitchDelta, presentationAlpha );
+        (void)attachedCamera.TickFollow( world, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }
     cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
 }

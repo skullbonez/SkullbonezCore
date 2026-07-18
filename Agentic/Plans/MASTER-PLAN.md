@@ -105,13 +105,17 @@ adversarial-review round-7 plans from the same-day hostile review at tip
 ownership decomposition (8 tasks), naming and identity debt (5 tasks), and
 small findings hardening (5 tasks).
 
+The active/future denominator returned from 25 to 18 on 2026-07-18 when
+scene-controller decomposition round 2 closed S0-S6 and left the live ledger
+under rule 4. Closure evidence is in
+`../Reports/2026-07-18/scene-controller-round-2-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | 6 | 7 | 86% |
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 0 | 8 | 0% |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 0 | 5 | 0% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
-| **Active/future total** | **6** | **25** | **24%** |
+| **Active/future total** | **0** | **18** | **0%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -157,14 +161,11 @@ historical work per commit-contract rule 4.
 ## Current Execution Priority
 
 The 2026-07-18 adversarial-review round-7 lane is the active critical path.
-Binding execution order (shared-file conflicts drive the sequencing):
+Scene-controller round 2 is closed. The remaining binding execution order is:
 
-1. `scene-controller-decomposition-round-2` (S0-S6)
-2. `dx12-backend-ownership-decomposition` (D0-D7) — may run in parallel with
-   the scene plan on its own branch when the owner staggers merges
-3. `naming-and-identity-debt` (N0-N4) — strictly after the scene plan (both
-   touch `Scene/*`)
-4. `small-findings-hardening` (H0-H4) — strictly after the DX12 plan (H2
+1. `dx12-backend-ownership-decomposition` (D0-D7)
+2. `naming-and-identity-debt` (N0-N4) — its scene-plan dependency is satisfied
+3. `small-findings-hardening` (H0-H4) — strictly after the DX12 plan (H2
    rebases on the finalized pipeline-owner surface)
 
 The three 2026-07-17 round-6 plans are closed: scene-controller ownership
@@ -700,9 +701,8 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | Active | 6/7 | S6 independent ownership review and closure |
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 0/8 | D0 state census and owner-ratified owner map |
-| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active — blocked on scene plan | 0/5 | N0 rename census after round-2 scene split lands |
+| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 0/5 | N0 rename census after round-2 scene split |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | Active — blocked on DX12 plan | 0/5 | H0 rulings census after backend decomposition lands |
 
 ## Features

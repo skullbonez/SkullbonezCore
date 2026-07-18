@@ -347,6 +347,8 @@ struct ReplayProbeTickResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool enterInteractive = false;
+    // Value boundary: Run owns lifecycle submission after the probe succeeds.
+    bool resetCurrentScene = false;
 };
 #endif
 } // namespace Runtime

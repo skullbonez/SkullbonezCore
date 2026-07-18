@@ -297,12 +297,12 @@ bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneWorld&
 }
 
 
-bool AttachedCameraController::TickFollow( const Runtime::SceneWorld& collection,
-                                           Environment::CameraCollection& cameras,
+bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection,
                                            float orbitYawDelta,
                                            float orbitPitchDelta,
                                            float presentationAlpha )
 {
+    Environment::CameraCollection& cameras = collection.Cameras();
     if ( !m_state.activeFollow )
     {
         return false;
@@ -350,10 +350,10 @@ bool AttachedCameraController::TickFollow( const Runtime::SceneWorld& collection
 
 
 bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime::SceneWorld& collection,
-                                                                   const Environment::CameraCollection& cameras,
                                                                    float presentationAlpha,
                                                                    Vector3& outPosition ) const
 {
+    const Environment::CameraCollection& cameras = collection.Cameras();
     if ( !m_state.activeFollow )
     {
         return false;
@@ -393,9 +393,9 @@ bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime
 }
 
 
-bool AttachedCameraController::CycleMode( const Runtime::SceneWorld& collection,
-                                          Environment::CameraCollection& cameras )
+bool AttachedCameraController::CycleMode( Runtime::SceneWorld& collection )
 {
+    Environment::CameraCollection& cameras = collection.Cameras();
     AttachedCameraPhysicsTarget target;
     bool shouldCaptureFixedOffset = false;
     if ( !CycleSubmode( collection, m_state, target, shouldCaptureFixedOffset ) )
@@ -411,9 +411,9 @@ bool AttachedCameraController::CycleMode( const Runtime::SceneWorld& collection,
 }
 
 
-bool AttachedCameraController::TogglePin( const Runtime::SceneWorld& collection,
-                                          Environment::CameraCollection& cameras )
+bool AttachedCameraController::TogglePin( Runtime::SceneWorld& collection )
 {
+    Environment::CameraCollection& cameras = collection.Cameras();
     m_state.activeFollow = !m_state.activeFollow;
     if ( m_state.activeFollow )
     {
@@ -429,12 +429,12 @@ bool AttachedCameraController::TogglePin( const Runtime::SceneWorld& collection,
 }
 
 
-bool AttachedCameraController::ApplyOrbitInput( const Runtime::SceneWorld& collection,
-                                                Environment::CameraCollection& cameras,
+bool AttachedCameraController::ApplyOrbitInput( Runtime::SceneWorld& collection,
                                                 bool attachModeActive,
                                                 int unhandledWheelDelta,
                                                 bool uiBlocksCameraMouse )
 {
+    Environment::CameraCollection& cameras = collection.Cameras();
     if ( !attachModeActive || !m_state.activeFollow || m_state.submode == AttachedCameraSubmode::RagdollEyes ||
          uiBlocksCameraMouse )
     {
@@ -454,11 +454,11 @@ bool AttachedCameraController::ApplyOrbitInput( const Runtime::SceneWorld& colle
 }
 
 
-bool AttachedCameraController::SetTarget( const Runtime::SceneWorld& collection,
-                                          Environment::CameraCollection& cameras,
+bool AttachedCameraController::SetTarget( Runtime::SceneWorld& collection,
                                           int modelIndex,
                                           AttachedCameraTargetSelection& outSelection )
 {
+    Environment::CameraCollection& cameras = collection.Cameras();
     if ( !SelectTarget( collection, m_state, modelIndex, outSelection ) )
     {
         return false;
@@ -469,11 +469,11 @@ bool AttachedCameraController::SetTarget( const Runtime::SceneWorld& collection,
 }
 
 
-AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Runtime::SceneWorld& collection,
-                                                               Environment::CameraCollection& cameras,
+AttachedCameraSeedResult AttachedCameraController::SeedTarget( Runtime::SceneWorld& collection,
                                                                int seedModelIndex,
                                                                AttachedCameraTargetSelection& outSelection )
 {
+    Environment::CameraCollection& cameras = collection.Cameras();
     outSelection = AttachedCameraTargetSelection{};
     AttachedCameraPhysicsTarget currentTarget;
     if ( TryResolvePhysicsTarget( collection, m_state.target, currentTarget ) )
@@ -485,16 +485,15 @@ AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Runtime::Sc
     }
     if ( seedModelIndex >= 0 )
     {
-        return SetTarget( collection, cameras, seedModelIndex, outSelection ) ? AttachedCameraSeedResult::SelectedSeed
-                                                                              : AttachedCameraSeedResult::Failed;
+        return SetTarget( collection, seedModelIndex, outSelection ) ? AttachedCameraSeedResult::SelectedSeed
+                                                                     : AttachedCameraSeedResult::Failed;
     }
     m_state.activeFollow = true;
     return AttachedCameraSeedResult::NoSeed;
 }
 
 
-bool AttachedCameraController::PickTarget( const Runtime::SceneWorld& collection,
-                                           Environment::CameraCollection& cameras,
+bool AttachedCameraController::PickTarget( Runtime::SceneWorld& collection,
                                            bool hasWorldRay,
                                            const Vector3& rayOrigin,
                                            const Vector3& rayDirection,
@@ -512,7 +511,7 @@ bool AttachedCameraController::PickTarget( const Runtime::SceneWorld& collection
         request.rayDirection = rayDirection;
         if ( RuntimePickService::TryPickModel( request, pick ) )
         {
-            return SetTarget( collection, cameras, pick.modelRow.value, outSelection );
+            return SetTarget( collection, pick.modelRow.value, outSelection );
         }
     }
     ClearTarget( m_state );

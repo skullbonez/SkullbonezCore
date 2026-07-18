@@ -13,35 +13,22 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 6 / 25 live tasks; 24%. |
-| Last broad local gate | Scene round-2 S5 `validate_full` passed in 140.781s: 288/288 tests, 21,438/21,438 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
-| Validation for current edits | S5 project filters passed 728/728; allocation-policy self-test/repository scans passed; `validate_fast` passed in 69.624s; and the task's sole replay visual-fidelity invocation passed in 428.175s. No baseline or golden refresh. |
+| Active/future progress | 0 / 18 live tasks; 0%. |
+| Last broad local gate | Scene round-2 S6 `validate_full` passed in 143.261s: 291/291 tests, 21,455/21,455 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
+| Validation for current edits | S6 project filters passed 728/728; allocation-policy self-test/repository scans passed; `validate_fast` passed after scoped formatting; and the task's sole replay visual-fidelity invocation passed in 435.698s. No baseline or golden refresh. |
 
 ## Live Queue
 
-NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
-     tasks, registered in MASTER-PLAN with binding order
-     scene-controller-round-2 → dx12-backend-ownership-decomposition (parallel
-     allowed) → naming-and-identity-debt (after scene) →
-     small-findings-hardening (after DX12). Owner exclusions: the seven render
-     consumer interfaces stay unchanged for future consumers; FRAME_COUNT
-     stays 2. Scene S0 ratified `SceneWorld`, moved `StepPhysics` to that target,
-     placed grouping/name queries on `SceneEntityStore`, and selected a const-view
-     diagnostics boundary for aggregate memory stats. S1 moved browser, demo,
-     and cinematic policy to UI-owned `SceneNavigationModel`; `SceneController`
-     now receives value load requests. S2 replaced raw water keys with a typed
-     world-unit command and moved bounded solver/audio contact output consumption
-     directly to `RenderInstanceStore`. S3 moved grouping/name queries to
-     `SceneEntityStore`, deleted every matching controller relay, and placed
-     aggregate memory accounting at the const-owner diagnostics boundary. S4
-     introduced concrete `SceneWorld` ownership for entities, physics, cameras,
-     terrain, world settings, and render instances; `SceneController` now
-     composes it and exposes only `Scene()`, while world lifecycle and
-     `StepPhysics` authority moved with the owner. S5 reduced public load
-     participants from 22 concrete owner borrows to 18 and replaced consumer
-     owner borrows with typed value outputs; internal setup contexts now borrow
-     only `SceneWorld`. Next action: scene S6 independent ownership review and
-     closure.
+NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
+     18 tasks. Scene-controller round 2 is complete at 7/7 and left the live
+     ledger under rule 4. `SceneController` has 43 public declarations, its load
+     surface has 18 concrete participants, and one `SceneWorld` owns the six
+     cohesive scene-lifetime domains. The sixth independent review found zero
+     material ownership issues; full and the sole replay mega gate passed with
+     no baseline or golden refresh. Closure evidence:
+     `Agentic/Reports/2026-07-18/scene-controller-round-2-closure.md`. Remaining
+     binding order: DX12 backend ownership D0-D7, naming/identity N0-N4, then
+     small-findings H0-H4. Next action: DX12 D0 state census and owner map.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -404,12 +391,11 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
 
 ## Next Handoff
 
-Round-7 scene decomposition is active at 6/7. S5 reduced the public load surface
-from 22 concrete owner borrows to 18, returned typed consumer effects instead
-of borrowing window/audio/UI/validation owners, and collapsed authored and
-generated setup contexts to one `SceneWorld` borrow. Allocation, project-filter,
-fast, full, and the task's sole replay visual-fidelity gates passed. Continue S6
-with one independent logical-module ownership review, resolve every credible
-finding, measure the final lifecycle-owner public surface, run the final full
-gate, publish closure evidence, and delete the completed plan. Do not regenerate
-behavioral, physics, replay, visual, or screenshot baselines.
+Round-7 scene decomposition is complete at 7/7 and its plan is deleted under
+inventory rule 4. Continue immediately with DX12 backend ownership D0: use the
+completed owner census to ratify state, barrier, descriptor, submission,
+profiling, and readback ownership before implementation. Preserve the seven
+excluded render consumer interfaces and `FRAME_COUNT = 2`. Every DX12 source
+change requires the mapped renderer gate and at least the standard bounded
+graphics-stress proof. Do not regenerate behavioral, physics, replay, visual,
+or screenshot baselines.

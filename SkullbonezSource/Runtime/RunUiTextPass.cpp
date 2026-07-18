@@ -887,9 +887,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.presentationAlpha = view.presentationAlpha;
         UIData.trackHeight = state.camera.trackBallRow.IsValid() ? state.camera.trackHeight : 0.0f;
         UIData.autoCycleInterval = state.camera.autoCycleInterval > 0.0f ? state.camera.autoCycleInterval : 0.0f;
-        UIData.worldGravity = state.world.GetGravity();
-        UIData.worldFluidHeight = state.world.GetFluidSurfaceHeight();
-        UIData.worldFluidDensity = state.world.GetFluidDensity();
+        UIData.worldGravity = state.world.Environment().GetGravity();
+        UIData.worldFluidHeight = state.world.Environment().GetFluidSurfaceHeight();
+        UIData.worldFluidDensity = state.world.Environment().GetFluidDensity();
         UIData.physicsDebugFlags = state.debug.physicsDebugFlags;
         {
             const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
@@ -905,11 +905,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.physicsDebugAlpha = state.debug.physicsDebugAlpha;
         UIData.physicsDebugContactLinger = state.debug.physicsDebugContactLinger;
-        UIData.physicsSleepEnabled = state.modelOwner.Scene().Physics().IsSleepEnabled();
+        UIData.physicsSleepEnabled = state.world.Physics().IsSleepEnabled();
         UIData.collisionVisualizer = state.debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = state.debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = state.debug.isBroadphaseOverlay;
-        const Physics::TornadoFieldConfig& tornadoField = state.modelOwner.Scene().Physics().GetTornadoFieldConfig();
+        const Physics::TornadoFieldConfig& tornadoField = state.world.Physics().GetTornadoFieldConfig();
         UIData.tornadoEnabled = tornadoField.enabled;
         UIData.tornadoVisualShell = state.renderPresentation.tornadoVisual.enabled && tornadoField.enabled;
         UIData.tornadoFieldVectors = tornadoField.visualizeVelocityField;

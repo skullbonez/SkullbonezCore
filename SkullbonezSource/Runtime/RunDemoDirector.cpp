@@ -27,6 +27,8 @@ Invariants:
   - Director playback is presentation-only; it must not mutate physics state.
   - Camera writes go through CameraCollection::SetPrimaryPose so render camera,
     listener, replay, and screenshot paths keep using the normal camera owner.
+  - Camera and style writes derive from the same borrowed SceneWorld so phase
+    playback cannot combine presentation state from different scenes.
   - Phase style writes go through SceneRuntimeStyle so material/cinematic
     changes stay inside the existing render-facing scene owner.
   - Reveal-rate writes only affect replay overlay presentation timing; they
@@ -40,6 +42,7 @@ Related:
 */
 #include "RunDemoDirector.h"
 #include "Scene/SceneRuntimeStyle.h"
+#include "Scene/SceneWorld.h"
 
 #include "../Scene/TestScene.h"
 
@@ -429,13 +432,15 @@ bool SaveShotList( const RunCameraState& camera )
 }
 
 DemoDirectorTickResult Tick( RunCameraState& camera,
-                             Environment::CameraCollection& cameras,
                              DemoDirectorPredictionView prediction,
                              SceneRuntimeStyleContext styleContext,
                              float cameraDt )
 {
     DemoDirectorTickResult result;
     DemoDirectorPlaybackState& director = camera.director;
+    // Lifetime: the director's pose and style mutations derive from one world
+    // borrow, so phase playback cannot split authority across two scenes.
+    Environment::CameraCollection& cameras = styleContext.world.Cameras();
     if ( camera.mode != RunCameraMode::Director || !HasPlayableShotList( director ) )
     {
         return result;

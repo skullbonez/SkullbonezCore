@@ -128,7 +128,7 @@ struct SceneDefaultsSaveView
 // Concept: scene loading borrows four phase-oriented values instead of
 // accepting the process shell's complete owner graph as one flat call. The
 // structs carry 18 concrete owners (6 policy, 3 host, 5 interaction, and 4
-// presentation); the navigation submodel is UI-owned value state. Window, UI,
+// presentation); navigation crosses as a detached value snapshot. Window, UI,
 // audio, and validation effects return through SceneLoadConsumerOutputs and no
 // participant or output is retained by SceneController.
 struct SceneLoadPolicyInputs
@@ -155,8 +155,7 @@ struct SceneLoadInteractionParticipants
     RunCameraState& camera;
     AttachedCameraState& attachedCamera;
     RuntimeTools& runtimeTools;
-    // Value-oriented navigation submodel; this is not the complete UI owner.
-    UI::SceneNavigationModel& navigation;
+    SceneLoadNavigationState navigation;
 };
 
 struct SceneLoadPresentationParticipants
@@ -173,14 +172,27 @@ struct SceneLoadConsumerOutputs
     // the four owners intentionally excluded from the load participant graph.
     SceneUiActivation uiActivation;
     SceneAutomationGateConfiguration automationGates;
+    SceneLoadNavigationState navigation;
     char windowTitle[256] = {};
     bool hasWindowTitle = false;
     bool resetContactAudioHistory = false;
     bool applyAutomationGates = false;
+    bool applyNavigation = false;
+    bool refreshSceneBrowser = false;
     bool resumeGraphicsStress = false;
 
     void ResetForLoad();
 };
+
+// Returns the navigation values visible to a later request in the same owner
+// batch. A completed load commits into the output value before the excluded UI
+// owner applies it, so follow-up persistence must not fall back to the stale
+// submitted snapshot.
+inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const SceneLoadNavigationState& submitted,
+                                                                           const SceneLoadConsumerOutputs& outputs )
+{
+    return outputs.applyNavigation ? outputs.navigation : submitted;
+}
 
 // Applies one completed transaction's value effects at the excluded consumer
 // boundaries. Call exactly once after Load/ExecutePending, including failures
@@ -240,17 +252,17 @@ class SceneController
     // call. No Run backpointer or complete mutable context is retained behind
     // the scene boundary.
     SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         SceneLoadPolicyInputs policy,
-                                         SceneLoadHostParticipants host,
-                                         SceneLoadInteractionParticipants interaction,
-                                         SceneLoadPresentationParticipants presentation,
+                                         const SceneLoadPolicyInputs& policy,
+                                         const SceneLoadHostParticipants& host,
+                                         const SceneLoadInteractionParticipants& interaction,
+                                         const SceneLoadPresentationParticipants& presentation,
                                          SceneLoadConsumerOutputs& consumerOutputs );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
-    bool ExecutePending( SceneLoadPolicyInputs policy,
-                         SceneLoadHostParticipants host,
-                         SceneLoadInteractionParticipants interaction,
-                         SceneLoadPresentationParticipants presentation,
+    bool ExecutePending( const SceneLoadPolicyInputs& policy,
+                         const SceneLoadHostParticipants& host,
+                         const SceneLoadInteractionParticipants& interaction,
+                         const SceneLoadPresentationParticipants& presentation,
                          SceneLoadConsumerOutputs& consumerOutputs );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 

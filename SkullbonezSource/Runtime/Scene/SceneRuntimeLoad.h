@@ -72,7 +72,7 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
                                                      bool suppressExitOnComplete,
                                                      bool preserveRuntimeState );
 void CommitSceneRuntimeLoad( SceneController& controller,
-                             UI::SceneNavigationModel& navigation,
+                             SceneLoadNavigationState& navigation,
                              const SceneRuntimeLoadBeginResult& prepared );
 void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser );
 int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser );

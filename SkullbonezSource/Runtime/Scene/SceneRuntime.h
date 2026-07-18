@@ -70,7 +70,6 @@ enum class SceneLifecycleConsumer : uint32_t
     Diagnostics = 1u << 0,
     RenderDevice = 1u << 1,
     Simulation = 1u << 2,
-    Audio = 1u << 3,
     Tools = 1u << 4,
     Interaction = 1u << 5,
     Replay = 1u << 6,
@@ -92,7 +91,6 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRunti
     case SceneRuntimeLifecycleEvent::AfterSceneCleared:
         return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );

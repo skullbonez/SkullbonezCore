@@ -4,9 +4,9 @@ Purpose:
   Declares presentation-only Demo Director playback/style/pacing helpers for Run split files.
 
 Summary:
-  SceneController owns the cameras while Run owns style/playback state, but Director playback
-  is a narrow helper module. Callers pass the shelves it needs explicitly so
-  this feature does not grow the Run class method surface.
+  SceneWorld owns cameras while Run owns style/playback state, but Director
+  playback is a narrow helper module. The frame tick receives one scene-style
+  context and derives its camera subowner locally so the two cannot disagree.
 
 Glossary:
   Director playback: Runtime camera mode that applies authored shot-list poses
@@ -17,8 +17,8 @@ Glossary:
 
 Invariants:
   - Helpers must stay presentation-only and must not mutate physics state.
-  - Camera writes go through the borrowed CameraCollection so the scene camera
-    owner remains authoritative.
+  - Per-frame camera writes derive CameraCollection from the same SceneWorld
+    used for style writes, so callers cannot pair mismatched scene owners.
   - Style writes go through SceneRuntimeStyle so object material/cinematic
     changes remain in the existing scene-style owner.
   - Reveal pacing writes stay on replay presentation state and do not rebuild
@@ -66,7 +66,6 @@ bool SetCurrentPhaseStyle( RunCameraState& camera, const char* stylePath );
 bool SelectNextPhaseForAuthoring( RunCameraState& camera, Environment::CameraCollection& cameras );
 bool SaveShotList( const RunCameraState& camera );
 DemoDirectorTickResult Tick( RunCameraState& camera,
-                             Environment::CameraCollection& cameras,
                              DemoDirectorPredictionView prediction,
                              SceneRuntimeStyleContext styleContext,
                              float cameraDt );

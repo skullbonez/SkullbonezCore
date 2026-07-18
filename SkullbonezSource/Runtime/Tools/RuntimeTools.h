@@ -82,7 +82,7 @@ struct CinematicRenderConfig;
 
 namespace SkullbonezCore::Runtime
 {
-class SceneController;
+class SceneWorld;
 } // namespace SkullbonezCore::Runtime
 
 namespace SkullbonezCore::Physics
@@ -188,13 +188,12 @@ struct ToolOverlayBuildInput
 };
 
 #ifdef _DEBUG
+// Lifetime: a synchronous Debug dump borrows SceneWorld once and resolves its
+// cameras, terrain, entities, and physics rows locally. Scalar process policy
+// values are copied or borrowed only until the file write returns.
 struct LauncherReproSnapshotContext
 {
-    Runtime::SceneController& collection;
-    const SceneEntityStore& entities;
-    Environment::CameraCollection* cameras;
-    Geometry::Terrain* terrain;
-    Environment::WorldEnvironment& world;
+    SceneWorld& world;
     const RunSceneState& sceneState;
     const std::string* currentScenePath;
     const RunLaunchOptions& launchOptions;
@@ -717,38 +716,29 @@ class RuntimeTools
                                     Math::Vector::Vector3& outOrigin,
                                     Math::Vector::Vector3& outDirection,
                                     Math::Vector::Vector3& outCameraUp ) const;
-    bool FireLauncherRay( Runtime::SceneController& collection,
-                          Physics::PhysicsEngine& physics,
+    bool FireLauncherRay( SceneWorld& world,
                           RunSceneState& scene,
-                          Geometry::Terrain* terrain,
                           int activeModelCapacity,
                           const Math::Vector::Vector3& rayOrigin,
                           const Math::Vector::Vector3& rayDirection,
                           const Math::Vector::Vector3& cameraUp );
-    LauncherPointerResult RouteLauncherPointer( const LauncherPointerInput& input,
-                                                Environment::CameraCollection& cameras,
-                                                Runtime::SceneController& collection,
-                                                Physics::PhysicsEngine& physics,
-                                                RunSceneState& scene,
-                                                Geometry::Terrain* terrain );
+    LauncherPointerResult
+    RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, RunSceneState& scene );
     void FireLauncherLaser( Physics::PhysicsEngine& physics,
                             int modelCount,
                             Geometry::Terrain* terrain,
                             const Math::Vector::Vector3& rayOrigin,
                             const Math::Vector::Vector3& rayDirection,
                             const Math::Vector::Vector3& cameraUp );
-    bool FireLauncherProjectile( Runtime::SceneController& collection,
-                                 Physics::PhysicsEngine& physics,
+    bool FireLauncherProjectile( SceneWorld& world,
                                  RunSceneState& scene,
-                                 Geometry::Terrain* terrain,
                                  int activeModelCapacity,
                                  int modelCount,
                                  const Math::Vector::Vector3& rayOrigin,
                                  const Math::Vector::Vector3& rayDirection,
                                  const Math::Vector::Vector3& cameraUp );
 #ifdef _DEBUG
-    bool PickLauncherReproTarget( Runtime::SceneController& collection,
-                                  Environment::CameraCollection* cameras,
+    bool PickLauncherReproTarget( const SceneWorld& world,
                                   int& outIndex,
                                   float& outRayT,
                                   float& outCrosshairDistance ) const;
@@ -764,49 +754,40 @@ class RuntimeTools
     RunMousePickupState& MousePickup();
     const RunMousePickupState& MousePickup() const;
     MousePickupPointerResult RouteMousePickupPointer( const MousePickupPointerInput& input,
-                                                      const Runtime::SceneController& collection,
+                                                      const SceneWorld& world,
                                                       InputRouter& inputRouter,
                                                       RuntimeInteractionController& interaction );
     // Applies the manipulator spring at the fixed-step boundary. Tool state is
     // owned here; scene physics and input/interaction owners are synchronous borrows.
-    void ApplyMousePickupPhysicsStep( Runtime::SceneController& models,
-                                      Physics::PhysicsEngine& physics,
+    void ApplyMousePickupPhysicsStep( SceneWorld& world,
                                       InputRouter& inputRouter,
                                       RuntimeInteractionController& interaction );
-    void RestoreMousePickupAngularVelocity( Runtime::SceneController& models,
-                                            Physics::PhysicsEngine& physics,
+    void RestoreMousePickupAngularVelocity( SceneWorld& world,
                                             InputRouter& inputRouter,
                                             RuntimeInteractionController& interaction );
     bool PrepareSelectionCommand( const RuntimeInteractionCommand& command,
-                                  const Runtime::SceneController& collection,
+                                  const SceneWorld& world,
                                   RuntimeInteractionSelectionPlan& outPlan );
     bool PrepareEditorPointerSelection( const EditorPointerSelectionInput& input,
-                                        const Runtime::SceneController& collection,
+                                        const SceneWorld& world,
                                         RuntimeInteractionSelectionPlan& outPlan,
                                         WorldInteractionOwner& outOwner,
                                         InteractionExitReason& outReason );
     EditorPlacementScalePointerResult RouteEditorPlacementScalePointer( bool leftReleased,
                                                                         bool suppressWorldAction,
-                                                                        Runtime::SceneController& collection,
-                                                                        Physics::PhysicsEngine& physics,
+                                                                        SceneWorld& world,
                                                                         RunSceneState& scene,
-                                                                        Environment::WorldEnvironment& world,
-                                                                        Geometry::Terrain* terrain,
                                                                         Assets::AssetSystem& assets,
                                                                         int activeModelCapacity,
                                                                         RuntimeInteractionController& interaction );
     EditorGizmoDragPointerResult RouteEditorGizmoDragPointer( const EditorGizmoDragPointerInput& input,
-                                                              Runtime::SceneController& collection,
-                                                              Physics::PhysicsEngine& physics,
+                                                              SceneWorld& world,
                                                               RuntimeInteractionController& interaction );
-    void RecordEditorTransformHistory( Runtime::SceneController& collection,
-                                       RuntimeGizmoDragKind gizmoKind,
-                                       int selectedModelIndex );
-    void
-    RecordEditorPlacementHistory( Runtime::SceneController& collection, int modelCountBefore, int modelCountAfter );
-    bool UndoEditorCommand( Runtime::SceneController& collection );
-    bool RedoEditorCommand( Runtime::SceneController& collection );
-    bool DeleteEditorSelection( Runtime::SceneController& collection );
+    void RecordEditorTransformHistory( SceneWorld& world, RuntimeGizmoDragKind gizmoKind, int selectedModelIndex );
+    void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
+    bool UndoEditorCommand( SceneWorld& world, RunSceneState& scene );
+    bool RedoEditorCommand( SceneWorld& world, RunSceneState& scene );
+    bool DeleteEditorSelection( SceneWorld& world, RunSceneState& scene );
     void ClearEditorHistory();
     bool PrepareEditorGizmoGesture( bool inspectGizmoActive,
                                     bool scaleMode,
@@ -816,13 +797,11 @@ class RuntimeTools
                                     const Math::Vector::Vector3& rayDirection,
                                     int clientX,
                                     int clientY,
-                                    Runtime::SceneController& collection,
-                                    Physics::PhysicsEngine& physics,
+                                    SceneWorld& world,
                                     RuntimeInteractionController& interaction,
                                     EditorGizmoGesturePlan& outPlan );
     EditorGizmoGestureResult CommitEditorGizmoGesture( const EditorGizmoGesturePlan& plan,
-                                                       Runtime::SceneController& collection,
-                                                       Physics::PhysicsEngine& physics,
+                                                       SceneWorld& world,
                                                        RuntimeInteractionController& interaction );
     EditorPlacementScaleStartResult BeginEditorPlacementScalePointer( bool inspectGizmoActive,
                                                                       bool hasClientPosition,
@@ -831,7 +810,7 @@ class RuntimeTools
                                                                       RuntimeInteractionController& interaction );
     EditorViewportPlacementResult RouteEditorViewportPlacement( const EditorViewportPlacementInput& input );
     bool CommitSelectionCommand( const RuntimeInteractionSelectionPlan& plan, RuntimeInteractionEvent& outEvent );
-    bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const Runtime::SceneController& collection );
+    bool ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world );
     void CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction );
 
     RunEditorPlacementState& Editor();
@@ -839,23 +818,19 @@ class RuntimeTools
     bool HasActiveEditorInteractionState( const RuntimeInteractionController& interaction ) const;
     bool InspectGizmoInteractionActive( RunCameraMode cameraMode, bool replayInspectionActive ) const;
     int RefreshEditorPointerPreview( const EditorPointerPreviewInput& input,
-                                     Runtime::SceneController& collection,
-                                     Physics::PhysicsEngine& physics,
+                                     SceneWorld& world,
                                      RuntimeInteractionController& interaction,
-                                     Geometry::Terrain* terrain,
                                      const Assets::AssetSystem& assets );
     void ClearEditorInteractionForTransition( bool clearSelection,
-                                              Runtime::SceneController& collection,
-                                              Physics::PhysicsEngine& physics,
+                                              SceneWorld& world,
                                               RuntimeInteractionController& interaction );
 
     RunEditorTracer& EditorTracer();
     const RunEditorTracer& EditorTracer() const;
     // Rebuilds the fixed-capacity tool draw records before RuntimeRenderer
     // submits them. World/model/asset owners remain borrowed for this call.
-    void PrepareOverlayTrace( Runtime::SceneController& models,
-                              const Assets::AssetSystem& assets,
-                              const ToolOverlayBuildInput& input );
+    void
+    PrepareOverlayTrace( SceneWorld& world, const Assets::AssetSystem& assets, const ToolOverlayBuildInput& input );
 
   private:
     RunRayCastTestState m_rayCastTest;

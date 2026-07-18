@@ -33,7 +33,7 @@ Invariants:
   - Render and cinematic helpers clamp raw UI values before writing runtime config.
   - Scene override bits and the changed value must stay paired.
   - Sound commands delegate value limits to ContactAudioService setters.
-  - Physics config edits are mirrored into SceneController immediately so
+  - Physics config edits are mirrored into SceneWorld immediately so
     existing and newly added bodies share the same runtime policy.
   - Tornado commands commit copied field/system values back to the physics owner.
 
@@ -69,6 +69,7 @@ class ContactAudioService;
 
 namespace Runtime
 {
+class SceneWorld;
 class SimulationSystem;
 class RuntimeRenderer;
 using Environment::WorldEnvironment;
@@ -96,16 +97,16 @@ struct TornadoUICommandContext
 {
     // Lifetime: borrowed only while one Physics-tab tornado command packet is applied.
     // The helper copies, edits, and commits deterministic field config through
-    // the model/physics owner; render-only art stays with RuntimeRenderer.
+    // the scene-world physics owner; render-only art stays with RuntimeRenderer.
     RuntimeRenderer& renderer;
-    Runtime::SceneController& modelCollection;
+    SceneWorld& world;
 };
 
 struct PhysicsSleepPolicyUICommandContext
 {
     // Lifetime: borrowed only while one Physics-tab sleep-policy toggle is applied.
-    // The helper toggles the policy directly on the model/physics owner.
-    Runtime::SceneController& modelCollection;
+    // The helper toggles the policy directly on the scene-world physics owner.
+    SceneWorld& world;
 };
 
 struct PhysicsFrictionUICommandContext
@@ -113,7 +114,7 @@ struct PhysicsFrictionUICommandContext
     // Lifetime: borrowed only while one Physics-tab friction packet is applied.
     // The helper writes live config and immediately reapplies physics runtime policy.
     SkullbonezCore::Core::EngineConfig& config;
-    Runtime::SceneController& modelCollection;
+    SceneWorld& world;
 };
 
 struct RuntimePresentationUICommandContext

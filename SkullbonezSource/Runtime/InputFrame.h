@@ -74,7 +74,6 @@ class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeRenderer;
 class RuntimeTools;
-class SceneController;
 class SimulationSystem;
 struct RunEditorPlacementState;
 struct SceneRequest;
@@ -133,7 +132,9 @@ PointerPresentationPolicy EvaluateRuntimePointerPresentation( const InputRouter&
                                                               const RunEditorPlacementState& editor,
                                                               const ReplayInputView& replayInput );
 RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene, uint32_t enabledMask );
-uint32_t RuntimeCameraModeEnabledMask( const SceneController& sceneController );
+// Computes camera capabilities from value facts captured at the frame boundary;
+// input policy cannot traverse scene lifecycle or world ownership.
+uint32_t RuntimeCameraModeEnabledMask( bool authoredScene, int sceneEntityCount );
 void EnterFlyModeCamera( InputRouter& inputRouter,
                          RunCameraState& camera,
                          Environment::CameraCollection& cameras,

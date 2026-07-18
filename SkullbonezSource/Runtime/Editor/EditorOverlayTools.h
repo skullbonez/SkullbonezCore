@@ -60,6 +60,7 @@ class PhysicsBodyStore;
 namespace Runtime
 {
 class RuntimeInteractionController;
+class SceneWorld;
 class RunEditorTracer;
 struct RunEditorPlacementState;
 struct RunMousePickupState;
@@ -67,17 +68,13 @@ struct RunRayCastTestState;
 
 namespace RunInternal
 {
+// Lifetime: preview and trace passes borrow the scene-lifetime owner once and
+// retain no store pointer after the frame-local call returns.
 struct EditorInteractionPreviewContext
 {
     RunEditorPlacementState& editor;
-    Runtime::SceneController& models;
-    Physics::PhysicsEngine& physics;
-    // Lifetime: preview validation borrows stores only when a selection exists;
-    // null means the frame has no live selection identity to validate.
-    const Physics::PhysicsBodyStore* bodyStore = nullptr;
-    const Physics::ColliderStore* colliderStore = nullptr;
+    SceneWorld& world;
     RuntimeInteractionController& interaction;
-    Geometry::Terrain* terrain;
     const Assets::AssetSystem& assets;
 };
 
@@ -102,9 +99,7 @@ struct EditorToolOverlayTraceContext
     const RunEditorPlacementState& editor;
     const RunRayCastTestState& rayCastTest;
     const RunMousePickupState& mousePickup;
-    const Runtime::SceneController& models;
-    const Physics::PhysicsBodyStore& bodyStore;
-    const Physics::ColliderStore& colliderStore;
+    const SceneWorld& world;
     const Assets::AssetSystem& assets;
     RunEditorTracer& tracer;
 };

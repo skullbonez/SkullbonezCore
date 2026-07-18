@@ -140,32 +140,23 @@ class AttachedCameraController
     void CaptureReturnState( RunCameraMode previousMode, Environment::CameraCollection& cameras );
     void RestoreReturnState( Environment::CameraCollection& cameras );
     bool ResolveTargetIdentity( const Runtime::SceneWorld& collection, int& outModelIndex );
-    bool TickFollow( const Runtime::SceneWorld& collection,
-                     Environment::CameraCollection& cameras,
-                     float orbitYawDelta,
-                     float orbitPitchDelta,
-                     float presentationAlpha );
+    // Lifetime: attached-camera operations borrow one SceneWorld and derive its
+    // camera collection locally, preventing callers from pairing mismatched owners.
+    bool
+    TickFollow( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta, float presentationAlpha );
     bool TryGetPresentationListenerPosition( const Runtime::SceneWorld& collection,
-                                             const Environment::CameraCollection& cameras,
                                              float presentationAlpha,
                                              Math::Vector::Vector3& outPosition ) const;
-    bool CycleMode( const Runtime::SceneWorld& collection, Environment::CameraCollection& cameras );
-    bool TogglePin( const Runtime::SceneWorld& collection, Environment::CameraCollection& cameras );
-    bool ApplyOrbitInput( const Runtime::SceneWorld& collection,
-                          Environment::CameraCollection& cameras,
+    bool CycleMode( Runtime::SceneWorld& collection );
+    bool TogglePin( Runtime::SceneWorld& collection );
+    bool ApplyOrbitInput( Runtime::SceneWorld& collection,
                           bool attachModeActive,
                           int unhandledWheelDelta,
                           bool uiBlocksCameraMouse );
-    bool SetTarget( const Runtime::SceneWorld& collection,
-                    Environment::CameraCollection& cameras,
-                    int modelIndex,
-                    AttachedCameraTargetSelection& outSelection );
-    AttachedCameraSeedResult SeedTarget( const Runtime::SceneWorld& collection,
-                                         Environment::CameraCollection& cameras,
-                                         int seedModelIndex,
-                                         AttachedCameraTargetSelection& outSelection );
-    bool PickTarget( const Runtime::SceneWorld& collection,
-                     Environment::CameraCollection& cameras,
+    bool SetTarget( Runtime::SceneWorld& collection, int modelIndex, AttachedCameraTargetSelection& outSelection );
+    AttachedCameraSeedResult
+    SeedTarget( Runtime::SceneWorld& collection, int seedModelIndex, AttachedCameraTargetSelection& outSelection );
+    bool PickTarget( Runtime::SceneWorld& collection,
                      bool hasWorldRay,
                      const Math::Vector::Vector3& rayOrigin,
                      const Math::Vector::Vector3& rayDirection,

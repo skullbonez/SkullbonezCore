@@ -152,18 +152,18 @@ struct EditorSelectionFingerprint
     bool hasTerrain = false;
 };
 
-EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtimeTools, SceneController& scene )
+EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtimeTools, const SceneWorld& world )
 {
     EditorSelectionFingerprint fingerprint;
-    const int modelIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.Scene().BodyStore() );
-    if ( modelIndex < 0 || modelIndex >= scene.Scene().SceneEntityCount() )
+    const int modelIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
+    if ( modelIndex < 0 || modelIndex >= world.SceneEntityCount() )
     {
         return fingerprint;
     }
-    const SceneEntityRecord& entity = scene.Scene().Entities().At( modelIndex );
-    const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
-    const Physics::PhysicsColliderHandle colliderHandle = scene.Scene().Colliders().HandleForModelIndex( modelIndex );
-    const Physics::ColliderRecord* collider = scene.Scene().Colliders().RecordForHandle( colliderHandle );
+    const SceneEntityRecord& entity = world.Entities().At( modelIndex );
+    const Physics::PhysicsBodyRecord* body = world.BodyStore().RecordForModelIndex( modelIndex );
+    const Physics::PhysicsColliderHandle colliderHandle = world.Colliders().HandleForModelIndex( modelIndex );
+    const Physics::ColliderRecord* collider = world.Colliders().RecordForHandle( colliderHandle );
     EditorPrimitiveShapeSnapshot shape;
     if ( !body || !collider || body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, shape ) )
@@ -171,8 +171,7 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
         return fingerprint;
     }
     const Physics::PhysicsBodyHotState hotState =
-        Physics::LoadPhysicsBodyHotState( scene.Scene().BodyStore().HotFields(),
-                                          static_cast<std::size_t>( modelIndex ) );
+        Physics::LoadPhysicsBodyHotState( world.BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) );
 
     uint64_t& hash = fingerprint.hash;
     HashPredictionScalar( hash, entity.sceneObjectId.value );
@@ -1789,8 +1788,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         RuntimeInteractionController& interaction,
                                         const InputRouter& inputRouter,
                                         RunCameraState& camera,
-                                        SceneController& sceneController,
-                                        const SceneEntityStore& entities,
+                                        const SceneWorld& world,
                                         SkullbonezCore::UI::InGameUI& ui,
                                         const RunInteractionAutomationAction& action,
                                         InspectGizmoInteractionActive inspectGizmoInteractionActive )
@@ -1804,11 +1802,10 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex =
-            PeekSelectedEditorModelIndex( runtimeTools.Editor(), sceneController.Scene().BodyStore() );
-        if ( selectedIndex >= 0 && selectedIndex < sceneController.Scene().SceneEntityCount() )
+        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), world.BodyStore() );
+        if ( selectedIndex >= 0 && selectedIndex < world.SceneEntityCount() )
         {
-            evaluation.actual = entities.At( selectedIndex ).displayName;
+            evaluation.actual = world.Entities().At( selectedIndex ).displayName;
         }
         evaluation.passed = evaluation.actual == evaluation.expected;
         break;
@@ -2100,7 +2097,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::EditorSelectionExists:
     case RunInteractionAutomationAssertKind::EditorSelectionHasTerrain:
     {
-        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, sceneController );
+        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, world );
         const bool actual = action.assertKind == RunInteractionAutomationAssertKind::EditorSelectionExists
                                 ? fingerprint.valid
                                 : ( fingerprint.valid && fingerprint.hasTerrain );
@@ -2112,7 +2109,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture:
     {
         const int slot = static_cast<int>( action.numberValue );
-        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, sceneController );
+        const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, world );
         uint64_t capturedFingerprint = 0;
         const bool captureValid = automation.reportWriter.TryEditorSelectionCapture( slot, capturedFingerprint );
         evaluation.expected = captureValid
@@ -2177,7 +2174,7 @@ bool LoadScript( InteractionAutomationController& state )
 }
 } // namespace
 
-bool TryFindInteractionAutomationModel( const SceneController& scene, const char* name, int& outIndex )
+bool TryFindInteractionAutomationModel( const SceneWorld& world, const char* name, int& outIndex )
 {
     outIndex = -1;
     if ( !name || name[0] == '\0' )
@@ -2185,18 +2182,18 @@ bool TryFindInteractionAutomationModel( const SceneController& scene, const char
         return false;
     }
 
-    outIndex = scene.Scene().Entities().FindByDisplayName( name );
+    outIndex = world.Entities().FindByDisplayName( name );
     return outIndex >= 0;
 }
 
-bool TryProjectInteractionAutomationModel( const SceneController& scene,
+bool TryProjectInteractionAutomationModel( const SceneWorld& world,
                                            InputRouter& inputRouter,
                                            Window* window,
                                            const char* name,
                                            POINT& outMouse )
 {
     int modelIndex = -1;
-    if ( !TryFindInteractionAutomationModel( scene, name, modelIndex ) || !window )
+    if ( !TryFindInteractionAutomationModel( world, name, modelIndex ) || !window )
     {
         return false;
     }
@@ -2214,13 +2211,12 @@ bool TryProjectInteractionAutomationModel( const SceneController& scene,
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
-                if ( inputRouter
-                         .TryBuildWorldRayAt( candidate, scene.Scene().Cameras(), *window, rayOrigin, rayDirection ) )
+                if ( inputRouter.TryBuildWorldRayAt( candidate, world.Cameras(), *window, rayOrigin, rayDirection ) )
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &scene.Scene().BodyStore();
-                    request.colliderStore = &scene.Scene().Colliders();
+                    request.bodyStore = &world.BodyStore();
+                    request.colliderStore = &world.Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -2302,15 +2298,17 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         // report writer is another Lane R boundary, so it also cannot replace
         // the earlier script failure if both operations fail.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult =
-            state.reportWriter.Write( InteractionAutomationReportInputs{ state.status,
-                                                                         state.scriptPath,
-                                                                         scene,
-                                                                         runtimeTools,
-                                                                         replayView,
-                                                                         interaction,
-                                                                         camera,
-                                                                         ui } );
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write(
+            InteractionAutomationReportInputs{ state.status,
+                                               state.scriptPath,
+                                               scene.Scene(),
+                                               scene.State(),
+                                               scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
+                                               runtimeTools,
+                                               replayView,
+                                               interaction,
+                                               camera,
+                                               ui } );
         if ( result.status.ok )
         {
             result.status = reportResult;
@@ -2398,7 +2396,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 [&]( const char* name )
                 {
                     int modelIndex = -1;
-                    if ( !TryFindInteractionAutomationModel( scene, name, modelIndex ) )
+                    if ( !TryFindInteractionAutomationModel( scene.Scene(), name, modelIndex ) )
                     {
                         return false;
                     }
@@ -2455,7 +2453,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::CaptureEditorSelectionState:
         {
             const int slot = static_cast<int>( action.numberValue );
-            const EditorSelectionFingerprint fingerprint = BuildEditorSelectionFingerprint( runtimeTools, scene );
+            const EditorSelectionFingerprint fingerprint =
+                BuildEditorSelectionFingerprint( runtimeTools, scene.Scene() );
             state.reportWriter.CaptureEditorSelection( slot, fingerprint.hash, fingerprint.valid );
             if ( !fingerprint.valid )
             {
@@ -2504,7 +2503,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         {
             POINT mouse = {};
             const bool projected =
-                TryProjectInteractionAutomationModel( scene, inputRouter, window, action.text, mouse );
+                TryProjectInteractionAutomationModel( scene.Scene(), inputRouter, window, action.text, mouse );
             if ( projected )
             {
                 state.inputDriver.MoveMouse( mouse );
@@ -2625,8 +2624,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
             interaction,
             inputRouter,
             camera,
-            scene,
-            scene.Scene().Entities(),
+            scene.Scene(),
             ui,
             action,
             [&]()
@@ -2668,7 +2666,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         // physics still holds the seed pose used by root markers. The writer
         // owns the CPU-only proof and cannot initiate a second presented pass.
         if ( !state.status.failed &&
-             !state.reportWriter.FinishReplayVisualCapture( state.status, runtimeTools, scene, replayView ) )
+             !state.reportWriter.FinishReplayVisualCapture( state.status, runtimeTools, scene.Scene(), replayView ) )
         {
             ClearInteractionAutomationInput( state );
             return result;
@@ -2686,15 +2684,17 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
         ClearInteractionAutomationInput( state );
         // Invariant: assertion failure retains precedence over report IO.
         result.status = InteractionAutomationResult( state );
-        const SkullbonezCore::Core::SbResult reportResult =
-            state.reportWriter.Write( InteractionAutomationReportInputs{ state.status,
-                                                                         state.scriptPath,
-                                                                         scene,
-                                                                         runtimeTools,
-                                                                         replayView,
-                                                                         interaction,
-                                                                         camera,
-                                                                         ui } );
+        const SkullbonezCore::Core::SbResult reportResult = state.reportWriter.Write(
+            InteractionAutomationReportInputs{ state.status,
+                                               state.scriptPath,
+                                               scene.Scene(),
+                                               scene.State(),
+                                               scene.CurrentPath() ? scene.CurrentPath()->c_str() : nullptr,
+                                               runtimeTools,
+                                               replayView,
+                                               interaction,
+                                               camera,
+                                               ui } );
         if ( result.status.ok )
         {
             result.status = reportResult;

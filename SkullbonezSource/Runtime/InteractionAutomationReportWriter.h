@@ -58,7 +58,8 @@ namespace Runtime
 {
 class RuntimeInteractionController;
 class RuntimeTools;
-class SceneController;
+class SceneWorld;
+struct RunSceneState;
 struct ReplaySolverFrameSample;
 struct ReplayAutomationView;
 struct RunCameraState;
@@ -186,9 +187,14 @@ struct PredictionTrajectoryFingerprint
 
 struct InteractionAutomationReportInputs
 {
+    // Lifetime: the writer consumes this projection synchronously. SceneWorld,
+    // lifecycle state, and path text remain separate so report code cannot
+    // submit scene requests or recover the lifecycle controller.
     InteractionAutomationRunStatus& status;
     const char* scriptPath;
-    const SceneController& scene;
+    const SceneWorld& world;
+    const RunSceneState& scene;
+    const char* scenePath;
     const RuntimeTools& runtimeTools;
     const ReplayAutomationView& replay;
     const RuntimeInteractionController& interaction;
@@ -226,7 +232,7 @@ class InteractionAutomationReportWriter
                                    InteractionAutomationRunStatus& status );
     bool FinishReplayVisualCapture( InteractionAutomationRunStatus& status,
                                     RuntimeTools& runtimeTools,
-                                    SceneController& scene,
+                                    SceneWorld& world,
                                     const ReplayAutomationView& replay );
     bool ReplayVisualCaptureEnabled() const noexcept;
 
@@ -274,7 +280,7 @@ class InteractionAutomationReportWriter
   private:
     bool VerifyReplayVisualOfflineProjection( InteractionAutomationRunStatus& status,
                                               RuntimeTools& runtimeTools,
-                                              SceneController& scene,
+                                              SceneWorld& world,
                                               const ReplaySolverFrameSample* latestSolverSample );
 
     bool m_written = false;

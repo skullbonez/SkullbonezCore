@@ -29,12 +29,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-bool SceneRequestIsTransition( SceneRequestType type )
-{
-    return type != SceneRequestType::SaveCurrentDefaults;
-}
-
-
 SkullbonezCore::Core::SbResult SceneRequestQueue::Submit( const SceneRequest& request )
 {
     if ( request.type == SceneRequestType::CreateScene )

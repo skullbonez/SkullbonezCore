@@ -52,6 +52,19 @@ struct RunSceneUIOverrideState
     int solverBallCountOverride = -1;
     int solverBoxCountOverride = -1;
 };
+
+// Value snapshot passed into one cold load transaction. Browser display names
+// and c-string views stay with UI because load policy needs only normalized
+// paths, the selected cinematic row, and generated-scene overrides.
+struct SceneLoadNavigationState
+{
+    std::vector<std::string> browserPaths;
+    RunSceneUIOverrideState overrides;
+    int selectedCineModeSceneIndex = -1;
+
+    SceneLoadRequest LoadSceneFromBrowserIndex( int index, SceneRuntime& scene ) const;
+    SceneLoadRequest LoadDemoScene( SceneRuntime& scene ) const;
+};
 } // namespace Runtime
 
 namespace UI
@@ -74,4 +87,10 @@ struct SceneNavigationModel
     LoadAdjacentScene( int direction, int currentSceneBrowserIndex, Runtime::SceneRuntime& scene );
 };
 } // namespace UI
+
+namespace Runtime
+{
+SceneLoadNavigationState CaptureSceneLoadNavigationState( const UI::SceneNavigationModel& navigation );
+void ApplySceneLoadNavigationState( UI::SceneNavigationModel& navigation, const SceneLoadNavigationState& state );
+} // namespace Runtime
 } // namespace SkullbonezCore

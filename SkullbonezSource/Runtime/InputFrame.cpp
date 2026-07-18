@@ -85,16 +85,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-const char* PresentationNameForModelIndex( const SkullbonezCore::Runtime::SceneController& collection, int modelIndex )
-{
-    const auto presentationRecords = collection.Scene().RenderPresentationRecords();
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
-    {
-        return "";
-    }
-    return presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
-}
-
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result )
 {
     if ( result.ok )
@@ -164,10 +154,9 @@ RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene
 }
 
 
-uint32_t RuntimeCameraModeEnabledMask( const SceneController& sceneController )
+uint32_t RuntimeCameraModeEnabledMask( bool authoredScene, int sceneEntityCount )
 {
-    const bool authoredScene = sceneController.State().isSceneMode;
-    const bool demoAvailable = !authoredScene && sceneController.Scene().SceneEntityCount() > 0;
+    const bool demoAvailable = !authoredScene && sceneEntityCount > 0;
     uint32_t mask = 0;
     mask |= demoAvailable ? 1u << static_cast<int>( RunCameraMode::Demo ) : 0u;
     mask |= authoredScene ? 1u << static_cast<int>( RunCameraMode::Scene ) : 0u;
@@ -655,8 +644,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         result.enterInteractiveScene = true;
         const RunInternal::EditorGizmoContext editorContext{ runtimeTools.Editor(),
-                                                             sceneController,
-                                                             sceneController.Scene().Physics(),
+                                                             sceneController.Scene(),
                                                              interaction };
         const RunInternal::EditorPlacementModeChangeResult placementMode =
             toggle ? RunInternal::ToggleEditorPlacementMode( editorContext )
@@ -692,11 +680,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
-            RunInternal::EnterEditorModeState(
-                { runtimeTools.Editor(), sceneController, sceneController.Scene().Physics(), interaction },
-                NormalizeRuntimeCameraMode( camera.mode,
-                                            sceneController.State().isSceneMode,
-                                            facts.cameraModeEnabledMask ) );
+            RunInternal::EnterEditorModeState( { runtimeTools.Editor(), sceneController.Scene(), interaction },
+                                               NormalizeRuntimeCameraMode( camera.mode,
+                                                                           sceneController.State().isSceneMode,
+                                                                           facts.cameraModeEnabledMask ) );
             runtimeTools.CancelMousePickup( inputRouter, interaction );
             camera.mode = RunCameraMode::Inspect;
             if ( !wasFlyMode )
@@ -728,8 +715,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
-            RunInternal::ExitEditorModeState(
-                { runtimeTools.Editor(), sceneController, sceneController.Scene().Physics(), interaction } );
+            RunInternal::ExitEditorModeState( { runtimeTools.Editor(), sceneController.Scene(), interaction } );
             camera.mode = restoreMode;
             if ( wasFlyMode && !RunCameraModeUsesFlyControls( camera.mode,
                                                               attachedCamera.State().activeFollow,
@@ -767,8 +753,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                      runtimeInput );
     }
     const RunInternal::EditorGizmoContext editorGizmoContext{ runtimeTools.Editor(),
-                                                              sceneController,
-                                                              sceneController.Scene().Physics(),
+                                                              sceneController.Scene(),
                                                               interaction };
     const RunInternal::EditorPlacementPreModeUICommandResult editorPreModeCommands =
         RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext, uiCommands.editor );
@@ -812,13 +797,14 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
     }
-    if ( ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext{ sceneController }, uiCommands.physics ) )
+    if ( ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext{ sceneController.Scene() },
+                                           uiCommands.physics ) )
     {
         recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
     }
     RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
     const TornadoUICommandResult tornadoCommands =
-        ApplyTornadoUICommands( TornadoUICommandContext{ renderer, sceneController }, uiCommands.physics );
+        ApplyTornadoUICommands( TornadoUICommandContext{ renderer, sceneController.Scene() }, uiCommands.physics );
     RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
     if ( runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
     {
@@ -897,7 +883,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     }
     SkullbonezCore::Core::EngineConfig& liveConfig = config;
     const PhysicsFrictionUICommandResult physicsFrictionCommands =
-        ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, sceneController },
+        ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, sceneController.Scene() },
                                         uiCommands.physics );
     RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
     const SceneGeneratedControlPolicy sceneGeneratedPolicy{ liveConfig,
@@ -1015,8 +1001,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         ApplyCinematicModeUICommand( SceneRuntimeStyleContext{ launchOptions,
                                                                sceneController.State(),
                                                                ui.SceneNavigation().browser,
-                                                               sceneController,
-                                                               sceneController.Scene().Entities(),
+                                                               sceneController.Scene(),
                                                                assets,
                                                                activeCinematic,
                                                                renderDefaults.CinematicBaseline() },
@@ -1072,7 +1057,6 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
     };
 
     if ( attachedCamera.ApplyOrbitInput( sceneController.Scene(),
-                                         sceneController.Scene().Cameras(),
                                          RunCameraModeIsAttached( replayCurrentCameraMode ),
                                          result.editorUnhandledWheelDelta,
                                          ui.BlocksCameraMouse() ) )

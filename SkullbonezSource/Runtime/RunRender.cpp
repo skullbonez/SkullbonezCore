@@ -56,7 +56,6 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.
     m_camera.UpdateViewingOrientation( m_timers,
-                                       m_sceneController.Scene().Cameras(),
                                        m_sceneController.Scene(),
                                        replayInput.inspectionCameraActive,
                                        m_sceneController.State().isSceneMode,
@@ -112,7 +111,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     m_sceneController.Scene().PrepareRenderInstances( presentationAlpha );
     PROFILE_END( m_profiler, "Frame/Render/PrepareModels" );
 
-    m_runtimeTools.PrepareOverlayTrace( m_sceneController,
+    m_runtimeTools.PrepareOverlayTrace( m_sceneController.Scene(),
                                         m_assets,
                                         ToolOverlayBuildInput{ framePolicy.physicsDebugContactLinger,
                                                                toolOverlay.inspectGizmoInteractionActive,

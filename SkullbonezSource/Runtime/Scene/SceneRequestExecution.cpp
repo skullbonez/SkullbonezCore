@@ -47,10 +47,10 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
-                                      SceneLoadHostParticipants host,
-                                      SceneLoadInteractionParticipants interaction,
-                                      SceneLoadPresentationParticipants presentation,
+bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
+                                      const SceneLoadHostParticipants& host,
+                                      const SceneLoadInteractionParticipants& interaction,
+                                      const SceneLoadPresentationParticipants& presentation,
                                       SceneLoadConsumerOutputs& consumerOutputs )
 {
     SceneController& m_sceneController = *this;
@@ -96,21 +96,29 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
                                                                                      request.preserveRuntimeState ) );
             break;
         case SceneRequestType::CreateScene:
+        {
             eventCode = ReplayOwnerEventCode::SceneCreate;
             eventText = request.text;
-            accepted = executeSceneLoadRequest(
-                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, interaction.navigation.browser },
-                                   request.text ) );
+            const SceneLoadRequest createRequest =
+                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController }, request.text );
+            accepted = executeSceneLoadRequest( createRequest );
+            // Why: file creation can succeed before a later load phase fails.
+            // The UI still needs to discover that durable authored file, while
+            // replay records the create action only after the load completes.
+            consumerOutputs.refreshSceneBrowser = createRequest.accepted;
             break;
+        }
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
                 const RunDebugState presentationState = presentation.overlays.PresentationSnapshot();
+                const SceneLoadNavigationState& currentNavigation =
+                    SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
                 const SkullbonezCore::Core::SbResult saveResult =
                     m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentationState,
                                                                                   presentation.renderer,
                                                                                   interaction.camera,
-                                                                                  interaction.navigation.overrides } );
+                                                                                  currentNavigation.overrides } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
@@ -137,6 +145,13 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
                 0,
                 0,
                 eventText ? eventText : ReplayOwnerEventName( eventCode ) ) );
+        }
+        if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
+        {
+            // Hazard: load/create teardown may already have cleared the old
+            // world before a recoverable failure. Never let a later save or
+            // owner action consume that incomplete replacement topology.
+            break;
         }
     }
     return batch.count > 0;
