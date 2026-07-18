@@ -572,7 +572,7 @@ void Run::Initialise()
         DescribeReplaySceneTimeline( m_sceneController,
                                      m_operatorUi->SceneNavigation().overrides,
                                      m_sceneController.State(),
-                                     m_startup.sceneObjectCapacity,
+                                     SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
                                      static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
     ReplaySceneTimelineResetOwners timelineOwners{
         m_inputRouter,
@@ -609,7 +609,7 @@ void Run::Initialise()
                                                       m_workerPool,
                                                       m_operatorUi->SceneNavigation().overrides,
                                                       m_launchOptions.generatedObjectTypeOverride,
-                                                      m_startup.sceneObjectCapacity };
+                                                      SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
         loadInput,
         probeTransaction,

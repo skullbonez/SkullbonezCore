@@ -743,6 +743,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     if ( scenePath.empty() )
     {
         config.runtimeCapacity.sceneObjectCapacity = startup.sceneObjectCapacity;
+        m_sceneController.Scene().ApplyRuntimeConfig( config );
         ApplySceneWorkerThreadSetting( config, workerPool, startup.workerThreads );
         if ( launchOptions.seedOverride > 0 )
         {
@@ -844,6 +845,11 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         }
         config.runtimeCapacity.sceneObjectCapacity =
             scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : startup.sceneObjectCapacity;
+        // Invariant: authored capacity is resolved while the scene is empty and
+        // applied before generated or authored population. Parsing an override
+        // without activating it leaves the store at the startup default and
+        // fails valid scenes at row 4,001.
+        m_sceneController.Scene().ApplyRuntimeConfig( config );
         ApplySceneWorkerThreadSetting(
             config,
             workerPool,
@@ -1264,7 +1270,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         DescribeReplaySceneTimeline( m_sceneController,
                                      sceneNavigation.overrides,
                                      SceneState(),
-                                     startup.sceneObjectCapacity,
+                                     SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
                                      static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
     replayRuntime.ResetSceneTimeline(
         replayReset,
@@ -1280,7 +1286,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
 
     const SkullbonezCore::Core::SbResult rayTracingResult =
-        renderer.InitialiseSceneRayTracing( renderBackendView, startup.sceneObjectCapacity );
+        renderer.InitialiseSceneRayTracing( renderBackendView,
+                                            SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
     if ( !rayTracingResult.ok )
     {
         m_lastSceneLoadResult = rayTracingResult;

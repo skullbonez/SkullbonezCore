@@ -16,6 +16,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent          # …/Agentic/Skills/skore-render-test
@@ -68,11 +69,11 @@ def percentile(sorted_vals, p):
 def parse_csv(path):
     """Parse perf_log.csv into frame rows and memory checkpoints.
 
-    Returns (marker_names, frames, mem) where marker_names is a list of
-    column names (excluding pass/frame), frames is a list of dicts, and
+    Returns (column_names, frames, mem) where column_names is a list of timing
+    marker and scalar-counter columns (excluding pass/frame), frames is a list of dicts, and
     mem is a list of memory checkpoint dicts.
     """
-    marker_names = []
+    column_names = []
     frames = []
     mem = []
     with open(path, "r") as f:
@@ -83,16 +84,47 @@ def parse_csv(path):
             elif line.startswith("pass,frame,"):
                 # Dynamic header — discover marker columns
                 cols = line.split(",")
-                marker_names = cols[2:]  # everything after pass, frame
+                column_names = cols[2:]  # everything after pass, frame
             elif line and not line.startswith("#"):
                 cols = line.split(",")
                 if len(cols) < 2:
                     continue
+                expected_columns = len(column_names) + 2
+                if len(cols) != expected_columns:
+                    raise ValueError(
+                        f"Perf CSV row has {len(cols)} columns but the active header has "
+                        f"{expected_columns}: {line[:160]}"
+                    )
                 row = {"pass": int(cols[0]), "frame": int(cols[1])}
-                for i, name in enumerate(marker_names):
+                for i, name in enumerate(column_names):
                     row[name] = float(cols[2 + i]) if (2 + i) < len(cols) else 0.0
                 frames.append(row)
-    return marker_names, frames, mem
+    return column_names, frames, mem
+
+
+def run_self_test():
+    """Lock repeated-header alignment and Counter/* classification behavior."""
+    fixture = """# perf fixture
+pass,frame,Frame,Counter/Physics/TotalBodies
+1,31,1.2500,5000.0000
+pass,frame,Frame,Frame/Physics,Counter/Physics/TotalBodies
+2,31,1.5000,0.7500,5000.0000
+"""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "perf.csv"
+        path.write_text(fixture, encoding="utf-8")
+        column_names, frames, memory = parse_csv(path)
+
+    assert column_names == ["Frame", "Frame/Physics", "Counter/Physics/TotalBodies"]
+    assert len(frames) == 2
+    assert frames[0]["Counter/Physics/TotalBodies"] == 5000.0
+    assert frames[1]["Frame/Physics"] == 0.75
+    assert not memory
+    marker_names = [name for name in column_names if not name.startswith("Counter/")]
+    counter_names = [name for name in column_names if name.startswith("Counter/")]
+    assert marker_names == ["Frame", "Frame/Physics"]
+    assert counter_names == ["Counter/Physics/TotalBodies"]
+    print("SELF_TEST_PASS: repeated perf headers align and scalar counters remain separate from timing markers")
 
 
 def parse_memory_checkpoint(line):
@@ -189,20 +221,28 @@ def _color_mem(delta_mb, threshold=5.0):
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze SkullbonezCore perf CSV and write JSON artifact.")
-    parser.add_argument("--renderer", required=True,
+    parser.add_argument("--self-test", action="store_true",
+                        help="Run parser/schema regression coverage and exit")
+    parser.add_argument("--renderer",
                         help="Artifact label for this CSV, e.g. gl, dx11, dx12, physics_bench, or physics_bench_no_sleep")
-    parser.add_argument("--csv", required=True, type=Path,
+    parser.add_argument("--csv", type=Path,
                         help="Path to perf_log.csv")
-    parser.add_argument("--out-dir", required=True, type=Path,
+    parser.add_argument("--out-dir", type=Path,
                         help="Directory to write {renderer}_perf.json into")
     args = parser.parse_args()
+
+    if args.self_test:
+        run_self_test()
+        return
+    if not args.renderer or args.csv is None or args.out_dir is None:
+        parser.error("--renderer, --csv, and --out-dir are required unless --self-test is used")
 
     csv_path = args.csv
     if not csv_path.exists():
         print(f"ERROR: CSV not found: {csv_path}")
         sys.exit(1)
 
-    marker_names, frames, mem = parse_csv(str(csv_path))
+    column_names, frames, mem = parse_csv(str(csv_path))
     if not frames:
         print(f"ERROR: No frame rows found in {csv_path}")
         sys.exit(1)
@@ -213,7 +253,9 @@ def main():
     print(f"Commit   : {commit}")
     print(f"Renderer : {args.renderer.upper()}")
     print(f"Machine  : {machine['cpu']}  {machine['cores']} cores  {machine['ram_gb']} GB RAM")
-    print(f"Frames   : {len(frames)}  |  Markers: {len(marker_names)}")
+    marker_names = [name for name in column_names if not name.startswith("Counter/")]
+    counter_names = [name for name in column_names if name.startswith("Counter/")]
+    print(f"Frames   : {len(frames)}  |  Markers: {len(marker_names)}  |  Counters: {len(counter_names)}")
 
     # Compute stats for every marker column
     marker_stats = {}
@@ -221,11 +263,22 @@ def main():
         vals = [f[name] for f in frames if name in f]
         marker_stats[name] = compute_stats(vals)
 
+    # Concept: Counter/* columns are scalar measurements, not milliseconds.
+    # Keeping them separate prevents perf_compare from treating an intentional
+    # body-count or byte-model change as a timing regression.
+    counter_stats = {}
+    for name in counter_names:
+        vals = [f[name] for f in frames if name in f]
+        counter_stats[name] = compute_stats(vals)
+
     # Print summary for top-level markers
     for name in marker_names:
         if "/" not in name:
             s = marker_stats[name]
             print(f"{name:20s}: avg={s['avg']:.4f}  p50={s['p50']:.4f}  p99={s['p99']:.4f}  p99.9={s['p99_9']:.4f}")
+    for name in counter_names:
+        s = counter_stats[name]
+        print(f"{name:45s}: avg={s['avg']:.4f}  p50={s['p50']:.4f}  min={s['min']:.4f}  max={s['max']:.4f}")
 
     # Extract memory checkpoints
     mem_start   = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start"   and m["pass"] == 1), 0)
@@ -240,6 +293,7 @@ def main():
         "machine":        machine,
         "total_frames":   len(frames),
         "markers":        marker_stats,
+        "counters":       counter_stats,
         "mem_start_mb":   round(mem_start, 2),
         "mem_restart_mb": round(mem_restart, 2),
         "mem_end_mb":     round(mem_end, 2),

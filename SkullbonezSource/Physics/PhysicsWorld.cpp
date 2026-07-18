@@ -103,6 +103,69 @@ constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT =
     RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 
+#ifdef SKULLBONEZ_PROFILE_ENABLED
+constexpr uint64_t LogicalStreamBytes( std::size_t elementBytes, uint64_t elementOperations )
+{
+    return static_cast<uint64_t>( elementBytes ) * elementOperations;
+}
+
+// Concept: this is a logical dense-stream census, not a hardware bandwidth
+// counter. The all-row term counts the P0 guard/bookkeeping streams as 26 byte-
+// flag operations (fixed, awake, sleep and sleep-policy rows), six float
+// operations (time-remaining/bounds rows), and two int operations (sleep-island
+// rows). Each operation is one array-element read or write in one pass.
+constexpr uint64_t PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP = LogicalStreamBytes( sizeof( uint8_t ), 26u ) +
+                                                             LogicalStreamBytes( sizeof( float ), 6u ) +
+                                                             LogicalStreamBytes( sizeof( int ), 2u );
+// ApplyForces loads fourteen hot floats plus fixed, then stores six velocity
+// floats: (14 + 6) * 4 + 1 = 81 logical bytes for each dynamic awake row.
+constexpr uint64_t PHYSICS_FORCE_AWAKE_LOGICAL_BYTES =
+    LogicalStreamBytes( sizeof( float ), 20u ) + LogicalStreamBytes( sizeof( uint8_t ), 1u );
+// IntegrateBodyPose loads and stores thirteen hot floats and reads fixed/awake:
+// (13 + 13) * 4 + 2 = 106 logical bytes for each dynamic awake row.
+constexpr uint64_t PHYSICS_INTEGRATE_AWAKE_LOGICAL_BYTES =
+    LogicalStreamBytes( sizeof( float ), 26u ) + LogicalStreamBytes( sizeof( uint8_t ), 2u );
+static_assert( PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP == 58u );
+static_assert( PHYSICS_FORCE_AWAKE_LOGICAL_BYTES == 81u );
+static_assert( PHYSICS_INTEGRATE_AWAKE_LOGICAL_BYTES == 106u );
+
+// Cold records, colliders, grid entries, contacts, candidate pairs, cache-line
+// amplification, and instruction fetch are excluded deliberately. Separate
+// force/integration counts keep synchronous wake and end-step sleep transitions
+// from attributing work to the wrong frame.
+double EstimatePhysicsHotBytesPerBodyStep( int totalBodies, int forceAwakeBodies, int integrateAwakeBodies )
+{
+    if ( totalBodies <= 0 )
+    {
+        return 0.0;
+    }
+    const uint64_t totalIterations = static_cast<uint64_t>( totalBodies );
+    const uint64_t forceAwakeIterations = static_cast<uint64_t>( (std::clamp)( forceAwakeBodies, 0, totalBodies ) );
+    const uint64_t integrateAwakeIterations =
+        static_cast<uint64_t>( (std::clamp)( integrateAwakeBodies, 0, totalBodies ) );
+    const uint64_t logicalBytes = totalIterations * PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP +
+                                  forceAwakeIterations * PHYSICS_FORCE_AWAKE_LOGICAL_BYTES +
+                                  integrateAwakeIterations * PHYSICS_INTEGRATE_AWAKE_LOGICAL_BYTES;
+    return static_cast<double>( logicalBytes ) / static_cast<double>( totalIterations );
+}
+
+int CountDynamicAwakeBodiesForProfile( const PhysicsBodyHotFieldsConstView& hotFields,
+                                       std::span<const uint8_t> sleepStates,
+                                       int modelCount )
+{
+    int awakeBodyCount = 0;
+    const int count = (std::min)( { modelCount,
+                                    static_cast<int>( hotFields.fixed.size() ),
+                                    static_cast<int>( sleepStates.size() ) } );
+    for ( int bodyIndex = 0; bodyIndex < count; ++bodyIndex )
+    {
+        const std::size_t index = static_cast<std::size_t>( bodyIndex );
+        awakeBodyCount += hotFields.fixed[index] == 0u && sleepStates[index] == 0u ? 1 : 0;
+    }
+    return awakeBodyCount;
+}
+#endif
+
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
 {
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
@@ -699,6 +762,9 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         dt,
         m_profiler,
     };
+#ifdef SKULLBONEZ_PROFILE_ENABLED
+    const int forceAwakeBodyCount = m_sleepController.GetAwakeBodyCount();
+#endif
     m_forceStage.ApplyForces( applyForcesStage, modelCount, workerPool, config.physicsExecution );
 
     ApplyTornadoGameplay( bodyStore, colliderStore, worldForces, dt, config, workerPool );
@@ -886,6 +952,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                             m_timeRemaining,
                                                             m_profiler };
 
+    // Why: wake access runs on parallel tornado/narrowphase workers and cannot
+    // mutate a shared counter. This Profile-only scan runs after synchronous
+    // wakes and also sees fixed-to-dynamic releases before integration.
+#ifdef SKULLBONEZ_PROFILE_ENABLED
+    const int integrateAwakeBodyCount = CountDynamicAwakeBodiesForProfile( hotFields, sleepStates, modelCount );
+#endif
     m_forceStage.IntegrateRemaining( integrateRemainingStage, modelCount, workerPool, config.physicsExecution );
 
     const PhysicsSleepIslandStageContext sleepIslandContext{ bodyStore,
@@ -904,6 +976,21 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                              sleepPolicy.frameCount };
     m_sleepController.RunIslandStage( sleepIslandContext );
     PROFILE_END( m_profiler, "Frame/Physics/Integrate" );
+
+#ifdef SKULLBONEZ_PROFILE_ENABLED
+    // Invariant: scale counters sample the completed fixed step. Perf scenes
+    // run exactly one fixed step per render frame, so the profiler's last-value
+    // counter semantics map one-to-one onto the measurement ledger.
+    const int awakeBodyCount = m_sleepController.GetAwakeBodyCount();
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/TotalBodies", modelCount );
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/AwakeBodies", awakeBodyCount );
+    // P0 reserves this identity; P2 replaces the zero with persistent-grid
+    // cell-range changes owned by PhysicsBroadphaseStage.
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/BodiesReinserted", 0 );
+    PROFILE_COUNTER( m_profiler,
+                     "Counter/Physics/EstimatedHotBytesPerBodyStep",
+                     EstimatePhysicsHotBytesPerBodyStep( modelCount, forceAwakeBodyCount, integrateAwakeBodyCount ) );
+#endif
 }
 
 void PhysicsWorld::BeginCollisionVisualFrame( int modelCount )

@@ -59,8 +59,8 @@ using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsNarrowphaseStage;
 using SkullbonezCore::Physics::PhysicsSleepController;
 using SkullbonezCore::Physics::PhysicsWorldForces;
-using SkullbonezCore::Threading::WorkerPool;
 using SkullbonezCore::Threading::LockOrderValidator;
+using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
@@ -117,6 +117,7 @@ TEST_CASE( "Physics sleep support: fixed anchor propagates through a chained isl
     }
     PhysicsSleepController controller;
     controller.MirrorFlagsFrom( bodies, 3 );
+    CHECK( controller.GetAwakeBodyCount() == 2 );
     auto& edges = controller.MutableSupportEdgesForContactSolver();
     edges.emplace_back( 0, 1 );
     edges.emplace_back( 1, 2 );
@@ -135,18 +136,18 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     PhysicsBodyStore& bodies = StageBodyStore();
     ColliderStore& colliders = StageColliderStore();
     const CollisionShape sphere = UnitSphere();
-    const auto desc = SkullbonezCore::Physics::MakePhysicsBodyCreateDesc(
-        MakePhysicsSceneObjectIdFromReplayBodyId( 91u ),
-        sphere,
-        Vector3( 0.0f, 0.0f, 0.0f ),
-        SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
-        Vector3( 1.0f, 2.0f, 3.0f ),
-        Vector3( 4.0f, 5.0f, 6.0f ),
-        Vector3( 1.0f, 1.0f, 1.0f ),
-        1.0f,
-        0.0f,
-        PhysicsBodyMotionKind::Dynamic,
-        nullptr );
+    const auto desc =
+        SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectIdFromReplayBodyId( 91u ),
+                                                            sphere,
+                                                            Vector3( 0.0f, 0.0f, 0.0f ),
+                                                            SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
+                                                            Vector3( 1.0f, 2.0f, 3.0f ),
+                                                            Vector3( 4.0f, 5.0f, 6.0f ),
+                                                            Vector3( 1.0f, 1.0f, 1.0f ),
+                                                            1.0f,
+                                                            0.0f,
+                                                            PhysicsBodyMotionKind::Dynamic,
+                                                            nullptr );
     const auto handle = bodies.CreateBodyRecord( desc, true );
     ColliderRecord collider;
     collider.body = handle;
@@ -256,8 +257,13 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     std::vector<float> timeRemaining( kBodyCount, 1.0f / 120.0f );
     PhysicsWorldForces worldForces;
     std::vector<SkullbonezCore::Physics::PersistentContactCacheEntry> persistentCache;
-    const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess(
-        bodies, colliders, worldForces, bodies.MutableRecords(), timeRemaining, kBodyCount, 1.0f / 120.0f );
+    const auto wakeAccess = sleep.CreateNarrowphaseWakeAccess( bodies,
+                                                               colliders,
+                                                               worldForces,
+                                                               bodies.MutableRecords(),
+                                                               timeRemaining,
+                                                               kBodyCount,
+                                                               1.0f / 120.0f );
     const ObjectNarrowphasePairStageContext context{ bodies,
                                                      colliders,
                                                      worldForces,

@@ -1,8 +1,8 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 0/8 tasks
-Branch: owner decision at P0 (feature branch; never directly on `main`)
+Status: Active — 1/8 tasks (P0 complete; P1 next)
+Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
 `Physics/Stages/PhysicsSleepController.*`, `Physics/PhysicsBodyStore.*`,
@@ -133,18 +133,18 @@ machine, Profile build, markers as named:
 
 | Marker | scale_200 | scale_520 | scale_1000 | scale_2000 | sleepy_5000 |
 |---|---:|---:|---:|---:|---:|
-| `Frame/Physics` (inclusive step) | | | | | |
-| `Frame/Physics/Broadphase` (inclusive) | | | | | |
-| `Frame/Physics/Broadphase/GridInsert` → `GridMaintain` after P2 | | | | | |
-| `Frame/Physics/Broadphase/CandidatePairs` | | | | | |
-| `Frame/Physics/Broadphase/PruneSleepPairs` (deleted at P3; record 0) | | | | | |
-| Force stage inclusive | | | | | |
-| Integration inclusive | | | | | |
-| Narrowphase inclusive | | | | | |
-| Solver inclusive | | | | | |
-| New: awake-body count / total count | | | | | |
-| New: bodies reinserted this step (P2+) | | | | | |
-| New: estimated hot bytes/body/step (P0 method) | | | | | |
+| `Frame/Physics` (inclusive step) | 0.1106 | 0.8486 | 1.0688 | 1.7852 | 2.1479 |
+| `Frame/Physics/Broadphase` (inclusive) | 0.0245 | 0.1986 | 0.3377 | 0.6487 | 0.6963 |
+| `Frame/Physics/Broadphase/GridInsert` → `GridMaintain` after P2 | 0.0180 | 0.1764 | 0.2538 | 0.4628 | 0.4456 |
+| `Frame/Physics/Broadphase/CandidatePairs` | 0.0017 | 0.0074 | 0.0222 | 0.0821 | 0.1976 |
+| `Frame/Physics/Broadphase/PruneSleepPairs` (deleted at P3; record 0) | 0.0001 | 0.0002 | 0.0003 | 0.0004 | 0.0001 |
+| Force stage inclusive | 0.0262 | 0.1812 | 0.1827 | 0.2051 | 0.2108 |
+| Integration inclusive | 0.0224 | 0.1995 | 0.2079 | 0.2455 | 0.2595 |
+| Narrowphase inclusive | 0.0004 | 0.0030 | 0.0070 | 0.0221 | 0.0011 |
+| Solver inclusive (`PersistentContacts`) | 0.0071 | 0.0305 | 0.0569 | 0.1353 | 0.0027 |
+| New: awake-body count / total count | 200/200 | 520/520 | 1,000/1,000 | 2,000/2,000 | 1,000/5,000 |
+| New: bodies reinserted this step (P2+) | 0 | 0 | 0 | 0 | 0 |
+| New: estimated hot bytes/body/step (P0 method) | 245.0 | 245.0 | 245.0 | 245.0 | 95.4 |
 
 Checkbox contract: a task's measurement checkbox closes only when the full
 matrix row-set for that task is committed with the capture commands quoted.
@@ -153,8 +153,8 @@ explained or the task is not done.
 
 ## Tasks
 
-- [ ] P0 — Instrumentation, sleeping-heavy scene, and measurement baseline.
-  - [ ] Author `SkullbonezData/scenes/physics_scale_sleepy_5000.scene.json`:
+- [x] P0 — Instrumentation, sleeping-heavy scene, and measurement baseline.
+  - [x] Author `SkullbonezData/scenes/physics_scale_sleepy_5000.scene.json`:
     fixed-seed, ~5,000 bodies arranged so ≥80% reach engine sleep within a
     bounded settle window and ~1,000 stay perturbed/awake (use the existing
     `physics_scale_2000` authoring pattern; keep fixtures away from
@@ -163,21 +163,27 @@ explained or the task is not done.
     must set the explicit per-scene capacity override to ≤ `MAX_GAME_MODELS`
     (8,192) through the existing authored capacity path; record the chosen
     value and its memory footprint.
-  - [ ] Add the new profiler markers/counters: awake-vs-total body count,
+  - [x] Add the new profiler markers/counters: awake-vs-total body count,
     per-step reinsertion count (0 until P2), and the hot-bytes/body/step
     estimate (static accounting over the arrays each pass touches ×
     per-pass iteration counts — a computed diagnostic, not a hardware
     counter). Marker additions run
     `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers` per the
     AGENTS.md profiling rule.
-  - [ ] Capture the full Measurement Ledger matrix at the current tip —
+  - [x] Capture the full Measurement Ledger matrix at the current tip —
     this is the campaign's fixed "before" column set.
-  - [ ] Owner ratifies: branch, the sleepy-scene shape, the ≥4,000-awake
+  - [x] Owner ratifies: branch, the sleepy-scene shape, the ≥4,000-awake
     target, the P1 transition authorization (see protocol), and whether P6
     is pre-authorized at P5 or requires a fresh decision.
   - Gates: `validate_full` (new scene file per the scene mapping) +
     `validate_perf` (marker plumbing touches hot paths); byte-exact physics
     unchanged (instrumentation must not alter arithmetic).
+  - Evidence: `../../Reports/2026-07-18/body-count-scale-measurements.md`.
+    The owner accepted capacity 6,000 with 4,000 seeded sleepers and 1,000
+    awake movers, ratified the ≥4,000-awake target, authorized P1 only through
+    set equivalence first, and deferred P6 authorization to P5. Full, perf,
+    platform-marker smoke, 0/1/4-worker determinism, comment audit, and
+    independent review passed with zero artifact or coverage-floor refresh.
 
 - [ ] P1 — Canonical pair-order transition (the only behavior-visible flip).
   - Implementation: `GetCandidatePairs` emission becomes history-free —

@@ -17,7 +17,7 @@
 @rem     audio-side work from perf comparisons.
 @rem   Structural perf proof: Counter-based assertion that rejects an expensive
 @rem     algorithmic path without relying on machine-specific frame timings.
-@rem   Scale matrix: Measurement-only 200/520/1,000/2,000-body artifacts used
+@rem   Scale matrix: Measurement-only 200/520/1,000/2,000/sleepy-5,000-body artifacts used
 @rem     to ratify and track the physics fixed-step budget. These rows are
 @rem     reported but do not compare against a committed timing baseline.
 @rem
@@ -64,6 +64,10 @@ if /I "%SKULLBONEZ_ASSUME_PROFILE_BUILT%"=="1" (
 
 echo [2/5] Checking runtime allocation policy...
 "%PYTHON_EXE%" "%REPO%\tools\check_allocation_policy.py" --repo "%REPO%"
+if errorlevel 1 exit /b 9
+"%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --self-test
+if errorlevel 1 exit /b 9
+"%PYTHON_EXE%" "%REPO%\tools\generate_physics_scale_sleepy_scene.py" --check
 if errorlevel 1 exit /b 9
 
 echo [3/5] Cleaning old perf artifacts...
@@ -154,7 +158,7 @@ if errorlevel 1 (
 
 echo.
 echo Running measurement-only physics scale matrix...
-for %%n in (200 520 1000 2000) do (
+for %%n in (200 520 1000 2000 sleepy_5000) do (
     del /q "%REPO%\Profile\physics_scale_%%n_perf_log.csv" 2>nul
     "%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --shadows off %PERF_HEADLESS_ARGS% --scene SkullbonezData/scenes/physics_scale_%%n.scene.json
     if errorlevel 1 (
@@ -182,7 +186,7 @@ for %%r in (dx12 physics_bench) do (
     )
 )
 
-for %%n in (200 520 1000 2000) do (
+for %%n in (200 520 1000 2000 sleepy_5000) do (
     echo.
     echo Analyzing measurement-only physics_scale_%%n performance...
     "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer physics_scale_%%n --csv "%REPO%\Profile\physics_scale_%%n_perf_log.csv" --out-dir "%REPO%\Profile"

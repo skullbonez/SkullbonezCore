@@ -899,7 +899,6 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     SimulationSystem& m_simulation = sceneOwners.simulation;
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
     const RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
-    const RunStartupState& m_startup = sceneOwners.startup;
     ReplayRuntime& m_replayRuntime = replayRuntime;
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& m_interaction = interactionOwners.interaction;
@@ -923,9 +922,10 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
-    const SceneGeneratedControlPolicy sceneGeneratedPolicy{ m_config,
-                                                            m_launchOptions.generatedObjectTypeOverride,
-                                                            m_startup.sceneObjectCapacity };
+    const SceneGeneratedControlPolicy sceneGeneratedPolicy{
+        m_config,
+        m_launchOptions.generatedObjectTypeOverride,
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
     const SceneGeneratedControlPresentation sceneGeneratedPresentation{ m_UI.SceneNavigation().overrides, m_camera };
     const SceneGeneratedControlResetParticipants sceneGeneratedReset{ m_simulation,
                                                                       m_runtimeTools,
@@ -945,7 +945,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
                 DescribeReplaySceneTimeline( m_sceneController,
                                              m_UI.SceneNavigation().overrides,
                                              m_sceneController.State(),
-                                             m_startup.sceneObjectCapacity,
+                                             SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
             m_replayRuntime.ResetSceneTimeline(
                 reset,

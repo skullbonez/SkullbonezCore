@@ -122,6 +122,7 @@ void PhysicsSleepController::Clear()
     m_sleepVisualIslandBodies.clear();
     m_restingWakeQueueScratch.clear();
     m_nextSleepIslandVisualId = 1;
+    m_awakeBodyCount = 0;
 }
 
 void PhysicsSleepController::ApplyRuntimeConfig( const Core::EngineConfig& config )
@@ -188,6 +189,7 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
         std::fill( m_underwaterSleepLocked.begin(), m_underwaterSleepLocked.end(), static_cast<uint8_t>( 0 ) );
         std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
     }
+    m_awakeBodyCount = 0;
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( i < static_cast<int>( hotFields.fixed.size() ) && hotFields.fixed[static_cast<std::size_t>( i )] != 0u )
@@ -203,6 +205,7 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
         {
             m_underwaterSleepLocked[i] = 0;
             m_sleepIslandVisualId[i] = 0;
+            ++m_awakeBodyCount;
         }
     }
 }
@@ -437,12 +440,14 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         }
     }
 
+    int dynamicAwakeAtIslandStage = 0;
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
         {
             continue;
         }
+        ++dynamicAwakeAtIslandStage;
         const int root = sleepIslands.Find( x );
         m_sleepIslandHasAwake[root] = 1;
         const Vector3 vel =
@@ -504,6 +509,7 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
         m_sleepIslandCanSleep.assign( modelCount, 0 );
         m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
+        m_awakeBodyCount = dynamicAwakeAtIslandStage;
         return;
     }
     ApplyTransitions( context, sleepIslands );
@@ -515,9 +521,14 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
     // Invariant: RunIslandStage has already populated eligibility and support;
     // this pass only advances counters and applies whole-island transitions.
     const int modelCount = context.modelCount;
+    m_awakeBodyCount = 0;
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
+        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) )
+        {
+            continue;
+        }
+        if ( m_sleepState[x] )
         {
             continue;
         }
@@ -603,6 +614,10 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
                                           context.colliderStore,
                                           context.timeRemaining,
                                           x );
+        }
+        if ( !m_sleepState[x] )
+        {
+            ++m_awakeBodyCount;
         }
     }
 }

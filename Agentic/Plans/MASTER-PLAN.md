@@ -131,8 +131,8 @@ is in `../Reports/2026-07-18/small-findings-hardening-closure.md`.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **0** | **8** | **0%** |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
+| **Active/future total** | **1** | **8** | **13%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -181,11 +181,14 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is now the sole active plan. Begin
-with P0 instrumentation, the sleeping-heavy 5,000-body scene, the fixed before
-matrix, and owner ratification. Its P1 and P6 determinism transitions are the
-sole owner-approved baseline/golden exceptions in the live portfolio; every
-other task keeps the zero-refresh rule.
+`physics-body-count-scale-campaign` (P0-P7) is the sole active plan. P0 is
+complete at 1/8 with the sleeping-heavy 5,000-body scene, fixed before matrix,
+capacity propagation, profiler counters, 0/1/4-worker determinism, mapped
+gates, comment audit, and independent review recorded in
+`../Reports/2026-07-18/body-count-scale-measurements.md`. Begin P1 with the
+Debug-only candidate-pair set-equivalence probe; no artifact may move before
+old/new sets match tick-for-tick on all six scenes. P6 is not pre-authorized
+and requires a fresh P5 owner decision. Every other task keeps zero refresh.
 
 The three 2026-07-17 round-6 plans are closed: scene-controller ownership
 T0-T6, monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The
@@ -760,7 +763,7 @@ markers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — parallel-eligible lane | 0/8 | P0 instrumentation, sleepy-scene authoring, and owner ratification of targets and the P1 transition |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0 complete | 1/8 | P1 candidate-pair set-equivalence probe first, then the authorized canonical-order transition; no artifact refresh before equivalence |
 
 ## Features
 

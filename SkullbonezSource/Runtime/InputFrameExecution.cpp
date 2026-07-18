@@ -805,7 +805,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
         CameraModeEnabledMask(),
         UIBlocksKeyboardBeforeInput,
-        m_startup.sceneObjectCapacity };
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
     RuntimeUIFrameResult uiFrameResult =
         BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, m_replayRuntime, replayPointerRay, uiSamplingFacts );
     if ( uiFrameResult.frameActive )
@@ -834,7 +834,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
         CameraModeEnabledMask(),
         uiFrameResult.suppressWorldActionThisFrame,
-        m_startup.sceneObjectCapacity };
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
     presentationEdit.Commit();
     uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
                                                  keyboardToggleEditorMode,
@@ -865,7 +865,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             DescribeReplaySceneTimeline( m_sceneController,
                                          m_UI.SceneNavigation().overrides,
                                          SceneState(),
-                                         m_startup.sceneObjectCapacity,
+                                         SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
                                          static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         ReplaySolverSampleRestoreContext sampleOwners{ m_sceneController.Scene(),
                                                        SceneState(),
@@ -882,13 +882,14 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             m_attachedCamera.State().activeFollow,
             m_camera.director.grabbed };
         const ReplayRestoreTransaction transaction{ sampleOwners, m_diagnosticsRuntime, timelineReset, timelineOwners };
-        const ReplayArtifactTopologyOwners topologyOwners{ m_simulation,
-                                                           m_config,
-                                                           m_assets,
-                                                           m_workerPool,
-                                                           m_UI.SceneNavigation().overrides,
-                                                           m_launchOptions.generatedObjectTypeOverride,
-                                                           m_startup.sceneObjectCapacity };
+        const ReplayArtifactTopologyOwners topologyOwners{
+            m_simulation,
+            m_config,
+            m_assets,
+            m_workerPool,
+            m_UI.SceneNavigation().overrides,
+            m_launchOptions.generatedObjectTypeOverride,
+            SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
         const ReplayLiveRestoreOutcome restoreOutcome =
             m_replayRuntime.ApplyLiveRestoreRequest( transaction, topologyOwners, restoreRequest );
         if ( restoreOutcome.enterInteractive )
@@ -942,7 +943,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     pointerInput.replayInspectionActive = replayInput.inspectionActive;
     pointerInput.clientX = pointerDevice.clientX;
     pointerInput.clientY = pointerDevice.clientY;
-    pointerInput.activeModelCapacity = m_startup.sceneObjectCapacity;
+    pointerInput.activeModelCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config );
     pointerInput.cameraMode = m_camera.mode;
     pointerInput.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(),
                                                                m_window,

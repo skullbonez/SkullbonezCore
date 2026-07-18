@@ -82,9 +82,10 @@ const char* FindLeafName( const char* fullPath )
 } // namespace
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ),
-      m_lastAvgTicks( 0 ), m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ),
-      m_nextColorIndex( 0 ), m_renderDiagnostics( nullptr )
+    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
+      m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ),
+      m_renderDiagnostics( nullptr )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -96,6 +97,7 @@ Profiler::Profiler()
         m_qpcFrequency = 1; // avoid division by zero; timings will be garbage but won't crash
     }
     std::memset( m_markers, 0, sizeof( m_markers ) );
+    std::memset( m_counters, 0, sizeof( m_counters ) );
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
     std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
@@ -103,6 +105,38 @@ Profiler::Profiler()
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
     std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
     std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
+}
+
+
+int Profiler::FindOrRegisterCounter( const char* fullPath, uint32_t hash )
+{
+    // Hazard: counter columns are durable measurement-ledger identities. A
+    // collision must fail instead of silently combining unrelated units.
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        if ( m_counters[i].hash != hash )
+        {
+            continue;
+        }
+        if ( std::strcmp( m_counters[i].name, fullPath ) != 0 )
+        {
+            AbortMismatch( "FNV-1a hash collision between profiler counters", fullPath );
+        }
+        return i;
+    }
+
+    if ( m_counterCount >= MAX_COUNTERS )
+    {
+        AbortMismatch( "MAX_COUNTERS exceeded", fullPath );
+    }
+
+    Counter& counter = m_counters[m_counterCount];
+    counter.name = fullPath;
+    counter.hash = hash;
+    counter.valueThisFrame = 0.0;
+    counter.lastFrameValue = 0.0;
+    counter.writtenThisFrame = false;
+    return m_counterCount++;
 }
 
 
@@ -306,6 +340,23 @@ void Profiler::RecordWorkerSample( const char* fullPath,
         worker.firstStartSecondsThisFrame = (std::min)( worker.firstStartSecondsThisFrame, startSeconds );
         worker.lastEndSecondsThisFrame = (std::max)( worker.lastEndSecondsThisFrame, endSeconds );
     }
+}
+
+
+void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value )
+{
+    if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
+    {
+        return;
+    }
+    if ( !m_inFrame )
+    {
+        AbortMismatch( "PROFILE_COUNTER called outside frame", fullPath );
+    }
+
+    Counter& counter = m_counters[FindOrRegisterCounter( fullPath, hash )];
+    counter.valueThisFrame = value;
+    counter.writtenThisFrame = true;
 }
 
 
@@ -629,6 +680,8 @@ void Profiler::FrameBegin()
         // InvalidateGpuQueries also invalidates the bound renderer timers and resets warmup.
         InvalidateGpuQueries();
         m_markerCount = 0;
+        m_counterCount = 0;
+        m_lastPerfCSVColumnCount = -1;
         m_lastAvgTicks = 0;
         m_nextColorIndex = 0;
         m_resetPending = false;
@@ -671,6 +724,11 @@ void Profiler::FrameBegin()
         m_markers[i].lastEndSecondsThisFrame = 0.0;
         m_markers[i].spanWrittenThisFrame = false;
     }
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        m_counters[i].valueThisFrame = 0.0;
+        m_counters[i].writtenThisFrame = false;
+    }
     {
         std::lock_guard<std::mutex> lock( m_workerSampleMutex );
         std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
@@ -693,6 +751,12 @@ void Profiler::FrameEnd()
     // because the stack top will not be "Frame" if anything is still open.
     static constexpr uint32_t kFrameHash = HashStr( "Frame" );
     End( "Frame", kFrameHash );
+
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        Counter& counter = m_counters[i];
+        counter.lastFrameValue = counter.writtenThisFrame ? counter.valueThisFrame : 0.0;
+    }
 
     if ( m_stackTop != 0 )
     {
@@ -946,6 +1010,17 @@ float Profiler::LastGpuFrameMsByHash( uint32_t hash ) const
 }
 
 
+int Profiler::PerfCSVColumnCount() const
+{
+    int columnCount = 2 + m_counterCount; // pass, frame, then scalar counters.
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        columnCount += m_markers[i].hasGpu ? 2 : 1;
+    }
+    return columnCount;
+}
+
+
 void Profiler::WritePerfCSVHeader( FILE* f ) const
 {
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
@@ -976,7 +1051,12 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
             break;
         }
     }
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        fprintf( f, ",%s", m_counters[i].name );
+    }
     fprintf( f, "\n" );
+    m_lastPerfCSVColumnCount = PerfCSVColumnCount();
 }
 
 
@@ -985,6 +1065,15 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
     if ( m_warmupFrames > 0 )
     {
         return;
+    }
+
+    // Hazard: some diagnostics register only when a late scene event occurs.
+    // Re-emit the dynamic header before the first wider row so columns never
+    // shift silently; analyze_perf already treats each header as authoritative
+    // for the rows that follow it.
+    if ( m_lastPerfCSVColumnCount != PerfCSVColumnCount() )
+    {
+        WritePerfCSVHeader( f );
     }
 
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
@@ -1013,6 +1102,10 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
             }
             break;
         }
+    }
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        fprintf( f, ",%.4f", m_counters[i].lastFrameValue );
     }
     fprintf( f, "\n" );
 }
@@ -1622,11 +1715,13 @@ void Profiler::RenderBarOverlay( Text::TextBatch& textBatch,
 // project splits. These definitions preserve the public no-op contract without
 // dragging render text or platform-profiler code into non-profiling binaries.
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 1 ), m_frameStartTicks( 0 ),
-      m_lastAvgTicks( 0 ), m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ),
-      m_nextColorIndex( 0 ), m_renderDiagnostics( nullptr )
+    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
+      m_stackTop( 0 ), m_qpcFrequency( 1 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ),
+      m_renderDiagnostics( nullptr )
 {
     std::memset( m_markers, 0, sizeof( m_markers ) );
+    std::memset( m_counters, 0, sizeof( m_counters ) );
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
     std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
@@ -1648,6 +1743,11 @@ void Profiler::End( const char*, uint32_t )
 
 
 void Profiler::RecordWorkerSample( const char*, uint32_t, int, int64_t, int64_t )
+{
+}
+
+
+void Profiler::RecordCounter( const char*, uint32_t, double )
 {
 }
 

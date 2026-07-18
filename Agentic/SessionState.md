@@ -11,23 +11,24 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-17th-july` |
-| Current baseline | Round 7 closed without baseline, golden, screenshot, authored-data, or coverage-floor refresh; physics P0 begins from this certified tip. |
-| Current objective | Execute the physics body-count scale campaign P0-P7. |
-| Active/future progress | 0 / 8 live tasks; 0%. |
-| Last broad local gate | Hardening H4 `validate_full` passed in 138.830s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, and byte-exact physics passed. |
-| Validation for current edits | H4 passed `validate_fast` in 56.089s, direct project/JSON filtering in 2.651s at exact 19/19 reachability, and full in 138.830s. Independent review is clear; comment audit is 4/4. |
+| Current baseline | Physics scale P0 is complete with zero baseline, golden, screenshot, authored-format, or coverage-floor refresh. |
+| Current objective | Execute `physics-body-count-scale-campaign` P1 next under the equivalence protocol, then continue the campaign in order. |
+| Active/future progress | 1 / 8 live tasks; 13%. |
+| Last broad local gate | P0 `validate_full` passed in approximately 132s: 292/292 tests, 21,458 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, screenshots, and byte-exact physics passed. |
+| Validation for current edits | P0 `validate_perf` and `validate_full` passed from final reviewed source; platform-marker smoke and the six-scene 0/1/4-worker determinism matrix passed. Independent review is clear; comment audit is 16/16 with zero deferred. |
 
 ## Live Queue
 
 NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
      (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
      parallel-eligible physics lane (persistent broadphase, zero-cost
-     sleepers, bandwidth diet, owner-gated graph-colored solver). Its next
-     action is P0: instrumentation, the sleepy_5000 scene, the measurement
-     baseline matrix, and owner ratification of targets plus the P1
-     canonical-pair-order transition. P1/P6 are the portfolio's only
-     owner-approved baseline/golden transition points; every other task in
-     every lane keeps the zero-refresh rule.
+     sleepers, bandwidth diet, owner-gated graph-colored solver). P0 is
+     complete at 1/8. The next action is P1: build the Debug-only candidate-pair
+     set-equivalence probe, capture old-code evidence, then perform the
+     authorized canonical-order transition only after all six old/new scene
+     sets match tick-for-tick. P6 is not pre-authorized and returns to an owner
+     decision at P5. Every other task keeps the zero-refresh rule. P0 evidence:
+     `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -456,10 +457,10 @@ NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
 
 Round-7 scene decomposition, DX12 backend ownership, naming N0-N4, and
 small-findings H0-H4 are complete and have left the live ledger. Continue
-immediately with `physics-body-count-scale-campaign` P0: instrument awake/total,
-reinsertion, and hot-byte accounting; author the bounded sleeping-heavy
-5,000-body scene; capture the fixed before matrix; and record the required
-owner decisions. Preserve the seven
-excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
-behavioral, physics, replay, visual, or screenshot baselines outside the two
-explicit physics determinism-transition tasks.
+immediately with `physics-body-count-scale-campaign` P1. P0 is committed at
+1/8 with its matrix and rulings in
+`Agentic/Reports/2026-07-18/body-count-scale-measurements.md`. Build and capture
+the old-code Debug candidate-pair set-equivalence probe before editing pair
+emission order. Do not regenerate behavioral, physics, replay, visual, or
+screenshot artifacts until all six old/new sets match tick-for-tick. P6 still
+requires a fresh owner decision at P5.

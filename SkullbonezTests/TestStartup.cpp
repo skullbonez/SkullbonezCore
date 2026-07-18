@@ -40,6 +40,7 @@
 #include <string>
 #include <vector>
 
+using SkullbonezCore::Core::ActiveSceneObjectCapacity;
 using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Runtime::GeneratedObjectTypeOverride;
 using SkullbonezCore::Runtime::RunStartupOverrides;
@@ -51,6 +52,16 @@ namespace
 CommandLineView View( const char* text )
 {
     return TokenizeCommandLine( text );
+}
+
+TEST_CASE( "Startup capacity: post-load consumers resolve the active authored override" )
+{
+    EngineConfig config;
+    config.runtimeCapacity.sceneObjectCapacity = 6000;
+    CHECK( ActiveSceneObjectCapacity( config ) == 6000 );
+
+    config.runtimeCapacity.sceneObjectCapacity = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS + 1;
+    CHECK( ActiveSceneObjectCapacity( config ) == SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void CheckRunDirectiveFailure( const char* text, const char* expected )

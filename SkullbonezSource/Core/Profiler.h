@@ -85,6 +85,7 @@ class Profiler
     // synchronous RunApp lifetime and lends its address to hot subsystem owners.
     Profiler();
     static constexpr int MAX_MARKERS = 192;      // Registry capacity; overflow is a profiling contract bug.
+    static constexpr int MAX_COUNTERS = 16;      // Scalar diagnostic columns carried beside marker timings.
     static constexpr int MAX_WORKER_CORES = 128; // Worker overlay capacity, not a thread-spawn request.
     static constexpr int MAX_DEPTH = 16;         // Nested marker stack depth before begin/end mismatch becomes unsafe.
     static constexpr int RING_SIZE = 600;        // ~10 s @ 60 fps
@@ -172,10 +173,20 @@ class Profiler
         float spanEndMs;
     };
 
+    struct Counter
+    {
+        const char* name;                        // Stable CSV column name, e.g. "Counter/Physics/AwakeBodies".
+        uint32_t hash;                           // FNV-1a of the full counter name.
+        double valueThisFrame;                   // Most recent value recorded in the current render frame.
+        double lastFrameValue;                   // Value exported after FrameEnd; zero when not recorded.
+        bool writtenThisFrame;                   // Distinguishes a real zero from a counter omitted this frame.
+    };
+
     void Begin( const char* fullPath, uint32_t hash );
     void End( const char* fullPath, uint32_t hash );
     void
     RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks );
+    void RecordCounter( const char* fullPath, uint32_t hash, double value );
 
     // GPU scopes keep their in-engine marker identity. Explicit platform
     // captures add CPU `_Record` mirrors and backend `_GPU` events so PIX lanes
@@ -215,7 +226,6 @@ class Profiler
     {
         return m_workerCoreSamples[i];
     }
-
     // Accessor for back-compat perf logging (returns last finished-frame total ms; 0 if marker missing)
     float LastFrameMsByHash( uint32_t hash ) const;
     float LastGpuFrameMsByHash( uint32_t hash ) const;
@@ -256,6 +266,8 @@ class Profiler
     void BeginGpuTimerInternal( const char* fullPath, uint32_t hash );
     void EndGpuTimerInternal( const char* fullPath, uint32_t hash );
     int FindOrRegister( const char* fullPath, uint32_t hash );
+    int FindOrRegisterCounter( const char* fullPath, uint32_t hash );
+    int PerfCSVColumnCount() const;
     void AbortMismatch( const char* msg, const char* details ) const;
     void ReadPendingGpuResults();
     void AdvanceGpuWriteCursors();
@@ -279,6 +291,9 @@ class Profiler
 
     Marker m_markers[MAX_MARKERS];
     int m_markerCount;
+    Counter m_counters[MAX_COUNTERS];
+    int m_counterCount;
+    mutable int m_lastPerfCSVColumnCount;
     WorkerCoreAccumulator m_workerCoreAccumulators[MAX_WORKER_CORES];
     WorkerCoreAverageWindow m_workerCoreAverageWindows[MAX_WORKER_CORES];
     WorkerCoreSample m_workerCoreSamples[MAX_WORKER_CORES];
@@ -440,6 +455,16 @@ class WorkerProfilerScope
         _profW_,                                                                                                       \
         __LINE__ )( profiler, name, PROFILE_PASTE( _profWH_, __LINE__ ) )
 
+#define PROFILE_COUNTER( profiler, name, value )                                                                       \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        constexpr uint32_t PROFILE_PASTE( _profCH_, __LINE__ ) = ::HashStr( name );                                    \
+        auto* PROFILE_PASTE( _profCP_, __LINE__ ) = ( profiler );                                                      \
+        if ( PROFILE_PASTE( _profCP_, __LINE__ ) )                                                                     \
+            PROFILE_PASTE( _profCP_, __LINE__ )                                                                        \
+                ->RecordCounter( name, PROFILE_PASTE( _profCH_, __LINE__ ), static_cast<double>( value ) );            \
+    } while ( 0 )
+
 #define PROFILE_FRAME_BEGIN( profiler )                                                                                \
     do                                                                                                                 \
     {                                                                                                                  \
@@ -468,6 +493,7 @@ class WorkerProfilerScope
 #define PROFILE_GPU_END( profiler, name ) ( (void)( profiler ) )
 #define PROFILE_GPU_SCOPED( profiler, name ) ( (void)( profiler ) )
 #define PROFILE_WORKER_SCOPED( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_COUNTER( profiler, name, value ) ( (void)( profiler ) )
 #define PROFILE_FRAME_BEGIN( profiler ) ( (void)( profiler ) )
 #define PROFILE_FRAME_END( profiler ) ( (void)( profiler ) )
 #define PROFILE_SCHEDULE_RESET( profiler ) ( (void)( profiler ) )
