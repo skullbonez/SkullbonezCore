@@ -264,6 +264,113 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     facts.operatorEditorView.assets = { sharedEditor.objectType,
                                         SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
                                         host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Why: the legacy surface does not consume E12 contextual detail. Sampling
+    // cold body/collider/material rows only while the secondary editor is
+    // visible keeps ordinary Profile and shipping frames on their prior path.
+    if ( facts.operatorEditorView.surfaces.secondaryVisible )
+    {
+        SkullbonezCore::UI::OperatorEditorInspectorView& inspector = facts.operatorEditorView.inspector;
+        if ( sharedEditor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
+        {
+            // Hazard: a scene transition can invalidate the body handle before the
+            // presentation frame observes the cleared editor selection. Report the
+            // stale state; never repair identity from a dense-row guess in the UI.
+            inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
+        }
+        else if ( selectedHierarchyRow >= 0 )
+        {
+            const SceneEntityRecord* entity = hierarchyEntities.TryGet( selectedHierarchyRow );
+            const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
+            const ColliderStore& colliderStore = sceneController.Scene().Colliders();
+            const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
+            const PhysicsColliderHandle colliderHandle =
+                entity ? colliderStore.HandleForBodyHandle( entity->body ) : PhysicsColliderHandle{};
+            const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+            if ( !entity || !body || !collider )
+            {
+                inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
+            }
+            else
+            {
+                const PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+                const std::size_t row = static_cast<std::size_t>( selectedHierarchyRow );
+                const Vector3 position = PhysicsBodyPosition( hot, row );
+                const Quaternion orientation = PhysicsBodyOrientation( hot, row );
+                const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hot, row );
+                const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hot, row );
+                inspector.displayName = entity->displayName;
+                inspector.renderMaterialName =
+                    entity->renderMaterial.name[0] != '\0'
+                        ? entity->renderMaterial.name
+                        : SkullbonezCore::Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
+                inspector.contactMaterialName = collider->contactMaterialName;
+                inspector.assetName = entity->asset.assetName;
+                inspector.assetInstanceName = entity->asset.instanceName;
+                inspector.assetPartName = entity->asset.partName;
+                inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Single;
+                inspector.sceneObjectId = entity->sceneObjectId.value;
+                inspector.selectionCount = 1u;
+                inspector.renderMaterialKind = static_cast<int>( entity->renderMaterial.kind );
+                inspector.colliderShapeKind = static_cast<int>( collider->shapeKind );
+                inspector.behaviorGroupKind = static_cast<int>( entity->behaviorGroup.kind );
+                inspector.behaviorPartIndex = entity->behaviorGroup.partIndex;
+                inspector.position[0] = position.x;
+                inspector.position[1] = position.y;
+                inspector.position[2] = position.z;
+                orientation.GetComponents( inspector.orientation[0],
+                                           inspector.orientation[1],
+                                           inspector.orientation[2],
+                                           inspector.orientation[3] );
+                inspector.linearVelocity[0] = linearVelocity.x;
+                inspector.linearVelocity[1] = linearVelocity.y;
+                inspector.linearVelocity[2] = linearVelocity.z;
+                inspector.angularVelocity[0] = angularVelocity.x;
+                inspector.angularVelocity[1] = angularVelocity.y;
+                inspector.angularVelocity[2] = angularVelocity.z;
+                for ( int channel = 0; channel < 4; ++channel )
+                {
+                    inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
+                }
+                inspector.mass = body->mass;
+                inspector.volume = body->volume;
+                inspector.boundingRadius = collider->boundingRadius;
+                inspector.dragCoefficient = collider->dragCoefficient;
+                inspector.friction = collider->friction;
+                inspector.restitution = collider->restitution;
+                inspector.roughness = entity->renderMaterial.roughness;
+                inspector.metallic = entity->renderMaterial.metallic;
+                inspector.specular = entity->renderMaterial.specular;
+                inspector.visible = entity->editorVisible;
+                inspector.locked = entity->editorLocked;
+                inspector.fixed = hot.fixed[row] != 0u;
+                inspector.sleeping = hot.awake[row] == 0u;
+                inspector.assetBacked = entity->asset.isAssetBacked;
+            }
+        }
+        const TornadoFieldConfig& tornado = sceneController.Scene().Physics().GetTornadoFieldConfig();
+        facts.operatorEditorView.world = { scene.modelCount,
+                                           config.runtimeCapacity.sceneObjectCapacity,
+                                           scene.solverBallCount,
+                                           scene.solverBoxCount,
+                                           static_cast<int>( scene.rngSeed ),
+                                           scene.timeScale,
+                                           sceneController.Scene().Environment().GetGravity(),
+                                           sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                           sceneController.Scene().Environment().GetFluidDensity(),
+                                           config.physicsMaterial.frictionCoeff,
+                                           config.physicsMaterial.objectFrictionCoeff,
+                                           config.physicsMaterial.rollingFrictionCoeff,
+                                           tornado.radius,
+                                           tornado.height,
+                                           tornado.inwardAcceleration,
+                                           tornado.swirlAcceleration,
+                                           tornado.liftAcceleration,
+                                           scene.isFixedStep,
+                                           sceneController.Scene().Physics().IsSleepEnabled(),
+                                           tornado.enabled };
+    }
+#endif
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
     const ReplayOverlay::ReplayOverlayStateView replayOverlay =

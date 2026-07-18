@@ -4,7 +4,7 @@ Purpose:
   Implements bounded operator-editor command validation and arbitration.
 
 Summary:
-  Legacy one-frame fields are normalized into four domain queues. The merge
+  Legacy one-frame fields are normalized into five domain queues. The merge
   order is fixed, exact cross-surface duplicates collapse to one request, and a
   same-action/different-payload conflict reports a recoverable result before any
   runtime owner sees ambiguous intent.
@@ -96,7 +96,7 @@ bool SamePropertyIdentity( const OperatorEditorPropertyCommand& left, const Oper
 
 bool SamePropertyPayload( const OperatorEditorPropertyCommand& left, const OperatorEditorPropertyCommand& right )
 {
-    return left.value == right.value;
+    return left.value == right.value && left.integerValue == right.integerValue && left.phase == right.phase;
 }
 
 bool SameRenderingIdentity( const OperatorEditorRenderingCommand& left, const OperatorEditorRenderingCommand& right )
@@ -190,6 +190,7 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorSceneC
 {
     if ( command.type != OperatorEditorSceneCommandType::ResetCurrentScene &&
          command.type != OperatorEditorSceneCommandType::ResetSceneDefaults &&
+         command.type != OperatorEditorSceneCommandType::RequestDemoScene &&
          command.type != OperatorEditorSceneCommandType::SetCurrentSceneIndex &&
          command.type != OperatorEditorSceneCommandType::SaveCurrentScene &&
          command.type != OperatorEditorSceneCommandType::CreateScene )
@@ -214,10 +215,34 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorProper
                                                             const OperatorEditorPropertyCommand& command,
                                                             bool* duplicate )
 {
-    if ( command.type != OperatorEditorPropertyCommandType::SetTimeScale &&
-         command.type != OperatorEditorPropertyCommandType::SetWorldGravity )
+    switch ( command.type )
     {
+    case OperatorEditorPropertyCommandType::SetTimeScale:
+    case OperatorEditorPropertyCommandType::ToggleFixedStep:
+    case OperatorEditorPropertyCommandType::SetModelCount:
+    case OperatorEditorPropertyCommandType::SetSeed:
+    case OperatorEditorPropertyCommandType::SetSolverBallCount:
+    case OperatorEditorPropertyCommandType::SetSolverBoxCount:
+    case OperatorEditorPropertyCommandType::SetWorldGravity:
+    case OperatorEditorPropertyCommandType::SetWorldFluidHeight:
+    case OperatorEditorPropertyCommandType::SetWorldFluidDensity:
+    case OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy:
+    case OperatorEditorPropertyCommandType::SetTerrainFriction:
+    case OperatorEditorPropertyCommandType::SetObjectFriction:
+    case OperatorEditorPropertyCommandType::SetRollingFriction:
+    case OperatorEditorPropertyCommandType::ToggleTornado:
+    case OperatorEditorPropertyCommandType::SetTornadoRadius:
+    case OperatorEditorPropertyCommandType::SetTornadoHeight:
+    case OperatorEditorPropertyCommandType::SetTornadoInward:
+    case OperatorEditorPropertyCommandType::SetTornadoSwirl:
+    case OperatorEditorPropertyCommandType::SetTornadoLift:
+        break;
+    default:
         return SkullbonezCore::Core::SbResult::Failure( OWNER, "Property command has an unknown action type" );
+    }
+    if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Property command has an unknown edit phase" );
     }
     if ( !std::isfinite( command.value ) )
     {
@@ -226,6 +251,17 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorProper
     if ( command.type == OperatorEditorPropertyCommandType::SetTimeScale && command.value <= 0.0f )
     {
         return SkullbonezCore::Core::SbResult::Failure( OWNER, "Time-scale command requires a positive value" );
+    }
+    if ( command.type == OperatorEditorPropertyCommandType::SetSeed && command.integerValue <= 0 )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Seed command requires a positive integer" );
+    }
+    if ( ( command.type == OperatorEditorPropertyCommandType::SetModelCount ||
+           command.type == OperatorEditorPropertyCommandType::SetSolverBallCount ||
+           command.type == OperatorEditorPropertyCommandType::SetSolverBoxCount ) &&
+         command.integerValue < 0 )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Population command requires a non-negative integer" );
     }
     return SubmitBounded( queue, command, SamePropertyIdentity, SamePropertyPayload, duplicate );
 }
@@ -316,6 +352,12 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
             normalized.scene,
             OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetSceneDefaults, -1 } );
     }
+    if ( result.ok && commands.scene.requestDemoScene )
+    {
+        result = SubmitOperatorEditorCommand(
+            normalized.scene,
+            OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::RequestDemoScene, -1 } );
+    }
     if ( result.ok && commands.scene.saveSceneDefaults )
     {
         result = SubmitOperatorEditorCommand(
@@ -336,20 +378,72 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
             OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SetCurrentSceneIndex,
                                         commands.scene.requestedSceneIndex } );
     }
-    if ( result.ok && commands.sceneOptions.requestedTimeScale > 0.0f )
+    const auto normalizeProperty =
+        [&]( bool requested, OperatorEditorPropertyCommandType type, float value = 0.0f, int integerValue = 0 )
     {
-        result =
-            SubmitOperatorEditorCommand( normalized.property,
-                                         OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTimeScale,
-                                                                        commands.sceneOptions.requestedTimeScale } );
-    }
-    if ( result.ok && commands.water.requestWorldGravity )
-    {
-        result = SubmitOperatorEditorCommand(
-            normalized.property,
-            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldGravity,
-                                           commands.water.requestedWorldGravity } );
-    }
+        if ( result.ok && requested )
+        {
+            result = SubmitOperatorEditorCommand(
+                normalized.property,
+                OperatorEditorPropertyCommand{ type, value, integerValue, OperatorEditorEditPhase::Commit } );
+        }
+    };
+    normalizeProperty( commands.sceneOptions.requestedTimeScale > 0.0f,
+                       OperatorEditorPropertyCommandType::SetTimeScale,
+                       commands.sceneOptions.requestedTimeScale );
+    normalizeProperty( commands.sceneOptions.toggleFixedStep, OperatorEditorPropertyCommandType::ToggleFixedStep );
+    normalizeProperty( commands.sceneOptions.requestedModelCount >= 0,
+                       OperatorEditorPropertyCommandType::SetModelCount,
+                       0.0f,
+                       commands.sceneOptions.requestedModelCount );
+    normalizeProperty( commands.run.requestedSeed > 0,
+                       OperatorEditorPropertyCommandType::SetSeed,
+                       0.0f,
+                       commands.run.requestedSeed );
+    normalizeProperty( commands.run.requestedSolverBallCount >= 0,
+                       OperatorEditorPropertyCommandType::SetSolverBallCount,
+                       0.0f,
+                       commands.run.requestedSolverBallCount );
+    normalizeProperty( commands.run.requestedSolverBoxCount >= 0,
+                       OperatorEditorPropertyCommandType::SetSolverBoxCount,
+                       0.0f,
+                       commands.run.requestedSolverBoxCount );
+    normalizeProperty( commands.water.requestWorldGravity,
+                       OperatorEditorPropertyCommandType::SetWorldGravity,
+                       commands.water.requestedWorldGravity );
+    normalizeProperty( commands.water.requestWorldFluidHeight,
+                       OperatorEditorPropertyCommandType::SetWorldFluidHeight,
+                       commands.water.requestedWorldFluidHeight );
+    normalizeProperty( commands.water.requestWorldFluidDensity,
+                       OperatorEditorPropertyCommandType::SetWorldFluidDensity,
+                       commands.water.requestedWorldFluidDensity );
+    normalizeProperty( commands.physics.togglePhysicsSleepPolicy,
+                       OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy );
+    normalizeProperty( commands.physics.requestTerrainFrictionCoeff,
+                       OperatorEditorPropertyCommandType::SetTerrainFriction,
+                       commands.physics.requestedTerrainFrictionCoeff );
+    normalizeProperty( commands.physics.requestObjectFrictionCoeff,
+                       OperatorEditorPropertyCommandType::SetObjectFriction,
+                       commands.physics.requestedObjectFrictionCoeff );
+    normalizeProperty( commands.physics.requestRollingFrictionCoeff,
+                       OperatorEditorPropertyCommandType::SetRollingFriction,
+                       commands.physics.requestedRollingFrictionCoeff );
+    normalizeProperty( commands.physics.toggleTornado, OperatorEditorPropertyCommandType::ToggleTornado );
+    normalizeProperty( commands.physics.requestTornadoRadius,
+                       OperatorEditorPropertyCommandType::SetTornadoRadius,
+                       commands.physics.requestedTornadoRadius );
+    normalizeProperty( commands.physics.requestTornadoHeight,
+                       OperatorEditorPropertyCommandType::SetTornadoHeight,
+                       commands.physics.requestedTornadoHeight );
+    normalizeProperty( commands.physics.requestTornadoInward,
+                       OperatorEditorPropertyCommandType::SetTornadoInward,
+                       commands.physics.requestedTornadoInward );
+    normalizeProperty( commands.physics.requestTornadoSwirl,
+                       OperatorEditorPropertyCommandType::SetTornadoSwirl,
+                       commands.physics.requestedTornadoSwirl );
+    normalizeProperty( commands.physics.requestTornadoLift,
+                       OperatorEditorPropertyCommandType::SetTornadoLift,
+                       commands.physics.requestedTornadoLift );
     if ( result.ok && commands.renderer.toggleVsync )
     {
         result = SubmitOperatorEditorCommand(
@@ -402,12 +496,30 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     commands.operatorEditor = normalized;
     commands.scene.resetScene = false;
     commands.scene.resetSceneDefaults = false;
+    commands.scene.requestDemoScene = false;
     commands.scene.saveSceneDefaults = false;
     commands.scene.createScene = false;
     commands.scene.requestedSceneName[0] = '\0';
     commands.scene.requestedSceneIndex = -1;
     commands.sceneOptions.requestedTimeScale = -1.0f;
+    commands.sceneOptions.toggleFixedStep = false;
+    commands.sceneOptions.requestedModelCount = -1;
+    commands.run.requestedSeed = -1;
+    commands.run.requestedSolverBallCount = -1;
+    commands.run.requestedSolverBoxCount = -1;
     commands.water.requestWorldGravity = false;
+    commands.water.requestWorldFluidHeight = false;
+    commands.water.requestWorldFluidDensity = false;
+    commands.physics.togglePhysicsSleepPolicy = false;
+    commands.physics.requestTerrainFrictionCoeff = false;
+    commands.physics.requestObjectFrictionCoeff = false;
+    commands.physics.requestRollingFrictionCoeff = false;
+    commands.physics.toggleTornado = false;
+    commands.physics.requestTornadoRadius = false;
+    commands.physics.requestTornadoHeight = false;
+    commands.physics.requestTornadoInward = false;
+    commands.physics.requestTornadoSwirl = false;
+    commands.physics.requestTornadoLift = false;
     commands.renderer.toggleVsync = false;
     commands.replayMemory.requestPolicy = false;
     commands.editor.toggleEditorMode = false;
@@ -502,12 +614,30 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
 
     commands.scene.resetScene = false;
     commands.scene.resetSceneDefaults = false;
+    commands.scene.requestDemoScene = false;
     commands.scene.saveSceneDefaults = false;
     commands.scene.createScene = false;
     commands.scene.requestedSceneName[0] = '\0';
     commands.scene.requestedSceneIndex = -1;
     commands.sceneOptions.requestedTimeScale = -1.0f;
+    commands.sceneOptions.toggleFixedStep = false;
+    commands.sceneOptions.requestedModelCount = -1;
+    commands.run.requestedSeed = -1;
+    commands.run.requestedSolverBallCount = -1;
+    commands.run.requestedSolverBoxCount = -1;
     commands.water.requestWorldGravity = false;
+    commands.water.requestWorldFluidHeight = false;
+    commands.water.requestWorldFluidDensity = false;
+    commands.physics.togglePhysicsSleepPolicy = false;
+    commands.physics.requestTerrainFrictionCoeff = false;
+    commands.physics.requestObjectFrictionCoeff = false;
+    commands.physics.requestRollingFrictionCoeff = false;
+    commands.physics.toggleTornado = false;
+    commands.physics.requestTornadoRadius = false;
+    commands.physics.requestTornadoHeight = false;
+    commands.physics.requestTornadoInward = false;
+    commands.physics.requestTornadoSwirl = false;
+    commands.physics.requestTornadoLift = false;
     commands.renderer.toggleVsync = false;
     commands.replayMemory.requestPolicy = false;
     commands.editor.toggleEditorMode = false;
@@ -536,6 +666,10 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
         {
             commands.scene.resetSceneDefaults = true;
         }
+        else if ( command.type == OperatorEditorSceneCommandType::RequestDemoScene )
+        {
+            commands.scene.requestDemoScene = true;
+        }
         else if ( command.type == OperatorEditorSceneCommandType::SetCurrentSceneIndex )
         {
             commands.scene.requestedSceneIndex = command.sceneIndex;
@@ -553,14 +687,84 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     for ( uint32_t index = 0u; index < canonical.property.count; ++index )
     {
         const OperatorEditorPropertyCommand& command = canonical.property.commands[index];
-        if ( command.type == OperatorEditorPropertyCommandType::SetTimeScale )
+        // Invariant: preview values are presentation-local. Only the single
+        // release/enter commit reaches mutation, replay, reset, or history owners.
+        if ( command.phase == OperatorEditorEditPhase::Preview )
         {
-            commands.sceneOptions.requestedTimeScale = command.value;
+            continue;
         }
-        else if ( command.type == OperatorEditorPropertyCommandType::SetWorldGravity )
+        switch ( command.type )
         {
+        case OperatorEditorPropertyCommandType::SetTimeScale:
+            commands.sceneOptions.requestedTimeScale = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::ToggleFixedStep:
+            commands.sceneOptions.toggleFixedStep = true;
+            break;
+        case OperatorEditorPropertyCommandType::SetModelCount:
+            commands.sceneOptions.requestedModelCount = command.integerValue;
+            break;
+        case OperatorEditorPropertyCommandType::SetSeed:
+            commands.run.requestedSeed = command.integerValue;
+            break;
+        case OperatorEditorPropertyCommandType::SetSolverBallCount:
+            commands.run.requestedSolverBallCount = command.integerValue;
+            break;
+        case OperatorEditorPropertyCommandType::SetSolverBoxCount:
+            commands.run.requestedSolverBoxCount = command.integerValue;
+            break;
+        case OperatorEditorPropertyCommandType::SetWorldGravity:
             commands.water.requestWorldGravity = true;
             commands.water.requestedWorldGravity = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetWorldFluidHeight:
+            commands.water.requestWorldFluidHeight = true;
+            commands.water.requestedWorldFluidHeight = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetWorldFluidDensity:
+            commands.water.requestWorldFluidDensity = true;
+            commands.water.requestedWorldFluidDensity = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy:
+            commands.physics.togglePhysicsSleepPolicy = true;
+            break;
+        case OperatorEditorPropertyCommandType::SetTerrainFriction:
+            commands.physics.requestTerrainFrictionCoeff = true;
+            commands.physics.requestedTerrainFrictionCoeff = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetObjectFriction:
+            commands.physics.requestObjectFrictionCoeff = true;
+            commands.physics.requestedObjectFrictionCoeff = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetRollingFriction:
+            commands.physics.requestRollingFrictionCoeff = true;
+            commands.physics.requestedRollingFrictionCoeff = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::ToggleTornado:
+            commands.physics.toggleTornado = true;
+            break;
+        case OperatorEditorPropertyCommandType::SetTornadoRadius:
+            commands.physics.requestTornadoRadius = true;
+            commands.physics.requestedTornadoRadius = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetTornadoHeight:
+            commands.physics.requestTornadoHeight = true;
+            commands.physics.requestedTornadoHeight = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetTornadoInward:
+            commands.physics.requestTornadoInward = true;
+            commands.physics.requestedTornadoInward = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetTornadoSwirl:
+            commands.physics.requestTornadoSwirl = true;
+            commands.physics.requestedTornadoSwirl = command.value;
+            break;
+        case OperatorEditorPropertyCommandType::SetTornadoLift:
+            commands.physics.requestTornadoLift = true;
+            commands.physics.requestedTornadoLift = command.value;
+            break;
+        default:
+            break;
         }
     }
     for ( uint32_t index = 0u; index < canonical.rendering.count; ++index )
@@ -714,6 +918,78 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.assets.selectedObjectType );
     HashValue( hash, view.assets.objectTypeCount );
     HashValue( hash, view.assets.registeredLibraryAvailable );
+    const auto hashLabel = [&]( const char* label )
+    {
+        const char* text = label ? label : "";
+        HashBytes( hash, text, std::strlen( text ) );
+    };
+    hashLabel( view.inspector.displayName );
+    hashLabel( view.inspector.renderMaterialName );
+    hashLabel( view.inspector.contactMaterialName );
+    hashLabel( view.inspector.assetName );
+    hashLabel( view.inspector.assetInstanceName );
+    hashLabel( view.inspector.assetPartName );
+    HashValue( hash, view.inspector.selectionState );
+    HashValue( hash, view.inspector.sceneObjectId );
+    HashValue( hash, view.inspector.selectionCount );
+    HashValue( hash, view.inspector.renderMaterialKind );
+    HashValue( hash, view.inspector.colliderShapeKind );
+    HashValue( hash, view.inspector.behaviorGroupKind );
+    HashValue( hash, view.inspector.behaviorPartIndex );
+    for ( float value : view.inspector.position )
+    {
+        HashValue( hash, value );
+    }
+    for ( float value : view.inspector.orientation )
+    {
+        HashValue( hash, value );
+    }
+    for ( float value : view.inspector.linearVelocity )
+    {
+        HashValue( hash, value );
+    }
+    for ( float value : view.inspector.angularVelocity )
+    {
+        HashValue( hash, value );
+    }
+    for ( float value : view.inspector.baseColor )
+    {
+        HashValue( hash, value );
+    }
+    HashValue( hash, view.inspector.mass );
+    HashValue( hash, view.inspector.volume );
+    HashValue( hash, view.inspector.boundingRadius );
+    HashValue( hash, view.inspector.dragCoefficient );
+    HashValue( hash, view.inspector.friction );
+    HashValue( hash, view.inspector.restitution );
+    HashValue( hash, view.inspector.roughness );
+    HashValue( hash, view.inspector.metallic );
+    HashValue( hash, view.inspector.specular );
+    HashValue( hash, view.inspector.visible );
+    HashValue( hash, view.inspector.locked );
+    HashValue( hash, view.inspector.fixed );
+    HashValue( hash, view.inspector.sleeping );
+    HashValue( hash, view.inspector.assetBacked );
+    HashValue( hash, view.world.modelCount );
+    HashValue( hash, view.world.modelCapacity );
+    HashValue( hash, view.world.solverBallCount );
+    HashValue( hash, view.world.solverBoxCount );
+    HashValue( hash, view.world.rngSeed );
+    HashValue( hash, view.world.timeScale );
+    HashValue( hash, view.world.gravity );
+    HashValue( hash, view.world.fluidHeight );
+    HashValue( hash, view.world.fluidDensity );
+    HashValue( hash, view.world.terrainFriction );
+    HashValue( hash, view.world.objectFriction );
+    HashValue( hash, view.world.rollingFriction );
+    HashValue( hash, view.world.tornadoRadius );
+    HashValue( hash, view.world.tornadoHeight );
+    HashValue( hash, view.world.tornadoInward );
+    HashValue( hash, view.world.tornadoSwirl );
+    HashValue( hash, view.world.tornadoLift );
+    HashValue( hash, view.world.fixedStep );
+    HashValue( hash, view.world.physicsSleepEnabled );
+    HashValue( hash, view.world.tornadoEnabled );
     return hash;
 }
 } // namespace SkullbonezCore::UI

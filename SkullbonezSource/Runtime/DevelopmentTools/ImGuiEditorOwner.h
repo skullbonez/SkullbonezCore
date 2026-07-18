@@ -21,6 +21,8 @@ Glossary:
     replay serialization.
   Viewport mapping: Last completed fitted image rectangle used by the next input
     frame to map Win32 client pixels back to the captured render extent.
+  Property preview: One active ImGui scalar value kept inside presentation until
+    release commits one typed command to the established runtime owner path.
 
 Invariants:
   - This source is compiled only with SKULLBONEZ_DEVELOPMENT_TOOLS.
@@ -33,7 +35,7 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E11)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E12)
 */
 #pragma once
 
@@ -134,6 +136,14 @@ struct ImGuiEditorStatus
     ImGuiEditorFontSource fontSource = ImGuiEditorFontSource::None;
 };
 
+struct ImGuiEditorPropertyEditState
+{
+    UI::OperatorEditorPropertyCommandType type = UI::OperatorEditorPropertyCommandType::SetTimeScale;
+    float floatValue = 0.0f;
+    int integerValue = 0;
+    bool active = false;
+};
+
 class ImGuiEditorOwner
 {
   public:
@@ -210,6 +220,7 @@ class ImGuiEditorOwner
     char m_sceneFilter[64] = {};
     char m_hierarchyFilter[64] = {};
     char m_assetFilter[64] = {};
+    ImGuiEditorPropertyEditState m_propertyEdit;
     bool m_focusSceneCreate = false;
     bool m_focusSceneFilter = false;
     ImGuiEditorCommands m_frameCommands;

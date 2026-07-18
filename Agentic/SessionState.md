@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E12 contextual Inspector and canonical World/Simulation panels while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
-| Active/future progress | 13 / 26 live tasks; 50%. |
-| Last broad local gate | E11 final-source `validate_full` passed the CPU umbrella, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact 44,401-line physics regression; UI, DX12, 62-second stress, perf, allocation, Release build, executable exclusion, and native viewport lifecycle evidence also passed. |
-| Validation for current edits | E11 owns the persistent live DX12 viewport capture and physical-pixel input map. E12 changes Inspector/World authoring surfaces and requires UI plus physics validation when coordination/defaults change at the commit boundary. |
+| Current objective | Execute ImGui/Tracy E13 Rendering, Audio, and Diagnostics consolidation while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 14 / 26 live tasks; 54%. |
+| Last broad local gate | E12 final-source `validate_full` passed the CPU umbrella, all coverage floors, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact 44,401-line physics regression; UI, physics, perf, allocation, Release build/exclusion, focused command tests, and native Inspector/World evidence also passed. |
+| Validation for current edits | E12 owns the contextual Inspector and canonical World/Simulation authoring surface. E13 changes right-side Rendering, Audio, and Diagnostics panels and requires UI plus renderer/physics gates when those source boundaries change, with DX12 plus bounded stress for render-backend work. |
 
 ## Live Queue
 
@@ -24,7 +24,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E12 (12/18). E0 froze the complete
+     direction, ImGui/Tracy is active at E13 (13/18). E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -74,6 +74,11 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      stress, perf, full, allocation, and Release-exclusion gates passed with
      18,029 captures, exactly two resource recreations, empty stderr, and no
      authored-data or oracle change. Evidence:
+     E12 added explicit none/single/mixed/stale Inspector states, six contextual
+     groups, one five-section World/Simulation authoring surface, and 19 typed
+     preview/commit property commands. A native release-to-commit probe plus UI,
+     physics, full, perf, allocation, and Release-exclusion gates passed with a
+     6/6 comment audit and no authored-data or oracle change. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
@@ -86,7 +91,8 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      `Agentic/Reports/2026-07-19/imgui-tracy-e8-editor-exchange.md` and
      `Agentic/Reports/2026-07-19/imgui-tracy-e9-dock-shell.md` and
      `Agentic/Reports/2026-07-19/imgui-tracy-e10-left-editor-workflow.md` and
-     `Agentic/Reports/2026-07-19/imgui-tracy-e11-game-viewport.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e11-game-viewport.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e12-inspector-world.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -513,15 +519,17 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
 
 ## Next Handoff
 
-Continue with ImGui/Tracy E12. Build the selection-contextual Inspector groups
-for Transform, Identity, Render, Physics, Audio, and object-specific state;
-make mixed and stale selection explicit. Build the canonical World/Simulation
-sections for fixed-step, time scale, gravity, friction, sleep,
-population/seed, fluid, and tornado/environment forces without duplicating
-Inspector controls. Use fixed typed preview/commit commands for continuous
-edits, inventory the retained legacy authoring controls, and run
-`tools\validate_ui.bat` plus `tools\validate_physics.bat` when physics
-coordination or defaults change at the E12 commit boundary.
+Continue with ImGui/Tracy E13. Consolidate the right rail into canonical
+Rendering sections for Lighting, Environment, Shadows, Post, Water, and
+Terrain/Materials; Audio Authoring for contact recipes, material bands, sample
+library, and global tuning; and Diagnostics for Physics, Renderer, Engine
+Memory/replay reserve, Workers, UI, and Audio runtime facts. Keep generic
+timeline, histogram, and percentile views out because Tracy owns them. Keep
+render targets and advanced pipelines closed by default, prevent diagnostic
+overlays from becoming serialized scene state, reconcile the legacy disposition
+item by item, and run `tools\validate_ui.bat` plus mapped renderer/physics gates.
+Run DX12 validation and bounded graphics stress only if E13 changes render
+backend source.
 
 Physics P1 remains blocked only on exact owner authority for the one-process
 replay `causal.topologyCount: 199 -> 200` golden transition and the mechanically

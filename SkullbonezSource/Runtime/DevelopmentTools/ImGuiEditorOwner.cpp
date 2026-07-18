@@ -17,6 +17,8 @@ Glossary:
     utility, replay, and status regions.
   DPI style epoch: Fresh base style rescaled from 1.0 whenever monitor scale
     changes, avoiding cumulative rounding drift.
+  Preview/commit edit: Scalar drag state rendered locally while active, followed
+    by one typed owner command when the item deactivates after an edit.
 
 Invariants:
   - All vendor allocation and deallocation callbacks retain DearImGui owner
@@ -37,6 +39,7 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 #include "../../UI/UITabEditor.h"
+#include "../../UI/UILayout.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -325,6 +328,7 @@ void ImGuiEditorOwner::Shutdown() noexcept
     m_gameViewportHovered = false;
     m_gameViewportFocused = false;
     m_gameViewportRect = {};
+    m_propertyEdit = {};
     m_nativePointerStateTouched = false;
     m_lastPlatformMouseCursor = -2;
     m_appliedDpiScale = 0.0f;
@@ -357,6 +361,9 @@ void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
         }
         ImGuiIO& io = ImGui::GetIO();
         io.ClearInputKeys();
+        // A hidden presentation cannot own a pending scalar preview. Dropping
+        // it is a cancel, not an owner mutation.
+        m_propertyEdit = {};
         io.ClearInputMouse();
     }
     m_visible = visible;
@@ -663,6 +670,89 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         submit( m_frameCommands.operatorEditor.tools,
                 UI::OperatorEditorToolCommand{ type, sceneObjectId, value, enabled } );
+    };
+    const auto submitProperty = [&]( UI::OperatorEditorPropertyCommandType type,
+                                     float value = 0.0f,
+                                     int integerValue = 0,
+                                     UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
+    {
+        submit( m_frameCommands.operatorEditor.property,
+                UI::OperatorEditorPropertyCommand{ type, value, integerValue, phase } );
+    };
+    const auto editFloat = [&]( const char* label,
+                                UI::OperatorEditorPropertyCommandType type,
+                                float sourceValue,
+                                float speed,
+                                float minimum,
+                                float maximum,
+                                const char* format )
+    {
+        bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
+        float preview = ownsPreview ? m_propertyEdit.floatValue : sourceValue;
+        const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
+        if ( ImGui::IsItemActivated() )
+        {
+            // Concept: only one pointer-driven scalar can be active. Its value
+            // is presentation state until release emits one owner-side commit.
+            m_propertyEdit.active = true;
+            m_propertyEdit.type = type;
+            m_propertyEdit.floatValue = sourceValue;
+            m_propertyEdit.integerValue = 0;
+            ownsPreview = true;
+        }
+        if ( ownsPreview && changed )
+        {
+            m_propertyEdit.floatValue = preview;
+        }
+        const bool deactivated = ImGui::IsItemDeactivated();
+        const bool commit = ImGui::IsItemDeactivatedAfterEdit();
+        if ( ownsPreview && commit )
+        {
+            submitProperty( type, m_propertyEdit.floatValue, 0, UI::OperatorEditorEditPhase::Commit );
+            m_propertyEdit.active = false;
+        }
+        else if ( ownsPreview && deactivated )
+        {
+            m_propertyEdit.active = false;
+        }
+        else if ( ownsPreview && changed )
+        {
+            submitProperty( type, m_propertyEdit.floatValue, 0, UI::OperatorEditorEditPhase::Preview );
+        }
+    };
+    const auto editInteger =
+        [&]( const char* label, UI::OperatorEditorPropertyCommandType type, int sourceValue, int minimum, int maximum )
+    {
+        bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
+        int preview = ownsPreview ? m_propertyEdit.integerValue : sourceValue;
+        const bool changed = ImGui::SliderInt( label, &preview, minimum, maximum );
+        if ( ImGui::IsItemActivated() )
+        {
+            m_propertyEdit.active = true;
+            m_propertyEdit.type = type;
+            m_propertyEdit.floatValue = 0.0f;
+            m_propertyEdit.integerValue = sourceValue;
+            ownsPreview = true;
+        }
+        if ( ownsPreview && changed )
+        {
+            m_propertyEdit.integerValue = preview;
+        }
+        const bool deactivated = ImGui::IsItemDeactivated();
+        const bool commit = ImGui::IsItemDeactivatedAfterEdit();
+        if ( ownsPreview && commit )
+        {
+            submitProperty( type, 0.0f, m_propertyEdit.integerValue, UI::OperatorEditorEditPhase::Commit );
+            m_propertyEdit.active = false;
+        }
+        else if ( ownsPreview && deactivated )
+        {
+            m_propertyEdit.active = false;
+        }
+        else if ( ownsPreview && changed )
+        {
+            submitProperty( type, 0.0f, m_propertyEdit.integerValue, UI::OperatorEditorEditPhase::Preview );
+        }
     };
     const auto launchTracyViewer = [&]()
     {
@@ -1006,6 +1096,12 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                         UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
             }
             ImGui::EndDisabled();
+            ImGui::SameLine();
+            if ( ImGui::Button( "Demo" ) )
+            {
+                submit( m_frameCommands.operatorEditor.scene,
+                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::RequestDemoScene } );
+            }
 
             ImGui::SeparatorText( "Create" );
             if ( m_focusSceneCreate )
@@ -1324,9 +1420,133 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::Inspector, &m_showInspector ) )
         {
-            ImGui::TextDisabled( "No selection" );
-            ImGui::Separator();
-            ImGui::TextDisabled( "Contextual properties arrive in E12" );
+            const UI::OperatorEditorInspectorView& inspector = view.inspector;
+            if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::None )
+            {
+                ImGui::TextDisabled( "No selection" );
+                ImGui::Separator();
+                ImGui::TextWrapped( "Select one scene object in the hierarchy or game viewport to inspect it." );
+            }
+            else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Stale )
+            {
+                ImGui::TextColored( ImVec4( 1.0f, 0.55f, 0.28f, 1.0f ), "Selection is stale" );
+                ImGui::TextWrapped( "The selected stable identity no longer resolves in the current scene." );
+            }
+            else if ( inspector.selectionState == UI::OperatorEditorInspectorSelectionState::Mixed )
+            {
+                ImGui::Text( "%u selected", inspector.selectionCount );
+                ImGui::SeparatorText( "Transform" );
+                ImGui::TextDisabled( "Mixed values" );
+                ImGui::SeparatorText( "Identity" );
+                ImGui::TextDisabled( "Mixed stable identities" );
+                ImGui::SeparatorText( "Render / Physics / Audio" );
+                ImGui::TextDisabled( "Mixed values" );
+            }
+            else
+            {
+                ImGui::Text( "%s",
+                             inspector.displayName && inspector.displayName[0] != '\0' ? inspector.displayName
+                                                                                       : "Unnamed object" );
+                ImGui::SameLine();
+                ImGui::TextDisabled( "#%u", inspector.sceneObjectId );
+                ImGui::TextDisabled( "%s | %s",
+                                     inspector.visible ? "visible" : "hidden",
+                                     inspector.locked ? "locked" : "editable" );
+
+                if ( ImGui::CollapsingHeader( "Transform", ImGuiTreeNodeFlags_DefaultOpen ) )
+                {
+                    ImGui::Text( "Position  %.3f  %.3f  %.3f",
+                                 inspector.position[0],
+                                 inspector.position[1],
+                                 inspector.position[2] );
+                    ImGui::Text( "Rotation q  %.3f  %.3f  %.3f  %.3f",
+                                 inspector.orientation[0],
+                                 inspector.orientation[1],
+                                 inspector.orientation[2],
+                                 inspector.orientation[3] );
+                    ImGui::TextDisabled( "Author with the viewport translate/rotate/scale gizmos." );
+                }
+                if ( ImGui::CollapsingHeader( "Identity", ImGuiTreeNodeFlags_DefaultOpen ) )
+                {
+                    ImGui::Text( "Scene object  %u", inspector.sceneObjectId );
+                    ImGui::Text( "Behavior group  %d  |  part %d",
+                                 inspector.behaviorGroupKind,
+                                 inspector.behaviorPartIndex );
+                    ImGui::Text( "Source  %s", inspector.assetBacked ? "registered asset" : "standalone primitive" );
+                }
+                if ( ImGui::CollapsingHeader( "Render", ImGuiTreeNodeFlags_DefaultOpen ) )
+                {
+                    ImGui::Text( "Material  %s",
+                                 inspector.renderMaterialName && inspector.renderMaterialName[0] != '\0'
+                                     ? inspector.renderMaterialName
+                                     : "default" );
+                    ImGui::Text( "RGBA  %.2f  %.2f  %.2f  %.2f",
+                                 inspector.baseColor[0],
+                                 inspector.baseColor[1],
+                                 inspector.baseColor[2],
+                                 inspector.baseColor[3] );
+                    ImGui::Text( "Rough %.2f  Metal %.2f  Spec %.2f",
+                                 inspector.roughness,
+                                 inspector.metallic,
+                                 inspector.specular );
+                }
+                if ( ImGui::CollapsingHeader( "Physics", ImGuiTreeNodeFlags_DefaultOpen ) )
+                {
+                    ImGui::Text( "%s | %s",
+                                 inspector.fixed ? "fixed" : "dynamic",
+                                 inspector.sleeping ? "sleeping" : "awake" );
+                    ImGui::Text( "Mass %.3f  Volume %.3f  Radius %.3f",
+                                 inspector.mass,
+                                 inspector.volume,
+                                 inspector.boundingRadius );
+                    ImGui::Text( "Friction %.3f  Restitution %.3f  Drag %.3f",
+                                 inspector.friction,
+                                 inspector.restitution,
+                                 inspector.dragCoefficient );
+                    ImGui::Text( "Linear v  %.3f  %.3f  %.3f",
+                                 inspector.linearVelocity[0],
+                                 inspector.linearVelocity[1],
+                                 inspector.linearVelocity[2] );
+                    ImGui::Text( "Angular v  %.3f  %.3f  %.3f",
+                                 inspector.angularVelocity[0],
+                                 inspector.angularVelocity[1],
+                                 inspector.angularVelocity[2] );
+                }
+                if ( ImGui::CollapsingHeader( "Audio" ) )
+                {
+                    ImGui::Text( "Contact material  %s",
+                                 inspector.contactMaterialName && inspector.contactMaterialName[0] != '\0'
+                                     ? inspector.contactMaterialName
+                                     : "default" );
+                    ImGui::TextDisabled( "Contact recipes and sample authoring are consolidated in E13." );
+                }
+                if ( ImGui::CollapsingHeader( "Object-specific" ) )
+                {
+                    static constexpr const char* shapeNames[] = { "sphere", "box", "convex hull" };
+                    const char* shape = inspector.colliderShapeKind >= 0 && inspector.colliderShapeKind < 3
+                                            ? shapeNames[inspector.colliderShapeKind]
+                                            : "unknown";
+                    ImGui::Text( "Shape  %s", shape );
+                    if ( inspector.assetBacked )
+                    {
+                        ImGui::Text(
+                            "Asset  %s",
+                            inspector.assetName && inspector.assetName[0] != '\0' ? inspector.assetName : "unnamed" );
+                        ImGui::Text( "Instance  %s",
+                                     inspector.assetInstanceName && inspector.assetInstanceName[0] != '\0'
+                                         ? inspector.assetInstanceName
+                                         : "unnamed" );
+                        ImGui::Text( "Part  %s",
+                                     inspector.assetPartName && inspector.assetPartName[0] != '\0'
+                                         ? inspector.assetPartName
+                                         : "unnamed" );
+                    }
+                    else
+                    {
+                        ImGui::TextDisabled( "No registered asset affiliation" );
+                    }
+                }
+            }
         }
         ImGui::End();
     }
@@ -1335,8 +1555,150 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::WorldSimulation, &m_showWorldSimulation ) )
         {
-            ImGui::Text( "Gravity %.2f", view.property.worldGravity );
-            ImGui::Text( "Fluid %.2fm / %.1fkg/m3", view.property.worldFluidHeight, view.property.worldFluidDensity );
+            const UI::OperatorEditorWorldView& world = view.world;
+            ImGui::TextDisabled( "Preview locally; commit once on release." );
+            if ( m_propertyEdit.active )
+            {
+                ImGui::SameLine();
+                ImGui::TextColored( ImVec4( 0.35f, 0.78f, 1.0f, 1.0f ), "PREVIEW" );
+            }
+            if ( ImGui::CollapsingHeader( "Simulation", ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                bool fixedStep = world.fixedStep;
+                if ( ImGui::Checkbox( "Fixed step", &fixedStep ) )
+                {
+                    submitProperty( UI::OperatorEditorPropertyCommandType::ToggleFixedStep );
+                }
+                ImGui::SameLine();
+                bool sleepEnabled = world.physicsSleepEnabled;
+                if ( ImGui::Checkbox( "Sleep policy", &sleepEnabled ) )
+                {
+                    submitProperty( UI::OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy );
+                }
+                editFloat( "Time scale",
+                           UI::OperatorEditorPropertyCommandType::SetTimeScale,
+                           world.timeScale,
+                           UI::Layout::UI_TIME_SCALE_STEP,
+                           UI::Layout::UI_TIME_SCALE_MIN,
+                           UI::Layout::UI_TIME_SCALE_MAX,
+                           "%.2fx" );
+            }
+            if ( ImGui::CollapsingHeader( "Population / seed", ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                const int capacity = (std::max)( 0, world.modelCapacity );
+                editInteger( "Population",
+                             UI::OperatorEditorPropertyCommandType::SetModelCount,
+                             world.modelCount,
+                             UI::Layout::UI_MODEL_COUNT_MIN,
+                             capacity );
+                editInteger( "Seed",
+                             UI::OperatorEditorPropertyCommandType::SetSeed,
+                             world.rngSeed,
+                             UI::Layout::UI_SEED_MIN,
+                             UI::Layout::UI_SEED_MAX );
+                editInteger( "Solver balls",
+                             UI::OperatorEditorPropertyCommandType::SetSolverBallCount,
+                             world.solverBallCount,
+                             UI::Layout::UI_SOLVER_COUNT_MIN,
+                             (std::max)( 0, capacity - world.solverBoxCount ) );
+                editInteger( "Solver boxes",
+                             UI::OperatorEditorPropertyCommandType::SetSolverBoxCount,
+                             world.solverBoxCount,
+                             UI::Layout::UI_SOLVER_COUNT_MIN,
+                             (std::max)( 0, capacity - world.solverBallCount ) );
+                ImGui::TextDisabled( "Population controls rebuild generated scene topology on commit." );
+            }
+            if ( ImGui::CollapsingHeader( "World forces / fluid", ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                editFloat( "Gravity",
+                           UI::OperatorEditorPropertyCommandType::SetWorldGravity,
+                           world.gravity,
+                           UI::Layout::UI_WORLD_GRAVITY_STEP,
+                           -UI::Layout::UI_WORLD_GRAVITY_MAX,
+                           -UI::Layout::UI_WORLD_GRAVITY_MIN,
+                           "%.2f m/s^2" );
+                editFloat( "Fluid surface",
+                           UI::OperatorEditorPropertyCommandType::SetWorldFluidHeight,
+                           world.fluidHeight,
+                           UI::Layout::UI_WORLD_FLUID_HEIGHT_STEP,
+                           UI::Layout::UI_WORLD_FLUID_HEIGHT_MIN,
+                           UI::Layout::UI_WORLD_FLUID_HEIGHT_MAX,
+                           "%.1f m" );
+                editFloat( "Fluid density",
+                           UI::OperatorEditorPropertyCommandType::SetWorldFluidDensity,
+                           world.fluidDensity,
+                           UI::Layout::UI_WORLD_FLUID_DENSITY_STEP,
+                           UI::Layout::UI_WORLD_FLUID_DENSITY_MIN,
+                           UI::Layout::UI_WORLD_FLUID_DENSITY_MAX,
+                           "%.2f kg/m3" );
+            }
+            if ( ImGui::CollapsingHeader( "Contact friction", ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                editFloat( "Terrain friction",
+                           UI::OperatorEditorPropertyCommandType::SetTerrainFriction,
+                           world.terrainFriction,
+                           UI::Layout::UI_FRICTION_COEFF_STEP,
+                           UI::Layout::UI_FRICTION_COEFF_MIN,
+                           UI::Layout::UI_FRICTION_COEFF_MAX,
+                           "%.2f" );
+                editFloat( "Object friction",
+                           UI::OperatorEditorPropertyCommandType::SetObjectFriction,
+                           world.objectFriction,
+                           UI::Layout::UI_FRICTION_COEFF_STEP,
+                           UI::Layout::UI_FRICTION_COEFF_MIN,
+                           UI::Layout::UI_FRICTION_COEFF_MAX,
+                           "%.2f" );
+                editFloat( "Rolling friction",
+                           UI::OperatorEditorPropertyCommandType::SetRollingFriction,
+                           world.rollingFriction,
+                           UI::Layout::UI_ROLLING_FRICTION_COEFF_STEP,
+                           UI::Layout::UI_ROLLING_FRICTION_COEFF_MIN,
+                           UI::Layout::UI_ROLLING_FRICTION_COEFF_MAX,
+                           "%.3f" );
+            }
+            if ( ImGui::CollapsingHeader( "Tornado / environment force", ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                bool tornadoEnabled = world.tornadoEnabled;
+                if ( ImGui::Checkbox( "Enabled", &tornadoEnabled ) )
+                {
+                    submitProperty( UI::OperatorEditorPropertyCommandType::ToggleTornado );
+                }
+                editFloat( "Radius",
+                           UI::OperatorEditorPropertyCommandType::SetTornadoRadius,
+                           world.tornadoRadius,
+                           UI::Layout::UI_TORNADO_RADIUS_STEP,
+                           UI::Layout::UI_TORNADO_RADIUS_MIN,
+                           UI::Layout::UI_TORNADO_RADIUS_MAX,
+                           "%.1f m" );
+                editFloat( "Height",
+                           UI::OperatorEditorPropertyCommandType::SetTornadoHeight,
+                           world.tornadoHeight,
+                           UI::Layout::UI_TORNADO_HEIGHT_STEP,
+                           UI::Layout::UI_TORNADO_HEIGHT_MIN,
+                           UI::Layout::UI_TORNADO_HEIGHT_MAX,
+                           "%.1f m" );
+                editFloat( "Inward",
+                           UI::OperatorEditorPropertyCommandType::SetTornadoInward,
+                           world.tornadoInward,
+                           UI::Layout::UI_TORNADO_INWARD_STEP,
+                           UI::Layout::UI_TORNADO_INWARD_MIN,
+                           UI::Layout::UI_TORNADO_INWARD_MAX,
+                           "%.1f" );
+                editFloat( "Swirl",
+                           UI::OperatorEditorPropertyCommandType::SetTornadoSwirl,
+                           world.tornadoSwirl,
+                           UI::Layout::UI_TORNADO_SWIRL_STEP,
+                           UI::Layout::UI_TORNADO_SWIRL_MIN,
+                           UI::Layout::UI_TORNADO_SWIRL_MAX,
+                           "%.1f" );
+                editFloat( "Lift",
+                           UI::OperatorEditorPropertyCommandType::SetTornadoLift,
+                           world.tornadoLift,
+                           UI::Layout::UI_TORNADO_LIFT_STEP,
+                           UI::Layout::UI_TORNADO_LIFT_MIN,
+                           UI::Layout::UI_TORNADO_LIFT_MAX,
+                           "%.1f" );
+            }
         }
         ImGui::End();
     }

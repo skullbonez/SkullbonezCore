@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 12/18 tasks (E0-E11 complete; E12 next) under the owner's
+Status: Active — 13/18 tasks (E0-E12 complete; E13 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (12/18 complete)
+Ledger: E0-E17 (13/18 complete)
 
 ## Objective
 
@@ -420,7 +420,7 @@ It does **not** authorize removal from the legacy UI.
     allocation/Release gates, and clean shipping exclusion with no authored,
     baseline, or golden change.
 
-- [ ] E12 — Build the right-side Inspector and World/Simulation panels.
+- [x] E12 — Build the right-side Inspector and World/Simulation panels.
   - Inspector is selection-contextual and grouped by Transform, Identity,
     Render, Physics, Audio, and object-specific components; mixed multi-select
     values and invalid/stale selection are explicit.
@@ -433,6 +433,13 @@ It does **not** authorize removal from the legacy UI.
     and the inventory has no unexplained duplicates.
   - Gates: `tools\validate_ui.bat`, plus `tools\validate_physics.bat` when
     physics coordination or defaults change.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e12-inspector-world.md` records the
+    explicit none/single/mixed/stale Inspector states, six contextual groups,
+    the canonical five-section World surface, 19 typed preview/commit commands,
+    complete retained-authoring disposition, native release-to-commit proof,
+    6/6 comment audit, and UI/physics/full/perf/allocation/Release gates. No
+    authored data, baseline, or golden changed.
 
 - [ ] E13 — Consolidate Rendering, Audio, and Diagnostics on the right.
   - Rendering sections: Lighting, Environment, Shadows, Post, Water, and

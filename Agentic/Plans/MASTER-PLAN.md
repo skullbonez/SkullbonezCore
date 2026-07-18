@@ -137,8 +137,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 12 | 18 | 67% |
-| **Active/future total** | **13** | **26** | **50%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 13 | 18 | 72% |
+| **Active/future total** | **14** | **26** | **54%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -196,7 +196,7 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E12 under the owner's
+`imgui-tracy-editor-campaign` (E0-E17) is active at E13 under the owner's
 direction to note genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
@@ -257,6 +257,14 @@ probes ended with 18,029 captures, exactly two resource recreations, a 2/16
 descriptor high-water mark, and empty stderr. UI, DX12, bounded stress, perf,
 full, allocation, and Release-exclusion gates passed without an authored-data,
 baseline, or golden change.
+E12 adds an explicit none/single/mixed/stale contextual Inspector and one
+canonical World/Simulation authoring surface. The Inspector groups Transform,
+Identity, Render, Physics, Audio, and object-specific facts without taking
+transform authority from E11. Five World sections route 19 typed properties
+through preview-without-mutation and one release-time commit, with deterministic
+Legacy/ImGui duplicate coalescing. Native authoring evidence and the UI,
+physics, full, perf, allocation, and Release-exclusion gates passed without an
+authored-data, baseline, or golden change.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
@@ -872,7 +880,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E12 | 12/18 | Build the contextual Inspector and canonical World/Simulation panels |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E13 | 13/18 | Consolidate Rendering, Audio, and Diagnostics on the right |
 
 ## Features
 

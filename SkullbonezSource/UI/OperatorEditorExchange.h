@@ -34,7 +34,7 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E11)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E12)
 */
 #pragma once
 
@@ -100,6 +100,76 @@ struct OperatorEditorPropertyView
     float worldFluidDensity = 0.0f;
 };
 
+enum class OperatorEditorInspectorSelectionState : uint8_t
+{
+    None,
+    Single,
+    Mixed,
+    Stale
+};
+
+struct OperatorEditorInspectorView
+{
+    // Lifetime: labels borrow fixed scene/collider strings for this synchronous
+    // presentation frame; the UI must not retain their addresses.
+    const char* displayName = "";
+    const char* renderMaterialName = "";
+    const char* contactMaterialName = "";
+    const char* assetName = "";
+    const char* assetInstanceName = "";
+    const char* assetPartName = "";
+    OperatorEditorInspectorSelectionState selectionState = OperatorEditorInspectorSelectionState::None;
+    uint32_t sceneObjectId = 0u;
+    uint32_t selectionCount = 0u;
+    int renderMaterialKind = 0;
+    int colliderShapeKind = 0;
+    int behaviorGroupKind = 0;
+    int behaviorPartIndex = -1;
+    float position[3] = {};
+    float orientation[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    float linearVelocity[3] = {};
+    float angularVelocity[3] = {};
+    float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float mass = 0.0f;
+    float volume = 0.0f;
+    float boundingRadius = 0.0f;
+    float dragCoefficient = 0.0f;
+    float friction = 0.0f;
+    float restitution = 0.0f;
+    float roughness = 0.0f;
+    float metallic = 0.0f;
+    float specular = 0.0f;
+    bool visible = true;
+    bool locked = false;
+    bool fixed = false;
+    bool sleeping = false;
+    bool assetBacked = false;
+};
+
+struct OperatorEditorWorldView
+{
+    int modelCount = 0;
+    int modelCapacity = 0;
+    int solverBallCount = 0;
+    int solverBoxCount = 0;
+    int rngSeed = 1;
+    float timeScale = 1.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
+    float terrainFriction = 0.0f;
+    float objectFriction = 0.0f;
+    float rollingFriction = 0.0f;
+    float tornadoRadius = 0.0f;
+    float tornadoHeight = 0.0f;
+    float tornadoInward = 0.0f;
+    float tornadoSwirl = 0.0f;
+    float tornadoLift = 0.0f;
+    bool fixedStep = false;
+    bool physicsSleepEnabled = true;
+    bool tornadoEnabled = false;
+};
+
 struct OperatorEditorRenderingView
 {
     bool vsyncEnabled = false;
@@ -158,12 +228,15 @@ struct OperatorEditorFrameView
     OperatorEditorToolView tools;
     OperatorEditorHierarchyView hierarchy;
     OperatorEditorAssetView assets;
+    OperatorEditorInspectorView inspector;
+    OperatorEditorWorldView world;
 };
 
 enum class OperatorEditorSceneCommandType : uint8_t
 {
     ResetCurrentScene,
     ResetSceneDefaults,
+    RequestDemoScene,
     SetCurrentSceneIndex,
     SaveCurrentScene,
     CreateScene
@@ -179,13 +252,38 @@ struct OperatorEditorSceneCommand
 enum class OperatorEditorPropertyCommandType : uint8_t
 {
     SetTimeScale,
-    SetWorldGravity
+    ToggleFixedStep,
+    SetModelCount,
+    SetSeed,
+    SetSolverBallCount,
+    SetSolverBoxCount,
+    SetWorldGravity,
+    SetWorldFluidHeight,
+    SetWorldFluidDensity,
+    TogglePhysicsSleepPolicy,
+    SetTerrainFriction,
+    SetObjectFriction,
+    SetRollingFriction,
+    ToggleTornado,
+    SetTornadoRadius,
+    SetTornadoHeight,
+    SetTornadoInward,
+    SetTornadoSwirl,
+    SetTornadoLift
+};
+
+enum class OperatorEditorEditPhase : uint8_t
+{
+    Preview,
+    Commit
 };
 
 struct OperatorEditorPropertyCommand
 {
     OperatorEditorPropertyCommandType type = OperatorEditorPropertyCommandType::SetTimeScale;
     float value = 0.0f;
+    int integerValue = 0;
+    OperatorEditorEditPhase phase = OperatorEditorEditPhase::Commit;
 };
 
 enum class OperatorEditorRenderingCommandType : uint8_t
@@ -250,7 +348,7 @@ template <typename Command, uint32_t Capacity> struct OperatorEditorCommandQueue
 };
 
 using OperatorEditorSceneCommandQueue = OperatorEditorCommandQueue<OperatorEditorSceneCommand, 8u>;
-using OperatorEditorPropertyCommandQueue = OperatorEditorCommandQueue<OperatorEditorPropertyCommand, 4u>;
+using OperatorEditorPropertyCommandQueue = OperatorEditorCommandQueue<OperatorEditorPropertyCommand, 24u>;
 using OperatorEditorRenderingCommandQueue = OperatorEditorCommandQueue<OperatorEditorRenderingCommand, 2u>;
 using OperatorEditorReplayCommandQueue = OperatorEditorCommandQueue<OperatorEditorReplayCommand, 2u>;
 using OperatorEditorToolCommandQueue = OperatorEditorCommandQueue<OperatorEditorToolCommand, 16u>;

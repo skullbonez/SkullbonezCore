@@ -615,7 +615,7 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     using namespace SkullbonezCore::UI;
     static_assert( std::is_trivially_copyable_v<OperatorEditorCommandQueues> );
     static_assert( OperatorEditorSceneCommandQueue::capacity == 8u );
-    static_assert( OperatorEditorPropertyCommandQueue::capacity == 4u );
+    static_assert( OperatorEditorPropertyCommandQueue::capacity == 24u );
     static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
 
     InGameUICommands legacy;
@@ -692,6 +692,131 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
     CHECK_FALSE( projected.scene.resetScene );
 }
 
+TEST_CASE( "Operator editor world previews stay local and commits project to established owners" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues preview;
+    REQUIRE( SubmitOperatorEditorCommand(
+                 preview.property,
+                 { OperatorEditorPropertyCommandType::SetWorldGravity, -4.5f, 0, OperatorEditorEditPhase::Preview } )
+                 .ok );
+    InGameUICommands projectedPreview;
+    REQUIRE( ProjectOperatorEditorCommands( preview, projectedPreview ).ok );
+    CHECK_FALSE( projectedPreview.water.requestWorldGravity );
+
+    OperatorEditorCommandQueues commits;
+    for ( const OperatorEditorPropertyCommand& command :
+          { OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTimeScale, 0.75f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::ToggleFixedStep },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetModelCount, 0.0f, 120 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSeed, 0.0f, 42 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSolverBallCount, 0.0f, 70 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSolverBoxCount, 0.0f, 50 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldGravity, -12.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldFluidHeight, 8.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldFluidDensity, 1.2f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTerrainFriction, 0.8f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetObjectFriction, 0.6f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetRollingFriction, 0.04f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::ToggleTornado },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoRadius, 140.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoHeight, 180.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoInward, 90.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoSwirl, 130.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoLift, 65.0f } } )
+    {
+        REQUIRE( SubmitOperatorEditorCommand( commits.property, command ).ok );
+    }
+    REQUIRE( commits.property.count == 19u );
+    REQUIRE(
+        SubmitOperatorEditorCommand( commits.scene,
+                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::RequestDemoScene } )
+            .ok );
+
+    InGameUICommands projected;
+    REQUIRE( ProjectOperatorEditorCommands( commits, projected ).ok );
+    CHECK( projected.scene.requestDemoScene );
+    CHECK( projected.sceneOptions.requestedTimeScale == doctest::Approx( 0.75f ) );
+    CHECK( projected.sceneOptions.toggleFixedStep );
+    CHECK( projected.sceneOptions.requestedModelCount == 120 );
+    CHECK( projected.run.requestedSeed == 42 );
+    CHECK( projected.run.requestedSolverBallCount == 70 );
+    CHECK( projected.run.requestedSolverBoxCount == 50 );
+    CHECK( projected.water.requestWorldGravity );
+    CHECK( projected.water.requestedWorldGravity == doctest::Approx( -12.0f ) );
+    CHECK( projected.water.requestWorldFluidHeight );
+    CHECK( projected.water.requestedWorldFluidHeight == doctest::Approx( 8.0f ) );
+    CHECK( projected.water.requestWorldFluidDensity );
+    CHECK( projected.water.requestedWorldFluidDensity == doctest::Approx( 1.2f ) );
+    CHECK( projected.physics.togglePhysicsSleepPolicy );
+    CHECK( projected.physics.requestTerrainFrictionCoeff );
+    CHECK( projected.physics.requestedTerrainFrictionCoeff == doctest::Approx( 0.8f ) );
+    CHECK( projected.physics.requestObjectFrictionCoeff );
+    CHECK( projected.physics.requestedObjectFrictionCoeff == doctest::Approx( 0.6f ) );
+    CHECK( projected.physics.requestRollingFrictionCoeff );
+    CHECK( projected.physics.requestedRollingFrictionCoeff == doctest::Approx( 0.04f ) );
+    CHECK( projected.physics.toggleTornado );
+    CHECK( projected.physics.requestTornadoRadius );
+    CHECK( projected.physics.requestTornadoHeight );
+    CHECK( projected.physics.requestTornadoInward );
+    CHECK( projected.physics.requestTornadoSwirl );
+    CHECK( projected.physics.requestTornadoLift );
+
+    InGameUICommands legacy;
+    legacy.scene.requestDemoScene = true;
+    legacy.sceneOptions.requestedTimeScale = 0.75f;
+    legacy.sceneOptions.toggleFixedStep = true;
+    legacy.sceneOptions.requestedModelCount = 120;
+    legacy.run.requestedSeed = 42;
+    legacy.run.requestedSolverBallCount = 70;
+    legacy.run.requestedSolverBoxCount = 50;
+    legacy.water.requestWorldGravity = true;
+    legacy.water.requestedWorldGravity = -12.0f;
+    legacy.water.requestWorldFluidHeight = true;
+    legacy.water.requestedWorldFluidHeight = 8.0f;
+    legacy.water.requestWorldFluidDensity = true;
+    legacy.water.requestedWorldFluidDensity = 1.2f;
+    legacy.physics.togglePhysicsSleepPolicy = true;
+    legacy.physics.requestTerrainFrictionCoeff = true;
+    legacy.physics.requestedTerrainFrictionCoeff = 0.8f;
+    legacy.physics.requestObjectFrictionCoeff = true;
+    legacy.physics.requestedObjectFrictionCoeff = 0.6f;
+    legacy.physics.requestRollingFrictionCoeff = true;
+    legacy.physics.requestedRollingFrictionCoeff = 0.04f;
+    legacy.physics.toggleTornado = true;
+    legacy.physics.requestTornadoRadius = true;
+    legacy.physics.requestedTornadoRadius = 140.0f;
+    legacy.physics.requestTornadoHeight = true;
+    legacy.physics.requestedTornadoHeight = 180.0f;
+    legacy.physics.requestTornadoInward = true;
+    legacy.physics.requestedTornadoInward = 90.0f;
+    legacy.physics.requestTornadoSwirl = true;
+    legacy.physics.requestedTornadoSwirl = 130.0f;
+    legacy.physics.requestTornadoLift = true;
+    legacy.physics.requestedTornadoLift = 65.0f;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK_FALSE( legacy.scene.requestDemoScene );
+    CHECK_FALSE( legacy.sceneOptions.toggleFixedStep );
+    CHECK( legacy.sceneOptions.requestedModelCount == -1 );
+    CHECK( legacy.run.requestedSeed == -1 );
+    CHECK_FALSE( legacy.water.requestWorldFluidHeight );
+    CHECK_FALSE( legacy.physics.toggleTornado );
+    CHECK( legacy.operatorEditor.property.count == 19u );
+    const OperatorEditorArbitrationResult coexistence =
+        ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
+    REQUIRE( coexistence.status.ok );
+    CHECK( coexistence.acceptedLegacyCommands == 20u );
+    CHECK( coexistence.acceptedSecondaryCommands == 0u );
+    CHECK( coexistence.coalescedDuplicateCommands == 20u );
+
+    OperatorEditorPropertyCommandQueue invalid;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     invalid,
+                     OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
+                     .ok );
+}
+
 TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
 {
     using namespace SkullbonezCore::UI;
@@ -731,6 +856,15 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     changed = first;
     changed.viewport.gizmoModeLabel = "rotate";
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.world.tornadoRadius = 151.0f;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.inspector.selectionState = OperatorEditorInspectorSelectionState::Single;
+    changed.inspector.sceneObjectId = 91u;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 }
 
 TEST_CASE( "Operator editor scene hierarchy and asset intents project through typed owner packets" )
@@ -746,24 +880,24 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
                  secondary.scene,
                  OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
                  .ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.scene,
-                 OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SaveCurrentScene } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.scene,
-                 OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetSceneDefaults } )
-                 .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.scene,
+                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SaveCurrentScene } )
+            .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.scene,
+                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetSceneDefaults } )
+            .ok );
 
-    for ( const OperatorEditorToolCommand& command : {
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 91u },
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityVisible, 91u, 0, false },
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityLocked, 91u, 0, true },
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 30 },
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, true },
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::ToggleTerrainAlign },
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::DuplicateSelection },
-              OperatorEditorToolCommand{ OperatorEditorToolCommandType::DeleteSelection } } )
+    for ( const OperatorEditorToolCommand& command :
+          { OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 91u },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityVisible, 91u, 0, false },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityLocked, 91u, 0, true },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 30 },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, true },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::ToggleTerrainAlign },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::DuplicateSelection },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::DeleteSelection } } )
     {
         REQUIRE( SubmitOperatorEditorCommand( secondary.tools, command ).ok );
     }
@@ -792,10 +926,10 @@ TEST_CASE( "Operator editor scene hierarchy and asset intents project through ty
     CHECK( projected.editor.requestDeleteSelection );
 
     OperatorEditorToolCommandQueue malformed;
-    CHECK_FALSE( SubmitOperatorEditorCommand(
-                     malformed,
-                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 0u } )
-                     .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( malformed,
+                                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+            .ok );
     CHECK_FALSE( SubmitOperatorEditorCommand(
                      malformed,
                      OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 37 } )
