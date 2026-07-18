@@ -1,7 +1,7 @@
 # DX12 Backend Ownership Decomposition — Retire The Last Laundered God Class
 
 Date: 2026-07-18
-Status: Active — 2/8 tasks
+Status: Active — 5/8 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Rendering/DX12/*`, `Rendering/I*.h` consumers,
 project filters
@@ -86,7 +86,7 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   render-target save/restore block into a concrete graph-transient owner;
   it borrows the descriptor owner, never raw heap pointers. Gate:
   renderer + stress.
-- [ ] D4 — Diagnostics and GPU-timing owner. Move `GpuTimerStateDX12`
+- [x] D4 — Diagnostics and GPU-timing owner. Move `GpuTimerStateDX12`
   consumption, draw-call counters/high-water, visibility stats,
   `DrawCallTrace`, and fault injection behind the diagnostics owner
   surface. Gate: renderer + stress.
@@ -177,6 +177,26 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   `validate_dx12_renderer` passed in 53.893 s with zero InfoQueue errors and all
   committed captures accepted; and `run_graphics_stress.bat 1` ran crash-free
   for 62.072 s. No baseline, golden, screenshot, or coverage-floor file changed.
+- D4 evidence (2026-07-18): `Dx12Diagnostics` now owns GPU timestamp-query and
+  readback lifetime, resolved timer values, draw-call current/high-water
+  counters, visibility statistics, and `DrawCallTrace`. It consumes only a
+  restricted `Dx12DiagnosticsFrame` capability for fence observation, waits,
+  command-list recording, and fault-injection configuration; it stores no
+  backend, frame-owner, device, or command-list pointer. Mesh and dynamic-
+  geometry submission record accepted native draws through that one concrete
+  owner, while the backend retains only top-level sequencing and thin
+  `IRenderDiagnostics` delegation. The seven retained consumer interfaces are
+  byte-identical and `FRAME_COUNT` remains 2. Comment audit:
+  `../../Reports/2026-07-18/dx12-backend-d4-comment-audit.md`, 12/12 checked
+  with none deferred. Final gates: project filters passed with 736/736 items;
+  `validate_fast` passed in 56.082 s with formatting, Profile and Debug builds,
+  and 291/291 tests with 21,455/21,455 assertions;
+  `validate_dx12_renderer` passed in 53.087 s with zero InfoQueue errors and all
+  committed captures accepted; and `run_graphics_stress.bat 1` ran crash-free
+  for 61.566 s before the exact-PID bounded stop. The platform-profiler marker
+  probe emitted both requested/enabled evidence lines and its interactive
+  process was stopped by exact PID after 43.143 s. No baseline, golden,
+  screenshot, or coverage-floor file changed. Task elapsed time: 1,138.739 s.
 
 ## Acceptance
 

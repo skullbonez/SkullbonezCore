@@ -189,6 +189,7 @@ DX12_RENDERING_PREFIXES = (
     "Dx12CachedPsoStore",
     "Dx12DeferredReleaseOwner",
     "Dx12DescriptorHeaps",
+    "Dx12Diagnostics",
     "Dx12FrameOwner",
     "Dx12RenderGraphExecutor",
     "Dx12TextureRegistry",

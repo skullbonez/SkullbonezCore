@@ -11,8 +11,9 @@ Summary:
   Dx12RaytracingOwner retains the optional reflection path. Dx12DescriptorHeaps
   owns every descriptor table and row allocator, Dx12BackbufferCapture owns
   screenshot readback/quarantine, Dx12GraphTransientPool owns physical graph
-  targets and their balanced binding transaction, and the private frame epoch
-  and retirement owners live in Dx12FrameOwner.h.
+  targets and their balanced binding transaction, Dx12Diagnostics owns timing
+  and draw evidence, and the private frame epoch and retirement owners live in
+  Dx12FrameOwner.h.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -55,6 +56,7 @@ Invariants:
 Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
   - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
@@ -83,6 +85,7 @@ Related:
 #include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
 #include "Dx12DescriptorHeaps.h"
+#include "Dx12Diagnostics.h"
 #include "Dx12FrameOwner.h"
 #include "BLASDX12.h"
 #include "TLASDX12.h"
@@ -176,22 +179,6 @@ struct GridLinePSODX12
     DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
     ID3D12PipelineState* pso = nullptr;
 };
-
-inline constexpr int DX12_TIMER_HEAP_MARKERS = 128;
-inline constexpr int DX12_TIMER_HEAP_SIZE = DX12_TIMER_HEAP_MARKERS * 2;
-
-struct GpuTimerStateDX12
-{
-    ID3D12QueryHeap* queryHeap = nullptr;
-    Dx12ReadbackBuffer readback;
-    float resultMs[DX12_TIMER_HEAP_MARKERS] = {};
-    bool resultValid[DX12_TIMER_HEAP_MARKERS] = {};
-    uint64_t freq = 1;
-    bool readPending = false;
-    UINT64 readFenceValue = 0;                                     // fence value that guarantees the latest ResolveQueryData has completed
-    bool slotWritten[DX12_TIMER_HEAP_SIZE] = {};                   // true for each timestamp slot that had EndQuery recorded this frame
-};
-
 
 // Capability: texture creation and mip generation may record resource work,
 // allocate descriptor rows, reserve upload bytes, and retire textures. The
@@ -460,8 +447,7 @@ class Dx12GeometryOwner
                                  uint8_t* uploadPointer,
                                  ID3D12GraphicsCommandList* commandList,
                                  Dx12DrawGate& drawGate,
-                                 DrawCallTrace& drawTrace,
-                                 int& drawCount );
+                                 Dx12Diagnostics& diagnostics );
     void DestroyDynamicVB( uint32_t handle );
     void AdoptGridLineShader( std::unique_ptr<IShader> shader );
     bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat );
@@ -479,8 +465,7 @@ class Dx12GeometryOwner
                            ID3D12GraphicsCommandList* commandList,
                            Dx12PipelineOwner& pipeline,
                            Dx12DrawGate& drawGate,
-                           DrawCallTrace& drawTrace,
-                           int& drawCount );
+                           Dx12Diagnostics& diagnostics );
     void DrawTransientColoredTriangles( const float* data,
                                         int vertexCount,
                                         const float* viewProjMatrix16,
@@ -491,8 +476,7 @@ class Dx12GeometryOwner
                                         uint8_t* uploadPointer,
                                         ID3D12GraphicsCommandList* commandList,
                                         Dx12DrawGate& drawGate,
-                                        DrawCallTrace& drawTrace,
-                                        int& drawCount );
+                                        Dx12Diagnostics& diagnostics );
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
                                   int staticFloatsPerVert,
@@ -517,8 +501,7 @@ class Dx12GeometryOwner
                             int instanceCount,
                             ID3D12GraphicsCommandList* commandList,
                             Dx12DrawGate& drawGate,
-                            DrawCallTrace& drawTrace,
-                            int& drawCount );
+                            Dx12Diagnostics& diagnostics );
     void DestroyInstancedMesh( uint32_t handle );
     uint64_t StaticVertexBufferAddress( uint32_t handle ) const;
     int StaticVertexStride( uint32_t handle ) const;
@@ -665,8 +648,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // without changing the no-growth overflow policy: steady runtime would
     // still drop the bounded draw instead of growing.
     static const UINT64 UPLOAD_BUFFER_SIZE = 32 * 1024 * 1024;
-    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= SkullbonezCore::Core::Profiler::MAX_MARKERS
-    static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
     // Ordinary raster binding ABI lives in RenderRasterBindingContract.h so
     // runtime passes and the DX12 backend consume one shader/root-signature map.
@@ -685,8 +666,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // intent for us, so the backend tracks the desired state and emits concrete
     // command-list binds only when the state becomes dirty.
     Dx12RaytracingOwner m_raytracingOwner;
-    uint32_t m_reflectionTextureHandle = 0;                        // Cold-published handle for the DXR reflection SRV.
-    GpuTimerStateDX12 m_gpuTimers;
+    uint32_t m_reflectionTextureHandle = 0; // Cold-published handle for the DXR reflection SRV.
+    Dx12Diagnostics m_diagnostics;
 
     // The render device owns the core D3D12 lifetime: factory, device, queue,
     // swap chain, command allocators, command list, and frame fence. Every use
@@ -717,7 +698,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         return m_renderDevice.CommandList();
     }
 
-    uint64_t m_recreationGeneration = 0;                           // Advances only after complete resize publication.
+    uint64_t m_recreationGeneration = 0;    // Advances only after complete resize publication.
 
     // First DX12 shader-visible descriptor extraction point:
     //
@@ -749,10 +730,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int m_height = 0;
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
-    int m_frameDrawCallCount = 0;
-    int m_frameDrawCallHighWater = 0;
-    RenderVisibilityStats m_frameVisibilityStats;                  // Reset with draw diagnostics; copied read-only into UI frame data.
-    DrawCallTrace m_drawCallTrace;
 
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
@@ -760,17 +737,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     SkullbonezCore::Core::SbResult WaitForGpu();
     SkullbonezCore::Core::SbResult EnsureCommandListOpen();
     SkullbonezCore::Core::SbResult SubmitClosedCommandList();
-    void ConfigureFaultInjection();
-    void WriteFaultInjectionProbeReport() const;
     void AssignDeferredResourceReleaseFence( UINT64 fenceValue );
     void ReleaseCompletedDeferredResources( bool releaseUnfenced );
-    void TryConsumeGpuTimerReadback( bool waitForFence );
     SkullbonezCore::Core::SbResult CreateDepthStencil( int w, int h );
     SkullbonezCore::Core::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );
-    void ReportArchitectureStats( const char* reason ) const;
     void ReportDeviceLost( const char* context, HRESULT result ) const;
     void CheckDXRSupport();
     void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
@@ -852,7 +825,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     {
         RenderCapabilities capabilities;
         capabilities.supportsBackbufferCapture = SupportsBackbufferCapture();
-        capabilities.supportsGpuTimers = m_gpuTimers.queryHeap != nullptr;
+        capabilities.supportsGpuTimers = m_diagnostics.SupportsGpuTimers();
         capabilities.supportsDxrReflection = m_raytracingOwner.Supported();
         capabilities.supportsDebugLines = true;
         return capabilities;
@@ -860,15 +833,11 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     void ResetFrameDrawCalls() override
     {
-        m_frameDrawCallHighWater = (std::max)( m_frameDrawCallHighWater, m_frameDrawCallCount );
-        m_frameDrawCallCount = 0;
-        m_frameVisibilityStats = RenderVisibilityStats();
-        m_drawCallTrace.BeginFrame();
+        m_diagnostics.ResetFrameDrawCalls();
     }
     void RecordDrawCall( const DrawCallRecord& record ) override
     {
-        ++m_frameDrawCallCount;
-        m_drawCallTrace.RecordDrawCall( record );
+        m_diagnostics.RecordDrawCall( record );
     }
     void RecordDrawCall()
     {
@@ -876,36 +845,27 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     }
     int GetFrameDrawCallCount() const override
     {
-        return m_frameDrawCallCount;
+        return m_diagnostics.FrameDrawCallCount();
     }
     void RecordVisibility( RenderVisibilityView view, int candidates, int submitted, int culled, int draws ) override
     {
-        const int index = static_cast<int>( view );
-        if ( index < 0 || index >= static_cast<int>( RenderVisibilityView::Count ) )
-        {
-            return;
-        }
-        RenderVisibilityViewStats& stats = m_frameVisibilityStats.views[index];
-        stats.candidates += candidates;
-        stats.submitted += submitted;
-        stats.culled += culled;
-        stats.draws += draws;
+        m_diagnostics.RecordVisibility( view, candidates, submitted, culled, draws );
     }
     RenderVisibilityStats GetFrameVisibilityStats() const override
     {
-        return m_frameVisibilityStats;
+        return m_diagnostics.FrameVisibilityStats();
     }
     DrawCallTraceSnapshot GetFrameDrawCallTrace() const override
     {
-        return m_drawCallTrace.Snapshot();
+        return m_diagnostics.FrameDrawCallTrace();
     }
     void PushDrawCallTraceScope( const char* fullPathOrLeaf, uint32_t hash ) override
     {
-        m_drawCallTrace.PushScope( fullPathOrLeaf, hash );
+        m_diagnostics.PushDrawCallTraceScope( fullPathOrLeaf, hash );
     }
     void PopDrawCallTraceScope( uint32_t hash ) override
     {
-        m_drawCallTrace.PopScope( hash );
+        m_diagnostics.PopDrawCallTraceScope( hash );
     }
 
     SkullbonezCore::Core::SbResult InitDXR( uint64_t terrainVBVA,

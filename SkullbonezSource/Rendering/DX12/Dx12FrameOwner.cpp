@@ -6,7 +6,9 @@ Purpose:
 Summary:
   The owner sequences command-list open/close, queue submission, fence waits,
   upload reservations, profiler markers, and resource retirement without
-  exposing the aggregate renderer backend to draw-time collaborators.
+  exposing the aggregate renderer backend to draw-time collaborators. A narrow
+  diagnostics view exposes timestamp recording, fence polling, and cold fault
+  configuration without submission authority.
 
 Glossary:
   Recording epoch: One reusable command-list lifetime from successful Reset to Close.
@@ -17,10 +19,12 @@ Invariants:
   - The two-frame ring advances only after submission and covering-fence bookkeeping agree.
   - Steady-runtime upload exhaustion drops the caller instead of allocating or stalling.
   - Profiler scopes close before submission and restore only on the replacement command list.
+  - Dx12DiagnosticsFrame cannot reach uploads, descriptors, or frame advancement.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RenderBackendDX12.h"
@@ -44,7 +48,8 @@ Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device,
                                 Dx12TextureOwner& textures,
                                 Dx12DescriptorHeaps& descriptors )
     : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
-      m_drawGate( *this ), m_uploadReservations( *this ), m_resourceRelease( *this ), m_captureFrame( *this )
+      m_drawGate( *this ), m_uploadReservations( *this ), m_resourceRelease( *this ), m_captureFrame( *this ),
+      m_diagnosticsFrame( *this )
 {
 }
 
@@ -1050,4 +1055,46 @@ Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
         outcome.failedOperation = "Wait";
     }
     return outcome;
+}
+
+
+SkullbonezCore::Core::SbResult Dx12DiagnosticsFrame::EnsureOpen()
+{
+    return m_owner.EnsureOpen();
+}
+
+
+bool Dx12DiagnosticsFrame::CanRecord() const
+{
+    return m_owner.CanRecord();
+}
+
+
+ID3D12GraphicsCommandList* Dx12DiagnosticsFrame::CommandList() const
+{
+    return m_owner.CommandList();
+}
+
+
+bool Dx12DiagnosticsFrame::FrameFenceReady() const
+{
+    return m_owner.m_device.FrameFence().IsReady();
+}
+
+
+UINT64 Dx12DiagnosticsFrame::CompletedFenceValue() const
+{
+    return m_owner.m_device.FrameFence().CompletedValue();
+}
+
+
+SkullbonezCore::Core::SbResult Dx12DiagnosticsFrame::WaitForFenceValue( UINT64 fenceValue ) const
+{
+    return m_owner.m_device.FrameFence().WaitForValue( fenceValue );
+}
+
+
+void Dx12DiagnosticsFrame::ConfigureFaultInjection( const char* token )
+{
+    m_owner.m_faultInjection.Configure( token );
 }

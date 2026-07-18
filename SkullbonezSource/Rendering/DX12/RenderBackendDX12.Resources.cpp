@@ -24,6 +24,7 @@ Invariants:
   must stay explicit.
   - Mesh resource creation stops before pointer access when command reopening
     or upload reservation has latched a failure.
+  - Meshes borrow Dx12Diagnostics as one owner, never separate counter/trace aliases.
   - Shader reload is disabled without the exact launch token and never mutates
     live bytecode before the complete bake and replacement contracts pass.
 
@@ -220,8 +221,7 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
     }
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
-    auto mesh =
-        std::make_unique<MeshDX12>( m_renderDevice, m_frameOwner.DrawGate(), m_drawCallTrace, m_frameDrawCallCount );
+    auto mesh = std::make_unique<MeshDX12>( m_renderDevice, m_frameOwner.DrawGate(), m_diagnostics );
     if ( !mesh->Create( Device(),
                         CommandList(),
                         data,

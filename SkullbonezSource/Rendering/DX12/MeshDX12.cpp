@@ -4,10 +4,9 @@ Purpose:
   Implements mesh buffers, upload flow, and draw binding for the DX12 renderer.
 
 Summary:
-  MeshDX12.cpp implements mesh buffers, upload flow, and draw binding for the
-  DX12 renderer. As an implementation unit, keep edits anchored on DX12
-  ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  Mesh creation copies cold asset data into frame upload storage and publishes a
+  default-heap vertex buffer. Draws pass through the frame gate and record their
+  evidence through the concrete diagnostics owner before native submission.
 
 Glossary:
   Upload arena: Frame-scoped CPU-visible staging memory whose bytes may be
@@ -24,6 +23,7 @@ Invariants:
     initialized before mesh creation.
   - An upload reservation failure returns before memcpy or GPU command
     recording; address zero is the failure sentinel.
+  - Draw diagnostics are recorded only after the draw gate accepts the command.
 
 Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.h
@@ -41,9 +41,9 @@ Related:
 using namespace SkullbonezCore::Rendering;
 
 
-MeshDX12::MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, DrawCallTrace& drawTrace, int& drawCount )
-    : m_device( device ), m_drawGate( drawGate ), m_drawTrace( drawTrace ), m_drawCount( drawCount ),
-      m_vertexCount( 0 ), m_stride( 0 ), m_format( VertexFormat12::Pos3 )
+MeshDX12::MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics )
+    : m_device( device ), m_drawGate( drawGate ), m_diagnostics( diagnostics ), m_vertexCount( 0 ), m_stride( 0 ),
+      m_format( VertexFormat12::Pos3 )
 {
     m_vbView = {};
 }
@@ -182,8 +182,7 @@ void MeshDX12::Draw() const
     // vertex buffer. Parameters: (vertexCount, instanceCount=1, startVertex=0, startInstance=0).
     // "Instanced" here means you *could* draw multiple copies, but we pass 1 for a single mesh.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    ++m_drawCount;
-    m_drawTrace.RecordDrawCall( { DrawCallKind::Mesh, "Mesh", m_vertexCount, 1 } );
+    m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "Mesh", m_vertexCount, 1 } );
     commandList->DrawInstanced( (UINT)m_vertexCount, 1, 0, 0 );
 }
 
@@ -205,8 +204,7 @@ void MeshDX12::DrawInstanced( int instanceCount ) const
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     commandList->IASetVertexBuffers( 0, 1, &m_vbView );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    ++m_drawCount;
-    m_drawTrace.RecordDrawCall( { DrawCallKind::Mesh, "MeshInstanced", m_vertexCount, instanceCount } );
+    m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "MeshInstanced", m_vertexCount, instanceCount } );
     commandList->DrawInstanced( (UINT)m_vertexCount, (UINT)instanceCount, 0, 0 );
 }
 

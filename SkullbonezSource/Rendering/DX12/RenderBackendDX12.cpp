@@ -235,7 +235,7 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
     stats.uploadFlushCount = m_frameOwner.UploadFlushCount();
     stats.uploadDropCount = m_frameOwner.UploadDropCount();
 
-    const Dx12ReadbackBufferStats timerReadbackStats = m_gpuTimers.readback.GetStats();
+    const Dx12ReadbackBufferStats timerReadbackStats = m_diagnostics.TimerReadbackStats();
     if ( timerReadbackStats.ready )
     {
         stats.timerReadbackBytes = timerReadbackStats.sizeBytes;
@@ -322,19 +322,6 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::WaitForGpu()
 }
 
 
-void RenderBackendDX12::ConfigureFaultInjection()
-{
-#ifdef _DEBUG
-    char token[64] = {};
-    const DWORD length =
-        GetEnvironmentVariableA( "SKULLBONEZ_DX12_FAULT", token, static_cast<DWORD>( sizeof( token ) ) );
-    m_frameOwner.ConfigureFaultInjection( length > 0 && length < sizeof( token ) ? token : nullptr );
-#else
-    m_frameOwner.ConfigureFaultInjection( nullptr );
-#endif
-}
-
-
 SkullbonezCore::Core::SbResult RenderBackendDX12::SubmitClosedCommandList()
 {
     return m_frameOwner.SubmitClosed();
@@ -401,75 +388,6 @@ bool RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
                   resourceName ? resourceName : "unknown" );
     }
     return true;
-}
-
-
-void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
-{
-    const Dx12CpuDescriptorAllocatorStats rtvStats = m_descriptorHeaps.RtvStats();
-    const Dx12CpuDescriptorAllocatorStats dsvStats = m_descriptorHeaps.DsvStats();
-    const Dx12DescriptorAllocatorStats descriptorStats = m_descriptorHeaps.GetStats();
-    UINT64 uploadPeakBytes = 0;
-    UINT64 uploadCapacityBytes = 0;
-    UINT64 uploadCategoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        const Dx12UploadArenaStats uploadStats = m_frameOwner.Uploads().GetStats( static_cast<UINT>( i ) );
-        uploadPeakBytes = (std::max)( uploadPeakBytes, uploadStats.peakBytes );
-        uploadCapacityBytes += uploadStats.capacityBytes;
-        for ( std::size_t categoryIndex = 0; categoryIndex < RENDER_UPLOAD_CATEGORY_COUNT; ++categoryIndex )
-        {
-            uploadCategoryPeakBytes[categoryIndex] =
-                (std::max)( uploadCategoryPeakBytes[categoryIndex], uploadStats.categoryPeakBytes[categoryIndex] );
-        }
-    }
-
-    // This event is intentionally written at the architecture boundary rather
-    // than in every draw call. It tells a future render-graph/device pass how
-    // much descriptor and upload memory the old backend needed, without turning
-    // the hot path into noisy logging. The numbers are also layman-readable:
-    // "RTV/DSV descriptors" are CPU-only output/depth target view slots,
-    // "static SRVs" are persistent texture/view slots, "transient SRVs" are
-    // per-frame descriptor copies, and "upload peak" is the largest CPU-written
-    // staging allocation used by any one in-flight frame.
-    SkullbonezCore::Core::Log().WriteEventf(
-        "dx12_render_architecture_stats reason=%s raster_contract=%s root_parameters=%u "
-        "raster_bindless_slots=%d texture_indices_register=b%u "
-        "rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u static_srv_high_water=%u "
-        "transient_srv_peak=%u/%u draw_call_high_water=%d "
-        "upload_peak_bytes=%llu upload_capacity_bytes=%llu "
-        "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu "
-        "upload_instances_peak_bytes=%llu upload_textures_peak_bytes=%llu "
-        "upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu",
-        reason ? reason : "unknown",
-        UnifiedRasterRootSignature::NAME,
-        UnifiedRasterRootSignature::ROOT_PARAMETER_COUNT,
-        UnifiedRasterRootSignature::TEXTURE_SLOT_COUNT,
-        UnifiedRasterRootSignature::SHADER_REGISTER_TEXTURE_INDICES,
-        rtvStats.used,
-        rtvStats.capacity,
-        dsvStats.used,
-        dsvStats.capacity,
-        descriptorStats.staticUsed,
-        descriptorStats.staticCapacity,
-        descriptorStats.staticHighWater,
-        descriptorStats.transientPeakThisRun,
-        descriptorStats.transientCapacityPerFrame,
-        (std::max)( m_frameDrawCallHighWater, m_frameDrawCallCount ),
-        static_cast<unsigned long long>( uploadPeakBytes ),
-        static_cast<unsigned long long>( uploadCapacityBytes ),
-        static_cast<unsigned long long>(
-            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::Constants )] ),
-        static_cast<unsigned long long>(
-            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::DynamicVertex )] ),
-        static_cast<unsigned long long>(
-            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::InstanceData )] ),
-        static_cast<unsigned long long>(
-            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::TextureRows )] ),
-        static_cast<unsigned long long>(
-            uploadCategoryPeakBytes[static_cast<std::size_t>( RenderUploadCategory::DebugPredictionOverlay )] ),
-        static_cast<unsigned long long>( m_frameOwner.UploadFlushCount() ),
-        static_cast<unsigned long long>( m_frameOwner.UploadDropCount() ) );
 }
 
 
@@ -635,7 +553,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // failure and submitted-work uncertainty. Dx12RenderDevice has already
     // closed the newly created list.
     m_frameOwner.ResetForDevice();
-    ConfigureFaultInjection();
+    m_diagnostics.ConfigureFaultInjection( m_frameOwner.DiagnosticsFrame() );
 
     // Invariant: the render device is the only owner and access path for its
     // factory, queue, allocators, swap chain, command list, and frame fence.
@@ -779,54 +697,13 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
         }
     }
 
-    // GPU timestamp query heap — used for GPU-side performance profiling. The GPU writes
-    // timestamps at specific points in the command stream, which we later read back to
-    // calculate elapsed time for specific rendering passes (terrain, spheres, water, etc.).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createqueryheap
+    // GPU timestamp ownership is cold device-epoch diagnostics. The concrete
+    // owner creates the query/readback pair and keeps covering-fence state local.
+    const SkullbonezCore::Core::SbResult gpuTimerResult =
+        m_diagnostics.InitializeGpuTimers( Device(), m_renderDevice.GraphicsQueue() );
+    if ( !gpuTimerResult.ok )
     {
-        D3D12_QUERY_HEAP_DESC qhDesc = {};
-        qhDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-        qhDesc.Count = (UINT)TIMER_HEAP_SIZE;
-        if ( SUCCEEDED( Device()->CreateQueryHeap( &qhDesc, IID_PPV_ARGS( &m_gpuTimers.queryHeap ) ) ) )
-        {
-            NameDx12Object( m_gpuTimers.queryHeap, L"Skullbonez DX12 GPU Timer Query Heap" );
-            // Readback buffer — CPU-readable memory where GPU timer results are copied to.
-            // The READBACK heap type means the CPU can read from it (but the GPU cannot render to it).
-            // Docs:
-            // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-            const UINT64 timerReadbackBytes = static_cast<UINT64>( TIMER_HEAP_SIZE ) * sizeof( uint64_t );
-            // Dx12ReadbackBuffer owns the CPU-readable resource. The backend
-            // still decides when the fence is safe to read, but it no longer
-            // carries the raw COM allocation/release path for timer bytes.
-            // Buffers on all heap types are effectively created in COMMON state in D3D12
-            // regardless of the specified initial state. For READBACK buffers the runtime
-            // accepts any state but always uses COMMON — be explicit to keep the debug layer
-            // quiet. CPU Map/Unmap access is independent of the GPU-visible resource state.
-            // Docs:
-            // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-            if ( !m_gpuTimers.readback.InitBuffer( Device(),
-                                                   timerReadbackBytes,
-                                                   L"Skullbonez DX12 GPU Timer Readback Buffer" ) )
-            {
-                m_gpuTimers.queryHeap->Release();
-                m_gpuTimers.queryHeap = nullptr;
-            }
-            else
-            {
-                const SkullbonezCore::Core::SbResult timestampFrequencyResult =
-                    Dx12BackendInitResult( m_renderDevice.GraphicsQueue()->GetTimestampFrequency( &m_gpuTimers.freq ),
-                                           "GetTimestampFrequency failed" );
-                if ( !timestampFrequencyResult.ok )
-                {
-                    // Lifetime: a frequency failure leaves the profiler unusable,
-                    // so release both timer resources before aborting initialization.
-                    m_gpuTimers.readback.Reset();
-                    m_gpuTimers.queryHeap->Release();
-                    m_gpuTimers.queryHeap = nullptr;
-                    return timestampFrequencyResult;
-                }
-            }
-        }
+        return gpuTimerResult;
     }
 
     m_pipelineOwner.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
@@ -1208,16 +1085,10 @@ void RenderBackendDX12::Shutdown()
     // was created from.
     ShutdownDXR();
 
-    ReportArchitectureStats( "Shutdown" );
+    m_diagnostics.ReportArchitectureStats( "Shutdown", m_descriptorHeaps, m_frameOwner );
     m_graphTransientPool.ReleaseAfterTerminalDrain( "Shutdown" );
 
-    // GPU timer cleanup
-    m_gpuTimers.readback.Reset();
-    if ( m_gpuTimers.queryHeap )
-    {
-        m_gpuTimers.queryHeap->Release();
-        m_gpuTimers.queryHeap = nullptr;
-    }
+    m_diagnostics.ShutdownGpuTimers();
 
     // Report any accumulated D3D12 validation errors to dx12_validation.txt
     {
@@ -1295,39 +1166,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
 
     // Opportunistically consume the previous frame's resolved timer buffer before writing
     // new query results into the same readback resource.
-    TryConsumeGpuTimerReadback( false );
+    m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), false );
 
     // Resolve GPU timer queries — only resolve contiguous ranges of slots that actually
     // had EndQuery recorded this frame. Resolving unwritten slots triggers D3D12 error 1319.
-    bool resolvedTimerSlotsThisFrame = false;
-    if ( m_gpuTimers.queryHeap )
-    {
-        int i = 0;
-        while ( i < TIMER_HEAP_SIZE )
-        {
-            // skip unwritten slots
-            if ( !m_gpuTimers.slotWritten[i] )
-            {
-                ++i;
-                continue;
-            }
-            // find end of this contiguous written run
-            int start = i;
-            while ( i < TIMER_HEAP_SIZE && m_gpuTimers.slotWritten[i] )
-            {
-                ++i;
-            }
-            UINT byteOffset = (UINT)( start * sizeof( uint64_t ) );
-            CommandList()->ResolveQueryData( m_gpuTimers.queryHeap,
-                                             D3D12_QUERY_TYPE_TIMESTAMP,
-                                             (UINT)start,
-                                             (UINT)( i - start ),
-                                             m_gpuTimers.readback.Resource(),
-                                             byteOffset );
-            resolvedTimerSlotsThisFrame = true;
-        }
-        std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
-    }
+    const bool resolvedTimerSlotsThisFrame = m_diagnostics.ResolveWrittenGpuTimers( m_frameOwner.DiagnosticsFrame() );
 
     m_frameOwner.TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
     if ( m_frameOwner.HasFailure() )
@@ -1390,18 +1233,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
     // non-blocking TryConsume at the top of Present), do a blocking consume now to avoid
     // permanently losing that frame's GPU timing data by overwriting readFenceValue.
-    if ( resolvedTimerSlotsThisFrame )
-    {
-        if ( m_gpuTimers.readPending )
-        {
-            // In free-running off-vsync mode the CPU can lap the GPU. Dropping one
-            // stale timer sample is better than blocking Present() and throttling
-            // the whole frame loop; the next fence will publish fresh data.
-            m_gpuTimers.readPending = false;
-        }
-        m_gpuTimers.readPending = true;
-        m_gpuTimers.readFenceValue = presentFenceValue;
-    }
+    m_diagnostics.PublishResolvedGpuTimerFence( resolvedTimerSlotsThisFrame, presentFenceValue );
 
     // Advance to next frame's allocator and swap chain buffer.
     m_frameOwner.AdvanceFrameIndices();
@@ -1450,7 +1282,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Finish()
         {
             return waitResult;
         }
-        TryConsumeGpuTimerReadback( true );
+        m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), true );
         return SkullbonezCore::Core::SbResult::Success();
     }
 
@@ -1474,7 +1306,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Finish()
     {
         return waitResult;
     }
-    TryConsumeGpuTimerReadback( true );
+    m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), true );
 
     // Hazard: runtime pipeline-sync calls Finish() between physics and render.
     // That wait is allowed to drain submitted GPU work, but the next render pass

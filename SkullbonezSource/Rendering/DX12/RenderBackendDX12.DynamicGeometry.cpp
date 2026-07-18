@@ -7,7 +7,8 @@ Purpose:
 Mental model:
   Dx12GeometryOwner retains geometry handles and warmed overlay resources.
   RenderBackendDX12 establishes a valid command epoch and lends per-operation
-  values; the owner records geometry work without retaining the coordinator.
+  values plus the concrete diagnostics owner; geometry records draw evidence
+  without retaining the coordinator or raw diagnostic fields.
 
 Glossary:
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
@@ -28,8 +29,10 @@ Invariants:
     failure.
   - GeometryOwner stores no backend pointer, callback, or polymorphic service;
     every frame dependency is explicit at the operation boundary.
+  - One accepted native geometry draw records one row through Dx12Diagnostics.
 
 Related:
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -259,8 +262,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
                                                 uint8_t* uploadPointer,
                                                 ID3D12GraphicsCommandList* commandList,
                                                 Dx12DrawGate& drawGate,
-                                                DrawCallTrace& drawTrace,
-                                                int& drawCount )
+                                                Dx12Diagnostics& diagnostics )
 {
     if ( handle == 0 || handle > (uint32_t)m_dynamicVBs.size() || vertexCount <= 0 )
     {
@@ -301,8 +303,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     commandList->IASetVertexBuffers( 0, 1, &vbv );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    ++drawCount;
-    drawTrace.RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "DynamicVB", vertexCount, 1 } );
+    diagnostics.RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "DynamicVB", vertexCount, 1 } );
     commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
 }
 
@@ -321,8 +322,7 @@ void Dx12GeometryOwner::DrawLinesColored( const float* data,
                                           ID3D12GraphicsCommandList* commandList,
                                           Dx12PipelineOwner& pipeline,
                                           Dx12DrawGate& drawGate,
-                                          DrawCallTrace& drawTrace,
-                                          int& drawCount )
+                                          Dx12Diagnostics& diagnostics )
 {
     if ( vertCount <= 0 )
     {
@@ -389,8 +389,7 @@ void Dx12GeometryOwner::DrawLinesColored( const float* data,
     // Bind render targets (depth disabled in PSO)
     pipeline.BindCurrentOutputs( commandList );
 
-    ++drawCount;
-    drawTrace.RecordDrawCall( { DrawCallKind::DebugLines, "DebugLines", vertCount, 1 } );
+    diagnostics.RecordDrawCall( { DrawCallKind::DebugLines, "DebugLines", vertCount, 1 } );
     commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
 }
 
@@ -405,8 +404,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
                                                        uint8_t* uploadPointer,
                                                        ID3D12GraphicsCommandList* commandList,
                                                        Dx12DrawGate& drawGate,
-                                                       DrawCallTrace& drawTrace,
-                                                       int& drawCount )
+                                                       Dx12Diagnostics& diagnostics )
 {
     if ( vertexCount <= 0 || !data || !viewProjMatrix16 || vbAddress == 0 || !uploadPointer )
     {
@@ -468,8 +466,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
     vbView.StrideInBytes = static_cast<UINT>( vertexLayout.stride );
     commandList->IASetVertexBuffers( 0, 1, &vbView );
 
-    ++drawCount;
-    drawTrace.RecordDrawCall(
+    diagnostics.RecordDrawCall(
         { DrawCallKind::DynamicVertexBuffer, TransientTriangleTraceLabel( style ), vertexCount, 1 } );
     commandList->DrawInstanced( static_cast<UINT>( vertexCount ), 1, 0, 0 );
 }
@@ -658,8 +655,7 @@ void Dx12GeometryOwner::DrawInstancedMesh( uint32_t handle,
                                            int instanceCount,
                                            ID3D12GraphicsCommandList* commandList,
                                            Dx12DrawGate& drawGate,
-                                           DrawCallTrace& drawTrace,
-                                           int& drawCount )
+                                           Dx12Diagnostics& diagnostics )
 {
     if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() || instanceCount <= 0 )
     {
@@ -695,8 +691,7 @@ void Dx12GeometryOwner::DrawInstancedMesh( uint32_t handle,
     // multiplied by instanceCount copies.
     // This is the key optimization: 300 balls drawn in a single GPU dispatch.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    ++drawCount;
-    drawTrace.RecordDrawCall( { DrawCallKind::InstancedMesh, "InstancedMesh", staticVertCount, instanceCount } );
+    diagnostics.RecordDrawCall( { DrawCallKind::InstancedMesh, "InstancedMesh", staticVertCount, instanceCount } );
     commandList->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
 }
 
@@ -822,8 +817,7 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
                                             address ? GetUploadPtr( address ) : nullptr,
                                             CommandList(),
                                             m_frameOwner.DrawGate(),
-                                            m_drawCallTrace,
-                                            m_frameDrawCallCount );
+                                            m_diagnostics );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 
@@ -854,8 +848,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
                                       CommandList(),
                                       m_pipelineOwner,
                                       m_frameOwner.DrawGate(),
-                                      m_drawCallTrace,
-                                      m_frameDrawCallCount );
+                                      m_diagnostics );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 
@@ -889,8 +882,7 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
                                                    address ? GetUploadPtr( address ) : nullptr,
                                                    CommandList(),
                                                    m_frameOwner.DrawGate(),
-                                                   m_drawCallTrace,
-                                                   m_frameDrawCallCount );
+                                                   m_diagnostics );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 
@@ -969,8 +961,7 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
                                        instanceCount,
                                        CommandList(),
                                        m_frameOwner.DrawGate(),
-                                       m_drawCallTrace,
-                                       m_frameDrawCallCount );
+                                       m_diagnostics );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 

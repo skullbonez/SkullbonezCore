@@ -4,10 +4,9 @@ Purpose:
   Declares mesh buffers, upload flow, and draw binding for the DX12 renderer.
 
 Summary:
-  MeshDX12.h declares mesh buffers, upload flow, and draw binding for the DX12
-  renderer. As a public header, keep edits anchored on DX12 ownership,
-  descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  MeshDX12 retains its vertex buffer and two narrow concrete collaborators: a
+  draw gate for command readiness and Dx12Diagnostics for bounded draw evidence.
+  It has no aggregate backend, raw trace, or raw counter reference.
 
 Glossary:
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
@@ -21,9 +20,11 @@ Invariants:
     must stay explicit.
   - Draw dependencies are stable concrete owners; mesh objects never retain the
     aggregate backend or callbacks into it.
+  - One successful native draw records exactly one diagnostic draw row.
 
 Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -45,7 +46,7 @@ class Dx12PipelineOwner;
 class Dx12TextureOwner;
 class Dx12DescriptorAllocator;
 class Dx12CommandRecordingState;
-class DrawCallTrace;
+class Dx12Diagnostics;
 class Dx12DrawGate;
 
 
@@ -72,8 +73,7 @@ class MeshDX12 : public IMesh
   private:
     Dx12RenderDevice& m_device;
     Dx12DrawGate& m_drawGate;
-    DrawCallTrace& m_drawTrace;
-    int& m_drawCount;
+    Dx12Diagnostics& m_diagnostics;
     ID3D12Resource* m_vertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW m_vbView;
     int m_vertexCount;
@@ -81,7 +81,7 @@ class MeshDX12 : public IMesh
     VertexFormat12 m_format;
 
   public:
-    MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, DrawCallTrace& drawTrace, int& drawCount );
+    MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
     ~MeshDX12() override;
 
     bool Create( ID3D12Device* device,

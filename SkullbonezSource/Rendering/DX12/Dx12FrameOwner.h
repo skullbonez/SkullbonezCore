@@ -8,7 +8,8 @@ Summary:
   back-buffer state, profiler suspension, and deferred release for one bounded
   two-frame lifecycle. It borrows Dx12DescriptorHeaps so descriptor rows reset
   and retire only when this owner proves their covering fence. Restricted
-  capability views expose only draw, upload, retirement, or capture operations.
+  capability views expose only draw, upload, retirement, capture, or diagnostic
+  timing/fault operations.
 
 Glossary:
   Recording epoch: One reusable command-list lifetime from successful Reset to Close.
@@ -22,10 +23,12 @@ Invariants:
   - Backbuffer access advances only after the corresponding native barrier emits.
   - The first recording/device failure is sticky until a new device lifecycle resets the owner.
   - Capability objects cannot reach unrelated backend state.
+  - Diagnostics can inspect the fence timeline but cannot submit or advance it.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp
   - SkullbonezSource/Rendering/DX12/Dx12DeferredReleaseOwner.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - Agentic/Reference/comment-style-guide.md
 */
@@ -188,6 +191,27 @@ class Dx12CaptureFrame
     Dx12FrameOwner& m_owner;
 };
 
+// Capability: diagnostics may record timestamp queries, inspect only the frame
+// fence timeline, and configure cold fault policy. It cannot submit work,
+// advance frame indices, reach uploads/descriptors, or mutate pipeline state.
+class Dx12DiagnosticsFrame
+{
+  public:
+    explicit Dx12DiagnosticsFrame( Dx12FrameOwner& owner ) : m_owner( owner )
+    {
+    }
+    SkullbonezCore::Core::SbResult EnsureOpen();
+    bool CanRecord() const;
+    ID3D12GraphicsCommandList* CommandList() const;
+    bool FrameFenceReady() const;
+    UINT64 CompletedFenceValue() const;
+    SkullbonezCore::Core::SbResult WaitForFenceValue( UINT64 fenceValue ) const;
+    void ConfigureFaultInjection( const char* token );
+
+  private:
+    Dx12FrameOwner& m_owner;
+};
+
 // Concept: one owner governs the complete command/frame epoch.
 //
 // It owns every state row whose invariant crosses Close, Execute, Signal, Wait,
@@ -223,6 +247,10 @@ class Dx12FrameOwner
     Dx12CaptureFrame& CaptureFrame()
     {
         return m_captureFrame;
+    }
+    Dx12DiagnosticsFrame& DiagnosticsFrame()
+    {
+        return m_diagnosticsFrame;
     }
     SkullbonezCore::Core::SbResult EnsureOpen();
     SkullbonezCore::Core::SbResult SubmitClosed();
@@ -292,10 +320,6 @@ class Dx12FrameOwner
     void AbandonSubmittedWork()
     {
         m_submittedWork.AbandonForRemovedDevice();
-    }
-    void ConfigureFaultInjection( const char* token )
-    {
-        m_faultInjection.Configure( token );
     }
     void ResetForDevice();
     void ResetAfterShutdown();
@@ -396,6 +420,7 @@ class Dx12FrameOwner
     void ActivateShader( ShaderDX12* shader );
 
   private:
+    friend class Dx12DiagnosticsFrame;
     void WriteFaultProbe() const;
     bool PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category );
 
@@ -425,6 +450,7 @@ class Dx12FrameOwner
     Dx12UploadReservations m_uploadReservations;
     Dx12ResourceRelease m_resourceRelease;
     Dx12CaptureFrame m_captureFrame;
+    Dx12DiagnosticsFrame m_diagnosticsFrame;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore
