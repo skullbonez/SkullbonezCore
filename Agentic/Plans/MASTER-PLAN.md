@@ -110,12 +110,19 @@ scene-controller decomposition round 2 closed S0-S6 and left the live ledger
 under rule 4. Closure evidence is in
 `../Reports/2026-07-18/scene-controller-round-2-closure.md`.
 
+The denominator grew 18 → 26 on 2026-07-18 when the owner registered the
+eight-task physics body-count scale campaign (persistent broadphase,
+zero-cost sleepers, bandwidth diet, owner-gated graph-colored solver
+parallelism) from the same-day owner discussion of high-body-count engine
+techniques.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 2 | 8 | 25% |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 0 | 5 | 0% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
-| **Active/future total** | **2** | **18** | **11%** |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
+| **Active/future total** | **2** | **26** | **8%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -167,6 +174,14 @@ Scene-controller round 2 is closed. The remaining binding execution order is:
 2. `naming-and-identity-debt` (N0-N4) — its scene-plan dependency is satisfied
 3. `small-findings-hardening` (H0-H4) — strictly after the DX12 plan (H2
    rebases on the finalized pipeline-owner surface)
+
+`physics-body-count-scale-campaign` (P0-P7) is a parallel-eligible physics
+lane: it shares no files with the three round-7 plans and may run
+concurrently on its own branch. Its only cross-lane coordination point is
+`small-findings-hardening` H3 if cast rulings touch
+`Physics/PhysicsFixedList.h`. Its P1 and P6 determinism transitions are the
+sole owner-approved baseline/golden exceptions in the live portfolio; every
+other task in every lane keeps the zero-refresh rule.
 
 The three 2026-07-17 round-6 plans are closed: scene-controller ownership
 T0-T6, monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The
@@ -704,6 +719,46 @@ each plan ends with one independent review.
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 2/8 | D2 capture/readback ownership extraction |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 0/5 | N0 rename census after round-2 scene split |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | Active — blocked on DX12 plan | 0/5 | H0 rulings census after backend decomposition lands |
+
+## Physics Body-Count Scale Campaign (2026-07-18)
+
+Source: the 2026-07-18 owner discussion of high-body-count engine techniques
+(Bullet incremental broadphase and pair persistence, Jolt free sleepers and
+thread-count-invariant determinism, Box2D v3 deterministic graph-colored
+multithreaded solving), grounded in the engine's own evidence: the solver
+core is 0.86% of the step (S6), the S6 SIMD experiment proved the frame is
+memory-bound, `PhysicsBroadphaseStage` reinserts every body every step
+(`PhysicsBroadphaseStage.cpp:357-371`), and sleeping bodies pay full
+insertion/pair/prune cost (`PruneSleepPairs` filters after generation,
+`PhysicsBroadphaseStage.cpp:460`).
+
+Campaign order: P0 instrumentation + sleeping-heavy 5,000-body scene and
+measurement baseline → P1 canonical pair-order determinism transition
+(owner-approved baseline/golden regeneration, set-equivalence probe first)
+→ P2 persistent incremental grid → P3 zero-cost sleepers → P4 hot-state
+compaction/pass fusion → P5 measurement checkpoint and Tier-2 owner
+decision → P6 conditional deterministic graph-colored solver parallelism
+(second approved transition) → P7 final matrix, comment audit, independent
+review, closure.
+
+Standing rules binding this campaign: run-to-run and worker-count
+(0/1/4) byte-identical determinism at every task boundary; P1 and P6 are
+the only baseline/golden-visible tasks, each governed by the plan's
+Determinism Transition Protocol (order-insensitive set-equivalence probe
+passes before any artifact regenerates; physics CSVs regenerate only from
+the final Debug binary; the 200-box replay golden regenerates only with
+explicit per-instance owner approval, one engine process, one prediction
+generation per MASTER rule 11); fixed capacity with Lane F exhaustion and
+zero steady-state allocation throughout; no solver-model change, no SIMD
+(S7 ruling stands), no GPU physics; the Measurement Ledger matrix
+(per-marker medians over `physics_scale_200/520/1000/2000` plus the new
+sleepy scene) is recorded in every implementation task's commit body with
+regressions explained; B0 inclusive-marker accounting applies to all new
+markers.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — parallel-eligible lane | 0/8 | P0 instrumentation, sleepy-scene authoring, and owner ratification of targets and the P1 transition |
 
 ## Features
 

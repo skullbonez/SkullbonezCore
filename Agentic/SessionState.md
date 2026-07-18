@@ -12,14 +12,25 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
-| Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 2 / 18 live tasks; 11%. |
+| Current objective | Execute the round-7 plans in the MASTER-PLAN binding order (DX12 backend ownership, naming/identity debt, small findings hardening) plus the parallel-eligible physics body-count scale campaign P0-P7. |
+| Active/future progress | 2 / 26 live tasks; 8%. |
 | Last broad local gate | Scene round-2 S6 `validate_full` passed in 143.261s: 291/291 tests, 21,455/21,455 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
 | Validation for current edits | DX12 D1 project filters passed at 730/730; `validate_fast` passed 291/291 tests and 21,455/21,455 assertions; `validate_dx12_renderer` passed in 52.978 s with zero InfoQueue errors and committed captures accepted; bounded graphics stress ran crash-free for 61.395 s. No baseline or golden changed. |
 
 ## Live Queue
 
-NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
+NOW. Four live plans, 26 tasks: three round-7 plans plus the 2026-07-18
+     physics body-count scale campaign
+     (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
+     parallel-eligible physics lane (persistent broadphase, zero-cost
+     sleepers, bandwidth diet, owner-gated graph-colored solver). Its next
+     action is P0: instrumentation, the sleepy_5000 scene, the measurement
+     baseline matrix, and owner ratification of targets plus the P1
+     canonical-pair-order transition. P1/P6 are the portfolio's only
+     owner-approved baseline/golden transition points; every other task in
+     every lane keeps the zero-refresh rule.
+
+0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
      18 tasks. Scene-controller round 2 is complete at 7/7 and left the live
      ledger under rule 4. `SceneController` has 43 public declarations, its load
      surface has 18 concrete participants, and one `SceneWorld` owns the six
