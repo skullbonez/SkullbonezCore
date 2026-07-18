@@ -763,7 +763,7 @@ markers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0 complete | 1/8 | P1 candidate-pair set-equivalence probe first, then the authorized canonical-order transition; no artifact refresh before equivalence |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 owner-blocked | 1/8 | P1 failed strict six-scene equivalence at varied ticks 152/332 after canonical solver history dropped pair (18,20); transition reverted, no artifact refresh, owner protocol decision required |
 
 ## Features
 

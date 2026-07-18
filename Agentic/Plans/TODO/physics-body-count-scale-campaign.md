@@ -1,8 +1,8 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 1/8 tasks (P0 complete; P1 next)
-Branch: `nightrunner-17th-july`
+Status: Active — 1/8 tasks (P0 complete; P1 blocked on owner review)
+Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
 `Physics/Stages/PhysicsSleepController.*`, `Physics/PhysicsBodyStore.*`,
@@ -206,6 +206,16 @@ explained or the task is not done.
   - [ ] Thread-count invariance at 0/1/4 workers.
   - Expected cost: neutral-to-noise step time (sorting is O(n+k) with tiny
     constants); record the matrix anyway.
+  - Blocker recorded 2026-07-18: the allocation-free canonical implementation
+    and Debug sorted-set probe were built and run for 360 fixed ticks over all
+    six required scenes. Five scenes matched old/new exactly. In
+    `physics_bench_varied`, canonical solver history removed normalized pair
+    `(18,20)` from the final candidate set at ticks 152 and 332 (legacy count
+    10, canonical count 9), violating the binding tick-for-tick set-equivalence
+    condition. The transition and probe were reverted completely and no
+    artifact moved. P2-P7 remain dependency-blocked until the owner either
+    supplies a design that meets the existing protocol or explicitly revises
+    the transition protocol with new acceptance evidence.
 
 - [ ] P2 — Persistent incremental grid.
   - Implementation: retire the per-frame generation bump as the rebuild

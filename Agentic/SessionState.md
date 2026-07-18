@@ -10,12 +10,12 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-17th-july` |
+| Branch | `nightrunner-18th-july` |
 | Current baseline | Physics scale P0 is complete with zero baseline, golden, screenshot, authored-format, or coverage-floor refresh. |
-| Current objective | Execute `physics-body-count-scale-campaign` P1 next under the equivalence protocol, then continue the campaign in order. |
+| Current objective | Resolve the P1 owner blocker: strict old/new pair-set equivalence failed in the varied scene; P2-P7 cannot cross the dependency barrier. |
 | Active/future progress | 1 / 8 live tasks; 13%. |
 | Last broad local gate | P0 `validate_full` passed in approximately 132s: 292/292 tests, 21,458 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, screenshots, and byte-exact physics passed. |
-| Validation for current edits | P0 `validate_perf` and `validate_full` passed from final reviewed source; platform-marker smoke and the six-scene 0/1/4-worker determinism matrix passed. Independent review is clear; comment audit is 16/16 with zero deferred. |
+| Validation for current edits | P1 investigation used a zero-warning Debug build, 8/8 focused SpatialGrid tests, 12 six-scene old/new processes, and two same-binary varied-scene confirmation processes. The transition/probe were reverted; final changes are documentation-only, so no repository validation is required. |
 
 ## Live Queue
 
@@ -23,11 +23,12 @@ NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
      (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
      parallel-eligible physics lane (persistent broadphase, zero-cost
      sleepers, bandwidth diet, owner-gated graph-colored solver). P0 is
-     complete at 1/8. The next action is P1: build the Debug-only candidate-pair
-     set-equivalence probe, capture old-code evidence, then perform the
-     authorized canonical-order transition only after all six old/new scene
-     sets match tick-for-tick. P6 is not pre-authorized and returns to an owner
-     decision at P5. Every other task keeps the zero-refresh rule. P0 evidence:
+     complete at 1/8. P1 is owner-blocked: five six-scene probe captures matched,
+     but `physics_bench_varied` differed at fixed ticks 152 and 332 because pair
+     `(18,20)` disappeared after canonical solver history. The implementation
+     and probe were reverted and no artifact moved. P2-P7 cannot cross the P1
+     dependency barrier. P6 is not pre-authorized and still returns to an owner
+     decision at P5. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
@@ -455,12 +456,12 @@ NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
 
 ## Next Handoff
 
-Round-7 scene decomposition, DX12 backend ownership, naming N0-N4, and
-small-findings H0-H4 are complete and have left the live ledger. Continue
-immediately with `physics-body-count-scale-campaign` P1. P0 is committed at
-1/8 with its matrix and rulings in
-`Agentic/Reports/2026-07-18/body-count-scale-measurements.md`. Build and capture
-the old-code Debug candidate-pair set-equivalence probe before editing pair
-emission order. Do not regenerate behavioral, physics, replay, visual, or
-screenshot artifacts until all six old/new sets match tick-for-tick. P6 still
-requires a fresh owner decision at P5.
+Round-7 work is complete and has left the live ledger. P1's strict transition
+probe failed only in `physics_bench_varied`: old/new final candidate sets differ
+at ticks 152 and 332 by normalized pair `(18,20)`. The attempted transition and
+probe are fully reverted and no baseline, golden, screenshot, or authored data
+moved. Obtain an owner decision before further implementation: retain the
+existing protocol and provide a design that keeps all six sets tick-identical,
+or explicitly revise the protocol to a same-state dual-emitter equivalence rule
+that permits trajectory-derived later-set differences. P2-P7 remain blocked by
+P1; P6 still requires its separate fresh decision at P5.

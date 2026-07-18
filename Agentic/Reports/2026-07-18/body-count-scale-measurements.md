@@ -4,9 +4,9 @@ Date: 2026-07-18
 
 Campaign: `physics-body-count-scale-campaign`
 
-Branch: `nightrunner-17th-july`
+Branch: `nightrunner-18th-july`
 
-Task boundary: P0 complete, P1 next
+Task boundary: P0 complete, P1 owner-blocked
 
 ## P0 Owner Rulings
 
@@ -126,9 +126,36 @@ SHA-256 `F253B3E736542770B8FF372FF993BF156DB7BB4C119156E767D93F03D8CA111A`.
 - Touched-source comment audit: 16/16 files compliant, zero deferred; see
   `physics-body-count-p0-comment-audit.md`.
 
+## P1 Set-Equivalence Blocker
+
+The Debug-only probe sorted each final candidate set before hashing and reserved
+its complete vector capacity during construction. Each scene ran for 180 frames
+(360 fixed ticks) on both the old and canonical emitters. Five scenes matched
+byte-for-byte for every tick:
+
+| Scene | Probe SHA-256 |
+|---|---|
+| `physics_scale_200` | `81F56802B755462D87349C29F223A69B4074F02EBB670B42FA429DEB8DF1B765` |
+| `physics_scale_520` | `04B0CE9626A342145EE60C1B2FC9DF4A1DB91F9EAF1F687DCA1D19E6CA1A74C3` |
+| `physics_scale_1000` | `E8F4570C56C45A679729897B504248508A30DEAD11F6256F0BC33A7BF25F969D` |
+| `physics_scale_2000` | `3D0AC5153EED1A5636B0ADEC21D533473F244BFA5B7F72AEB86B081652169249` |
+| `physics_scale_sleepy_5000` | `F29685B0A377CE3B1934CD9C3FA1C2A60CAE7FC5758DE31048460E580E13BCE9` |
+
+`physics_bench_varied` failed at fixed ticks 152 and 332. The legacy set had ten
+pairs and sorted hash `36D65BE59F63AC9F`; the canonical set had nine pairs and
+hash `DF4231BC4598BEA1`. Full row capture identified the sole missing normalized
+pair as `(18,20)`. A same-binary legacy/canonical diagnostic toggle reproduced
+the result, excluding stale-binary provenance as the cause.
+
+The canonical emitter, focused regression test, and temporary probe were fully
+reverted under the plan's revert-on-failed-equivalence rule. No physics CSV,
+replay golden, visual baseline, screenshot, scene, config, or coverage floor
+changed. This is an owner blocker, not a completed P1 task: either a new design
+must satisfy the existing six-scene tick-for-tick rule, or the owner must
+explicitly revise the protocol before a behavior-visible transition proceeds.
+
 ## Fresh-Agent Handoff
 
-Start P1 only. First build the Debug-only, allocation-free candidate-pair set
-equivalence probe and capture old-code evidence before changing emission order.
-Do not regenerate physics or replay artifacts until all six old/new pair sets
-match tick-for-tick. P6 remains deferred to the P5 owner decision.
+Do not restart P1 implementation without an owner protocol decision. The strict
+probe failed in the varied scene and all source changes were reverted. P2-P7 are
+dependency-blocked; P6 remains separately deferred to the P5 owner decision.
