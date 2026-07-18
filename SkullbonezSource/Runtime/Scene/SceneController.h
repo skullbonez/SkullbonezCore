@@ -53,7 +53,6 @@ Related:
 #include "SceneRuntime.h"
 #include "SceneRuntimeCoordinator.h"
 #include "SceneTerrain.h"
-#include "../../Core/MainMemoryStats.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsApi.h"
@@ -232,21 +231,6 @@ class SceneController
     // Scene entity count is the stable model-slot count shared by scene files,
     // editor picks, replay streams, and cold owner-repair boundaries.
     int SceneEntityCount() const;
-    // These compatibility queries read SceneEntityStore-owned stable behavior
-    // groups; callers receive a row only when their operation requires one.
-    Runtime::SceneBehaviorGroupKind GroupKindAt( int modelIndex ) const;
-    Physics::PhysicsSceneObjectId GroupRootObjectIdAt( int modelIndex ) const;
-    int GroupPartIndexAt( int modelIndex ) const;
-    bool IsSimpleRagdollPart( int modelIndex ) const;
-    bool IsSimpleRagdollTorso( int modelIndex ) const;
-    int RagdollRootModelIndexForPart( int modelIndex ) const;
-    bool TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const;
-    int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const;
-#ifdef _DEBUG
-    bool TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const;
-    void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
-#endif
-    SkullbonezCore::Core::MainMemoryGameObjectStats CollectMemoryStats() const;
     // SceneController uses this narrow presentation-owner command while it
     // coordinates replay topology with physics and entity owners.
     bool CanTrimPresentationRowsForSceneRestore( int modelCount ) const;
@@ -378,8 +362,6 @@ class SceneController
     // Configured model cap used by append/reserve guards.
     int m_activeGameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
     void ReserveForActiveGameModelCapacity();
-    const Runtime::SceneBehaviorGroup& BehaviorGroupAt( int modelIndex ) const;
-    int ResolveBehaviorGroupRootModelIndex( const Runtime::SceneBehaviorGroup& group ) const;
     // Owner boundary: SceneEntityStore owns fixed-tree grouping. Body-store
     // import receives only derived row hints, never scene metadata accessors.
     std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;

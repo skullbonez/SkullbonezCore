@@ -155,7 +155,7 @@ class DiagnosticsRuntime
     const char* MainMemoryDumpPath() const;
     bool MainMemoryDumpRequested() const;
     bool WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
-                              const Runtime::SceneController& models,
+                              const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
                               const RunSceneState& scene,
                               const char* checkpoint,
                               double nowSeconds );

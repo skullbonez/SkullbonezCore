@@ -687,22 +687,23 @@ bool AttachedCameraController::TryResolveRagdollHead( const SceneController& col
         return false;
     }
 
-    if ( !collection.IsSimpleRagdollPart( selectedModelIndex ) )
+    const SceneEntityStore& entities = collection.Entities();
+    if ( !entities.IsSimpleRagdollPart( selectedModelIndex ) )
     {
         return false;
     }
 
-    if ( collection.TryFindSimpleRagdollPart( selectedModelIndex, 1, outHeadModelIndex ) )
+    if ( entities.TryFindSimpleRagdollPart( selectedModelIndex, 1, outHeadModelIndex ) )
     {
         return true;
     }
 
     // Why: the suffix fallback still serves old ragdoll display names, but its
     // membership boundary is the stable group root rather than a cached row.
-    const PhysicsSceneObjectId rootObjectId = collection.GroupRootObjectIdAt( selectedModelIndex );
+    const PhysicsSceneObjectId rootObjectId = entities.GroupRootObjectIdAt( selectedModelIndex );
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( collection.IsSimpleRagdollPart( i ) && collection.GroupRootObjectIdAt( i ).value == rootObjectId.value &&
+        if ( entities.IsSimpleRagdollPart( i ) && entities.GroupRootObjectIdAt( i ).value == rootObjectId.value &&
              EndsWith( PresentationNameForModelIndex( collection, i ), "_head" ) )
         {
             outHeadModelIndex = i;

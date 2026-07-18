@@ -54,7 +54,6 @@ Related:
 #include "../../Core/Config.h"
 
 #include "../../Core/FatalError.h"
-#include "../../Core/MainMemoryStats.h"
 #include "../../Core/SkullScope.h"
 #include "../../Runtime/Debug/CollisionVisualizer.h"
 #include "../../Runtime/Debug/PhysicsDebugVisualizer.h"
@@ -133,12 +132,6 @@ ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& co
     return ShadowCasterStream::None;
 }
 
-template <typename T> uint64_t VectorCapacityBytes( const T& values )
-{
-    return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( typename T::value_type ) );
-}
-
-
 } // namespace
 
 
@@ -151,33 +144,6 @@ void SceneController::ReserveForActiveGameModelCapacity()
     const std::size_t capacity = static_cast<std::size_t>( m_activeGameModelCapacity );
     m_physics.ReserveAuthoredBodyCapacity( capacity );
     m_renderInstanceStore.ReservePresentationCapacity( capacity );
-}
-
-
-const SceneBehaviorGroup& SceneController::BehaviorGroupAt( int modelIndex ) const
-{
-    return SceneEntities().At( modelIndex ).behaviorGroup;
-}
-
-
-int SceneController::ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGroup& group ) const
-{
-    if ( group.kind == SceneBehaviorGroupKind::None )
-    {
-        return -1;
-    }
-    // Why: physics descriptors and compatibility APIs still consume dense rows,
-    // but the scene owner stores only stable identity. Resolve at this cold
-    // boundary instead of caching a movable root row in group metadata.
-    const int rootIndex = SceneEntities().FindBySceneObjectId( group.rootObjectId );
-    if ( rootIndex < 0 )
-    {
-        SB_FATAL( "GameObjects/SceneController",
-                  "Behavior group root is missing. root_id=%u kind=%u",
-                  group.rootObjectId.value,
-                  static_cast<unsigned int>( group.kind ) );
-    }
-    return rootIndex;
 }
 
 
@@ -237,8 +203,10 @@ bool SceneController::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 
 int SceneController::FixedTreeReleaseRootForModelIndex( int modelIndex ) const
 {
-    const SceneBehaviorGroup& group = BehaviorGroupAt( modelIndex );
-    return group.kind == SceneBehaviorGroupKind::ReleasableTree ? ResolveBehaviorGroupRootModelIndex( group ) : -1;
+    const SceneBehaviorGroup& group = SceneEntities().BehaviorGroupAt( modelIndex );
+    return group.kind == SceneBehaviorGroupKind::ReleasableTree
+               ? SceneEntities().ResolveBehaviorGroupRootModelIndex( group )
+               : -1;
 }
 
 
@@ -347,11 +315,12 @@ SceneEntityCreateResult SceneController::TryCreateSceneEntity( SceneEntityCreate
     // The following owner appends use fixed or pre-reserved storage; any count or
     // identity mismatch is Lane F because partial topology cannot be recovered.
     bodyDesc.sceneObjectId = entity.sceneObjectId;
-    bodyDesc.fixedTreeReleaseRootIndex = entity.behaviorGroup.kind != SceneBehaviorGroupKind::ReleasableTree
-                                             ? -1
-                                             : ( entity.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value
-                                                     ? modelIndex
-                                                     : ResolveBehaviorGroupRootModelIndex( entity.behaviorGroup ) );
+    bodyDesc.fixedTreeReleaseRootIndex =
+        entity.behaviorGroup.kind != SceneBehaviorGroupKind::ReleasableTree
+            ? -1
+            : ( entity.behaviorGroup.rootObjectId.value == entity.sceneObjectId.value
+                    ? modelIndex
+                    : SceneEntities().ResolveBehaviorGroupRootModelIndex( entity.behaviorGroup ) );
     // Lifetime: authored descriptors outlive this value-local entity packet.
     // Diagnostics receive stable SceneEntityStore names through the explicit
     // refresh/step view, so never retain the packet's displayName pointer.
@@ -531,175 +500,6 @@ bool SceneController::TryGetPresentationPose( int index,
 int SceneController::SceneEntityCount() const
 {
     return m_renderInstanceStore.PresentationCount();
-}
-
-
-SceneBehaviorGroupKind SceneController::GroupKindAt( int modelIndex ) const
-{
-    return BehaviorGroupAt( modelIndex ).kind;
-}
-
-
-PhysicsSceneObjectId SceneController::GroupRootObjectIdAt( int modelIndex ) const
-{
-    return BehaviorGroupAt( modelIndex ).rootObjectId;
-}
-
-
-int SceneController::GroupPartIndexAt( int modelIndex ) const
-{
-    return BehaviorGroupAt( modelIndex ).partIndex;
-}
-
-
-bool SceneController::IsSimpleRagdollPart( int modelIndex ) const
-{
-    return GroupKindAt( modelIndex ) == SceneBehaviorGroupKind::SimpleRagdoll;
-}
-
-
-bool SceneController::IsSimpleRagdollTorso( int modelIndex ) const
-{
-    return IsSimpleRagdollPart( modelIndex ) && GroupPartIndexAt( modelIndex ) == 0;
-}
-
-
-int SceneController::RagdollRootModelIndexForPart( int modelIndex ) const
-{
-    const SceneBehaviorGroup& group = BehaviorGroupAt( modelIndex );
-    if ( group.kind != SceneBehaviorGroupKind::SimpleRagdoll )
-    {
-        return modelIndex;
-    }
-
-    const int rootIndex = ResolveBehaviorGroupRootModelIndex( group );
-    if ( IsSimpleRagdollPart( rootIndex ) )
-    {
-        return rootIndex;
-    }
-    return modelIndex;
-}
-
-
-bool SceneController::TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const
-{
-    outModelIndex = -1;
-    if ( !IsSimpleRagdollPart( selectedModelIndex ) )
-    {
-        return false;
-    }
-
-    const PhysicsSceneObjectId rootObjectId = GroupRootObjectIdAt( selectedModelIndex );
-    for ( int i = 0; i < SceneEntityCount(); ++i )
-    {
-        const SceneBehaviorGroup& group = BehaviorGroupAt( i );
-        if ( group.kind == SceneBehaviorGroupKind::SimpleRagdoll && group.rootObjectId.value == rootObjectId.value &&
-             group.partIndex == partIndex )
-        {
-            outModelIndex = i;
-            return true;
-        }
-    }
-    return false;
-}
-
-
-int SceneController::GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const
-{
-    if ( outIndices && maxIndices > 0 )
-    {
-        for ( int i = 0; i < maxIndices; ++i )
-        {
-            outIndices[i] = -1;
-        }
-    }
-    if ( !outIndices || maxIndices <= 0 || selectedModelIndex < 0 || selectedModelIndex >= SceneEntityCount() )
-    {
-        return 0;
-    }
-
-    const SceneBehaviorGroup& selectedGroup = BehaviorGroupAt( selectedModelIndex );
-    if ( selectedGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll )
-    {
-        outIndices[0] = selectedModelIndex;
-        return 1;
-    }
-
-    (void)ResolveBehaviorGroupRootModelIndex( selectedGroup );
-
-    int count = 0;
-    for ( int i = 0; i < SceneEntityCount() && count < maxIndices; ++i )
-    {
-        const SceneBehaviorGroup& group = BehaviorGroupAt( i );
-        if ( group.kind == selectedGroup.kind && group.rootObjectId.value == selectedGroup.rootObjectId.value )
-        {
-            outIndices[count] = i;
-            ++count;
-        }
-    }
-
-    if ( count <= 0 )
-    {
-        outIndices[0] = selectedModelIndex;
-        return 1;
-    }
-    return count;
-}
-
-
-#ifdef _DEBUG
-bool SceneController::TryGetPhysicsDiagnosticsModelName( int index, const char*& outName ) const
-{
-    if ( index < 0 || index >= SceneEntityCount() )
-    {
-        return false;
-    }
-
-    outName = SceneEntities().At( index ).displayName;
-    return true;
-}
-
-
-void SceneController::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const
-{
-    const int clampedBodyCount = (std::max)( 0, bodyCount );
-    outNames.assign( static_cast<std::size_t>( clampedBodyCount ), "" );
-    const int copyCount = (std::min)( clampedBodyCount, SceneEntityCount() );
-    for ( int i = 0; i < copyCount; ++i )
-    {
-        // Lifetime: these are borrowed display-name pointers for the current
-        // Debug diagnostics write; the caller owns only the pointer table.
-        outNames[static_cast<std::size_t>( i )] = SceneEntities().At( i ).displayName;
-    }
-}
-
-
-#endif
-
-
-SkullbonezCore::Core::MainMemoryGameObjectStats SceneController::CollectMemoryStats() const
-{
-    SkullbonezCore::Core::MainMemoryGameObjectStats stats;
-    const Physics::PhysicsBodyStore& bodyStore = BodyStore();
-    const Physics::ColliderStore& colliderStore = Colliders();
-    const Rendering::RenderInstanceStore& renderStore = m_renderInstanceStore;
-
-    stats.modelCount = static_cast<std::size_t>( m_renderInstanceStore.PresentationCount() );
-    stats.modelCapacity = m_renderInstanceStore.PresentationCapacity();
-    stats.bodyStoreCapacity = bodyStore.RecordCapacity();
-    stats.colliderStoreCapacity = colliderStore.RecordCapacity();
-    stats.renderStoreCapacity = renderStore.RecordCapacity();
-    stats.modelVectorBytes = m_renderInstanceStore.PresentationCapacityBytes() + SceneEntities().CapacityBytes();
-    stats.physicsStoreBytes = static_cast<uint64_t>( bodyStore.RecordCapacity() ) * sizeof( PhysicsBodyRecord );
-    stats.colliderStoreBytes =
-        static_cast<uint64_t>( colliderStore.RecordCapacity() ) * sizeof( Physics::ColliderRecord );
-    stats.renderStoreBytes =
-        static_cast<uint64_t>( renderStore.RecordCapacity() ) * sizeof( Rendering::RenderInstanceRecord );
-    stats.physicsWorldBytes = m_physics.CollectPhysicsWorldMemoryBytes();
-    stats.debugAndBroadphaseBytes = m_physics.CollectDebugAndBroadphaseMemoryBytes();
-    stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
-                       stats.renderStoreBytes + stats.physicsWorldBytes;
-    return stats;
 }
 
 
@@ -907,7 +707,7 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
             ResolveRegisteredShadowCasterStream( colliderRecords[static_cast<std::size_t>( i )],
                                                  presentation->material );
         strncpy_s( presentation->displayName, sizeof( presentation->displayName ), entity.displayName, _TRUNCATE );
-        presentation->simpleRagdollPart = IsSimpleRagdollPart( i );
+        presentation->simpleRagdollPart = SceneEntities().IsSimpleRagdollPart( i );
     }
     m_renderInstanceStore.Refresh( BodyStore(), Colliders(), presentationAlpha );
     if ( m_renderInstanceStore.Count() != modelCount )

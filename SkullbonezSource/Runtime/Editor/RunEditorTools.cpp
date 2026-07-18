@@ -368,9 +368,9 @@ int GatherSelectedEditorTransformGroup( const SceneController& collection,
                                         EditorGizmoGroupIndices& outIndices )
 {
     outIndices.fill( -1 );
-    return collection.GatherGroupMemberIndices( selectedIndex,
-                                                outIndices.data(),
-                                                static_cast<int>( outIndices.size() ) );
+    return collection.Entities().GatherGroupMemberIndices( selectedIndex,
+                                                           outIndices.data(),
+                                                           static_cast<int>( outIndices.size() ) );
 }
 
 

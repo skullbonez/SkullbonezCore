@@ -1,7 +1,7 @@
 # Scene Controller Decomposition Round 2 — Split The Ratified Aggregate
 
 Date: 2026-07-18
-Status: Active — 3/7 tasks
+Status: Active — 4/7 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/RunFrame.cpp`,
 `Runtime/RunInput.cpp`, `Runtime/InputFrame.cpp`, UI navigation consumers,
@@ -85,7 +85,7 @@ owners genuinely participate, not because bags merge.
   (no key-name parameters below the input boundary); `NotifyAudioContact` /
   `NotifyFixedContact` become bounded post-step event outputs consumed by
   the audio/presentation owners. Gate: `validate_full`.
-- [ ] S3 — Re-home grouping/ragdoll queries and memory stats onto
+- [x] S3 — Re-home grouping/ragdoll queries and memory stats onto
   `SceneEntityStore` (which owns the behavior-group data), exposing them to
   former callers through the store accessor; delete the controller relays
   rather than forwarding. Gate: `validate_full`.
@@ -148,6 +148,23 @@ owners genuinely participate, not because bags merge.
   was refreshed. Logs:
   `TestOutput/validation/agent_logs/scene_round2_s2_validate_full.log` and
   `TestOutput/validation/agent_logs/scene_round2_s2_replay_visual_fidelity.log`.
+- S3 evidence (2026-07-18): behavior-group, ragdoll, group-member, and Debug
+  name queries now live on `SceneEntityStore`; all matching `SceneController`
+  relays are deleted. Aggregate memory accounting now lives at
+  `SceneMemoryDiagnostics` and receives only synchronous const references to
+  the concrete entity, physics, and render owners. The focused behavior-group
+  case passed 12/12 assertions. The touched-file comment audit inspected 18/18
+  source-bearing files with zero deferred, project filters passed 726/726, and
+  allocation-policy self-test/repository scans passed (`scanned=379`,
+  `allowlist_errors=0`) after moving the existing Debug-only name-table
+  assignment exception to its concrete owner. `tools\validate_fast.bat` passed
+  in approximately 74s with zero build warnings. Final
+  `tools\validate_full.bat` passed in approximately 148s: 288/288 doctest cases
+  and 21,438/21,438 assertions, all coverage floors, Automation/replay smoke,
+  zero DX12 validation errors with accepted captures, and the 44,401-line
+  byte-exact physics comparison passed. No baseline or golden was refreshed.
+  Logs: `TestOutput/validation/agent_logs/scene_round2_s3_validate_fast.log` and
+  `TestOutput/validation/agent_logs/scene_round2_s3_validate_full.log`.
 - Round-6 closure evidence
   (`Agentic/Reports/2026-07-17/scene-controller-ownership-closure.md`) is
   the baseline census; contradicting it requires the fresh S0 measurements.

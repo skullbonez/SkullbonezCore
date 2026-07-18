@@ -847,7 +847,7 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemo
     if ( stats.process.available )
     {
         // Why: Task Manager numbers include memory not tracked by replay or
-        // SceneController. The reconciliation fields make that gap explicit
+        // scene stores. The reconciliation fields make that gap explicit
         // instead of hiding it in the engine bucket.
         if ( stats.process.taskManagerBytes >= stats.trackedEngineBytes )
         {
@@ -906,7 +906,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
-                                              const Runtime::SceneController& models,
+                                              const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
                                               const RunSceneState& scene,
                                               const char* checkpoint,
                                               double nowSeconds )
@@ -917,7 +917,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
     }
 
     const SkullbonezCore::Core::MainMemoryStats& stats =
-        RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, true, true );
+        RefreshMainMemoryStats( replay, gameObjects, nowSeconds, true, true );
     FILE* file = nullptr;
     if ( fopen_s( &file, m_mainMemoryDumpPath, "wb" ) != 0 || !file )
     {

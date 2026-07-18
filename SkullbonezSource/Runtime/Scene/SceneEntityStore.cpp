@@ -338,3 +338,152 @@ int SceneEntityStore::FindBySceneObjectId( Physics::PhysicsSceneObjectId sceneOb
     }
     return -1;
 }
+
+
+const SceneBehaviorGroup& SceneEntityStore::BehaviorGroupAt( int modelIndex ) const
+{
+    return At( modelIndex ).behaviorGroup;
+}
+
+
+int SceneEntityStore::ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGroup& group ) const
+{
+    if ( group.kind == SceneBehaviorGroupKind::None )
+    {
+        return -1;
+    }
+    // Why: stable scene identity owns group membership. Dense roots are derived
+    // only for synchronous physics/editor consumers and are never cached.
+    const int rootIndex = FindBySceneObjectId( group.rootObjectId );
+    if ( rootIndex < 0 )
+    {
+        SB_FATAL( "Scene/SceneEntityStore",
+                  "Behavior group root is missing. root_id=%u kind=%u",
+                  group.rootObjectId.value,
+                  static_cast<unsigned int>( group.kind ) );
+    }
+    return rootIndex;
+}
+
+
+SceneBehaviorGroupKind SceneEntityStore::GroupKindAt( int modelIndex ) const
+{
+    return BehaviorGroupAt( modelIndex ).kind;
+}
+
+
+SkullbonezCore::Physics::PhysicsSceneObjectId SceneEntityStore::GroupRootObjectIdAt( int modelIndex ) const
+{
+    return BehaviorGroupAt( modelIndex ).rootObjectId;
+}
+
+
+int SceneEntityStore::GroupPartIndexAt( int modelIndex ) const
+{
+    return BehaviorGroupAt( modelIndex ).partIndex;
+}
+
+
+bool SceneEntityStore::IsSimpleRagdollPart( int modelIndex ) const
+{
+    return GroupKindAt( modelIndex ) == SceneBehaviorGroupKind::SimpleRagdoll;
+}
+
+
+bool SceneEntityStore::IsSimpleRagdollTorso( int modelIndex ) const
+{
+    return IsSimpleRagdollPart( modelIndex ) && GroupPartIndexAt( modelIndex ) == 0;
+}
+
+
+int SceneEntityStore::RagdollRootModelIndexForPart( int modelIndex ) const
+{
+    const SceneBehaviorGroup& group = BehaviorGroupAt( modelIndex );
+    if ( group.kind != SceneBehaviorGroupKind::SimpleRagdoll )
+    {
+        return modelIndex;
+    }
+
+    const int rootIndex = ResolveBehaviorGroupRootModelIndex( group );
+    return IsSimpleRagdollPart( rootIndex ) ? rootIndex : modelIndex;
+}
+
+
+bool SceneEntityStore::TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const
+{
+    outModelIndex = -1;
+    if ( !IsSimpleRagdollPart( selectedModelIndex ) )
+    {
+        return false;
+    }
+
+    const SkullbonezCore::Physics::PhysicsSceneObjectId rootObjectId = GroupRootObjectIdAt( selectedModelIndex );
+    for ( int i = 0; i < Count(); ++i )
+    {
+        const SceneBehaviorGroup& group = BehaviorGroupAt( i );
+        if ( group.kind == SceneBehaviorGroupKind::SimpleRagdoll && group.rootObjectId.value == rootObjectId.value &&
+             group.partIndex == partIndex )
+        {
+            outModelIndex = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+int SceneEntityStore::GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const
+{
+    if ( outIndices && maxIndices > 0 )
+    {
+        for ( int i = 0; i < maxIndices; ++i )
+        {
+            outIndices[i] = -1;
+        }
+    }
+    if ( !outIndices || maxIndices <= 0 || selectedModelIndex < 0 || selectedModelIndex >= Count() )
+    {
+        return 0;
+    }
+
+    const SceneBehaviorGroup& selectedGroup = BehaviorGroupAt( selectedModelIndex );
+    if ( selectedGroup.kind != SceneBehaviorGroupKind::SimpleRagdoll )
+    {
+        outIndices[0] = selectedModelIndex;
+        return 1;
+    }
+
+    (void)ResolveBehaviorGroupRootModelIndex( selectedGroup );
+    int count = 0;
+    for ( int i = 0; i < Count() && count < maxIndices; ++i )
+    {
+        const SceneBehaviorGroup& group = BehaviorGroupAt( i );
+        if ( group.kind == selectedGroup.kind && group.rootObjectId.value == selectedGroup.rootObjectId.value )
+        {
+            outIndices[count++] = i;
+        }
+    }
+
+    if ( count <= 0 )
+    {
+        outIndices[0] = selectedModelIndex;
+        return 1;
+    }
+    return count;
+}
+
+
+#ifdef _DEBUG
+void SceneEntityStore::FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const
+{
+    const int clampedBodyCount = (std::max)( 0, bodyCount );
+    outNames.assign( static_cast<std::size_t>( clampedBodyCount ), "" );
+    const int copyCount = (std::min)( clampedBodyCount, Count() );
+    for ( int i = 0; i < copyCount; ++i )
+    {
+        // Lifetime: pointers borrow fixed entity rows for the current Debug
+        // diagnostics write; the caller owns only the temporary pointer table.
+        outNames[static_cast<std::size_t>( i )] = At( i ).displayName;
+    }
+}
+#endif

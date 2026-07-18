@@ -44,6 +44,7 @@ Related:
 #include "../RunCameraState.h"
 #include "../RunTimerState.h"
 #include "../RuntimeDiagnostics.h"
+#include "../Diagnostics/SceneMemoryDiagnostics.h"
 #include "../RuntimeOverlayDiagnostics.h"
 #include "../Window.h"
 #include "../Scene/SceneController.h"
@@ -2250,25 +2251,26 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneController& 
                                       Threading::WorkerPool& workerPool,
                                       const SkullbonezCore::Core::EngineConfig& config ) const
 {
-    return RuntimeRenderModelFrameView{ scene.MutableRenderInstances(),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
-                                        physics,
-                                        scene.RenderPresentationRecords(),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physics ),
-                                        SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( physics ),
-                                        &workerPool,
-                                        scene.SceneEntityCount(),
-                                        config.runtimeRender.renderCollisionVolumes,
-                                        config.runtimeRender.shadowParallelPrep,
-                                        scene.GetSceneKineticEnergy(),
-                                        physics.GetTornadoSystemElapsedSeconds(),
-                                        scene.CollectMemoryStats() };
+    return RuntimeRenderModelFrameView{
+        scene.MutableRenderInstances(),
+        SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
+        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
+        physics,
+        scene.RenderPresentationRecords(),
+        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
+        SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
+        SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
+        SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
+        SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
+        SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physics ),
+        SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( physics ),
+        &workerPool,
+        scene.SceneEntityCount(),
+        config.runtimeRender.renderCollisionVolumes,
+        config.runtimeRender.shadowParallelPrep,
+        scene.GetSceneKineticEnergy(),
+        physics.GetTornadoSystemElapsedSeconds(),
+        CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(), physics, scene.RenderInstances() } ) };
 }
 
 

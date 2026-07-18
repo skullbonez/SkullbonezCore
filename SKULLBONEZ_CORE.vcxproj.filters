@@ -484,6 +484,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp">
       <Filter>Source Files\Runtime\Audio</Filter>
     </ClCompile>
@@ -939,6 +942,9 @@
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h">

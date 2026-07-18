@@ -75,8 +75,8 @@ ScenePhysicsPostStepOutput SceneController::StepPhysics( float fixedDt,
     {
         // Lifetime: Debug diagnostics borrow name pointers only until Step
         // returns; physics never retains this presentation table.
-        FillPhysicsDiagnosticsNames( Physics::PhysicsEngine::ReadBodies( m_physics ).Count(),
-                                     physicsDiagnosticsModelNames );
+        SceneEntities().FillPhysicsDiagnosticsNames( Physics::PhysicsEngine::ReadBodies( m_physics ).Count(),
+                                                     physicsDiagnosticsModelNames );
         diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }

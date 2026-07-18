@@ -426,6 +426,7 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
     "DiagnosticsRuntime",
     "RuntimeDiagnostics",
+    "SceneMemoryDiagnostics",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution

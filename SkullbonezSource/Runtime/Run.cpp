@@ -41,6 +41,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
+#include "Diagnostics/SceneMemoryDiagnostics.h"
 #include "../Scene/SceneSnapshotWriter.h"
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
@@ -297,11 +298,14 @@ Run::~Run()
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
-                                                  m_sceneController,
-                                                  m_sceneController.State(),
-                                                  "shutdown",
-                                                  m_timers.simulationTimer.GetTotalTime() );
+        m_diagnosticsRuntime.WriteMainMemoryDump(
+            m_replayRuntime.CollectMemoryStats(),
+            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ m_sceneController.Entities(),
+                                                                 m_sceneController.Physics(),
+                                                                 m_sceneController.RenderInstances() } ),
+            m_sceneController.State(),
+            "shutdown",
+            m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
     const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();

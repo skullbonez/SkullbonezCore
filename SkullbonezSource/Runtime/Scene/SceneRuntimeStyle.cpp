@@ -152,7 +152,7 @@ void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& mo
 {
     for ( int modelIndex = 0; modelIndex < models.SceneEntityCount(); ++modelIndex )
     {
-        if ( !models.IsSimpleRagdollPart( modelIndex ) )
+        if ( !entities.IsSimpleRagdollPart( modelIndex ) )
         {
             entities.MutableAt( modelIndex ).renderMaterial =
                 Rendering::MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f );
@@ -174,7 +174,7 @@ void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, 
                                                     : ColliderShapeKind::Sphere;
             if ( SceneMaterialTargetMatches( material,
                                              entities.At( modelIndex ).displayName,
-                                             models.IsSimpleRagdollPart( modelIndex ),
+                                             entities.IsSimpleRagdollPart( modelIndex ),
                                              shapeKind ) )
             {
                 entities.MutableAt( modelIndex ).renderMaterial = material.material;

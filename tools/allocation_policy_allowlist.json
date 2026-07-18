@@ -296,7 +296,6 @@
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneController.Objects.cpp",
       "patterns": [
-        ".assign(",
         ".push_back(",
         ".reserve("
       ],
@@ -309,13 +308,14 @@
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp",
       "patterns": [
+        ".assign(",
         ".emplace_back(",
         ".reserve(",
         ".resize("
       ],
-      "owner": "SceneController entity metadata preallocation",
-      "phase": "startup_scene_load_preallocation",
-      "reason": "SceneController reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene; commit and trim remain within that reservation during steady gameplay.",
+      "owner": "SceneEntityStore entity metadata and Debug name view",
+      "phase": "startup_scene_load_and_debug_diagnostics",
+      "reason": "SceneEntityStore reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene. Debug diagnostics also sizes a bounded borrowed-name table to the already configured body count; release gameplay does not compile that assignment.",
       "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
       "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
     },
@@ -324,9 +324,9 @@
       "patterns": [
         "std::vector<"
       ],
-      "owner": "SceneController entity metadata preallocation",
+      "owner": "SceneEntityStore entity metadata preallocation",
       "phase": "startup_scene_load_preallocation",
-      "reason": "SceneController owns one capacity-bounded cold metadata vector whose reservation is established before scene population and retained across reloads.",
+      "reason": "SceneEntityStore owns one capacity-bounded cold metadata vector whose reservation is established before scene population and retained across reloads.",
       "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
       "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
     },

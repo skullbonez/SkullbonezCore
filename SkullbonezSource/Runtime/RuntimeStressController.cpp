@@ -30,6 +30,7 @@ Related:
 #include "InputFrame.h"
 #include "InputRouter.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
+#include "Diagnostics/SceneMemoryDiagnostics.h"
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderer.h"
 #include "Replay/ReplayRuntime.h"
@@ -1221,11 +1222,13 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         // Why: long stress runs need memory attribution before shutdown. If the
         // process is killed after a climb, this stdout line survives with the
         // same seed/frame/scene-load position as the repro log.
-        const SkullbonezCore::Core::MainMemoryStats& memoryStats =
-            diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime.CollectMemoryStats(),
-                                                       sceneController.CollectMemoryStats(),
-                                                       timers.simulationTimer.GetTotalTime(),
-                                                       true );
+        const SkullbonezCore::Core::MainMemoryStats& memoryStats = diagnosticsRuntime.RefreshMainMemoryStats(
+            replayRuntime.CollectMemoryStats(),
+            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ sceneController.Entities(),
+                                                                 sceneController.Physics(),
+                                                                 sceneController.RenderInstances() } ),
+            timers.simulationTimer.GetTotalTime(),
+            true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
         printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
                 "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "

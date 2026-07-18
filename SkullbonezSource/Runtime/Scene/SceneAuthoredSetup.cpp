@@ -860,7 +860,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
                                                     : ColliderShapeKind::Sphere;
             if ( SceneMaterialTargetMatches( material,
                                              context.entities.At( modelIndex ).displayName,
-                                             context.models.IsSimpleRagdollPart( modelIndex ),
+                                             context.entities.IsSimpleRagdollPart( modelIndex ),
                                              shapeKind ) )
             {
                 context.entities.MutableAt( modelIndex ).renderMaterial = material.material;
