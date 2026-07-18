@@ -1,8 +1,8 @@
 # DX12 Backend Ownership Decomposition — Retire The Last Laundered God Class
 
 Date: 2026-07-18
-Status: Active — 0/8 tasks
-Branch: owner decision at D0 (feature branch; never directly on `main`)
+Status: Active — 1/8 tasks
+Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Rendering/DX12/*`, `Rendering/I*.h` consumers,
 project filters
 Owner: DX12 rendering backend
@@ -66,7 +66,7 @@ Every task that touches DX12 source runs `tools\validate_dx12_renderer.bat`
 plus the mandatory bounded `tools\run_graphics_stress.bat 1` per MASTER
 rule 10, with command, measured runtime, and exit evidence recorded.
 
-- [ ] D0 — State census and owner map. Inventory every private member of
+- [x] D0 — State census and owner map. Inventory every private member of
   `RenderBackendDX12` at the current tip, attribute each to a target owner
   (existing owner, new owner, or genuinely composition-root), and record
   per-cluster fence/lifetime invariants that must move with the state.
@@ -118,6 +118,19 @@ rule 10, with command, measured runtime, and exit evidence recorded.
 - D0 owner decisions: whether the backend class keeps direct frame
   begin/present sequencing or gains a small frame-sequencer owner; final
   owner names (domain nouns, no `*Manager`/`*Context`).
+
+## Progress Evidence
+
+- D0 evidence (2026-07-18): the complete 1,095-line header/private-surface
+  census is ratified at current tip `cffce392e`. Top-level frame
+  begin/close/submit/present sequencing remains at `RenderBackendDX12`, while
+  epoch/fence state remains in `Dx12FrameOwner`; no duplicate sequencer is
+  introduced. New owner names are `Dx12DescriptorHeaps`,
+  `Dx12BackbufferCapture`, `Dx12GraphTransientPool`, `Dx12Diagnostics`, and
+  `Dx12ShaderDevelopment`. Every private member/helper and the fence/lifetime
+  invariant that moves with each cluster is recorded in
+  `../../Reports/2026-07-18/dx12-backend-owner-census.md`. D0 is
+  documentation-only, so no repository validation was required.
 
 ## Acceptance
 

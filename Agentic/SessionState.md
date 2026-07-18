@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 0 / 18 live tasks; 0%. |
+| Active/future progress | 1 / 18 live tasks; 6%. |
 | Last broad local gate | Scene round-2 S6 `validate_full` passed in 143.261s: 291/291 tests, 21,455/21,455 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
-| Validation for current edits | S6 project filters passed 728/728; allocation-policy self-test/repository scans passed; `validate_fast` passed after scoped formatting; and the task's sole replay visual-fidelity invocation passed in 435.698s. No baseline or golden refresh. |
+| Validation for current edits | DX12 D0 is documentation-only; no repository validation required. The preceding S6 full and sole replay visual-fidelity gates remain the last runtime evidence. |
 
 ## Live Queue
 
@@ -28,7 +28,9 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
      no baseline or golden refresh. Closure evidence:
      `Agentic/Reports/2026-07-18/scene-controller-round-2-closure.md`. Remaining
      binding order: DX12 backend ownership D0-D7, naming/identity N0-N4, then
-     small-findings H0-H4. Next action: DX12 D0 state census and owner map.
+     small-findings H0-H4. DX12 D0 ratified the complete private-state map,
+     retained top-level sequencing at the composition root, and named five
+     concrete owners. Next action: D1 `Dx12DescriptorHeaps` extraction.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -391,11 +393,9 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
 
 ## Next Handoff
 
-Round-7 scene decomposition is complete at 7/7 and its plan is deleted under
-inventory rule 4. Continue immediately with DX12 backend ownership D0: use the
-completed owner census to ratify state, barrier, descriptor, submission,
-profiling, and readback ownership before implementation. Preserve the seven
-excluded render consumer interfaces and `FRAME_COUNT = 2`. Every DX12 source
-change requires the mapped renderer gate and at least the standard bounded
-graphics-stress proof. Do not regenerate behavioral, physics, replay, visual,
-or screenshot baselines.
+Round-7 scene decomposition is complete at 7/7 and DX12 D0 is complete at 1/8.
+Continue immediately with D1 and extract `Dx12DescriptorHeaps` according to the
+ratified census. Preserve the seven excluded render consumer interfaces and
+`FRAME_COUNT = 2`. Every DX12 source change requires the mapped renderer gate
+and at least the standard bounded graphics-stress proof. Do not regenerate
+behavioral, physics, replay, visual, or screenshot baselines.
