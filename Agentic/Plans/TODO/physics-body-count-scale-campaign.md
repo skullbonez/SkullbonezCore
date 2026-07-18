@@ -8,7 +8,8 @@ Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
 `Physics/Stages/PhysicsSleepController.*`, `Physics/PhysicsBodyStore.*`,
 `Physics/PhysicsWorld.*`, scale scenes, physics/perf baselines, replay
-visual-fidelity golden (P1/P6 transitions only, owner-approved)
+visual-fidelity golden (P1 and evidence-triggered P6 transitions only;
+per-instance replay-golden approval still applies)
 Owner: physics subsystem
 
 ## Problem And Evidence (measured 2026-07-18 at `nightrunner-17th-july`, plan authored at 06a17ff31)
@@ -61,7 +62,7 @@ Run-to-run and thread-count determinism are never weakened at any point.
   nondeterministic and are explicitly out of scope here.
 
 This campaign adopts: persistence (P2), free sleepers (P3), bandwidth diet
-(P4), and — owner-gated after the mid-campaign checkpoint — graph-colored
+(P4), and — evidence-gated after the mid-campaign checkpoint — graph-colored
 solver parallelism (P6). It does not adopt GPU physics or solver-model
 (TGS) changes.
 
@@ -97,8 +98,9 @@ At unchanged tick rate and unchanged collision/solver behavior envelopes:
 - No cross-platform/cross-toolchain determinism expansion; the certified
   envelope stays per-binary, pinned toolchain (`/fp:precise`,
   `fp_contract off`).
-- Outside P1 and P6 (each individually owner-approved with equivalence
-  evidence), zero baseline, golden, screenshot, or coverage-floor refresh.
+- Outside P1 and an evidence-triggered P6 (each with the protocol's
+  same-state evidence), zero baseline, golden, screenshot, or coverage-floor
+  refresh.
 
 ## Determinism Transition Protocol (binding for P1 and P6)
 
@@ -159,8 +161,8 @@ and worker-count nondeterminism are regressions in every task.
 | P2 | None. A deterministic-output diff exposes stale membership, removal/back-link, overlay, rebuild, or history-dependence defects. | P1 physics CSVs and replay golden byte-exact; canonical pair membership/order; 0/1/4 identity. | Measurement report and profiler evidence only; no physics, replay, screenshot, perf-baseline, or coverage-floor refresh. |
 | P3 | None. A deterministic-output diff exposes awake-list, wake, sleep-pair suppression, diagnostics, or restore defects. | P1 physics CSVs and replay golden byte-exact; awake-to-sleep collision/wake semantics; 0/1/4 identity. | Measurement report and an explicitly approved diagnostics-format/retirement record only; no behavioral baseline refresh. |
 | P4 | None. A deterministic-output diff means operation order or persisted state changed and the candidate optimization is rejected. | P1 physics CSVs and replay golden byte-exact; hot-path allocation policy; 0/1/4 identity. | Measurement report/profiler evidence only; committed performance baselines are not authorized by this plan. |
-| P5 | None; documentation/decision task. | All runtime artifacts. | Campaign report, plan, MASTER ledger denominator if P6 is struck, and decision records only. |
-| P6, if owner-authorized | Physics CSV comparison and replay hashes/golden may differ because fixed graph-color order replaces serial constraint order. Numerical impulse values may differ. | Same-state constraint membership, exactly-once coverage, conflict-free colors, fixed color order, and 0/1/4/8 identity within the new solver. Authored scenes/config/schema, screenshots, and coverage floors remain unchanged. | Physics/deep CSV baselines whose outcomes moved, from the final Debug binary; 200-box replay golden only with explicit per-instance approval and one process/generation. No other baseline class. |
+| P5 | None; documentation/evidence-gate task. | All runtime artifacts. | Campaign report, plan, and the automatic proceed/defer decision only; the eight-task ledger denominator stays fixed. |
+| P6, if evidence-triggered | Physics CSV comparison and replay hashes/golden may differ because fixed graph-color order replaces serial constraint order. Numerical impulse values may differ. | Same-state constraint membership, exactly-once coverage, conflict-free colors, fixed color order, and 0/1/4/8 identity within the new solver. Authored scenes/config/schema, screenshots, and coverage floors remain unchanged. | Physics/deep CSV baselines whose outcomes moved, from the final Debug binary; 200-box replay golden only with explicit per-instance approval and one process/generation. If that approval is unavailable, reverse only the P6 changes and preserve P5 behavior rather than blocking. No other baseline class. |
 | P7 | None. Closure validates the artifacts established by P1 and, if run, P6. | Everything behavioral. A final failure reopens its owning task. | Reports, plan/MASTER/SessionState closure bookkeeping only; never refresh a baseline at P7 to make a gate pass. |
 
 Ignored captures, profiler traces, temporary comparison dumps, and the campaign
@@ -250,6 +252,8 @@ explained or the task is not done.
     same-state work equivalence first, and deferred P6 authorization to P5.
     Full, perf, platform-marker smoke, 0/1/4-worker determinism, comment audit,
     and independent review passed with zero artifact or coverage-floor refresh.
+    On 2026-07-18 the owner replaced that future manual decision with the
+    automatic P5 evidence gate below so unattended execution cannot block.
 
 - [ ] P1 — Canonical pair-order transition (the first behavior-visible flip).
   - Implementation: `GetCandidatePairs` emission becomes history-free —
@@ -367,19 +371,26 @@ explained or the task is not done.
   - Gates: `validate_physics` + `validate_perf`; `validate_full` at task
     end.
 
-- [ ] P5 — Mid-campaign checkpoint and Tier-2 owner decision.
+- [ ] P5 — Mid-campaign checkpoint and automatic Tier-2 evidence gate.
   - [ ] Consolidated matrix across P0-P4 with a written attribution
     narrative (which milliseconds moved, where, and why), committed to the
     campaign report.
-  - [ ] Owner decision recorded: proceed to P6 (graph-colored solver
-    parallelism, second baseline transition) only if the evidence shows
-    single-island solver/narrowphase time is now a binding constraint on
-    the ratified body-count target; otherwise strike P6, renumber closure,
-    and update the MASTER ledger denominator in the same commit (25→24
-    within this plan's rows).
-  - Gate: none (documentation + owner decision).
+  - [ ] Record two repeated Profile captures at the P4 tip for
+    `physics_scale_2000` and the deterministic one-big-island 200-brick-wall
+    witness. P6 is automatically authorized when `PersistentContacts` is at
+    least 15% of `Frame/Physics` median in either witness; otherwise it is
+    deferred. This numeric result is the owner's standing P6 decision; do not
+    pause for another response or substitute a subjective bottleneck ruling.
+  - [ ] If the trigger is false, close the P6 slot as **deferred by evidence**,
+    record the measurements and future retry condition in the campaign report,
+    make no runtime/artifact change, and continue directly to P7. The plan
+    remains P0-P7 at eight tasks; a deferred conditional slot counts as a
+    completed decision outcome and does not change the MASTER denominator.
+  - Gate: none beyond the two targeted Profile captures (documentation +
+    automatic evidence decision).
 
-- [ ] P6 — (Conditional, owner-gated at P5) Deterministic graph-colored
+- [ ] P6 — (Conditional, pre-authorized by the P5 evidence gate)
+  deterministic graph-colored
   solver parallelism.
   - Implementation: greedy-color the contact/joint constraint graph in
     fixed canonical constraint order (the P1 pair order makes this stable
@@ -402,6 +413,16 @@ explained or the task is not done.
   - [ ] Thread-count invariance 0/1/4/8 workers, byte-identical.
   - [ ] Measurement matrix recorded, including a one-big-island stress
     witness (the 200-brick wall class of scene) at 1/4/8 workers.
+  - Autonomous fallback: if the same-state oracle, allocation/capacity rules,
+    0/1/4/8 determinism, or mapped gates cannot pass—or if replay-golden drift
+    needs per-instance approval that is unavailable—remove/revert only the P6
+    implementation and artifact changes, preserve the passing P5 tip, record
+    the evidence, close P6 as deferred, and continue to P7. Do not use
+    `git stash`, weaken a gate, or refresh an unauthorized artifact. If a
+    passing P6 does not reduce the 4-worker `PersistentContacts` median by at
+    least 10% versus the P5 serial median on the triggering witness, or regresses
+    `Frame/Physics` by more than 2% on either P5 witness, also reverse it and
+    defer rather than retain complexity without measured benefit.
   - Gates: `validate_physics`, `validate_physics_deep`, `validate_perf`,
     `validate_replay_visual_fidelity.bat` (owner-approved refresh),
     `validate_full`.
@@ -430,8 +451,9 @@ explained or the task is not done.
   `small-findings-hardening` H3 only if its cast rulings touch
   `Physics/PhysicsFixedList.h`.
 - P0 owner decisions: branch; sleepy-scene shape and capacity override;
-  targets; P1 transition authorization; P6 pre-authorization or deferral
-  to P5.
+  targets; P1 transition authorization. P6 was initially deferred to P5; the
+  owner replaced that manual checkpoint on 2026-07-18 with the binding
+  automatic evidence gate and autonomous defer/continue fallback above.
 - Binding precedents this plan inherits: B0 inclusive-marker accounting;
   S5/S7 exact-sum and no-dark-path rulings; the
   deterministic-parallel-mutual-gravity 0/1/4-worker acceptance pattern;
@@ -451,7 +473,8 @@ explained or the task is not done.
   reinsertion counter proves it per scene.
 - Sleeping bodies generate zero broadphase/force/integration/bounds work;
   sleepy_5000 step cost tracks awake count with an identical CSV.
-- Exactly one (or two with P6) owner-approved determinism transitions,
+- Exactly one required transition (or two when P6 passes its pre-authorized
+  evidence gate),
   each with committed same-state work-equivalence evidence; byte-exact CSVs at
   every other task boundary; 0/1/4-worker invariance everywhere.
 - The full Measurement Ledger is continuous across P0-P7 with no

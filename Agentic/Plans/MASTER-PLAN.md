@@ -112,7 +112,7 @@ under rule 4. Closure evidence is in
 
 The denominator grew 18 → 26 on 2026-07-18 when the owner registered the
 eight-task physics body-count scale campaign (persistent broadphase,
-zero-cost sleepers, bandwidth diet, owner-gated graph-colored solver
+zero-cost sleepers, bandwidth diet, evidence-gated graph-colored solver
 parallelism) from the same-day owner discussion of high-body-count engine
 techniques.
 
@@ -198,8 +198,11 @@ both driver directions across all six scenes. Independently evolved legacy and
 canonical runs are expected to diverge after their solver order changes. Only
 after the same-state oracle passes may P1 transition affected physics baselines;
 the replay golden still requires explicit per-instance owner approval. P6 is
-not pre-authorized and requires a fresh P5 owner decision. Every other task
-keeps zero behavioral-artifact refresh.
+pre-authorized only when the binding P5 measurement trigger passes. A false
+trigger, failed P6 oracle/gate, unavailable per-instance replay-golden approval,
+or immaterial measured gain parks P6 as a completed deferred outcome and
+continues directly to P7 without changing the eight-task denominator. Every
+other task keeps zero behavioral-artifact refresh.
 
 `imgui-tracy-editor-campaign` (E0-E17) is the next plan and begins only after
 physics P7 closes. It adds a development-only ImGui docked editor and Tracy
@@ -760,8 +763,8 @@ measurement baseline → P1 canonical pair-order determinism transition
 (same-state dual-driver work-equivalence first; affected physics-baseline
 transition, and replay-golden regeneration only with explicit approval)
 → P2 persistent incremental grid → P3 zero-cost sleepers → P4 hot-state
-compaction/pass fusion → P5 measurement checkpoint and Tier-2 owner
-decision → P6 conditional deterministic graph-colored solver parallelism
+compaction/pass fusion → P5 measurement checkpoint and automatic Tier-2
+evidence gate → P6 conditional deterministic graph-colored solver parallelism
 (second approved transition) → P7 final matrix, comment audit, independent
 review, closure.
 
@@ -780,7 +783,12 @@ GPU physics; the Measurement Ledger matrix
 (per-marker medians over `physics_scale_200/520/1000/2000` plus the new
 sleepy scene) is recorded in every implementation task's commit body with
 regressions explained; B0 inclusive-marker accounting applies to all new
-markers.
+markers. P6 proceeds without another owner response only when the P4-tip
+Profile evidence meets its plan-defined trigger. Otherwise—or if its oracle,
+determinism, artifact authority, gates, or measured benefit fail—it is restored
+to passing P5 behavior by reversing only P6 changes, recorded as deferred, and
+execution continues to P7.
+The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
