@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E4 focused owner-boundary zones, capacity plots/counters, and explicit heavy-mode policy while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
-| Active/future progress | 5 / 26 live tasks; 19%. |
-| Last broad local gate | E3 final-source `validate_full` passed 295 tests/21,471 assertions, all coverage floors, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact physics; focused external-capture, thread-name, disabled-test, Release-exclusion, fast, and exact marker-command evidence also passed. |
-| Validation for current edits | E3 owns Tracy lifetime around all engine workers, emits one post-Present frame mark, names the real 1+63 thread topology, and exposes fixed editor connection state. E4 requires mapped subsystem gates, `validate_perf`, platform-profiler marker smoke, and the mapped Runtime gate. |
+| Current objective | Execute ImGui/Tracy E5 engine-owned ImGui context/lifecycle and typed value boundaries while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 6 / 26 live tasks; 23%. |
+| Last broad local gate | E4 final-source `validate_full` passed 295 tests/21,474 assertions, all coverage floors, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact physics; perf, explicit standard/heavy captures, bounded graphics stress, and exact marker-command evidence also passed. |
+| Validation for current edits | E4 owns focused Tracy owner zones and 32 bounded capacity plots behind explicit standard/heavy process modes. E5 requires `validate_ui` and `validate_fast`; no DX12 backend integration is authorized until E6. |
 
 ## Live Queue
 
@@ -24,7 +24,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E4 (4/18). E0 froze the complete
+     direction, ImGui/Tracy is active at E5 (5/18). E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -34,12 +34,17 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      gameplay-guard acceptance probe, and Release artifact exclusion. E3 added
      the manual/on-demand Tracy lifetime, post-Present frame mark, one composite
      main plus 63 unique worker labels, fixed editor connection state, and
-     external-viewer/no-viewer/Release/full-gate proof. Evidence:
+     external-viewer/no-viewer/Release/full-gate proof. E4 mirrored existing
+     profiler paths into fixed focused zones, added 32 capacity plots, kept
+     call stacks/allocation events in explicit heavy mode, and restored the
+     approved perf memory budget by leaving Tracy off unless standard/heavy is
+     requested. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e2-allocation-boundary.md` and
-     `Agentic/Reports/2026-07-18/imgui-tracy-e3-lifecycle.md`.
+     `Agentic/Reports/2026-07-18/imgui-tracy-e3-lifecycle.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e4-owner-boundary-instrumentation.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -466,12 +471,14 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
 
 ## Next Handoff
 
-Round-7 work is complete and has left the live ledger. P1's strict transition
-probe failed only in `physics_bench_varied`: old/new final candidate sets differ
-at ticks 152 and 332 by normalized pair `(18,20)`. The attempted transition and
-probe are fully reverted and no baseline, golden, screenshot, or authored data
-moved. Obtain an owner decision before further implementation: retain the
-existing protocol and provide a design that keeps all six independently evolved
-sets tick-identical, or approve the exact two-driver same-state raw/final
-dual-emitter amendment recorded in the campaign report. P2-P7 remain blocked by
-P1; P6 still requires its separate fresh decision at P5.
+Continue with ImGui/Tracy E5. Add one cohesive development-editor owner for the
+ImGui context, fonts/style, per-frame begin/end, visibility, layout version, and
+shutdown. Keep DX12 backend integration for E6 and Win32 input routing for E7;
+E5 consumes immutable frame values and emits typed command values only. Run
+`tools\validate_ui.bat` and `tools\validate_fast.bat` at the E5 commit gate.
+
+Physics P1 remains blocked only on exact owner authority for the one-process
+replay `causal.topologyCount: 199 -> 200` golden transition and the mechanically
+derived `physics_query_varied.json` update. The canonical source and authorized
+physics baselines remain validated; do not change either pending artifact while
+continuing the ImGui/Tracy campaign.

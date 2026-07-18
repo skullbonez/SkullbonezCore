@@ -18,6 +18,8 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Contact row: Persistent solver constraint row that applies one contact's
+    normal and friction impulses.
   Point joint: Constraint that keeps two local anchor points close together
     without yet modelling a full hinge, cone, or motor.
   Sleep island: Connected body group that may deactivate only as a unit.
@@ -984,6 +986,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const int awakeBodyCount = m_sleepController.GetAwakeBodyCount();
     PROFILE_COUNTER( m_profiler, "Counter/Physics/TotalBodies", modelCount );
     PROFILE_COUNTER( m_profiler, "Counter/Physics/AwakeBodies", awakeBodyCount );
+    // Concept: persistent solver rows are the compact contact work unit. This
+    // count is more actionable in an external capture than object-pair guesses
+    // and is sampled after the solver finishes owning the row set.
+    PROFILE_COUNTER( m_profiler, "Counter/Physics/PersistentContactRows", m_contactSolverStage.GetStats().rowCount );
     // P0 reserves this identity; P2 replaces the zero with persistent-grid
     // cell-range changes owned by PhysicsBroadphaseStage.
     PROFILE_COUNTER( m_profiler, "Counter/Physics/BodiesReinserted", 0 );

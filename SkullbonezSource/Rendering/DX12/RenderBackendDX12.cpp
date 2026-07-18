@@ -117,6 +117,7 @@ Related:
 #include "Dx12RenderGraphExecutor.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
+#include "../../Runtime/DevelopmentTools/TracyClientOwner.h"
 #include "../../Core/FatalError.h"
 #include <cstdio>
 #include <algorithm>
@@ -942,6 +943,7 @@ void RenderBackendDX12::Shutdown()
 
 SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
 {
+    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/Present", ::HashStr( "Frame/DX12/Present" ) );
     SkullbonezCore::Core::SbResult stateResult = m_frameOwner.EnsureOpen();
     if ( !stateResult.ok )
     {
@@ -966,7 +968,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // submitted to the GPU. No more commands can be recorded until Reset is called.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-close
     m_frameOwner.AssertProfilerClosed( "Present" );
-    stateResult = m_frameOwner.CommitClose( CommandList()->Close(), "Present command list Close" );
+    {
+        SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/CommandRecording/Close",
+                                       ::HashStr( "Frame/DX12/CommandRecording/Close" ) );
+        stateResult = m_frameOwner.CommitClose( CommandList()->Close(), "Present command list Close" );
+    }
     if ( !stateResult.ok )
     {
         return stateResult;
@@ -987,7 +993,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     const UINT syncInterval = m_renderDevice.VsyncEnabled() ? 1u : 0u;
     const UINT presentFlags =
         ( !m_renderDevice.VsyncEnabled() && m_renderDevice.AllowTearing() ) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
-    const HRESULT presentResult = SwapChain()->Present( syncInterval, presentFlags );
+    HRESULT presentResult = S_OK;
+    {
+        SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/SwapChainPresent", ::HashStr( "Frame/DX12/SwapChainPresent" ) );
+        presentResult = SwapChain()->Present( syncInterval, presentFlags );
+    }
     if ( IsDx12DeviceLostResult( presentResult ) )
     {
         m_renderDevice.ReportDeviceLost( "Present", presentResult );

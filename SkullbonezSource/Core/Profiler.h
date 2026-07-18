@@ -22,12 +22,15 @@ Glossary:
   Ring buffer: Fixed-size rolling sample window used for p50/p99 statistics.
   Warmup frame: Completed frame intentionally excluded from profiler stats and
     perf CSV rows while a scene/pass settles.
+  External owner zone: Tracy interval that reuses the same path and nesting as
+    an established engine profiler marker.
 
 Invariants:
   - Public macros are the supported entry points; direct calls risk mismatched
     marker hashes and begin/end pairs.
   - Marker arrays are fixed-capacity runtime storage, so adding broad marker
     families must account for MAX_MARKERS and MAX_DEPTH.
+  - Tracy mirrors owner intervals; it does not become a second marker taxonomy.
 
 Related:
   - SkullbonezSource/Core/Profiler.cpp
@@ -126,6 +129,7 @@ class Profiler
         const char* name;                        // full path literal, e.g. "Render/Skybox"
         const char* leafName;                    // pointer into name after last '/'
         uint32_t hash;                           // FNV-1a of full path
+        uint32_t tracySourceLocationHandle;      // Fixed Tracy source row; zero when the client is not compiled.
         int parentIndex;                         // -1 if top-level (parent of "Render/Skybox" is "Render")
         int depth;                               // count of '/' characters (0 = top)
         int colorIndex;                          // index into BAR_PALETTE (assigned at registration for leaf markers, -1 otherwise)
@@ -303,6 +307,9 @@ class Profiler
     bool m_platformProfilerCpuOpen[MAX_DEPTH];
     bool m_platformProfilerGpuRecordOpen[MAX_DEPTH];
     bool m_platformProfilerGpuEventOpen[MAX_DEPTH];
+    uint32_t m_tracyZoneIds[MAX_DEPTH];
+    int32_t m_tracyZoneActive[MAX_DEPTH];
+    uint64_t m_tracyZoneConnectionIds[MAX_DEPTH];
     int m_stackTop;
 
     int64_t m_qpcFrequency;
@@ -391,6 +398,10 @@ class WorkerProfilerScope
     int m_workerIndex;
     int64_t m_startTicks;
     bool m_platformProfilerOpen;
+    uint32_t m_tracySourceLocationHandle;
+    uint32_t m_tracyZoneId;
+    int32_t m_tracyZoneActive;
+    uint64_t m_tracyZoneConnectionId;
 };
 
 } // namespace Core

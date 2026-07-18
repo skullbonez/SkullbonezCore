@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 4/18 tasks (E0-E3 complete; E4 next) under the owner's
+Status: Active — 5/18 tasks (E0-E4 complete; E5 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (4/18 complete)
+Ledger: E0-E17 (5/18 complete)
 
 ## Objective
 
@@ -238,7 +238,7 @@ It does **not** authorize removal from the legacy UI.
     validation errors, matching screenshots, and byte-exact physics output;
     no oracle changed.
 
-- [ ] E4 — Instrument Tracy at owner boundaries, not every function.
+- [x] E4 — Instrument Tracy at owner boundaries, not every function.
   - Map existing platform-profiler owner intervals to Tracy zones first so
     prior measurements remain intelligible. Add zones for frame sequencing,
     replay record/restore/prediction, physics stage owners, DX12 command
@@ -253,6 +253,16 @@ It does **not** authorize removal from the legacy UI.
     correlates replay, physics, render, and UI work without changing output.
   - Gates: mapped subsystem gates, `tools\validate_perf.bat`, and platform
     profiler-marker smoke.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e4-owner-boundary-instrumentation.md`
+    records the fixed owner-path registry, connection-generation-safe zones,
+    32 capacity plots, explicit standard/heavy capture modes, and final-source
+    capture inventory. Standard captured 303 frames and 22,519 zones across
+    Frame/Replay/Physics/Render/UI/DX12; heavy proved depth-16 call stacks and
+    named global heap events. `validate_perf`, `validate_full`, bounded graphics
+    stress, and the exact platform-marker launch passed without a baseline or
+    golden refresh. The mapped replay-fidelity gate reached only Physics P1's
+    already-owner-gated topology `199 -> 200` transition.
 
 - [ ] E5 — Add an engine-owned ImGui context and lifecycle.
   - Create a cohesive development-editor owner responsible for ImGui context,

@@ -68,8 +68,19 @@ TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
     int evaluatedArguments = 0;
     SKORE_TRACY_NAME_WORKER_THREAD( ++evaluatedArguments );
     SKORE_TRACY_MARK_SUBMITTED_FRAME();
+    SKORE_TRACY_SCOPED_OWNER_ZONE( "Disabled", ++evaluatedArguments );
+    const uint32_t sourceHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( "Disabled", ++evaluatedArguments );
+    const uint32_t zoneToken = SKORE_TRACY_BEGIN_OWNER_ZONE( ++evaluatedArguments );
+    SKORE_TRACY_END_OWNER_ZONE( ++evaluatedArguments );
+    SKORE_TRACY_PLOT_VALUE( "Disabled", ++evaluatedArguments );
+    const uint64_t allocationConnection =
+        SKORE_TRACY_RECORD_ALLOCATION( &evaluatedArguments, ++evaluatedArguments );
+    SKORE_TRACY_RECORD_FREE( &evaluatedArguments, ++evaluatedArguments );
 
     CHECK( evaluatedArguments == 0 );
+    CHECK( sourceHandle == 0u );
+    CHECK( zoneToken == 0u );
+    CHECK( allocationConnection == 0u );
 }
 
 namespace

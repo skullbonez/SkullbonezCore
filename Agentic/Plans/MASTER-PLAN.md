@@ -137,8 +137,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 4 | 18 | 22% |
-| **Active/future total** | **5** | **26** | **19%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 5 | 18 | 28% |
+| **Active/future total** | **6** | **26** | **23%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -196,7 +196,7 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E4 under the owner's
+`imgui-tracy-editor-campaign` (E0-E17) is active at E5 under the owner's
 direction to note genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
@@ -211,6 +211,11 @@ marks only successfully presented frames, names the real composite main lane
 and all 63 workers, and publishes fixed editor connection state. A pinned
 external capture received 101 frame marks, no-viewer and disconnect exits were
 clean, Release exclusion held, and the cumulative full gate passed with no
+oracle refresh. E4 now mirrors established owner paths into focused Tracy
+zones, publishes 32 bounded capacity plots, and requires explicit standard or
+heavy process modes so ordinary/perf runs do not allocate Tracy's vendor
+queues. A final standard capture correlated all six required owner families;
+perf, full, bounded graphics stress, and platform-marker gates passed with no
 oracle refresh. The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
@@ -826,7 +831,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E4 | 4/18 | Map existing owner intervals into focused Tracy zones and capacity plots, then prove perf and marker coexistence |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E5 | 5/18 | Add the engine-owned ImGui context/lifecycle with typed frame input and command output boundaries |
 
 ## Features
 
