@@ -1,7 +1,8 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 1/8 tasks (P0 complete; P1 blocked on owner review)
+Status: Active — 1/8 tasks (P0 complete; P1 next under the owner-clarified
+determinism-transition rules below)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -104,24 +105,89 @@ At unchanged tick rate and unchanged collision/solver behavior envelopes:
 A transition task may change float-visible results **only** by reordering
 identical work, never by changing the work:
 
-1. Build the equivalence probe first: a Debug-only dump of the per-tick
-   candidate-pair **set** (P1) or per-iteration impulse **set** (P6),
-   order-insensitive (sorted before hashing).
-2. Run old code and new code over all four `physics_scale_*` scenes plus
-   the P0 sleeping-heavy scene and the regression varied scene; the
-   equivalence probe must match tick-for-tick before any baseline moves.
-3. Only then regenerate, from the final Debug binary per the AGENTS.md
+1. Build a Debug-only **same-input-state** oracle before moving an artifact.
+   The legacy and replacement paths must consume the same pre-stage state;
+   comparing two simulations after each has evolved under a different work
+   order is not an equivalence test for an order-changing transition.
+2. P1 runs the oracle in both driver directions over all four
+   `physics_scale_*` scenes, the P0 sleeping-heavy scene, and the regression
+   varied scene: legacy emission drives the simulation while canonical
+   emission shadows it, then canonical emission drives while legacy emission
+   shadows it. At every tick compare the normalized raw pair set immediately
+   after `SpatialGrid` emission and the normalized final solver-visible pair
+   set after augmentation/pruning. Both sets must match on the shared state.
+3. P6 compares, from the same pre-solve state, canonical constraint identity
+   and membership, exactly-once solve coverage, graph-color body disjointness,
+   and fixed color order. Do **not** require numerical per-iteration impulses
+   to equal the serial solver: projected Gauss-Seidel work-order changes are
+   expected to change intermediate velocities and impulse values. The new
+   colored solver must instead be byte-identical to itself at 0/1/4/8 workers.
+4. Only after the relevant oracle passes may the task regenerate, from the
+   final Debug binary per the AGENTS.md
    baseline rules: the deterministic physics CSVs (`validate_physics` set;
    `validate_physics_deep` set if its scenes' outcomes moved) and — with
    explicit per-instance owner approval under MASTER rule 11 — the 200-box
    replay visual-fidelity golden, using exactly one engine process and one
    prediction generation.
-4. Rerun the matching gates against the regenerated artifacts in the same
-   task. A transition without a passing equivalence probe is reverted, not
-   fixed forward.
-5. Thread-count invariance: every task in this campaign, transition or
+5. Record the pre-refresh deterministic diffs as transition evidence, then
+   rerun the matching gates against the regenerated artifacts in the same
+   task. An expected pre-refresh mismatch is not a passing gate. A transition
+   without a passing same-state oracle is reverted, not fixed forward.
+6. Thread-count invariance: every task in this campaign, transition or
    not, must produce byte-identical physics CSVs at worker counts 0, 1,
    and 4 (precedent: deterministic-parallel-mutual-gravity acceptance).
+
+Owner clarification, 2026-07-18: an independently evolved legacy run and an
+independently evolved canonical run are expected to separate after a solver
+work-order change. Their deterministic CSVs and later broadphase sets therefore
+need not match before the authorized transition. The binding proof is identical
+work membership on identical input state plus deterministic results within the
+new implementation's certified worker-count envelope.
+
+## Expected Failures And Artifact Update Policy
+
+"Expected" means a failure is legitimate **before** an authorized transition
+refresh; it never means the task may close with a failing gate. Compiler/test
+failures, crashes, warnings, allocation-guard failures, capacity failures
+without the required Lane F diagnostics, same-state work-membership mismatch,
+and worker-count nondeterminism are regressions in every task.
+
+| Task | Expected pre-refresh deterministic failures | Must remain unchanged | Committed artifact updates allowed |
+|---|---|---|---|
+| P0 | None; instrumentation must not move physics state. | Physics CSVs, replay/visual goldens, screenshots, coverage floors. | Scene, profiler-marker plumbing, and measurement report only, as already completed. |
+| P1 | Physics CSV comparison and replay hashes/golden may differ after canonical pair order begins driving the solver. Later independently evolved pair sets may also differ; this is not emitter-set loss when the same-state raw and final sets match. | Same-state raw/final pair membership in both driver directions; 0/1/4 repeatability; authored scenes/config/schema; coverage floors; general render screenshots. | Physics CSV baselines whose outcomes moved, from the final Debug binary. Deep CSVs only if their scenes moved. The 200-box replay golden only with explicit per-instance owner approval and one process/generation. No other baseline class. |
+| P2 | None. A deterministic-output diff exposes stale membership, removal/back-link, overlay, rebuild, or history-dependence defects. | P1 physics CSVs and replay golden byte-exact; canonical pair membership/order; 0/1/4 identity. | Measurement report and profiler evidence only; no physics, replay, screenshot, perf-baseline, or coverage-floor refresh. |
+| P3 | None. A deterministic-output diff exposes awake-list, wake, sleep-pair suppression, diagnostics, or restore defects. | P1 physics CSVs and replay golden byte-exact; awake-to-sleep collision/wake semantics; 0/1/4 identity. | Measurement report and an explicitly approved diagnostics-format/retirement record only; no behavioral baseline refresh. |
+| P4 | None. A deterministic-output diff means operation order or persisted state changed and the candidate optimization is rejected. | P1 physics CSVs and replay golden byte-exact; hot-path allocation policy; 0/1/4 identity. | Measurement report/profiler evidence only; committed performance baselines are not authorized by this plan. |
+| P5 | None; documentation/decision task. | All runtime artifacts. | Campaign report, plan, MASTER ledger denominator if P6 is struck, and decision records only. |
+| P6, if owner-authorized | Physics CSV comparison and replay hashes/golden may differ because fixed graph-color order replaces serial constraint order. Numerical impulse values may differ. | Same-state constraint membership, exactly-once coverage, conflict-free colors, fixed color order, and 0/1/4/8 identity within the new solver. Authored scenes/config/schema, screenshots, and coverage floors remain unchanged. | Physics/deep CSV baselines whose outcomes moved, from the final Debug binary; 200-box replay golden only with explicit per-instance approval and one process/generation. No other baseline class. |
+| P7 | None. Closure validates the artifacts established by P1 and, if run, P6. | Everything behavioral. A final failure reopens its owning task. | Reports, plan/MASTER/SessionState closure bookkeeping only; never refresh a baseline at P7 to make a gate pass. |
+
+Ignored captures, profiler traces, temporary comparison dumps, and the campaign
+measurement report are evidence, not behavioral baselines. They may be updated
+when a task records new measurements. Authored scene/config/schema changes,
+render screenshot baselines, coverage floors, and committed performance
+baselines require a separate task and owner ruling; this campaign does not
+authorize them. Provenance-hash-only reconciliation is also inapplicable unless
+the exact AGENTS.md standing-rule conditions independently arise and are proved.
+
+### Task-Specific Failure Probes
+
+| Task | Failure modes the implementation must actively probe |
+|---|---|
+| P1 | Raw emitter omission/duplication; augmentation/prune changing final membership; pair normalization mistakes; canonical-list capacity diagnostics; hidden allocation; new-path 0/1/4 nondeterminism. |
+| P2 | Cell-boundary enter/leave errors; multi-cell removal and swap-back-link corruption; free-list reuse; body removal/reinsertion; `SetCellSize`/scene-load full rebuild; transient swept/CCD overlay leakage; pool-exhaustion Lane F diagnostics; replay/restore history dependence. |
+| P3 | Duplicate/out-of-order awake indices; sleep/wake transition loss; awake mover versus sleeper contact and wake behavior; sleep-sleep suppression; fixed/static-body handling; `SleepPrunedPair` diagnostic ordering/retirement; replay restore rebuilding the same awake list. |
+| P4 | Cross-body or fused-pass arithmetic reordering; cold-store split omissions in replay/capture/restore; full-array diagnostics scans left on the hot path; hot-path allocation; inclusive profiler accounting overlap or gaps. |
+| P6 | Two constraints sharing a body in one color; skipped/double-solved constraints; warm-start/cache order drift beyond the authorized transition; fixed-buffer overflow diagnostics; atomics/races; repeat-run or 0/1/4/8 worker drift; insufficient one-big-island speedup. |
+| P7 | Baseline generated from a non-final binary; a required mapped gate omitted; transition evidence missing; comment-audit or independent-review finding left open. |
+
+Each implementation task must cover its applicable rows with a focused unit,
+standalone CPU, or deterministic scene/regression test in the same commit. If a
+listed failure mode cannot be tested practically, the task notes must identify
+the exact inspection or diagnostic evidence used instead and why automation was
+not practical. These focused tests supplement, rather than replace, the mapped
+task gates below.
 
 ## Measurement Ledger (incremental profiling obligations)
 
@@ -181,11 +247,11 @@ explained or the task is not done.
   - Evidence: `../../Reports/2026-07-18/body-count-scale-measurements.md`.
     The owner accepted capacity 6,000 with 4,000 seeded sleepers and 1,000
     awake movers, ratified the ≥4,000-awake target, authorized P1 only through
-    set equivalence first, and deferred P6 authorization to P5. Full, perf,
-    platform-marker smoke, 0/1/4-worker determinism, comment audit, and
-    independent review passed with zero artifact or coverage-floor refresh.
+    same-state work equivalence first, and deferred P6 authorization to P5.
+    Full, perf, platform-marker smoke, 0/1/4-worker determinism, comment audit,
+    and independent review passed with zero artifact or coverage-floor refresh.
 
-- [ ] P1 — Canonical pair-order transition (the only behavior-visible flip).
+- [ ] P1 — Canonical pair-order transition (the first behavior-visible flip).
   - Implementation: `GetCandidatePairs` emission becomes history-free —
     bucket emitted pairs by min-index into per-body fixed lists during cell
     walk (O(n+k), allocation-free), then emit in ascending (minIdx, maxIdx)
@@ -196,33 +262,36 @@ explained or the task is not done.
     diagnostics-only and absent from the deterministic CSV; if any baseline
     artifact embeds them, preserve their emission semantics until P3
     handles them explicitly.
-  - [ ] Equivalence probe passes: identical per-tick pair sets, all six
-    scenes, old vs new emission.
-  - [ ] Baselines transitioned per the protocol: physics CSVs regenerated
-    from the final Debug binary; owner-approved one-process 200-box golden
-    regeneration; `validate_physics`, `validate_physics_deep` (if its
-    scenes moved), and `validate_replay_visual_fidelity.bat` all pass
-    against the transitioned artifacts.
+  - [ ] Same-state dual-driver oracle passes: identical normalized raw and
+    final per-tick pair sets on all six scenes, with legacy driving/canonical
+    shadowing and canonical driving/legacy shadowing.
+  - [ ] Baselines transitioned per the protocol: physics CSVs whose outcomes
+    moved are regenerated from the final Debug binary; any 200-box golden
+    regeneration has explicit per-instance owner approval and uses one process;
+    `validate_physics`, `validate_physics_deep` (if its scenes moved), and
+    `validate_replay_visual_fidelity.bat` all pass against the transitioned
+    artifacts.
   - [ ] Thread-count invariance at 0/1/4 workers.
   - Expected cost: neutral-to-noise step time (sorting is O(n+k) with tiny
     constants); record the matrix anyway.
-  - Blocker recorded 2026-07-18: the allocation-free canonical implementation
+  - Historical blocker, resolved by the 2026-07-18 owner clarification: the
+    allocation-free canonical implementation
     and Debug sorted-set probe were built and run for 360 fixed ticks over all
     six required scenes. Five scenes matched old/new exactly. In
     `physics_bench_varied`, canonical solver history removed normalized pair
     `(18,20)` from the final candidate set at ticks 152 and 332 (legacy count
-    10, canonical count 9), violating the binding tick-for-tick set-equivalence
-    condition. The transition and probe were reverted completely and no
-    artifact moved. P2-P7 remain dependency-blocked until the owner either
-    supplies a design that meets the existing protocol or explicitly revises
-    the transition protocol with new acceptance evidence.
+    10, canonical count 9), violating the former independently-evolved-run
+    equivalence condition. The transition and probe were reverted completely
+    and no artifact moved. The corrected protocol above replaces that invalid
+    condition; P1 may resume with the same-state dual-driver oracle.
   - Follow-up evidence: one exact Debug executable, selected by a diagnostic
     legacy/canonical toggle, first diverged in deterministic physics state at
     regression row/frame 102 (body 15 velocity by 0.0001); its first final-set
     divergence was 50 fixed ticks later at tick 152. Independent review confirms
     this causal ordering is expected from order-dependent projected
-    Gauss-Seidel solving, not emitter-set loss. The written old/new evolving-run
-    rule still requires an explicit owner amendment before work resumes.
+    Gauss-Seidel solving, not emitter-set loss. This causal evidence is why
+    independently evolved pair-set equality is now expected to fail while
+    same-state emitter and solver-visible membership remains mandatory.
 
 - [ ] P2 — Persistent incremental grid.
   - Implementation: retire the per-frame generation bump as the rebuild
@@ -326,9 +395,10 @@ explained or the task is not done.
     color sequence is fixed → results are a pure function of state and
     identical across worker counts. This changes solve order vs the
     serial baseline → second transition under the full Determinism
-    Transition Protocol (impulse-set equivalence probe, physics CSV
-    regeneration, owner-approved golden regeneration, one process).
-  - [ ] Equivalence probe + transition artifacts + gates per protocol.
+    Transition Protocol (same-state constraint-membership/color-validity
+    probe, physics CSV regeneration, owner-approved golden regeneration, one
+    process).
+  - [ ] Same-state oracle + transition artifacts + gates per protocol.
   - [ ] Thread-count invariance 0/1/4/8 workers, byte-identical.
   - [ ] Measurement matrix recorded, including a one-big-island stress
     witness (the 200-brick wall class of scene) at 1/4/8 workers.
@@ -346,8 +416,8 @@ explained or the task is not done.
     must be rewritten to teach the persistent design).
   - [ ] One independent review over the logical broadphase/sleep/store
     module: determinism-transition hygiene (exactly one — or two, if P6
-    ran — baseline moves, each with committed equivalence evidence), no
-    hidden history dependence, no hot-path allocation, capacity
+    ran — baseline moves, each with committed same-state work-equivalence
+    evidence), no hidden history dependence, no hot-path allocation, capacity
     diagnostics present. Any credible finding reopens its task.
   - [ ] Final gates from final source: `validate_full`,
     `validate_physics_deep`, `validate_perf`. Update MASTER-PLAN and
@@ -369,10 +439,11 @@ explained or the task is not done.
   protocols.
 - Risk register: P1 is the highest-governance task (baseline + golden
   transition) and deliberately happens **before** the perf work so every
-  subsequent task is provable byte-exact; if the P1 equivalence probe
-  cannot be made to pass, the campaign halts for owner review rather than
-  proceeding order-fuzzy. The sleepy_5000 scene must be re-settled and
-  re-captured after any upstream physics change lands from another lane.
+  subsequent task is provable byte-exact; if the P1 same-state dual-driver
+  oracle cannot be made to pass, the campaign halts for owner review rather
+  than proceeding with unproved work membership. The sleepy_5000 scene must
+  be re-settled and re-captured after any upstream physics change lands from
+  another lane.
 
 ## Acceptance
 
@@ -381,8 +452,8 @@ explained or the task is not done.
 - Sleeping bodies generate zero broadphase/force/integration/bounds work;
   sleepy_5000 step cost tracks awake count with an identical CSV.
 - Exactly one (or two with P6) owner-approved determinism transitions,
-  each with committed set-equivalence evidence; byte-exact CSVs at every
-  other task boundary; 0/1/4-worker invariance everywhere.
+  each with committed same-state work-equivalence evidence; byte-exact CSVs at
+  every other task boundary; 0/1/4-worker invariance everywhere.
 - The full Measurement Ledger is continuous across P0-P7 with no
   unexplained regressions, and the final matrix records the body-count
   verdict against the ratified target.

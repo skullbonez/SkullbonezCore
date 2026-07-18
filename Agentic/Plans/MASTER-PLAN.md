@@ -192,9 +192,14 @@ complete at 1/8 with the sleeping-heavy 5,000-body scene, fixed before matrix,
 capacity propagation, profiler counters, 0/1/4-worker determinism, mapped
 gates, comment audit, and independent review recorded in
 `../Reports/2026-07-18/body-count-scale-measurements.md`. Begin P1 with the
-Debug-only candidate-pair set-equivalence probe; no artifact may move before
-old/new sets match tick-for-tick on all six scenes. P6 is not pre-authorized
-and requires a fresh P5 owner decision. Every other task keeps zero refresh.
+Debug-only same-state dual-driver candidate-pair oracle: normalized raw and
+final solver-visible pair membership must match on identical input state in
+both driver directions across all six scenes. Independently evolved legacy and
+canonical runs are expected to diverge after their solver order changes. Only
+after the same-state oracle passes may P1 transition affected physics baselines;
+the replay golden still requires explicit per-instance owner approval. P6 is
+not pre-authorized and requires a fresh P5 owner decision. Every other task
+keeps zero behavioral-artifact refresh.
 
 `imgui-tracy-editor-campaign` (E0-E17) is the next plan and begins only after
 physics P7 closes. It adds a development-only ImGui docked editor and Tracy
@@ -752,7 +757,8 @@ insertion/pair/prune cost (`PruneSleepPairs` filters after generation,
 
 Campaign order: P0 instrumentation + sleeping-heavy 5,000-body scene and
 measurement baseline → P1 canonical pair-order determinism transition
-(owner-approved baseline/golden regeneration, set-equivalence probe first)
+(same-state dual-driver work-equivalence first; affected physics-baseline
+transition, and replay-golden regeneration only with explicit approval)
 → P2 persistent incremental grid → P3 zero-cost sleepers → P4 hot-state
 compaction/pass fusion → P5 measurement checkpoint and Tier-2 owner
 decision → P6 conditional deterministic graph-colored solver parallelism
@@ -762,13 +768,15 @@ review, closure.
 Standing rules binding this campaign: run-to-run and worker-count
 (0/1/4) byte-identical determinism at every task boundary; P1 and P6 are
 the only baseline/golden-visible tasks, each governed by the plan's
-Determinism Transition Protocol (order-insensitive set-equivalence probe
-passes before any artifact regenerates; physics CSVs regenerate only from
-the final Debug binary; the 200-box replay golden regenerates only with
-explicit per-instance owner approval, one engine process, one prediction
-generation per MASTER rule 11); fixed capacity with Lane F exhaustion and
-zero steady-state allocation throughout; no solver-model change, no SIMD
-(S7 ruling stands), no GPU physics; the Measurement Ledger matrix
+Determinism Transition Protocol (same-state work membership and task-specific
+ordering invariants pass before any artifact regenerates; independently
+evolved runs need not match across an authorized order transition; numerical
+P6 impulses need not equal serial order; physics CSVs regenerate only from the
+final Debug binary; the 200-box replay golden regenerates only with explicit
+per-instance owner approval, one engine process, one prediction generation per
+MASTER rule 11); fixed capacity with Lane F exhaustion and zero steady-state
+allocation throughout; no solver-model change, no SIMD (S7 ruling stands), no
+GPU physics; the Measurement Ledger matrix
 (per-marker medians over `physics_scale_200/520/1000/2000` plus the new
 sleepy scene) is recorded in every implementation task's commit body with
 regressions explained; B0 inclusive-marker accounting applies to all new
@@ -776,7 +784,7 @@ markers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 owner-blocked | 1/8 | Same-binary evidence puts solver-state divergence at row/frame 102 and later set drift at tick 152; independent review requires an explicit owner amendment to two-driver same-state raw/final equivalence before retry, with no artifact refresh yet |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 ready | 1/8 | Resume canonical pair-order implementation with the owner-clarified same-state dual-driver raw/final membership oracle; transition only affected physics baselines after it passes, and refresh the replay golden only with explicit per-instance approval |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 
