@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | Physics scale P0 is complete with zero baseline, golden, screenshot, authored-format, or coverage-floor refresh. |
-| Current objective | Resolve the P1 owner blocker: strict old/new pair-set equivalence failed in the varied scene; P2-P7 cannot cross the dependency barrier. |
+| Current objective | Obtain the explicit P1 protocol amendment for two-driver same-state raw/final pair equivalence; P2-P7 cannot cross the dependency barrier. |
 | Active/future progress | 1 / 8 live tasks; 13%. |
 | Last broad local gate | P0 `validate_full` passed in approximately 132s: 292/292 tests, 21,458 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, screenshots, and byte-exact physics passed. |
-| Validation for current edits | P1 investigation used a zero-warning Debug build, 8/8 focused SpatialGrid tests, 12 six-scene old/new processes, and two same-binary varied-scene confirmation processes. The transition/probe were reverted; final changes are documentation-only, so no repository validation is required. |
+| Validation for current edits | Same-binary legacy/canonical runs place deterministic state divergence at row/frame 102 and candidate-set drift at tick 152. Independent read-only review says protocol revision is technically required. Source remains reverted; final edits are documentation-only, so no repository validation is required. |
 
 ## Live Queue
 
@@ -27,8 +27,10 @@ NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
      but `physics_bench_varied` differed at fixed ticks 152 and 332 because pair
      `(18,20)` disappeared after canonical solver history. The implementation
      and probe were reverted and no artifact moved. P2-P7 cannot cross the P1
-     dependency barrier. P6 is not pre-authorized and still returns to an owner
-     decision at P5. Evidence:
+     dependency barrier. Same-binary causal evidence and independent review now
+     narrow the required owner amendment to two-driver same-state comparison of
+     raw and final normalized sets. P6 is not pre-authorized and still returns
+     to an owner decision at P5. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
@@ -461,7 +463,7 @@ probe failed only in `physics_bench_varied`: old/new final candidate sets differ
 at ticks 152 and 332 by normalized pair `(18,20)`. The attempted transition and
 probe are fully reverted and no baseline, golden, screenshot, or authored data
 moved. Obtain an owner decision before further implementation: retain the
-existing protocol and provide a design that keeps all six sets tick-identical,
-or explicitly revise the protocol to a same-state dual-emitter equivalence rule
-that permits trajectory-derived later-set differences. P2-P7 remain blocked by
+existing protocol and provide a design that keeps all six independently evolved
+sets tick-identical, or approve the exact two-driver same-state raw/final
+dual-emitter amendment recorded in the campaign report. P2-P7 remain blocked by
 P1; P6 still requires its separate fresh decision at P5.

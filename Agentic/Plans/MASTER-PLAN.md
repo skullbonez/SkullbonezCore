@@ -763,7 +763,7 @@ markers.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 owner-blocked | 1/8 | P1 failed strict six-scene equivalence at varied ticks 152/332 after canonical solver history dropped pair (18,20); transition reverted, no artifact refresh, owner protocol decision required |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 owner-blocked | 1/8 | Same-binary evidence puts solver-state divergence at row/frame 102 and later set drift at tick 152; independent review requires an explicit owner amendment to two-driver same-state raw/final equivalence before retry, with no artifact refresh yet |
 
 ## Features
 

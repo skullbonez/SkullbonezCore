@@ -154,8 +154,55 @@ changed. This is an owner blocker, not a completed P1 task: either a new design
 must satisfy the existing six-scene tick-for-tick rule, or the owner must
 explicitly revise the protocol before a behavior-visible transition proceeds.
 
+### Same-Binary Causal Evidence
+
+The exact same diagnostic Debug executable (SHA-256
+`A56A4DE4F2A76FE0F1F45363B876F8DC40EEF7495D78D52BD4E3F2BD106850DC`)
+ran `physics_bench_varied` twice with only its legacy/canonical ordering toggle
+changed. Both 13,322-line deterministic CSVs first differ at line 3,791,
+regression row/frame 102 for body 15: velocity components differ by 0.0001.
+Their first final candidate-set difference remains fixed tick 152, 50 ticks
+later. This establishes the causal order: solver trajectory diverges before
+pair `(18,20)` leaves the final set.
+
+| Mode | CSV bytes | SHA-256 |
+|---|---:|---|
+| Legacy | 1,897,378 | `E77728DD2271D617C6C37D03BE7A4AA6E25A657833E3F848D0FCF6825CBA2248` |
+| Canonical | 1,897,420 | `D577C4B26A2E675E710842174E756678B854AD2224B24B6B0513C3C4B1C17914` |
+
+The candidate span is committed in original order by narrowphase and consumed
+in that order by the persistent projected Gauss-Seidel solver. Therefore an
+explicitly behavior-visible order transition is expected to alter later state;
+requiring independently evolved simulations to retain identical later spatial
+memberships contradicts that transition's mechanism.
+
+### Independent Protocol Review
+
+Read-only review `p1-protocol-duck-01` found that the written rule still
+unambiguously requires independently evolved old/new runs, so it cannot be
+silently reinterpreted. Its technical verdict is to revise the rule to the
+following exact acceptance:
+
+> On all six scenes for 360 fixed ticks, compare legacy and canonical normalized
+> raw and final candidate sets from the identical pre-broadphase state. Run the
+> comparison once with legacy driving simulation and once with canonical driving
+> simulation. Independently evolved trajectories need not retain identical later
+> sets; canonical output must remain deterministic, artifact transitions remain
+> separately owner-gated, and 0/1/4-worker byte identity remains mandatory.
+
+Both driver distributions are required: legacy-only shadow comparison could
+falsely pass while missing a canonical-trajectory state. Raw comparison occurs
+immediately after `SpatialGrid::GetCandidatePairs`; final comparison occurs at
+the solver-visible boundary after augmentation and pruning, so neither boundary
+can mask an emitter defect in the other.
+
+| Plan | Duck run | Reviewer | Reason | Prompt chars | Response chars | Tokens | Elapsed | Verdict | Follow-up |
+|---|---|---|---|---:|---:|---:|---:|---|---|
+| `physics-body-count-scale-campaign` | `p1-protocol-duck-01` | `/root/p1_protocol_duck` | Repeated P1 protocol failure | 947 | 3,435 | n/a | 2m 25s | Explicit amendment required | Owner approval |
+
 ## Fresh-Agent Handoff
 
-Do not restart P1 implementation without an owner protocol decision. The strict
-probe failed in the varied scene and all source changes were reverted. P2-P7 are
-dependency-blocked; P6 remains separately deferred to the P5 owner decision.
+Do not restart P1 implementation without explicit owner approval of the exact
+two-driver same-state amendment above (or a replacement design that satisfies
+the original independently evolved rule). All source changes remain reverted.
+P2-P7 are dependency-blocked; P6 remains separately deferred to P5.

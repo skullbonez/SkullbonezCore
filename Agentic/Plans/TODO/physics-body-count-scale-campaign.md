@@ -216,6 +216,13 @@ explained or the task is not done.
     artifact moved. P2-P7 remain dependency-blocked until the owner either
     supplies a design that meets the existing protocol or explicitly revises
     the transition protocol with new acceptance evidence.
+  - Follow-up evidence: one exact Debug executable, selected by a diagnostic
+    legacy/canonical toggle, first diverged in deterministic physics state at
+    regression row/frame 102 (body 15 velocity by 0.0001); its first final-set
+    divergence was 50 fixed ticks later at tick 152. Independent review confirms
+    this causal ordering is expected from order-dependent projected
+    Gauss-Seidel solving, not emitter-set loss. The written old/new evolving-run
+    rule still requires an explicit owner amendment before work resumes.
 
 - [ ] P2 — Persistent incremental grid.
   - Implementation: retire the per-frame generation bump as the rebuild
