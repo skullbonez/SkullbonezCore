@@ -116,13 +116,17 @@ zero-cost sleepers, bandwidth diet, owner-gated graph-colored solver
 parallelism) from the same-day owner discussion of high-body-count engine
 techniques.
 
+The active/future denominator returned from 26 → 18 on 2026-07-18 when
+DX12 backend ownership decomposition closed D0-D7 and left the live ledger
+under rule 4. Closure evidence is in
+`../Reports/2026-07-18/dx12-backend-ownership-decomposition-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 7 | 8 | 88% |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 0 | 5 | 0% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **7** | **26** | **27%** |
+| **Active/future total** | **0** | **18** | **0%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -168,12 +172,12 @@ historical work per commit-contract rule 4.
 ## Current Execution Priority
 
 The 2026-07-18 adversarial-review round-7 lane is the active critical path.
-Scene-controller round 2 is closed. The remaining binding execution order is:
+Scene-controller round 2 and DX12 backend ownership are closed. The remaining
+binding execution order is:
 
-1. `dx12-backend-ownership-decomposition` (D0-D7)
-2. `naming-and-identity-debt` (N0-N4) — its scene-plan dependency is satisfied
-3. `small-findings-hardening` (H0-H4) — strictly after the DX12 plan (H2
-   rebases on the finalized pipeline-owner surface)
+1. `naming-and-identity-debt` (N0-N4) — its scene-plan dependency is satisfied
+2. `small-findings-hardening` (H0-H4) — its DX12 dependency is satisfied and
+   H2 now targets the finalized pipeline-owner surface
 
 `physics-body-count-scale-campaign` (P0-P7) is a parallel-eligible physics
 lane: it shares no files with the three round-7 plans and may run
@@ -705,7 +709,7 @@ are retained unchanged for future consumers — no merging, splitting, or
 signature change in any round-7 plan. `FRAME_COUNT` stays 2 (round-6 ruling
 carries forward).
 
-Standing rules binding all four plans: zero behavioral baseline, golden,
+Standing rules binding the round-7 and physics portfolio: zero behavioral baseline, golden,
 screenshot, or coverage-floor refresh; replay-touching tasks run the
 one-invocation 200-box mega gate per inventory rule 11; DX12-touching tasks
 carry the mandatory bounded graphics-stress proof per inventory rule 10;
@@ -716,9 +720,8 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 7/8 | D7 independent ownership review and closure |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 0/5 | N0 rename census after round-2 scene split |
-| [small-findings-hardening](TODO/small-findings-hardening.md) | Active — blocked on DX12 plan | 0/5 | H0 rulings census after backend decomposition lands |
+| [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 0/5 | H0 rulings census; DX12 dependency satisfied |
 
 ## Physics Body-Count Scale Campaign (2026-07-18)
 

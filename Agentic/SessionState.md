@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
-| Current objective | Execute the round-7 plans in the MASTER-PLAN binding order (DX12 backend ownership, naming/identity debt, small findings hardening) plus the parallel-eligible physics body-count scale campaign P0-P7. |
-| Active/future progress | 7 / 26 live tasks; 27%. |
-| Last broad local gate | Scene round-2 S6 `validate_full` passed in 143.261s: 291/291 tests, 21,455/21,455 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
-| Validation for current edits | DX12 D6 project filters passed at 738/738; `validate_dx12_renderer` passed in 56.779 s with zero InfoQueue errors and committed captures accepted; bounded graphics stress ran crash-free for 61.635 s; `validate_full` passed in 142.675 s with all CPU, coverage, Automation, DX12, and byte-exact physics lanes. No baseline or golden changed. |
+| Current objective | Execute naming/identity debt N0-N4, then small findings hardening H0-H4, plus the parallel-eligible physics body-count scale campaign P0-P7. |
+| Active/future progress | 0 / 18 live tasks; 0%. |
+| Last broad local gate | DX12 D7 `validate_full` passed in 138.172s: 291/291 tests, 21,455/21,455 assertions, every coverage floor, Automation replay/prediction smoke, zero-error DX12 captures, and byte-exact physics passed. |
+| Validation for current edits | DX12 D7 independent review found zero blockers; three consecutive direct renderer gates passed in 53.587s, 52.811s, and 53.192s with zero InfoQueue errors; bounded graphics stress ran crash-free for 62.019s. No baseline or golden changed. |
 
 ## Live Queue
 
-NOW. Four live plans, 26 tasks: three round-7 plans plus the 2026-07-18
+NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
      physics body-count scale campaign
      (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
      parallel-eligible physics lane (persistent broadphase, zero-cost
@@ -30,16 +30,16 @@ NOW. Four live plans, 26 tasks: three round-7 plans plus the 2026-07-18
      owner-approved baseline/golden transition points; every other task in
      every lane keeps the zero-refresh rule.
 
-0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
-     18 tasks. Scene-controller round 2 is complete at 7/7 and left the live
+0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): two live plans,
+     10 tasks. Scene-controller round 2 is complete at 7/7 and left the live
      ledger under rule 4. `SceneController` has 43 public declarations, its load
      surface has 18 concrete participants, and one `SceneWorld` owns the six
      cohesive scene-lifetime domains. The sixth independent review found zero
      material ownership issues; full and the sole replay mega gate passed with
      no baseline or golden refresh. Closure evidence:
-     `Agentic/Reports/2026-07-18/scene-controller-round-2-closure.md`. Remaining
-     binding order: DX12 backend ownership D0-D7, naming/identity N0-N4, then
-     small-findings H0-H4. DX12 D0 ratified the complete private-state map.
+     `Agentic/Reports/2026-07-18/scene-controller-round-2-closure.md`. DX12
+     backend ownership also closed D0-D7 and left the live ledger under rule 4.
+     D0 ratified the complete private-state map.
      D1 moved all descriptor heaps, allocators, published output handles, and
      typed row operations into `Dx12DescriptorHeaps`. D2 moved screenshot
      capture, readback lifetime, conversion, and the fixed uncertain-readback
@@ -56,9 +56,11 @@ NOW. Four live plans, 26 tasks: three round-7 plans plus the 2026-07-18
      or per-frame authority. D6 removed backend-resident device/presentation,
      clear-intent, DXR handle, and upload-capacity state plus the obsolete
      forwarding surface. The backend header is 867 lines and the class is 231
-     lines; it directly declares only eleven concrete owners. All mandatory
-     gates passed. Next action: D7 independent logical-module ownership review
-     and closure.
+     lines; it directly declares only eleven concrete owners. The independent
+     logical-module review found zero blockers; full, three consecutive direct
+     renderer gates, and bounded stress passed. Closure evidence:
+     `Agentic/Reports/2026-07-18/dx12-backend-ownership-decomposition-closure.md`.
+     Remaining binding order: naming/identity N0-N4, then small-findings H0-H4.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -421,11 +423,12 @@ NOW. Four live plans, 26 tasks: three round-7 plans plus the 2026-07-18
 
 ## Next Handoff
 
-Round-7 scene decomposition is complete at 7/7 and DX12 D0-D6 are complete at
-7/8. Continue immediately with D7 independent ownership review and closure over
-the complete logical backend module. Any credible reach-back, multi-domain
-state, compatibility alias, or nominal-owner finding reopens its owning task.
-Preserve the seven excluded render consumer interfaces and `FRAME_COUNT = 2`.
-Every DX12 source change requires the mapped renderer gate and at least the
-standard bounded graphics-stress proof. Do not regenerate behavioral, physics,
-replay, visual, or screenshot baselines.
+Round-7 scene decomposition and DX12 backend ownership decomposition are
+complete and have left the live ledger. Continue immediately with
+`naming-and-identity-debt` N0: produce the complete rename census, blast-radius
+map, project/filter impact, and owner ruling table before source renames. Then
+execute N1-N4 and proceed to the now-unblocked `small-findings-hardening` H0-H4.
+The physics body-count campaign remains parallel-eligible. Preserve the seven
+excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
+behavioral, physics, replay, visual, or screenshot baselines outside the two
+explicit physics determinism-transition tasks.
