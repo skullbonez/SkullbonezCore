@@ -6,8 +6,8 @@ Purpose:
 Summary:
   SceneGeneratedSetup owns deterministic generated scene algorithms: default
   demo cameras, mixed object spawning, and exact-count solver objects.
-  SceneController supplies the live world/model/camera owners while Run still
-  sequences load work until the final lifecycle extraction.
+  Each helper borrows the single SceneWorld owner rather than republishing its
+  camera, terrain, entity, and physics stores as independent participants.
 
 Glossary:
   Generated scene: Runtime-created demo scene with deterministic cameras and
@@ -21,8 +21,7 @@ Glossary:
 
 Invariants:
   - The setup helpers preserve the existing MSVC-compatible RNG sequence.
-  - Context structs borrow state; they do not own scene, world, terrain, model,
-    or camera storage.
+  - Context structs borrow SceneWorld as one owner and retain no store pointer.
   - Generated setup does not load authored scene files.
 
 Related:
@@ -45,7 +44,8 @@ class WorldEnvironment;
 namespace Runtime
 {
 class SceneController;
-}
+class SceneWorld;
+} // namespace Runtime
 namespace Physics
 {
 class PhysicsEngine;
@@ -67,18 +67,14 @@ enum class GeneratedObjectTypeOverride
 
 struct SceneGeneratedCameraContext
 {
-    Environment::CameraCollection& cameras;
-    Geometry::Terrain& terrain;
+    SceneWorld& sceneWorld;
 };
 
 struct SceneGeneratedModelContext
 {
     RunSceneState& scene;
     const SkullbonezCore::Core::EngineConfig& config;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain;
-    Runtime::SceneController& models;
-    Physics::PhysicsEngine& physics;
+    SceneWorld& sceneWorld;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 };
 

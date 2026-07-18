@@ -42,6 +42,7 @@ Related:
 
 #include "GraphicsStressController.h"
 #include "LiveStyleController.h"
+#include "Scene/SceneAutomationGateConfiguration.h"
 #include "../Physics/SpatialGrid.h"
 #include "../Physics/PhysicsDebugData.h"
 
@@ -92,11 +93,7 @@ struct SceneAutomationGateStatus
 class SceneAutomationGateTracker
 {
   public:
-    void ResetForLoad();
-    void ReserveRequiredContacts( std::size_t count );
-    void AppendRequiredContact( const char* nameA, const char* nameB, int bodyA, int bodyB );
-    void ReserveRequiredBroadphaseXCells( std::size_t count );
-    void AppendRequiredBroadphaseXCells( int minCellX, int maxCellX, int cellY, int cellZ );
+    void ApplyConfiguration( SceneAutomationGateConfiguration configuration );
 
     void UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon );
     void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
@@ -105,34 +102,10 @@ class SceneAutomationGateTracker
     void PrintMissingRequirements() const;
 
   private:
-    struct RequiredContactState
-    {
-        char nameA[64] = {};
-        char nameB[64] = {};
-        int bodyA = -1;
-        int bodyB = -1;
-        bool touched = false;
-    };
-
-    struct RequiredBroadphaseXCellsState
-    {
-        int minCellX = 0;
-        int maxCellX = 0;
-        int cellY = 0;
-        int cellZ = 0;
-        int lastActiveCellCount = 0;
-        int lastObservedMinX = 0;
-        int lastObservedMaxX = 0;
-        int lastMissingCellX = -1;
-        bool hasObservedXRange = false;
-        bool activated = false;
-    };
-
     bool RequiredContactsComplete() const;
     bool RequiredBroadphaseXCellsComplete() const;
 
-    std::vector<RequiredContactState> m_requiredContacts;
-    std::vector<RequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
+    SceneAutomationGateConfiguration m_configuration;
 };
 
 class RuntimeValidationHarness

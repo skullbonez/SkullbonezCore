@@ -32,10 +32,12 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "SceneAutomationGateConfiguration.h"
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
 #include "SceneRuntimeCoordinator.h"
+#include "SceneRuntimeUiOptions.h"
 #include "SceneWorld.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
@@ -79,7 +81,8 @@ class ContactAudioService;
 namespace UI
 {
 class InGameUI;
-}
+struct SceneNavigationModel;
+} // namespace UI
 namespace Runtime
 {
 class DiagnosticsRuntime;
@@ -123,9 +126,11 @@ struct SceneDefaultsSaveView
 };
 
 // Concept: scene loading borrows four phase-oriented values instead of
-// accepting the process shell's complete owner graph as one flat call. Each
-// value is synchronous-only, contains at most six concrete owners, and is
-// never retained by SceneController.
+// accepting the process shell's complete owner graph as one flat call. The
+// structs carry 18 concrete owners (6 policy, 3 host, 5 interaction, and 4
+// presentation); the navigation submodel is UI-owned value state. Window, UI,
+// audio, and validation effects return through SceneLoadConsumerOutputs and no
+// participant or output is retained by SceneController.
 struct SceneLoadPolicyInputs
 {
     SkullbonezCore::Core::EngineConfig& config;
@@ -138,7 +143,6 @@ struct SceneLoadPolicyInputs
 
 struct SceneLoadHostParticipants
 {
-    Window& window;
     RunTimerState& timers;
     DiagnosticsRuntime& diagnosticsRuntime;
     SimulationSystem& simulation;
@@ -151,18 +155,42 @@ struct SceneLoadInteractionParticipants
     RunCameraState& camera;
     AttachedCameraState& attachedCamera;
     RuntimeTools& runtimeTools;
-    UI::InGameUI& operatorUi;
+    // Value-oriented navigation submodel; this is not the complete UI owner.
+    UI::SceneNavigationModel& navigation;
 };
 
 struct SceneLoadPresentationParticipants
 {
-    Audio::ContactAudioService& contactAudio;
     ReplayRuntime& replayRuntime;
     RuntimeOverlayDiagnostics& overlays;
-    RuntimeValidationHarness& validationHarness;
     const RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 };
+
+struct SceneLoadConsumerOutputs
+{
+    // Value effects are accumulated synchronously and consumed immediately by
+    // the four owners intentionally excluded from the load participant graph.
+    SceneUiActivation uiActivation;
+    SceneAutomationGateConfiguration automationGates;
+    char windowTitle[256] = {};
+    bool hasWindowTitle = false;
+    bool resetContactAudioHistory = false;
+    bool applyAutomationGates = false;
+    bool resumeGraphicsStress = false;
+
+    void ResetForLoad();
+};
+
+// Applies one completed transaction's value effects at the excluded consumer
+// boundaries. Call exactly once after Load/ExecutePending, including failures
+// that progressed past scene clearing and therefore emitted reset effects.
+void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
+                                    Window& window,
+                                    UI::InGameUI& operatorUi,
+                                    Audio::ContactAudioService& contactAudio,
+                                    RuntimeValidationHarness& validationHarness,
+                                    const RunLaunchOptions& launchOptions );
 
 class SceneController
 {
@@ -215,13 +243,15 @@ class SceneController
                                          SceneLoadPolicyInputs policy,
                                          SceneLoadHostParticipants host,
                                          SceneLoadInteractionParticipants interaction,
-                                         SceneLoadPresentationParticipants presentation );
+                                         SceneLoadPresentationParticipants presentation,
+                                         SceneLoadConsumerOutputs& consumerOutputs );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
     bool ExecutePending( SceneLoadPolicyInputs policy,
                          SceneLoadHostParticipants host,
                          SceneLoadInteractionParticipants interaction,
-                         SceneLoadPresentationParticipants presentation );
+                         SceneLoadPresentationParticipants presentation,
+                         SceneLoadConsumerOutputs& consumerOutputs );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily

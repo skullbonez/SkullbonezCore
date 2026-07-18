@@ -6,8 +6,8 @@ Purpose:
 Summary:
   SceneAuthoredSetup owns the deterministic transformation from parsed scene
   JSON into runtime cameras, model bodies, constraints, materials, and
-  validation gates. Run still supplies the live storage while scene ownership is
-  extracted one reversible slice at a time.
+  validation gates. Setup borrows the single SceneWorld owner plus scene-run
+  bookkeeping and a value gate configuration for the synchronous load phase.
 
 Glossary:
   Authored scene: Parsed `.scene.json` data that explicitly drives runtime
@@ -19,11 +19,11 @@ Glossary:
     committed beside the live physics body.
 
 Invariants:
-  - Context structs borrow state and are not retained by setup helpers.
+  - Context structs borrow SceneWorld as one owner and are not retained.
   - Authored scene setup preserves model insertion order and gate resolution.
   - Parsed asset provenance is copied into scene entities at creation.
-  - Runtime gate state stays mutable after setup because frame updates mark
-    contacts and broadphase cells complete.
+  - Setup writes a value gate configuration; validation adopts and mutates it
+    only after scene loading returns.
 
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -58,33 +58,25 @@ namespace Runtime
 {
 class TestScene;
 struct RunSceneState;
-class SceneEntityStore;
-class SceneAutomationGateTracker;
+class SceneWorld;
+struct SceneAutomationGateConfiguration;
 
 struct SceneAuthoredCameraContext
 {
-    Environment::CameraCollection& cameras;
-    Geometry::Terrain& terrain;
+    SceneWorld& sceneWorld;
 };
 
 struct SceneAuthoredModelContext
 {
     RunSceneState& sceneState;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain;
-    Runtime::SceneController& models;
-    SceneEntityStore& entities;
-    Physics::PhysicsEngine& physics;
-    SceneAutomationGateTracker& automationGates;
+    SceneWorld& sceneWorld;
+    SceneAutomationGateConfiguration& automationGates;
 };
 
 struct SceneSimpleRagdollAppendContext
 {
     RunSceneState& sceneState;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain;
-    Runtime::SceneController& models;
-    Physics::PhysicsEngine& physics;
+    SceneWorld& sceneWorld;
 };
 
 class SceneAuthoredSetup

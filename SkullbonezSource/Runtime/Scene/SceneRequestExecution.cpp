@@ -50,7 +50,8 @@ using namespace SkullbonezCore::Physics;
 bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
                                       SceneLoadHostParticipants host,
                                       SceneLoadInteractionParticipants interaction,
-                                      SceneLoadPresentationParticipants presentation )
+                                      SceneLoadPresentationParticipants presentation,
+                                      SceneLoadConsumerOutputs& consumerOutputs )
 {
     SceneController& m_sceneController = *this;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
@@ -59,7 +60,7 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
         {
             return false;
         }
-        return m_sceneController.Load( request, policy, host, interaction, presentation ).ok;
+        return m_sceneController.Load( request, policy, host, interaction, presentation, consumerOutputs ).ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )
@@ -82,13 +83,11 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
         case SceneRequestType::LoadBrowserIndex:
             eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
             accepted = executeSceneLoadRequest(
-                interaction.operatorUi.SceneNavigation().LoadSceneFromBrowserIndex( request.index,
-                                                                                    m_sceneController.Runtime() ) );
+                interaction.navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::LoadDemoScene:
             eventCode = ReplayOwnerEventCode::SceneLoadDemo;
-            accepted = executeSceneLoadRequest(
-                interaction.operatorUi.SceneNavigation().LoadDemoScene( m_sceneController.Runtime() ) );
+            accepted = executeSceneLoadRequest( interaction.navigation.LoadDemoScene( m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::ResetCurrentScene:
             eventCode = ReplayOwnerEventCode::SceneReset;
@@ -99,19 +98,19 @@ bool SceneController::ExecutePending( SceneLoadPolicyInputs policy,
         case SceneRequestType::CreateScene:
             eventCode = ReplayOwnerEventCode::SceneCreate;
             eventText = request.text;
-            accepted = executeSceneLoadRequest( CreateSceneFromUI(
-                SceneRuntimeCreateContext{ m_sceneController, interaction.operatorUi.SceneNavigation().browser },
-                request.text ) );
+            accepted = executeSceneLoadRequest(
+                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, interaction.navigation.browser },
+                                   request.text ) );
             break;
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
                 const RunDebugState presentationState = presentation.overlays.PresentationSnapshot();
-                const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                    SceneDefaultsSaveView{ presentationState,
-                                           presentation.renderer,
-                                           interaction.camera,
-                                           interaction.operatorUi.SceneNavigation().overrides } );
+                const SkullbonezCore::Core::SbResult saveResult =
+                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentationState,
+                                                                                  presentation.renderer,
+                                                                                  interaction.camera,
+                                                                                  interaction.navigation.overrides } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );

@@ -1,7 +1,7 @@
 # Scene Controller Decomposition Round 2 — Split The Ratified Aggregate
 
 Date: 2026-07-18
-Status: Active — 5/7 tasks
+Status: Active — 6/7 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/RunFrame.cpp`,
 `Runtime/RunInput.cpp`, `Runtime/InputFrame.cpp`, UI navigation consumers,
@@ -96,7 +96,7 @@ owners genuinely participate, not because bags merge.
   boundaries. `SceneController` composes it; no reach-back, no duplicate
   accessors kept "for compatibility". Gate: `validate_full` plus
   `validate_physics` (physics ownership plumbing moves).
-- [ ] S5 — Shrink the load surface against the split. Each load phase now
+- [x] S5 — Shrink the load surface against the split. Each load phase now
   names only the owners that phase genuinely uses; participants that became
   internal to the world-state owner leave the public structs. Record the
   before/after participant counts. Gate: `validate_full`; replay-adjacent
@@ -188,6 +188,25 @@ owners genuinely participate, not because bags merge.
   `TestOutput/agent_logs/s4_validate_full_20260718_rerun.log`,
   `TestOutput/agent_logs/s4_validate_physics_20260718.log`, and
   `TestOutput/agent_logs/s4_validate_replay_visual_fidelity_20260718.log`.
+- S5 evidence (2026-07-18): public load participants fell from 22 concrete
+  owner borrows (`policy=6`, `host=4`, `interaction=6`, `presentation=6`) to
+  18 (`policy=6`, `host=3`, `interaction=5`, `presentation=4`). Window-title,
+  audio-reset, UI-activation, graphics-stress, and validation-gate effects now
+  cross the load boundary as typed value outputs instead of owner borrows;
+  authored/generated setup contexts borrow the single concrete `SceneWorld`
+  rather than duplicating its entity, physics, terrain, environment, and
+  controller subowners. The touched-file comment audit inspected 21/21
+  source-bearing files with zero deferred. Project filters passed 728/728,
+  allocation-policy self-test/repository scans passed (`scanned=381`,
+  `allowlist_errors=0`), and `tools\validate_fast.bat` passed in 69.624s with
+  zero warnings and 288/288 doctest cases (21,438/21,438 assertions). Final
+  `tools\validate_full.bat` passed in 140.781s: every CPU and coverage lane,
+  Automation replay/prediction smoke, zero-error DX12 validation with accepted
+  captures, and the 44,401-line byte-exact physics comparison passed. The
+  task's single `tools\validate_replay_visual_fidelity.bat` invocation passed
+  in 428.175s with 2,401 ticks, 200 moved wall bricks, 187 toppled bricks, one
+  presented cascade, durable save/load proof, and every false-pass control.
+  No baseline or golden was refreshed.
 - Round-6 closure evidence
   (`Agentic/Reports/2026-07-17/scene-controller-ownership-closure.md`) is
   the baseline census; contradicting it requires the fresh S0 measurements.

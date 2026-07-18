@@ -132,13 +132,10 @@ namespace
 // or runtime enum values.
 SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
                                                             const SkullbonezCore::Core::EngineConfig& config,
-                                                            SkullbonezCore::Environment::WorldEnvironment& world,
-                                                            SkullbonezCore::Geometry::Terrain* terrain,
-                                                            SkullbonezCore::Runtime::SceneController& models,
-                                                            SkullbonezCore::Physics::PhysicsEngine& physics,
+                                                            SceneWorld& sceneWorld,
                                                             GeneratedObjectTypeOverride objectTypeOverride )
 {
-    return SceneGeneratedModelContext{ scene, config, world, terrain, models, physics, objectTypeOverride };
+    return SceneGeneratedModelContext{ scene, config, sceneWorld, objectTypeOverride };
 }
 
 float ReplayEventFloatFromBits( int32_t signedBits )
@@ -1429,10 +1426,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
         const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::SetUpSolverObjects(
             BuildSceneGeneratedModelContext( context.scene,
                                              context.config,
-                                             context.world,
-                                             context.sceneController.Scene().Terrain().Get(),
-                                             context.models,
-                                             context.sceneController.Scene().Physics(),
+                                             context.sceneController.Scene(),
                                              context.generatedObjectTypeOverride ),
             event.value1,
             event.value2 );
@@ -1447,10 +1441,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
         const SkullbonezCore::Core::SbResult setupResult = SceneGeneratedSetup::SetUpSceneEntities(
             BuildSceneGeneratedModelContext( context.scene,
                                              context.config,
-                                             context.world,
-                                             context.sceneController.Scene().Terrain().Get(),
-                                             context.models,
-                                             context.sceneController.Scene().Physics(),
+                                             context.sceneController.Scene(),
                                              context.generatedObjectTypeOverride ),
             event.value0 );
         if ( !setupResult.ok )

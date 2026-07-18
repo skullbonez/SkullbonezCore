@@ -1071,23 +1071,32 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         {
             return false;
         }
-        return sceneController
-            .Load( request,
-                   SceneLoadPolicyInputs{ config, launchOptions, defaultCinematicRender, startup, assets, workerPool },
-                   SceneLoadHostParticipants{ *window, timers, diagnosticsRuntime, simulation },
-                   SceneLoadInteractionParticipants{ inputRouter,
-                                                     interaction,
-                                                     camera,
-                                                     attachedCamera.State(),
-                                                     runtimeTools,
-                                                     interactionOwners.operatorUi },
-                   SceneLoadPresentationParticipants{ contactAudio,
-                                                      replayRuntime,
-                                                      sceneOwners.overlays,
-                                                      presentationOwners.validationHarness,
-                                                      renderBackendView,
-                                                      renderer } )
-            .ok;
+        SceneLoadConsumerOutputs sceneLoadOutputs;
+        const bool loaded =
+            sceneController
+                .Load(
+                    request,
+                    SceneLoadPolicyInputs{ config, launchOptions, defaultCinematicRender, startup, assets, workerPool },
+                    SceneLoadHostParticipants{ timers, diagnosticsRuntime, simulation },
+                    SceneLoadInteractionParticipants{ inputRouter,
+                                                      interaction,
+                                                      camera,
+                                                      attachedCamera.State(),
+                                                      runtimeTools,
+                                                      ui.SceneNavigation() },
+                    SceneLoadPresentationParticipants{ replayRuntime,
+                                                       sceneOwners.overlays,
+                                                       renderBackendView,
+                                                       renderer },
+                    sceneLoadOutputs )
+                .ok;
+        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                       *window,
+                                       ui,
+                                       contactAudio,
+                                       presentationOwners.validationHarness,
+                                       launchOptions );
+        return loaded;
     };
 
     const SkullbonezCore::Rendering::RenderMemoryStats preActionRenderStats = renderDiagnostics.GetRenderMemoryStats();

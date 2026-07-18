@@ -34,6 +34,7 @@ Related:
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "CaptureController.h"
@@ -59,24 +60,25 @@ ObjectContactBodyView AutomationContactBodyView( PhysicsBodyHotFieldsConstView h
 } // namespace
 
 
-void SceneAutomationGateTracker::ResetForLoad()
+void SceneAutomationGateConfiguration::Reset()
 {
-    // Lifetime: observations identify body rows from one scene load only; they
-    // must be discarded before topology is rebuilt and indices are reused.
     m_requiredContacts.clear();
     m_requiredBroadphaseXCells.clear();
 }
 
 
-void SceneAutomationGateTracker::ReserveRequiredContacts( std::size_t count )
+void SceneAutomationGateConfiguration::ReserveRequiredContacts( std::size_t count )
 {
     m_requiredContacts.reserve( count );
 }
 
 
-void SceneAutomationGateTracker::AppendRequiredContact( const char* nameA, const char* nameB, int bodyA, int bodyB )
+void SceneAutomationGateConfiguration::AppendRequiredContact( const char* nameA,
+                                                              const char* nameB,
+                                                              int bodyA,
+                                                              int bodyB )
 {
-    RequiredContactState state;
+    SceneRequiredContactGate state;
     strcpy_s( state.nameA, sizeof( state.nameA ), nameA );
     strcpy_s( state.nameB, sizeof( state.nameB ), nameB );
     state.bodyA = bodyA;
@@ -85,15 +87,18 @@ void SceneAutomationGateTracker::AppendRequiredContact( const char* nameA, const
 }
 
 
-void SceneAutomationGateTracker::ReserveRequiredBroadphaseXCells( std::size_t count )
+void SceneAutomationGateConfiguration::ReserveRequiredBroadphaseXCells( std::size_t count )
 {
     m_requiredBroadphaseXCells.reserve( count );
 }
 
 
-void SceneAutomationGateTracker::AppendRequiredBroadphaseXCells( int minCellX, int maxCellX, int cellY, int cellZ )
+void SceneAutomationGateConfiguration::AppendRequiredBroadphaseXCells( int minCellX,
+                                                                       int maxCellX,
+                                                                       int cellY,
+                                                                       int cellZ )
 {
-    RequiredBroadphaseXCellsState state;
+    SceneRequiredBroadphaseXCellsGate state;
     state.minCellX = minCellX;
     state.maxCellX = maxCellX;
     state.cellY = cellY;
@@ -102,9 +107,17 @@ void SceneAutomationGateTracker::AppendRequiredBroadphaseXCells( int minCellX, i
 }
 
 
+void SceneAutomationGateTracker::ApplyConfiguration( SceneAutomationGateConfiguration configuration )
+{
+    // Lifetime: resolved body rows belong to exactly one activated scene. Move
+    // the cold-load value so validation performs no second allocation or lookup.
+    m_configuration = std::move( configuration );
+}
+
+
 void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon )
 {
-    if ( m_requiredContacts.empty() )
+    if ( m_configuration.m_requiredContacts.empty() )
     {
         return;
     }
@@ -117,7 +130,7 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
     const auto colliderRecords = colliderStore.Records();
     const int contactModelCount =
         (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
-    for ( RequiredContactState& required : m_requiredContacts )
+    for ( SceneRequiredContactGate& required : m_configuration.m_requiredContacts )
     {
         if ( required.touched || required.bodyA < 0 || required.bodyB < 0 || required.bodyA >= contactModelCount ||
              required.bodyB >= contactModelCount )
@@ -150,7 +163,7 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
         {
             continue;
         }
-        for ( RequiredContactState& required : m_requiredContacts )
+        for ( SceneRequiredContactGate& required : m_configuration.m_requiredContacts )
         {
             if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
             {
@@ -171,12 +184,12 @@ void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhys
 void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells,
                                                                  int activeCellCount )
 {
-    if ( m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
+    if ( m_configuration.m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
     {
         return;
     }
 
-    for ( RequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    for ( SceneRequiredBroadphaseXCellsGate& required : m_configuration.m_requiredBroadphaseXCells )
     {
         if ( required.activated )
         {
@@ -238,7 +251,7 @@ void SceneAutomationGateTracker::UpdateRequiredBroadphaseXCells( const SpatialGr
 
 bool SceneAutomationGateTracker::RequiredContactsComplete() const
 {
-    for ( const RequiredContactState& contact : m_requiredContacts )
+    for ( const SceneRequiredContactGate& contact : m_configuration.m_requiredContacts )
     {
         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
         {
@@ -251,7 +264,7 @@ bool SceneAutomationGateTracker::RequiredContactsComplete() const
 
 bool SceneAutomationGateTracker::RequiredBroadphaseXCellsComplete() const
 {
-    for ( const RequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
+    for ( const SceneRequiredBroadphaseXCellsGate& required : m_configuration.m_requiredBroadphaseXCells )
     {
         if ( !required.activated )
         {
@@ -264,21 +277,22 @@ bool SceneAutomationGateTracker::RequiredBroadphaseXCellsComplete() const
 
 SceneAutomationGateStatus SceneAutomationGateTracker::Status() const
 {
-    return SceneAutomationGateStatus{ !m_requiredContacts.empty() || !m_requiredBroadphaseXCells.empty(),
-                                      RequiredContactsComplete() && RequiredBroadphaseXCellsComplete() };
+    return SceneAutomationGateStatus{
+        !m_configuration.m_requiredContacts.empty() || !m_configuration.m_requiredBroadphaseXCells.empty(),
+        RequiredContactsComplete() && RequiredBroadphaseXCellsComplete() };
 }
 
 
 void SceneAutomationGateTracker::PrintMissingRequirements() const
 {
-    for ( const RequiredContactState& contact : m_requiredContacts )
+    for ( const SceneRequiredContactGate& contact : m_configuration.m_requiredContacts )
     {
         if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
         {
             std::fprintf( stderr, "[scene] required_contact missing: %s <-> %s\n", contact.nameA, contact.nameB );
         }
     }
-    for ( const RequiredBroadphaseXCellsState& cells : m_requiredBroadphaseXCells )
+    for ( const SceneRequiredBroadphaseXCellsGate& cells : m_configuration.m_requiredBroadphaseXCells )
     {
         if ( !cells.activated )
         {

@@ -1230,20 +1230,20 @@
         ".push_back(",
         ".reserve("
       ],
-      "owner": "Runtime validation harness",
+      "owner": "Scene automation gate configuration",
       "phase": "startup_scene_load_diagnostics",
-      "reason": "Required-contact and broadphase expectations are parsed and reserved only while preparing a validation run, outside steady gameplay.",
+      "reason": "Required-contact and broadphase configuration values are parsed and reserved only while preparing a scene load, then moved into validation outside steady gameplay.",
       "cap": "Bounded by the explicitly supplied validation requirements.",
       "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
     },
     {
-      "path": "SkullbonezSource/Runtime/RuntimeValidationHarness.h",
+      "path": "SkullbonezSource/Runtime/Scene/SceneAutomationGateConfiguration.h",
       "patterns": [
         "std::vector<"
       ],
-      "owner": "Runtime validation harness",
+      "owner": "Scene automation gate configuration",
       "phase": "startup_scene_load_diagnostics",
-      "reason": "The cold validation owner retains parsed contact and broadphase expectations outside steady gameplay.",
+      "reason": "The cold scene-load value retains parsed contact and broadphase expectations until validation adopts the completed configuration.",
       "cap": "Bounded by the explicitly supplied validation requirements.",
       "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
     },

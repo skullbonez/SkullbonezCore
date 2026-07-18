@@ -37,97 +37,23 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-void ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options )
+void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
+                            const SceneUIOptions& options,
+                            double nowSeconds,
+                            bool preserveUIState,
+                            bool automationScene )
 {
-    // Concept: Scene-authored UI state is a load policy, not a frame policy.
-    // Preserve live operator UI for resets, but still consume stress directives
-    // because they are diagnostics inputs authored by the scene.
-    if ( !context.preserveUIState )
+    context.activation.authoredOptions = options;
+    context.activation.nowSeconds = nowSeconds;
+    context.activation.hasAuthoredOptions = true;
+    context.activation.preserveUIState = preserveUIState;
+    context.activation.automationScene = automationScene;
+
+    // Why: diagnostics and debug values already have genuine load-phase owners;
+    // only window presentation crosses the returned activation value.
+    if ( !preserveUIState && options.hasTestPattern )
     {
-        if ( !options.hasVisible )
-        {
-            if ( context.automationScene && !options.hasSettings )
-            {
-                context.ui.SetVisible( false, context.nowSeconds );
-            }
-            else if ( !options.hasSettings )
-            {
-                if ( !context.ui.IsVisible() )
-                {
-                    context.ui.SetVisible( true, context.nowSeconds );
-                }
-                context.ui.SetMinimized( true, context.nowSeconds );
-            }
-            else if ( !context.ui.IsVisible() )
-            {
-                context.ui.SetVisible( true, context.nowSeconds );
-            }
-        }
-        if ( options.hasWindowRect )
-        {
-            context.ui.SetWindowBounds( options.windowX, options.windowY, options.windowW, options.windowH );
-            if ( !options.hasMinimized )
-            {
-                context.ui.SetMinimized( false, context.nowSeconds );
-            }
-        }
-        if ( options.hasActiveTab )
-        {
-            context.ui.SetActiveTab( static_cast<UI::InGameUITab>( options.activeTab ) );
-        }
-        if ( options.hasBlur )
-        {
-            context.ui.SetBlurEnabled( options.blurEnabled );
-        }
-        if ( options.hasProfilerExpandAll )
-        {
-            context.ui.SetProfilerExpandAll( options.profilerExpandAll );
-        }
-        if ( options.hasProfilerTimeline )
-        {
-            context.ui.SetProfilerTimelineEnabled( options.profilerTimeline );
-        }
-        if ( options.hasPerformanceHistogram )
-        {
-            context.ui.SetPerformanceHistogramEnabled( options.performanceHistogram );
-        }
-        if ( options.hasHitboxOverlay )
-        {
-            context.ui.SetHitboxOverlayEnabled( options.hitboxOverlay );
-        }
-        if ( options.hasRendererComboOpen )
-        {
-            context.ui.SetRendererComboOpen( options.rendererComboOpen );
-        }
-        if ( options.hasWaterComboOpen )
-        {
-            context.ui.SetWaterComboOpen( options.waterComboOpen );
-        }
-        if ( options.hasSceneComboOpen )
-        {
-            context.ui.SetSceneComboOpen( options.sceneComboOpen );
-        }
-        if ( options.hasSceneFilter )
-        {
-            context.ui.SetSceneFilter( options.sceneFilter );
-        }
-        if ( options.hasScrollY )
-        {
-            context.ui.SetScrollY( options.scrollY );
-        }
-        context.ui.SetMouseOverride( options.hasMouseOverride, options.mouseX, options.mouseY );
-        if ( options.hasVisible )
-        {
-            context.ui.SetVisible( options.isVisible, context.nowSeconds );
-        }
-        if ( options.hasMinimized )
-        {
-            context.ui.SetMinimized( options.isMinimized, 0.0 );
-        }
-        if ( options.hasTestPattern )
-        {
-            context.debug.isUITestPattern = options.testPatternEnabled;
-        }
+        context.debug.isUITestPattern = options.testPatternEnabled;
     }
 
     if ( options.hasStress )
@@ -141,6 +67,103 @@ void ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext context, const Sce
     if ( options.hasStressActions )
     {
         context.diagnostics.UIStress().actionsPerFrame = std::clamp( options.stressActionsPerFrame, 1, 32 );
+    }
+}
+
+
+void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation )
+{
+    if ( activation.hasAuthoredOptions && !activation.preserveUIState )
+    {
+        const SceneUIOptions& options = activation.authoredOptions;
+        if ( !options.hasVisible )
+        {
+            if ( activation.automationScene && !options.hasSettings )
+            {
+                ui.SetVisible( false, activation.nowSeconds );
+            }
+            else if ( !options.hasSettings )
+            {
+                if ( !ui.IsVisible() )
+                {
+                    ui.SetVisible( true, activation.nowSeconds );
+                }
+                ui.SetMinimized( true, activation.nowSeconds );
+            }
+            else if ( !ui.IsVisible() )
+            {
+                ui.SetVisible( true, activation.nowSeconds );
+            }
+        }
+        if ( options.hasWindowRect )
+        {
+            ui.SetWindowBounds( options.windowX, options.windowY, options.windowW, options.windowH );
+            if ( !options.hasMinimized )
+            {
+                ui.SetMinimized( false, activation.nowSeconds );
+            }
+        }
+        if ( options.hasActiveTab )
+        {
+            ui.SetActiveTab( static_cast<UI::InGameUITab>( options.activeTab ) );
+        }
+        if ( options.hasBlur )
+        {
+            ui.SetBlurEnabled( options.blurEnabled );
+        }
+        if ( options.hasProfilerExpandAll )
+        {
+            ui.SetProfilerExpandAll( options.profilerExpandAll );
+        }
+        if ( options.hasProfilerTimeline )
+        {
+            ui.SetProfilerTimelineEnabled( options.profilerTimeline );
+        }
+        if ( options.hasPerformanceHistogram )
+        {
+            ui.SetPerformanceHistogramEnabled( options.performanceHistogram );
+        }
+        if ( options.hasHitboxOverlay )
+        {
+            ui.SetHitboxOverlayEnabled( options.hitboxOverlay );
+        }
+        if ( options.hasRendererComboOpen )
+        {
+            ui.SetRendererComboOpen( options.rendererComboOpen );
+        }
+        if ( options.hasWaterComboOpen )
+        {
+            ui.SetWaterComboOpen( options.waterComboOpen );
+        }
+        if ( options.hasSceneComboOpen )
+        {
+            ui.SetSceneComboOpen( options.sceneComboOpen );
+        }
+        if ( options.hasSceneFilter )
+        {
+            ui.SetSceneFilter( options.sceneFilter );
+        }
+        if ( options.hasScrollY )
+        {
+            ui.SetScrollY( options.scrollY );
+        }
+        ui.SetMouseOverride( options.hasMouseOverride, options.mouseX, options.mouseY );
+        if ( options.hasVisible )
+        {
+            ui.SetVisible( options.isVisible, activation.nowSeconds );
+        }
+        if ( options.hasMinimized )
+        {
+            ui.SetMinimized( options.isMinimized, 0.0 );
+        }
+    }
+    if ( activation.forceVisible )
+    {
+        ui.SetVisible( true, activation.nowSeconds );
+    }
+    if ( activation.forceUnminimized )
+    {
+        ui.SetMinimized( false, activation.nowSeconds );
     }
 }
 

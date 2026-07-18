@@ -650,10 +650,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         options.firstSceneObjectId = context.scene.AllocateSceneObjectIdRange( Ragdoll::SIMPLE_PART_COUNT );
         SceneSimpleRagdollAppendContext ragdollContext{
             context.scene,
-            context.world,
-            context.terrain,
-            context.models,
-            context.physics,
+            context.models.Scene(),
         };
         const SkullbonezCore::Core::SbResult appendResult =
             SceneAuthoredSetup::AppendSimpleRagdoll( ragdollContext, options );

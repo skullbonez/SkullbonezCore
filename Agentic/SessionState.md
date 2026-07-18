@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 5 / 25 live tasks; 20%. |
-| Last broad local gate | Scene round-2 S4 `validate_full` passed in 135.419s: 288/288 tests, 21,438/21,438 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
-| Validation for current edits | S4 project filters passed 727/727; allocation-policy self-test/repository scans passed; `validate_fast` passed in 81.564s; explicit physics passed in 52.074s; and the sole replay visual-fidelity invocation passed in 428.126s. No baseline or golden refresh. |
+| Active/future progress | 6 / 25 live tasks; 24%. |
+| Last broad local gate | Scene round-2 S5 `validate_full` passed in 140.781s: 288/288 tests, 21,438/21,438 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
+| Validation for current edits | S5 project filters passed 728/728; allocation-policy self-test/repository scans passed; `validate_fast` passed in 69.624s; and the task's sole replay visual-fidelity invocation passed in 428.175s. No baseline or golden refresh. |
 
 ## Live Queue
 
@@ -37,8 +37,11 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
      introduced concrete `SceneWorld` ownership for entities, physics, cameras,
      terrain, world settings, and render instances; `SceneController` now
      composes it and exposes only `Scene()`, while world lifecycle and
-     `StepPhysics` authority moved with the owner. Next action: scene S5,
-     shrinking load participant surfaces against the split.
+     `StepPhysics` authority moved with the owner. S5 reduced public load
+     participants from 22 concrete owner borrows to 18 and replaced consumer
+     owner borrows with typed value outputs; internal setup contexts now borrow
+     only `SceneWorld`. Next action: scene S6 independent ownership review and
+     closure.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -401,12 +404,12 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
 
 ## Next Handoff
 
-Round-7 scene decomposition is active at 5/7. S4 introduced concrete
-`SceneWorld` ownership for entities, physics, cameras, terrain, world settings,
-and render instances; moved world lifecycle, replay topology, presentation, and
-`StepPhysics` authority with that owner; and left `SceneController` with only a
-`Scene()` borrow for world access. Allocation, project-filter, fast, full,
-explicit physics, and sole replay visual-fidelity gates passed. Continue S5 by
-removing world-internal owners from public load participant structs and record
-the before/after participant counts. Do not regenerate behavioral, physics,
-replay, visual, or screenshot baselines.
+Round-7 scene decomposition is active at 6/7. S5 reduced the public load surface
+from 22 concrete owner borrows to 18, returned typed consumer effects instead
+of borrowing window/audio/UI/validation owners, and collapsed authored and
+generated setup contexts to one `SceneWorld` borrow. Allocation, project-filter,
+fast, full, and the task's sole replay visual-fidelity gates passed. Continue S6
+with one independent logical-module ownership review, resolve every credible
+finding, measure the final lifecycle-owner public surface, run the final full
+gate, publish closure evidence, and delete the completed plan. Do not regenerate
+behavioral, physics, replay, visual, or screenshot baselines.

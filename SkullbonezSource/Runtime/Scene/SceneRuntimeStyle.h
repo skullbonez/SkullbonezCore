@@ -46,6 +46,7 @@ class SceneController;
 namespace Runtime
 {
 class TestScene;
+class SceneEntityStore;
 struct RunDebugState;
 
 struct SceneRuntimeStyleContext

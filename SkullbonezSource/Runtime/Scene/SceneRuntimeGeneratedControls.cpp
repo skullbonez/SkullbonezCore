@@ -73,13 +73,7 @@ SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneController& scen
 
 SceneGeneratedModelContext BuildGeneratedModelContext( SceneGeneratedControlPolicy policy, SceneController& scene )
 {
-    return SceneGeneratedModelContext{ scene.State(),
-                                       policy.config,
-                                       scene.Scene().Environment(),
-                                       scene.Scene().Terrain().Get(),
-                                       scene,
-                                       scene.Scene().Physics(),
-                                       policy.objectTypeOverride };
+    return SceneGeneratedModelContext{ scene.State(), policy.config, scene.Scene(), policy.objectTypeOverride };
 }
 
 void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )

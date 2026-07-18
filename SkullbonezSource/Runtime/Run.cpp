@@ -532,27 +532,30 @@ void Run::Initialise()
         m_contactAudio.SetEnabled( false );
     }
 
-    m_lastSceneLoadResult =
-        m_sceneController.Load( SceneLoadRequest::Load( 0, false, false, false ),
-                                SceneLoadPolicyInputs{ m_config,
-                                                       m_launchOptions,
-                                                       m_renderDefaults.CinematicBaseline(),
-                                                       m_startup,
-                                                       m_assets,
-                                                       m_workerPool },
-                                SceneLoadHostParticipants{ m_window, m_timers, m_diagnosticsRuntime, m_simulation },
-                                SceneLoadInteractionParticipants{ m_inputRouter,
-                                                                  m_interaction,
-                                                                  m_camera,
-                                                                  m_attachedCamera.State(),
-                                                                  m_runtimeTools,
-                                                                  *m_operatorUi },
-                                SceneLoadPresentationParticipants{ m_contactAudio,
-                                                                   m_replayRuntime,
-                                                                   *m_overlayDiagnostics,
-                                                                   *m_validationHarness,
-                                                                   m_renderBackendView,
-                                                                   m_renderer } );
+    SceneLoadConsumerOutputs sceneLoadOutputs;
+    m_lastSceneLoadResult = m_sceneController.Load(
+        SceneLoadRequest::Load( 0, false, false, false ),
+        SceneLoadPolicyInputs{ m_config,
+                               m_launchOptions,
+                               m_renderDefaults.CinematicBaseline(),
+                               m_startup,
+                               m_assets,
+                               m_workerPool },
+        SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+        SceneLoadInteractionParticipants{ m_inputRouter,
+                                          m_interaction,
+                                          m_camera,
+                                          m_attachedCamera.State(),
+                                          m_runtimeTools,
+                                          m_operatorUi->SceneNavigation() },
+        SceneLoadPresentationParticipants{ m_replayRuntime, *m_overlayDiagnostics, m_renderBackendView, m_renderer },
+        sceneLoadOutputs );
+    ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                   m_window,
+                                   *m_operatorUi,
+                                   m_contactAudio,
+                                   *m_validationHarness,
+                                   m_launchOptions );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -688,6 +691,7 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     }
     for ( int i = 1; i < sceneCount; ++i )
     {
+        SceneLoadConsumerOutputs sceneLoadOutputs;
         const SkullbonezCore::Core::SbResult loadResult =
             m_sceneController.Load( SceneLoadRequest::Load( i, false, false, false ),
                                     SceneLoadPolicyInputs{ m_config,
@@ -696,19 +700,24 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                                            m_startup,
                                                            m_assets,
                                                            m_workerPool },
-                                    SceneLoadHostParticipants{ m_window, m_timers, m_diagnosticsRuntime, m_simulation },
+                                    SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
                                     SceneLoadInteractionParticipants{ m_inputRouter,
                                                                       m_interaction,
                                                                       m_camera,
                                                                       m_attachedCamera.State(),
                                                                       m_runtimeTools,
-                                                                      *m_operatorUi },
-                                    SceneLoadPresentationParticipants{ m_contactAudio,
-                                                                       m_replayRuntime,
+                                                                      m_operatorUi->SceneNavigation() },
+                                    SceneLoadPresentationParticipants{ m_replayRuntime,
                                                                        *m_overlayDiagnostics,
-                                                                       *m_validationHarness,
                                                                        m_renderBackendView,
-                                                                       m_renderer } );
+                                                                       m_renderer },
+                                    sceneLoadOutputs );
+        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                       m_window,
+                                       *m_operatorUi,
+                                       m_contactAudio,
+                                       *m_validationHarness,
+                                       m_launchOptions );
         if ( !loadResult.ok )
         {
             return loadResult;
