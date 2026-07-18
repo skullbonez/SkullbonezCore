@@ -34,6 +34,7 @@ Related:
 #include "../Assets/AssetKeys.h"
 
 #include "Fence.h"
+#include "LockOrderValidator.h"
 #include "Profiler.h"
 
 #include <cstdio>
@@ -50,6 +51,16 @@ namespace SkullbonezCore
 namespace Threading
 {
 
+#ifdef _DEBUG
+using WorkerPoolMutex = TrackedMutex;
+using WorkerPoolConditionVariable = std::condition_variable_any;
+#else
+// Profile/Release stay on the standard primitives: lock validation and its
+// generic condition-variable cost are a Debug probe only.
+using WorkerPoolMutex = std::mutex;
+using WorkerPoolConditionVariable = std::condition_variable;
+#endif
+
 struct WorkerChunkRange
 {
     int chunkIndex;
@@ -62,7 +73,7 @@ class WorkerPool
   public:
     static constexpr int MAX_PARALLEL_TASKS = 256;
 
-    WorkerPool();
+    explicit WorkerPool( LockOrderValidator& lockOrderValidator );
     ~WorkerPool();
 
     WorkerPool( const WorkerPool& ) = delete;
@@ -169,8 +180,10 @@ class WorkerPool
     void SubmitTaskRecord( void* taskState, TaskDispatcher dispatch );
     void SubmitParallelChunk( void* dispatchState, ParallelTaskDispatcher dispatch, const WorkerChunkRange& chunk );
 
-    mutable std::mutex m_mutex;
-    std::condition_variable m_workAvailable;
+    // Debug validates the only pool lock against the startup-owned graph;
+    // Profile/Release retain the original std::mutex/condition_variable pair.
+    mutable WorkerPoolMutex m_mutex;
+    WorkerPoolConditionVariable m_workAvailable;
     // Fixed callback records keep asynchronous replay slices allocation-free.
     TaskRecord m_tasks[WORKER_PARALLEL_TASK_CAPACITY];
     int m_taskHead;

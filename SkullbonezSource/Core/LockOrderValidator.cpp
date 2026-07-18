@@ -20,8 +20,8 @@ Invariants:
     must not pay graph-validation costs.
   - A thread's held-lock stack must be updated after cycle detection so failed
     acquisitions report the order that introduced the problem.
-  - The validator singleton is a frozen diagnostics exception: function-local
-    storage, no config reads, and no dependency on other singleton teardown.
+  - Init owns the validator longer than WorkerPool, and TrackedMutex keeps only
+    a Debug borrow into that explicit startup lifetime.
 
 Related:
   - SkullbonezSource/Core/LockOrderValidator.h
@@ -29,13 +29,9 @@ Related:
 
 #include "LockOrderValidator.h"
 
-#include <atomic>
+#include <array>
 #include <cassert>
 #include <cstdio>
-#include <iterator>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -44,171 +40,151 @@ namespace Threading
 namespace
 {
 
-std::atomic<uint32_t> g_nextLockId{ 1 };
-std::atomic<uint32_t> g_nextThreadId{ 1 };
-
 #ifdef _DEBUG
-// Lifetime: each debug thread keeps its own acquisition stack while the global
-// graph records order edges across all threads.
-thread_local std::vector<uint32_t> g_heldLocks;
-thread_local uint32_t g_threadId = g_nextThreadId.fetch_add( 1, std::memory_order_relaxed );
-
-bool HasCycleFrom( uint32_t node,
-                   const std::unordered_map<uint32_t, std::unordered_set<uint32_t>>& graph,
-                   std::unordered_set<uint32_t>& visiting,
-                   std::unordered_set<uint32_t>& visited )
-{
-    if ( visiting.find( node ) != visiting.end() )
-    {
-        return true;
-    }
-    if ( visited.find( node ) != visited.end() )
-    {
-        return false;
-    }
-
-    visiting.insert( node );
-    const auto edges = graph.find( node );
-    if ( edges != graph.end() )
-    {
-        for ( uint32_t next : edges->second )
-        {
-            if ( HasCycleFrom( next, graph, visiting, visited ) )
-            {
-                return true;
-            }
-        }
-    }
-    visiting.erase( node );
-    visited.insert( node );
-    return false;
-}
+constexpr std::size_t HELD_LOCK_CAPACITY = 64;
+// Lifetime: each debug thread keeps its own fixed acquisition stack while the
+// startup-owned validator records order edges across all threads.
+thread_local std::array<uint32_t, HELD_LOCK_CAPACITY> g_heldLocks = {};
+thread_local std::size_t g_heldLockCount = 0;
 #endif
 
-uint32_t CurrentThreadId()
+} // namespace
+
+
+uint32_t LockOrderValidator::RegisterLock( const char* name )
 {
 #ifdef _DEBUG
-    return g_threadId;
+    std::lock_guard<std::mutex> lock( m_mutex );
+    assert( m_nextLockId <= MAX_LOCK_COUNT && "Lock-order validator capacity exhausted." );
+    if ( m_nextLockId > MAX_LOCK_COUNT )
+    {
+        return 0;
+    }
+    const uint32_t lockId = m_nextLockId++;
+    m_names[lockId - 1] = name ? name : "<unnamed>";
+    return lockId;
 #else
+    static_cast<void>( name );
     return 0;
 #endif
 }
 
-} // namespace
 
-class LockOrderValidatorState
-{
-  public:
-    std::mutex mutex;
-    std::unordered_map<uint32_t, std::unordered_set<uint32_t>> edges;
-    std::unordered_map<uint32_t, const char*> names;
-};
-
-LockOrderValidatorState& State()
-{
-    static LockOrderValidatorState s_state;
-    return s_state;
-}
-
-
-LockOrderValidator& LockOrderValidator::Instance()
-{
-    // Lifetime: the diagnostics object is a function-local static so callers do
-    // not depend on external startup or shutdown ordering. It owns no resources
-    // whose destructor must coordinate with renderer, config, or worker state.
-    static LockOrderValidator s_validator;
-    return s_validator;
-}
-
-
-void LockOrderValidator::RegisterLock( uint32_t lockId, const char* name )
+void LockOrderValidator::RecordAcquisition( uint32_t lockId )
 {
 #ifdef _DEBUG
-    std::lock_guard<std::mutex> lock( State().mutex );
-    State().names[lockId] = name ? name : "<unnamed>";
-#else
-    static_cast<void>( lockId );
-    static_cast<void>( name );
-#endif
-}
-
-
-void LockOrderValidator::RecordAcquisition( uint32_t lockId, uint32_t threadId )
-{
-#ifdef _DEBUG
+    if ( lockId == 0 || lockId > MAX_LOCK_COUNT )
     {
-        std::lock_guard<std::mutex> lock( State().mutex );
-        for ( uint32_t heldLock : g_heldLocks )
+        assert( false && "Invalid lock-order validator id." );
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock( m_mutex );
+        for ( std::size_t heldIndex = 0; heldIndex < g_heldLockCount; ++heldIndex )
         {
+            const uint32_t heldLock = g_heldLocks[heldIndex];
             if ( heldLock != lockId )
             {
-                State().edges[heldLock].insert( lockId );
+                m_edges[heldLock - 1].set( lockId - 1 );
             }
         }
 
         if ( DetectCycleUnlocked() )
         {
             fprintf( stderr,
-                     "[workers] Lock-order cycle detected while thread %u acquired lock %u.\n",
-                     threadId,
-                     lockId );
+                     "[workers] Lock-order cycle detected while acquiring lock %u (%s).\n",
+                     lockId,
+                     m_names[lockId - 1] ? m_names[lockId - 1] : "<unnamed>" );
             assert( false && "Lock-order cycle detected." );
         }
     }
 
-    g_heldLocks.push_back( lockId );
+    assert( g_heldLockCount < g_heldLocks.size() && "Per-thread held-lock stack exhausted." );
+    if ( g_heldLockCount < g_heldLocks.size() )
+    {
+        g_heldLocks[g_heldLockCount++] = lockId;
+    }
 #else
     static_cast<void>( lockId );
-    static_cast<void>( threadId );
 #endif
 }
 
 
-void LockOrderValidator::RecordRelease( uint32_t lockId, uint32_t threadId )
+void LockOrderValidator::RecordRelease( uint32_t lockId )
 {
 #ifdef _DEBUG
-    static_cast<void>( threadId );
-    for ( auto it = g_heldLocks.rbegin(); it != g_heldLocks.rend(); ++it )
+    for ( std::size_t heldIndex = g_heldLockCount; heldIndex > 0; --heldIndex )
     {
-        if ( *it == lockId )
+        if ( g_heldLocks[heldIndex - 1] == lockId )
         {
-            g_heldLocks.erase( std::next( it ).base() );
+            for ( std::size_t moveIndex = heldIndex; moveIndex < g_heldLockCount; ++moveIndex )
+            {
+                g_heldLocks[moveIndex - 1] = g_heldLocks[moveIndex];
+            }
+            --g_heldLockCount;
             return;
         }
     }
 #else
     static_cast<void>( lockId );
-    static_cast<void>( threadId );
 #endif
+}
+
+
+#ifdef _DEBUG
+bool LockOrderValidator::HasCycleFrom( uint32_t node,
+                                       std::bitset<MAX_LOCK_COUNT>& visiting,
+                                       std::bitset<MAX_LOCK_COUNT>& visited ) const
+{
+    if ( visiting.test( node ) )
+    {
+        return true;
+    }
+    if ( visited.test( node ) )
+    {
+        return false;
+    }
+
+    visiting.set( node );
+    for ( uint32_t next = 0; next < MAX_LOCK_COUNT; ++next )
+    {
+        if ( m_edges[node].test( next ) && HasCycleFrom( next, visiting, visited ) )
+        {
+            return true;
+        }
+    }
+    visiting.reset( node );
+    visited.set( node );
+    return false;
 }
 
 
 bool LockOrderValidator::DetectCycleUnlocked() const
 {
-#ifdef _DEBUG
-    std::unordered_set<uint32_t> visiting;
-    std::unordered_set<uint32_t> visited;
-    for ( const auto& entry : State().edges )
+    std::bitset<MAX_LOCK_COUNT> visiting;
+    std::bitset<MAX_LOCK_COUNT> visited;
+    for ( uint32_t node = 0; node + 1 < m_nextLockId; ++node )
     {
-        if ( HasCycleFrom( entry.first, State().edges, visiting, visited ) )
+        if ( HasCycleFrom( node, visiting, visited ) )
         {
             return true;
         }
     }
-#endif
     return false;
 }
+#endif
 
 
-TrackedMutex::TrackedMutex( const char* name )
-    : m_name( name ), m_id( g_nextLockId.fetch_add( 1, std::memory_order_relaxed ) )
 #ifdef _DEBUG
-      ,
-      m_validator( &LockOrderValidator::Instance() )
+TrackedMutex::TrackedMutex( const char* name, LockOrderValidator& validator )
+    : m_id( validator.RegisterLock( name ) ), m_validator( &validator )
+#else
+TrackedMutex::TrackedMutex( const char* name, LockOrderValidator& validator )
 #endif
 {
-#ifdef _DEBUG
-    m_validator->RegisterLock( m_id, m_name );
+#ifndef _DEBUG
+    static_cast<void>( name );
+    static_cast<void>( validator );
 #endif
 }
 
@@ -216,7 +192,7 @@ TrackedMutex::TrackedMutex( const char* name )
 void TrackedMutex::lock()
 {
 #ifdef _DEBUG
-    m_validator->RecordAcquisition( m_id, CurrentThreadId() );
+    m_validator->RecordAcquisition( m_id );
 #endif
     m_inner.lock();
 }
@@ -229,7 +205,7 @@ bool TrackedMutex::try_lock()
         return false;
     }
 #ifdef _DEBUG
-    m_validator->RecordAcquisition( m_id, CurrentThreadId() );
+    m_validator->RecordAcquisition( m_id );
 #endif
     return true;
 }
@@ -238,7 +214,7 @@ bool TrackedMutex::try_lock()
 void TrackedMutex::unlock()
 {
 #ifdef _DEBUG
-    m_validator->RecordRelease( m_id, CurrentThreadId() );
+    m_validator->RecordRelease( m_id );
 #endif
     m_inner.unlock();
 }

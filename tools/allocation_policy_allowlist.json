@@ -231,18 +231,6 @@
       "removal_or_wrapper_plan": "Move atlas construction through a startup arena if text atlas generation becomes runtime-mutable."
     },
     {
-      "path": "SkullbonezSource/Core/LockOrderValidator.cpp",
-      "patterns": [
-        ".insert(",
-        ".push_back("
-      ],
-      "owner": "Core infrastructure static STL surface",
-      "phase": "startup_diagnostics_threading",
-      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
-      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
-      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
-    },
-    {
       "path": "SkullbonezSource/Core/Log.h",
       "patterns": [
         "std::string",

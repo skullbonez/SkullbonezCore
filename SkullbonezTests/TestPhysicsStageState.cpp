@@ -60,6 +60,7 @@ using SkullbonezCore::Physics::PhysicsNarrowphaseStage;
 using SkullbonezCore::Physics::PhysicsSleepController;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Threading::WorkerPool;
+using SkullbonezCore::Threading::LockOrderValidator;
 
 namespace
 {
@@ -279,7 +280,8 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
     SkullbonezCore::Core::PhysicsExecutionConfig execution;
     execution.parallel = true;
     execution.parallelNarrowphase = true;
-    WorkerPool workerPool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( 1 );
     PhysicsNarrowphaseStage stage;
 

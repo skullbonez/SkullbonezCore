@@ -94,6 +94,7 @@ using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Threading::WorkerPool;
+using SkullbonezCore::Threading::LockOrderValidator;
 
 namespace
 {
@@ -353,7 +354,8 @@ void StepMicroWorldWith( PhysicsEngine& engine,
                          const PhysicsWorldForces& forces,
                          int workerThreadCount = 0 )
 {
-    WorkerPool workerPool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workerPool( lockOrderValidator );
     if ( workerThreadCount > 0 )
     {
         workerPool.Initialise( workerThreadCount );

@@ -234,6 +234,9 @@
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Log.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>

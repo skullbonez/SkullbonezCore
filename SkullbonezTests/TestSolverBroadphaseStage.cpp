@@ -51,6 +51,7 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsForceStage;
 using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerPool;
 
 namespace
@@ -182,7 +183,8 @@ TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and mass
     worldForces.mutualGravity.softeningLength = 0.1f;
     SkullbonezCore::Core::PhysicsExecutionConfig execution;
     execution.parallel = false;
-    WorkerPool inlinePool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool inlinePool( lockOrderValidator );
     PhysicsForceStage stage;
     stage.ReserveBodyScratchCapacity( 4u );
 
@@ -212,7 +214,8 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
     stage.ReserveBodyScratchCapacity( 2u );
     SkullbonezCore::Core::PhysicsExecutionConfig execution;
     execution.parallel = false;
-    WorkerPool inlinePool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool inlinePool( lockOrderValidator );
     const std::array<uint8_t, 2> sleepState = { 0u, 0u };
 
     // Invariant: the pair table computes one force and applies its exact

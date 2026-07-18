@@ -367,7 +367,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
-    WorkerPool workerPool;
+    // Lifetime: declaration order keeps the Debug lock graph alive until after
+    // WorkerPool joins and destroys every mutex borrow.
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( cfg.runtimeCapacity.workerThreads );
     if ( args.workerSelfTest )
     {

@@ -243,6 +243,7 @@
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />

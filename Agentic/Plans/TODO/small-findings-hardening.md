@@ -1,7 +1,7 @@
 # Small Findings Hardening — Close The Round-7 Minor Red Flags
 
 Date: 2026-07-18
-Status: Active — 1/5 tasks
+Status: Active — 2/5 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at H0; never directly on `main`)
 Impact area: `Core/LockOrderValidator.*`, `Rendering/DX12/*` (PSO cache
 identity), targeted cast sites across `SkullbonezSource/`, JSON include
@@ -62,7 +62,7 @@ treatment as every other monolith.
   `nlohmann/json.hpp`); UI tab TU measurements. Owner ratifies dispositions
   and branch. Evidence under `Agentic/Reports/`. Gate: none
   (documentation).
-- [ ] H1 — De-singleton `LockOrderValidator`. The validator becomes a
+- [x] H1 — De-singleton `LockOrderValidator`. The validator becomes a
   startup-owned instance wired through the existing composition root;
   `Instance()` is deleted, not wrapped. Debug/Profile-only behavior and
   zero-cost Release posture are preserved and stated. Gate:
@@ -116,3 +116,8 @@ treatment as every other monolith.
   caller, 19 transitively JSON-reachable TUs, both UI TU measurements, and the
   ratified startup-owner / pipeline-identity / JSON-fence / UI-split decisions.
   Documentation only; no repository validation required.
+- H1: `Agentic/Reports/2026-07-18/small-findings-h1-lock-validator-ownership.md`
+  records explicit startup/test ownership, the fixed Debug graph, deletion of
+  the obsolete allocation exception, and clean final fast/perf gates. Comment
+  audit: `Agentic/Reports/2026-07-18/small-findings-h1-comment-audit.md`
+  (10/10 checked, 0 deferred).
