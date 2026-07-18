@@ -258,6 +258,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+      <Filter>Source Files\Runtime\Allocation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>

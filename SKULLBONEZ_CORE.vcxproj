@@ -254,49 +254,52 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\imgui_draw.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\imgui_tables.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\imgui_widgets.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_win32.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_dx12.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\tracy\public\TracyClient.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
@@ -504,6 +507,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h" />
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h" />

@@ -7,7 +7,8 @@ Summary:
   The allocator starts as the policy ledger: owners register their intended
   capacity, the allocation hook attributes heap traffic to the active owner, and
   replay reserve requests are checked against owner caps. Backing arenas can
-  move underneath this ledger without changing the validation contract.
+  move underneath this ledger without changing the validation contract. In
+  development builds, the same ledger bounds two thread-local tool owners.
 
 Glossary:
   Policy violation: Unregistered gameplay-phase heap traffic, unregistered
@@ -17,6 +18,8 @@ Glossary:
     startup preallocation or replay-approved growth.
   Last phase/frame: Compact breadcrumbs that identify where an owner last
     allocated or grew without needing heap-backed logs.
+  Development tool owner: ImGui or Tracy attribution admitted only by the
+    shared compile capability and rejected after its active-byte cap.
 
 Invariants:
   - The registry uses fixed arrays and atomics only; no STL containers or heap
@@ -24,10 +27,13 @@ Invariants:
   - Owner registration is expected before steady gameplay. Duplicate owner names
     reuse the first handle so repeated scene warmups stay stable.
   - RequestGrowth grants capacity only for replay owners during replay phases.
+  - Tool permission is owner- and thread-specific; it never changes the process
+    allocation phase observed by gameplay workers.
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp
+  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.cpp
 */
 #include "RuntimeReserveAllocator.h"
 
@@ -77,6 +83,9 @@ struct OwnerRecord
     int replayGrowthLimit;
     bool allowReplayGrowth;
     const char* capacityReason;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    bool allowDevelopmentToolAllocations;
+#endif
     OwnerCounters counters;
 };
 
@@ -396,6 +405,9 @@ RuntimeReserveOwnerHandle RuntimeReserveAllocator::RegisterOwner( const RuntimeR
     owner.replayGrowthLimit = desc.replayGrowthLimit;
     owner.allowReplayGrowth = desc.allowReplayGrowth;
     owner.capacityReason = desc.capacityReason && desc.capacityReason[0] != '\0' ? desc.capacityReason : "unspecified";
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    owner.allowDevelopmentToolAllocations = desc.allowDevelopmentToolAllocations;
+#endif
     ResetOwnerCounters( owner.counters, owner.initialCapacity );
     owner.active.store( 1u, std::memory_order_release );
     return static_cast<RuntimeReserveOwnerHandle>( index );
@@ -489,6 +501,23 @@ bool RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( RuntimeReserveOw
            s_approvedReplayGrowthDepth > 0 && s_approvedReplayGrowthPhase == RuntimeReservePhase::Replay;
 }
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+bool RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle ownerHandle,
+                                                                   int phaseIndex ) noexcept
+{
+    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
+    if ( !IsGameplayPhaseIndex( phaseIndex ) || ownerIndex == UNREGISTERED_OWNER )
+    {
+        return false;
+    }
+
+    const OwnerRecord& owner = OwnerForHandle( ownerIndex );
+    const uint64_t activeBytes = owner.counters.activeBytes.load( std::memory_order_relaxed );
+    return owner.allowDevelopmentToolAllocations && owner.hardCapacity > 0 &&
+           activeBytes <= static_cast<uint64_t>( owner.hardCapacity );
+}
+#endif
+
 void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle,
                                                 int phaseIndex,
                                                 uint64_t bytes ) noexcept
@@ -505,6 +534,16 @@ void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerH
     {
         s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
     }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    if ( ownerIndex != UNREGISTERED_OWNER && owner.allowDevelopmentToolAllocations &&
+         ( owner.hardCapacity <= 0 || activeAfter > static_cast<uint64_t>( owner.hardCapacity ) ) )
+    {
+        // Invariant: the tool exception is bounded by live bytes. Crossing the
+        // cap remains a policy violation even though the allocation itself has
+        // already succeeded inside the third-party library.
+        s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
+    }
+#endif
 }
 
 void RuntimeReserveAllocator::RecordFree( RuntimeReserveOwnerHandle ownerHandle, uint64_t bytes ) noexcept
@@ -571,6 +610,9 @@ bool RuntimeReserveAllocator::CopyOwnerStats( RuntimeReserveOwnerHandle ownerHan
     outStats.highWaterCapacity = owner.counters.highWaterCapacity.load( std::memory_order_relaxed );
     outStats.lastGrowthFrame = owner.counters.lastGrowthFrame.load( std::memory_order_relaxed );
     outStats.allowReplayGrowth = owner.allowReplayGrowth;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    outStats.allowDevelopmentToolAllocations = owner.allowDevelopmentToolAllocations;
+#endif
     return true;
 }
 
@@ -762,6 +804,10 @@ const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noe
         return "diagnostics";
     case RuntimeReserveSubsystem::AllocationTracker:
         return "allocation_tracker";
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    case RuntimeReserveSubsystem::DevelopmentTools:
+        return "development_tools";
+#endif
     default:
         return "unknown";
     }

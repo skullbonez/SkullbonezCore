@@ -14,6 +14,8 @@
 //     capacity budget.
 //   Replay growth: Bounded capacity increase allowed only while replay tools are
 //     doing replay-phase work.
+//   Development tool owner: Thread-local ImGui or Tracy attribution that admits
+//     bounded vendor storage without changing the process gameplay phase.
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
 //   Lifecycle phase: Always-on process label used by allocation and upload
 //     policies even when allocation counting is disabled.
@@ -25,6 +27,7 @@
 //   - Denied growth increments policy violations and still records an event.
 //   - ResetCounters() clears counters/events without unregistering owners.
 //   - RuntimeAllocationScope publishes/restores phase independently of guard mode.
+//   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
 //
 // Related:
@@ -37,6 +40,9 @@
 
 #include "../SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h"
 #include "../SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "../SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h"
+#endif
 
 #include <array>
 #include <cstddef>
@@ -44,8 +50,20 @@
 #include <new>
 #include <string>
 
+using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationGuardMode;
+using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationPhase;
 using SkullbonezCore::Runtime::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
+using SkullbonezCore::Runtime::Allocation::PrintRuntimeAllocationSummary;
+using SkullbonezCore::Runtime::Allocation::ResetRuntimeAllocationCounters;
 using SkullbonezCore::Runtime::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardEnabled;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardHasGameplayViolations;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardModeName;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardViolationCount;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhaseName;
+using SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthRequest;
@@ -56,20 +74,14 @@ using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerStatsView;
 using SkullbonezCore::Runtime::Allocation::RuntimeReservePhase;
 using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
-using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationPhase;
-using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationGuardMode;
-using SkullbonezCore::Runtime::Allocation::PrintRuntimeAllocationSummary;
-using SkullbonezCore::Runtime::Allocation::ResetRuntimeAllocationCounters;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardEnabled;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardHasGameplayViolations;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardModeName;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardViolationCount;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhaseName;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope;
 using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationGuardMode;
 using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationPhase;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+using SkullbonezCore::Runtime::Allocation::CopyDevelopmentToolAllocationStats;
+using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationOwner;
+using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationScope;
+using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationStats;
+#endif
 
 namespace
 {
@@ -150,12 +162,19 @@ TEST_CASE( "RuntimeAllocationTracker: public mode and phase names cover every li
     CHECK( std::string( RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode::Off ) ) == "off" );
     CHECK( std::string( RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode::Measure ) ) == "measure" );
     CHECK( std::string( RuntimeAllocationGuardModeName( RuntimeAllocationGuardMode::Gameplay ) ) == "gameplay" );
-    CHECK( std::string( RuntimeAllocationGuardModeName( static_cast<RuntimeAllocationGuardMode>( 99 ) ) ) == "unknown" );
+    CHECK( std::string( RuntimeAllocationGuardModeName( static_cast<RuntimeAllocationGuardMode>( 99 ) ) ) ==
+           "unknown" );
 
-    const std::array<const char*, static_cast<size_t>( RuntimeAllocationPhase::Count )> expected = {
-        "startup", "scene_load", "backend_init", "steady_gameplay", "physics",
-        "render", "replay", "capture", "diagnostics", "shutdown"
-    };
+    const std::array<const char*, static_cast<size_t>( RuntimeAllocationPhase::Count )> expected = { "startup",
+                                                                                                     "scene_load",
+                                                                                                     "backend_init",
+                                                                                                     "steady_gameplay",
+                                                                                                     "physics",
+                                                                                                     "render",
+                                                                                                     "replay",
+                                                                                                     "capture",
+                                                                                                     "diagnostics",
+                                                                                                     "shutdown" };
     for ( size_t index = 0; index < expected.size(); ++index )
     {
         CHECK( std::string( RuntimeAllocationPhaseName( static_cast<RuntimeAllocationPhase>( index ) ) ) ==
@@ -222,6 +241,52 @@ TEST_CASE( "RuntimeAllocationTracker: gameplay guard reports a physics allocatio
     CHECK( summary.find( "VIOLATION:" ) != std::string::npos );
 }
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+TEST_CASE( "Development tool allocation scopes remain separate without masking gameplay violations" )
+{
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Gameplay );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Render );
+
+    {
+        DevelopmentToolAllocationScope imguiScope( DevelopmentToolAllocationOwner::DearImGui );
+        void* imguiBlock = ::operator new( 32u );
+        ::operator delete( imguiBlock );
+    }
+    {
+        DevelopmentToolAllocationScope tracyScope( DevelopmentToolAllocationOwner::Tracy );
+        void* tracyBlock = ::operator new( 48u );
+        ::operator delete( tracyBlock );
+    }
+
+    const uint64_t toolScopeViolations = RuntimeAllocationGuardViolationCount();
+    DevelopmentToolAllocationStats imguiStats;
+    DevelopmentToolAllocationStats tracyStats;
+    const bool copiedImGui =
+        CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::DearImGui, imguiStats );
+    const bool copiedTracy = CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::Tracy, tracyStats );
+
+    // Acceptance probe: this unscoped allocation uses the same Render phase as
+    // the tool calls. It must still fail the gameplay guard.
+    void* gameplayBlock = ::operator new( 16u );
+    ::operator delete( gameplayBlock );
+    const uint64_t finalViolations = RuntimeAllocationGuardViolationCount();
+    const bool guardFailed = RuntimeAllocationGuardHasGameplayViolations();
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+
+    CHECK( toolScopeViolations == 0u );
+    CHECK( copiedImGui );
+    CHECK( copiedTracy );
+    CHECK( imguiStats.allocations == 1u );
+    CHECK( tracyStats.allocations == 1u );
+    CHECK( imguiStats.highWaterBytes >= 32u );
+    CHECK( tracyStats.highWaterBytes >= 48u );
+    CHECK( imguiStats.hardCapBytes == 64 * 1024 * 1024 );
+    CHECK( tracyStats.hardCapBytes == 256 * 1024 * 1024 );
+    CHECK( finalViolations >= 1u );
+    CHECK( guardFailed );
+}
+#endif
+
 TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve alignment and null-delete behavior" )
 {
     struct alignas( 64 ) AlignedValue
@@ -233,9 +298,8 @@ TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve align
     void* scalarNothrow = ::operator new( 7u, std::nothrow );
     void* arrayNothrow = ::operator new[]( 9u, std::nothrow );
     void* aligned = ::operator new( sizeof( AlignedValue ), std::align_val_t( alignof( AlignedValue ) ) );
-    void* alignedArray = ::operator new[]( sizeof( AlignedValue ) * 2u,
-                                           std::align_val_t( alignof( AlignedValue ) ),
-                                           std::nothrow );
+    void* alignedArray =
+        ::operator new[]( sizeof( AlignedValue ) * 2u, std::align_val_t( alignof( AlignedValue ) ), std::nothrow );
     REQUIRE( scalarNothrow != nullptr );
     REQUIRE( arrayNothrow != nullptr );
     REQUIRE( aligned != nullptr );
@@ -246,9 +310,7 @@ TEST_CASE( "RuntimeAllocationTracker: global allocation overloads preserve align
     ::operator delete( scalarNothrow, std::nothrow );
     ::operator delete[]( arrayNothrow, std::nothrow );
     ::operator delete( aligned, std::align_val_t( alignof( AlignedValue ) ) );
-    ::operator delete[]( alignedArray,
-                         std::align_val_t( alignof( AlignedValue ) ),
-                         std::nothrow );
+    ::operator delete[]( alignedArray, std::align_val_t( alignof( AlignedValue ) ), std::nothrow );
     ::operator delete( nullptr );
     ResetRuntimeAllocationCounters();
     CHECK( RuntimeAllocationGuardViolationCount() == 0u );

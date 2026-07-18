@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 2/18 tasks (E0-E1 complete; E2 next) under the owner's
+Status: Active — 3/18 tasks (E0-E2 complete; E3 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (2/18 complete)
+Ledger: E0-E17 (3/18 complete)
 
 ## Objective
 
@@ -181,7 +181,7 @@ It does **not** authorize removal from the legacy UI.
     five stages, and a final Release build passed with no ImGui/Tracy source or
     object in its compile/link commands.
 
-- [ ] E2 — Establish the development-tools and allocation-policy boundary.
+- [x] E2 — Establish the development-tools and allocation-policy boundary.
   - Introduce one explicit compile-time development-tools capability used by
     both integrations; Release must compile and link with neither ImGui nor
     Tracy and must contain no hidden initialization path.
@@ -199,6 +199,17 @@ It does **not** authorize removal from the legacy UI.
     symbols/resources.
   - Gates: `tools\validate_fast.bat`, allocation-policy self-test and repo
     scan, plus a targeted Release build inspection.
+  - Evidence:
+    `../../Reports/2026-07-18/imgui-tracy-e2-allocation-boundary.md` records the
+    shared compile-time capability, exact thread-local owner boundary, separate
+    64 MiB ImGui and 256 MiB Tracy caps/counters, and why no static allowlist
+    row was required. The focused probe passed 11/11 assertions: scoped tool
+    allocations produced no violation and an unscoped Render allocation still
+    failed the active gameplay guard. Allocation self/repo scans,
+    `validate_tests`, `validate_fast`, the targeted Release build and artifact
+    scan, and the cumulative `validate_full` gate all passed. Release contains
+    no tool source, object, capability, owner, or symbol token; no baseline or
+    golden changed.
 
 - [ ] E3 — Bring up the minimal Tracy client lifecycle.
   - Initialize/shutdown the client at the platform/application boundary with

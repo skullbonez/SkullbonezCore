@@ -14,6 +14,8 @@ Glossary:
   Reentrancy guard: Thread-local flag that prevents tracker internals from
     recursively recording their own emergency work.
   Active bytes: Tracked bytes allocated but not freed at the time of reporting.
+  Development tool owner: A thread-local, hard-capped ImGui or Tracy scope that
+    is permitted only when the shared development capability is compiled.
 
 Invariants:
   - Allocation/deallocation hooks must not allocate, throw during delete, or use
@@ -22,10 +24,13 @@ Invariants:
     user pointer.
   - Direct malloc/free in engine code is controlled by the static checker; this
     hook measures C++ allocation paths such as STL growth.
+  - Tool permission is checked from the calling thread's owner, so concurrent
+    gameplay allocations retain ordinary violation accounting.
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
   - tools/check_allocation_policy.py
+  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
 */
 #include "RuntimeAllocationTracker.h"
 
@@ -260,8 +265,15 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     }
 #endif
     const bool approvedReplayGrowth = RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, phaseIndex );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    const bool approvedDevelopmentToolAllocation =
+        RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( owner, phaseIndex );
+#else
+    constexpr bool approvedDevelopmentToolAllocation = false;
+#endif
     const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay &&
-                                   IsGameplayViolationPhase( phase ) && !approvedReplayGrowth;
+                                   IsGameplayViolationPhase( phase ) && !approvedReplayGrowth &&
+                                   !approvedDevelopmentToolAllocation;
     const uintptr_t parent = stackFrames[1] != 0u ? stackFrames[1] : stackFrames[0];
     RecordCallsite( phase, owner, callsite, parent, gameplayViolation, size );
 

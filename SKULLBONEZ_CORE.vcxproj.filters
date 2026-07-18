@@ -660,6 +660,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+      <Filter>Source Files\Runtime\Allocation</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
@@ -1322,6 +1325,12 @@
       <Filter>Header Files\Runtime\Allocation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h">
+      <Filter>Header Files\Runtime\Allocation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h">
+      <Filter>Header Files\Runtime\Allocation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h">
       <Filter>Header Files\Runtime\Allocation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h">

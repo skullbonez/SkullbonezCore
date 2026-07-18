@@ -386,6 +386,8 @@ RUNTIME_AUDIO_PREFIXES = (
 )
 
 RUNTIME_ALLOCATION_PREFIXES = (
+    "DevelopmentToolAllocation",
+    "DevelopmentToolsCapability",
     "RuntimeAllocationTracker",
     "RuntimeReserveAllocator",
 )
