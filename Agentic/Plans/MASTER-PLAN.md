@@ -137,8 +137,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 6 | 18 | 33% |
-| **Active/future total** | **7** | **26** | **27%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 7 | 18 | 39% |
+| **Active/future total** | **8** | **26** | **31%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -196,7 +196,7 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E6 under the owner's
+`imgui-tracy-editor-campaign` (E0-E17) is active at E7 under the owner's
 direction to note genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
@@ -220,7 +220,13 @@ oracle refresh. E5 adds the cohesive development-only ImGui context owner,
 typed scalar frame and command values, deterministic DPI-aware font fallback,
 versioned layout, and exact Legacy/ImGui/Both selector. Repeated lifecycle and
 resize probes plus UI, fast, perf, full, allocation, and Release-exclusion
-gates passed with no oracle refresh. The campaign adds a
+gates passed with no oracle refresh. E6 gives that owner a concrete DX12
+renderer, separate fixed 16-row development descriptor heap, synchronous font
+upload retirement, two-frame resource lifetime, and explicit draw placement
+before Present. Visible resize/fault probes and the renderer, one-minute
+graphics stress, fast, allocation, full, and Release gates passed with zero
+DX12 messages, descriptor growth, warnings, oracle changes, or golden refresh.
+The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
 comparison. The default is editor-heavy on the left, game viewport centered,
@@ -835,7 +841,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E6 | 6/18 | Bind bounded ImGui resources and draw data into the engine-owned DX12 frame before Present |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E7 | 7/18 | Route Win32 messages and per-event capture intent without stealing gameplay controls |
 
 ## Features
 

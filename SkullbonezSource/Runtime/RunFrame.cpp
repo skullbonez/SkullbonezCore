@@ -480,6 +480,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+    if ( m_applicationExit.ExitRequested() )
+    {
+        return m_applicationExit.Resolve( 0 );
+    }
     MSG msg;
     int messageExitCode = 0;
     constexpr int kMaxMessagesPerFrame = 256;
@@ -740,8 +744,9 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                       renderModels );
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-            // Concept: E5 owns only a CPU-side empty dockspace. DX12 draw-data
-            // submission arrives in E6 and Win32 event routing in E7.
+            // Concept: the context owner builds one typed editor frame, then
+            // its narrow E6 renderer binding records draw data before Present.
+            // Win32 message routing remains isolated to E7.
             const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
             const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
             const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput{ m_window.ClientWidth(),
@@ -751,8 +756,15 @@ SkullbonezCore::Core::SbResult Run::Execute()
             if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
             {
                 m_imguiEditor.BuildEmptyDockspace();
-                const DevelopmentTools::ImGuiEditorCommands commands = m_imguiEditor.EndFrame();
-                if ( commands.requestHide )
+                const DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
+                if ( !imguiResult.status.ok )
+                {
+                    m_timers.frameTimer.StopTimer();
+                    PROFILE_FRAME_END( m_profiler );
+                    m_applicationExit.RequestOwnedFailure( imguiResult.status );
+                    return m_applicationExit.Resolve( 0 );
+                }
+                if ( imguiResult.commands.requestHide )
                 {
                     m_imguiEditor.SetVisible( false );
                 }

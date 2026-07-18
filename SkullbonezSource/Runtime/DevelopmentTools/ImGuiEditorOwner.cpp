@@ -7,7 +7,8 @@ Summary:
   The owner installs the engine's hard-capped DearImGui allocator, creates one
   context, selects a readable scalable font, configures single-window docking,
   and translates immutable display facts into balanced ImGui frames. It does
-  not initialize Win32 or DX12 backends; those remain later campaign tasks.
+  delegates DX12 device resources and draw recording to the concrete renderer
+  owner while Win32 message routing remains a later campaign task.
 
 Glossary:
   Embedded vector fallback: Dear ImGui's pinned, scalable built-in font used
@@ -32,6 +33,7 @@ Related:
 
 #include "../Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
+#include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 
 #include <imgui.h>
 
@@ -79,11 +81,11 @@ ImGuiEditorOwner::~ImGuiEditorOwner()
     Shutdown();
 }
 
-void ImGuiEditorOwner::Start()
+SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( Rendering::Dx12ImGuiRendererOwner* renderer )
 {
     if ( m_context )
     {
-        return;
+        return SkullbonezCore::Core::SbResult::Success();
     }
 
     // Lifetime: allocator callbacks are process-global ImGui configuration.
@@ -130,18 +132,23 @@ void ImGuiEditorOwner::Start()
         m_fontSource = ImGuiEditorFontSource::EmbeddedVectorFallback;
     }
     io.FontDefault = editorFont;
-    // Hazard: E5 intentionally has no renderer backend. Build the legacy CPU
-    // atlas now so NewFrame text metrics never depend on E6's texture-update
-    // handshake being present.
-    if ( !io.Fonts->Build() )
+    if ( !renderer )
     {
-        SB_FATAL( "DevelopmentTools/ImGui", "Dear ImGui CPU font atlas build failed." );
+        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
+                                                        "No DX12 ImGui renderer capability was published at startup" );
     }
 
     ApplyDpiStyle( 1.0f );
+    const SkullbonezCore::Core::SbResult rendererResult = renderer->BindContext( *m_context );
+    if ( !rendererResult.ok )
+    {
+        return rendererResult;
+    }
+    m_renderer = renderer;
     printf( "[imgui] Context ready layout_version=%d font=%s docking=on platform_viewports=off.\n",
             LAYOUT_VERSION,
             m_fontSource == ImGuiEditorFontSource::Asset ? "asset" : "embedded_vector_fallback" );
+    return SkullbonezCore::Core::SbResult::Success();
 }
 
 void ImGuiEditorOwner::Shutdown() noexcept
@@ -159,6 +166,14 @@ void ImGuiEditorOwner::Shutdown() noexcept
         // End it before context destruction so ImGui can validate its stacks.
         ImGui::EndFrame();
         m_frameActive = false;
+    }
+    if ( m_renderer )
+    {
+        // Lifetime: Run explicitly calls Shutdown only after its renderer
+        // resource-release drain. The context remains current while the vendor
+        // frees its two-frame buffers, font texture, and descriptor row.
+        m_renderer->Shutdown( *m_context );
+        m_renderer = nullptr;
     }
     ImGui::DestroyContext( m_context );
     m_context = nullptr;
@@ -201,6 +216,11 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
     io.DisplaySize = ImVec2( static_cast<float>( input.displayWidth ), static_cast<float>( input.displayHeight ) );
     io.DisplayFramebufferScale = ImVec2( 1.0f, 1.0f );
     io.DeltaTime = std::clamp( input.deltaSeconds, MIN_DELTA_SECONDS, MAX_DELTA_SECONDS );
+    if ( !m_renderer )
+    {
+        SB_FATAL( "DevelopmentTools/ImGui", "BeginFrame has no bound DX12 renderer." );
+    }
+    m_renderer->BeginFrame( *m_context );
     ImGui::NewFrame();
     m_frameActive = true;
     return true;
@@ -215,19 +235,26 @@ void ImGuiEditorOwner::BuildEmptyDockspace()
     ImGui::DockSpaceOverViewport( 0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode );
 }
 
-ImGuiEditorCommands ImGuiEditorOwner::EndFrame()
+ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
 {
-    ImGuiEditorCommands commands;
+    ImGuiEditorFrameResult result;
     if ( !m_context || !m_frameActive )
     {
-        return commands;
+        return result;
     }
 
     ImGui::SetCurrentContext( m_context );
     ImGui::Render();
     m_frameActive = false;
     ++m_completedFrames;
-    return commands;
+    if ( !m_renderer || !ImGui::GetDrawData() )
+    {
+        result.status = SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
+                                                                 "Completed frame has no DX12 draw-data target" );
+        return result;
+    }
+    result.status = m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );
+    return result;
 }
 
 ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
@@ -241,6 +268,16 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
     status.layoutVersion = LAYOUT_VERSION;
     status.completedFrames = m_completedFrames;
     status.fontSource = m_fontSource;
+    if ( m_renderer )
+    {
+        const Rendering::Dx12ImGuiRenderStats rendererStats = m_renderer->CopyStats();
+        status.rendererBound = rendererStats.initialized;
+        status.rendererDescriptorUsed = rendererStats.descriptorUsed;
+        status.rendererDescriptorCapacity = rendererStats.descriptorCapacity;
+        status.rendererDescriptorHighWater = rendererStats.descriptorHighWater;
+        status.rendererRecordedFrames = rendererStats.recordedFrames;
+        status.rendererIndexedDraws = rendererStats.indexedDraws;
+    }
     return status;
 }
 

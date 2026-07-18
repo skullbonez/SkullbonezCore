@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 6/18 tasks (E0-E5 complete; E6 next) under the owner's
+Status: Active — 7/18 tasks (E0-E6 complete; E7 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (5/18 complete)
+Ledger: E0-E17 (7/18 complete)
 
 ## Objective
 
@@ -286,7 +286,7 @@ It does **not** authorize removal from the legacy UI.
     `validate_perf`, `validate_full`, and Release exclusion passed without a
     baseline or golden refresh.
 
-- [ ] E6 — Integrate ImGui with the engine-owned DX12 frame.
+- [x] E6 — Integrate ImGui with the engine-owned DX12 frame.
   - Add a bounded ImGui descriptor/font-resource allocation owned through the
     concrete DX12 resource/descriptor authority; do not hand ImGui the global
     heap or swap-chain authority.
@@ -301,6 +301,15 @@ It does **not** authorize removal from the legacy UI.
     repeated open/close/resize, and no crash during the bounded stress run.
   - Gates: `tools\validate_dx12_renderer.bat`,
     `tools\run_graphics_stress.bat 1`, allocation repo scan.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e6-dx12-frame.md` records the concrete
+    DX12 renderer owner, separate fixed 16-row development descriptor heap,
+    synchronous font-upload retirement, two-frame lifetime, draw placement
+    before Present, explicit backbuffer state/binding restoration, separable
+    statistics, graceful resize/fault teardown, and Release exclusion.
+    Renderer, one-minute graphics stress, fast, allocation, full, and Release
+    gates passed with zero warnings, DX12 validation messages, descriptor
+    growth, baseline changes, or golden refreshes.
 
 - [ ] E7 — Route Win32 input and focus without stealing gameplay controls.
   - Feed Win32 messages through the ImGui backend at the window/input boundary

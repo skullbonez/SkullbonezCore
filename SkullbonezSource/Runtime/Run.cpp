@@ -281,7 +281,12 @@ Run::Run( Window& window,
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    m_imguiEditor.Start();
+    const SkullbonezCore::Core::SbResult imguiStartResult =
+        m_imguiEditor.Start( m_renderBackendView.developmentUiRenderer );
+    if ( !imguiStartResult.ok )
+    {
+        m_applicationExit.RequestOwnedFailure( imguiStartResult );
+    }
 #endif
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Scene().Physics().BindProfiler( profiler );
@@ -359,6 +364,12 @@ Run::~Run()
                   releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
                   releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
     }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Lifetime: the preceding release path proved all submitted frames complete.
+    // Destroy vendor GPU objects and return its descriptor rows while both the
+    // ImGui context and concrete DX12 owners still exist.
+    m_imguiEditor.Shutdown();
+#endif
 }
 
 

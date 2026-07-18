@@ -32,9 +32,16 @@ Related:
 */
 #pragma once
 
+#include "../../Core/SbResult.h"
+
 #include <cstdint>
 
 struct ImGuiContext;
+
+namespace SkullbonezCore::Rendering
+{
+class Dx12ImGuiRendererOwner;
+}
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
 {
@@ -58,6 +65,12 @@ struct ImGuiEditorCommands
     bool requestHide = false;
 };
 
+struct ImGuiEditorFrameResult
+{
+    ImGuiEditorCommands commands;
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+};
+
 struct ImGuiEditorStatus
 {
     bool initialized = false;
@@ -67,6 +80,12 @@ struct ImGuiEditorStatus
     bool platformViewportsEnabled = false;
     int layoutVersion = 0;
     uint64_t completedFrames = 0u;
+    bool rendererBound = false;
+    uint32_t rendererDescriptorUsed = 0u;
+    uint32_t rendererDescriptorCapacity = 0u;
+    uint32_t rendererDescriptorHighWater = 0u;
+    uint64_t rendererRecordedFrames = 0u;
+    uint64_t rendererIndexedDraws = 0u;
     ImGuiEditorFontSource fontSource = ImGuiEditorFontSource::None;
 };
 
@@ -81,20 +100,21 @@ class ImGuiEditorOwner
     ImGuiEditorOwner( const ImGuiEditorOwner& ) = delete;
     ImGuiEditorOwner& operator=( const ImGuiEditorOwner& ) = delete;
 
-    void Start();
+    SkullbonezCore::Core::SbResult Start( Rendering::Dx12ImGuiRendererOwner* renderer );
     void Shutdown() noexcept;
     void SetVisible( bool visible ) noexcept;
     bool IsVisible() const noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
     void BuildEmptyDockspace();
-    ImGuiEditorCommands EndFrame();
+    ImGuiEditorFrameResult EndFrame();
     ImGuiEditorStatus CopyStatus() const noexcept;
 
   private:
     void ApplyDpiStyle( float dpiScale );
 
     ImGuiContext* m_context = nullptr;
+    Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
     bool m_visible = false;
     bool m_frameActive = false;
     float m_appliedDpiScale = 0.0f;

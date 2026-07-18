@@ -187,6 +187,9 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
 RenderBackendDX12::RenderBackendDX12()
     : m_shaderDevelopment( m_pipelineOwner, m_textureOwner, m_geometryOwner ),
       m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+      m_imguiRenderer( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_pipelineOwner, m_textureOwner ),
+#endif
       m_graphTransientPool( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner )
 {
 }
@@ -919,6 +922,16 @@ void RenderBackendDX12::Shutdown()
     // Lifetime: the concrete owners release their registries and compiled
     // pipelines only after the terminal GPU drain above proves no command list
     // can still reference them.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    if ( m_imguiRenderer.IsInitialized() )
+    {
+        // Lane F: only the ImGui context owner can safely invoke the vendor
+        // shutdown API. Reaching device teardown still bound would release
+        // descriptor/device storage before its context-owned resources.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 shutdown reached descriptor teardown with the ImGui renderer still bound." );
+    }
+#endif
     m_geometryOwner.Shutdown();
     m_shaderDevelopment.ResetAfterShutdown();
     m_textureOwner.Shutdown();

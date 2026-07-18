@@ -669,6 +669,9 @@
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
         <Filter>Source Files\Runtime\Diagnostics</Filter>
       </ClCompile>
+      <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp">
+        <Filter>Source Files\Rendering\DX12</Filter>
+      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
@@ -1344,6 +1347,9 @@
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h">
+        <Filter>Header Files\Rendering\DX12</Filter>
       </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h">
       <Filter>Header Files\Runtime\Camera</Filter>

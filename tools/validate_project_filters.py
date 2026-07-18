@@ -221,6 +221,7 @@ DX12_RENDERING_PREFIXES = (
     "Dx12Diagnostics",
     "Dx12ShaderDevelopment",
     "Dx12FrameOwner",
+    "Dx12ImGuiRendererOwner",
     "Dx12RenderGraphExecutor",
     "Dx12TextureRegistry",
     "FramebufferDX12",

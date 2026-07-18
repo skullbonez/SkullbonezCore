@@ -153,6 +153,9 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     renderBackendView.captureBackend = renderBackend;
     renderBackendView.rayTracingBackend = renderBackend;
     renderBackendView.shaderDevelopment = renderBackend;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    renderBackendView.developmentUiRenderer = &renderBackend->DevelopmentUiRenderer();
+#endif
     outBackend = std::move( backend );
     return SkullbonezCore::Core::SbResult::Success();
 }
