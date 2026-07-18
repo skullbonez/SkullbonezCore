@@ -13,7 +13,7 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute naming/identity debt N0-N4, then small findings hardening H0-H4, plus the parallel-eligible physics body-count scale campaign P0-P7. |
-| Active/future progress | 0 / 18 live tasks; 0%. |
+| Active/future progress | 1 / 18 live tasks; 6%. |
 | Last broad local gate | DX12 D7 `validate_full` passed in 138.172s: 291/291 tests, 21,455/21,455 assertions, every coverage floor, Automation replay/prediction smoke, zero-error DX12 captures, and byte-exact physics passed. |
 | Validation for current edits | DX12 D7 independent review found zero blockers; three consecutive direct renderer gates passed in 53.587s, 52.811s, and 53.192s with zero InfoQueue errors; bounded graphics stress ran crash-free for 62.019s. No baseline or golden changed. |
 
@@ -60,7 +60,10 @@ NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
      logical-module review found zero blockers; full, three consecutive direct
      renderer gates, and bounded stress passed. Closure evidence:
      `Agentic/Reports/2026-07-18/dx12-backend-ownership-decomposition-closure.md`.
-     Remaining binding order: naming/identity N0-N4, then small-findings H0-H4.
+     Naming N0 ratified `AuthoredScene` / `AuthoredSceneParser`,
+     `RenderInstanceRenderer`, `OperatorCommandApplier`, and the two-file-family
+     N4 subset after ruling all 62 matching `Run*` / `Runtime*` source files.
+     Remaining binding order: naming/identity N1-N4, then small-findings H0-H4.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -424,10 +427,11 @@ NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
 ## Next Handoff
 
 Round-7 scene decomposition and DX12 backend ownership decomposition are
-complete and have left the live ledger. Continue immediately with
-`naming-and-identity-debt` N0: produce the complete rename census, blast-radius
-map, project/filter impact, and owner ruling table before source renames. Then
-execute N1-N4 and proceed to the now-unblocked `small-findings-hardening` H0-H4.
+complete and have left the live ledger. Naming N0 is complete. Continue
+immediately with N1: rename the production `TestScene*` source/type/parser
+family to the ratified `AuthoredScene*` names, update project/filter/test/tool
+paths and production vocabulary, and keep authored data byte-identical. Then
+execute N2-N4 and proceed to the now-unblocked `small-findings-hardening` H0-H4.
 The physics body-count campaign remains parallel-eligible. Preserve the seven
 excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines outside the two

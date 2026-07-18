@@ -1,8 +1,8 @@
 # Naming And Identity Debt — Make The Code Say What It Is
 
 Date: 2026-07-18
-Status: Active — 0/5 tasks
-Branch: owner decision at N0 (feature branch; never directly on `main`)
+Status: Active — 1/5 tasks
+Branch: `nightrunner-17th-july` (ratified at N0; never directly on `main`)
 Impact area: `SkullbonezSource/Scene/*`, `Rendering/GameModelRenderer.*`,
 `Runtime/RuntimeTuning.*`, targeted `Run*`/`Runtime*` files, project files
 and filters, includes across consumers
@@ -50,7 +50,7 @@ defer.
 
 ## Tasks
 
-- [ ] N0 — Rename census and ruling table. Inventory the four debt areas
+- [x] N0 — Rename census and ruling table. Inventory the four debt areas
   with per-file rename proposals (target names are domain nouns), the
   consumer-include blast radius per rename, and project/filter impact.
   Owner ratifies each target name and the branch before any edit.
@@ -95,6 +95,21 @@ defer.
 - Comment-standard note: renames of source-bearing files trigger the
   touched-file comment audit; glossary entries referencing old names must
   update in the same commit.
+
+## Progress Evidence
+
+- N0 evidence (2026-07-18):
+  `Agentic/Reports/2026-07-18/naming-and-identity-n0-census.md` ratifies
+  `AuthoredScene` / `AuthoredSceneParser`,
+  `Rendering::RenderInstanceRenderer`, and `OperatorCommandApplier` on
+  `nightrunner-17th-july`. It measures the 34-file/533-occurrence scene blast
+  radius, 8-file/28-occurrence renderer radius, and 17-file/21-occurrence
+  command-module radius; records project/filter/tool impacts; and rules all
+  62 tracked `Run*` / `Runtime*` source files. N4 is limited to the three files
+  in `RunDemoDirector.*` and `RunUiTextPass.cpp`. The pre-plan git-index
+  manifests for 347 `SkullbonezData/` files and 24 baseline files are recorded
+  for exact N1-N4 reconciliation. N0 is documentation-only; no repository
+  validation was required.
 
 ## Acceptance
 
