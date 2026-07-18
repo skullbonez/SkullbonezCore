@@ -318,7 +318,7 @@ RUNTIME_INTERACTION_PREFIXES = (
 
 RUNTIME_SETTINGS_PREFIXES = (
     "LiveStyleController",
-    "RuntimeTuning",
+    "OperatorCommandApplier",
 )
 
 RUNTIME_SCENE_PREFIXES = (

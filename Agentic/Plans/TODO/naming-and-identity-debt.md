@@ -1,7 +1,7 @@
 # Naming And Identity Debt — Make The Code Say What It Is
 
 Date: 2026-07-18
-Status: Active — 3/5 tasks
+Status: Active — 4/5 tasks
 Branch: `nightrunner-17th-july` (ratified at N0; never directly on `main`)
 Impact area: `SkullbonezSource/Scene/*`, `Rendering/GameModelRenderer.*`,
 `Runtime/RuntimeTuning.*`, targeted `Run*`/`Runtime*` files, project files
@@ -69,7 +69,7 @@ defer.
   census finds (comments, capacity constant names, filters). Gate:
   `validate_fast`, plus `validate_dx12_renderer` + stress if any DX12-side
   file is touched per MASTER rule 10.
-- [ ] N3 — RuntimeTuning rename and seam ruling. Rename to the ratified
+- [x] N3 — RuntimeTuning rename and seam ruling. Rename to the ratified
   domain name (candidate: `OperatorCommandApplier` split per domain, or a
   single ratified name with recorded cohesion rationale). Where N0 found a
   clean seam (for example sound commands already delegating to
@@ -146,6 +146,24 @@ defer.
   renderer interfaces and all authored-data/baseline files are unchanged. No
   baseline, golden, screenshot, or coverage floor changed. N2 took about 28
   minutes.
+- N3 evidence (2026-07-18): `Runtime/RuntimeTuning.*` is now
+  `Runtime/OperatorCommandApplier.*`; all 13 source consumers plus production
+  project/filter metadata and project-filter tooling use the ratified name.
+  Active source and build metadata have zero old-module occurrences. The
+  command-seam ruling in
+  `Agentic/Reports/2026-07-18/naming-n3-command-seam-rulings.md` records every
+  command group: contact-audio bounds already delegate to
+  `ContactAudioService`, while the remaining helpers coordinate explicit
+  multi-owner borrows or keep UI packet decoding out of domain owners. No
+  function move, state bag, callback bridge, compatibility alias, or ownership
+  drift was introduced. The 14/14 touched-source audit is recorded in
+  `Agentic/Reports/2026-07-18/naming-n3-comment-audit.md`. A focused Profile
+  build passed with zero warnings in 13.146 s. `validate_full` passed in
+  153.373 s; the task's single replay visual-fidelity invocation passed in
+  430.624 s with all false-pass controls; and direct project-filter validation
+  passed 738/738 in 1.725 s. The seven excluded renderer interfaces,
+  `FRAME_COUNT = 2`, authored data, and baselines are unchanged. No baseline,
+  golden, screenshot, or coverage floor changed. N3 took about 15 minutes.
 
 ## Acceptance
 

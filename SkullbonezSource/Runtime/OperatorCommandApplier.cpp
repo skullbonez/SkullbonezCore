@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RuntimeTuning.cpp
+File: SkullbonezSource/Runtime/OperatorCommandApplier.cpp
 Purpose:
   Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
   contact-audio presentation, tornado physics settings, and worker-thread overrides.
@@ -25,10 +25,10 @@ Invariants:
   - Tornado commands commit copied field/system values back to the physics owner.
 
 Related:
-  - SkullbonezSource/Runtime/RuntimeTuning.h
+  - SkullbonezSource/Runtime/OperatorCommandApplier.h
   - SkullbonezSource/Runtime/RunInput.cpp
 */
-#include "RuntimeTuning.h"
+#include "OperatorCommandApplier.h"
 
 #include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderer.h"

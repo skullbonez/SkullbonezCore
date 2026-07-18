@@ -472,7 +472,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeValidationHarness.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\OperatorCommandApplier.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp">
@@ -965,7 +965,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h">
       <Filter>Header Files\Runtime\Audio</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
+    <ClInclude Include="SkullbonezSource\Runtime\OperatorCommandApplier.h">
       <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">

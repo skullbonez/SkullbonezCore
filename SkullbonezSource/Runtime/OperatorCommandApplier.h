@@ -1,12 +1,12 @@
 /*
-File: SkullbonezSource/Runtime/RuntimeTuning.h
+File: SkullbonezSource/Runtime/OperatorCommandApplier.h
 Purpose:
-  Declares runtime tuning helpers for UI-driven render, audio, physics, and worker settings.
+  Declares stateless application helpers for one-frame operator commands.
 
 Summary:
-  UI emits raw parameter changes. Runtime tuning clamps those values or
-  delegates them to bounded owner APIs, updates live config, and records scene
-  override bits where persistence remains explicit.
+  UI emits raw parameter changes. The helpers clamp those values or delegate
+  them to bounded owner APIs, update live config, and record scene override bits
+  where persistence remains explicit. They retain no cross-frame state.
 
 Glossary:
   Cinematic config: HDR/post-processing and style settings for the active look.
@@ -36,6 +36,9 @@ Invariants:
   - Physics config edits are mirrored into SceneWorld immediately so
     existing and newly added bodies share the same runtime policy.
   - Tornado commands commit copied field/system values back to the physics owner.
+  - This module owns command validation and application only; subsystem state
+    remains with the explicitly borrowed render, audio, physics, scene, and
+    worker owners.
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp

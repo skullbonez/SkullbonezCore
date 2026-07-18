@@ -123,10 +123,10 @@ under rule 4. Closure evidence is in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 3 | 5 | 60% |
+| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 4 | 5 | 80% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **3** | **18** | **17%** |
+| **Active/future total** | **4** | **18** | **22%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -720,7 +720,7 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 3/5 | N3 rename `RuntimeTuning` to `OperatorCommandApplier` and record seam rulings |
+| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 4/5 | N4 perform the two ratified filename-family renames and independent closure review |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 0/5 | H0 rulings census; DX12 dependency satisfied |
 
 ## Physics Body-Count Scale Campaign (2026-07-18)

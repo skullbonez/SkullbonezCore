@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
-  - SkullbonezSource/Runtime/RuntimeTuning.cpp
+  - SkullbonezSource/Runtime/OperatorCommandApplier.cpp
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
