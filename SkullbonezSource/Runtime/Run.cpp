@@ -282,10 +282,17 @@ Run::Run( Window& window,
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const SkullbonezCore::Core::SbResult imguiStartResult =
-        m_imguiEditor.Start( m_renderBackendView.developmentUiRenderer );
+        m_imguiEditor.Start( m_window.NativeWindowHandle(), m_renderBackendView.developmentUiRenderer );
     if ( !imguiStartResult.ok )
     {
         m_applicationExit.RequestOwnedFailure( imguiStartResult );
+    }
+    else
+    {
+        // Lifetime: Window forwards only native messages and retains no ImGui
+        // context/resource authority. Run removes this direct borrow before
+        // destroying the editor owner below.
+        m_window.BindDevelopmentUiInput( m_imguiEditor );
     }
 #endif
     m_diagnosticsRuntime.BindProfiler( profiler );
@@ -368,6 +375,7 @@ Run::~Run()
     // Lifetime: the preceding release path proved all submitted frames complete.
     // Destroy vendor GPU objects and return its descriptor rows while both the
     // ImGui context and concrete DX12 owners still exist.
+    m_window.UnbindDevelopmentUiInput( m_imguiEditor );
     m_imguiEditor.Shutdown();
 #endif
 }

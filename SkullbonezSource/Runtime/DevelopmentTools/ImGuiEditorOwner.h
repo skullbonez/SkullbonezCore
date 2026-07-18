@@ -27,12 +27,15 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E7)
 */
 #pragma once
 
+#include "ImGuiEditorInputPolicy.h"
 #include "../../Core/SbResult.h"
+#include "../../Core/PlatformWin32.h"
 
 #include <cstdint>
 
@@ -71,6 +74,19 @@ struct ImGuiEditorFrameResult
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
 };
 
+struct ImGuiEditorNativeMessageRoute
+{
+    ImGuiEditorMessageClass messageClass = ImGuiEditorMessageClass::Platform;
+    ImGuiEditorMessageDecision decision;
+    LRESULT backendResult = 0;
+};
+
+struct ImGuiEditorInputFrameState
+{
+    ImGuiEditorInputCapture capture;
+    bool nativePointerStateTouched = false;
+};
+
 struct ImGuiEditorStatus
 {
     bool initialized = false;
@@ -86,6 +102,13 @@ struct ImGuiEditorStatus
     uint32_t rendererDescriptorHighWater = 0u;
     uint64_t rendererRecordedFrames = 0u;
     uint64_t rendererIndexedDraws = 0u;
+    uint64_t platformMessages = 0u;
+    uint64_t suppressedMouseMessages = 0u;
+    uint64_t suppressedKeyboardMessages = 0u;
+    uint64_t suppressedTextMessages = 0u;
+    uint64_t focusMessages = 0u;
+    uint64_t dpiMessages = 0u;
+    uint64_t imeMessages = 0u;
     ImGuiEditorFontSource fontSource = ImGuiEditorFontSource::None;
 };
 
@@ -100,10 +123,16 @@ class ImGuiEditorOwner
     ImGuiEditorOwner( const ImGuiEditorOwner& ) = delete;
     ImGuiEditorOwner& operator=( const ImGuiEditorOwner& ) = delete;
 
-    SkullbonezCore::Core::SbResult Start( Rendering::Dx12ImGuiRendererOwner* renderer );
+    SkullbonezCore::Core::SbResult Start( HWND window, Rendering::Dx12ImGuiRendererOwner* renderer );
     void Shutdown() noexcept;
     void SetVisible( bool visible ) noexcept;
     bool IsVisible() const noexcept;
+
+    ImGuiEditorNativeMessageRoute
+    HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept;
+    ImGuiEditorInputCapture CopyInputCapture() const noexcept;
+    ImGuiEditorInputFrameState ConsumeInputFrameState() noexcept;
+    void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
     void BuildEmptyDockspace();
@@ -115,10 +144,23 @@ class ImGuiEditorOwner
 
     ImGuiContext* m_context = nullptr;
     Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
+    HWND m_window = nullptr;
     bool m_visible = false;
     bool m_frameActive = false;
+    bool m_platformBackendInitialized = false;
+    bool m_gameViewportHovered = false;
+    bool m_gameViewportFocused = false;
+    bool m_nativePointerStateTouched = false;
+    int m_lastPlatformMouseCursor = -2;
     float m_appliedDpiScale = 0.0f;
     uint64_t m_completedFrames = 0u;
+    uint64_t m_platformMessages = 0u;
+    uint64_t m_suppressedMouseMessages = 0u;
+    uint64_t m_suppressedKeyboardMessages = 0u;
+    uint64_t m_suppressedTextMessages = 0u;
+    uint64_t m_focusMessages = 0u;
+    uint64_t m_dpiMessages = 0u;
+    uint64_t m_imeMessages = 0u;
     ImGuiEditorFontSource m_fontSource = ImGuiEditorFontSource::None;
 };
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

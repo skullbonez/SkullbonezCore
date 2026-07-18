@@ -1348,6 +1348,9 @@
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>
       </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h">
+        <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
       <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h">
         <Filter>Header Files\Rendering\DX12</Filter>
       </ClInclude>

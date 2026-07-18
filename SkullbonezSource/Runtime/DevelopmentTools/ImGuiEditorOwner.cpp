@@ -6,9 +6,9 @@ Purpose:
 Summary:
   The owner installs the engine's hard-capped DearImGui allocator, creates one
   context, selects a readable scalable font, configures single-window docking,
-  and translates immutable display facts into balanced ImGui frames. It does
+  and translates immutable display facts into balanced ImGui frames. It
   delegates DX12 device resources and draw recording to the concrete renderer
-  owner while Win32 message routing remains a later campaign task.
+  owner and delegates native event translation to the pinned Win32 backend.
 
 Glossary:
   Embedded vector fallback: Dear ImGui's pinned, scalable built-in font used
@@ -26,6 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/RunFrame.cpp
   - ThirdPtySource/imgui/imgui.h
 */
@@ -36,11 +37,17 @@ Related:
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 
 #include <imgui.h>
+#include <backends/imgui_impl_win32.h>
 
 #include <Windows.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+
+// The pinned backend intentionally hides this declaration behind #if 0 to
+// avoid forcing Windows types on every includer. This source already owns the
+// Win32 ABI boundary, so repeat the vendor-prescribed declaration here.
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND window, UINT message, WPARAM wParam, LPARAM lParam );
 
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
@@ -72,6 +79,7 @@ bool IsReadableFile( const char* path ) noexcept
     const DWORD attributes = GetFileAttributesA( path );
     return attributes != INVALID_FILE_ATTRIBUTES && ( attributes & FILE_ATTRIBUTE_DIRECTORY ) == 0u;
 }
+
 } // namespace
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
@@ -81,11 +89,22 @@ ImGuiEditorOwner::~ImGuiEditorOwner()
     Shutdown();
 }
 
-SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( Rendering::Dx12ImGuiRendererOwner* renderer )
+SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::Dx12ImGuiRendererOwner* renderer )
 {
     if ( m_context )
     {
         return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    if ( !window )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
+                                                        "Win32 ImGui startup requires the runtime HWND" );
+    }
+    if ( !renderer )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
+                                                        "No DX12 ImGui renderer capability was published at startup" );
     }
 
     // Lifetime: allocator callbacks are process-global ImGui configuration.
@@ -132,11 +151,13 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( Rendering::Dx12ImGuiRend
         m_fontSource = ImGuiEditorFontSource::EmbeddedVectorFallback;
     }
     io.FontDefault = editorFont;
-    if ( !renderer )
+    if ( !ImGui_ImplWin32_Init( window ) )
     {
         return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                        "No DX12 ImGui renderer capability was published at startup" );
+                                                        "Pinned Win32 backend initialization failed" );
     }
+    m_platformBackendInitialized = true;
+    m_window = window;
 
     ApplyDpiStyle( 1.0f );
     const SkullbonezCore::Core::SbResult rendererResult = renderer->BindContext( *m_context );
@@ -145,7 +166,7 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( Rendering::Dx12ImGuiRend
         return rendererResult;
     }
     m_renderer = renderer;
-    printf( "[imgui] Context ready layout_version=%d font=%s docking=on platform_viewports=off.\n",
+    printf( "[imgui] Context ready layout_version=%d font=%s docking=on platform_viewports=off win32=bound.\n",
             LAYOUT_VERSION,
             m_fontSource == ImGuiEditorFontSource::Asset ? "asset" : "embedded_vector_fallback" );
     return SkullbonezCore::Core::SbResult::Success();
@@ -175,22 +196,160 @@ void ImGuiEditorOwner::Shutdown() noexcept
         m_renderer->Shutdown( *m_context );
         m_renderer = nullptr;
     }
+    if ( m_platformBackendInitialized )
+    {
+        ImGui_ImplWin32_Shutdown();
+        m_platformBackendInitialized = false;
+    }
     ImGui::DestroyContext( m_context );
     m_context = nullptr;
+    m_window = nullptr;
     m_visible = false;
+    m_gameViewportHovered = false;
+    m_gameViewportFocused = false;
+    m_nativePointerStateTouched = false;
+    m_lastPlatformMouseCursor = -2;
     m_appliedDpiScale = 0.0f;
     m_fontSource = ImGuiEditorFontSource::None;
-    printf( "[imgui] Context shutdown completed_frames=%llu.\n", static_cast<unsigned long long>( completedFrames ) );
+    printf( "[imgui] Context shutdown completed_frames=%llu messages=%llu suppressed_mouse=%llu "
+            "suppressed_keyboard=%llu suppressed_text=%llu focus=%llu dpi=%llu ime=%llu.\n",
+            static_cast<unsigned long long>( completedFrames ),
+            static_cast<unsigned long long>( m_platformMessages ),
+            static_cast<unsigned long long>( m_suppressedMouseMessages ),
+            static_cast<unsigned long long>( m_suppressedKeyboardMessages ),
+            static_cast<unsigned long long>( m_suppressedTextMessages ),
+            static_cast<unsigned long long>( m_focusMessages ),
+            static_cast<unsigned long long>( m_dpiMessages ),
+            static_cast<unsigned long long>( m_imeMessages ) );
 }
 
 void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
 {
+    if ( m_visible && !visible && m_context )
+    {
+        ImGui::SetCurrentContext( m_context );
+        const ImGuiEditorInputCapture capture = CopyInputCapture();
+        // Hazard: the vendor backend and engine both use HWND-scoped native
+        // capture. Release only when editor policy currently owns mouse intent;
+        // a game-viewport/camera capture must remain untouched.
+        if ( capture.mouse && GetCapture() == m_window )
+        {
+            ReleaseCapture();
+        }
+        ImGuiIO& io = ImGui::GetIO();
+        io.ClearInputKeys();
+        io.ClearInputMouse();
+    }
     m_visible = visible;
+    if ( !visible )
+    {
+        m_gameViewportHovered = false;
+        m_gameViewportFocused = false;
+    }
 }
 
 bool ImGuiEditorOwner::IsVisible() const noexcept
 {
     return m_visible;
+}
+
+ImGuiEditorNativeMessageRoute
+ImGuiEditorOwner::HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept
+{
+    ImGuiEditorNativeMessageRoute route;
+    route.messageClass = ClassifyImGuiEditorNativeMessage( message, wParam );
+    if ( !m_context || !m_platformBackendInitialized || window != m_window )
+    {
+        return route;
+    }
+    if ( !m_visible && route.messageClass != ImGuiEditorMessageClass::Platform )
+    {
+        // Invariant: Legacy mode retains its native input/cursor behavior.
+        // Focus, DPI, display, and device messages continue keeping the dormant
+        // backend synchronized for a later explicit switch to ImGui/Both.
+        return route;
+    }
+
+    // Lifetime: WndProc and frame work run on the same application thread. Set
+    // the sole owned context explicitly before entering the vendor backend so
+    // no process-global current-context assumption leaks across owners.
+    ImGui::SetCurrentContext( m_context );
+    route.backendResult = ImGui_ImplWin32_WndProcHandler( window, message, wParam, lParam );
+    if ( route.messageClass == ImGuiEditorMessageClass::Mouse )
+    {
+        // Hazard: imgui_impl_win32 may call SetCapture, ReleaseCapture, or
+        // SetCursor even when the live game viewport ultimately keeps the
+        // event. The engine input owner must republish its native intent.
+        m_nativePointerStateTouched = true;
+    }
+    route.decision = DecideImGuiEditorMessageRoute( route.messageClass, CopyInputCapture() );
+    ++m_platformMessages;
+    if ( message == WM_SETFOCUS || message == WM_KILLFOCUS )
+    {
+        ++m_focusMessages;
+    }
+    if ( message == WM_DPICHANGED )
+    {
+        ++m_dpiMessages;
+    }
+    if ( message == WM_IME_STARTCOMPOSITION || message == WM_IME_COMPOSITION || message == WM_IME_ENDCOMPOSITION ||
+         message == WM_IME_CHAR )
+    {
+        ++m_imeMessages;
+    }
+    if ( route.decision.editorConsumes )
+    {
+        switch ( route.messageClass )
+        {
+        case ImGuiEditorMessageClass::Mouse:
+            ++m_suppressedMouseMessages;
+            break;
+        case ImGuiEditorMessageClass::Keyboard:
+            ++m_suppressedKeyboardMessages;
+            break;
+        case ImGuiEditorMessageClass::Text:
+            ++m_suppressedTextMessages;
+            break;
+        case ImGuiEditorMessageClass::Platform:
+        default:
+            break;
+        }
+    }
+    return route;
+}
+
+ImGuiEditorInputCapture ImGuiEditorOwner::CopyInputCapture() const noexcept
+{
+    if ( !m_context )
+    {
+        return {};
+    }
+    ImGui::SetCurrentContext( m_context );
+    const ImGuiIO& io = ImGui::GetIO();
+    return EvaluateImGuiEditorInputCapture( ImGuiEditorInputIntent{ m_visible,
+                                                                    io.WantCaptureMouse,
+                                                                    io.WantCaptureKeyboard,
+                                                                    io.WantTextInput,
+                                                                    m_gameViewportHovered,
+                                                                    m_gameViewportFocused } );
+}
+
+ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
+{
+    ImGuiEditorInputFrameState state;
+    state.capture = CopyInputCapture();
+    state.nativePointerStateTouched = m_nativePointerStateTouched;
+    m_nativePointerStateTouched = false;
+    return state;
+}
+
+void ImGuiEditorOwner::SetGameViewportInputState( bool hovered, bool focused ) noexcept
+{
+    // Concept: E10 will publish the central image item's hover/focus result
+    // through this value seam. E7 establishes the policy now so later panels do
+    // not invent a second input path or special-case gameplay callbacks.
+    m_gameViewportHovered = m_visible && hovered;
+    m_gameViewportFocused = m_visible && focused;
 }
 
 bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
@@ -213,14 +372,26 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
     }
 
     ImGuiIO& io = ImGui::GetIO();
-    io.DisplaySize = ImVec2( static_cast<float>( input.displayWidth ), static_cast<float>( input.displayHeight ) );
-    io.DisplayFramebufferScale = ImVec2( 1.0f, 1.0f );
-    io.DeltaTime = std::clamp( input.deltaSeconds, MIN_DELTA_SECONDS, MAX_DELTA_SECONDS );
     if ( !m_renderer )
     {
         SB_FATAL( "DevelopmentTools/ImGui", "BeginFrame has no bound DX12 renderer." );
     }
     m_renderer->BeginFrame( *m_context );
+    ImGui_ImplWin32_NewFrame();
+    const int platformMouseCursor = static_cast<int>( ImGui::GetMouseCursor() );
+    if ( platformMouseCursor != m_lastPlatformMouseCursor )
+    {
+        // The backend may just have changed the shared Win32 cursor shape.
+        // When viewport/game input owns the pointer, the next input edge must
+        // republish its established visibility/capture policy.
+        m_nativePointerStateTouched = true;
+        m_lastPlatformMouseCursor = platformMouseCursor;
+    }
+    // Why: the platform backend supplies native input/cursor facts, while the
+    // engine frame remains authoritative for dimensions and timing.
+    io.DisplaySize = ImVec2( static_cast<float>( input.displayWidth ), static_cast<float>( input.displayHeight ) );
+    io.DisplayFramebufferScale = ImVec2( 1.0f, 1.0f );
+    io.DeltaTime = std::clamp( input.deltaSeconds, MIN_DELTA_SECONDS, MAX_DELTA_SECONDS );
     ImGui::NewFrame();
     m_frameActive = true;
     return true;
@@ -278,6 +449,13 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
         status.rendererRecordedFrames = rendererStats.recordedFrames;
         status.rendererIndexedDraws = rendererStats.indexedDraws;
     }
+    status.platformMessages = m_platformMessages;
+    status.suppressedMouseMessages = m_suppressedMouseMessages;
+    status.suppressedKeyboardMessages = m_suppressedKeyboardMessages;
+    status.suppressedTextMessages = m_suppressedTextMessages;
+    status.focusMessages = m_focusMessages;
+    status.dpiMessages = m_dpiMessages;
+    status.imeMessages = m_imeMessages;
     return status;
 }
 

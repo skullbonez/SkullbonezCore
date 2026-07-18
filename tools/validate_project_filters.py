@@ -464,6 +464,7 @@ RUNTIME_TOOLS_PREFIXES = (
 RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
     "DiagnosticsRuntime",
+    "ImGuiEditorInputPolicy",
     "ImGuiEditorOwner",
     "RuntimeDiagnostics",
     "SceneMemoryDiagnostics",

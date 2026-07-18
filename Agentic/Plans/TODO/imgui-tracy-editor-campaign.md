@@ -1,6 +1,6 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 7/18 tasks (E0-E6 complete; E7 next) under the owner's
+Status: Active — 8/18 tasks (E0-E7 complete; E8 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
@@ -311,7 +311,7 @@ It does **not** authorize removal from the legacy UI.
     gates passed with zero warnings, DX12 validation messages, descriptor
     growth, baseline changes, or golden refreshes.
 
-- [ ] E7 — Route Win32 input and focus without stealing gameplay controls.
+- [x] E7 — Route Win32 input and focus without stealing gameplay controls.
   - Feed Win32 messages through the ImGui backend at the window/input boundary
     while preserving the existing input owner and hotkey ordering.
   - Apply `WantCaptureMouse`, `WantCaptureKeyboard`, and text-input intent only
@@ -323,6 +323,13 @@ It does **not** authorize removal from the legacy UI.
     focus, typing, dragging, camera input, and replay shortcuts.
   - Gates: `tools\validate_ui.bat`, `tools\validate_ui_stress.bat`,
     `tools\validate_full.bat` because `Window*` is touched.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e7-win32-input.md` records the pinned
+    Win32 backend boundary, exact mouse/keyboard/text/platform classification,
+    viewport authority seam, no-ghost resynchronization, native capture/cursor
+    arbitration, Legacy/ImGui/Both matrix, visible 15-message probe, and Release
+    exclusion. UI, UI-stress, fast, allocation, full, and Release gates passed
+    with zero warnings, DX12 errors, baseline changes, or golden refreshes.
 
 - [ ] E8 — Introduce the shared command/view-model coexistence seam.
   - Extend or split existing frame-data records into domain-cohesive read-only

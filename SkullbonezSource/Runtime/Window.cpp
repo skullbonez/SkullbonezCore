@@ -38,6 +38,10 @@ Related:
 #include "WindowConstants.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "Input.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorOwner.h"
+#endif
+#include "../Core/FatalError.h"
 #include "../Core/Log.h"
 
 #include <algorithm>
@@ -65,7 +69,52 @@ Window::Window()
 
 Window::~Window()
 {
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Lifetime: Run must remove the native-message borrow before its ImGui
+    // context disappears. A surviving pointer would let late messages enter
+    // freed vendor state during native teardown.
+    if ( m_developmentUiInput )
+    {
+        SB_FATAL( "Runtime/Window", "Development UI input owner remained bound during Window destruction." );
+    }
+#endif
 }
+
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+void Window::BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
+{
+    if ( m_developmentUiInput && m_developmentUiInput != &owner )
+    {
+        SB_FATAL( "Runtime/Window", "A different development UI input owner is already bound." );
+    }
+    m_developmentUiInput = &owner;
+}
+
+
+void Window::UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner )
+{
+    if ( !m_developmentUiInput )
+    {
+        // Start may fail before the Window borrow is installed. Shutdown still
+        // calls this one balanced cleanup path and has nothing to remove.
+        return;
+    }
+    if ( m_developmentUiInput != &owner )
+    {
+        SB_FATAL( "Runtime/Window", "Development UI input owner unbound with a different lifetime target." );
+    }
+    m_developmentUiInput = nullptr;
+}
+
+
+DevelopmentTools::ImGuiEditorNativeMessageRoute
+Window::RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam )
+{
+    return m_developmentUiInput ? m_developmentUiInput->HandleNativeMessage( window, message, wParam, lParam )
+                                : DevelopmentTools::ImGuiEditorNativeMessageRoute{};
+}
+#endif
 
 
 void Window::SetWindowDimensions( int m_width, int m_height )
@@ -194,6 +243,16 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     // returns WM_CREATE payloads through LPARAM. Recover the typed owner only at
     // this WndProc ABI seam; the window object retains lifetime authority.
     Window* m_cWindow = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Concept: Dear ImGui observes the native stream first, then this value
+    // decides whether the established engine input path also receives the
+    // event. Window/OS lifecycle messages are never captured by editor policy.
+    DevelopmentTools::ImGuiEditorNativeMessageRoute developmentUiRoute;
+    if ( m_cWindow )
+    {
+        developmentUiRoute = m_cWindow->RouteDevelopmentUiMessage( hWnd, iMsg, wParam, lParam );
+    }
+#endif
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
     // operations invoked here use explicit result/fatal lanes.
@@ -239,6 +298,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         break;
 
     case WM_MOUSEWHEEL:
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+        if ( !developmentUiRoute.decision.engineConsumes )
+        {
+            break;
+        }
+#endif
         if ( GetForegroundWindow() == hWnd )
         {
             Input::AccumulateMouseWheelDelta( hWnd, GET_WHEEL_DELTA_WPARAM( wParam ) );
@@ -246,6 +311,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         break;
 
     case WM_INPUT:
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+        if ( !developmentUiRoute.decision.engineConsumes )
+        {
+            break;
+        }
+#endif
         // Why: WM_INPUT carries an HRAWINPUT token in LPARAM by Win32 contract.
         Input::AccumulateRawMouseDelta( hWnd, reinterpret_cast<HRAWINPUT>( lParam ) );
         break;
@@ -277,6 +348,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         break;
 
     case WM_SETCURSOR:
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+        if ( !developmentUiRoute.decision.engineConsumes )
+        {
+            return developmentUiRoute.backendResult;
+        }
+#endif
         if ( LOWORD( lParam ) == HTCLIENT )
         {
             if ( GetForegroundWindow() == hWnd )
@@ -297,6 +374,13 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         PostQuitMessage( 0 );
         break;
     }
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    if ( !developmentUiRoute.decision.engineConsumes )
+    {
+        return developmentUiRoute.backendResult;
+    }
+#endif
 
     // Now we have done whatever we wanted to do, let windows do anything else it
     // needs to do based on the message fired...

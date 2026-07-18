@@ -105,6 +105,7 @@ struct RuntimeInputFrameFacts
     uint32_t cameraModeEnabledMask = 0u;
     bool suppressWorldActionThisFrame = false;
     int sceneObjectCapacity = 0;
+    UiInputCaptureIntent externalUiCapture;
 };
 
 // Shared value-policy helpers used by the stateless coordinator and the
@@ -178,6 +179,7 @@ void ProcessInputFrame( RuntimeFrameHostView& host,
                         RuntimeFrameInteractionView& interactionOwners,
                         RuntimeFrameSceneView& sceneOwners,
                         RuntimeFramePresentationView& presentationOwners,
-                        ReplayRuntime& replayRuntime );
+                        ReplayRuntime& replayRuntime,
+                        UiInputCaptureIntent externalUiCapture );
 } // namespace Runtime
 } // namespace SkullbonezCore

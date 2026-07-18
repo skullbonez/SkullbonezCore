@@ -503,7 +503,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     SceneController& sceneController = sceneOwners.sceneController;
     Window& window = host.window;
     RuntimeUIFrameResult result;
-    result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame;
+    result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
@@ -546,8 +546,8 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     uiSnapshot.hasClientPosition = deviceFrame.hasClientPosition;
     uiSnapshot.unhandledWheelDelta = UIResult.unhandledWheelDelta;
     uiSnapshot.userInteracted = result.commands.ui.userInteracted;
-    uiSnapshot.blocksKeyboard = ui.BlocksKeyboard();
-    uiSnapshot.blocksCameraMouse = ui.BlocksCameraMouse();
+    uiSnapshot.blocksKeyboard = ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text;
+    uiSnapshot.blocksCameraMouse = ui.BlocksCameraMouse() || facts.externalUiCapture.mouse;
     uiSnapshot.wantsNativeCursor = ui.WantsNativeMouseCursor();
     inputRouter.PublishUiSnapshot( uiSnapshot );
     result.enterInteractiveScene = result.commands.ui.userInteracted;
@@ -557,7 +557,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     // and key facts now; ProcessInputFrame republishes the final policy facts below.
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput{}, result.suppressWorldActionThisFrame );
     replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput{ windowHandle,
-                                                            ui.BlocksCameraMouse(),
+                                                            ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
                                                             result.editorUnhandledWheelDelta,
                                                             replayPointerRay,
                                                             facts.replayCurrentCameraMode,
@@ -583,9 +583,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                  result.replayWorkspace );
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
-    runtimeInput.BeginFrame( true,
-                             ui.BlocksKeyboard(),
-                             ui.BlocksCameraMouse() || result.replayWorkspace.consumesMouse );
+    runtimeInput.BeginFrame(
+        true,
+        ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text,
+        ui.BlocksCameraMouse() || facts.externalUiCapture.mouse || result.replayWorkspace.consumesMouse );
     return result;
 }
 

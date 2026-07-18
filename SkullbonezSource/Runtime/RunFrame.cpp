@@ -619,7 +619,23 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 PostQuitMessage( 0 );
             }
 #endif
-            ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation, m_replayRuntime );
+            UiInputCaptureIntent developmentUiCapture;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            // Concept: native messages were already offered to ImGui while the
+            // queue drained. The previous completed editor frame now supplies
+            // class-specific capture intent to the single engine input sample.
+            const DevelopmentTools::ImGuiEditorInputFrameState imguiInput = m_imguiEditor.ConsumeInputFrameState();
+            developmentUiCapture = UiInputCaptureIntent{ imguiInput.capture.mouse,
+                                                         imguiInput.capture.keyboard,
+                                                         imguiInput.capture.text,
+                                                         imguiInput.nativePointerStateTouched };
+#endif
+            ProcessInputFrame( frameHost,
+                               frameInteraction,
+                               frameScene,
+                               framePresentation,
+                               m_replayRuntime,
+                               developmentUiCapture );
             m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),

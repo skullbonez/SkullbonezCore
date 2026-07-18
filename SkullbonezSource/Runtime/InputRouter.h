@@ -232,6 +232,18 @@ struct DeviceInputFrame
 };
 
 
+struct UiInputCaptureIntent
+{
+    // Value-only arbitration from an external tool UI. InputRouter filters the
+    // corresponding device class and resynchronizes held levels when ownership
+    // returns so a tool keystroke cannot become a gameplay press.
+    bool mouse = false;
+    bool keyboard = false;
+    bool text = false;
+    bool nativePointerStateTouched = false;
+};
+
+
 struct UiInputHitSnapshot
 {
     // Lifetime: published once after UI hit testing and retained by InputRouter
@@ -341,7 +353,10 @@ class InputRouter
     // Captures button edges, advances every binding's key memory, and handles
     // focus transitions. The output is reset here so subsequent RoutePhase
     // calls append one ordered frame result.
-    void BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output );
+    void BeginFrame( const DeviceInputFrame& frame,
+                     RuntimeInputKeyBindingView bindings,
+                     InputActions& output,
+                     UiInputCaptureIntent capture = {} );
 
     // Emits the selected phase in binding-table order. activeContexts contains
     // current mode/UI facts; AfterUi/Capture phase bits are supplied by the
@@ -446,6 +461,9 @@ class InputRouter
     void ReleaseNativeCapture();
     void RequestCursorVisible( bool visible );
     void CancelPointerPresentation();
+    // An external Win32 UI temporarily owns native capture/cursor calls. Force
+    // the next engine-owned frame to republish its desired hardware state.
+    void DeferPointerPresentationCommit();
     // Returns true only when the hardware-facing state changed since the last
     // consume. Callers apply the returned value atomically at the frame edge.
     bool ConsumePointerPresentationChange( PointerPresentationState& state );
@@ -494,6 +512,8 @@ class InputRouter
     bool m_hasFrame = false;
     bool m_appFocused = false;
     bool m_frameFocused = false;
+    bool m_keyboardCaptured = false;
+    bool m_mouseCaptured = false;
     bool m_leftWasDown = false;
     bool m_rightWasDown = false;
 };

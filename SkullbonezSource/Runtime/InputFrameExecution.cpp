@@ -97,7 +97,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  RuntimeFrameInteractionView& interactionOwners,
                                                  RuntimeFrameSceneView& sceneOwners,
                                                  RuntimeFramePresentationView& presentationOwners,
-                                                 ReplayRuntime& replayRuntime )
+                                                 ReplayRuntime& replayRuntime,
+                                                 UiInputCaptureIntent externalUiCapture )
 {
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
@@ -234,7 +235,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         return;
     }
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
-    m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions );
+    m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions, externalUiCapture );
     UiInputHitSnapshot preUiPointer;
     preUiPointer.mouse = m_inputActions.mouse;
     preUiPointer.clientX = deviceFrame.clientX;
@@ -244,6 +245,14 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     m_inputRouter.PublishUiSnapshot( preUiPointer );
     auto commitPointerPresentation = [&]()
     {
+        if ( externalUiCapture.mouse )
+        {
+            // Hazard: imgui_impl_win32 owns the same HWND capture while a tool
+            // drag is active. Do not let the engine release it at a frame edge;
+            // DeferPointerPresentationCommit below forces a complete reapply
+            // when mouse intent returns to the engine.
+            return;
+        }
         PointerPresentationState presentation;
         if ( !m_inputRouter.ConsumePointerPresentationChange( presentation ) )
         {
@@ -261,6 +270,19 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             PostQuitMessage( 1 );
         }
     };
+    if ( externalUiCapture.nativePointerStateTouched )
+    {
+        // The vendor backend may have changed shared HWND capture/cursor state
+        // while translating a mouse message. Reassert the input owner's full
+        // native policy even when its desired value is otherwise unchanged.
+        m_inputRouter.DeferPointerPresentationCommit();
+    }
+    if ( externalUiCapture.mouse )
+    {
+        m_inputRouter.ReleaseNativeCapture();
+        m_inputRouter.RequestCursorVisible( true );
+        m_inputRouter.DeferPointerPresentationCommit();
+    }
     if ( m_inputRouter.HandleUnfocusedFrame( interactionOwners, sceneOwners, m_replayRuntime, m_runtimeInput ) )
     {
         const SkullbonezCore::Core::SbResult stressResult = RunUIStressActions();
@@ -276,7 +298,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         commitPointerPresentation();
         return;
     }
-    const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    const bool UIBlocksKeyboardBeforeInput =
+        m_UI.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text;
     m_inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( m_inputRouter,
                                                                                 m_runtimeTools.Editor(),
                                                                                 m_replayRuntime.BuildInputView() ) );
@@ -288,7 +311,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                              m_camera.director.grabbed ),
                                  true,
                                  UIBlocksKeyboardBeforeInput,
-                                 m_UI.BlocksCameraMouse() );
+                                 m_UI.BlocksCameraMouse() || externalUiCapture.mouse );
     bool keyboardToggleEditorMode = false;
     RunInternal::EditorKeyboardShortcutResult keyboardEditorToolShortcut;
     auto completeEditorPlacementModeTransition =
@@ -805,7 +828,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
         CameraModeEnabledMask(),
         UIBlocksKeyboardBeforeInput,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
+        externalUiCapture };
     RuntimeUIFrameResult uiFrameResult =
         BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, m_replayRuntime, replayPointerRay, uiSamplingFacts );
     if ( uiFrameResult.frameActive )
@@ -834,7 +858,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
         CameraModeEnabledMask(),
         uiFrameResult.suppressWorldActionThisFrame,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
+        externalUiCapture };
     presentationEdit.Commit();
     uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
                                                  keyboardToggleEditorMode,
@@ -975,7 +1000,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                         RuntimeInputActionSource::Mouse );
     }
 
-    if ( m_UI.BlocksKeyboard() )
+    if ( m_UI.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
     {
         m_interaction.CancelCameraLookGesture();
         InputController::ResetMouseLook( m_camera );

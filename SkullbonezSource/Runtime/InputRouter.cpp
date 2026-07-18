@@ -199,31 +199,54 @@ const InputActions& InputRouter::Actions() const
 }
 
 
-void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output )
+void InputRouter::BeginFrame( const DeviceInputFrame& frame,
+                              RuntimeInputKeyBindingView bindings,
+                              InputActions& output,
+                              UiInputCaptureIntent capture )
 {
-    m_deviceFrame = frame;
+    const bool keyboardCaptured = capture.keyboard || capture.text;
+    const bool captureReleased = ( m_keyboardCaptured && !keyboardCaptured ) || ( m_mouseCaptured && !capture.mouse );
+    DeviceInputFrame routedFrame = frame;
+    if ( keyboardCaptured )
+    {
+        routedFrame.keys = {};
+    }
+    if ( capture.mouse )
+    {
+        // Invariant: ImGui already received these native events in WndProc.
+        // Engine, legacy UI, camera, gizmo, and replay see a neutral device
+        // class rather than independently consuming the same click or drag.
+        routedFrame.rawMouseX = 0;
+        routedFrame.rawMouseY = 0;
+        routedFrame.wheelDelta = 0;
+        routedFrame.leftDown = false;
+        routedFrame.rightDown = false;
+        routedFrame.middleDown = false;
+    }
+
+    m_deviceFrame = routedFrame;
     m_uiSnapshot = {};
     m_runtimeSnapshot = {};
-    m_runtimeSnapshot.appFocused = frame.appFocused;
-    m_runtimeSnapshot.pointer.hasClientPosition = frame.hasClientPosition;
-    m_runtimeSnapshot.pointer.clientX = frame.clientX;
-    m_runtimeSnapshot.pointer.clientY = frame.clientY;
-    m_runtimeSnapshot.pointer.leftDown = frame.leftDown;
-    m_runtimeSnapshot.pointer.rightDown = frame.rightDown;
-    m_runtimeSnapshot.pointer.controlDown = frame.keys.IsDown( VK_CONTROL );
-    m_runtimeSnapshot.pointer.shiftDown = frame.keys.IsDown( VK_SHIFT );
-    m_runtimeSnapshot.enterDown = frame.keys.IsDown( VK_RETURN );
-    m_runtimeSnapshot.fluidSurfaceAdjustment = BuildFluidSurfaceAdjustment( frame.keys );
+    m_runtimeSnapshot.appFocused = routedFrame.appFocused;
+    m_runtimeSnapshot.pointer.hasClientPosition = routedFrame.hasClientPosition;
+    m_runtimeSnapshot.pointer.clientX = routedFrame.clientX;
+    m_runtimeSnapshot.pointer.clientY = routedFrame.clientY;
+    m_runtimeSnapshot.pointer.leftDown = routedFrame.leftDown;
+    m_runtimeSnapshot.pointer.rightDown = routedFrame.rightDown;
+    m_runtimeSnapshot.pointer.controlDown = routedFrame.keys.IsDown( VK_CONTROL );
+    m_runtimeSnapshot.pointer.shiftDown = routedFrame.keys.IsDown( VK_SHIFT );
+    m_runtimeSnapshot.enterDown = routedFrame.keys.IsDown( VK_RETURN );
+    m_runtimeSnapshot.fluidSurfaceAdjustment = BuildFluidSurfaceAdjustment( routedFrame.keys );
     output.Reset();
     m_actionSampledThisFrame.fill( false );
     m_frameEdges.fill( InputActionEdge::Released );
     m_phaseRoutedThisFrame.fill( false );
 
-    const bool focusLost = m_hasFrame && m_appFocused && !frame.appFocused;
-    const bool focusGained = m_hasFrame && !m_appFocused && frame.appFocused;
-    m_frameFocused = frame.appFocused;
+    const bool focusLost = m_hasFrame && m_appFocused && !routedFrame.appFocused;
+    const bool focusGained = m_hasFrame && !m_appFocused && routedFrame.appFocused;
+    m_frameFocused = routedFrame.appFocused;
 
-    if ( !frame.appFocused )
+    if ( !routedFrame.appFocused )
     {
         if ( focusLost )
         {
@@ -241,29 +264,33 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
 
         m_appFocused = false;
         m_hasFrame = true;
+        m_keyboardCaptured = keyboardCaptured;
+        m_mouseCaptured = capture.mouse;
         return;
     }
 
-    if ( focusGained )
+    if ( focusGained || captureReleased )
     {
-        // Invariant: input pressed while another application owned focus must
-        // not arrive as a new command. Remember current levels and wait for a
-        // physical release/repress cycle.
-        output.focusGained = true;
-        output.mouse.leftDown = frame.leftDown;
-        output.mouse.rightDown = frame.rightDown;
-        SynchronizeFocusedInputs( frame, bindings );
-        m_leftWasDown = frame.leftDown;
-        m_rightWasDown = frame.rightDown;
+        // Invariant: input pressed while another application or tool UI owned
+        // the class must not arrive as a new command. Remember current levels
+        // and wait for a physical release/repress cycle.
+        output.focusGained = focusGained;
+        output.mouse.leftDown = routedFrame.leftDown;
+        output.mouse.rightDown = routedFrame.rightDown;
+        SynchronizeFocusedInputs( routedFrame, bindings );
+        m_leftWasDown = routedFrame.leftDown;
+        m_rightWasDown = routedFrame.rightDown;
     }
     else
     {
-        CapturePointerEdges( frame, output );
-        SampleKeyboard( frame, bindings );
+        CapturePointerEdges( routedFrame, output );
+        SampleKeyboard( routedFrame, bindings );
     }
 
     m_appFocused = true;
     m_hasFrame = true;
+    m_keyboardCaptured = keyboardCaptured;
+    m_mouseCaptured = capture.mouse;
 }
 
 
@@ -365,6 +392,8 @@ void InputRouter::Reset()
     m_hasFrame = false;
     m_appFocused = false;
     m_frameFocused = false;
+    m_keyboardCaptured = false;
+    m_mouseCaptured = false;
     m_leftWasDown = false;
     m_rightWasDown = false;
 }
@@ -508,6 +537,16 @@ void InputRouter::CancelPointerPresentation()
 {
     m_nativeCaptureRequested = false;
     m_cursorVisibleRequested = true;
+}
+
+
+void InputRouter::DeferPointerPresentationCommit()
+{
+    // Hazard: imgui_impl_win32 and the engine both use HWND-scoped SetCapture.
+    // While the editor owns mouse intent the engine must not release the same
+    // HWND capture; invalidating here makes the first returning engine frame
+    // reassert its complete desired state.
+    m_pointerPresentationCommitted = false;
 }
 
 
