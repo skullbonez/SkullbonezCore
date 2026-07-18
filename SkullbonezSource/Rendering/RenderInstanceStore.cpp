@@ -146,9 +146,9 @@ void TickContactSeconds( float& seconds, float deltaSeconds )
 
 RenderInstanceStore::RenderInstanceStore()
 {
-    m_presentationRecords.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_instances.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_modelInstanceHandles.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_presentationRecords.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_instances.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_modelInstanceHandles.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 

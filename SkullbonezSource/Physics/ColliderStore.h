@@ -72,14 +72,14 @@ struct ColliderRecord
     float dragCoefficient = 0.0f;                                                            // Shape drag coefficient used by fluid forces.
 };
 
-using ColliderRecordList = PhysicsFixedList<ColliderRecord, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
-using ColliderHandleList = PhysicsFixedList<PhysicsColliderHandle, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
-using ColliderHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
-using ColliderHandleFlagList = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
-using ColliderHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
-using ColliderHandleReplayIdList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
-using ColliderHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
-using ColliderHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+using ColliderRecordList = PhysicsFixedList<ColliderRecord, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleList = PhysicsFixedList<PhysicsColliderHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleFlagList = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleReplayIdList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
 class ColliderStore
 {

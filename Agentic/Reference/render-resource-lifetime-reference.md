@@ -106,7 +106,7 @@ Phase 3 update:
 | Skybox meshes/shader | Sky bounds and cube texture source records | `SkyBox` | Startup/reset | Mesh should not rebuild for pure window resize. |
 | Water meshes/shaders | World/fluid config, shader source records | `WorldEnvironment` | Startup/reset/style changes | Reset can record GPU commands, so shutdown flushes after touching it. |
 | Object helper meshes/shaders | Built-in primitive mesh data, shader source records | `Helper` | Startup/reset | Shared across object rendering. |
-| Game-model shadow resources | Shadow shader source and mesh data | `GameModelRenderer` | Startup/reset | Distinct from frame target lifetime. |
+| Game-model shadow resources | Shadow shader source and mesh data | `RenderInstanceRenderer` | Startup/reset | Distinct from frame target lifetime. |
 | Text font atlas/shaders | Font name, generated glyph atlas | `Text2d` | Startup, shutdown, projection resize | Projection changes on resize; atlas does not need resize. |
 | UI blur resources | UI backdrop state and blur shader source | `UIBackdropBlur` | UI reset/resource reset | Cache reset is content/layout invalidation, not backend reset. |
 | DXR reflection resources | Terrain/sphere BLAS source VAs and frame transforms | `RenderBackendDX12` DXR members | `InitDXR`, `ShutdownDXR`, reflection dispatch resize checks | Device-owned; release before shared backend resources. |

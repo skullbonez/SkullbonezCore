@@ -107,11 +107,11 @@ CollisionVisualizer::CollisionVisualizer()
     // Runtime allocation policy: the debug visualizer mirrors model state every
     // frame when enabled. Reserve its per-model and instance staging buffers up
     // front so diagnostics cannot grow heap storage during steady gameplay.
-    m_models.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_sleepGroupSizes.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_sphereInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) *
+    m_models.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_sleepGroupSizes.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_sphereInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
                                   INSTANCE_FLOATS );
-    m_boxInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) *
+    m_boxInstanceData.reserve( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) *
                                INSTANCE_FLOATS );
 }
 
@@ -193,7 +193,7 @@ void CollisionVisualizer::BuildSphereMesh( IRenderResourceFactory& renderResourc
     m_sphereInstMesh = renderResources.CreateInstancedMesh( verts.data(),
                                                             m_sphereVertexCount,
                                                             6,
-                                                            SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                            SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                             INSTANCE_FLOATS,
                                                             3,
                                                             instanceAttribSizes,
@@ -224,7 +224,7 @@ void CollisionVisualizer::BuildBoxMesh( IRenderResourceFactory& renderResources 
     m_boxInstMesh = renderResources.CreateInstancedMesh( verts.data(),
                                                          m_boxVertexCount,
                                                          6,
-                                                         SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                         SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                          INSTANCE_FLOATS,
                                                          3,
                                                          instanceAttribSizes,

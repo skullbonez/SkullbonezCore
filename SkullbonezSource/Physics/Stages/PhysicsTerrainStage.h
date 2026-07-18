@@ -113,7 +113,7 @@ class PhysicsTerrainStage
   private:
     std::vector<TerrainDetectionCandidate> m_detectionCandidates;
     std::vector<TerrainContactManifold> m_contactManifolds;
-    std::array<uint8_t, Scene::Capacity::MAX_GAME_MODELS> m_restApplied = {};
+    std::array<uint8_t, Scene::Capacity::MAX_SCENE_OBJECTS> m_restApplied = {};
 
     struct TerrainDetectionStage
     {

@@ -606,7 +606,7 @@ class Dx12RaytracingOwner
     ID3D12Resource* m_constantBuffer = nullptr;
     uint8_t* m_constantBufferMapped = nullptr;
     int m_maxInstances = 0;
-    std::array<D3D12_RAYTRACING_INSTANCE_DESC, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS + 1> m_instances = {};
+    std::array<D3D12_RAYTRACING_INSTANCE_DESC, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS + 1> m_instances = {};
     BLAS m_terrainBlas;
     BLAS m_sphereBlas;
     TLAS m_tlas;

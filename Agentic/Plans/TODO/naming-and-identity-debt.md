@@ -1,7 +1,7 @@
 # Naming And Identity Debt — Make The Code Say What It Is
 
 Date: 2026-07-18
-Status: Active — 2/5 tasks
+Status: Active — 3/5 tasks
 Branch: `nightrunner-17th-july` (ratified at N0; never directly on `main`)
 Impact area: `SkullbonezSource/Scene/*`, `Rendering/GameModelRenderer.*`,
 `Runtime/RuntimeTuning.*`, targeted `Run*`/`Runtime*` files, project files
@@ -62,7 +62,7 @@ defer.
   in-comment vocabulary. Authored `*.scene.json` files, schema keys, and
   versions are untouched; `git diff` over `SkullbonezData/` must be empty.
   Gate: `validate_full` (scene loading is in the broad gate's lanes).
-- [ ] N2 — Retire the `GameModel` spelling. Rename `GameModelRenderer` to
+- [x] N2 — Retire the `GameModel` spelling. Rename `GameModelRenderer` to
   the ratified name matching what it renders today (census decides;
   candidate: `SceneModelRenderer` / `RenderInstanceRenderer`), update
   consumers, and delete any other surviving `GameModel` vocabulary the N0
@@ -126,6 +126,26 @@ defer.
   filter (738/738), and parser-test checks passed. The authored-data and
   baseline manifests remain exactly `311c995e...a847` and
   `d1de0ad4...90be`; no baseline or golden changed. N1 took about 13 minutes.
+- N2 evidence (2026-07-18): `Rendering/GameModelRenderer.*` is now
+  `Rendering/RenderInstanceRenderer.*`, and the type moved from the obsolete
+  `GameObjects` namespace to `Rendering`. All shared source capacity, camera,
+  diagnostic, UI, physics, replay, and renderer identifiers now say scene
+  object rather than game model; the external `game_model_capacity` config key
+  remains byte-identical. The two legacy camera key hashes remain exactly
+  `0x76EECD4F` and `0x77EECEE2`. The first focused Profile build caught one
+  tracked file below an ignored `Runtime/Debug` directory that the initial
+  working-tree search omitted; the git-index inventory corrected it, and the
+  rerun passed with zero warnings in 12.302 s. The 79/79 touched-source comment
+  audit is recorded in
+  `Agentic/Reports/2026-07-18/naming-n2-comment-audit.md`. Final gates passed:
+  `validate_full` in 208.217 s, the plan's single replay visual-fidelity
+  invocation in 430.076 s, `validate_perf` in 91.773 s, direct DX12 renderer in
+  52.624 s, allocation self-test/repository scans in 0.138/8.810 s, project
+  filters at 738/738 in 1.675 s, and bounded graphics stress in 61.921 s.
+  Production source has zero `GameModel` occurrences; the seven excluded
+  renderer interfaces and all authored-data/baseline files are unchanged. No
+  baseline, golden, screenshot, or coverage floor changed. N2 took about 28
+  minutes.
 
 ## Acceptance
 

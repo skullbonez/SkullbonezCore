@@ -795,18 +795,19 @@ void PrimitiveBatchRenderer::BuildSphereMesh( const PrimitiveRenderContext& cont
     int staticAttribSizes[] = { 3, 3, 2 };
     // Instance layout: model matrix plus three float4 material rows, starting at location 3.
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.sphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
-                                                                       m_state.sphereVertexCount,
-                                                                       8,
-                                                                       SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
-                                                                       INSTANCE_FLOATS,
-                                                                       3,
-                                                                       instanceAttribSizes,
-                                                                       8,
-                                                                       staticAttribSizes,
-                                                                       3 );
+    m_state.sphereInstMesh =
+        Resources( context ).CreateInstancedMesh( verts.data(),
+                                                  m_state.sphereVertexCount,
+                                                  8,
+                                                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
+                                                  INSTANCE_FLOATS,
+                                                  3,
+                                                  instanceAttribSizes,
+                                                  8,
+                                                  staticAttribSizes,
+                                                  3 );
 
-    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 
@@ -832,7 +833,7 @@ void PrimitiveBatchRenderer::BuildLowPolySphereMesh( const PrimitiveRenderContex
         Resources( context ).CreateInstancedMesh( verts.data(),
                                                   m_state.lowPolySphereVertexCount,
                                                   8,
-                                                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                   INSTANCE_FLOATS,
                                                   3,
                                                   instanceAttribSizes,
@@ -840,7 +841,7 @@ void PrimitiveBatchRenderer::BuildLowPolySphereMesh( const PrimitiveRenderContex
                                                   staticAttribSizes,
                                                   3 );
 
-    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 
@@ -1037,7 +1038,7 @@ void PrimitiveBatchRenderer::BuildBoxMesh( const PrimitiveRenderContext& context
     m_state.boxInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                     m_state.boxVertexCount,
                                                                     8,
-                                                                    SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                                    SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                                     INSTANCE_FLOATS,
                                                                     3,
                                                                     instanceAttribSizes,
@@ -1045,7 +1046,7 @@ void PrimitiveBatchRenderer::BuildBoxMesh( const PrimitiveRenderContext& context
                                                                     staticAttribSizes,
                                                                     3 );
 
-    m_state.boxInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.boxInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 
@@ -1266,7 +1267,7 @@ void PrimitiveBatchRenderer::BuildPineMesh( const PrimitiveRenderContext& contex
     m_state.pineInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                      m_state.pineVertexCount,
                                                                      8,
-                                                                     SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                                     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                                      INSTANCE_FLOATS,
                                                                      3,
                                                                      instanceAttribSizes,
@@ -1274,7 +1275,7 @@ void PrimitiveBatchRenderer::BuildPineMesh( const PrimitiveRenderContext& contex
                                                                      staticAttribSizes,
                                                                      3 );
 
-    m_state.pineInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.pineInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 

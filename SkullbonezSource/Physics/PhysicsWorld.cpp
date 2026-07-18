@@ -92,7 +92,7 @@ namespace
 // 300-body scenes. Keep all-body jobs inline until there is enough work per
 // chunk for the persistent worker pool to pay for itself.
 constexpr int PHYSICS_PARALLEL_MIN_BODIES = 512;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
 constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_INITIAL_CAPACITY = 1024u;
 constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
@@ -282,8 +282,8 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
 
 PhysicsWorld::PhysicsWorld()
 {
-    m_timeRemaining.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_timeRemaining.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_pointJointConstraints.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void PhysicsWorld::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept

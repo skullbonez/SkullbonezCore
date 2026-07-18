@@ -747,7 +747,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #endif
         }
         UIData.modelCount = view.modelCount;
-        UIData.modelCapacity = SkullbonezCore::Core::ActiveGameModelCapacity( state.config );
+        UIData.modelCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( state.config );
         UIData.workerThreadCount = state.workerPool ? state.workerPool->GetThreadCount() : 0;
         UIData.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
         UIData.currentFrame = view.frame;

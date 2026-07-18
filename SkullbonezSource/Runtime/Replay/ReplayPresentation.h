@@ -483,7 +483,7 @@ class ReplayPresentation
     ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
     // Invariant: replay render pose matching is a per-frame mark table capped
     // by the live model budget, so scrub/prediction rendering never allocates.
-    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};
     bool m_launcherVisualBackupActive = false;
 };
 

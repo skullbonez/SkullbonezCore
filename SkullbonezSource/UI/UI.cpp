@@ -410,7 +410,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     const int screenH = (std::max)( 1, data.screenH );
     widgets.lastScreenW = screenW;
     widgets.lastScreenH = screenH;
-    widgets.lastModelCapacity = std::clamp( data.modelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    widgets.lastModelCapacity = std::clamp( data.modelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     widgets.lastSolverBallCount = std::clamp( data.solverBallCount, UI_SOLVER_COUNT_MIN, widgets.lastModelCapacity );
     widgets.lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, widgets.lastModelCapacity );
     widgets.lastMaxWorkerThreadCount = (std::max)( 1, data.maxWorkerThreadCount );

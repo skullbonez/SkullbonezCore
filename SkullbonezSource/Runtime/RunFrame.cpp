@@ -996,7 +996,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
             DescribeReplaySceneTimeline( m_sceneController,
                                          m_operatorUi->SceneNavigation().overrides,
                                          m_sceneController.State(),
-                                         m_startup.gameModelCapacity,
+                                         m_startup.sceneObjectCapacity,
                                          static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
         ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Scene(),
                                                       m_sceneController.State(),
@@ -1025,7 +1025,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
                                                           m_workerPool,
                                                           m_operatorUi->SceneNavigation().overrides,
                                                           m_launchOptions.generatedObjectTypeOverride,
-                                                          m_startup.gameModelCapacity };
+                                                          m_startup.sceneObjectCapacity };
         // Why: ReplayRuntime owns probe sequencing and bounded failure state;
         // the application exit latch only preserves that first owned failure
         // while WM_QUIT unwinds the frame loop.

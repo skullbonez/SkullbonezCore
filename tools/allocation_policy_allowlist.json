@@ -11,7 +11,7 @@
       "phase": "startup_validation",
       "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
       "cap": "Three owner allocations when --physics-standalone-smoke is requested.",
-      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_GAME_MODELS fixed stores."
+      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_SCENE_OBJECTS fixed stores."
     },
     {
       "path": "SkullbonezSource/Runtime/Init.cpp",
@@ -316,7 +316,7 @@
       "owner": "SceneEntityStore entity metadata and Debug name view",
       "phase": "startup_scene_load_and_debug_diagnostics",
       "reason": "SceneEntityStore reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene. Debug diagnostics also sizes a bounded borrowed-name table to the already configured body count; release gameplay does not compile that assignment.",
-      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_SCENE_OBJECTS ceiling.",
       "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
     },
     {
@@ -327,7 +327,7 @@
       "owner": "SceneEntityStore entity metadata preallocation",
       "phase": "startup_scene_load_preallocation",
       "reason": "SceneEntityStore owns one capacity-bounded cold metadata vector whose reservation is established before scene population and retained across reloads.",
-      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_SCENE_OBJECTS ceiling.",
       "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
     },
     {
@@ -340,7 +340,7 @@
       "owner": "Standalone physics API and cold validation probe",
       "phase": "cold_validation_and_preallocated_public_views",
       "reason": "Public query/contact vectors are bounded standalone-world storage; the validation-only smoke allocates its fixed-array world off the launcher stack before any gameplay phase.",
-      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_GAME_MODELS and fixed constraint/query inputs.",
+      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_SCENE_OBJECTS and fixed constraint/query inputs.",
       "removal_or_wrapper_plan": "Keep the smoke owner cold; replace public view vectors with fixed stores if the standalone API is promoted into steady runtime."
     },
     {
@@ -713,7 +713,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -735,7 +735,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -757,7 +757,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -782,7 +782,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -795,11 +795,11 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
-      "path": "SkullbonezSource/Rendering/GameModelRenderer.cpp",
+      "path": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
       "patterns": [
         ".push_back(",
         ".resize("
@@ -807,7 +807,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -819,7 +819,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -832,7 +832,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -845,7 +845,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -856,7 +856,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -867,7 +867,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -1121,7 +1121,7 @@
       "owner": "ReplayPresentation",
       "phase": "startup_replay_and_capacity_bounded_interaction",
       "reason": "ReplayPresentation reserves target, focus-mask, and ghost storage before steady use; live picking rotates targets and focus assignment remains within those pre-reserved hard capacities.",
-      "cap": "Targets are capped by REPLAY_PATH_MAX_ROOT_TARGETS, focus rows by MAX_GAME_MODELS, and ghosts by REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY.",
+      "cap": "Targets are capped by REPLAY_PATH_MAX_ROOT_TARGETS, focus rows by MAX_SCENE_OBJECTS, and ghosts by REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY.",
       "removal_or_wrapper_plan": "Route presentation reserves through a typed ReplayPresentation reserve wrapper once the replay allocation-policy owner API replaces direct pre-gameplay vector reservation."
     },
     {

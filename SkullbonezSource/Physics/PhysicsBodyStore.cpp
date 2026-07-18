@@ -112,7 +112,7 @@ struct PreservedRefreshState
 };
 
 using PreservedRefreshStateList =
-    PhysicsFixedList<PreservedRefreshState, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+    PhysicsFixedList<PreservedRefreshState, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
 float PositiveInverseOrZero( float value )
 {

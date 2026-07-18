@@ -77,7 +77,7 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
         cameraTime = 0.0f;
     }
 
-    constexpr int cameraSlots[] = { CAMERA_GAME_MODEL_1, CAMERA_GAME_MODEL_2, CAMERA_FREE };
+    constexpr int cameraSlots[] = { CAMERA_SCENE_OBJECT_1, CAMERA_SCENE_OBJECT_2, CAMERA_FREE };
     cameras.SelectCamera( cameraSlots[selectedCamera], true );
 
     // Why: the two authored tracking slots follow presentation rows 0 and 1;

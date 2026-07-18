@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute naming/identity debt N0-N4, then small findings hardening H0-H4, plus the parallel-eligible physics body-count scale campaign P0-P7. |
-| Active/future progress | 2 / 18 live tasks; 11%. |
-| Last broad local gate | Naming N1 `validate_full` passed in 169.262s: 291/291 tests, 21,455/21,455 assertions, all coverage/CPU lanes including the renamed standalone parser suite, Automation, zero-error DX12 captures, and byte-exact physics passed. |
-| Validation for current edits | N1 focused Profile build passed in 22.992s; final full gate passed after formatting and missed standalone-project paths were corrected; direct migration (39 files), project-filter (738/738), and parser tests passed. Authored-data/baseline manifests are unchanged and no baseline or golden moved. |
+| Active/future progress | 3 / 18 live tasks; 17%. |
+| Last broad local gate | Naming N2 `validate_full` passed in 208.217s: every CPU/coverage lane, Automation, zero-error DX12 captures, and byte-exact physics passed. |
+| Validation for current edits | N2 focused Profile rerun passed in 12.302s after the git-index inventory caught one ignored-directory source; the single replay-fidelity run passed in 430.076s, perf in 91.773s, direct DX12 in 52.624s, allocation scans in 0.138/8.810s, project filters at 738/738 in 1.675s, and bounded graphics stress in 61.921s. The 79/79 comment audit passed; authored data, baselines, and the seven excluded renderer interfaces are unchanged. |
 
 ## Live Queue
 
@@ -63,10 +63,11 @@ NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
      Naming N0 ratified `AuthoredScene` / `AuthoredSceneParser`,
      `RenderInstanceRenderer`, `OperatorCommandApplier`, and the two-file-family
      N4 subset after ruling all 62 matching `Run*` / `Runtime*` source files.
-     N1 renamed the complete production scene/parser family and all consumers;
-     production source has zero old spellings, all final gates pass, and data
-     manifests are byte-identical. Remaining binding order: naming/identity
-     N2-N4, then small-findings H0-H4.
+     N1 renamed the complete production scene/parser family and all consumers.
+     N2 renamed `Rendering::RenderInstanceRenderer`, retired every production
+     `GameModel` spelling, preserved the external config key and legacy camera
+     hashes, and passed all mapped gates without artifact changes. Remaining
+     binding order: naming/identity N3-N4, then small-findings H0-H4.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -430,12 +431,11 @@ NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
 ## Next Handoff
 
 Round-7 scene decomposition and DX12 backend ownership decomposition are
-complete and have left the live ledger. Naming N0-N1 are complete. Continue
-immediately with N2: rename `GameModelRenderer` to the ratified
-`Rendering::RenderInstanceRenderer`, update the stale namespace, consumers,
-project/filter/allowlist/tool paths, and remove remaining production
-`GameModel` vocabulary without touching DX12. Then execute N3-N4 and proceed
-to the now-unblocked `small-findings-hardening` H0-H4.
+complete and have left the live ledger. Naming N0-N2 are complete. Continue
+immediately with N3: rename `RuntimeTuning.*` to the ratified
+`OperatorCommandApplier.*`, preserve its stateless command-application
+boundary, and record the owner-seam rulings. Then execute N4 and proceed to the
+now-unblocked `small-findings-hardening` H0-H4.
 The physics body-count campaign remains parallel-eligible. Preserve the seven
 excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines outside the two

@@ -178,20 +178,20 @@ TEST_CASE( "Startup command line: primitive value parsers reject partial writes 
 
 TEST_CASE( "Startup launch values: every run directive family projects into owned state" )
 {
-    const CommandLineView commandLine = View(
-        "--seed 17 --frames=9 --allocation_guard gameplay "
-        "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
-        "--memory_dump TestOutput/memory.json --interaction_script script.json "
-        "--interaction_report report.json --replay off --replay_seconds 12 "
-        "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
-        "--replay_save_probe save.skreplay --replay_load load.skreplay "
-        "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
-        "--replay_restore_target_file_probe target.skreplay "
-        "--replay_restore_branch_file_probe branch.skreplay "
-        "--replay_restore_failure_file_probe failure.skreplay --replay_hashes hashes.csv "
-        "--ui_stress on --ui_stress_seed 21 --ui_stress_actions 7 "
-        "--graphics_stress on --graphics_stress_seed 22 --graphics_stress_actions 8 "
-        "--graphics_stress_scene_interval 30 --graphics_stress_memory_interval 0" );
+    const CommandLineView commandLine =
+        View( "--seed 17 --frames=9 --allocation_guard gameplay "
+              "--style-harness TestOutput/style --scene_snapshot_out TestOutput/scene.json "
+              "--memory_dump TestOutput/memory.json --interaction_script script.json "
+              "--interaction_report report.json --replay off --replay_seconds 12 "
+              "--replay_scrub_probe 0.5 --replay_restore_probe 0.75 "
+              "--replay_save_probe save.skreplay --replay_load load.skreplay "
+              "--replay_load_probe probe.skreplay --replay_restore_file_probe restore.skreplay "
+              "--replay_restore_target_file_probe target.skreplay "
+              "--replay_restore_branch_file_probe branch.skreplay "
+              "--replay_restore_failure_file_probe failure.skreplay --replay_hashes hashes.csv "
+              "--ui_stress on --ui_stress_seed 21 --ui_stress_actions 7 "
+              "--graphics_stress on --graphics_stress_seed 22 --graphics_stress_actions 8 "
+              "--graphics_stress_scene_interval 30 --graphics_stress_memory_interval 0" );
     ParsedArgs args;
     REQUIRE( ApplyRunCliValueDirectives( commandLine, args ) );
 
@@ -251,7 +251,8 @@ TEST_CASE( "Startup launch values: malformed directives keep exact recoverable m
         { "--replay maybe", "--replay expects optional on|off." },
         { "--replay-seconds 0", "--replay-seconds expects 1..600." },
         { "--replay-scrub-probe 0.995", "--replay-scrub-probe expects a normalized position in the range 0..0.995." },
-        { "--replay-restore-probe -0.1", "--replay-restore-probe expects a normalized position in the range 0..0.995." },
+        { "--replay-restore-probe -0.1",
+          "--replay-restore-probe expects a normalized position in the range 0..0.995." },
         { "--replay-save-probe", "--replay-save-probe expects a file path." },
         { "--replay-load", "--replay-load expects a file path." },
         { "--replay-load-probe", "--replay-load expects a file path." },
@@ -297,16 +298,14 @@ TEST_CASE( "Startup physics debug: component, float, and optional switches compo
     CHECK( args.hasPhysicsDebugContactLingerOverride );
     CHECK( args.physicsDebugContactLingerOverride == doctest::Approx( 1.25f ) );
 
-    CheckPhysicsDebugFailure(
-        "--physics-debug unknown",
-        "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
+    CheckPhysicsDebugFailure( "--physics-debug unknown",
+                              "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
     CheckPhysicsDebugFailure( "--physics-debug-axes maybe", "--physics-debug-axes expects optional on|off." );
-    CheckPhysicsDebugFailure(
-        "--physics-debug-transparent maybe", "--physics-debug-transparent expects optional on|off." );
+    CheckPhysicsDebugFailure( "--physics-debug-transparent maybe",
+                              "--physics-debug-transparent expects optional on|off." );
     CheckPhysicsDebugFailure( "--physics-debug-alpha 0.01", "--physics-debug-alpha expects 0.05..1.0." );
-    CheckPhysicsDebugFailure(
-        "--physics-debug-contact-linger 5.1",
-        "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
+    CheckPhysicsDebugFailure( "--physics-debug-contact-linger 5.1",
+                              "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
 }
 
 TEST_CASE( "Startup launch resolution: generated, hero, named, and explicit scene paths are distinct" )
@@ -341,9 +340,9 @@ TEST_CASE( "Startup launch resolution: generated, hero, named, and explicit scen
 
 TEST_CASE( "Startup launch resolution: suite schema and mutual-exclusion failures are frozen" )
 {
-    const std::string valid = WriteSuite(
-        "valid.suite.json",
-        R"({"format":"skullbonez.suite.json","scenes":["hero","missing.scene.json"]})" );
+    const std::string valid =
+        WriteSuite( "valid.suite.json",
+                    R"({"format":"skullbonez.suite.json","scenes":["hero","missing.scene.json"]})" );
     std::vector<std::string> scenes;
     bool suiteOrScene = false;
     REQUIRE( ParseSceneArgs( View( ( "--suite " + valid ).c_str() ), scenes, suiteOrScene ) );
@@ -363,7 +362,9 @@ TEST_CASE( "Startup launch resolution: suite schema and mutual-exclusion failure
         { "array-root.suite.json", "[]", "root must be an object." },
         { "missing-format.suite.json", R"({"scenes":[]})", "must declare format skullbonez.suite.json." },
         { "missing-scenes.suite.json", R"({"format":"skullbonez.suite.json"})", "must contain a scenes array." },
-        { "bad-entry.suite.json", R"({"format":"skullbonez.suite.json","scenes":[1]})", "scenes entries must be strings." },
+        { "bad-entry.suite.json",
+          R"({"format":"skullbonez.suite.json","scenes":[1]})",
+          "scenes entries must be strings." },
     };
     for ( const SuiteFailure& failure : failures )
     {
@@ -381,12 +382,12 @@ TEST_CASE( "Startup launch resolution: suite schema and mutual-exclusion failure
     CHECK( std::strcmp( GetCommandLineError(), "--suite could not open 'does-not-exist'." ) == 0 );
     scenes.clear();
     CHECK_FALSE( ParseSceneArgs( View( "--hero --scene hero" ), scenes, suiteOrScene ) );
-    CHECK( std::strcmp( GetCommandLineError(),
-                        "--demohero, --hero, --suite, and --scene are mutually exclusive." ) == 0 );
+    CHECK( std::strcmp( GetCommandLineError(), "--demohero, --hero, --suite, and --scene are mutually exclusive." ) ==
+           0 );
     scenes.clear();
     CHECK_FALSE( ParseSceneArgs( View( "--demo-hero --hero" ), scenes, suiteOrScene ) );
-    CHECK( std::strcmp( GetCommandLineError(),
-                        "--demohero, --hero, --suite, and --scene are mutually exclusive." ) == 0 );
+    CHECK( std::strcmp( GetCommandLineError(), "--demohero, --hero, --suite, and --scene are mutually exclusive." ) ==
+           0 );
 }
 
 TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow parsed ownership" )
@@ -478,14 +479,13 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
 
 TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compose once" )
 {
-    std::string text =
-        "--renderer d3d12 --vsync off --time-scale 2 --tornado=off --tornado-vector-field on "
-        "--cinematic-rendering off --shadow-maps off --workers 0 --model-capacity 32 "
-        "--physics-parallel off --parallel-shadow-prep on --hold=off "
-        "--seed 17 --frames 3 --all-boxes --physics-debug contacts --physics-debug-alpha .5 "
-        "--fixed-step --no-water --no-sleep --mute-contact-audio --audio-smoke --load-scenes-only "
-        "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
-        "--dump-config --dump-assets --workers-self-test";
+    std::string text = "--renderer d3d12 --vsync off --time-scale 2 --tornado=off --tornado-vector-field on "
+                       "--cinematic-rendering off --shadow-maps off --workers 0 --model-capacity 32 "
+                       "--physics-parallel off --parallel-shadow-prep on --hold=off "
+                       "--seed 17 --frames 3 --all-boxes --physics-debug contacts --physics-debug-alpha .5 "
+                       "--fixed-step --no-water --no-sleep --mute-contact-audio --audio-smoke --load-scenes-only "
+                       "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
+                       "--dump-config --dump-assets --workers-self-test";
 #ifdef _DEBUG
     text += " --physics-diag TestOutput/startup_unit/physics.ndjson --replay-scrub-test --replay-restore-test";
 #endif
@@ -514,7 +514,7 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
     CHECK( args.physicsDebugAlphaOverride == doctest::Approx( 0.5f ) );
     CHECK_FALSE( config.runtimeRender.vsyncEnabled );
     CHECK( config.runtimeCapacity.workerThreads == 0 );
-    CHECK( config.runtimeCapacity.gameModelCapacity == 32 );
+    CHECK( config.runtimeCapacity.sceneObjectCapacity == 32 );
     CHECK_FALSE( config.physicsExecution.parallel );
     CHECK( config.runtimeRender.shadowParallelPrep );
 #ifdef _DEBUG
@@ -529,8 +529,8 @@ TEST_CASE( "Startup full parse: validation precedence publishes frozen messages"
     CheckFullParseFailure( "--scene", "--scene requires a path." );
     CheckFullParseFailure( "--renderer gl", "--renderer expects dx12. GL and DX11 are retired runtime choices." );
     CheckFullParseFailure( "--vsync maybe", "--vsync expects on|off." );
-    CheckFullParseFailure(
-        "--switch-interval 1", "--switch-interval is retired because DX12 is the only runtime renderer." );
+    CheckFullParseFailure( "--switch-interval 1",
+                           "--switch-interval is retired because DX12 is the only runtime renderer." );
     CheckFullParseFailure( "--time-scale 0", "--time-scale expects a positive float." );
     CheckFullParseFailure( "--model-capacity 0", "--model-capacity expects 1..8192." );
     CheckFullParseFailure( "--physics-parallel maybe", "--physics-parallel expects optional on|off." );
@@ -543,10 +543,10 @@ TEST_CASE( "Startup full parse: validation precedence publishes frozen messages"
     snprintf( workersMessage, sizeof( workersMessage ), "--workers expects -1, 0, or 1..%d.", maxWorkers );
     CheckFullParseFailure( "--workers 999999", workersMessage );
 #ifndef _DEBUG
-    CheckFullParseFailure(
-        "--physics-diag trace.ndjson",
-        "--physics-diag is only supported in Debug builds. Recompile with the Debug configuration to use queryable physics diagnostics." );
-    CheckFullParseFailure(
-        "--replay-save-probe save.skreplay", "--replay-save-probe is only supported in Debug builds." );
+    CheckFullParseFailure( "--physics-diag trace.ndjson",
+                           "--physics-diag is only supported in Debug builds. Recompile with the Debug configuration "
+                           "to use queryable physics diagnostics." );
+    CheckFullParseFailure( "--replay-save-probe save.skreplay",
+                           "--replay-save-probe is only supported in Debug builds." );
 #endif
 }

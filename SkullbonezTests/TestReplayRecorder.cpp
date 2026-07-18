@@ -34,6 +34,7 @@
 
 #include <vector>
 
+using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Runtime::FindReplayGrowthOwnerPolicy;
 using SkullbonezCore::Runtime::REPLAY_GROWTH_OWNER_POLICIES;
 using SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
@@ -46,21 +47,20 @@ using SkullbonezCore::Runtime::ReplayGrowthExhaustionRule;
 using SkullbonezCore::Runtime::ReplayMemoryPolicy;
 using SkullbonezCore::Runtime::ReplayMemoryPolicyRequest;
 using SkullbonezCore::Runtime::ReplayMemoryPreset;
-using SkullbonezCore::Runtime::ReplayTimelineOperations::ReplayMemoryPresetPolicy;
 using SkullbonezCore::Runtime::ReplayPresentationSample;
 using SkullbonezCore::Runtime::ReplayRecorder;
 using SkullbonezCore::Runtime::ReplayRecorderConfig;
 using SkullbonezCore::Runtime::ReplayRecorderStats;
 using SkullbonezCore::Runtime::ReplayRetainedDataOwner;
 using SkullbonezCore::Runtime::ReplaySceneTimelineResetInput;
-using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineGeneratedConfigFlags;
-using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineRecordsGeneratedConfig;
-using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineResetClearsBranch;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverRecorder;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::ReplayMemoryPresetPolicy;
 using SkullbonezCore::Runtime::ReplayTimelineOperations::ResolveReplayMemoryPolicy;
-using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineGeneratedConfigFlags;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineRecordsGeneratedConfig;
+using SkullbonezCore::Runtime::ReplayTimelineOperations::SceneTimelineResetClearsBranch;
 
 namespace
 {
@@ -258,7 +258,7 @@ TEST_CASE( "Replay coordination: scene timeline reset decisions preserve branch 
     reset.solverBallCount = 3;
     reset.solverBoxCount = 2;
     reset.rngSeed = 1234u;
-    reset.gameModelCapacity = 8;
+    reset.sceneObjectCapacity = 8;
     reset.hasUiModelCountOverride = true;
     reset.hasUiSolverCountOverride = true;
 

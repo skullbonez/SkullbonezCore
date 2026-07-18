@@ -371,9 +371,9 @@ static const ConfigSetting kSkyboxSettings[] = {
 
 static const ConfigSetting kRuntimeCapacitySettings[] = {
     CONFIG_INT( "game_model_capacity",
-                runtimeCapacity.gameModelCapacity,
+                runtimeCapacity.sceneObjectCapacity,
                 1,
-                SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ),
+                SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
     CONFIG_INT( "worker_threads", runtimeCapacity.workerThreads, -1, 1024 ),
 };
 

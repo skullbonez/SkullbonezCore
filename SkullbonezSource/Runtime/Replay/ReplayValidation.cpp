@@ -1,4 +1,4 @@
-﻿/*
+/*
 File: SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
 Purpose:
   Owns transactional v2 target restore and the thin startup dispatch into
@@ -395,7 +395,7 @@ struct ReplayRestoreEventContext
     RunSceneState& scene;
     SkullbonezCore::Assets::AssetSystem& assets;
     SceneWorld& world;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
 };
 
 bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context,
@@ -447,7 +447,7 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
         const bool launcherStoresReady = context.world.RepairPhysicsBodyAndColliderTopology();
         if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.world,
                                                                           context.scene,
-                                                                          context.gameModelCapacity,
+                                                                          context.sceneObjectCapacity,
                                                                           rayOrigin,
                                                                           rayDirection,
                                                                           cameraUp ) )
@@ -484,7 +484,7 @@ struct ReplayRestoreEditorPlaceEventDesc
     SceneWorld& world;
     RunSceneState& scene;
     SkullbonezCore::Assets::AssetSystem& assets;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
     const ReplayEventSample& event;
     char* eventOutReason = nullptr;
     std::size_t eventReasonSize = 0;
@@ -527,7 +527,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc
                                                    world,
                                                    scene,
                                                    assets,
-                                                   desc.gameModelCapacity };
+                                                   desc.sceneObjectCapacity };
     EditorObjectPlacementRequest placementRequest{ event.value0,
                                                    ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                    terrainPoint };
@@ -745,7 +745,7 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
                                                .world = context.world,
                                                .scene = context.scene,
                                                .assets = context.assets,
-                                               .gameModelCapacity = context.gameModelCapacity,
+                                               .sceneObjectCapacity = context.sceneObjectCapacity,
                                                .event = event,
                                                .eventOutReason = eventOutReason,
                                                .eventReasonSize = eventReasonSize },
@@ -1345,7 +1345,7 @@ struct ReplayRestoreOwnerContext
     SceneWorld& world;
     RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
 };
 
 bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
@@ -1376,7 +1376,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
         WriteReplayProbeReason( rebuildReason, rebuildReasonSize, "generated solver counts do not match model count" );
         return false;
     }
-    if ( event.value0 > context.gameModelCapacity )
+    if ( event.value0 > context.sceneObjectCapacity )
     {
         WriteReplayProbeReason( rebuildReason,
                                 rebuildReasonSize,
@@ -1501,7 +1501,7 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
                                                    context.scene,
                                                    context.assets,
                                                    context.world,
-                                                   context.gameModelCapacity };
+                                                   context.sceneObjectCapacity };
     ReplayRestoreStepContext stepContext{ context.runtimeTools,
                                           context.scene,
                                           context.config,
@@ -1813,7 +1813,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
                                                    transaction.sampleOwners.world,
                                                    topologyOwners.uiOverrides,
                                                    topologyOwners.generatedObjectTypeOverride,
-                                                   topologyOwners.gameModelCapacity };
+                                                   topologyOwners.sceneObjectCapacity };
     if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,
                                                  artifact,
                                                  *checkpoint,

@@ -146,12 +146,12 @@ class SceneEntityStore
 #endif
 
   private:
-    // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS worth
+    // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS worth
     // of provenance pages in ordinary scenes while retaining a strict logical
     // ceiling. ConfigureCapacity is a scene-load preallocation boundary; all
     // CommitAppend calls must fit the existing reservation.
     std::vector<SceneEntityRecord> m_records;
-    int m_capacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
+    int m_capacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

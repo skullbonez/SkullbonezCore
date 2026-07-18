@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Rendering/GameModelRenderer.cpp
+File: SkullbonezSource/Rendering/RenderInstanceRenderer.cpp
 Purpose:
   Converts model-order render snapshots into backend draw calls for normal and
   shadow rendering.
@@ -23,7 +23,7 @@ Glossary:
     submission path without inspecting material or asset content here.
 
 Invariants:
-  - GameModelRenderer consumes prepared render instances and collider rows; the
+  - RenderInstanceRenderer consumes prepared render instances and collider rows; the
     scene owner remains responsible for refreshing those stores before drawing.
   - Shadow caster preparation may run worker-side, but draw submission remains
     on the render thread through PrimitiveBatchRenderer command/resource contexts.
@@ -31,10 +31,10 @@ Invariants:
     model count is a fixed-capacity render invariant failure.
 
 Related:
-  - SkullbonezSource/Rendering/GameModelRenderer.h
+  - SkullbonezSource/Rendering/RenderInstanceRenderer.h
   - Agentic/Reference/comment-style-guide.md
 */
-#include "GameModelRenderer.h"
+#include "RenderInstanceRenderer.h"
 
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
@@ -51,7 +51,7 @@ Related:
 #include <cmath>
 #include <vector>
 
-using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Math::CollisionDetection::ConvexHullShape;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -323,19 +323,19 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
 } // namespace
 
 
-void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext,
-                                      const RenderInstanceStore& renderStore,
-                                      const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                      bool renderCollisionVolumes,
-                                      const Matrix4& view,
-                                      const Matrix4& proj,
-                                      const float lightPos[4],
-                                      const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                      const ShadowFrameData* shadow,
-                                      float materialAlpha,
-                                      const std::vector<uint8_t>* modelMask,
-                                      bool drawMaskedModels,
-                                      Rendering::RenderVisibilityView visibilityView )
+void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primitiveContext,
+                                           const RenderInstanceStore& renderStore,
+                                           const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                           bool renderCollisionVolumes,
+                                           const Matrix4& view,
+                                           const Matrix4& proj,
+                                           const float lightPos[4],
+                                           const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                           const ShadowFrameData* shadow,
+                                           float materialAlpha,
+                                           const std::vector<uint8_t>* modelMask,
+                                           bool drawMaskedModels,
+                                           Rendering::RenderVisibilityView visibilityView )
 {
     const auto instances = renderStore.Records();
 
@@ -347,14 +347,14 @@ void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveCon
     const int modelCount = static_cast<int>( instances.size() );
     // Invariant: the visible-index scratch array mirrors the scene store's
     // compile-time ceiling. Crossing it would corrupt render-thread stack data.
-    if ( modelCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+    if ( modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         SB_FATAL( "Rendering/Visibility",
                   "Render instance count exceeds visibility capacity. count=%d capacity=%d",
                   modelCount,
-                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
-    int visibleIndices[SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS] = {};
+    int visibleIndices[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS] = {};
     int visibleCount = 0;
     // Why: the planar reflection has its own mirrored camera volume. Its water
     // half-space removes only instances wholly below the surface; straddlers
@@ -551,12 +551,12 @@ void GameModelRenderer::RenderModels( const PrimitiveRenderContext& primitiveCon
 }
 
 
-void GameModelRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
-                                                  const RenderInstanceStore& renderStore,
-                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                                  SkullbonezCore::Threading::WorkerPool* workerPool,
-                                                  bool useShadowParallelPrep,
-                                                  ShadowCasterBatches& outBatches )
+void RenderInstanceRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
+                                                       const RenderInstanceStore& renderStore,
+                                                       const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                       SkullbonezCore::Threading::WorkerPool* workerPool,
+                                                       bool useShadowParallelPrep,
+                                                       ShadowCasterBatches& outBatches )
 {
     PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
 
@@ -572,7 +572,7 @@ void GameModelRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Profiler
     assert( outBatches.HasCapacityForModelCount( modelCount ) );
     if ( !outBatches.HasCapacityForModelCount( modelCount ) )
     {
-        SB_FATAL( "GameModelRenderer",
+        SB_FATAL( "RenderInstanceRenderer",
                   "Shadow caster batch reserve exhausted. modelCount=%d sphereCapacity=%zu boxCapacity=%zu "
                   "pineCapacity=%zu hullCapacity=%zu",
                   modelCount,
@@ -611,13 +611,13 @@ void GameModelRenderer::BuildShadowCasterBatches( SkullbonezCore::Core::Profiler
 }
 
 
-void GameModelRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
-                                                   const PrimitiveRenderContext& primitiveContext,
-                                                   const ShadowCasterBatches& batches,
-                                                   const Matrix4& view,
-                                                   const Matrix4& proj,
-                                                   const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                                   Rendering::RenderVisibilityView visibilityView )
+void RenderInstanceRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profiler* profiler,
+                                                        const PrimitiveRenderContext& primitiveContext,
+                                                        const ShadowCasterBatches& batches,
+                                                        const Matrix4& view,
+                                                        const Matrix4& proj,
+                                                        const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                        Rendering::RenderVisibilityView visibilityView )
 {
     if ( batches.Empty() )
     {
@@ -712,16 +712,16 @@ void GameModelRenderer::SubmitShadowCasterBatches( SkullbonezCore::Core::Profile
 }
 
 
-void GameModelRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler,
-                                             const PrimitiveRenderContext& primitiveContext,
-                                             const RenderInstanceStore& renderStore,
-                                             const SkullbonezCore::Physics::ColliderStore& colliderStore,
-                                             SkullbonezCore::Threading::WorkerPool* workerPool,
-                                             bool useShadowParallelPrep,
-                                             const Matrix4& view,
-                                             const Matrix4& proj,
-                                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
-                                             Rendering::RenderVisibilityView visibilityView )
+void RenderInstanceRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* profiler,
+                                                  const PrimitiveRenderContext& primitiveContext,
+                                                  const RenderInstanceStore& renderStore,
+                                                  const SkullbonezCore::Physics::ColliderStore& colliderStore,
+                                                  SkullbonezCore::Threading::WorkerPool* workerPool,
+                                                  bool useShadowParallelPrep,
+                                                  const Matrix4& view,
+                                                  const Matrix4& proj,
+                                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic,
+                                                  Rendering::RenderVisibilityView visibilityView )
 {
     ShadowCasterBatches batches;
     BuildShadowCasterBatches( profiler, renderStore, colliderStore, workerPool, useShadowParallelPrep, batches );
@@ -729,15 +729,15 @@ void GameModelRenderer::RenderShadowCasters( SkullbonezCore::Core::Profiler* pro
 }
 
 
-bool GameModelRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profiler* profiler,
-                                               const RenderInstanceStore& renderStore,
-                                               SkullbonezCore::Threading::WorkerPool* workerPool,
-                                               bool useShadowParallelPrep,
-                                               const Vector3& focus,
-                                               float maxDistance,
-                                               Vector3& outCenter,
-                                               float& outRadius,
-                                               float& outHeightRange )
+bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profiler* profiler,
+                                                    const RenderInstanceStore& renderStore,
+                                                    SkullbonezCore::Threading::WorkerPool* workerPool,
+                                                    bool useShadowParallelPrep,
+                                                    const Vector3& focus,
+                                                    float maxDistance,
+                                                    Vector3& outCenter,
+                                                    float& outRadius,
+                                                    float& outHeightRange )
 {
     PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
 

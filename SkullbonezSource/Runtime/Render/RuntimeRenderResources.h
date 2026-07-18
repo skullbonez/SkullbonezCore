@@ -102,7 +102,7 @@ struct ShadowPassResources
         // capacity is a startup/runtime-resource contract sized to the maximum
         // scene model pool. Exhaustion means the scene capacity budget changed,
         // not that render should grow during the shadow pass.
-        objectCasterBatches.ReserveForModelCapacity( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+        objectCasterBatches.ReserveForModelCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     // Terrain target: broad map centered on terrain bounds. Object target:

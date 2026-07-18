@@ -200,7 +200,7 @@ void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::st
     if ( const Json* modelCapacity = FindMember( simulation, "modelCapacity" ) )
     {
         const int value = ReadInt( *modelCapacity, path, "simulation.modelCapacity" );
-        if ( value <= 0 || value > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+        if ( value <= 0 || value > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
         {
             Fail( path, "simulation.modelCapacity is out of range" );
         }

@@ -1446,7 +1446,7 @@ bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& predicti
     const RunReplayPredictionFrame& firstFrame = frames.front();
     const RunReplayPredictionFrame& lastFrame = frames[frameCount - 1];
     const std::size_t bodyCapacity =
-        (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ),
+        (std::min)( static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ),
                     firstFrame.bodies.size() );
     const int reserveFrame = static_cast<int>( lastFrame.frameIndex );
     if ( !ReserveReplayPredictionVector( prediction.baseline.rootPolyline,

@@ -45,6 +45,9 @@ constexpr std::uint32_t TEXTURE_SKY_BACK = HashStr( "SkyBack" );
 constexpr std::uint32_t TEXTURE_SKY_UP = HashStr( "SkyUp" );
 constexpr std::uint32_t TEXTURE_SKY_DOWN = HashStr( "SkyDown" );
 
-constexpr std::uint32_t CAMERA_GAME_MODEL_1 = HashStr( "GameModel1" );
-constexpr std::uint32_t CAMERA_GAME_MODEL_2 = HashStr( "GameModel2" );
+// Invariant: these numeric values retain the two legacy generated-object camera
+// hashes exactly. The author-facing identities cannot change without migrating
+// committed scene data, so the naming cleanup changes only source vocabulary.
+constexpr std::uint32_t CAMERA_SCENE_OBJECT_1 = 0x76EECD4Fu;
+constexpr std::uint32_t CAMERA_SCENE_OBJECT_2 = 0x77EECEE2u;
 constexpr std::uint32_t CAMERA_FREE = HashStr( "Free" );

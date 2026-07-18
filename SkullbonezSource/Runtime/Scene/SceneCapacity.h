@@ -17,9 +17,9 @@ Glossary:
   Slot count: Fixed camera or texture table size used by hash-key lookup.
 
 Invariants:
-  - MAX_GAME_MODELS is the hard ceiling used by fixed arrays, handle stores,
+  - MAX_SCENE_OBJECTS is the hard ceiling used by fixed arrays, handle stores,
     replay masks, and render instance buffers.
-  - DEFAULT_GAME_MODEL_CAPACITY may be lower than MAX_GAME_MODELS so startup
+  - DEFAULT_SCENE_OBJECT_CAPACITY may be lower than MAX_SCENE_OBJECTS so startup
     reserves stay cheaper unless config raises the active cap.
   - TOTAL_CAMERA_COUNT and TOTAL_TEXTURE_COUNT must remain compile-time values
     because camera and texture owners use fixed-size arrays.
@@ -35,7 +35,7 @@ namespace SkullbonezCore::Scene::Capacity
 {
 constexpr int TOTAL_CAMERA_COUNT = 8;
 constexpr int TOTAL_TEXTURE_COUNT = 8;
-constexpr int DEFAULT_GAME_MODEL_CAPACITY = 4000;
-constexpr int MAX_GAME_MODELS = 8192;
-constexpr int DEFAULT_GAME_MODELS = 300;
+constexpr int DEFAULT_SCENE_OBJECT_CAPACITY = 4000;
+constexpr int MAX_SCENE_OBJECTS = 8192;
+constexpr int DEFAULT_SCENE_OBJECTS = 300;
 } // namespace SkullbonezCore::Scene::Capacity

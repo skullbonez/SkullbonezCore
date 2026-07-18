@@ -1547,7 +1547,7 @@ void PhysicsStandaloneWorld::TombstoneConstraintSlot( uint32_t index )
 PhysicsStandaloneSmokeResult SkullbonezCore::Physics::RunPhysicsStandaloneSmoke()
 {
     // Phase: cold validation probe. Each scenario world below owns several
-    // SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS fixed stores and must not consume the launcher thread's
+    // SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS fixed stores and must not consume the launcher thread's
     // bounded stack merely to exercise the public API.
     auto worldOwner = std::make_unique<PhysicsStandaloneWorld>();
     PhysicsStandaloneWorld& world = *worldOwner;

@@ -80,7 +80,7 @@ void RecordPipelineStage( std::vector<PhysicsPipelineRecord>& trace, const Physi
 
 PhysicsSleepController::PhysicsSleepController()
 {
-    const std::size_t bodyCapacity = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS;
+    const std::size_t bodyCapacity = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
     m_sleepSupportedThisFrame.reserve( bodyCapacity );
     m_sleepInhibitedThisFrame.reserve( bodyCapacity );
     m_sleepState.reserve( bodyCapacity );

@@ -211,7 +211,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp">
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">
@@ -812,7 +812,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCapacity.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h">

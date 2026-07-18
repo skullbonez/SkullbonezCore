@@ -202,7 +202,7 @@ bool PhysicsScene::CanRegisterAuthoredBody( PhysicsAuthoredBodyCount expectedBod
     return m_authoredBodyDescs.size() == expected &&
            m_bodyStore.Count() == static_cast<int>( expectedBodyCount.value ) &&
            m_authoredBodyDescs.size() < m_authoredBodyDescs.capacity() &&
-           expected < SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS;
+           expected < SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
 }
 
 

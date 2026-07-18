@@ -214,7 +214,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
-    // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS fixed arrays. Keep this cold
+    // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS fixed arrays. Keep this cold
     // standalone probe owner off WinMain's bounded thread stack.
     auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
     std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;

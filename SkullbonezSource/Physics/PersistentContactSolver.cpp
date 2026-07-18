@@ -204,7 +204,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // ENGINE-SPECIFIC:
     //   This key is a compact pair+feature id. Full 32-bit feature IDs are kept
     //   so authored hull face/edge identifiers are not truncated before warm
-    //   starting. SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS is 8192, so 15 bits per body leaves 32 bits
+    //   starting. SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS is 8192, so 15 bits per body leaves 32 bits
     //   for the feature and one high kind bit for terrain rows.
     // Catto's cache needs a stable name for "body A touching body B at this
     // contact feature". Box and hull manifolds assign distinct feature ids per row.

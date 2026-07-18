@@ -254,7 +254,7 @@ struct InGameUIFrameData
     bool replayMemoryBudgetClamped = false;
     bool replayMemorySolverWindowReduced = false;
     int modelCount = 0;
-    int modelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
+    int modelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
     int workerThreadCount = 0;
     int maxWorkerThreadCount = 1;
     int currentFrame = 0;

@@ -115,12 +115,12 @@ void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
     context.sceneWorld.Cameras().AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
                                             Vector3( 581.0f, 40.0f, 633.0f ),  // View
                                             Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                            CAMERA_GAME_MODEL_1 );
+                                            CAMERA_SCENE_OBJECT_1 );
 
     context.sceneWorld.Cameras().AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
                                             Vector3( 709.0f, 92.0f, 482.0f ),  // View
                                             Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                                            CAMERA_GAME_MODEL_2 );
+                                            CAMERA_SCENE_OBJECT_2 );
 
     context.sceneWorld.Cameras().AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
                                             Vector3( 313.0f, 31.0f, 282.0f ),  // View

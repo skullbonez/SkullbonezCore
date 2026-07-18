@@ -77,7 +77,7 @@ struct ReplayArtifactTopologyOwners
     Threading::WorkerPool& workerPool;
     RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
 };
 
 } // namespace Runtime

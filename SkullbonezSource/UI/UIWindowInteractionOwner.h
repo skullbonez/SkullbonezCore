@@ -222,7 +222,7 @@ class UIWindowInteractionOwner
     int m_mouseY = 0;
     int m_lastScreenW = 1;
     int m_lastScreenH = 1;
-    int m_lastModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
+    int m_lastModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
     int m_lastSolverBallCount = 0;
     int m_lastSolverBoxCount = 0;
     int m_lastWorkerThreadCount = 0;

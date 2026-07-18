@@ -146,7 +146,7 @@ void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 
 PhysicsForceStage::PhysicsForceStage()
 {
-    m_mutualGravityForces.reserve( Scene::Capacity::MAX_GAME_MODELS );
+    m_mutualGravityForces.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void PhysicsForceStage::Clear()

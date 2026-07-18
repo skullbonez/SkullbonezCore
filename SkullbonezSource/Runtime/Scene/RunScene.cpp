@@ -742,7 +742,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
-        config.runtimeCapacity.gameModelCapacity = startup.gameModelCapacity;
+        config.runtimeCapacity.sceneObjectCapacity = startup.sceneObjectCapacity;
         ApplySceneWorkerThreadSetting( config, workerPool, startup.workerThreads );
         if ( launchOptions.seedOverride > 0 )
         {
@@ -800,7 +800,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                              sceneNavigation.overrides.solverBoxCountOverride,
                                              0,
                                              0,
-                                             SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODELS },
+                                             SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECTS },
             true );
         if ( !generatedSetup.status.ok )
         {
@@ -842,8 +842,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         {
             sceneTornadoSystem = scene.GetTornadoSystemConfig();
         }
-        config.runtimeCapacity.gameModelCapacity =
-            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : startup.gameModelCapacity;
+        config.runtimeCapacity.sceneObjectCapacity =
+            scene.HasModelCapacityOverride() ? scene.GetModelCapacity() : startup.sceneObjectCapacity;
         ApplySceneWorkerThreadSetting(
             config,
             workerPool,
@@ -1264,7 +1264,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         DescribeReplaySceneTimeline( m_sceneController,
                                      sceneNavigation.overrides,
                                      SceneState(),
-                                     startup.gameModelCapacity,
+                                     startup.sceneObjectCapacity,
                                      static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
     replayRuntime.ResetSceneTimeline(
         replayReset,
@@ -1280,7 +1280,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
 
     const SkullbonezCore::Core::SbResult rayTracingResult =
-        renderer.InitialiseSceneRayTracing( renderBackendView, startup.gameModelCapacity );
+        renderer.InitialiseSceneRayTracing( renderBackendView, startup.sceneObjectCapacity );
     if ( !rayTracingResult.ok )
     {
         m_lastSceneLoadResult = rayTracingResult;

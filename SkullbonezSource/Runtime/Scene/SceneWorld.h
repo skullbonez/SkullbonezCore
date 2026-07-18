@@ -155,7 +155,7 @@ class SceneWorld
     const Physics::PhysicsEngine& Physics() const;
 
   private:
-    void ReserveForActiveGameModelCapacity();
+    void ReserveForActiveSceneObjectCapacity();
     std::vector<Physics::ModelRowHint> BuildFixedTreeReleaseRootsForReload() const;
     std::vector<const char*> BuildDiagnosticNamesForReload() const;
     bool RefreshPhysicsBodyStoreFromAuthoredDescriptors();
@@ -166,7 +166,7 @@ class SceneWorld
     bool CanTrimPresentationRowsForSceneRestore( int modelCount ) const;
     bool TrimPresentationRowsForSceneRestore( int modelCount );
 
-    int m_activeGameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
+    int m_activeSceneObjectCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
     SceneEntityStore m_entities;
     Environment::CameraCollection m_cameras;
     Environment::WorldEnvironment m_world;

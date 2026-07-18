@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Rendering/GameModelRenderer.h
+File: SkullbonezSource/Rendering/RenderInstanceRenderer.h
 Purpose:
   Converts prepared render-instance records into backend draw calls.
 
 Summary:
-  GameModelRenderer.h converts prepared render-instance records into backend
+  RenderInstanceRenderer.h converts prepared render-instance records into backend
   draw calls. As a public header, keep edits anchored on render submission and
   resource lifetime and on the glossary/invariants below.
 
@@ -20,7 +20,7 @@ Invariants:
     through backend-facing helpers.
 
 Related:
-  - SkullbonezSource/Rendering/GameModelRenderer.cpp
+  - SkullbonezSource/Rendering/RenderInstanceRenderer.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
@@ -56,9 +56,9 @@ namespace Threading
 class WorkerPool;
 }
 
-namespace GameObjects
+namespace Rendering
 {
-class GameModelRenderer
+class RenderInstanceRenderer
 {
   public:
     static void RenderModels( const Rendering::PrimitiveRenderContext& primitiveContext,
@@ -107,5 +107,5 @@ class GameModelRenderer
                                        float& outRadius,
                                        float& outHeightRange );
 };
-} // namespace GameObjects
+} // namespace Rendering
 } // namespace SkullbonezCore

@@ -139,17 +139,17 @@ ShadowCasterStream ResolveRegisteredShadowCasterStream( const ColliderRecord& co
 
 SceneWorld::SceneWorld()
 {
-    ReserveForActiveGameModelCapacity();
+    ReserveForActiveSceneObjectCapacity();
 }
 
 
-void SceneWorld::ReserveForActiveGameModelCapacity()
+void SceneWorld::ReserveForActiveSceneObjectCapacity()
 {
     // Invariant: model-order storage must be fully sized before steady frames.
     // Config can raise the active model capacity after construction, so each
     // setup/config boundary repeats the reserve instead of letting render-time
     // append paths discover the new capacity by reallocating.
-    const std::size_t capacity = static_cast<std::size_t>( m_activeGameModelCapacity );
+    const std::size_t capacity = static_cast<std::size_t>( m_activeSceneObjectCapacity );
     m_physics.ReserveAuthoredBodyCapacity( capacity );
     m_renderInstanceStore.ReservePresentationCapacity( capacity );
 }
@@ -279,9 +279,9 @@ const SkullbonezCore::Physics::PhysicsEngine& SceneWorld::Physics() const
 
 void SceneWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-    m_activeGameModelCapacity = SkullbonezCore::Core::ActiveGameModelCapacity( config );
-    Entities().ConfigureCapacity( m_activeGameModelCapacity );
-    ReserveForActiveGameModelCapacity();
+    m_activeSceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
+    Entities().ConfigureCapacity( m_activeSceneObjectCapacity );
+    ReserveForActiveSceneObjectCapacity();
     m_physics.ApplyRuntimeConfig( config );
 }
 
@@ -326,7 +326,7 @@ void SceneWorld::AssertSceneCreationTopology( int expectedCount ) const
     const int renderPresentationCount = m_renderInstanceStore.PresentationCount();
     const int renderCount = m_renderInstanceStore.Count();
     const bool reservationsReady =
-        m_renderInstanceStore.PresentationCapacity() >= static_cast<std::size_t>( m_activeGameModelCapacity );
+        m_renderInstanceStore.PresentationCapacity() >= static_cast<std::size_t>( m_activeSceneObjectCapacity );
     if ( expectedCount < 0 || Entities().Count() != expectedCount || descriptorCount != expectedCount ||
          bodyCount != expectedCount || colliderCount != expectedCount || renderPresentationCount != expectedCount ||
          renderCount != expectedCount || !reservationsReady )
@@ -350,14 +350,14 @@ SceneEntityCreateResult SceneWorld::TryCreateSceneEntity( SceneEntityCreateDesc 
                                                           PhysicsBodyCreateDesc bodyDesc,
                                                           PhysicsColliderCreateDesc colliderDesc )
 {
-    const int activeCapacity = m_activeGameModelCapacity;
+    const int activeCapacity = m_activeSceneObjectCapacity;
     const int modelIndex = SceneEntityCount();
     AssertSceneCreationTopology( modelIndex );
     if ( SceneEntityCount() >= activeCapacity )
     {
         return { SkullbonezCore::Core::SbResult::Failure(
                      SCENE_ENTITY_CREATION_OWNER,
-                     "Exceeded active game model capacity; raise --model-capacity or game_model_capacity." ),
+                     "Exceeded active scene object capacity; raise --model-capacity or game_model_capacity." ),
                  PhysicsBodyHandle{} };
     }
     const SkullbonezCore::Core::SbResult entityResult = Entities().PreflightAppend( entity );

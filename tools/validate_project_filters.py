@@ -101,13 +101,6 @@ ASSET_PREFIXES = (
     "TextureCollection",
 )
 
-GAME_OBJECT_PREFIXES = (
-    "GameModelCollection",
-    "GameModelSoACache",
-    "GameModelStreams",
-    "GameModel",
-)
-
 PHYSICS_CORE_PREFIXES = (
     "PhysicsApi",
     "PhysicsEngine",
@@ -208,7 +201,7 @@ DX12_RENDERING_PREFIXES = (
 
 RENDERING_PREFIXES = (
     "DrawCallTrace",
-    "GameModelRenderer",
+    "RenderInstanceRenderer",
     "Helper",
     "IFramebuffer",
     "IMesh",
@@ -495,7 +488,6 @@ AREA_PREFIXES = (
     ("Physics\\Debug", PHYSICS_DEBUG_PREFIXES),
     ("Rendering", RENDERING_PREFIXES),
     ("World", WORLD_PREFIXES),
-    ("GameObjects", GAME_OBJECT_PREFIXES),
     ("Assets", ASSET_PREFIXES),
     ("Maths", MATH_PREFIXES),
     ("Scene", SCENE_PREFIXES),

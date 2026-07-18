@@ -888,7 +888,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
     const SceneGeneratedControlPolicy sceneGeneratedPolicy{ liveConfig,
                                                             launchOptions.generatedObjectTypeOverride,
-                                                            facts.gameModelCapacity };
+                                                            facts.sceneObjectCapacity };
     const SceneGeneratedControlPresentation sceneGeneratedPresentation{ ui.SceneNavigation().overrides, camera };
     const SceneGeneratedControlResetParticipants sceneGeneratedReset{ simulation,
                                                                       runtimeTools,
@@ -901,7 +901,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                 DescribeReplaySceneTimeline( sceneController,
                                              ui.SceneNavigation().overrides,
                                              sceneController.State(),
-                                             facts.gameModelCapacity,
+                                             facts.sceneObjectCapacity,
                                              static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
             replayRuntime.ResetSceneTimeline( reset,
                                               ReplaySceneTimelineResetOwners{ inputRouter,

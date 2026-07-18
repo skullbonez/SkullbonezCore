@@ -50,7 +50,7 @@ constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
 constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 
 bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {

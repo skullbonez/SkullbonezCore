@@ -1,4 +1,4 @@
-﻿/*
+/*
 File: SkullbonezSource/Runtime/Replay/ReplayValidation.Probes.cpp
 Purpose:
   Owns the legacy Debug replay probes that exercise production replay restore,
@@ -404,14 +404,14 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTo
                                                                        SceneWorld& world,
                                                                        RunSceneState& scene,
                                                                        SkullbonezCore::Assets::AssetSystem& assets,
-                                                                       int gameModelCapacity,
+                                                                       int sceneObjectCapacity,
                                                                        ReplaySaveProbeEventCommands& commands )
 {
     runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
     runtimeTools.Editor().autoTerrainAlign = false;
     PhysicsEngine& physics = world.Physics();
     const int modelCountBeforePlace = world.SceneEntityCount();
-    EditorObjectPlacementContext placementContext{ runtimeTools.Editor(), world, scene, assets, gameModelCapacity };
+    EditorObjectPlacementContext placementContext{ runtimeTools.Editor(), world, scene, assets, sceneObjectCapacity };
     EditorObjectPlacementRequest placementRequest{ SkullbonezCore::UI::EditorTab::OBJECT_BOX,
                                                    true,
                                                    Vector3( 18.0f, 0.0f, 18.0f ) };
@@ -503,7 +503,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTo
 void InjectReplaySaveProbeLauncherCoverage( RuntimeTools& runtimeTools,
                                             SceneWorld& world,
                                             RunSceneState& scene,
-                                            int gameModelCapacity,
+                                            int sceneObjectCapacity,
                                             ReplaySaveProbeEventCommands& commands )
 {
     runtimeTools.RayCastTest().projectileSpeed += 1.0f;
@@ -525,7 +525,7 @@ void InjectReplaySaveProbeLauncherCoverage( RuntimeTools& runtimeTools,
         // world-to-store topology repair at the owner boundary.
         const bool launcherStoresReady = world.RepairPhysicsBodyAndColliderTopology();
         if ( launcherStoresReady &&
-             runtimeTools.FireLauncherRay( world, scene, gameModelCapacity, rayOrigin, rayDirection, cameraUp ) )
+             runtimeTools.FireLauncherRay( world, scene, sceneObjectCapacity, rayOrigin, rayDirection, cameraUp ) )
         {
             scene.modelCount = world.SceneEntityCount();
         }
@@ -747,14 +747,14 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
                                                                     transaction.sampleOwners.world,
                                                                     transaction.sampleOwners.scene,
                                                                     topology.assets,
-                                                                    topology.gameModelCapacity,
+                                                                    topology.sceneObjectCapacity,
                                                                     commands );
             if ( result.status.ok )
             {
                 InjectReplaySaveProbeLauncherCoverage( transaction.sampleOwners.runtimeTools,
                                                        transaction.sampleOwners.world,
                                                        transaction.sampleOwners.scene,
-                                                       topology.gameModelCapacity,
+                                                       topology.sceneObjectCapacity,
                                                        commands );
             }
             result.enterInteractive = result.enterInteractive || commands.requestInteractiveScene;

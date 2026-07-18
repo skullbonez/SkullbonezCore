@@ -4,7 +4,7 @@ Scope: `codex/soa-1000-profile`, fixed-capacity SoA refresh cleanup for `GameMod
 
 ## Change Under Test
 
-- Replaced `GameModelCollection` SoA hot streams with fixed `std::array<..., MAX_GAME_MODELS>` storage.
+- Replaced `GameModelCollection` SoA hot streams with fixed `std::array<..., MAX_SCENE_OBJECTS>` storage.
 - Removed SoA `reserve`, `resize`, and `clear` calls from the hot stream lifecycle.
 - Added profiler marker `Frame/SoA/RefreshBodyData` around the SoA body refresh copy.
 - The refresh marker is counted inside normal frame totals. The reported wins below do not subtract refresh cost.

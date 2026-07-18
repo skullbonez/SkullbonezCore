@@ -182,7 +182,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
 
 bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                                       ReplayRuntime& replayRuntime,
-                                      int gameModelCapacity )
+                                      int sceneObjectCapacity )
 {
     if ( !overrides.configureReplayRecording )
     {
@@ -197,7 +197,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
         replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
                                           overrides.replayRetentionSeconds,
                                           overrides.replayHashLogPath,
-                                          gameModelCapacity );
+                                          sceneObjectCapacity );
     const ReplayRecordingConfigResult& replayConfig = replayActivation.configuration;
     if ( replayConfig.presentationStats.enabled )
     {
@@ -247,8 +247,8 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 
 void RunStartupState::ApplyStartupConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-    gameModelCapacity =
-        std::clamp( config.runtimeCapacity.gameModelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    sceneObjectCapacity =
+        std::clamp( config.runtimeCapacity.sceneObjectCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     workerThreads = config.runtimeCapacity.workerThreads;
 }
 
@@ -380,7 +380,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     {
         m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
     }
-    if ( ConfigureStartupReplayRecording( overrides, m_replayRuntime, m_startup.gameModelCapacity ) )
+    if ( ConfigureStartupReplayRecording( overrides, m_replayRuntime, m_startup.sceneObjectCapacity ) )
     {
         m_replayRuntime.ExitInspectionCamera(
             &m_sceneController.Scene().Cameras(),
@@ -572,7 +572,7 @@ void Run::Initialise()
         DescribeReplaySceneTimeline( m_sceneController,
                                      m_operatorUi->SceneNavigation().overrides,
                                      m_sceneController.State(),
-                                     m_startup.gameModelCapacity,
+                                     m_startup.sceneObjectCapacity,
                                      static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
     ReplaySceneTimelineResetOwners timelineOwners{
         m_inputRouter,
@@ -609,7 +609,7 @@ void Run::Initialise()
                                                       m_workerPool,
                                                       m_operatorUi->SceneNavigation().overrides,
                                                       m_launchOptions.generatedObjectTypeOverride,
-                                                      m_startup.gameModelCapacity };
+                                                      m_startup.sceneObjectCapacity };
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
         loadInput,
         probeTransaction,

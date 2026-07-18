@@ -236,7 +236,7 @@ ReplaySceneTimelineResetInput
 ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sceneController,
                                                        const RunSceneUIOverrideState& uiOverrides,
                                                        const RunSceneState& scene,
-                                                       int gameModelCapacity,
+                                                       int sceneObjectCapacity,
                                                        uint32_t generatedObjectTypeOverride )
 {
     const std::string* scenePath = sceneController.CurrentPath();
@@ -248,7 +248,7 @@ ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sc
     replayReset.solverBallCount = scene.solverBallCount;
     replayReset.solverBoxCount = scene.solverBoxCount;
     replayReset.rngSeed = scene.rngSeed;
-    replayReset.gameModelCapacity = gameModelCapacity;
+    replayReset.sceneObjectCapacity = sceneObjectCapacity;
     replayReset.generatedObjectTypeOverride = generatedObjectTypeOverride;
     replayReset.hasUiModelCountOverride = uiOverrides.modelCountOverride >= 0;
     replayReset.hasUiSolverCountOverride =
@@ -1030,7 +1030,7 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
                                                                               input.solverBallCount,
                                                                               input.solverBoxCount,
                                                                               input.rngSeed,
-                                                                              input.gameModelCapacity,
+                                                                              input.sceneObjectCapacity,
                                                                               input.generatedObjectTypeOverride ) );
     }
     return result;

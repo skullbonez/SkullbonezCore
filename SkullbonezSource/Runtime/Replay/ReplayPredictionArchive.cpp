@@ -41,7 +41,7 @@ constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAGIC = 0x44505652u; // "RVPD"
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_SCHEMA = 2u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_FRAMES = 7201u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_BODIES =
-    static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    static_cast<uint32_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_RECORDS = REPLAY_PREDICTION_MARKER_CAPACITY * 8u;
 constexpr uint32_t REPLAY_PREDICTION_ARCHIVE_MAX_POINTS = 4000000u;
 constexpr std::size_t REPLAY_PREDICTION_ARCHIVE_MAX_BYTES = 128u * 1024u * 1024u;

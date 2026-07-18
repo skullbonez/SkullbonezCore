@@ -43,7 +43,7 @@ using SkullbonezCore::Runtime::ReplaySolverPersistentContactSample;
 namespace
 {
 constexpr int MAX_PIPELINE_TRACE_RECORDS = 4096;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 constexpr int PHYSICS_COLLISION_VISUAL_BODY_RESERVE = PHYSICS_CANDIDATE_PAIR_RESERVE * 2;
 
 #define SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( VISIT )                                                            \
@@ -100,14 +100,14 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 
 PhysicsContactSolverStage::PhysicsContactSolverStage()
 {
-    m_persistentContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
-    m_persistentContactCache.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
-    m_persistentContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_persistentRestingContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_solverBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_persistentContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4 );
+    m_persistentContactCache.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4 );
+    m_persistentContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_persistentRestingContactCounts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_solverBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_sideEffects.pipelineRecords.reserve( MAX_PIPELINE_TRACE_RECORDS );
     m_sideEffects.collisionVisualBodies.reserve( PHYSICS_COLLISION_VISUAL_BODY_RESERVE );
-    m_sideEffects.fixedContactBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_sideEffects.fixedContactBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_sideEffects.releaseWakeBodies.reserve( 8 );
     m_sideEffects.fixedTreeReleases.reserve( 8 );
 }

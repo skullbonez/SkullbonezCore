@@ -104,7 +104,7 @@ struct RuntimeInputFrameFacts
     RunCameraMode replayRestoreCameraMode = RunCameraMode::Inspect;
     uint32_t cameraModeEnabledMask = 0u;
     bool suppressWorldActionThisFrame = false;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
 };
 
 // Shared value-policy helpers used by the stateless coordinator and the

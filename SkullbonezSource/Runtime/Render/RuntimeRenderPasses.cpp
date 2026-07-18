@@ -58,7 +58,7 @@ Related:
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/IRenderRayTracing.h"
 #include "../../Rendering/IRenderResourceFactory.h"
-#include "../../Rendering/GameModelRenderer.h"
+#include "../../Rendering/RenderInstanceRenderer.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -829,15 +829,15 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
     float shadowRadius = 0.0f;
     float heightRange = 0.0f;
     const float objectSearchDistance = std::clamp( cinematic.shadow.maxDistance * 0.15f, 180.0f, 320.0f );
-    if ( !GameObjects::GameModelRenderer::GetObjectShadowBounds( m_profiler,
-                                                                 renderInstances,
-                                                                 renderWorkerPool,
-                                                                 shadowParallelPrep,
-                                                                 focusHint,
-                                                                 objectSearchDistance,
-                                                                 focus,
-                                                                 shadowRadius,
-                                                                 heightRange ) )
+    if ( !Rendering::RenderInstanceRenderer::GetObjectShadowBounds( m_profiler,
+                                                                    renderInstances,
+                                                                    renderWorkerPool,
+                                                                    shadowParallelPrep,
+                                                                    focusHint,
+                                                                    objectSearchDistance,
+                                                                    focus,
+                                                                    shadowRadius,
+                                                                    heightRange ) )
     {
         return shadowFrame;
     }
@@ -955,26 +955,26 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                                                    : Rendering::RenderVisibilityView::ObjectShadow;
         if ( objectCasters )
         {
-            GameObjects::GameModelRenderer::SubmitShadowCasterBatches( m_profiler,
-                                                                       primitiveContext,
-                                                                       *objectCasters,
-                                                                       shadowFrame.lightView,
-                                                                       shadowFrame.lightProjection,
-                                                                       &cinematic,
-                                                                       visibilityView );
+            Rendering::RenderInstanceRenderer::SubmitShadowCasterBatches( m_profiler,
+                                                                          primitiveContext,
+                                                                          *objectCasters,
+                                                                          shadowFrame.lightView,
+                                                                          shadowFrame.lightProjection,
+                                                                          &cinematic,
+                                                                          visibilityView );
         }
         else
         {
-            GameObjects::GameModelRenderer::RenderShadowCasters( m_profiler,
-                                                                 primitiveContext,
-                                                                 renderInstances,
-                                                                 colliders,
-                                                                 renderWorkerPool,
-                                                                 shadowParallelPrep,
-                                                                 shadowFrame.lightView,
-                                                                 shadowFrame.lightProjection,
-                                                                 &cinematic,
-                                                                 visibilityView );
+            Rendering::RenderInstanceRenderer::RenderShadowCasters( m_profiler,
+                                                                    primitiveContext,
+                                                                    renderInstances,
+                                                                    colliders,
+                                                                    renderWorkerPool,
+                                                                    shadowParallelPrep,
+                                                                    shadowFrame.lightView,
+                                                                    shadowFrame.lightProjection,
+                                                                    &cinematic,
+                                                                    visibilityView );
         }
     }
 
@@ -1018,12 +1018,12 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                 inputs.cinematic->shadow.objectsCast && !inputs.collisionVisualizerVisible;
             if ( shouldBuildObjectCasters )
             {
-                GameObjects::GameModelRenderer::BuildShadowCasterBatches( m_profiler,
-                                                                          *inputs.frame.renderInstances,
-                                                                          *inputs.frame.colliders,
-                                                                          inputs.frame.renderWorkerPool,
-                                                                          inputs.frame.shadowParallelPrep,
-                                                                          objectCasters );
+                Rendering::RenderInstanceRenderer::BuildShadowCasterBatches( m_profiler,
+                                                                             *inputs.frame.renderInstances,
+                                                                             *inputs.frame.colliders,
+                                                                             inputs.frame.renderWorkerPool,
+                                                                             inputs.frame.shadowParallelPrep,
+                                                                             objectCasters );
             }
             m_activeTerrainHidden = inputs.terrainHidden;
             m_activeCollisionVisualizerVisible = inputs.collisionVisualizerVisible;
@@ -1324,19 +1324,20 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) &&
                  inputs.frame.renderInstances && inputs.frame.colliders )
             {
-                GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
-                                                              *inputs.frame.renderInstances,
-                                                              *inputs.frame.colliders,
-                                                              inputs.frame.renderCollisionVolumes,
-                                                              inputs.frame.reflectionView,
-                                                              inputs.frame.projection,
-                                                              inputs.frame.lightPosition,
-                                                              inputs.cinematic,
-                                                              inputs.objectShadow,
-                                                              inputs.bodyAlpha,
-                                                              nullptr,
-                                                              true,
-                                                              Rendering::RenderVisibilityView::Reflection );
+                Rendering::RenderInstanceRenderer::RenderModels(
+                    PrimitiveRenderContextForFrame( inputs.frame, m_config ),
+                    *inputs.frame.renderInstances,
+                    *inputs.frame.colliders,
+                    inputs.frame.renderCollisionVolumes,
+                    inputs.frame.reflectionView,
+                    inputs.frame.projection,
+                    inputs.frame.lightPosition,
+                    inputs.cinematic,
+                    inputs.objectShadow,
+                    inputs.bodyAlpha,
+                    nullptr,
+                    true,
+                    Rendering::RenderVisibilityView::Reflection );
             }
         }
         renderCommands.SetClipPlane( 0, false );
@@ -1396,18 +1397,18 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, passName ) && inputs.frame.renderInstances &&
              inputs.frame.colliders )
         {
-            GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
-                                                          *inputs.frame.renderInstances,
-                                                          *inputs.frame.colliders,
-                                                          inputs.frame.renderCollisionVolumes,
-                                                          inputs.frame.baseView,
-                                                          inputs.frame.projection,
-                                                          inputs.frame.lightPosition,
-                                                          inputs.cinematic,
-                                                          inputs.shadow,
-                                                          inputs.bodyAlpha,
-                                                          inputs.modelMask,
-                                                          inputs.drawMaskedModels );
+            Rendering::RenderInstanceRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
+                                                             *inputs.frame.renderInstances,
+                                                             *inputs.frame.colliders,
+                                                             inputs.frame.renderCollisionVolumes,
+                                                             inputs.frame.baseView,
+                                                             inputs.frame.projection,
+                                                             inputs.frame.lightPosition,
+                                                             inputs.cinematic,
+                                                             inputs.shadow,
+                                                             inputs.bodyAlpha,
+                                                             inputs.modelMask,
+                                                             inputs.drawMaskedModels );
         }
     }
 }

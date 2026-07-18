@@ -925,7 +925,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
     const SceneGeneratedControlPolicy sceneGeneratedPolicy{ m_config,
                                                             m_launchOptions.generatedObjectTypeOverride,
-                                                            m_startup.gameModelCapacity };
+                                                            m_startup.sceneObjectCapacity };
     const SceneGeneratedControlPresentation sceneGeneratedPresentation{ m_UI.SceneNavigation().overrides, m_camera };
     const SceneGeneratedControlResetParticipants sceneGeneratedReset{ m_simulation,
                                                                       m_runtimeTools,
@@ -945,7 +945,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
                 DescribeReplaySceneTimeline( m_sceneController,
                                              m_UI.SceneNavigation().overrides,
                                              m_sceneController.State(),
-                                             m_startup.gameModelCapacity,
+                                             m_startup.sceneObjectCapacity,
                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
             m_replayRuntime.ResetSceneTimeline(
                 reset,

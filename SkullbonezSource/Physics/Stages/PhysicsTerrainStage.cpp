@@ -78,8 +78,8 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBo
 
 PhysicsTerrainStage::PhysicsTerrainStage()
 {
-    m_detectionCandidates.reserve( Scene::Capacity::MAX_GAME_MODELS );
-    m_contactManifolds.reserve( Scene::Capacity::MAX_GAME_MODELS );
+    m_detectionCandidates.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_contactManifolds.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void PhysicsTerrainStage::Clear()

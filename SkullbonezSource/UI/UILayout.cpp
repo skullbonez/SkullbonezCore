@@ -113,7 +113,7 @@ float WorldGravityFromStrength( float strength )
 }
 
 
-int RemainingGameModelSlots( int modelCapacity, int otherCount )
+int RemainingSceneObjectSlots( int modelCapacity, int otherCount )
 {
     modelCapacity = (std::max)( UI_SOLVER_COUNT_MIN, modelCapacity );
     otherCount = std::clamp( otherCount, UI_SOLVER_COUNT_MIN, modelCapacity );

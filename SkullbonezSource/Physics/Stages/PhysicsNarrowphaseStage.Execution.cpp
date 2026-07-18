@@ -45,7 +45,7 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
 constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
     HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
 
@@ -185,12 +185,12 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* pro
 PhysicsNarrowphaseStage::PhysicsNarrowphaseStage()
 {
     m_objectNarrowphaseEvents.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_objectNarrowphaseIslands.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseIslands.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_objectNarrowphaseIslandPairIndices.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_objectNarrowphaseIslandWriteOffsets.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_objectNarrowphaseParent.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_objectNarrowphaseRank.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_objectNarrowphaseRootToIsland.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseIslandWriteOffsets.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_objectNarrowphaseParent.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_objectNarrowphaseRank.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_objectNarrowphaseRootToIsland.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void PhysicsNarrowphaseStage::Clear()
