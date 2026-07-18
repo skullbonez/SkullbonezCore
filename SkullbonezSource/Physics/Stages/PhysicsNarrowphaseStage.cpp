@@ -90,13 +90,14 @@ ObjectContactBodyViewAtTime( const PhysicsBodyHotFieldsConstView& hotFields, int
     return body;
 }
 
-bool HasPersistentWakeContact( const PhysicsBodyHotFieldsConstView& hotFields,
+bool HasPersistentWakeContact( SkullbonezCore::Core::Profiler* profiler,
+                               const PhysicsBodyHotFieldsConstView& hotFields,
                                std::span<const ColliderRecord> colliderRecords,
                                int awakeIndex,
                                int sleepingIndex,
                                float contactEpsilon )
 {
-    PROFILE_SCOPED( "Frame/Physics/Narrowphase/WakePersistentContact" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/WakePersistentContact" );
 
     // A swept test can miss a sleeper that is already overlapping after an
     // awake body's correction step. This fresh manifold test catches that
@@ -109,7 +110,8 @@ bool HasPersistentWakeContact( const PhysicsBodyHotFieldsConstView& hotFields,
     }
 
     ObjectContactManifold manifold;
-    return BuildObjectContactManifold( ObjectContactBodyViewAtTime( hotFields, awakeIndex, 0.0f ),
+    return BuildObjectContactManifold( profiler,
+                                       ObjectContactBodyViewAtTime( hotFields, awakeIndex, 0.0f ),
                                        colliderRecords[static_cast<size_t>( awakeIndex )].shape,
                                        ObjectContactBodyViewAtTime( hotFields, sleepingIndex, 0.0f ),
                                        colliderRecords[static_cast<size_t>( sleepingIndex )].shape,
@@ -119,14 +121,15 @@ bool HasPersistentWakeContact( const PhysicsBodyHotFieldsConstView& hotFields,
                                        manifold );
 }
 
-bool HasObjectContactAtTime( const PhysicsBodyHotFieldsConstView& hotFields,
+bool HasObjectContactAtTime( SkullbonezCore::Core::Profiler* profiler,
+                             const PhysicsBodyHotFieldsConstView& hotFields,
                              std::span<const ColliderRecord> colliderRecords,
                              int bodyA,
                              int bodyB,
                              float time,
                              float contactEpsilon )
 {
-    PROFILE_SCOPED( "Frame/Physics/Narrowphase/ExactContactAtTime" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/ExactContactAtTime" );
 
     if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) ||
          bodyB >= static_cast<int>( colliderRecords.size() ) )
@@ -138,7 +141,8 @@ bool HasObjectContactAtTime( const PhysicsBodyHotFieldsConstView& hotFields,
     // owner-side presentation rows. CCD refinement only needs temporary pose
     // views plus the collider shape snapshots.
     ObjectContactManifold manifold;
-    return BuildObjectContactManifold( ObjectContactBodyViewAtTime( hotFields, bodyA, time ),
+    return BuildObjectContactManifold( profiler,
+                                       ObjectContactBodyViewAtTime( hotFields, bodyA, time ),
                                        colliderRecords[static_cast<size_t>( bodyA )].shape,
                                        ObjectContactBodyViewAtTime( hotFields, bodyB, time ),
                                        colliderRecords[static_cast<size_t>( bodyB )].shape,
@@ -148,7 +152,8 @@ bool HasObjectContactAtTime( const PhysicsBodyHotFieldsConstView& hotFields,
                                        manifold );
 }
 
-float RefineObjectSweepContactTime( const PhysicsBodyHotFieldsConstView& hotFields,
+float RefineObjectSweepContactTime( SkullbonezCore::Core::Profiler* profiler,
+                                    const PhysicsBodyHotFieldsConstView& hotFields,
                                     std::span<const ColliderRecord> colliderRecords,
                                     int bodyA,
                                     int bodyB,
@@ -156,7 +161,7 @@ float RefineObjectSweepContactTime( const PhysicsBodyHotFieldsConstView& hotFiel
                                     float availableTime,
                                     float contactEpsilon )
 {
-    PROFILE_SCOPED( "Frame/Physics/Narrowphase/RefineContactTime" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/RefineContactTime" );
 
     // The broad sweep can give a conservative first time. Refinement walks
     // forward until exact manifold contact appears, then binary-searches the
@@ -167,7 +172,7 @@ float RefineObjectSweepContactTime( const PhysicsBodyHotFieldsConstView& hotFiel
         return coarseTime;
     }
 
-    if ( HasObjectContactAtTime( hotFields, colliderRecords, bodyA, bodyB, coarseTime, contactEpsilon ) )
+    if ( HasObjectContactAtTime( profiler, hotFields, colliderRecords, bodyA, bodyB, coarseTime, contactEpsilon ) )
     {
         return coarseTime;
     }
@@ -178,7 +183,7 @@ float RefineObjectSweepContactTime( const PhysicsBodyHotFieldsConstView& hotFiel
     for ( int step = 1; step <= 48; ++step )
     {
         const float t = coarseTime + ( availableTime - coarseTime ) * ( static_cast<float>( step ) / 48.0f );
-        if ( HasObjectContactAtTime( hotFields, colliderRecords, bodyA, bodyB, t, contactEpsilon ) )
+        if ( HasObjectContactAtTime( profiler, hotFields, colliderRecords, bodyA, bodyB, t, contactEpsilon ) )
         {
             hi = t;
             foundContactWindow = true;
@@ -195,7 +200,7 @@ float RefineObjectSweepContactTime( const PhysicsBodyHotFieldsConstView& hotFiel
     for ( int iter = 0; iter < 12; ++iter )
     {
         const float mid = ( lo + hi ) * 0.5f;
-        if ( HasObjectContactAtTime( hotFields, colliderRecords, bodyA, bodyB, mid, contactEpsilon ) )
+        if ( HasObjectContactAtTime( profiler, hotFields, colliderRecords, bodyA, bodyB, mid, contactEpsilon ) )
         {
             hi = mid;
         }
@@ -207,13 +212,14 @@ float RefineObjectSweepContactTime( const PhysicsBodyHotFieldsConstView& hotFiel
     return hi;
 }
 
-ObjectContactSweepResult SweepObjectPair( const PhysicsBodyHotFieldsConstView& hotFields,
+ObjectContactSweepResult SweepObjectPair( SkullbonezCore::Core::Profiler* profiler,
+                                          const PhysicsBodyHotFieldsConstView& hotFields,
                                           std::span<const ColliderRecord> colliderRecords,
                                           int bodyA,
                                           int bodyB,
                                           float availableTime )
 {
-    PROFILE_SCOPED( "Frame/Physics/Narrowphase/SweepPairs" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/SweepPairs" );
     ObjectContactSweepResult result;
     result.collisionTime = availableTime;
     if ( bodyA < 0 || bodyB < 0 || bodyA >= static_cast<int>( colliderRecords.size() ) ||
@@ -381,12 +387,17 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                                                                              context.timeRemaining[y],
                                                                              context.contactSkin ) )
             {
-                ObjectContactSweepResult sweep =
-                    SweepObjectPair( context.hotFields, context.colliderRecords, y, x, context.timeRemaining[y] );
+                ObjectContactSweepResult sweep = SweepObjectPair( context.profiler,
+                                                                  context.hotFields,
+                                                                  context.colliderRecords,
+                                                                  y,
+                                                                  x,
+                                                                  context.timeRemaining[y] );
                 if ( sweep.hit )
                 {
                     const float availableTime = context.timeRemaining[y];
-                    float colTime = RefineObjectSweepContactTime( context.hotFields,
+                    float colTime = RefineObjectSweepContactTime( context.profiler,
+                                                                  context.hotFields,
                                                                   context.colliderRecords,
                                                                   y,
                                                                   x,
@@ -405,7 +416,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                     EmitObjectCollisionTimeEvent( event, y, x, colTime, availableTime );
 
-                    (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, y, colTime );
+                    (void)context.bodyStore.IntegrateBodyPose( context.profiler, context.colliderStore, y, colTime );
                     context.timeRemaining[y] = (std::max)( 0.0f, context.timeRemaining[y] - colTime );
                     if ( !sleepingLocked )
                     {
@@ -416,8 +427,12 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     WriteObjectCollisionCellEvent( event, context.hotFields, x, y, context.invCellSize );
                 }
             }
-            if ( !wokeBySweptImpact &&
-                 HasPersistentWakeContact( context.hotFields, context.colliderRecords, y, x, context.contactEpsilon ) )
+            if ( !wokeBySweptImpact && HasPersistentWakeContact( context.profiler,
+                                                                 context.hotFields,
+                                                                 context.colliderRecords,
+                                                                 y,
+                                                                 x,
+                                                                 context.contactEpsilon ) )
             {
                 Physics::PhysicsPipelineRecord record;
                 record.stage = Physics::PhysicsPipelineStage::WakeDecision;
@@ -454,12 +469,17 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                                                                              context.timeRemaining[x],
                                                                              context.contactSkin ) )
             {
-                ObjectContactSweepResult sweep =
-                    SweepObjectPair( context.hotFields, context.colliderRecords, x, y, context.timeRemaining[x] );
+                ObjectContactSweepResult sweep = SweepObjectPair( context.profiler,
+                                                                  context.hotFields,
+                                                                  context.colliderRecords,
+                                                                  x,
+                                                                  y,
+                                                                  context.timeRemaining[x] );
                 if ( sweep.hit )
                 {
                     const float availableTime = context.timeRemaining[x];
-                    float colTime = RefineObjectSweepContactTime( context.hotFields,
+                    float colTime = RefineObjectSweepContactTime( context.profiler,
+                                                                  context.hotFields,
                                                                   context.colliderRecords,
                                                                   x,
                                                                   y,
@@ -478,7 +498,7 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
                     EmitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
-                    (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, x, colTime );
+                    (void)context.bodyStore.IntegrateBodyPose( context.profiler, context.colliderStore, x, colTime );
                     context.timeRemaining[x] = (std::max)( 0.0f, context.timeRemaining[x] - colTime );
                     if ( !sleepingLocked )
                     {
@@ -489,8 +509,12 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
                     WriteObjectCollisionCellEvent( event, context.hotFields, x, y, context.invCellSize );
                 }
             }
-            if ( !wokeBySweptImpact &&
-                 HasPersistentWakeContact( context.hotFields, context.colliderRecords, x, y, context.contactEpsilon ) )
+            if ( !wokeBySweptImpact && HasPersistentWakeContact( context.profiler,
+                                                                 context.hotFields,
+                                                                 context.colliderRecords,
+                                                                 x,
+                                                                 y,
+                                                                 context.contactEpsilon ) )
             {
                 Physics::PhysicsPipelineRecord record;
                 record.stage = Physics::PhysicsPipelineStage::WakeDecision;
@@ -544,11 +568,13 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
         return;
     }
 
-    ObjectContactSweepResult sweep = SweepObjectPair( context.hotFields, context.colliderRecords, x, y, availableTime );
+    ObjectContactSweepResult sweep =
+        SweepObjectPair( context.profiler, context.hotFields, context.colliderRecords, x, y, availableTime );
 
     if ( sweep.hit )
     {
-        float colTime = RefineObjectSweepContactTime( context.hotFields,
+        float colTime = RefineObjectSweepContactTime( context.profiler,
+                                                      context.hotFields,
                                                       context.colliderRecords,
                                                       x,
                                                       y,
@@ -567,8 +593,8 @@ void PhysicsNarrowphaseStage::ProcessObjectNarrowphasePair( const ObjectNarrowph
         RecordObjectNarrowphaseEvent( event, ObjectNarrowphaseEventKind::SweptObjectHit, record );
         EmitObjectCollisionTimeEvent( event, x, y, colTime, availableTime );
 
-        (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, x, colTime );
-        (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, y, colTime );
+        (void)context.bodyStore.IntegrateBodyPose( context.profiler, context.colliderStore, x, colTime );
+        (void)context.bodyStore.IntegrateBodyPose( context.profiler, context.colliderStore, y, colTime );
         context.timeRemaining[x] = (std::max)( 0.0f, context.timeRemaining[x] - colTime );
         context.timeRemaining[y] = (std::max)( 0.0f, context.timeRemaining[y] - colTime );
 

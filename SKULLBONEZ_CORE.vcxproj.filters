@@ -208,10 +208,10 @@
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp">
+    <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">
@@ -230,6 +230,9 @@
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp">
+      <Filter>Source Files\Runtime\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneNavigationModel.cpp">
       <Filter>Source Files\Runtime\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.cpp">
@@ -415,10 +418,16 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirectorPlayback.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationController.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationInputDriver.cpp">
+      <Filter>Source Files\Runtime\Automation</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationReportWriter.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RunInput.cpp">
@@ -463,16 +472,19 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeValidationHarness.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RuntimeTuning.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\OperatorCommandApplier.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\UiTextPass.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp">
+      <Filter>Source Files\Runtime\Diagnostics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp">
@@ -514,22 +526,22 @@
     <ClCompile Include="SkullbonezSource\World\WorldEnvironment.cpp">
       <Filter>Source Files\World</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredScene.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParser.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserAssets.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserAssets.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserBodies.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserBodies.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserPresentation.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserPresentation.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserRuntime.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
@@ -557,6 +569,27 @@
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DeferredReleaseOwner.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp">
@@ -640,6 +673,9 @@
     <ClCompile Include="SkullbonezSource\UI\UI.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIWindowInteractionOwner.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -715,6 +751,9 @@
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UITabProfilerHistogram.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -755,6 +794,9 @@
     <ClInclude Include="SkullbonezSource\Core\Common.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Core\ByteView.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\FloatingPointContract.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -773,13 +815,10 @@
     <ClInclude Include="SkullbonezSource\Core\Fence.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.inl">
-      <Filter>Header Files\Runtime\Scene</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCapacity.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\GameModelRenderer.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h">
@@ -863,13 +902,19 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h">
+    <ClInclude Include="SkullbonezSource\Runtime\DemoDirectorPlayback.h">
       <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h">
       <Filter>Header Files\Runtime\Debug</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationInputDriver.h">
+      <Filter>Header Files\Runtime\Automation</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationReportWriter.h">
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.h">
@@ -920,10 +965,13 @@
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h">
+      <Filter>Header Files\Runtime\Diagnostics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h">
       <Filter>Header Files\Runtime\Audio</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RuntimeTuning.h">
+    <ClInclude Include="SkullbonezSource\Runtime\OperatorCommandApplier.h">
       <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h">
@@ -959,7 +1007,13 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAutomationGateConfiguration.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneWorld.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneTerrain.h">
@@ -1112,10 +1166,13 @@
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h">
       <Filter>Header Files\World</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Scene\TestScene.h">
+    <ClInclude Include="SkullbonezSource\World\FluidSurfaceAdjustment.h">
+      <Filter>Header Files\World</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Scene\AuthoredScene.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Scene\TestSceneParserSchema.h">
+    <ClInclude Include="SkullbonezSource\Scene\AuthoredSceneParserSchema.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h">
@@ -1176,6 +1233,24 @@
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12RenderGraphExecutor.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12BackbufferCapture.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h">
@@ -1347,6 +1422,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
   </ItemGroup>

@@ -37,7 +37,7 @@ namespace Runtime
 {
 struct RunStartupState
 {
-    int gameModelCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
+    int sceneObjectCapacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
     int workerThreads = -1;
 
     void ApplyStartupConfig(

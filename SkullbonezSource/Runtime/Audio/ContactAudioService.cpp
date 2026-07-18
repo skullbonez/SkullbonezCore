@@ -375,7 +375,7 @@ struct ContactAudioService::Impl
         // Runtime allocation policy: simple linear contact audio runs inside the
         // physics step, so its body-history rows are reserved at startup and
         // capped to the engine model limit instead of growing on first replay use.
-        simpleLinearBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+        simpleLinearBodies.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     bool InitializeBackend()
@@ -539,6 +539,8 @@ struct ContactAudioService::Impl
 
         XAUDIO2_BUFFER buffer = {};
         buffer.AudioBytes = static_cast<UINT32>( sound.samples.size() * sizeof( short ) );
+        // Why: XAUDIO2_BUFFER accepts an immutable byte pointer while the cold
+        // sample bank owns signed 16-bit PCM rows; XAudio borrows them for submit.
         buffer.pAudioData = reinterpret_cast<const BYTE*>( sound.samples.data() );
         buffer.Flags = XAUDIO2_END_OF_STREAM;
 

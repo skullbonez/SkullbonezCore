@@ -6,8 +6,8 @@ Purpose:
 Summary:
   SceneAuthoredSetup owns the deterministic transformation from parsed scene
   JSON into runtime cameras, model bodies, constraints, materials, and
-  validation gates. Run still supplies the live storage while scene ownership is
-  extracted one reversible slice at a time.
+  validation gates. Setup borrows the single SceneWorld owner plus scene-run
+  bookkeeping and a value gate configuration for the synchronous load phase.
 
 Glossary:
   Authored scene: Parsed `.scene.json` data that explicitly drives runtime
@@ -19,11 +19,11 @@ Glossary:
     committed beside the live physics body.
 
 Invariants:
-  - Context structs borrow state and are not retained by setup helpers.
+  - Context structs borrow SceneWorld as one owner and are not retained.
   - Authored scene setup preserves model insertion order and gate resolution.
   - Parsed asset provenance is copied into scene entities at creation.
-  - Runtime gate state stays mutable after setup because frame updates mark
-    contacts and broadphase cells complete.
+  - Setup writes a value gate configuration; validation adopts and mutates it
+    only after scene loading returns.
 
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
@@ -33,8 +33,6 @@ Related:
 #pragma once
 
 #include "../../Core/SbResult.h"
-
-#include <vector>
 
 namespace SkullbonezCore
 {
@@ -58,58 +56,27 @@ class Terrain;
 }
 namespace Runtime
 {
-class TestScene;
+class AuthoredScene;
 struct RunSceneState;
-class SceneEntityStore;
-
-struct RunRequiredContactState
-{
-    char nameA[64] = {};
-    char nameB[64] = {};
-    int bodyA = -1;
-    int bodyB = -1;
-    bool touched = false;
-};
-
-struct RunRequiredBroadphaseXCellsState
-{
-    int minCellX = 0;
-    int maxCellX = 0;
-    int cellY = 0;
-    int cellZ = 0;
-    int lastActiveCellCount = 0;
-    int lastObservedMinX = 0;
-    int lastObservedMaxX = 0;
-    int lastMissingCellX = -1;
-    bool hasObservedXRange = false;
-    bool activated = false;
-};
+class SceneWorld;
+struct SceneAutomationGateConfiguration;
 
 struct SceneAuthoredCameraContext
 {
-    Environment::CameraCollection& cameras;
-    Geometry::Terrain& terrain;
+    SceneWorld& sceneWorld;
 };
 
 struct SceneAuthoredModelContext
 {
     RunSceneState& sceneState;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain;
-    Runtime::SceneController& models;
-    SceneEntityStore& entities;
-    Physics::PhysicsEngine& physics;
-    std::vector<RunRequiredContactState>& requiredContacts;
-    std::vector<RunRequiredBroadphaseXCellsState>& requiredBroadphaseXCells;
+    SceneWorld& sceneWorld;
+    SceneAutomationGateConfiguration& automationGates;
 };
 
 struct SceneSimpleRagdollAppendContext
 {
     RunSceneState& sceneState;
-    Environment::WorldEnvironment& world;
-    Geometry::Terrain* terrain;
-    Runtime::SceneController& models;
-    Physics::PhysicsEngine& physics;
+    SceneWorld& sceneWorld;
 };
 
 class SceneAuthoredSetup
@@ -119,13 +86,13 @@ class SceneAuthoredSetup
     // fail capacity or identity constraints before the runtime loop owns them.
     static SkullbonezCore::Core::SbResult AppendSimpleRagdoll( SceneSimpleRagdollAppendContext context,
                                                                const Physics::RagdollBuildOptions& options );
-    static void SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene );
+    static void SetUpCameras( SceneAuthoredCameraContext context, const AuthoredScene& scene );
     // Returns failure before required gates are resolved when model population
     // cannot append a requested scene object.
     static SkullbonezCore::Core::SbResult SetUpSceneEntities( SceneAuthoredModelContext context,
-                                                              const TestScene& scene );
-    static void SetUpRequiredContacts( SceneAuthoredModelContext context, const TestScene& scene );
-    static void SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const TestScene& scene );
+                                                              const AuthoredScene& scene );
+    static void SetUpRequiredContacts( SceneAuthoredModelContext context, const AuthoredScene& scene );
+    static void SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const AuthoredScene& scene );
 };
 
 } // namespace Runtime

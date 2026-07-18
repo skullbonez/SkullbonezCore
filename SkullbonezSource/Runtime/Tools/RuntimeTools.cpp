@@ -28,7 +28,7 @@ Invariants:
   - Terrain/model hit tests pick the closest valid hit without changing world
     state.
   - Projectile creation must respect the active model capacity before adding to
-    SceneController.
+    SceneWorld.
   - Launcher physics mutation enters PhysicsEngine through body handles: ray
     hits resolve model indices at the tool boundary, while spawned projectiles
     use the handle returned by creation.
@@ -43,7 +43,8 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/Log.h"
-#include "../Scene/SceneController.h"
+#include "../Scene/SceneControllerState.h"
+#include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsApi.h"
@@ -69,7 +70,7 @@ Related:
 namespace SkullbonezCore::Runtime
 {
 bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& command,
-                                            const Runtime::SceneController& collection,
+                                            const SceneWorld& world,
                                             RuntimeInteractionSelectionPlan& outPlan )
 {
     outPlan = RuntimeInteractionSelectionPlan{};
@@ -78,8 +79,8 @@ bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& com
         return false;
     }
 
-    const Physics::PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const Physics::ColliderStore& colliderStore = collection.Colliders();
+    const Physics::PhysicsBodyStore& bodyStore = world.BodyStore();
+    const Physics::ColliderStore& colliderStore = world.Colliders();
     Physics::PhysicsBodyHandle selectedBody;
     Physics::PhysicsColliderHandle selectedCollider;
     Physics::ModelRowHint selectedModelRow;
@@ -153,8 +154,7 @@ bool RuntimeTools::CommitSelectionCommand( const RuntimeInteractionSelectionPlan
 }
 
 
-bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command,
-                                          const Runtime::SceneController& collection )
+bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& command, const SceneWorld& world )
 {
     // Why: owner-claiming commands need composition to apply transition cleanup
     // between prepare and commit. The convenience path is intentionally limited
@@ -165,7 +165,7 @@ bool RuntimeTools::ApplySelectionCommand( const RuntimeInteractionCommand& comma
     }
     RuntimeInteractionSelectionPlan plan;
     RuntimeInteractionEvent event;
-    return PrepareSelectionCommand( command, collection, plan ) && CommitSelectionCommand( plan, event );
+    return PrepareSelectionCommand( command, world, plan ) && CommitSelectionCommand( plan, event );
 }
 
 
@@ -186,11 +186,10 @@ bool RuntimeTools::InspectGizmoInteractionActive( RunCameraMode cameraMode, bool
 
 
 void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
-                                                        Runtime::SceneController& collection,
-                                                        Physics::PhysicsEngine& physics,
+                                                        SceneWorld& world,
                                                         RuntimeInteractionController& interaction )
 {
-    RunInternal::ClearEditorManipulationState( { m_editor, collection, physics, interaction } );
+    RunInternal::ClearEditorManipulationState( { m_editor, world, interaction } );
     m_editor.viewportLookActive = false;
     m_editor.placementModeEnabled = false;
     m_editor.hotGizmoAxis = -1;
@@ -200,7 +199,7 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
         RuntimeInteractionCommand command;
         command.type = RuntimeInteractionCommandType::SetEditorSelection;
         command.claimSelectionOwner = false;
-        ApplySelectionCommand( command, collection );
+        ApplySelectionCommand( command, world );
     }
 }
 
@@ -614,16 +613,16 @@ bool RuntimeTools::TryBuildLauncherCameraRay( Environment::CameraCollection* cam
     return true;
 }
 
-bool RuntimeTools::FireLauncherRay( Runtime::SceneController& collection,
-                                    Physics::PhysicsEngine& physics,
+bool RuntimeTools::FireLauncherRay( SceneWorld& world,
                                     RunSceneState& scene,
-                                    Geometry::Terrain* terrain,
                                     int activeModelCapacity,
                                     const Math::Vector::Vector3& rayOrigin,
                                     const Math::Vector::Vector3& rayDirection,
                                     const Math::Vector::Vector3& cameraUp )
 {
-    const int modelCount = collection.SceneEntityCount();
+    Physics::PhysicsEngine& physics = world.Physics();
+    Geometry::Terrain* terrain = world.Terrain().Get();
+    const int modelCount = world.SceneEntityCount();
     if ( !LauncherPhysicsStoresReady( physics, modelCount ) )
     {
         return false;
@@ -631,10 +630,8 @@ bool RuntimeTools::FireLauncherRay( Runtime::SceneController& collection,
 
     if ( m_rayCastTest.fireMode == RunLauncherFireMode::Projectile )
     {
-        return FireLauncherProjectile( collection,
-                                       physics,
+        return FireLauncherProjectile( world,
                                        scene,
-                                       terrain,
                                        activeModelCapacity,
                                        modelCount,
                                        rayOrigin,
@@ -647,12 +644,8 @@ bool RuntimeTools::FireLauncherRay( Runtime::SceneController& collection,
 }
 
 
-LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input,
-                                                          Environment::CameraCollection& cameras,
-                                                          Runtime::SceneController& collection,
-                                                          Physics::PhysicsEngine& physics,
-                                                          RunSceneState& scene,
-                                                          Geometry::Terrain* terrain )
+LauncherPointerResult
+RuntimeTools::RouteLauncherPointer( const LauncherPointerInput& input, SceneWorld& world, RunSceneState& scene )
 {
     LauncherPointerResult result;
     if ( !input.launcherMode || !input.leftPressed || input.suppressWorldAction || input.uiWantsNativeCursor )
@@ -665,12 +658,12 @@ LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerI
     Math::Vector::Vector3 rayOrigin;
     Math::Vector::Vector3 rayDirection;
     Math::Vector::Vector3 cameraUp;
-    if ( !TryBuildLauncherCameraRay( &cameras, rayOrigin, rayDirection, cameraUp ) )
+    if ( !TryBuildLauncherCameraRay( &world.Cameras(), rayOrigin, rayDirection, cameraUp ) )
     {
         return result;
     }
 
-    const int modelCountBefore = collection.SceneEntityCount();
+    const int modelCountBefore = world.SceneEntityCount();
     result.replayEvent =
         ReplayEventCommandOperations::BuildLauncherFire( rayOrigin,
                                                          rayDirection,
@@ -681,17 +674,11 @@ LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerI
                                                          modelCountBefore );
     result.recordReplayEvent = true;
     // Why: the launcher is a cold input action, so it repairs any construction-
-    // time collection/store drift before entering handle-based physics queries.
-    if ( collection.RepairPhysicsBodyAndColliderTopology() && FireLauncherRay( collection,
-                                                                               physics,
-                                                                               scene,
-                                                                               terrain,
-                                                                               input.activeModelCapacity,
-                                                                               rayOrigin,
-                                                                               rayDirection,
-                                                                               cameraUp ) )
+    // time world/store drift before entering handle-based physics queries.
+    if ( world.RepairPhysicsBodyAndColliderTopology() &&
+         FireLauncherRay( world, scene, input.activeModelCapacity, rayOrigin, rayDirection, cameraUp ) )
     {
-        scene.modelCount = collection.SceneEntityCount();
+        scene.modelCount = world.SceneEntityCount();
     }
     return result;
 }
@@ -754,16 +741,16 @@ void RuntimeTools::FireLauncherLaser( Physics::PhysicsEngine& physics,
     ApplyLauncherPhysicsImpulse( physics, body, rayDirection * m_rayCastTest.impulseStrength, localApplicationPoint );
 }
 
-bool RuntimeTools::FireLauncherProjectile( Runtime::SceneController& collection,
-                                           Physics::PhysicsEngine& physics,
+bool RuntimeTools::FireLauncherProjectile( SceneWorld& world,
                                            RunSceneState& scene,
-                                           Geometry::Terrain* terrain,
                                            int activeModelCapacity,
                                            int modelCount,
                                            const Math::Vector::Vector3& rayOrigin,
                                            const Math::Vector::Vector3& rayDirection,
                                            const Math::Vector::Vector3& cameraUp )
 {
+    Physics::PhysicsEngine& physics = world.Physics();
+    Geometry::Terrain* terrain = world.Terrain().Get();
     if ( !terrain || modelCount >= activeModelCapacity )
     {
         return false;
@@ -815,7 +802,7 @@ bool RuntimeTools::FireLauncherProjectile( Runtime::SceneController& collection,
                                                                     Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
     const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
     projectile.sceneObjectId = sceneObjectId;
-    const auto appendResult = collection.TryCreateSceneEntity(
+    const auto appendResult = world.TryCreateSceneEntity(
         std::move( projectile ),
         Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
                                             projectileShape,
@@ -886,21 +873,14 @@ const RunEditorTracer& RuntimeTools::EditorTracer() const
 }
 
 
-void RuntimeTools::PrepareOverlayTrace( Runtime::SceneController& models,
+void RuntimeTools::PrepareOverlayTrace( SceneWorld& world,
                                         const Assets::AssetSystem& assets,
                                         const ToolOverlayBuildInput& input )
 {
     // Invariant: one owner clears and rebuilds the shared tracer exactly once
     // before replay appends its records for the same frame.
     m_editorTracer.Clear();
-    RunInternal::BuildEditorToolOverlayTrace( { m_editor,
-                                                m_rayCastTest,
-                                                m_mousePickup,
-                                                models,
-                                                models.BodyStore(),
-                                                models.Colliders(),
-                                                assets,
-                                                m_editorTracer },
+    RunInternal::BuildEditorToolOverlayTrace( { m_editor, m_rayCastTest, m_mousePickup, world, assets, m_editorTracer },
                                               { input.rayLingerSeconds,
                                                 input.inspectGizmoActive,
                                                 input.scaleMode,

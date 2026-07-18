@@ -52,7 +52,8 @@ class DiagnosticsController
     void OpenScenePerfLog( const char* path, int pass );
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
-    // Samples the bound profiler without reopening the SkullbonezCore::Core::Profiler::Instance()
+    // Samples the startup-bound profiler without reopening a process-global
+    // profiler locator
     // singleton from frame or diagnostics code.
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;
 

@@ -109,6 +109,18 @@ toolset, floating-point flags, x64 instruction policy, fixed-step ordering,
 worker reduction order, scenes, config, or baselines changes the certified
 envelope and requires the mapped gates.
 
+Release and `Profile-WPO` retain whole-program optimization for the engine and
+for non-solver physics code, but three arithmetic owners are deliberate native
+object boundaries: `ObjectContactManifold.cpp`, `TerrainContactManifold.cpp`,
+and `PersistentContactSolver.cpp` compile with WPO disabled. Link-time code
+generation may optimize callers and the rest of the product, but it cannot
+recompile these contact feature-selection and impulse-solving bodies in the
+context of unrelated modules. Ordinary `Profile` and Debug already compile the
+physics project without WPO. Adding another contact/solver arithmetic owner,
+removing one of these boundaries, or enabling WPO for it reopens the certified
+envelope and requires paired clean-rebuild physics evidence plus the performance
+gate.
+
 Inlining, compiler, flag, and SIMD changes can alter instruction selection and
 flip knife-edge contact or feature-selection branches even when the source
 formula looks equivalent. The byte-exact gates detect that drift; the compiler

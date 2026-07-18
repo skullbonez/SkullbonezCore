@@ -43,6 +43,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 struct PhysicsExecutionConfig;
 } // namespace Core
 
@@ -75,6 +76,7 @@ struct TerrainDetectionStageContext
     const Core::EngineConfig& config;
     std::span<const uint8_t> sleepState;
     std::span<const float> timeRemaining;
+    Core::Profiler* profiler = nullptr;
 };
 
 struct TerrainCandidateCommitContext
@@ -89,6 +91,7 @@ struct TerrainCandidateCommitContext
     const Core::EngineConfig& config;
     std::span<uint8_t> sleepSupportedThisFrame;
     std::span<uint8_t> sleepInhibitedThisFrame;
+    Core::Profiler* profiler = nullptr;
 };
 
 struct PreparedTerrainCandidateCommit
@@ -110,7 +113,7 @@ class PhysicsTerrainStage
   private:
     std::vector<TerrainDetectionCandidate> m_detectionCandidates;
     std::vector<TerrainContactManifold> m_contactManifolds;
-    std::array<uint8_t, Scene::Capacity::MAX_GAME_MODELS> m_restApplied = {};
+    std::array<uint8_t, Scene::Capacity::MAX_SCENE_OBJECTS> m_restApplied = {};
 
     struct TerrainDetectionStage
     {

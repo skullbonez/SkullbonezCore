@@ -1,28 +1,31 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.cpp
 Purpose:
-  Implements scene state, physics ownership, navigation, and deferred requests.
+  Implements scene state, physics ownership, lifecycle, and deferred requests.
 
 Summary:
-  Scene state, physics, navigation, completion gates, and deferred intent live
-  behind one controller. Cold load implementation is split into RunScene.cpp,
-  but remains a SceneController transaction with explicit synchronous borrows.
+  Scene state, physics sequencing, completion gates, and deferred intent live
+  behind one controller. A physics step returns bounded post-step facts for
+  presentation consumers instead of mutating render feedback through relays.
 
 Glossary:
   Scene runtime: Mutable per-scene queue, completion, and automation state.
   Scene queue: Ordered list of authored scenes or demo entries to run.
   Request batch: Ordered fixed-capacity copy consumed at one frame checkpoint.
+  Post-step output: Borrowed bounded physics facts consumed before the next step.
 
 Invariants:
   - Controller accessors must preserve the existing SceneRuntime semantics.
   - Interactive scene requests cannot bypass the controller-owned ring.
   - Frame completion returns value-only load/quit/hold intent to the process shell.
+  - Physics post-step spans borrow fixed-capacity rows only until the next step.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
   - SkullbonezSource/Runtime/Scene/SceneRuntime.cpp
 */
 #include "SceneController.h"
+#include "../RuntimeValidationHarness.h"
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Config.h"
@@ -45,62 +48,10 @@ namespace Runtime
 namespace
 {
 constexpr double SCENE_PERF_PASS_SECONDS = 2.0;
-constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f; // World meters per second.
 } // namespace
 
 SceneController::SceneController()
 {
-    ReserveForActiveGameModelCapacity();
-}
-
-
-void SceneController::StepPhysics( float fixedDt,
-                                   const SkullbonezCore::Core::EngineConfig& config,
-                                   const Physics::PhysicsWorldForces& worldForces,
-                                   Threading::WorkerPool& workerPool )
-{
-    const int modelCount = SceneEntityCount();
-    // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
-    // sidecars are imported only when topology changes; same-count editor or
-    // replay mutations must commit explicitly before this step reads rows.
-    RepairPhysicsBodyAndColliderTopology();
-    TickContactHighlights( modelCount, fixedDt );
-
-    const char* const* diagnosticNames = nullptr;
-    int diagnosticNameCount = 0;
-    Physics::PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
-#ifdef _DEBUG
-    std::vector<const char*> physicsDiagnosticsModelNames;
-    if ( m_physics.ShouldEmitStepDiagnostics() || m_physics.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Lifetime: Debug diagnostics borrow name pointers only until Step
-        // returns; physics never retains this presentation table.
-        FillPhysicsDiagnosticsNames( Physics::PhysicsEngine::ReadBodies( m_physics ).Count(),
-                                     physicsDiagnosticsModelNames );
-        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
-        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
-    }
-#endif
-    m_physics
-        .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
-
-    // Why: fixed-contact highlights are presentation feedback, not solver
-    // state. Keeping this edge beside the scene stores makes that split visible.
-    for ( int index : Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) )
-    {
-        NotifyFixedContact( index, 0.5f );
-    }
-}
-
-
-void SceneController::ApplyWaterHeightControl( bool pageDown, bool pageUp, float dt )
-{
-    if ( pageDown == pageUp )
-    {
-        return;
-    }
-    const float direction = pageUp ? 1.0f : -1.0f;
-    m_world.SetFluidSurfaceHeight( m_world.GetFluidSurfaceHeight() + direction * WATER_HEIGHT_CONTROL_SPEED * dt );
 }
 
 
@@ -138,42 +89,6 @@ bool SceneController::CrossScenePauseLocked() const
 
 SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( std::move( queue ) )
 {
-    ReserveForActiveGameModelCapacity();
-}
-
-
-bool SceneController::TrimForReplayRestore( int bodyCount )
-{
-    const int liveBodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
-    const int liveColliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
-    const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
-    if ( bodyCount < 0 || bodyCount > liveBodyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
-         !CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
-    {
-        return false;
-    }
-
-    const Physics::PhysicsBodyCount bodies = Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount );
-    const Physics::PhysicsColliderCount colliders = Physics::MakePhysicsColliderCountFromNonNegativeInt( bodyCount );
-    const Physics::PhysicsAuthoredBodyCount authored =
-        Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt( bodyCount );
-    // Concept: replay topology restore is a two-phase transaction. Every owner
-    // rejects an impossible target above before the first write. Once commit
-    // starts, a failed shrink means an internal topology invariant broke; it is
-    // not a recoverable replay-file error because earlier owners may already
-    // have retired handles.
-    // Invariant: physics rows shrink before presentation and metadata rows.
-    // Every surviving handle was validated by replay id before this command,
-    // and PhysicsBodyStore retires removed handles.
-    if ( !m_physics.TrimBodiesToCount( bodies ) ||
-         ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
-         !m_physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
-         !TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
-    {
-        SB_FATAL( "Runtime/SceneController",
-                  "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
-    }
-    return true;
 }
 
 
@@ -189,89 +104,15 @@ const RunSceneState& SceneController::State() const
 }
 
 
-RunSceneBrowserState& SceneController::Browser()
-{
-    // Invariant: Scene browser arrays live for the whole run so UI/render host
-    // name-pointer views remain stable until the next explicit browser refresh.
-    return m_browser;
-}
-
-
-const RunSceneBrowserState& SceneController::Browser() const
-{
-    return m_browser;
-}
-
-
-RunSceneUIOverrideState& SceneController::UIOverrides()
-{
-    return m_uiOverrides;
-}
-
-
-const RunSceneUIOverrideState& SceneController::UIOverrides() const
-{
-    return m_uiOverrides;
-}
-
-
-SceneEntityStore& SceneController::Entities()
-{
-    return m_entities;
-}
-
-
-const SceneEntityStore& SceneController::Entities() const
-{
-    return m_entities;
-}
-
-
-Environment::CameraCollection& SceneController::Cameras()
-{
-    return m_cameras;
-}
-
-
-const Environment::CameraCollection& SceneController::Cameras() const
-{
-    return m_cameras;
-}
-
-
-Environment::WorldEnvironment& SceneController::World()
+SceneWorld& SceneController::Scene()
 {
     return m_world;
 }
 
 
-const Environment::WorldEnvironment& SceneController::World() const
+const SceneWorld& SceneController::Scene() const
 {
     return m_world;
-}
-
-
-SceneTerrain& SceneController::Terrain()
-{
-    return m_terrain;
-}
-
-
-const SceneTerrain& SceneController::Terrain() const
-{
-    return m_terrain;
-}
-
-
-Physics::PhysicsEngine& SceneController::Physics()
-{
-    return m_physics;
-}
-
-
-const Physics::PhysicsEngine& SceneController::Physics() const
-{
-    return m_physics;
 }
 
 
@@ -331,9 +172,9 @@ void SceneController::BeginLoad( int index )
 
 void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
-    const int entityCount = m_entities.Count();
-    const int bodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
-    const int colliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
+    const int entityCount = m_world.Entities().Count();
+    const int bodyCount = Physics::PhysicsEngine::ReadBodies( m_world.Physics() ).Count();
+    const int colliderCount = Physics::PhysicsEngine::ReadColliders( m_world.Physics() ).Count();
     const bool requiresEmptyTopology = event == SceneRuntimeLifecycleEvent::AfterSceneCleared ||
                                        event == SceneRuntimeLifecycleEvent::BeforeScenePopulate;
     const bool requiresMatchedTopology = event == SceneRuntimeLifecycleEvent::AfterScenePopulate ||
@@ -477,63 +318,8 @@ std::size_t SceneController::PendingRequestCount() const
 }
 
 
-std::vector<RunRequiredContactState>& SceneController::RequiredContacts()
-{
-    return m_runtime.RequiredContacts();
-}
-
-
-const std::vector<RunRequiredContactState>& SceneController::RequiredContacts() const
-{
-    return m_runtime.RequiredContacts();
-}
-
-
-std::vector<RunRequiredBroadphaseXCellsState>& SceneController::RequiredBroadphaseXCells()
-{
-    return m_runtime.RequiredBroadphaseXCells();
-}
-
-
-const std::vector<RunRequiredBroadphaseXCellsState>& SceneController::RequiredBroadphaseXCells() const
-{
-    return m_runtime.RequiredBroadphaseXCells();
-}
-
-
-void SceneController::ClearRequiredAutomationGates()
-{
-    m_runtime.ClearRequiredAutomationGates();
-}
-
-
-void SceneController::UpdateRequiredContacts( float contactEpsilon )
-{
-    m_runtime.UpdateRequiredContacts( *this, contactEpsilon );
-}
-
-
-bool SceneController::RequiredContactsComplete() const
-{
-    return m_runtime.RequiredContactsComplete();
-}
-
-
-void SceneController::UpdateRequiredBroadphaseXCells(
-    const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-    int activeCellCount )
-{
-    m_runtime.UpdateRequiredBroadphaseXCells( activeCells, activeCellCount );
-}
-
-
-bool SceneController::RequiredBroadphaseXCellsComplete() const
-{
-    return m_runtime.RequiredBroadphaseXCellsComplete();
-}
-
-
-SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
+SceneFrameAdvanceResult SceneController::AdvanceFrame( const SceneAutomationGateStatus& automationGates,
+                                                       bool proceedAllowed,
                                                        bool perfTestActive,
                                                        bool screenshotSaved,
                                                        bool manualCameraActive,
@@ -546,8 +332,8 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
     }
 
     ++m_runtime.State().currentFrame;
-    const bool hasRequiredSceneGate = !RequiredContacts().empty() || !RequiredBroadphaseXCells().empty();
-    const bool requiredSceneComplete = RequiredContactsComplete() && RequiredBroadphaseXCellsComplete();
+    const bool hasRequiredSceneGate = automationGates.hasRequirements;
+    const bool requiredSceneComplete = automationGates.complete;
 
     const auto finishInteractiveOrQueueNext = [&]( const char* reason )
     {
@@ -590,33 +376,7 @@ SceneFrameAdvanceResult SceneController::AdvanceFrame( bool proceedAllowed,
         }
         if ( !frameCountCompletesScene )
         {
-            // Probe diagnostics belong to the scene gate owner so callers do not
-            // reopen its mutable contact/broadphase rows to explain a failure.
-            for ( const RunRequiredContactState& contact : RequiredContacts() )
-            {
-                if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
-                {
-                    fprintf( stderr, "[scene] required_contact missing: %s <-> %s\n", contact.nameA, contact.nameB );
-                }
-            }
-            for ( const RunRequiredBroadphaseXCellsState& cells : RequiredBroadphaseXCells() )
-            {
-                if ( !cells.activated )
-                {
-                    fprintf( stderr,
-                             "[scene] required_broadphase_x_cells missing: x %d..%d y %d z %d first_missing=%d "
-                             "active_cells=%d observed_x=%s%d..%d\n",
-                             cells.minCellX,
-                             cells.maxCellX,
-                             cells.cellY,
-                             cells.cellZ,
-                             cells.lastMissingCellX,
-                             cells.lastActiveCellCount,
-                             cells.hasObservedXRange ? "" : "none ",
-                             cells.lastObservedMinX,
-                             cells.lastObservedMaxX );
-                }
-            }
+            result.reportMissingRequirements = true;
             return result;
         }
         finishInteractiveOrQueueNext( result.finishReason ? result.finishReason : "frame_count" );

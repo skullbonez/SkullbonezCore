@@ -98,6 +98,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Runtime
 {
@@ -149,7 +150,7 @@ struct ReplaySolverSampleRestoreContext;
 class ReplayRuntime
 {
   public:
-    ReplayRuntime();
+    explicit ReplayRuntime( Core::Profiler* profiler );
 
     // Publishes scalar input decisions without exposing replay owner storage.
     ReplayInputView BuildInputView() const noexcept;
@@ -452,6 +453,8 @@ class ReplayRuntime
                                            RunReplayV2TargetRestoreResult& outResult,
                                            char* outReason,
                                            std::size_t reasonSize );
+    // Lifetime: startup-bound diagnostics borrow shared only with concrete replay owners.
+    Core::Profiler* m_profiler;
     ReplayTimeline m_timeline;
     ReplayProbeRunner m_probeRunner;
     ReplayScrubber m_scrubberOwner;

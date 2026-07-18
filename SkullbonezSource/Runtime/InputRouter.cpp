@@ -7,8 +7,9 @@ Purpose:
 Summary:
   BeginFrame samples every binding before any context is evaluated. RoutePhase
   later decides which already-observed edges are eligible for delivery. This
-  separation is what prevents held keys from firing when UI or tool contexts
-  change while the key remains down.
+  separation prevents held keys from firing when UI or tool contexts change.
+  Water-height keys are translated here into a world-unit command so simulation
+  code never reinterprets device vocabulary.
 
 Glossary:
   Delivered action: Press edge previously emitted to a consumer; held and
@@ -18,6 +19,8 @@ Glossary:
   Focus cancellation: Release events emitted when the application loses focus.
   UI (user interface): Interactive engine controls evaluated between routing
     phases.
+  Fluid-surface command: Signed world-space velocity published in the immutable
+    RuntimeInputSnapshot.
 
 Invariants:
   - No operation in this file allocates or retains caller-owned storage.
@@ -38,9 +41,24 @@ namespace Runtime
 {
 namespace
 {
+constexpr float FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND = 20.0f;
+
 constexpr RuntimeInputContextMask ContextBit( RuntimeInputBindingContext context )
 {
     return RuntimeInputContextBit( context );
+}
+
+Environment::FluidSurfaceAdjustment BuildFluidSurfaceAdjustment( const InputKeySnapshot& keys )
+{
+    const bool lower = keys.IsDown( VK_NEXT );
+    const bool raise = keys.IsDown( VK_PRIOR );
+    if ( lower == raise )
+    {
+        return {};
+    }
+
+    return Environment::FluidSurfaceAdjustment{ raise ? FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND
+                                                      : -FLUID_SURFACE_CONTROL_SPEED_METERS_PER_SECOND };
 }
 } // namespace
 
@@ -195,8 +213,7 @@ void InputRouter::BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBind
     m_runtimeSnapshot.pointer.controlDown = frame.keys.IsDown( VK_CONTROL );
     m_runtimeSnapshot.pointer.shiftDown = frame.keys.IsDown( VK_SHIFT );
     m_runtimeSnapshot.enterDown = frame.keys.IsDown( VK_RETURN );
-    m_runtimeSnapshot.pageDown = frame.keys.IsDown( VK_NEXT );
-    m_runtimeSnapshot.pageUp = frame.keys.IsDown( VK_PRIOR );
+    m_runtimeSnapshot.fluidSurfaceAdjustment = BuildFluidSurfaceAdjustment( frame.keys );
     output.Reset();
     m_actionSampledThisFrame.fill( false );
     m_frameEdges.fill( InputActionEdge::Released );
@@ -379,8 +396,7 @@ RuntimeInputSnapshot InputRouter::BuildRuntimeSnapshot( const RuntimeInteraction
     snapshot.uiBlocksKeyboard = m_uiSnapshot.blocksKeyboard;
     snapshot.uiBlocksMouse = m_uiSnapshot.blocksCameraMouse;
     snapshot.enterDown = m_deviceFrame.keys.IsDown( VK_RETURN );
-    snapshot.pageDown = m_deviceFrame.keys.IsDown( VK_NEXT );
-    snapshot.pageUp = m_deviceFrame.keys.IsDown( VK_PRIOR );
+    snapshot.fluidSurfaceAdjustment = BuildFluidSurfaceAdjustment( m_deviceFrame.keys );
     if ( m_deviceFrame.hasClientPosition )
     {
         snapshot.pointer.hasClientPosition = true;

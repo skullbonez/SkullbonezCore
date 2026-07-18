@@ -168,8 +168,15 @@
     <ClCompile Include="SkullbonezSource\Physics\BuoyancySystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ColliderStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\ConvexHullShape.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp" />
+    <!-- Determinism boundary: compile contact feature selection and impulse arithmetic as native objects so Release/Profile-WPO LTCG cannot reshape knife-edge physics from unrelated modules. -->
+    <ClCompile Include="SkullbonezSource\Physics\ObjectContactManifold.cpp">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
@@ -191,7 +198,10 @@
     <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />
   </ItemGroup>

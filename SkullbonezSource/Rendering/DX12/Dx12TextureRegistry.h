@@ -63,18 +63,13 @@ class Dx12TextureRegistry
 
     TextureEntryDX12* Resolve( uint32_t handle )
     {
-        return const_cast<TextureEntryDX12*>( static_cast<const Dx12TextureRegistry*>( this )->Resolve( handle ) );
+        size_t slotIndex = 0;
+        return ResolveSlotIndex( handle, slotIndex ) ? &m_entries[slotIndex] : nullptr;
     }
     const TextureEntryDX12* Resolve( uint32_t handle ) const
     {
         size_t slotIndex = 0;
-        uint8_t generation = 0;
-        if ( !Dx12TextureHandleCodec::Decode( handle, slotIndex, generation ) || slotIndex >= m_entries.size() )
-        {
-            return nullptr;
-        }
-        const TextureEntryDX12& entry = m_entries[slotIndex];
-        return entry.srvIndex != UINT_MAX && entry.generation == generation ? &entry : nullptr;
+        return ResolveSlotIndex( handle, slotIndex ) ? &m_entries[slotIndex] : nullptr;
     }
     std::vector<TextureEntryDX12>& Entries()
     {
@@ -103,6 +98,17 @@ class Dx12TextureRegistry
     }
 
   private:
+    bool ResolveSlotIndex( uint32_t handle, size_t& outSlotIndex ) const
+    {
+        uint8_t generation = 0;
+        if ( !Dx12TextureHandleCodec::Decode( handle, outSlotIndex, generation ) || outSlotIndex >= m_entries.size() )
+        {
+            return false;
+        }
+        const TextureEntryDX12& entry = m_entries[outSlotIndex];
+        return entry.srvIndex != UINT_MAX && entry.generation == generation;
+    }
+
     std::vector<TextureEntryDX12> m_entries;
 };
 } // namespace SkullbonezCore::Rendering

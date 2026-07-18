@@ -29,6 +29,7 @@ Related:
 #pragma once
 
 #include "../../Core/PlatformWin32.h"
+#include "../../Core/ByteView.h"
 
 #include <d3d12.h>
 #include <wrl/client.h>
@@ -46,7 +47,7 @@ class Dx12CachedPsoStore
     static constexpr std::size_t ENTRY_NAME_CHARS = 69;
     static constexpr std::size_t MAX_BLOB_BYTES = 16u * 1024u * 1024u;
 
-    bool Initialize( const void* rootSignatureBytes, std::size_t rootSignatureSize );
+    bool Initialize( SkullbonezCore::Core::ByteView rootSignatureBytes );
     bool Attach( D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc );
     void RejectAttached( D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc );
     void Store( const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc, ID3D12PipelineState* pipeline );
@@ -67,7 +68,7 @@ class Dx12CachedPsoStore
     struct MappedEntry
     {
         std::array<std::uint8_t, DIGEST_BYTES> digest = {};
-        const void* bytes = nullptr;
+        const std::uint8_t* bytes = nullptr;
         std::uint32_t size = 0;
         bool rejected = false;
     };
@@ -80,7 +81,7 @@ class Dx12CachedPsoStore
 
     HANDLE m_file = INVALID_HANDLE_VALUE;
     HANDLE m_mapping = nullptr;
-    const void* m_mappedBytes = nullptr;
+    const std::uint8_t* m_mappedBytes = nullptr;
     std::size_t m_mappedSize = 0;
     std::array<MappedEntry, 96> m_mappedEntries = {};
     std::size_t m_mappedEntryCount = 0;

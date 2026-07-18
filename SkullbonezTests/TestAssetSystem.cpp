@@ -20,7 +20,7 @@
 //
 // Related:
 //   - SkullbonezSource/Assets/AssetSystem.cpp
-//   - SkullbonezSource/Scene/TestSceneParser.cpp
+//   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 

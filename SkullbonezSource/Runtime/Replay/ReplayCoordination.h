@@ -64,6 +64,7 @@ struct ReplayStartupLoadInput;
 struct RunCameraState;
 struct RunMousePickupState;
 struct RunSceneState;
+struct RunSceneUIOverrideState;
 
 namespace ReplayInteractionOperations
 {
@@ -262,7 +263,7 @@ struct ReplaySceneTimelineResetInput
     int solverBallCount = 0;
     int solverBoxCount = 0;
     uint32_t rngSeed = 0;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
     uint32_t generatedObjectTypeOverride = 0;
     bool hasUiModelCountOverride = false;
     bool hasUiSolverCountOverride = false;
@@ -293,8 +294,9 @@ inline uint32_t SceneTimelineGeneratedConfigFlags( const ReplaySceneTimelineRese
 }
 
 ReplaySceneTimelineResetInput DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                           const RunSceneUIOverrideState& uiOverrides,
                                                            const RunSceneState& scene,
-                                                           int gameModelCapacity,
+                                                           int sceneObjectCapacity,
                                                            uint32_t generatedObjectTypeOverride );
 } // namespace ReplayTimelineOperations
 
@@ -345,6 +347,8 @@ struct ReplayProbeTickResult
 {
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool enterInteractive = false;
+    // Value boundary: Run owns lifecycle submission after the probe succeeds.
+    bool resetCurrentScene = false;
 };
 #endif
 } // namespace Runtime

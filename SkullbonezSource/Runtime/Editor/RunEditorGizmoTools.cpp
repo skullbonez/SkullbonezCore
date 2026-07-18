@@ -60,19 +60,16 @@ namespace RunInternal
 {
 int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
-    if ( selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
+    if ( selectedModelIndex < 0 || selectedModelIndex >= context.world.SceneEntityCount() )
     {
         return -1;
     }
 
-    const ColliderStore& colliderStore = context.models.Colliders();
     Vector3 origin;
     float radius = 1.0f;
-    if ( !TryGetEditorSelectionFrame( context.models,
-                                      bodyStore,
-                                      colliderStore,
+    if ( !TryGetEditorSelectionFrame( context.world,
                                       context.editor.selectedBody,
                                       context.editor.selectedCollider,
                                       selectedModelIndex,
@@ -104,19 +101,16 @@ int HitEditorGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, co
 
 int HitEditorRotationGizmoAxis( EditorGizmoContext context, const Vector3& rayOrigin, const Vector3& rayDirection )
 {
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
-    if ( selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
+    if ( selectedModelIndex < 0 || selectedModelIndex >= context.world.SceneEntityCount() )
     {
         return -1;
     }
 
-    const ColliderStore& colliderStore = context.models.Colliders();
     Vector3 origin;
     float radius = 1.0f;
-    if ( !TryGetEditorSelectionFrame( context.models,
-                                      bodyStore,
-                                      colliderStore,
+    if ( !TryGetEditorSelectionFrame( context.world,
                                       context.editor.selectedBody,
                                       context.editor.selectedCollider,
                                       selectedModelIndex,
@@ -165,19 +159,16 @@ bool TryEditorAxisRayParameter( EditorGizmoContext context,
                                 const Vector3& rayDirection,
                                 float& outAxisT )
 {
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
-    if ( axis < 0 || axis > 2 || selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
+    if ( axis < 0 || axis > 2 || selectedModelIndex < 0 || selectedModelIndex >= context.world.SceneEntityCount() )
     {
         return false;
     }
 
     Vector3 axisOrigin;
     float radius = 1.0f;
-    const ColliderStore& colliderStore = context.models.Colliders();
-    if ( !TryGetEditorSelectionFrame( context.models,
-                                      bodyStore,
-                                      colliderStore,
+    if ( !TryGetEditorSelectionFrame( context.world,
                                       context.editor.selectedBody,
                                       context.editor.selectedCollider,
                                       selectedModelIndex,
@@ -267,19 +258,16 @@ bool TryEditorRotationRayAngle( EditorGizmoContext context,
                                 const Vector3& rayDirection,
                                 float& outAngle )
 {
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
-    if ( axis < 0 || axis > 2 || selectedModelIndex < 0 || selectedModelIndex >= context.models.SceneEntityCount() )
+    if ( axis < 0 || axis > 2 || selectedModelIndex < 0 || selectedModelIndex >= context.world.SceneEntityCount() )
     {
         return false;
     }
 
     Vector3 origin;
     float radius = 1.0f;
-    const ColliderStore& colliderStore = context.models.Colliders();
-    if ( !TryGetEditorSelectionFrame( context.models,
-                                      bodyStore,
-                                      colliderStore,
+    if ( !TryGetEditorSelectionFrame( context.world,
                                       context.editor.selectedBody,
                                       context.editor.selectedCollider,
                                       selectedModelIndex,
@@ -339,9 +327,9 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const int index = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
-    if ( index < 0 || index >= context.models.SceneEntityCount() )
+    if ( index < 0 || index >= context.world.SceneEntityCount() )
     {
         CancelEditorGizmoDragState( context );
         return;
@@ -349,7 +337,7 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
 
     const Vector3 axisVector = EditorAxisVector( gesture.axis );
     const Vector3 delta = axisVector * ( axisT - context.editor.gizmoDragStartAxisT );
-    const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.models.SceneEntityCount() );
+    const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.world.SceneEntityCount() );
     if ( groupCount > 0 )
     {
         // Invariant: Group drags reuse the gesture-start transform snapshot for
@@ -362,7 +350,7 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
             edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
             edit.position = context.editor.gizmoDragGroupStartPositions[static_cast<std::size_t>( groupIndex )] + delta;
             edit.orientation = context.editor.gizmoDragGroupStartOrientations[static_cast<std::size_t>( groupIndex )];
-            ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
+            ResetEditorModelMotionAndWake( context.world, modelIndex, edit );
         }
     }
     else
@@ -371,7 +359,7 @@ void MoveSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
         edit.position = context.editor.gizmoDragStartPosition + delta;
         edit.orientation = context.editor.gizmoDragStartOrientation;
-        ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
+        ResetEditorModelMotionAndWake( context.world, index, edit );
     }
 }
 
@@ -393,9 +381,9 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const int index = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
-    if ( index < 0 || index >= context.models.SceneEntityCount() )
+    if ( index < 0 || index >= context.world.SceneEntityCount() )
     {
         CancelEditorGizmoDragState( context );
         return;
@@ -408,7 +396,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     // Invariant: scale starts from the ColliderStore shape captured at drag
     // begin. The descriptor below preserves that store-owned material identity
     // while replacing only the edited shape facts.
-    const ColliderStore& colliderStore = context.models.Colliders();
+    const ColliderStore& colliderStore = context.world.Colliders();
     const PhysicsBodyRecord* selectedBody = nullptr;
     const ColliderRecord* selectedCollider = nullptr;
     if ( !TryResolveEditorBodyCollider( bodyStore,
@@ -426,8 +414,7 @@ void ScaleSelectedEditorObjectAlongAxis( EditorGizmoContext context,
     if ( ScaleShapeAxisFromBase( context.editor.gizmoDragStartShape, gesture.axis, factor, scaledShape ) )
     {
         PhysicsBodyUpdateDesc edit;
-        ResetEditorModelMotionAndWake( context.models,
-                                       context.physics,
+        ResetEditorModelMotionAndWake( context.world,
                                        index,
                                        edit,
                                        MakeColliderCreateDesc( std::move( scaledShape ),
@@ -454,9 +441,9 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
         return;
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
     const int index = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
-    if ( index < 0 || index >= context.models.SceneEntityCount() )
+    if ( index < 0 || index >= context.world.SceneEntityCount() )
     {
         CancelEditorGizmoDragState( context );
         return;
@@ -464,7 +451,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
 
     const Vector3 axisVector = EditorAxisVector( gesture.axis );
     const float angleDelta = WrapEditorAngleDelta( currentAngle - context.editor.gizmoDragStartRotationAngle );
-    const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.models.SceneEntityCount() );
+    const int groupCount = ValidCapturedEditorGizmoGroupCount( context.editor, context.world.SceneEntityCount() );
     if ( groupCount > 0 )
     {
         // Invariant: Rotation groups pivot around the captured selection
@@ -483,7 +470,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
             edit.position = context.editor.gizmoDragStartPosition +
                             RotatePointAboutArbitrary( angleDelta, axisVector, startOffset );
             edit.orientation = orientation;
-            ResetEditorModelMotionAndWake( context.models, context.physics, modelIndex, edit );
+            ResetEditorModelMotionAndWake( context.world, modelIndex, edit );
         }
     }
     else
@@ -494,7 +481,7 @@ void RotateSelectedEditorObjectAroundAxis( EditorGizmoContext context,
         edit.updateMask = PHYSICS_BODY_UPDATE_POSE;
         edit.position = context.editor.gizmoDragStartPosition;
         edit.orientation = orientation;
-        ResetEditorModelMotionAndWake( context.models, context.physics, index, edit );
+        ResetEditorModelMotionAndWake( context.world, index, edit );
     }
 }
 

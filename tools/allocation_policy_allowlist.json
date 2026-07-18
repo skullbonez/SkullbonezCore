@@ -11,18 +11,19 @@
       "phase": "startup_validation",
       "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
       "cap": "Three owner allocations when --physics-standalone-smoke is requested.",
-      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_GAME_MODELS fixed stores."
+      "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_SCENE_OBJECTS fixed stores."
     },
     {
       "path": "SkullbonezSource/Runtime/Init.cpp",
       "patterns": [
         "std::make_unique<RenderBackendDX12>",
-        "std::make_unique<Run>"
+        "std::make_unique<Run>",
+        "std::make_unique<SkullbonezCore::Core::Profiler>"
       ],
       "owner": "Runtime process bootstrap",
       "phase": "startup_backend_init",
-      "reason": "WinMain creates the DX12 backend and Run composition root before steady gameplay begins.",
-      "cap": "One backend and one Run allocation per process launch.",
+      "reason": "WinMain creates the DX12 backend, Run composition root, and fixed-ring profiler owner before steady gameplay begins; explicit heap ownership keeps the profiler off the bounded launcher stack while hot owners receive only its stable borrow.",
+      "cap": "One backend, one Run, and one profiler allocation per process launch.",
       "removal_or_wrapper_plan": "Leave as startup composition-root ownership unless process bootstrap moves to arena-backed lifetime storage."
     },
     {
@@ -230,18 +231,6 @@
       "removal_or_wrapper_plan": "Move atlas construction through a startup arena if text atlas generation becomes runtime-mutable."
     },
     {
-      "path": "SkullbonezSource/Core/LockOrderValidator.cpp",
-      "patterns": [
-        ".insert(",
-        ".push_back("
-      ],
-      "owner": "Core infrastructure static STL surface",
-      "phase": "startup_diagnostics_threading",
-      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
-      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
-      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
-    },
-    {
       "path": "SkullbonezSource/Core/Log.h",
       "patterns": [
         "std::string",
@@ -293,29 +282,29 @@
       "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneController.Objects.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneWorld.cpp",
       "patterns": [
-        ".assign(",
         ".push_back(",
         ".reserve("
       ],
-      "owner": "SceneController coordinated scene-store preallocation",
+      "owner": "SceneWorld coordinated scene-store preallocation",
       "phase": "scene_load_preallocation",
-      "reason": "Scene metadata, authored physics helpers, and render presentation rows are reserved while scene data is loaded or reset, before steady gameplay uses the fixed capacity.",
+      "reason": "SceneWorld metadata, authored physics helpers, and render presentation rows are reserved while scene data is loaded or reset, before steady gameplay uses the fixed capacity.",
       "cap": "Bounded by configured game model capacity and active scene entity count.",
       "removal_or_wrapper_plan": "Replace cold descriptor helper vectors with bounded scratch storage when scene loading joins the strict no-STL-growth phase."
     },
     {
       "path": "SkullbonezSource/Runtime/Scene/SceneEntityStore.cpp",
       "patterns": [
+        ".assign(",
         ".emplace_back(",
         ".reserve(",
         ".resize("
       ],
-      "owner": "SceneController entity metadata preallocation",
-      "phase": "startup_scene_load_preallocation",
-      "reason": "SceneController reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene; commit and trim remain within that reservation during steady gameplay.",
-      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "owner": "SceneEntityStore entity metadata and Debug name view",
+      "phase": "startup_scene_load_and_debug_diagnostics",
+      "reason": "SceneEntityStore reserves durable identity, material, display-name, and asset-affiliation rows before publishing the replacement scene. Debug diagnostics also sizes a bounded borrowed-name table to the already configured body count; release gameplay does not compile that assignment.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_SCENE_OBJECTS ceiling.",
       "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
     },
     {
@@ -323,10 +312,10 @@
       "patterns": [
         "std::vector<"
       ],
-      "owner": "SceneController entity metadata preallocation",
+      "owner": "SceneEntityStore entity metadata preallocation",
       "phase": "startup_scene_load_preallocation",
-      "reason": "SceneController owns one capacity-bounded cold metadata vector whose reservation is established before scene population and retained across reloads.",
-      "cap": "Bounded by the configured game model capacity and the compile-time MAX_GAME_MODELS ceiling.",
+      "reason": "SceneEntityStore owns one capacity-bounded cold metadata vector whose reservation is established before scene population and retained across reloads.",
+      "cap": "Bounded by the configured game model capacity and the compile-time MAX_SCENE_OBJECTS ceiling.",
       "removal_or_wrapper_plan": "Replace the reserved cold metadata vector with a compact fixed arena if provenance storage is split into interned scene-owned tables."
     },
     {
@@ -339,7 +328,7 @@
       "owner": "Standalone physics API and cold validation probe",
       "phase": "cold_validation_and_preallocated_public_views",
       "reason": "Public query/contact vectors are bounded standalone-world storage; the validation-only smoke allocates its fixed-array world off the launcher stack before any gameplay phase.",
-      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_GAME_MODELS and fixed constraint/query inputs.",
+      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_SCENE_OBJECTS and fixed constraint/query inputs.",
       "removal_or_wrapper_plan": "Keep the smoke owner cold; replace public view vectors with fixed stores if the standalone API is promoted into steady runtime."
     },
     {
@@ -712,8 +701,19 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+    },
+    {
+      "path": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Rendering/DX12 graph transient pool",
+      "phase": "backend_init_scene_resource_preallocation",
+      "reason": "The extracted graph owner preserves the existing warm-up materialization vectors; steady frames reuse compiler-assigned physical slots and logical bindings.",
+      "cap": "Bounded by RENDER_GRAPH_MAX_RESOURCES and the compiler's transient allocation count.",
+      "removal_or_wrapper_plan": "Replace both graph transient vectors with fixed-capacity stores when the renderer adopts an owned graph-pool capacity contract."
     },
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp",
@@ -723,19 +723,19 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
-      "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
+      "path": "SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp",
       "patterns": [
         ".push_back("
       ],
-      "owner": "Rendering backend/resource static STL surface",
+      "owner": "Rendering/DX12 graph transient pool",
       "phase": "backend_init_scene_resource_preallocation",
-      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
-      "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
+      "reason": "The extracted graph owner preserves the existing warm-up materialization vectors; steady frames reuse compiler-assigned physical slots and logical bindings.",
+      "cap": "Bounded by RENDER_GRAPH_MAX_RESOURCES and the compiler's transient allocation count.",
+      "removal_or_wrapper_plan": "Replace both graph transient vectors with fixed-capacity stores when the renderer adopts an owned graph-pool capacity contract."
     },
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h",
@@ -745,7 +745,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -770,7 +770,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -783,11 +783,11 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
-      "path": "SkullbonezSource/Rendering/GameModelRenderer.cpp",
+      "path": "SkullbonezSource/Rendering/RenderInstanceRenderer.cpp",
       "patterns": [
         ".push_back(",
         ".resize("
@@ -795,7 +795,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -807,7 +807,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -820,7 +820,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -833,7 +833,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -844,7 +844,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -855,7 +855,7 @@
       "owner": "Rendering backend/resource static STL surface",
       "phase": "backend_init_scene_resource_preallocation",
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_GAME_MODELS, render graph limits, or generated mesh sizes.",
+      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -1109,7 +1109,7 @@
       "owner": "ReplayPresentation",
       "phase": "startup_replay_and_capacity_bounded_interaction",
       "reason": "ReplayPresentation reserves target, focus-mask, and ghost storage before steady use; live picking rotates targets and focus assignment remains within those pre-reserved hard capacities.",
-      "cap": "Targets are capped by REPLAY_PATH_MAX_ROOT_TARGETS, focus rows by MAX_GAME_MODELS, and ghosts by REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY.",
+      "cap": "Targets are capped by REPLAY_PATH_MAX_ROOT_TARGETS, focus rows by MAX_SCENE_OBJECTS, and ghosts by REPLAY_PREDICTION_GHOST_REQUEST_CAPACITY.",
       "removal_or_wrapper_plan": "Route presentation reserves through a typed ReplayPresentation reserve wrapper once the replay allocation-policy owner API replaces direct pre-gameplay vector reservation."
     },
     {
@@ -1189,16 +1189,62 @@
     {
       "path": "SkullbonezSource/Runtime/InteractionAutomationController.cpp",
       "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Interaction automation controller",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Automation script parsing grows the action list only during validation startup, outside steady gameplay.",
+      "cap": "Bounded by the explicitly supplied automation script action count.",
+      "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; replace the parser vector with bounded validation storage if the script schema gains a hard action cap."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/InteractionAutomationReportWriter.cpp",
+      "patterns": [
         ".emplace_back(",
         ".push_back(",
         ".reserve(",
         ".resize("
       ],
-      "owner": "Interaction automation controller",
+      "owner": "Interaction automation report writer",
       "phase": "startup_scene_load_diagnostics",
-      "reason": "Automation script parsing and report assembly grow only during validation startup and artifact writing, outside steady gameplay.",
-      "cap": "Bounded by the explicitly supplied automation script action count and generated report rows.",
-      "removal_or_wrapper_plan": "Keep growth inside the cold validation harness; interaction-state-machine cleanup may split parser and executor ownership."
+      "reason": "Report, replay-proof, and JSON artifact assembly grow only inside the cold validation harness and artifact-writing path, outside steady gameplay.",
+      "cap": "Bounded by the supplied automation action count, replay validation tick capacity, and generated report rows.",
+      "removal_or_wrapper_plan": "Keep growth inside the cold report owner; replace its vectors with bounded validation storage when report schemas gain hard row caps."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/InteractionAutomationReportWriter.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Interaction automation report writer",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "The cold validation report owner retains bounded action, assertion, screenshot, and replay-proof rows for artifact assembly outside steady gameplay.",
+      "cap": "Bounded by the supplied automation action count and replay validation tick capacity.",
+      "removal_or_wrapper_plan": "Replace report vectors with bounded validation storage when report schemas gain hard row caps."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/RuntimeValidationHarness.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve("
+      ],
+      "owner": "Scene automation gate configuration",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "Required-contact and broadphase configuration values are parsed and reserved only while preparing a scene load, then moved into validation outside steady gameplay.",
+      "cap": "Bounded by the explicitly supplied validation requirements.",
+      "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Scene/SceneAutomationGateConfiguration.h",
+      "patterns": [
+        "std::vector<"
+      ],
+      "owner": "Scene automation gate configuration",
+      "phase": "startup_scene_load_diagnostics",
+      "reason": "The cold scene-load value retains parsed contact and broadphase expectations until validation adopts the completed configuration.",
+      "cap": "Bounded by the explicitly supplied validation requirements.",
+      "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
     },
     {
       "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
@@ -1225,18 +1271,6 @@
       "removal_or_wrapper_plan": "Replace optional emplacement with an in-place RuntimeRenderer-owned value when backend rebuild can rebind the resource factory without reconstructing the owner."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneAuthoredSetup.cpp",
-      "patterns": [
-        ".push_back(",
-        ".reserve("
-      ],
-      "owner": "Runtime scene-load storage surface",
-      "phase": "scene_load",
-      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
-      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
-      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Scene/SceneRuntime.cpp",
       "patterns": [
         ".push_back("
@@ -1252,18 +1286,6 @@
       "patterns": [
         "std::string",
         "std::vector<"
-      ],
-      "owner": "Runtime scene-load storage surface",
-      "phase": "scene_load",
-      "reason": "Scene queues and authored setup vectors grow while loading/resetting scene data before returning to steady gameplay.",
-      "cap": "Bounded by active scene files, authored contacts, and scene entity counts.",
-      "removal_or_wrapper_plan": "Move scene load storage to fixed scene-load arenas or preallocated queues, then delete these patterns."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.cpp",
-      "patterns": [
-        ".push_back(",
-        ".reserve("
       ],
       "owner": "Runtime scene-load storage surface",
       "phase": "scene_load",

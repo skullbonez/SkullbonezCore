@@ -367,7 +367,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
-    WorkerPool workerPool;
+    // Lifetime: declaration order keeps the Debug lock graph alive until after
+    // WorkerPool joins and destroys every mutex borrow.
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( cfg.runtimeCapacity.workerThreads );
     if ( args.workerSelfTest )
     {
@@ -417,11 +420,15 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
     SkullbonezCore::Core::Profiler* profiler = nullptr;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    // Why: SkullbonezCore::Core::Profiler remains the sanctioned diagnostics singleton, but runtime
-    // owners receive this startup borrow instead of resolving it mid-frame.
-    profiler = &SkullbonezCore::Core::Profiler::Instance();
+    // Lifetime: Init owns profiling for the synchronous RunApp call. The
+    // profiler's fixed marker rings are intentionally startup-heap-owned so
+    // they do not consume WinMain's bounded thread stack. Runtime, render, UI,
+    // and physics owners receive only the stable borrow.
+    auto profilerOwner = std::make_unique<SkullbonezCore::Core::Profiler>();
+    profiler = profilerOwner.get();
     profiler->BindRenderDiagnostics( renderBackendView.renderDiagnostics );
 #endif
+    workerPool.BindProfiler( profiler );
 
     const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView );
 

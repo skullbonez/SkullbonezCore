@@ -1,4 +1,4 @@
-﻿/*
+/*
 File: SkullbonezSource/Runtime/Replay/ReplayValidation.cpp
 Purpose:
   Owns transactional v2 target restore and the thin startup dispatch into
@@ -16,12 +16,15 @@ Glossary:
     checkpoint and replays saved timeline events to a target frame.
   Event cursor: Monotonic sequence marker stored on checkpoints so restore can
     resume timeline events without replaying old side effects.
+  Contact presentation output: Bounded solver event rows applied to the render
+    store after each restored physics step.
 
 Invariants:
   - Restore failures report Lane R results or bounded reason strings; they do
     not throw. A rollback failure is a fatal replay invariant.
   - Replay restore uses PhysicsBodyStore and ColliderStore rows as authority.
   - Target restore must keep solver hashes byte-exact against saved v2 hashes.
+  - Target stepping consumes post-step presentation outputs in live-frame order.
 
 Related:
   - SkullbonezSource/Runtime/RunFrame.cpp
@@ -40,7 +43,7 @@ Related:
 #include "../Scene/SceneController.h"
 #include "../../Assets/AssetSystem.h"
 #include "../../Core/WorkerPool.h"
-#include "../RuntimeTuning.h"
+#include "../OperatorCommandApplier.h"
 #include "../Editor/EditorTools.h"
 #include "ReplayRestoreService.h"
 #include "ReplayRestoreTransactions.h"
@@ -79,9 +82,9 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace SkullbonezCore::Runtime::ReplayValidationInternal
 {
-const PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneController& collection, int modelIndex )
+const PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneWorld& world, int modelIndex )
 {
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     if ( !body || bodyStore.ModelIndexForHandle( bodyHandle ) != modelIndex )
@@ -94,13 +97,13 @@ const PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneController& col
 // Why: editor transform replay still mutates authoring data, but the shape it
 // scales from is already owned by ColliderStore. Reading the store row here
 // avoids treating presentation data as collision authority.
-const ColliderRecord* TryGetEditorTransformColliderRecord( const SceneController& collection,
+const ColliderRecord* TryGetEditorTransformColliderRecord( const SceneWorld& world,
                                                            PhysicsColliderHandle colliderHandle,
                                                            int modelIndex,
                                                            uint32_t replayBodyId )
 {
-    const ColliderStore& colliderStore = collection.Colliders();
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const ColliderStore& colliderStore = world.Colliders();
+    const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyHandle bodyHandle = replayBodyId != 0u
                                              ? bodyStore.HandleForReplayBodyId( replayBodyId, modelIndex )
                                              : bodyStore.HandleForModelIndex( modelIndex );
@@ -129,13 +132,10 @@ namespace
 // or runtime enum values.
 SceneGeneratedModelContext BuildSceneGeneratedModelContext( RunSceneState& scene,
                                                             const SkullbonezCore::Core::EngineConfig& config,
-                                                            SkullbonezCore::Environment::WorldEnvironment& world,
-                                                            SkullbonezCore::Geometry::Terrain* terrain,
-                                                            SkullbonezCore::Runtime::SceneController& models,
-                                                            SkullbonezCore::Physics::PhysicsEngine& physics,
+                                                            SceneWorld& sceneWorld,
                                                             GeneratedObjectTypeOverride objectTypeOverride )
 {
-    return SceneGeneratedModelContext{ scene, config, world, terrain, models, physics, objectTypeOverride };
+    return SceneGeneratedModelContext{ scene, config, sceneWorld, objectTypeOverride };
 }
 
 float ReplayEventFloatFromBits( int32_t signedBits )
@@ -386,16 +386,16 @@ void LogReplayV2TargetRestoreDiagnostic( DiagnosticsRuntime& diagnosticsRuntime,
 #endif
 }
 
+// Lifetime: one decoded restore event borrows the concrete scene-lifetime
+// world as a single authority. Physics, terrain, environment, and entity rows
+// are resolved locally so this value cannot become a second owner graph.
 struct ReplayRestoreEventContext
 {
     RuntimeTools& runtimeTools;
     RunSceneState& scene;
     SkullbonezCore::Assets::AssetSystem& assets;
-    SceneTerrain& terrain;
-    SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::Runtime::SceneController& models;
-    PhysicsEngine& physics;
-    int gameModelCapacity = 0;
+    SceneWorld& world;
+    int sceneObjectCapacity = 0;
 };
 
 bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context,
@@ -410,15 +410,15 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
     case ReplayEventKind::WorldOverride:
         if ( event.flags & REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED )
         {
-            context.world.SetGravity( ReplayEventFloatFromBits( event.value0 ) );
+            context.world.Environment().SetGravity( ReplayEventFloatFromBits( event.value0 ) );
         }
         if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_HEIGHT_CHANGED )
         {
-            context.world.SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
+            context.world.Environment().SetFluidSurfaceHeight( ReplayEventFloatFromBits( event.value1 ) );
         }
         if ( event.flags & REPLAY_WORLD_OVERRIDE_FLUID_DENSITY_CHANGED )
         {
-            context.world.SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
+            context.world.Environment().SetFluidDensity( ReplayEventFloatFromBits( event.value2 ) );
         }
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied world override" );
         return true;
@@ -443,18 +443,16 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
         context.runtimeTools.RayCastTest().impulseStrength = ReplayEventFloatFromBits( event.value1 );
         context.runtimeTools.RayCastTest().projectileSpeed = ReplayEventFloatFromBits( event.value2 );
         // Why: RuntimeTools now fails closed unless Run has completed the cold
-        // collection-to-store topology repair at the owner boundary.
-        const bool launcherStoresReady = context.models.RepairPhysicsBodyAndColliderTopology();
-        if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.models,
-                                                                          context.physics,
+        // world-to-store topology repair at the owner boundary.
+        const bool launcherStoresReady = context.world.RepairPhysicsBodyAndColliderTopology();
+        if ( launcherStoresReady && context.runtimeTools.FireLauncherRay( context.world,
                                                                           context.scene,
-                                                                          context.terrain.Get(),
-                                                                          context.gameModelCapacity,
+                                                                          context.sceneObjectCapacity,
                                                                           rayOrigin,
                                                                           rayDirection,
                                                                           cameraUp ) )
         {
-            context.scene.modelCount = context.models.SceneEntityCount();
+            context.scene.modelCount = context.world.SceneEntityCount();
         }
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "applied launcher fire" );
         return true;
@@ -483,13 +481,10 @@ bool TryApplyReplayRestoreWorldLauncherEvent( ReplayRestoreEventContext& context
 struct ReplayRestoreEditorPlaceEventDesc
 {
     RuntimeTools& runtimeTools;
-    SkullbonezCore::Runtime::SceneController& models;
-    PhysicsEngine& physics;
+    SceneWorld& world;
     RunSceneState& scene;
-    SkullbonezCore::Environment::WorldEnvironment& world;
     SkullbonezCore::Assets::AssetSystem& assets;
-    SceneTerrain& terrain;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
     const ReplayEventSample& event;
     char* eventOutReason = nullptr;
     std::size_t eventReasonSize = 0;
@@ -500,12 +495,9 @@ bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc
                                          RequestInteractiveScene requestInteractiveScene )
 {
     RuntimeTools& runtimeTools = desc.runtimeTools;
-    SkullbonezCore::Runtime::SceneController& models = desc.models;
-    PhysicsEngine& physics = desc.physics;
+    SceneWorld& world = desc.world;
     RunSceneState& scene = desc.scene;
-    SkullbonezCore::Environment::WorldEnvironment& world = desc.world;
     SkullbonezCore::Assets::AssetSystem& assets = desc.assets;
-    SceneTerrain& terrain = desc.terrain;
     const ReplayEventSample& event = desc.event;
     char* eventOutReason = desc.eventOutReason;
     const std::size_t eventReasonSize = desc.eventReasonSize;
@@ -518,7 +510,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc
         return false;
     }
 
-    const int modelCountBefore = models.SceneEntityCount();
+    const int modelCountBefore = world.SceneEntityCount();
     if ( event.value3 != modelCountBefore )
     {
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor placement model count precondition mismatch" );
@@ -532,13 +524,10 @@ bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc
     runtimeTools.Editor().autoTerrainAlign = ( event.flags & REPLAY_EDITOR_PLACE_TERRAIN_ALIGN ) != 0;
     runtimeTools.Editor().placementYawRadians = placementYawRadians;
     EditorObjectPlacementContext placementContext{ runtimeTools.Editor(),
-                                                   models,
-                                                   physics,
-                                                   scene,
                                                    world,
-                                                   terrain.Get(),
+                                                   scene,
                                                    assets,
-                                                   desc.gameModelCapacity };
+                                                   desc.sceneObjectCapacity };
     EditorObjectPlacementRequest placementRequest{ event.value0,
                                                    ( event.flags & REPLAY_EDITOR_PLACE_FIXED ) != 0,
                                                    terrainPoint };
@@ -561,8 +550,7 @@ bool ApplyReplayRestoreEditorPlaceEvent( const ReplayRestoreEditorPlaceEventDesc
     return true;
 }
 
-bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::Runtime::SceneController& models,
-                                             PhysicsEngine& physics,
+bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world,
                                              const ReplayEventSample& event,
                                              char* eventOutReason,
                                              std::size_t eventReasonSize )
@@ -593,18 +581,19 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::Runtime::SceneContr
         return false;
     }
 
-    if ( event.value2 != models.SceneEntityCount() )
+    if ( event.value2 != world.SceneEntityCount() )
     {
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform model count precondition mismatch" );
         return false;
     }
-    if ( event.value0 < 0 || event.value0 >= models.SceneEntityCount() )
+    if ( event.value0 < 0 || event.value0 >= world.SceneEntityCount() )
     {
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform model index is out of range" );
         return false;
     }
 
-    const PhysicsBodyStore& bodyStoreBeforeEdit = models.BodyStore();
+    PhysicsEngine& physics = world.Physics();
+    const PhysicsBodyStore& bodyStoreBeforeEdit = world.BodyStore();
     const PhysicsBodyHandle eventBody =
         bodyStoreBeforeEdit.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
     const PhysicsBodyRecord* eventBodyRecord = bodyStoreBeforeEdit.RecordForHandle( eventBody );
@@ -636,7 +625,7 @@ bool ApplyReplayRestoreEditorTransformEvent( SkullbonezCore::Runtime::SceneContr
     if ( event.flags & REPLAY_EDITOR_TRANSFORM_SCALE )
     {
         const ColliderRecord* colliderBeforeScale =
-            TryGetEditorTransformColliderRecord( models,
+            TryGetEditorTransformColliderRecord( world,
                                                  PhysicsColliderHandle{},
                                                  event.value0,
                                                  eventBodyRecord->replayBodyId );
@@ -753,23 +742,16 @@ bool ApplyReplayRestoreEventForTarget( ReplayRestoreEventContext& context,
     case ReplayEventKind::EditorPlace:
         return ApplyReplayRestoreEditorPlaceEvent(
             ReplayRestoreEditorPlaceEventDesc{ .runtimeTools = context.runtimeTools,
-                                               .models = context.models,
-                                               .physics = context.physics,
-                                               .scene = context.scene,
                                                .world = context.world,
+                                               .scene = context.scene,
                                                .assets = context.assets,
-                                               .terrain = context.terrain,
-                                               .gameModelCapacity = context.gameModelCapacity,
+                                               .sceneObjectCapacity = context.sceneObjectCapacity,
                                                .event = event,
                                                .eventOutReason = eventOutReason,
                                                .eventReasonSize = eventReasonSize },
             requestInteractiveScene );
     case ReplayEventKind::EditorTransform:
-        return ApplyReplayRestoreEditorTransformEvent( context.models,
-                                                       context.physics,
-                                                       event,
-                                                       eventOutReason,
-                                                       eventReasonSize );
+        return ApplyReplayRestoreEditorTransformEvent( context.world, event, eventOutReason, eventReasonSize );
     default:
         WriteReplayProbeReason( eventOutReason, eventReasonSize, "unsupported replay event kind" );
         return false;
@@ -925,10 +907,9 @@ bool PrepareReplayRestoreArtifactSelection( const char* path,
                                                    reasonSize );
 }
 
-bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpoint,
-                                          const SkullbonezCore::Runtime::SceneController& models )
+bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpoint, const SceneWorld& world )
 {
-    const int liveModelCount = models.SceneEntityCount();
+    const int liveModelCount = world.SceneEntityCount();
     if ( checkpoint.bodies.size() > static_cast<std::size_t>( liveModelCount ) )
     {
         return false;
@@ -939,7 +920,7 @@ bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpo
         {
             return false;
         }
-        const PhysicsBodyRecord* bodyRecord = TryGetReplayProbeBodyRecord( models, body.modelRow.value );
+        const PhysicsBodyRecord* bodyRecord = TryGetReplayProbeBodyRecord( world, body.modelRow.value );
         if ( !bodyRecord || bodyRecord->replayBodyId != body.id.value )
         {
             return false;
@@ -971,14 +952,17 @@ const ReplayEventSample* FindReplayGeneratedSceneConfigBeforeCheckpoint( const s
 class ScopedReplayProbeProfilerFrame
 {
   public:
-    ScopedReplayProbeProfilerFrame()
+    explicit ScopedReplayProbeProfilerFrame( SkullbonezCore::Core::Profiler* profiler ) : m_profiler( profiler )
     {
-        PROFILE_FRAME_BEGIN();
+        PROFILE_FRAME_BEGIN( m_profiler );
     }
     ~ScopedReplayProbeProfilerFrame()
     {
-        PROFILE_FRAME_END();
+        PROFILE_FRAME_END( m_profiler );
     }
+
+  private:
+    SkullbonezCore::Core::Profiler* m_profiler;
 };
 
 void FormatReplayRestoreDivergenceMessage( char* message,
@@ -989,16 +973,16 @@ void FormatReplayRestoreDivergenceMessage( char* message,
                                            std::size_t restoredBodyCount,
                                            const ReplayV2SolverHashSample& expectedHash,
                                            const std::vector<ReplayPresentationSample>& presentationSamples,
-                                           const SkullbonezCore::Runtime::SceneController& models,
+                                           const SceneWorld& world,
                                            std::size_t eventsApplied )
 {
     const ReplayPresentationSample* expectedPresentation =
         FindReplayPresentationForFrame( presentationSamples, currentFrame );
-    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( models, 0 );
+    const PhysicsBodyRecord* restoredBody = TryGetReplayProbeBodyRecord( world, 0 );
     if ( expectedPresentation && !expectedPresentation->bodies.empty() && restoredBody )
     {
         const ReplayBodyPresentationSample& expectedBody = expectedPresentation->bodies[0];
-        const auto hotFields = models.BodyStore().HotFields();
+        const auto hotFields = world.BodyStore().HotFields();
         const Vector3 restoredPosition = PhysicsBodyPosition( hotFields, 0u );
         const Vector3 restoredVelocity = PhysicsBodyLinearVelocity( hotFields, 0u );
         float restoredQx = 0.0f;
@@ -1062,16 +1046,16 @@ void FormatReplayRestoreDivergenceMessage( char* message,
     }
 }
 
+// Lifetime: one target-step loop borrows SceneWorld once. The separate scene
+// value carries timeline counters, not another route to world authority.
 struct ReplayRestoreStepContext
 {
     RuntimeTools& runtimeTools;
-    SceneController& sceneController;
     RunSceneState& scene;
     const SkullbonezCore::Core::EngineConfig& config;
     SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Threading::WorkerPool& workerPool;
-    SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::Runtime::SceneController& models;
+    SceneWorld& world;
     ReplayRestoreEventContext& eventContext;
     const ReplayRestoreArtifactData& artifact;
     const ReplaySolverFrameSample& checkpoint;
@@ -1119,6 +1103,7 @@ void WriteReplayRestoreStepFailure( ReplayRestoreStepFailure& failure,
 // rollback and diagnostic logging stay in the owning transaction.
 template <typename CaptureCurrentReplaySolverHash, typename RequestInteractiveScene>
 bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
+                              SkullbonezCore::Core::Profiler* profiler,
                               ReplayRestoreStepResult& result,
                               ReplayRestoreStepFailure& failure,
                               CaptureCurrentReplaySolverHash captureCurrentReplaySolverHash,
@@ -1131,7 +1116,7 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
     result.unsupportedEvents = 0;
     context.scene.currentFrame = result.currentSceneFrame;
 
-    ScopedReplayProbeProfilerFrame profilerFrame;
+    ScopedReplayProbeProfilerFrame profilerFrame( profiler );
     while ( result.currentFrame < context.target.frameIndex )
     {
         const ReplayFrameIndex nextFrame = result.currentFrame + 1u;
@@ -1171,13 +1156,22 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
 
         context.runtimeTools.TickRayCastTestLines( PHYSICS_FIXED_DT );
         context.runtimeTools.Laser().Update( PHYSICS_FIXED_DT );
-        context.models.EndCollisionVisualFrame();
+        context.world.EndCollisionVisualFrame();
         ++result.currentSceneFrame;
         context.scene.currentFrame = result.currentSceneFrame;
-        context.models.BeginCollisionVisualFrame();
+        context.world.BeginCollisionVisualFrame();
 
-        const auto physicsWorldForces = context.world.GetPhysicsWorldForces();
-        context.sceneController.StepPhysics( PHYSICS_FIXED_DT, context.config, physicsWorldForces, context.workerPool );
+        const auto physicsWorldForces = context.world.Environment().GetPhysicsWorldForces();
+        SkullbonezCore::Rendering::RenderInstanceStore& contactPresentation = context.world.MutableRenderInstances();
+        contactPresentation.TickContactFeedback( context.world.SceneEntityCount(), PHYSICS_FIXED_DT );
+        const ScenePhysicsPostStepOutput postStep =
+            context.world.StepPhysics( PHYSICS_FIXED_DT, context.config, physicsWorldForces, context.workerPool );
+        // Replay target stepping consumes the same bounded presentation events
+        // as the live frame so presentation hashes cannot drift by call path.
+        for ( int modelIndex : postStep.fixedContactModelIndices )
+        {
+            contactPresentation.NotifyFixedContact( modelIndex, 0.5f );
+        }
         result.currentFrame = nextFrame;
 
         const ReplayV2SolverHashSample* expectedHash =
@@ -1215,7 +1209,7 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
                                                   stepBodyCount,
                                                   *expectedHash,
                                                   context.artifact.presentationSamples,
-                                                  context.models,
+                                                  context.world,
                                                   result.eventsApplied );
             WriteReplayRestoreStepFailure( failure,
                                            message,
@@ -1338,19 +1332,20 @@ void LogReplayRestoreTargetSuccess( DiagnosticsRuntime& diagnosticsRuntime,
                                         false );
 }
 
+// Lifetime: the cold restore transaction composes domain owners without
+// retaining SceneController or republishing SceneWorld's concrete subowners.
 struct ReplayRestoreOwnerContext
 {
     RuntimeTools& runtimeTools;
     SimulationSystem& simulation;
-    SceneController& sceneController;
     RunSceneState& scene;
     const SkullbonezCore::Core::EngineConfig& config;
     SkullbonezCore::Assets::AssetSystem& assets;
     SkullbonezCore::Threading::WorkerPool& workerPool;
-    SkullbonezCore::Environment::WorldEnvironment& world;
-    SkullbonezCore::Runtime::SceneController& models;
+    SceneWorld& world;
+    RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
 };
 
 bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
@@ -1381,7 +1376,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
         WriteReplayProbeReason( rebuildReason, rebuildReasonSize, "generated solver counts do not match model count" );
         return false;
     }
-    if ( event.value0 > context.gameModelCapacity )
+    if ( event.value0 > context.sceneObjectCapacity )
     {
         WriteReplayProbeReason( rebuildReason,
                                 rebuildReasonSize,
@@ -1389,22 +1384,20 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
         return false;
     }
 
-    context.models.Clear();
+    context.world.Clear();
     // Invariant: a restore-side generated rebuild is a fresh scene population,
     // even though it does not enter the full scene-load path. Reset the
     // scene-owned id cursor after the clear so regenerated
     // PhysicsSceneObjectId/replay ids match the checkpoint topology.
-    context.scene.ResetSceneObjectIdCursor( context.models.BodyStore() );
+    context.scene.ResetSceneObjectIdCursor( context.world.BodyStore() );
     context.runtimeTools.ClearRayCastTestLines();
     context.simulation.Reset();
     context.scene.rngSeed = static_cast<unsigned int>( event.value3 );
     context.scene.rngState = static_cast<unsigned int>( event.value3 );
     context.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( overrideBits );
-    context.sceneController.UIOverrides().modelCountOverride = uiModelCount ? event.value0 : -1;
-    context.sceneController.UIOverrides().solverBallCountOverride =
-        uiSolverCounts || exactSolverCounts ? event.value1 : -1;
-    context.sceneController.UIOverrides().solverBoxCountOverride =
-        uiSolverCounts || exactSolverCounts ? event.value2 : -1;
+    context.uiOverrides.modelCountOverride = uiModelCount ? event.value0 : -1;
+    context.uiOverrides.solverBallCountOverride = uiSolverCounts || exactSolverCounts ? event.value1 : -1;
+    context.uiOverrides.solverBoxCountOverride = uiSolverCounts || exactSolverCounts ? event.value2 : -1;
 
     if ( exactSolverCounts || uiSolverCounts )
     {
@@ -1412,9 +1405,6 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
             BuildSceneGeneratedModelContext( context.scene,
                                              context.config,
                                              context.world,
-                                             context.sceneController.Terrain().Get(),
-                                             context.models,
-                                             context.sceneController.Physics(),
                                              context.generatedObjectTypeOverride ),
             event.value1,
             event.value2 );
@@ -1430,9 +1420,6 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
             BuildSceneGeneratedModelContext( context.scene,
                                              context.config,
                                              context.world,
-                                             context.sceneController.Terrain().Get(),
-                                             context.models,
-                                             context.sceneController.Physics(),
                                              context.generatedObjectTypeOverride ),
             event.value0 );
         if ( !setupResult.ok )
@@ -1441,7 +1428,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
             return false;
         }
     }
-    if ( !ReplayCheckpointTopologyMatchesLive( checkpoint, context.models ) )
+    if ( !ReplayCheckpointTopologyMatchesLive( checkpoint, context.world ) )
     {
         WriteReplayProbeReason( rebuildReason,
                                 rebuildReasonSize,
@@ -1461,7 +1448,7 @@ bool EnsureReplayRestoreCheckpointTopology( ReplayRestoreOwnerContext& context,
                                             std::size_t reasonSize )
 {
     generatedTopologyRebuilt = false;
-    if ( ReplayCheckpointTopologyMatchesLive( checkpoint, context.models ) )
+    if ( ReplayCheckpointTopologyMatchesLive( checkpoint, context.world ) )
     {
         WriteReplayProbeReason( outReason, reasonSize, "" );
         return true;
@@ -1501,6 +1488,7 @@ bool EnsureReplayRestoreCheckpointTopology( ReplayRestoreOwnerContext& context,
 // contexts exist only for the duration of that cold restore command.
 template <typename CaptureCurrentReplaySolverHash, typename RequestInteractiveScene>
 bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
+                                 SkullbonezCore::Core::Profiler* profiler,
                                  const ReplayRestoreArtifactData& artifact,
                                  const ReplaySolverFrameSample& checkpoint,
                                  const ReplayV2SolverHashSample& target,
@@ -1512,24 +1500,20 @@ bool RunReplayRestoreTargetStep( ReplayRestoreOwnerContext& context,
     ReplayRestoreEventContext restoreEventContext{ context.runtimeTools,
                                                    context.scene,
                                                    context.assets,
-                                                   context.sceneController.Terrain(),
                                                    context.world,
-                                                   context.models,
-                                                   context.sceneController.Physics(),
-                                                   context.gameModelCapacity };
+                                                   context.sceneObjectCapacity };
     ReplayRestoreStepContext stepContext{ context.runtimeTools,
-                                          context.sceneController,
                                           context.scene,
                                           context.config,
                                           context.assets,
                                           context.workerPool,
                                           context.world,
-                                          context.models,
                                           restoreEventContext,
                                           artifact,
                                           checkpoint,
                                           target };
     if ( !StepReplayRestoreTarget( stepContext,
+                                   profiler,
                                    stepResult,
                                    stepFailure,
                                    captureCurrentReplaySolverHash,
@@ -1822,15 +1806,14 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
     char topologyReason[320] = {};
     ReplayRestoreOwnerContext restoreOwnerContext{ transaction.sampleOwners.runtimeTools,
                                                    topologyOwners.simulation,
-                                                   transaction.sampleOwners.sceneController,
                                                    transaction.sampleOwners.scene,
                                                    topologyOwners.config,
                                                    topologyOwners.assets,
                                                    topologyOwners.workerPool,
-                                                   transaction.sampleOwners.sceneController.World(),
-                                                   transaction.sampleOwners.sceneController,
+                                                   transaction.sampleOwners.world,
+                                                   topologyOwners.uiOverrides,
                                                    topologyOwners.generatedObjectTypeOverride,
-                                                   topologyOwners.gameModelCapacity };
+                                                   topologyOwners.sceneObjectCapacity };
     if ( !EnsureReplayRestoreCheckpointTopology( restoreOwnerContext,
                                                  artifact,
                                                  *checkpoint,
@@ -1875,6 +1858,7 @@ bool ReplayRuntime::RestoreV2ArtifactTargetStateImpl( const ReplayRestoreTransac
     ReplayRestoreStepResult stepResult;
     ReplayRestoreStepFailure stepFailure;
     if ( !RunReplayRestoreTargetStep( restoreOwnerContext,
+                                      m_profiler,
                                       artifact,
                                       *checkpoint,
                                       *target,

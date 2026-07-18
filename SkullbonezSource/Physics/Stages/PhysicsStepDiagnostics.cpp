@@ -44,8 +44,8 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 
 PhysicsStepDiagnostics::PhysicsStepDiagnostics()
 {
-    m_collisionVisualContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_physicsDebugContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4 );
+    m_collisionVisualContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_physicsDebugContacts.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
 }
 

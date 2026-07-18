@@ -48,13 +48,14 @@ SceneRuntimeGeneratedControlAction RequestReplayAndProfileReset()
     return action;
 }
 
-SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneRuntimeGeneratedControlContext context )
+SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneController& scene,
+                                                           SceneGeneratedControlResetParticipants reset )
 {
     // Hazard: Generated rebuilds destroy model/render state. Flush GPU work
     // first, then clear objects and reset simulation/tool state together.
-    if ( context.renderLifecycle )
+    if ( reset.renderLifecycle )
     {
-        const SkullbonezCore::Core::SbResult flushResult = context.renderLifecycle->FlushGPU();
+        const SkullbonezCore::Core::SbResult flushResult = reset.renderLifecycle->FlushGPU();
         if ( !flushResult.ok )
         {
             // Lane R: no owner below this point may mutate after an uncertain
@@ -62,23 +63,17 @@ SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneRuntimeGenerated
             return flushResult;
         }
     }
-    context.models.Clear();
-    context.tools.ClearRayCastTestLines();
-    context.simulation.Reset();
-    context.scene.currentFrame = 0;
-    context.scene.isTestComplete = false;
+    scene.Scene().Clear();
+    reset.tools.ClearRayCastTestLines();
+    reset.simulation.Reset();
+    scene.State().currentFrame = 0;
+    scene.State().isTestComplete = false;
     return SkullbonezCore::Core::SbResult::Success();
 }
 
-SceneGeneratedModelContext BuildGeneratedModelContext( SceneRuntimeGeneratedControlContext context )
+SceneGeneratedModelContext BuildGeneratedModelContext( SceneGeneratedControlPolicy policy, SceneController& scene )
 {
-    return SceneGeneratedModelContext{ context.scene,
-                                       context.config,
-                                       context.world,
-                                       context.terrain,
-                                       context.models,
-                                       context.controller.Physics(),
-                                       context.objectTypeOverride };
+    return SceneGeneratedModelContext{ scene.State(), policy.config, scene.Scene(), policy.objectTypeOverride };
 }
 
 void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
@@ -94,110 +89,121 @@ void LogGeneratedControlFailure( const SkullbonezCore::Core::SbResult& result )
 }
 } // namespace
 
-SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneRuntimeGeneratedControlContext context, int count )
+SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedControlPolicy policy,
+                                                              SceneGeneratedControlPresentation presentation,
+                                                              SceneGeneratedControlResetParticipants reset,
+                                                              SceneController& scene,
+                                                              int count )
 {
     // Invariant: A model-count override is mutually exclusive with solver exact
     // ball/box overrides; only one generated setup mode owns the rebuild.
-    const int modelCountOverride = std::clamp( count, 0, context.modelCapacity );
-    if ( !context.controller.HasCurrentEntry() )
+    const int modelCountOverride = std::clamp( count, 0, policy.modelCapacity );
+    if ( !scene.HasCurrentEntry() )
     {
-        context.uiOverrides.modelCountOverride = modelCountOverride;
-        context.uiOverrides.solverBallCountOverride = -1;
-        context.uiOverrides.solverBoxCountOverride = -1;
+        presentation.uiOverrides.modelCountOverride = modelCountOverride;
+        presentation.uiOverrides.solverBallCountOverride = -1;
+        presentation.uiOverrides.solverBoxCountOverride = -1;
         return SceneRuntimeGeneratedControlAction{};
     }
 
-    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( context );
+    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( scene, reset );
     if ( !resetResult.ok )
     {
         SceneRuntimeGeneratedControlAction action;
         action.status = resetResult;
         return action;
     }
-    context.uiOverrides.modelCountOverride = modelCountOverride;
-    context.uiOverrides.solverBallCountOverride = -1;
-    context.uiOverrides.solverBoxCountOverride = -1;
-    if ( context.uiOverrides.modelCountOverride <= 0 )
+    presentation.uiOverrides.modelCountOverride = modelCountOverride;
+    presentation.uiOverrides.solverBallCountOverride = -1;
+    presentation.uiOverrides.solverBoxCountOverride = -1;
+    if ( presentation.uiOverrides.modelCountOverride <= 0 )
     {
-        context.scene.modelCount = 0;
-        context.camera.trackBallRow.value = -1;
+        scene.State().modelCount = 0;
+        presentation.camera.trackBallRow.value = -1;
         return RequestReplayAndProfileReset();
     }
 
-    const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
-    context.scene.rngState = seed;
+    const unsigned int seed = scene.State().rngSeed > 0 ? scene.State().rngSeed : 1u;
+    scene.State().rngState = seed;
     const SkullbonezCore::Core::SbResult setupResult =
-        SceneGeneratedSetup::SetUpSceneEntities( BuildGeneratedModelContext( context ),
-                                                 context.uiOverrides.modelCountOverride );
+        SceneGeneratedSetup::SetUpSceneEntities( BuildGeneratedModelContext( policy, scene ),
+                                                 presentation.uiOverrides.modelCountOverride );
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
-        context.scene.modelCount = context.models.SceneEntityCount();
-        context.camera.trackBallRow.value = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        scene.State().modelCount = scene.Scene().SceneEntityCount();
+        presentation.camera.trackBallRow.value = scene.State().modelCount > 0 ? scene.State().modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }
-    if ( context.camera.trackBallRow.value >= context.uiOverrides.modelCountOverride )
+    if ( presentation.camera.trackBallRow.value >= presentation.uiOverrides.modelCountOverride )
     {
-        context.camera.trackBallRow.value = context.uiOverrides.modelCountOverride - 1;
+        presentation.camera.trackBallRow.value = presentation.uiOverrides.modelCountOverride - 1;
     }
     return RequestReplayAndProfileReset();
 }
 
-SceneRuntimeGeneratedControlAction
-ApplyUISolverObjectCounts( SceneRuntimeGeneratedControlContext context, int balls, int boxes )
+SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedControlPolicy policy,
+                                                              SceneGeneratedControlPresentation presentation,
+                                                              SceneGeneratedControlResetParticipants reset,
+                                                              SceneController& scene,
+                                                              int balls,
+                                                              int boxes )
 {
     // Concept: Solver overrides are exact-count generated scenes used by physics
     // diagnostics and baseline runs, so model-count UI override is cleared.
-    balls = std::clamp( balls, 0, context.modelCapacity );
-    boxes = std::clamp( boxes, 0, context.modelCapacity );
-    if ( balls + boxes > context.modelCapacity )
+    balls = std::clamp( balls, 0, policy.modelCapacity );
+    boxes = std::clamp( boxes, 0, policy.modelCapacity );
+    if ( balls + boxes > policy.modelCapacity )
     {
-        boxes = (std::max)( 0, context.modelCapacity - balls );
+        boxes = (std::max)( 0, policy.modelCapacity - balls );
     }
-    if ( !context.controller.HasCurrentEntry() )
+    if ( !scene.HasCurrentEntry() )
     {
-        context.uiOverrides.solverBallCountOverride = balls;
-        context.uiOverrides.solverBoxCountOverride = boxes;
-        context.uiOverrides.modelCountOverride = -1;
+        presentation.uiOverrides.solverBallCountOverride = balls;
+        presentation.uiOverrides.solverBoxCountOverride = boxes;
+        presentation.uiOverrides.modelCountOverride = -1;
         return SceneRuntimeGeneratedControlAction{};
     }
 
-    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( context );
+    const SkullbonezCore::Core::SbResult resetResult = ResetGeneratedRuntimeState( scene, reset );
     if ( !resetResult.ok )
     {
         SceneRuntimeGeneratedControlAction action;
         action.status = resetResult;
         return action;
     }
-    context.uiOverrides.solverBallCountOverride = balls;
-    context.uiOverrides.solverBoxCountOverride = boxes;
-    context.uiOverrides.modelCountOverride = -1;
+    presentation.uiOverrides.solverBallCountOverride = balls;
+    presentation.uiOverrides.solverBoxCountOverride = boxes;
+    presentation.uiOverrides.modelCountOverride = -1;
 
-    const unsigned int seed = context.scene.rngSeed > 0 ? context.scene.rngSeed : 1u;
-    context.scene.rngState = seed;
+    const unsigned int seed = scene.State().rngSeed > 0 ? scene.State().rngSeed : 1u;
+    scene.State().rngState = seed;
     const SkullbonezCore::Core::SbResult setupResult =
-        SceneGeneratedSetup::SetUpSolverObjects( BuildGeneratedModelContext( context ),
-                                                 context.uiOverrides.solverBallCountOverride,
-                                                 context.uiOverrides.solverBoxCountOverride );
+        SceneGeneratedSetup::SetUpSolverObjects( BuildGeneratedModelContext( policy, scene ),
+                                                 presentation.uiOverrides.solverBallCountOverride,
+                                                 presentation.uiOverrides.solverBoxCountOverride );
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
-        context.scene.modelCount = context.models.SceneEntityCount();
-        context.camera.trackBallRow.value = context.scene.modelCount > 0 ? context.scene.modelCount - 1 : -1;
+        scene.State().modelCount = scene.Scene().SceneEntityCount();
+        presentation.camera.trackBallRow.value = scene.State().modelCount > 0 ? scene.State().modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }
-    if ( context.scene.modelCount <= 0 )
+    if ( scene.State().modelCount <= 0 )
     {
-        context.camera.trackBallRow.value = -1;
+        presentation.camera.trackBallRow.value = -1;
     }
-    else if ( context.camera.trackBallRow.value >= context.scene.modelCount )
+    else if ( presentation.camera.trackBallRow.value >= scene.State().modelCount )
     {
-        context.camera.trackBallRow.value = context.scene.modelCount - 1;
+        presentation.camera.trackBallRow.value = scene.State().modelCount - 1;
     }
     return RequestReplayAndProfileReset();
 }
 
-SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneRuntimeGeneratedControlContext context,
+SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneGeneratedControlPolicy policy,
+                                                                      SceneGeneratedControlPresentation presentation,
+                                                                      SceneGeneratedControlResetParticipants reset,
+                                                                      SceneController& scene,
                                                                       int requestedModelCount )
 {
     SceneGeneratedUICommandResult result;
@@ -206,13 +212,17 @@ SceneGeneratedUICommandResult ApplySceneGeneratedModelCountUICommand( SceneRunti
         return result;
     }
 
-    result.action = ApplyUIModelCountOverride( context, requestedModelCount );
+    result.action = ApplyUIModelCountOverride( policy, presentation, reset, scene, requestedModelCount );
     result.accepted = result.action.status.ok;
     return result;
 }
 
-SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand( SceneRuntimeGeneratedControlContext context,
-                                                                           int requestedSolverBallCount )
+SceneGeneratedUICommandResult
+ApplySceneGeneratedSolverBallCountUICommand( SceneGeneratedControlPolicy policy,
+                                             SceneGeneratedControlPresentation presentation,
+                                             SceneGeneratedControlResetParticipants reset,
+                                             SceneController& scene,
+                                             int requestedSolverBallCount )
 {
     SceneGeneratedUICommandResult result;
     if ( requestedSolverBallCount < 0 )
@@ -222,18 +232,26 @@ SceneGeneratedUICommandResult ApplySceneGeneratedSolverBallCountUICommand( Scene
 
     // Invariant: solver count sliders are partial exact-count requests. The
     // untouched shape count comes from the active override first, then scene state.
-    const int boxes = context.uiOverrides.solverBoxCountOverride >= 0 ? context.uiOverrides.solverBoxCountOverride
-                                                                      : context.scene.solverBoxCount;
+    const int boxes = presentation.uiOverrides.solverBoxCountOverride >= 0
+                          ? presentation.uiOverrides.solverBoxCountOverride
+                          : scene.State().solverBoxCount;
     result.action = ApplyUISolverObjectCounts(
-        context,
-        std::clamp( requestedSolverBallCount, 0, (std::max)( 0, context.modelCapacity - boxes ) ),
+        policy,
+        presentation,
+        reset,
+        scene,
+        std::clamp( requestedSolverBallCount, 0, (std::max)( 0, policy.modelCapacity - boxes ) ),
         boxes );
     result.accepted = result.action.status.ok;
     return result;
 }
 
-SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneRuntimeGeneratedControlContext context,
-                                                                          int requestedSolverBoxCount )
+SceneGeneratedUICommandResult
+ApplySceneGeneratedSolverBoxCountUICommand( SceneGeneratedControlPolicy policy,
+                                            SceneGeneratedControlPresentation presentation,
+                                            SceneGeneratedControlResetParticipants reset,
+                                            SceneController& scene,
+                                            int requestedSolverBoxCount )
 {
     SceneGeneratedUICommandResult result;
     if ( requestedSolverBoxCount < 0 )
@@ -243,12 +261,16 @@ SceneGeneratedUICommandResult ApplySceneGeneratedSolverBoxCountUICommand( SceneR
 
     // Invariant: if the ball slider was handled earlier this frame, the override
     // already holds its accepted value and must constrain the box slider max.
-    const int balls = context.uiOverrides.solverBallCountOverride >= 0 ? context.uiOverrides.solverBallCountOverride
-                                                                       : context.scene.solverBallCount;
+    const int balls = presentation.uiOverrides.solverBallCountOverride >= 0
+                          ? presentation.uiOverrides.solverBallCountOverride
+                          : scene.State().solverBallCount;
     result.action = ApplyUISolverObjectCounts(
-        context,
+        policy,
+        presentation,
+        reset,
+        scene,
         balls,
-        std::clamp( requestedSolverBoxCount, 0, (std::max)( 0, context.modelCapacity - balls ) ) );
+        std::clamp( requestedSolverBoxCount, 0, (std::max)( 0, policy.modelCapacity - balls ) ) );
     result.accepted = result.action.status.ok;
     return result;
 }

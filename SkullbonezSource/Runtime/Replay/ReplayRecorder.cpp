@@ -35,6 +35,7 @@ Related:
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"
+#include "../../Core/ByteView.h"
 #include "../../Core/FatalError.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
@@ -86,7 +87,7 @@ constexpr uint32_t REPLAY_EDITOR_TRANSFORM_SCALE = 4u;
 
 int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
 {
-    return std::clamp( config.runtimeBodyCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    return std::clamp( config.runtimeBodyCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 RuntimeAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
@@ -116,7 +117,7 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
     {
         return currentCapacity;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) )
+    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) )
     {
         return requestedCapacity;
     }
@@ -126,13 +127,14 @@ std::size_t ReplayRecorderReserveCapacity( std::size_t currentCapacity, std::siz
     const std::size_t chunked =
         remainder == 0u ? requestedCapacity : requestedCapacity + ( REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK - remainder );
     const std::size_t reserveCapacity = (std::max)( doubled, chunked );
-    return (std::min)( reserveCapacity, static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) );
+    return (std::min)( reserveCapacity,
+                       static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) );
 }
 
 std::size_t ReplayRecorderDeltaReserveCapacity( std::size_t currentCapacity, std::size_t requestedCapacity )
 {
     // Why: solver-world deltas include contact/debug vectors whose natural
-    // capacity is not bounded by SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS, so they use the byte-budget
+    // capacity is not bounded by SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS, so they use the byte-budget
     // reserve gate without the body-vector element-count clamp.
     if ( requestedCapacity <= currentCapacity )
     {
@@ -186,7 +188,7 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values,
     {
         return;
     }
-    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ) )
+    if ( requestedCapacity > static_cast<std::size_t>( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ) )
     {
         ReportReplayRecorderReserveFailure( targetName, requestedCapacity, 0u );
     }
@@ -952,29 +954,28 @@ uint64_t HashByte( uint64_t hash, uint8_t value )
     return hash;
 }
 
-uint64_t HashBytes( uint64_t hash, const void* bytes, std::size_t byteCount )
+uint64_t HashBytes( uint64_t hash, SkullbonezCore::Core::ByteView bytes )
 {
-    const uint8_t* cursor = static_cast<const uint8_t*>( bytes );
-    for ( std::size_t i = 0; i < byteCount; ++i )
+    for ( uint8_t byte : bytes )
     {
-        hash = HashByte( hash, cursor[i] );
+        hash = HashByte( hash, byte );
     }
     return hash;
 }
 
 uint64_t HashUint32( uint64_t hash, uint32_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashUint64( uint64_t hash, uint64_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashInt64( uint64_t hash, int64_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashSize( uint64_t hash, std::size_t value )
@@ -985,7 +986,7 @@ uint64_t HashSize( uint64_t hash, std::size_t value )
 uint64_t HashInt( uint64_t hash, int value )
 {
     const int32_t packed = static_cast<int32_t>( value );
-    return HashBytes( hash, &packed, sizeof( packed ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( packed ) );
 }
 
 uint64_t HashBool( uint64_t hash, bool value )
@@ -1044,7 +1045,7 @@ uint64_t HashUint16Vector( uint64_t hash, const std::vector<uint16_t>& values )
     hash = HashSize( hash, values.size() );
     for ( uint16_t value : values )
     {
-        hash = HashBytes( hash, &value, sizeof( value ) );
+        hash = HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
     }
     return hash;
 }
@@ -1548,7 +1549,7 @@ SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig
                                                                                   int solverBallCount,
                                                                                   int solverBoxCount,
                                                                                   uint32_t rngSeed,
-                                                                                  int gameModelCapacity,
+                                                                                  int sceneObjectCapacity,
                                                                                   uint32_t generatedObjectTypeOverride )
 {
     uint64_t hash = FNV64_OFFSET;
@@ -1556,7 +1557,7 @@ SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildGeneratedSceneConfig
     hash = HashInt( hash, solverBallCount );
     hash = HashInt( hash, solverBoxCount );
     hash = HashInt( hash, static_cast<int32_t>( rngSeed ) );
-    hash = HashInt( hash, gameModelCapacity );
+    hash = HashInt( hash, sceneObjectCapacity );
     hash = HashInt( hash, static_cast<int32_t>( generatedObjectTypeOverride ) );
     return BuildCommand( ReplayEventKind::GeneratedSceneConfig,
                          0,

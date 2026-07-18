@@ -18,8 +18,8 @@ Invariants:
   - TrackedMutex must match std::mutex lock/try_lock/unlock semantics for
     callers; validation is extra instrumentation, not a new locking policy.
   - Lock ids are stable for the lifetime of each TrackedMutex instance.
-  - The validator is a frozen diagnostics singleton: function-local storage, no
-    config reads, and no dependence on other singleton destruction order.
+  - Debug TrackedMutex instances borrow the startup-owned validator once;
+    Profile and Release compile the validation members and calls out entirely.
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
@@ -29,6 +29,10 @@ Related:
 
 #include <cstdint>
 #include <mutex>
+#ifdef _DEBUG
+#include <array>
+#include <bitset>
+#endif
 
 namespace SkullbonezCore
 {
@@ -38,23 +42,32 @@ namespace Threading
 class LockOrderValidator
 {
   public:
-    // Frozen diagnostics singleton: this is intentionally not a runtime service
-    // locator. It is only the Debug lock-order instrumentation endpoint used by
-    // TrackedMutex and must stay independent of config and renderer lifetime.
-    static LockOrderValidator& Instance();
-
-    void RegisterLock( uint32_t lockId, const char* name );
-    void RecordAcquisition( uint32_t lockId, uint32_t threadId );
-    void RecordRelease( uint32_t lockId, uint32_t threadId );
+    uint32_t RegisterLock( const char* name );
+    void RecordAcquisition( uint32_t lockId );
+    void RecordRelease( uint32_t lockId );
 
   private:
+#ifdef _DEBUG
+    static constexpr uint32_t MAX_LOCK_COUNT = 256;
+    bool
+    HasCycleFrom( uint32_t node, std::bitset<MAX_LOCK_COUNT>& visiting, std::bitset<MAX_LOCK_COUNT>& visited ) const;
     bool DetectCycleUnlocked() const;
+    // Lifetime: Init owns this graph for longer than its WorkerPool borrow.
+    // Keeping the state in the concrete owner removes teardown-order and
+    // service-locator ambiguity from the lock path.
+    std::mutex m_mutex;
+    // Invariant: Debug diagnostics are bounded too. One bit row per registered
+    // lock records observed ordering without runtime growth or heap fallback.
+    std::array<std::bitset<MAX_LOCK_COUNT>, MAX_LOCK_COUNT> m_edges = {};
+    std::array<const char*, MAX_LOCK_COUNT> m_names = {};
+    uint32_t m_nextLockId = 1;
+#endif
 };
 
 class TrackedMutex
 {
   public:
-    explicit TrackedMutex( const char* name );
+    TrackedMutex( const char* name, LockOrderValidator& validator );
 
     void lock();
     bool try_lock();
@@ -62,8 +75,10 @@ class TrackedMutex
 
   private:
     std::mutex m_inner;
-    const char* m_name;
+#ifdef _DEBUG
     uint32_t m_id;
+    LockOrderValidator* m_validator;
+#endif
 };
 
 } // namespace Threading

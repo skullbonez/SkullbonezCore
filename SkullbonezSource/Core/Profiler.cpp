@@ -40,12 +40,6 @@ using namespace SkullbonezCore::Core;
 using namespace SkullbonezCore::Rendering;
 
 
-Profiler& Profiler::Instance()
-{
-    static Profiler instance;
-    return instance;
-}
-
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
 #include <algorithm>
@@ -88,9 +82,10 @@ const char* FindLeafName( const char* fullPath )
 } // namespace
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ),
-      m_lastAvgTicks( 0 ), m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ),
-      m_nextColorIndex( 0 ), m_renderDiagnostics( nullptr )
+    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
+      m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ),
+      m_renderDiagnostics( nullptr )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -102,6 +97,7 @@ Profiler::Profiler()
         m_qpcFrequency = 1; // avoid division by zero; timings will be garbage but won't crash
     }
     std::memset( m_markers, 0, sizeof( m_markers ) );
+    std::memset( m_counters, 0, sizeof( m_counters ) );
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
     std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
@@ -109,6 +105,38 @@ Profiler::Profiler()
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
     std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
     std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
+}
+
+
+int Profiler::FindOrRegisterCounter( const char* fullPath, uint32_t hash )
+{
+    // Hazard: counter columns are durable measurement-ledger identities. A
+    // collision must fail instead of silently combining unrelated units.
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        if ( m_counters[i].hash != hash )
+        {
+            continue;
+        }
+        if ( std::strcmp( m_counters[i].name, fullPath ) != 0 )
+        {
+            AbortMismatch( "FNV-1a hash collision between profiler counters", fullPath );
+        }
+        return i;
+    }
+
+    if ( m_counterCount >= MAX_COUNTERS )
+    {
+        AbortMismatch( "MAX_COUNTERS exceeded", fullPath );
+    }
+
+    Counter& counter = m_counters[m_counterCount];
+    counter.name = fullPath;
+    counter.hash = hash;
+    counter.valueThisFrame = 0.0;
+    counter.lastFrameValue = 0.0;
+    counter.writtenThisFrame = false;
+    return m_counterCount++;
 }
 
 
@@ -315,8 +343,25 @@ void Profiler::RecordWorkerSample( const char* fullPath,
 }
 
 
-WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
-    : m_fullPath( fullPath ), m_hash( hash ),
+void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value )
+{
+    if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
+    {
+        return;
+    }
+    if ( !m_inFrame )
+    {
+        AbortMismatch( "PROFILE_COUNTER called outside frame", fullPath );
+    }
+
+    Counter& counter = m_counters[FindOrRegisterCounter( fullPath, hash )];
+    counter.valueThisFrame = value;
+    counter.writtenThisFrame = true;
+}
+
+
+WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
+    : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ),
       m_workerIndex( SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex() ), m_startTicks( 0 ),
       m_platformProfilerOpen( false )
 {
@@ -351,7 +396,10 @@ WorkerProfilerScope::~WorkerProfilerScope()
         PlatformProfiler::CpuEnd();
         m_platformProfilerOpen = false;
     }
-    Profiler::Instance().RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
+    if ( m_profiler )
+    {
+        m_profiler->RecordWorkerSample( m_fullPath, m_hash, m_workerIndex, m_startTicks, t.QuadPart );
+    }
 }
 
 
@@ -632,6 +680,8 @@ void Profiler::FrameBegin()
         // InvalidateGpuQueries also invalidates the bound renderer timers and resets warmup.
         InvalidateGpuQueries();
         m_markerCount = 0;
+        m_counterCount = 0;
+        m_lastPerfCSVColumnCount = -1;
         m_lastAvgTicks = 0;
         m_nextColorIndex = 0;
         m_resetPending = false;
@@ -674,6 +724,11 @@ void Profiler::FrameBegin()
         m_markers[i].lastEndSecondsThisFrame = 0.0;
         m_markers[i].spanWrittenThisFrame = false;
     }
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        m_counters[i].valueThisFrame = 0.0;
+        m_counters[i].writtenThisFrame = false;
+    }
     {
         std::lock_guard<std::mutex> lock( m_workerSampleMutex );
         std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
@@ -696,6 +751,12 @@ void Profiler::FrameEnd()
     // because the stack top will not be "Frame" if anything is still open.
     static constexpr uint32_t kFrameHash = HashStr( "Frame" );
     End( "Frame", kFrameHash );
+
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        Counter& counter = m_counters[i];
+        counter.lastFrameValue = counter.writtenThisFrame ? counter.valueThisFrame : 0.0;
+    }
 
     if ( m_stackTop != 0 )
     {
@@ -949,6 +1010,17 @@ float Profiler::LastGpuFrameMsByHash( uint32_t hash ) const
 }
 
 
+int Profiler::PerfCSVColumnCount() const
+{
+    int columnCount = 2 + m_counterCount; // pass, frame, then scalar counters.
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        columnCount += m_markers[i].hasGpu ? 2 : 1;
+    }
+    return columnCount;
+}
+
+
 void Profiler::WritePerfCSVHeader( FILE* f ) const
 {
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
@@ -979,7 +1051,12 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
             break;
         }
     }
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        fprintf( f, ",%s", m_counters[i].name );
+    }
     fprintf( f, "\n" );
+    m_lastPerfCSVColumnCount = PerfCSVColumnCount();
 }
 
 
@@ -988,6 +1065,15 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
     if ( m_warmupFrames > 0 )
     {
         return;
+    }
+
+    // Hazard: some diagnostics register only when a late scene event occurs.
+    // Re-emit the dynamic header before the first wider row so columns never
+    // shift silently; analyze_perf already treats each header as authoritative
+    // for the rows that follow it.
+    if ( m_lastPerfCSVColumnCount != PerfCSVColumnCount() )
+    {
+        WritePerfCSVHeader( f );
     }
 
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
@@ -1017,11 +1103,16 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
             break;
         }
     }
+    for ( int i = 0; i < m_counterCount; ++i )
+    {
+        fprintf( f, ",%.4f", m_counters[i].lastFrameValue );
+    }
     fprintf( f, "\n" );
 }
 
 
-void Profiler::RenderOverlay( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+void Profiler::RenderOverlay( Text::TextBatch& textBatch,
+                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
                               float xLeft,
                               float yAnchor,
                               float lineHeight,
@@ -1079,7 +1170,7 @@ void Profiler::RenderOverlay( SkullbonezCore::Rendering::IRenderCommandContext& 
     const float panelW = colMax + colValW + padX;
 
     // Clamp rows to available screen height so the panel never overflows the top of the screen.
-    const float screenH = Text2d::HalfH() * 2.0f;
+    const float screenH = Text2d::HalfH( textBatch ) * 2.0f;
     const int maxRows = static_cast<int>( ( screenH - 4.0f * padY ) / lineHeight );
     const int visRows = ( m_markerCount + 2 < maxRows ) ? m_markerCount + 2 : maxRows;
     const float rowsHeight = static_cast<float>( visRows ) * lineHeight;
@@ -1094,7 +1185,8 @@ void Profiler::RenderOverlay( SkullbonezCore::Rendering::IRenderCommandContext& 
     const float yTop = yBottom + rowsHeight;
 
     // Background quad
-    Text2d::Render2dQuad( renderCommands,
+    Text2d::Render2dQuad( textBatch,
+                          renderCommands,
                           xLeft - padX,
                           yBottom,
                           xLeft - padX + panelW,
@@ -1124,21 +1216,21 @@ void Profiler::RenderOverlay( SkullbonezCore::Rendering::IRenderCommandContext& 
 
     // Header line
     float y = yTop;
-    Text2d::Render2dTextColor( xLeft, y, fSize, hdrR, hdrG, hdrB, "CPU: %.2f ms  FPS: %.1f", cpuMs, fps );
+    Text2d::Render2dTextColor( textBatch, xLeft, y, fSize, hdrR, hdrG, hdrB, "CPU: %.2f ms  FPS: %.1f", cpuMs, fps );
     y -= lineHeight;
 
     // Column labels
-    Text2d::Render2dTextColor( xLeft + colName, y, fSize, colR, colG, colB, "MARKER" );
-    Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, colR, colG, colB, "CPU" );
-    Text2d::Render2dTextColor( xLeft + colSelf, y, fSize, colR, colG, colB, "SELF" );
+    Text2d::Render2dTextColor( textBatch, xLeft + colName, y, fSize, colR, colG, colB, "MARKER" );
+    Text2d::Render2dTextColor( textBatch, xLeft + colAvg, y, fSize, colR, colG, colB, "CPU" );
+    Text2d::Render2dTextColor( textBatch, xLeft + colSelf, y, fSize, colR, colG, colB, "SELF" );
     if ( anyGpu )
     {
-        Text2d::Render2dTextColor( xLeft + colGpu, y, fSize, gpuR, gpuG, gpuB, "GPU" );
+        Text2d::Render2dTextColor( textBatch, xLeft + colGpu, y, fSize, gpuR, gpuG, gpuB, "GPU" );
     }
-    Text2d::Render2dTextColor( xLeft + colP50, y, fSize, colR, colG, colB, "P50" );
-    Text2d::Render2dTextColor( xLeft + colP99, y, fSize, colR, colG, colB, "P99" );
-    Text2d::Render2dTextColor( xLeft + colMin, y, fSize, colR, colG, colB, "MIN" );
-    Text2d::Render2dTextColor( xLeft + colMax, y, fSize, colR, colG, colB, "MAX" );
+    Text2d::Render2dTextColor( textBatch, xLeft + colP50, y, fSize, colR, colG, colB, "P50" );
+    Text2d::Render2dTextColor( textBatch, xLeft + colP99, y, fSize, colR, colG, colB, "P99" );
+    Text2d::Render2dTextColor( textBatch, xLeft + colMin, y, fSize, colR, colG, colB, "MIN" );
+    Text2d::Render2dTextColor( textBatch, xLeft + colMax, y, fSize, colR, colG, colB, "MAX" );
     y -= lineHeight;
 
     // Traffic-light threshold: proportion of CPU budget
@@ -1194,27 +1286,27 @@ void Profiler::RenderOverlay( SkullbonezCore::Rendering::IRenderCommandContext& 
             }
         }
 
-        Text2d::Render2dTextColor( xLeft + colName, y, fSize, mr, mg, mb, "%s", nameBuf );
-        Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, mr, mg, mb, "%6.2f", m.avgMs );
+        Text2d::Render2dTextColor( textBatch, xLeft + colName, y, fSize, mr, mg, mb, "%s", nameBuf );
+        Text2d::Render2dTextColor( textBatch, xLeft + colAvg, y, fSize, mr, mg, mb, "%6.2f", m.avgMs );
         const float selfMs = m.selfAvgMs > 0.0f ? m.selfAvgMs : m.lastSelfMs;
-        Text2d::Render2dTextColor( xLeft + colSelf, y, fSize, mr, mg, mb, "%6.2f", selfMs );
+        Text2d::Render2dTextColor( textBatch, xLeft + colSelf, y, fSize, mr, mg, mb, "%6.2f", selfMs );
         if ( anyGpu )
         {
             if ( m.hasGpu && m.gpuRingFilled > 0 )
             {
-                Text2d::Render2dTextColor( xLeft + colGpu, y, fSize, gpuR, gpuG, gpuB, "%6.2f", m.gpuAvgMs );
+                Text2d::Render2dTextColor( textBatch, xLeft + colGpu, y, fSize, gpuR, gpuG, gpuB, "%6.2f", m.gpuAvgMs );
             }
             else
             {
-                Text2d::Render2dTextColor( xLeft + colGpu, y, fSize, colR, colG, colB, "    - " );
+                Text2d::Render2dTextColor( textBatch, xLeft + colGpu, y, fSize, colR, colG, colB, "    - " );
             }
         }
-        Text2d::Render2dTextColor( xLeft + colP50, y, fSize, mr, mg, mb, "%6.2f", m.p50Ms );
-        Text2d::Render2dTextColor( xLeft + colP99, y, fSize, mr, mg, mb, "%6.2f", m.p99Ms );
+        Text2d::Render2dTextColor( textBatch, xLeft + colP50, y, fSize, mr, mg, mb, "%6.2f", m.p50Ms );
+        Text2d::Render2dTextColor( textBatch, xLeft + colP99, y, fSize, mr, mg, mb, "%6.2f", m.p99Ms );
         float displayMin = ( m.ringFilled > 0 ) ? m.minMs : 0.0f;
         float displayMax = ( m.ringFilled > 0 ) ? m.maxMs : 0.0f;
-        Text2d::Render2dTextColor( xLeft + colMin, y, fSize, mr, mg, mb, "%6.2f", displayMin );
-        Text2d::Render2dTextColor( xLeft + colMax, y, fSize, mr, mg, mb, "%6.2f", displayMax );
+        Text2d::Render2dTextColor( textBatch, xLeft + colMin, y, fSize, mr, mg, mb, "%6.2f", displayMin );
+        Text2d::Render2dTextColor( textBatch, xLeft + colMax, y, fSize, mr, mg, mb, "%6.2f", displayMax );
         y -= lineHeight;
     };
 
@@ -1277,7 +1369,8 @@ void Profiler::RenderOverlay( SkullbonezCore::Rendering::IRenderCommandContext& 
 
     The panel is designed with vertical headroom for future multi-core stacking (CPU bar per thread).
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+void Profiler::RenderBarOverlay( Text::TextBatch& textBatch,
+                                 SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
                                  float xLeft,
                                  float yBottom,
                                  float panelWidth,
@@ -1364,7 +1457,8 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
     const float fSz = barHeight * 0.45f; // text size proportional to bar
 
     // Background quad
-    Text2d::BatchQuad( renderCommands,
+    Text2d::BatchQuad( textBatch,
+                       renderCommands,
                        xLeft,
                        yBottom,
                        xLeft + panelWidth,
@@ -1377,7 +1471,7 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
     // Title
     float ty = yBottom + panelHeight - pad - titleH;
     const char* title = absolute ? "PROFILER BARS (ABSOLUTE)" : "PROFILER BARS (NORMALIZED)";
-    Text2d::Render2dTextColor( barX0, ty + titleH * 0.35f, fSz * 1.05f, 1.0f, 0.85f, 0.35f, "%s", title );
+    Text2d::Render2dTextColor( textBatch, barX0, ty + titleH * 0.35f, fSz * 1.05f, 1.0f, 0.85f, 0.35f, "%s", title );
 
     // Totals (right-aligned on title row)
     char totalsBuf[128] = { 0 };
@@ -1396,17 +1490,34 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
         sprintf_s( totalsBuf, sizeof( totalsBuf ), "CPU: %.2f ms  GPU: %.2f ms", cpuTotalMs, gpuTotalMs );
     }
     float totalsW = Text2d::MeasureText( fSz * 0.9f, totalsBuf );
-    Text2d::Render2dTextColor( barX1 - totalsW, ty + titleH * 0.35f, fSz * 0.9f, 0.85f, 0.85f, 0.85f, "%s", totalsBuf );
+    Text2d::Render2dTextColor( textBatch,
+                               barX1 - totalsW,
+                               ty + titleH * 0.35f,
+                               fSz * 0.9f,
+                               0.85f,
+                               0.85f,
+                               0.85f,
+                               "%s",
+                               totalsBuf );
 
     // --- CPU bar ---
     float cpuBarY = ty - barGap - barHeight * 0.4f; // shift down so title doesn't overlap
-    Text2d::Render2dTextColor( barX0, cpuBarY + barHeight * 0.3f, fSz, 0.85f, 0.85f, 0.85f, "CPU" );
+    Text2d::Render2dTextColor( textBatch, barX0, cpuBarY + barHeight * 0.3f, fSz, 0.85f, 0.85f, 0.85f, "CPU" );
     float cpuLabelW = Text2d::MeasureText( fSz, "CPU " ) + pad * 0.5f;
     float cpuBarX0 = barX0 + cpuLabelW;
     float cpuBarWidth = barX1 - cpuBarX0;
 
     // Draw background (dark grey = empty / absolute idle)
-    Text2d::BatchQuad( renderCommands, cpuBarX0, cpuBarY, barX1, cpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
+    Text2d::BatchQuad( textBatch,
+                       renderCommands,
+                       cpuBarX0,
+                       cpuBarY,
+                       barX1,
+                       cpuBarY + barHeight,
+                       0.15f,
+                       0.15f,
+                       0.15f,
+                       1.0f );
 
     // Scale bars either against the absolute frame or the CPU subtotal.
     float cpuScale = 1.0f;
@@ -1433,25 +1544,52 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
             segW = barX1 - cx; // Keep the segment inside the panel.
         }
         const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
-        Text2d::BatchQuad( renderCommands, cx, cpuBarY, cx + segW, cpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
+        Text2d::BatchQuad( textBatch,
+                           renderCommands,
+                           cx,
+                           cpuBarY,
+                           cx + segW,
+                           cpuBarY + barHeight,
+                           c.r,
+                           c.g,
+                           c.b,
+                           1.0f );
         cx += segW;
     }
 
     // Absolute mode: remaining space = white (idle)
     if ( absolute && cx < barX1 )
     {
-        Text2d::BatchQuad( renderCommands, cx, cpuBarY, barX1, cpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
+        Text2d::BatchQuad( textBatch,
+                           renderCommands,
+                           cx,
+                           cpuBarY,
+                           barX1,
+                           cpuBarY + barHeight,
+                           0.85f,
+                           0.85f,
+                           0.85f,
+                           0.7f );
     }
 
     // --- GPU bar ---
     float gpuBarY = cpuBarY - barGap - barHeight;
     if ( gpuLeafCount > 0 )
     {
-        Text2d::Render2dTextColor( barX0, gpuBarY + barHeight * 0.3f, fSz, 0.4f, 0.8f, 1.0f, "GPU" );
+        Text2d::Render2dTextColor( textBatch, barX0, gpuBarY + barHeight * 0.3f, fSz, 0.4f, 0.8f, 1.0f, "GPU" );
         float gpuLabelW = cpuLabelW; // align with CPU bar
         float gpuBarX0 = barX0 + gpuLabelW;
 
-        Text2d::BatchQuad( renderCommands, gpuBarX0, gpuBarY, barX1, gpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
+        Text2d::BatchQuad( textBatch,
+                           renderCommands,
+                           gpuBarX0,
+                           gpuBarY,
+                           barX1,
+                           gpuBarY + barHeight,
+                           0.15f,
+                           0.15f,
+                           0.15f,
+                           1.0f );
 
         float gpuScale = 1.0f;
         if ( absolute )
@@ -1477,13 +1615,31 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
                 segW = barX1 - gx;
             }
             const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
-            Text2d::BatchQuad( renderCommands, gx, gpuBarY, gx + segW, gpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
+            Text2d::BatchQuad( textBatch,
+                               renderCommands,
+                               gx,
+                               gpuBarY,
+                               gx + segW,
+                               gpuBarY + barHeight,
+                               c.r,
+                               c.g,
+                               c.b,
+                               1.0f );
             gx += segW;
         }
 
         if ( absolute && gx < barX1 )
         {
-            Text2d::BatchQuad( renderCommands, gx, gpuBarY, barX1, gpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
+            Text2d::BatchQuad( textBatch,
+                               renderCommands,
+                               gx,
+                               gpuBarY,
+                               barX1,
+                               gpuBarY + barHeight,
+                               0.85f,
+                               0.85f,
+                               0.85f,
+                               0.7f );
         }
     }
 
@@ -1533,15 +1689,23 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
         }
 
         // Swatch
-        Text2d::BatchQuad( renderCommands, lx, ly, lx + swatchW, ly + swatchH, c.r, c.g, c.b, 1.0f );
+        Text2d::BatchQuad( textBatch, renderCommands, lx, ly, lx + swatchW, ly + swatchH, c.r, c.g, c.b, 1.0f );
         // Label
-        Text2d::Render2dTextColor( lx + swatchW + legendSpacing, ly, legendFSz, 0.85f, 0.85f, 0.85f, "%s", m.leafName );
+        Text2d::Render2dTextColor( textBatch,
+                                   lx + swatchW + legendSpacing,
+                                   ly,
+                                   legendFSz,
+                                   0.85f,
+                                   0.85f,
+                                   0.85f,
+                                   "%s",
+                                   m.leafName );
         lx += entryW;
     }
 
     // Flush all batched quads in one draw call before the text labels are flushed by the caller.
     // This gives the full bar overlay exactly 2 draw calls: one for all quads, one for all text.
-    Text2d::FlushQuads( renderCommands );
+    Text2d::FlushQuads( textBatch, renderCommands );
 }
 
 
@@ -1551,11 +1715,13 @@ void Profiler::RenderBarOverlay( SkullbonezCore::Rendering::IRenderCommandContex
 // project splits. These definitions preserve the public no-op contract without
 // dragging render text or platform-profiler code into non-profiling binaries.
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_workerCoreSampleCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 1 ), m_frameStartTicks( 0 ),
-      m_lastAvgTicks( 0 ), m_inFrame( false ), m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ),
-      m_nextColorIndex( 0 ), m_renderDiagnostics( nullptr )
+    : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
+      m_stackTop( 0 ), m_qpcFrequency( 1 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ),
+      m_renderDiagnostics( nullptr )
 {
     std::memset( m_markers, 0, sizeof( m_markers ) );
+    std::memset( m_counters, 0, sizeof( m_counters ) );
     std::memset( m_workerCoreAccumulators, 0, sizeof( m_workerCoreAccumulators ) );
     std::memset( m_workerCoreAverageWindows, 0, sizeof( m_workerCoreAverageWindows ) );
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
@@ -1577,6 +1743,11 @@ void Profiler::End( const char*, uint32_t )
 
 
 void Profiler::RecordWorkerSample( const char*, uint32_t, int, int64_t, int64_t )
+{
+}
+
+
+void Profiler::RecordCounter( const char*, uint32_t, double )
 {
 }
 
@@ -1638,18 +1809,27 @@ void Profiler::WritePerfCSVRow( FILE*, int, int ) const
 }
 
 
-void Profiler::RenderOverlay( Rendering::IRenderCommandContext&, float, float, float, float, float, bool ) const
+void Profiler::RenderOverlay( Text::TextBatch&,
+                              Rendering::IRenderCommandContext&,
+                              float,
+                              float,
+                              float,
+                              float,
+                              float,
+                              bool ) const
 {
 }
 
 
-void Profiler::RenderBarOverlay( Rendering::IRenderCommandContext&, float, float, float, float, bool ) const
+void Profiler::RenderBarOverlay( Text::TextBatch&, Rendering::IRenderCommandContext&, float, float, float, float, bool )
+    const
 {
 }
 
 
-WorkerProfilerScope::WorkerProfilerScope( const char* fullPath, uint32_t hash )
-    : m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( -1 ), m_startTicks( 0 ), m_platformProfilerOpen( false )
+WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
+    : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ), m_workerIndex( -1 ), m_startTicks( 0 ),
+      m_platformProfilerOpen( false )
 {
 }
 

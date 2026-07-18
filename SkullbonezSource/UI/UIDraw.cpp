@@ -49,16 +49,19 @@ bool UIRect::Contains( int px, int py ) const
 UIDrawContext::UIDrawContext( int screenW,
                               int screenH,
                               UIDrawList* drawList,
-                              Rendering::IRenderCommandContext* renderCommands )
+                              Rendering::IRenderCommandContext* renderCommands,
+                              Text::TextBatch* textBatch )
 {
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
-    m_hw = Text2d::HalfW();
-    m_hh = Text2d::HalfH();
+    assert( textBatch && "UIDrawContext requires its RuntimeRenderer-owned text batch" );
+    m_hw = Text2d::HalfW( *textBatch );
+    m_hh = Text2d::HalfH( *textBatch );
     m_sx = ( m_hw * 2.0f ) / static_cast<float>( screenW );
     m_sy = ( m_hh * 2.0f ) / static_cast<float>( screenH );
     m_drawList = drawList;
     m_renderCommands = renderCommands;
+    m_textBatch = textBatch;
 }
 
 
@@ -83,7 +86,16 @@ void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, 
         y1 = y0 + 1.0f;
     }
     assert( m_renderCommands && "UIDrawContext immediate Rect requires render commands" );
-    Text2d::BatchQuad( *m_renderCommands, PixelX( x0 ), PixelY( y1 ), PixelX( x1 ), PixelY( y0 ), r, g, b, a );
+    Text2d::BatchQuad( *m_textBatch,
+                       *m_renderCommands,
+                       PixelX( x0 ),
+                       PixelY( y1 ),
+                       PixelX( x1 ),
+                       PixelY( y0 ),
+                       r,
+                       g,
+                       b,
+                       a );
 }
 
 
@@ -105,7 +117,8 @@ void UIDrawContext::Triangle( float x0,
     }
 
     assert( m_renderCommands && "UIDrawContext immediate Triangle requires render commands" );
-    Text2d::BatchTriangle( *m_renderCommands,
+    Text2d::BatchTriangle( *m_textBatch,
+                           *m_renderCommands,
                            PixelXUnsnapped( x0 ),
                            PixelYUnsnapped( y0 ),
                            PixelXUnsnapped( x1 ),
@@ -245,7 +258,15 @@ void UIDrawContext::Text( float x, float y, float pxSize, float r, float g, floa
     }
 
     const float unitSize = pxSize * m_sy;
-    Text2d::Render2dTextColor( PixelX( Snap( x ) ), PixelY( Snap( y ) + pxSize ), unitSize, r, g, b, "%s", value );
+    Text2d::Render2dTextColor( *m_textBatch,
+                               PixelX( Snap( x ) ),
+                               PixelY( Snap( y ) + pxSize ),
+                               unitSize,
+                               r,
+                               g,
+                               b,
+                               "%s",
+                               value );
 }
 
 
@@ -287,7 +308,7 @@ void UIDrawContext::FlushQuads() const
     }
 
     assert( m_renderCommands && "UIDrawContext immediate FlushQuads requires render commands" );
-    Text2d::FlushQuads( *m_renderCommands );
+    Text2d::FlushQuads( *m_textBatch, *m_renderCommands );
 }
 
 
@@ -299,7 +320,7 @@ void UIDrawContext::FlushText() const
     }
 
     assert( m_renderCommands && "UIDrawContext immediate FlushText requires render commands" );
-    Text2d::FlushText( *m_renderCommands );
+    Text2d::FlushText( *m_textBatch, *m_renderCommands );
 }
 
 

@@ -49,7 +49,7 @@ Related:
 #include "../Replay/ReplayPrediction.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneTerrain.h"
-#include "../RuntimeTuning.h"
+#include "../OperatorCommandApplier.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/Profiler.h"
@@ -58,7 +58,7 @@ Related:
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/IRenderRayTracing.h"
 #include "../../Rendering/IRenderResourceFactory.h"
-#include "../../Rendering/GameModelRenderer.h"
+#include "../../Rendering/RenderInstanceRenderer.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -656,7 +656,7 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
     {
         return;
     }
-    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/EnsureResources" );
+    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/EnsureResources" );
 
     // Concept: the shadow map is a renderer-neutral depth framebuffer. It is
     // intentionally owned outside the cinematic HDR target because the same
@@ -745,7 +745,7 @@ SkullbonezCore::Rendering::ShadowFrameData
 ShadowPass::BuildTerrainFrameData( const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                    const Math::Vector::Vector3& lightDirectionWorld ) const
 {
-    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
+    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
     if ( !m_terrain.Get() || !m_resources.terrainTarget )
@@ -817,7 +817,7 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
                                   SkullbonezCore::Threading::WorkerPool* renderWorkerPool,
                                   bool shadowParallelPrep )
 {
-    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
+    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
     if ( !m_resources.objectTarget || !cinematic.shadow.objectsCast || !cinematic.shadow.objectsReceive )
@@ -829,14 +829,15 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
     float shadowRadius = 0.0f;
     float heightRange = 0.0f;
     const float objectSearchDistance = std::clamp( cinematic.shadow.maxDistance * 0.15f, 180.0f, 320.0f );
-    if ( !GameObjects::GameModelRenderer::GetObjectShadowBounds( renderInstances,
-                                                                 renderWorkerPool,
-                                                                 shadowParallelPrep,
-                                                                 focusHint,
-                                                                 objectSearchDistance,
-                                                                 focus,
-                                                                 shadowRadius,
-                                                                 heightRange ) )
+    if ( !Rendering::RenderInstanceRenderer::GetObjectShadowBounds( m_profiler,
+                                                                    renderInstances,
+                                                                    renderWorkerPool,
+                                                                    shadowParallelPrep,
+                                                                    focusHint,
+                                                                    objectSearchDistance,
+                                                                    focus,
+                                                                    shadowRadius,
+                                                                    heightRange ) )
     {
         return shadowFrame;
     }
@@ -885,7 +886,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                   bool shadowParallelPrep,
                                   const Rendering::ShadowCasterBatches* objectCasters )
 {
-    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
+    PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/RenderMap" );
     DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap" );
 
     if ( !shadowFrame.valid )
@@ -926,19 +927,22 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
 
     if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+        PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
 
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
         // shadows from the flat CPU height map and the contact would visibly
         // detach. With normal rendering the relief amount is zero by default.
-        m_terrain.Get()->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+        m_terrain.Get()->RenderShadowDepth( m_profiler,
+                                            shadowFrame.lightView,
+                                            shadowFrame.lightProjection,
+                                            &cinematic );
     }
 
     if ( renderObjects && cinematic.shadow.objectsCast && !m_activeCollisionVisualizerVisible )
     {
-        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+        PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
         DRAW_CALL_TRACE_SCOPE( primitiveContext.renderDiagnostics, "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
 
         // Balls, boxes, and pine-style box visuals all write depth here. The
@@ -951,24 +955,26 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
                                                                    : Rendering::RenderVisibilityView::ObjectShadow;
         if ( objectCasters )
         {
-            GameObjects::GameModelRenderer::SubmitShadowCasterBatches( primitiveContext,
-                                                                       *objectCasters,
-                                                                       shadowFrame.lightView,
-                                                                       shadowFrame.lightProjection,
-                                                                       &cinematic,
-                                                                       visibilityView );
+            Rendering::RenderInstanceRenderer::SubmitShadowCasterBatches( m_profiler,
+                                                                          primitiveContext,
+                                                                          *objectCasters,
+                                                                          shadowFrame.lightView,
+                                                                          shadowFrame.lightProjection,
+                                                                          &cinematic,
+                                                                          visibilityView );
         }
         else
         {
-            GameObjects::GameModelRenderer::RenderShadowCasters( primitiveContext,
-                                                                 renderInstances,
-                                                                 colliders,
-                                                                 renderWorkerPool,
-                                                                 shadowParallelPrep,
-                                                                 shadowFrame.lightView,
-                                                                 shadowFrame.lightProjection,
-                                                                 &cinematic,
-                                                                 visibilityView );
+            Rendering::RenderInstanceRenderer::RenderShadowCasters( m_profiler,
+                                                                    primitiveContext,
+                                                                    renderInstances,
+                                                                    colliders,
+                                                                    renderWorkerPool,
+                                                                    shadowParallelPrep,
+                                                                    shadowFrame.lightView,
+                                                                    shadowFrame.lightProjection,
+                                                                    &cinematic,
+                                                                    visibilityView );
         }
     }
 
@@ -999,9 +1005,9 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
         // Build shadow maps before any receiver pass. Terrain receives the broad
         // map, while objects receive a second tight map centered on nearby bodies
         // so ball-on-ball shadows have enough texel density.
-        PROFILE_SCOPED( "Frame/Shadows" );
+        PROFILE_SCOPED( m_profiler, "Frame/Shadows" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Shadows" );
-        PROFILE_GPU_BEGIN( "Frame/Shadows/ShadowMap" );
+        PROFILE_GPU_BEGIN( m_profiler, "Frame/Shadows/ShadowMap" );
         {
             DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Shadows/ShadowMap" );
             Vector3 lightDirection( inputs.frame.lightPosition[0],
@@ -1012,11 +1018,12 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                 inputs.cinematic->shadow.objectsCast && !inputs.collisionVisualizerVisible;
             if ( shouldBuildObjectCasters )
             {
-                GameObjects::GameModelRenderer::BuildShadowCasterBatches( *inputs.frame.renderInstances,
-                                                                          *inputs.frame.colliders,
-                                                                          inputs.frame.renderWorkerPool,
-                                                                          inputs.frame.shadowParallelPrep,
-                                                                          objectCasters );
+                Rendering::RenderInstanceRenderer::BuildShadowCasterBatches( m_profiler,
+                                                                             *inputs.frame.renderInstances,
+                                                                             *inputs.frame.colliders,
+                                                                             inputs.frame.renderWorkerPool,
+                                                                             inputs.frame.shadowParallelPrep,
+                                                                             objectCasters );
             }
             m_activeTerrainHidden = inputs.terrainHidden;
             m_activeCollisionVisualizerVisible = inputs.collisionVisualizerVisible;
@@ -1063,7 +1070,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  &objectCasters );
             }
         }
-        PROFILE_GPU_END( "Frame/Shadows/ShadowMap" );
+        PROFILE_GPU_END( m_profiler, "Frame/Shadows/ShadowMap" );
     }
 
     ShadowPassOutput output;
@@ -1140,12 +1147,12 @@ void SceneTargetPass::Begin( const RenderFrameContext& frame, SkyPass& skyPass )
     renderCommands.SetViewport( 0, 0, m_resources.hdrTarget->GetWidth(), m_resources.hdrTarget->GetHeight() );
     renderCommands.Clear( true, true );
 
-    PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
+    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/CinematicSky" );
     {
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/CinematicSky" );
         skyPass.Render( frame, frame.baseView, SkyPassMode::CinematicIfEnabled );
     }
-    PROFILE_GPU_END( "Frame/Render/CinematicSky" );
+    PROFILE_GPU_END( m_profiler, "Frame/Render/CinematicSky" );
 }
 
 
@@ -1157,7 +1164,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     // renders the above-water scene from a mirrored camera into an FBO. The DXR
     // path rebuilds the raytracing TLAS and writes a screen-space reflection
     // texture directly. Both feed the same water shader later.
-    PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
+    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection" );
     const auto renderCapabilities = RenderDiagnostics( inputs.frame ).GetCapabilities();
     Rendering::IRenderRayTracing* rayTracing = inputs.frame.renderRayTracing;
@@ -1231,7 +1238,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                           skyFrontHandle ) ||
              !ResolveRenderTextureHandle( textures, TEXTURE_SKY_BACK, "Frame/Render/Reflection/DXR", skyBackHandle ) )
         {
-            PROFILE_GPU_END( "Frame/Render/Reflection" );
+            PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection" );
             return output;
         }
         rayTracing->DispatchReflectionRays( invVP.Data(),
@@ -1271,17 +1278,17 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         // Skybox reflected (XZ follows eye; Y anchored at runtime config).
         // Cinematic mode can reflect the generated sunset sky into the water
         // instead of the usual cube-map sky.
-        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
+        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Reflection/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Skybox" );
             skyPass.Render( inputs.frame, inputs.frame.reflectionView, SkyPassMode::CinematicIfEnabled );
         }
-        PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
+        PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection/Skybox" );
 
         // Why: clip at the water surface so the reflection texture contains only
         // the above-water portion of models. The water shader supplies the
         // below-surface visual from the main scene.
-        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Balls" );
         renderCommands.SetClipPlane( 0, true );
         PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
@@ -1317,32 +1324,33 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) &&
                  inputs.frame.renderInstances && inputs.frame.colliders )
             {
-                GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
-                                                              *inputs.frame.renderInstances,
-                                                              *inputs.frame.colliders,
-                                                              inputs.frame.renderCollisionVolumes,
-                                                              inputs.frame.reflectionView,
-                                                              inputs.frame.projection,
-                                                              inputs.frame.lightPosition,
-                                                              inputs.cinematic,
-                                                              inputs.objectShadow,
-                                                              inputs.bodyAlpha,
-                                                              nullptr,
-                                                              true,
-                                                              Rendering::RenderVisibilityView::Reflection );
+                Rendering::RenderInstanceRenderer::RenderModels(
+                    PrimitiveRenderContextForFrame( inputs.frame, m_config ),
+                    *inputs.frame.renderInstances,
+                    *inputs.frame.colliders,
+                    inputs.frame.renderCollisionVolumes,
+                    inputs.frame.reflectionView,
+                    inputs.frame.projection,
+                    inputs.frame.lightPosition,
+                    inputs.cinematic,
+                    inputs.objectShadow,
+                    inputs.bodyAlpha,
+                    nullptr,
+                    true,
+                    Rendering::RenderVisibilityView::Reflection );
             }
         }
         renderCommands.SetClipPlane( 0, false );
         PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection/Balls" );
 
         m_resources.target->Unbind();
         renderCommands.SetViewport( 0, 0, inputs.frame.windowWidth, inputs.frame.windowHeight );
         output.reflectionTextureHandle = m_resources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }
-    PROFILE_GPU_END( "Frame/Render/Reflection" );
+    PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection" );
     return output;
 }
 
@@ -1354,7 +1362,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     const uint32_t passHash =
         transparentPass ? HashStr( "Frame/Render/TransparentBalls" ) : HashStr( "Frame/Render/Balls" );
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    SkullbonezCore::Core::GpuProfilerScope profileScope( passName, passHash );
+    SkullbonezCore::Core::GpuProfilerScope profileScope( m_profiler, passName, passHash );
 #endif
     Rendering::DrawCallTraceScope drawTraceScope( RenderDiagnostics( inputs.frame ), passName, passHash );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
@@ -1389,18 +1397,18 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, passName ) && inputs.frame.renderInstances &&
              inputs.frame.colliders )
         {
-            GameObjects::GameModelRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
-                                                          *inputs.frame.renderInstances,
-                                                          *inputs.frame.colliders,
-                                                          inputs.frame.renderCollisionVolumes,
-                                                          inputs.frame.baseView,
-                                                          inputs.frame.projection,
-                                                          inputs.frame.lightPosition,
-                                                          inputs.cinematic,
-                                                          inputs.shadow,
-                                                          inputs.bodyAlpha,
-                                                          inputs.modelMask,
-                                                          inputs.drawMaskedModels );
+            Rendering::RenderInstanceRenderer::RenderModels( PrimitiveRenderContextForFrame( inputs.frame, m_config ),
+                                                             *inputs.frame.renderInstances,
+                                                             *inputs.frame.colliders,
+                                                             inputs.frame.renderCollisionVolumes,
+                                                             inputs.frame.baseView,
+                                                             inputs.frame.projection,
+                                                             inputs.frame.lightPosition,
+                                                             inputs.cinematic,
+                                                             inputs.shadow,
+                                                             inputs.bodyAlpha,
+                                                             inputs.modelMask,
+                                                             inputs.drawMaskedModels );
         }
     }
 }
@@ -1426,7 +1434,7 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
         return;
     }
 
-    PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
+    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Terrain" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Terrain" );
     // Pass contract: terrain reads ground albedo from t0, the broad shadow map
     // from t3, and the tight object-shadow map from t5. The material table stays
@@ -1447,7 +1455,7 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
                                  inputs.shadow,
                                  inputs.detailShadow );
     }
-    PROFILE_GPU_END( "Frame/Render/Terrain" );
+    PROFILE_GPU_END( m_profiler, "Frame/Render/Terrain" );
 }
 
 
@@ -1489,7 +1497,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
         return;
     }
 
-    PROFILE_GPU_BEGIN( "Frame/Render/Water" );
+    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Water" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Water" );
     // Pass contract: water samples only the reflection texture in slot 1.
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
@@ -1526,7 +1534,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     renderCommands.SetDepthTest( depthTestWasEnabled );
     renderCommands.SetBlendFunc( blendSrc, blendDst );
     renderCommands.SetBlend( blendWasEnabled );
-    PROFILE_GPU_END( "Frame/Render/Water" );
+    PROFILE_GPU_END( m_profiler, "Frame/Render/Water" );
 }
 
 
@@ -1832,7 +1840,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         return false;
     }
 
-    PROFILE_GPU_BEGIN( "Frame/Render/TornadoVisual" );
+    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/TornadoVisual" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/TornadoVisual" );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
     ClearAllRenderTextureSlots( renderCommands );
@@ -1858,7 +1866,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     renderCommands.SetBlend( blendWasEnabled );
     renderCommands.SetDepthWrite( depthWriteWasEnabled );
     renderCommands.SetDepthTest( depthTestWasEnabled );
-    PROFILE_GPU_END( "Frame/Render/TornadoVisual" );
+    PROFILE_GPU_END( m_profiler, "Frame/Render/TornadoVisual" );
     return true;
 }
 
@@ -1876,7 +1884,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
-        PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay" );
+        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/DebugOverlay" );
     const DebugOverlaySnapshot& snapshot = inputs.snapshot;
@@ -1884,7 +1892,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/Broadphase" );
+            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay/Broadphase" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Broadphase" );
         // Pass contract: broadphase owns grid-line generation, while renderer
@@ -1895,7 +1903,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                        supportsDebugLines );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( "Frame/Render/DebugOverlay/Broadphase" );
+            PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay/Broadphase" );
         }
     }
 
@@ -1903,13 +1911,13 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/TornadoField" );
+            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay/TornadoField" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "TornadoField" );
         RenderTornadoVectorOverlay( inputs );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( "Frame/Render/DebugOverlay/TornadoField" );
+            PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay/TornadoField" );
         }
     }
 
@@ -1928,7 +1936,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( "Frame/Render/DebugOverlay/PhysicsDebug" );
+            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay/PhysicsDebug" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "PhysicsDebug" );
         m_physicsDebugVisualizer.SetFlags( snapshot.physicsDebugFlags );
@@ -1947,12 +1955,12 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( "Frame/Render/DebugOverlay/PhysicsDebug" );
+            PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay/PhysicsDebug" );
         }
     }
     if ( detailMarkers )
     {
-        PROFILE_GPU_END( "Frame/Render/DebugOverlay" );
+        PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay" );
     }
     return true;
 }
@@ -2193,7 +2201,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
-        PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight" );
+        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/VolumetricLight" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/VolumetricLight" );
     // Invariant: unbind the full-size scene target before sampling it. The
@@ -2229,7 +2237,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( "Frame/Render/VolumetricLight/Draw" );
+            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/VolumetricLight/Draw" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Draw" );
         m_volumetricResources.shader->Use();
@@ -2250,7 +2258,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( "Frame/Render/VolumetricLight/Draw" );
+            PROFILE_GPU_END( m_profiler, "Frame/Render/VolumetricLight/Draw" );
         }
     }
 
@@ -2268,7 +2276,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
     if ( detailMarkers )
     {
-        PROFILE_GPU_END( "Frame/Render/VolumetricLight" );
+        PROFILE_GPU_END( m_profiler, "Frame/Render/VolumetricLight" );
     }
     return true;
 }
@@ -2310,7 +2318,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
-        PROFILE_GPU_BEGIN( "Frame/Render/Tonemap" );
+        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Tonemap" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/Tonemap" );
     if ( !sceneAlreadyUnbound )
@@ -2332,7 +2340,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( "Frame/Render/Tonemap/Draw" );
+            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Tonemap/Draw" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Draw" );
         m_tonemapResources.shader->Use();
@@ -2363,7 +2371,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( "Frame/Render/Tonemap/Draw" );
+            PROFILE_GPU_END( m_profiler, "Frame/Render/Tonemap/Draw" );
         }
     }
 
@@ -2372,6 +2380,6 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     renderCommands.SetBlend( blendWasEnabled );
     if ( detailMarkers )
     {
-        PROFILE_GPU_END( "Frame/Render/Tonemap" );
+        PROFILE_GPU_END( m_profiler, "Frame/Render/Tonemap" );
     }
 }

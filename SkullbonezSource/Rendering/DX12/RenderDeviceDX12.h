@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderDeviceDX12.h
 Purpose:
-  Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
+  Owns the DX12 device/presentation epoch, depth surface, fences, command
+  allocators, and frame pacing.
 
 Summary:
-  RenderDeviceDX12.h owns low-level DX12 device objects, fences, command
-  allocators, and frame pacing. As a public header, keep edits anchored on
-  DX12 ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  RenderDeviceDX12.h owns the device and presentation epoch: native device
+  objects, published extent/generation, VSync/tearing policy, main depth
+  surface, fences, command allocators, and frame pacing.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -772,7 +772,7 @@ class Dx12ReadbackBuffer
         return m_resource;
     }
 
-    void* MapRead( UINT64 sizeBytes ) const;
+    const uint8_t* MapRead( UINT64 sizeBytes ) const;
     void UnmapNoWrite() const;
     // Transfers the COM reference without releasing it. Use only when a failed
     // fence wait cannot prove that the GPU has stopped using the resource.
@@ -818,16 +818,12 @@ struct Dx12RenderDeviceInitDesc
 
     Keeping device ownership here gives the renderer a clear boundary:
 
-    - this class owns raw COM lifetime for factory/device/queue/swapchain/fence,
+    - this class owns raw COM lifetime for factory/device/queue/swapchain/fence
+      and the main depth surface,
+    - presentation extent, generation, VSync, and tearing policy move together,
     - the backend may borrow those pointers internally through accessors,
-    - DX12 helper classes ask the device owner for native handles instead of
-      treating RenderBackendDX12's migration aliases as the lifetime owner,
+    - DX12 helper classes ask the device owner for native handles,
     - shutdown has one place to release the core DX12 objects in a safe order.
-
-    This is not yet the final renderer device from the architecture plan. It is
-    the first ownership extraction: enough to remove device/swapchain/fence
-    creation and release from the backend facade while preserving current draw
-    behavior.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Dx12RenderDevice
 {
@@ -907,6 +903,38 @@ class Dx12RenderDevice
         return m_allowTearing;
     }
 
+    bool VsyncEnabled() const
+    {
+        return m_vsyncEnabled;
+    }
+    void SetVsyncEnabled( bool enabled )
+    {
+        m_vsyncEnabled = enabled;
+    }
+    int Width() const
+    {
+        return m_width;
+    }
+    int Height() const
+    {
+        return m_height;
+    }
+    uint64_t RecreationGeneration() const
+    {
+        return m_recreationGeneration;
+    }
+    void PublishInitialExtent( int width, int height );
+    uint64_t PublishResizedExtent( int width, int height );
+
+    SkullbonezCore::Core::SbResult
+    CreateDepthStencilResource( int width, int height, ID3D12Resource*& outResource ) const;
+    ID3D12Resource* ReplaceDepthStencil( ID3D12Resource* replacement );
+    ID3D12Resource* DepthStencil() const
+    {
+        return m_depthStencil;
+    }
+    void ReportDeviceLost( const char* context, HRESULT result ) const;
+
   private:
     IDXGIFactory4* m_factory = nullptr;
     IDXGISwapChain3* m_swapChain = nullptr;
@@ -921,6 +949,11 @@ class Dx12RenderDevice
     UINT m_frameIndex = 0;
     UINT m_allocatorIndex = 0;
     bool m_allowTearing = false;
+    bool m_vsyncEnabled = true;
+    int m_width = 0;
+    int m_height = 0;
+    uint64_t m_recreationGeneration = 0;
+    ID3D12Resource* m_depthStencil = nullptr;
 };
 
 } // namespace Rendering

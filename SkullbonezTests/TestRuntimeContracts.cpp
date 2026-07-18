@@ -55,6 +55,7 @@ using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Threading::AmortizedTask;
 using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
+using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
 
@@ -248,7 +249,8 @@ bool RunRuntimeFatalCase( const char* caseName )
     }
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )
     {
-        WorkerPool pool;
+        LockOrderValidator lockOrderValidator;
+        WorkerPool pool( lockOrderValidator );
         pool.Initialise( 1 );
         std::atomic<bool> started{ false };
         std::atomic<bool> release{ false };
@@ -274,7 +276,8 @@ bool RunRuntimeFatalCase( const char* caseName )
     }
     if ( std::strcmp( caseName, "worker-fatal-log" ) == 0 )
     {
-        WorkerPool pool;
+        LockOrderValidator lockOrderValidator;
+        WorkerPool pool( lockOrderValidator );
         pool.Initialise( 1 );
         WorkerFatalProbe probe;
         pool.SubmitNoAlloc( probe );
@@ -327,7 +330,8 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
 
 TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
 {
-    WorkerPool inlinePool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool inlinePool( lockOrderValidator );
     int completedItems = 0;
     AmortizedTask idleTask( 2, 1, [&]( int begin, int end ) { completedItems += end - begin; } );
     idleTask.SubmitTick( inlinePool );
@@ -337,7 +341,7 @@ TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
     CHECK( idleTask.Reset() );
     CHECK_FALSE( idleTask.IsComplete() );
 
-    WorkerPool workerPool;
+    WorkerPool workerPool( lockOrderValidator );
     workerPool.Initialise( 1 );
     std::atomic<bool> started{ false };
     std::atomic<bool> release{ false };
@@ -370,7 +374,8 @@ TEST_CASE( "WorkerPool: inline and threaded self-tests preserve deterministic co
 {
     for ( const int threadCount : { 0, 2 } )
     {
-        WorkerPool pool;
+        LockOrderValidator lockOrderValidator;
+        WorkerPool pool( lockOrderValidator );
         pool.Initialise( threadCount );
         FILE* output = nullptr;
         REQUIRE( tmpfile_s( &output ) == 0 );
@@ -392,7 +397,8 @@ TEST_CASE( "WorkerPool: inline and threaded self-tests preserve deterministic co
 
 TEST_CASE( "WorkerPool: chunk ranges cover a half-open interval once and in order" )
 {
-    WorkerPool pool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool pool( lockOrderValidator );
     pool.Initialise( 2 );
     WorkerChunkRange chunks[8] = {};
 

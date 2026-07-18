@@ -70,7 +70,6 @@ enum class SceneLifecycleConsumer : uint32_t
     Diagnostics = 1u << 0,
     RenderDevice = 1u << 1,
     Simulation = 1u << 2,
-    Audio = 1u << 3,
     Tools = 1u << 4,
     Interaction = 1u << 5,
     Replay = 1u << 6,
@@ -92,7 +91,6 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRunti
     case SceneRuntimeLifecycleEvent::AfterSceneCleared:
         return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
@@ -202,25 +200,10 @@ class SceneRuntime
     int Append( std::string path );
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
-    // Concept: authored-scene completion gates are scene-run state. Setup fills
-    // them during load, while frame ticks mutate only their observed/completed
-    // flags until the next scene load clears them.
-    std::vector<RunRequiredContactState>& RequiredContacts();
-    const std::vector<RunRequiredContactState>& RequiredContacts() const;
-    std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
-    const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
-    void ClearRequiredAutomationGates();
-    void UpdateRequiredContacts( Runtime::SceneController& models, float contactEpsilon );
-    bool RequiredContactsComplete() const;
-    void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-                                         int activeCellCount );
-    bool RequiredBroadphaseXCellsComplete() const;
 
   private:
     RunSceneState m_state;
     std::vector<std::string> m_queue;
-    std::vector<RunRequiredContactState> m_requiredContacts;
-    std::vector<RunRequiredBroadphaseXCellsState> m_requiredBroadphaseXCells;
     SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
 };
 } // namespace Runtime

@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   Generated setup is scene lifecycle behavior, not app-shell behavior. It
-  receives explicit borrowed context from Run and fills the existing camera and
-  model subsystems without changing spawn order or RNG consumption.
+  receives one borrowed SceneWorld and fills its camera, entity, physics, and
+  terrain-backed model stores without changing spawn order or RNG consumption.
 
 Glossary:
   Generated scene: Demo scene built from deterministic code rather than a
@@ -21,7 +21,7 @@ Invariants:
   - RNG consumption is part of generated scene determinism.
   - Generated object count and ordering feed replay, physics baselines, and
     camera tracking.
-  - Setup borrows live model/camera/world storage and does not own it.
+  - Setup borrows SceneWorld synchronously and does not retain store references.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneGeneratedSetup.h
@@ -112,24 +112,24 @@ PhysicsBodyCreateDesc MakeGeneratedBodyDesc( Physics::PhysicsSceneObjectId scene
 
 void SceneGeneratedSetup::SetUpCameras( SceneGeneratedCameraContext context )
 {
-    context.cameras.AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
-                               Vector3( 581.0f, 40.0f, 633.0f ),  // View
-                               Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                               CAMERA_GAME_MODEL_1 );
+    context.sceneWorld.Cameras().AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
+                                            Vector3( 581.0f, 40.0f, 633.0f ),  // View
+                                            Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                            CAMERA_SCENE_OBJECT_1 );
 
-    context.cameras.AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
-                               Vector3( 709.0f, 92.0f, 482.0f ),  // View
-                               Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                               CAMERA_GAME_MODEL_2 );
+    context.sceneWorld.Cameras().AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
+                                            Vector3( 709.0f, 92.0f, 482.0f ),  // View
+                                            Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                            CAMERA_SCENE_OBJECT_2 );
 
-    context.cameras.AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
-                               Vector3( 313.0f, 31.0f, 282.0f ),  // View
-                               Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                               CAMERA_FREE );
+    context.sceneWorld.Cameras().AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
+                                            Vector3( 313.0f, 31.0f, 282.0f ),  // View
+                                            Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                            CAMERA_FREE );
 
-    context.cameras.SetCameraXZBounds( context.terrain.GetXZBounds() );
-    context.cameras.SetTerrain( &context.terrain );
-    context.cameras.SetLockedMode( true );
+    context.sceneWorld.Cameras().SetCameraXZBounds( context.sceneWorld.Terrain().Get()->GetXZBounds() );
+    context.sceneWorld.Cameras().SetTerrain( context.sceneWorld.Terrain().Get() );
+    context.sceneWorld.Cameras().SetLockedMode( true );
 }
 
 
@@ -203,21 +203,21 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
             gameModel.sceneObjectId = sceneObjectId;
             const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
             const auto appendResult =
-                context.models.TryCreateSceneEntity( std::move( gameModel ),
-                                                     MakeGeneratedBodyDesc( sceneObjectId,
-                                                                            shape,
-                                                                            Vector3( posX, posY, posZ ),
-                                                                            inertia,
-                                                                            mass,
-                                                                            restitution,
-                                                                            context.terrain ),
-                                                     MakeGeneratedColliderDesc( shape, restitution ) );
+                context.sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
+                                                         MakeGeneratedBodyDesc( sceneObjectId,
+                                                                                shape,
+                                                                                Vector3( posX, posY, posZ ),
+                                                                                inertia,
+                                                                                mass,
+                                                                                restitution,
+                                                                                context.sceneWorld.Terrain().Get() ),
+                                                         MakeGeneratedColliderDesc( shape, restitution ) );
             if ( !appendResult.status.ok )
             {
                 return appendResult.status;
             }
             const PhysicsBodyHandle body = appendResult.body;
-            context.physics.SetPendingBodyImpulse( body, force, forcePos );
+            context.sceneWorld.Physics().SetPendingBodyImpulse( body, force, forcePos );
         }
         else
         {
@@ -232,21 +232,21 @@ SkullbonezCore::Core::SbResult SceneGeneratedSetup::SetUpSceneEntities( SceneGen
             gameModel.sceneObjectId = sceneObjectId;
             const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
             const auto appendResult =
-                context.models.TryCreateSceneEntity( std::move( gameModel ),
-                                                     MakeGeneratedBodyDesc( sceneObjectId,
-                                                                            shape,
-                                                                            Vector3( posX, posY, posZ ),
-                                                                            Vector3( moment, moment, moment ),
-                                                                            mass,
-                                                                            restitution,
-                                                                            context.terrain ),
-                                                     MakeGeneratedColliderDesc( shape, restitution ) );
+                context.sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
+                                                         MakeGeneratedBodyDesc( sceneObjectId,
+                                                                                shape,
+                                                                                Vector3( posX, posY, posZ ),
+                                                                                Vector3( moment, moment, moment ),
+                                                                                mass,
+                                                                                restitution,
+                                                                                context.sceneWorld.Terrain().Get() ),
+                                                         MakeGeneratedColliderDesc( shape, restitution ) );
             if ( !appendResult.status.ok )
             {
                 return appendResult.status;
             }
             const PhysicsBodyHandle body = appendResult.body;
-            context.physics.SetPendingBodyImpulse( body, force, forcePos );
+            context.sceneWorld.Physics().SetPendingBodyImpulse( body, force, forcePos );
         }
     }
     return SkullbonezCore::Core::SbResult::Success();
@@ -309,21 +309,21 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
         gameModel.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( radius, Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult =
-            context.models.TryCreateSceneEntity( std::move( gameModel ),
-                                                 MakeGeneratedBodyDesc( sceneObjectId,
-                                                                        shape,
-                                                                        Vector3( posX, posY, posZ ),
-                                                                        Vector3( moment, moment, moment ),
-                                                                        mass,
-                                                                        restitution,
-                                                                        context.terrain ),
-                                                 MakeGeneratedColliderDesc( shape, restitution ) );
+            context.sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
+                                                     MakeGeneratedBodyDesc( sceneObjectId,
+                                                                            shape,
+                                                                            Vector3( posX, posY, posZ ),
+                                                                            Vector3( moment, moment, moment ),
+                                                                            mass,
+                                                                            restitution,
+                                                                            context.sceneWorld.Terrain().Get() ),
+                                                     MakeGeneratedColliderDesc( shape, restitution ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
         }
         const PhysicsBodyHandle body = appendResult.body;
-        context.physics.SetPendingBodyImpulse( body, force, forcePos );
+        context.sceneWorld.Physics().SetPendingBodyImpulse( body, force, forcePos );
     }
 
     // --- Box pass ---
@@ -360,21 +360,21 @@ SceneGeneratedSetup::SetUpSolverObjects( SceneGeneratedModelContext context, int
         gameModel.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( hx, hy, hz ), Vector3( 0.0f, 0.0f, 0.0f ) );
         const auto appendResult =
-            context.models.TryCreateSceneEntity( std::move( gameModel ),
-                                                 MakeGeneratedBodyDesc( sceneObjectId,
-                                                                        shape,
-                                                                        Vector3( posX, posY, posZ ),
-                                                                        inertia,
-                                                                        mass,
-                                                                        restitution,
-                                                                        context.terrain ),
-                                                 MakeGeneratedColliderDesc( shape, restitution ) );
+            context.sceneWorld.TryCreateSceneEntity( std::move( gameModel ),
+                                                     MakeGeneratedBodyDesc( sceneObjectId,
+                                                                            shape,
+                                                                            Vector3( posX, posY, posZ ),
+                                                                            inertia,
+                                                                            mass,
+                                                                            restitution,
+                                                                            context.sceneWorld.Terrain().Get() ),
+                                                     MakeGeneratedColliderDesc( shape, restitution ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
         }
         const PhysicsBodyHandle body = appendResult.body;
-        context.physics.SetPendingBodyImpulse( body, force, forcePos );
+        context.sceneWorld.Physics().SetPendingBodyImpulse( body, force, forcePos );
     }
 
     context.scene.modelCount = balls + boxes;

@@ -15,7 +15,7 @@ Glossary:
 
 Invariants:
   - The create helper writes scene files but does not perform the actual load.
-  - Context borrows controller/browser state for the duration of the call only.
+  - Context borrows the concrete queue owner for the duration of the call only.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeCreate.cpp
@@ -35,7 +35,6 @@ namespace Runtime
 struct SceneRuntimeCreateContext
 {
     SceneController& controller;
-    RunSceneBrowserState& sceneBrowser;
 };
 
 SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const char* requestedName );

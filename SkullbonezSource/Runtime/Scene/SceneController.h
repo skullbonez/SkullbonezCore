@@ -1,35 +1,26 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.h
 Purpose:
-  Owns scene runtime state, cameras, terrain, world settings, durable entity
-  metadata, physics, and scene requests.
+  Owns scene lifecycle, queue navigation, load transactions, and scene requests.
 
 Summary:
   SceneController owns scene queue, load transactions, frame completion policy,
-  camera slots, replaceable terrain, world settings, physics topology, fixed
-  entity records, browser navigation, and the ordered request batch. The process
-  shell supplies explicit cold-operation owners and sequences returned results.
+  and the ordered request batch. It composes one concrete SceneWorld for the
+  active scene; callers borrow that owner explicitly instead of reaching world
+  domains through lifecycle forwarding methods.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
   Scene queue: Ordered authored scene list, with an empty path selecting the
     generated demo scene.
   Scene request: Deferred load, reset, create, or defaults-save owner intent.
-  Scene entity store: Fixed scene-lifetime join between identity, live body,
-    render material intent, and asset affiliation.
-  World environment: Scene-owned gravity, fluid, and terrain-bound settings
-    borrowed by physics, replay, and rendering.
-  Scene cameras: Fixed camera slots, tween state, and active render pose reset
-    and populated with each scene load.
-  Scene terrain: Replaceable height-map or flat-slope owner published only after
-    construction and any required GPU drain succeed.
+  Scene world: Concrete owner for active-scene entities, physics, cameras,
+    terrain, environment settings, and render presentation.
 
 Invariants:
-  - SceneController owns queue/index bookkeeping, camera/terrain state, world
-    settings, and scene-lifetime physics; consumers receive only borrowed owner
-    references.
+  - SceneController owns queue/index bookkeeping and composes exactly one
+    SceneWorld; it does not mirror SceneWorld APIs.
   - All interactive scene submissions enter its fixed request ring.
-  - Durable display/material/asset metadata lives in its fixed entity store.
   - Empty queue path is the generated demo scene sentinel.
   - Queue index lookups must normalize path separators before matching.
 
@@ -41,19 +32,15 @@ Related:
 #pragma once
 
 #include "SceneControllerState.h"
+#include "SceneAutomationGateConfiguration.h"
 #include "SceneEntityStore.h"
 #include "SceneRequestQueue.h"
 #include "SceneRuntime.h"
 #include "SceneRuntimeCoordinator.h"
-#include "SceneTerrain.h"
-#include "../../Core/MainMemoryStats.h"
+#include "SceneRuntimeUiOptions.h"
+#include "SceneWorld.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
-#include "../../Physics/PhysicsApi.h"
-#include "../../Physics/PhysicsEngine.h"
-#include "../../Rendering/RenderInstanceStore.h"
-#include "../CameraCollection.h"
-#include "../../World/WorldEnvironment.h"
 
 #include <string>
 #include <vector>
@@ -94,7 +81,8 @@ class ContactAudioService;
 namespace UI
 {
 class InGameUI;
-}
+struct SceneNavigationModel;
+} // namespace UI
 namespace Runtime
 {
 class DiagnosticsRuntime;
@@ -103,6 +91,7 @@ class ReplayRuntime;
 class RuntimeInteractionController;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
+struct SceneAutomationGateStatus;
 class RuntimeRenderer;
 class RuntimeTools;
 class SimulationSystem;
@@ -123,6 +112,8 @@ struct SceneFrameAdvanceResult
     bool holdInteractive = false;
     bool quitIfLoadFails = false;
     bool restartSimulationTimerAfterLoad = false;
+    // Value request only; validation retains diagnostic rows and printing.
+    bool reportMissingRequirements = false;
 };
 struct SceneDefaultsSaveView
 {
@@ -131,56 +122,107 @@ struct SceneDefaultsSaveView
     const RunDebugState& debug;
     const RuntimeRenderer& renderer;
     const RunCameraState& camera;
+    const RunSceneUIOverrideState& uiOverrides;
 };
 
-// Concept: scene creation returns the recoverable authoring result together
-// with the physics handle published by the successful cross-store commit.
-struct SceneEntityCreateResult
+// Concept: scene loading borrows four phase-oriented values instead of
+// accepting the process shell's complete owner graph as one flat call. The
+// structs carry 18 concrete owners (6 policy, 3 host, 5 interaction, and 4
+// presentation); navigation crosses as a detached value snapshot. Window, UI,
+// audio, and validation effects return through SceneLoadConsumerOutputs and no
+// participant or output is retained by SceneController.
+struct SceneLoadPolicyInputs
 {
-    SkullbonezCore::Core::SbResult status;
-    Physics::PhysicsBodyHandle body;
+    SkullbonezCore::Core::EngineConfig& config;
+    RunLaunchOptions& launchOptions;
+    const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender;
+    const RunStartupState& startup;
+    Assets::AssetSystem& assets;
+    Threading::WorkerPool& workerPool;
 };
+
+struct SceneLoadHostParticipants
+{
+    RunTimerState& timers;
+    DiagnosticsRuntime& diagnosticsRuntime;
+    SimulationSystem& simulation;
+};
+
+struct SceneLoadInteractionParticipants
+{
+    InputRouter& inputRouter;
+    RuntimeInteractionController& interaction;
+    RunCameraState& camera;
+    AttachedCameraState& attachedCamera;
+    RuntimeTools& runtimeTools;
+    SceneLoadNavigationState navigation;
+};
+
+struct SceneLoadPresentationParticipants
+{
+    ReplayRuntime& replayRuntime;
+    RuntimeOverlayDiagnostics& overlays;
+    const RuntimeRenderBackendView& renderBackendView;
+    RuntimeRenderer& renderer;
+};
+
+struct SceneLoadConsumerOutputs
+{
+    // Value effects are accumulated synchronously and consumed immediately by
+    // the four owners intentionally excluded from the load participant graph.
+    SceneUiActivation uiActivation;
+    SceneAutomationGateConfiguration automationGates;
+    SceneLoadNavigationState navigation;
+    char windowTitle[256] = {};
+    bool hasWindowTitle = false;
+    bool resetContactAudioHistory = false;
+    bool applyAutomationGates = false;
+    bool applyNavigation = false;
+    bool refreshSceneBrowser = false;
+    bool resumeGraphicsStress = false;
+
+    void ResetForLoad();
+};
+
+// Returns the navigation values visible to a later request in the same owner
+// batch. A completed load commits into the output value before the excluded UI
+// owner applies it, so follow-up persistence must not fall back to the stale
+// submitted snapshot.
+inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const SceneLoadNavigationState& submitted,
+                                                                           const SceneLoadConsumerOutputs& outputs )
+{
+    return outputs.applyNavigation ? outputs.navigation : submitted;
+}
+
+// Applies one completed transaction's value effects at the excluded consumer
+// boundaries. Call exactly once after Load/ExecutePending, including failures
+// that progressed past scene clearing and therefore emitted reset effects.
+void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
+                                    Window& window,
+                                    UI::InGameUI& operatorUi,
+                                    Audio::ContactAudioService& contactAudio,
+                                    RuntimeValidationHarness& validationHarness,
+                                    const RunLaunchOptions& launchOptions );
 
 class SceneController
 {
-#include "SceneController.Objects.inl"
-
   public:
     SceneController();
     explicit SceneController( std::vector<std::string> queue );
 
     RunSceneState& State();
     const RunSceneState& State() const;
-    // Concept: Browser and UI override state are scene-owned policy inputs; Run
-    // borrows them through this controller instead of storing parallel fields.
-    RunSceneBrowserState& Browser();
-    const RunSceneBrowserState& Browser() const;
-    RunSceneUIOverrideState& UIOverrides();
-    const RunSceneUIOverrideState& UIOverrides() const;
-    SceneEntityStore& Entities();
-    const SceneEntityStore& Entities() const;
-    Environment::CameraCollection& Cameras();
-    const Environment::CameraCollection& Cameras() const;
-    Environment::WorldEnvironment& World();
-    const Environment::WorldEnvironment& World() const;
-    SceneTerrain& Terrain();
-    const SceneTerrain& Terrain() const;
-    Physics::PhysicsEngine& Physics();
-    const Physics::PhysicsEngine& Physics() const;
-    // Executes one deterministic live-scene physics step against the
-    // controller-owned model and physics stores. Replay restore may call this
-    // same boundary so its hash proof cannot drift from ordinary frame steps.
-    void StepPhysics( float fixedDt,
-                      const SkullbonezCore::Core::EngineConfig& config,
-                      const Physics::PhysicsWorldForces& worldForces,
-                      Threading::WorkerPool& workerPool );
-    void ApplyWaterHeightControl( bool pageDown, bool pageUp, float dt );
+    // Borrow the concrete active-scene owner. SceneController deliberately has
+    // no duplicate entity/physics/camera/terrain/render forwarding surface.
+    SceneWorld& Scene();
+    const SceneWorld& Scene() const;
     void EnterInteractiveRun();
     bool CanAutomationQuit() const;
     void MarkInteractiveRunComplete();
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
-    SceneFrameAdvanceResult AdvanceFrame( bool proceedAllowed,
+    SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates,
+                                          bool proceedAllowed,
                                           bool perfTestActive,
                                           bool screenshotSaved,
                                           bool manualCameraActive,
@@ -203,68 +245,25 @@ class SceneController
     int Append( std::string path );
     bool CurrentQueueIsCinematicDeck() const;
     int AdjacentQueueIndex( int direction ) const;
-    // Scene navigation policy stays with the queue/browser owner. Returned
-    // requests are value-only and retain no caller callback or context.
-    SceneLoadRequest LoadSceneFromBrowserIndex( int index );
-    SceneLoadRequest LoadDemoSceneFromUI();
-    int AdjacentCinematicModeBrowserIndex( int direction,
-                                           int selectedCineModeSceneIndex,
-                                           int currentSceneBrowserIndex,
-                                           bool isCinematicTabActive ) const;
-    SceneLoadRequest LoadAdjacentSceneFromBrowser( int direction, int currentSceneBrowserIndex );
     SceneLoadRequest ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState );
     SceneLoadRequest AdvanceScene( bool perfTestActive, bool preserveInteractiveUI );
     int PerfPass() const;
-    // Lifetime: cold load orchestration borrows each concrete owner only for
-    // this call. The explicit list is intentional: no Run backpointer or broad
-    // mutable context is retained behind the scene boundary.
+    // Lifetime: cold load orchestration borrows each phase value only for this
+    // call. No Run backpointer or complete mutable context is retained behind
+    // the scene boundary.
     SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
-                                         SkullbonezCore::Core::EngineConfig& m_config,
-                                         RunLaunchOptions& m_launchOptions,
-                                         const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
-                                         const RunStartupState& m_startup,
-                                         DiagnosticsRuntime& m_diagnosticsRuntime,
-                                         RunTimerState& m_timers,
-                                         Assets::AssetSystem& assets,
-                                         Threading::WorkerPool& workerPool,
-                                         Window& window,
-                                         InputRouter& m_inputRouter,
-                                         RuntimeInteractionController& m_interaction,
-                                         RunCameraState& m_camera,
-                                         AttachedCameraState& m_attachedCamera,
-                                         SimulationSystem& m_simulation,
-                                         ReplayRuntime& m_replayRuntime,
-                                         Runtime::Audio::ContactAudioService& m_contactAudio,
-                                         UI::InGameUI& operatorUi,
-                                         RuntimeOverlayDiagnostics& overlays,
-                                         RuntimeValidationHarness& validationHarness,
-                                         RuntimeTools& m_runtimeTools,
-                                         const RuntimeRenderBackendView& m_renderBackendView,
-                                         RuntimeRenderer& m_renderer );
+                                         const SceneLoadPolicyInputs& policy,
+                                         const SceneLoadHostParticipants& host,
+                                         const SceneLoadInteractionParticipants& interaction,
+                                         const SceneLoadPresentationParticipants& presentation,
+                                         SceneLoadConsumerOutputs& consumerOutputs );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
-    bool ExecutePending( SkullbonezCore::Core::EngineConfig& m_config,
-                         RunLaunchOptions& m_launchOptions,
-                         const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
-                         const RunStartupState& m_startup,
-                         DiagnosticsRuntime& m_diagnosticsRuntime,
-                         RunTimerState& m_timers,
-                         Assets::AssetSystem& assets,
-                         Threading::WorkerPool& workerPool,
-                         Window& window,
-                         InputRouter& m_inputRouter,
-                         RuntimeInteractionController& m_interaction,
-                         RunCameraState& m_camera,
-                         AttachedCameraState& attachedCamera,
-                         SimulationSystem& m_simulation,
-                         ReplayRuntime& m_replayRuntime,
-                         Runtime::Audio::ContactAudioService& m_contactAudio,
-                         UI::InGameUI& operatorUi,
-                         RuntimeOverlayDiagnostics& overlays,
-                         RuntimeValidationHarness& validationHarness,
-                         RuntimeTools& m_runtimeTools,
-                         const RuntimeRenderBackendView& m_renderBackendView,
-                         RuntimeRenderer& m_renderer );
+    bool ExecutePending( const SceneLoadPolicyInputs& policy,
+                         const SceneLoadHostParticipants& host,
+                         const SceneLoadInteractionParticipants& interaction,
+                         const SceneLoadPresentationParticipants& presentation,
+                         SceneLoadConsumerOutputs& consumerOutputs );
     SkullbonezCore::Core::SbResult SaveCurrentDefaults( const SceneDefaultsSaveView& view ) const;
 
     // Scene request submission stays owner-specific even while Run temporarily
@@ -278,38 +277,15 @@ class SceneController
     void SubmitSaveCurrentDefaults();
     SceneRequestBatch TakePendingRequests();
     std::size_t PendingRequestCount() const;
-    // Cold replay restore shrinks every scene-lifetime row owner as one
-    // transaction; ReplayRuntime never writes topology through model facades.
-    bool TrimForReplayRestore( int bodyCount );
-
-    std::vector<RunRequiredContactState>& RequiredContacts();
-    const std::vector<RunRequiredContactState>& RequiredContacts() const;
-    std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells();
-    const std::vector<RunRequiredBroadphaseXCellsState>& RequiredBroadphaseXCells() const;
-    void ClearRequiredAutomationGates();
-    void UpdateRequiredContacts( float contactEpsilon );
-    bool RequiredContactsComplete() const;
-    void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
-                                         int activeCellCount );
-    bool RequiredBroadphaseXCellsComplete() const;
-
     SceneRuntime& Runtime();
     const SceneRuntime& Runtime() const;
 
   private:
-    SceneRuntime m_runtime;                  // Scene queue and active scene-run state
-    SceneRequestQueue m_requests;            // Fixed scene-only deferred intent ring.
-    RunSceneBrowserState m_browser;          // Discovered scene paths and live cine/concept selection.
-    RunSceneUIOverrideState m_uiOverrides;   // Live Scene-tab overrides preserved across reset when requested.
-    int m_perfPass = 0;                      // Scene navigation pass index for two-pass performance captures.
-    bool m_crossScenePauseLocked = false;    // Operator scene-flow lock preserved across load transactions.
-    SceneEntityStore m_entities;             // Fixed scene-lifetime identity and durable presentation metadata.
-    Environment::CameraCollection m_cameras; // Fixed scene camera slots and active camera presentation state.
-    Environment::WorldEnvironment m_world;   // Gravity, fluid, and terrain bounds for the active scene.
-    SceneTerrain m_terrain;                  // Replaceable terrain and its matching scene-shape classification.
-    // Lifetime: physics topology is born and cleared with the active scene.
-    // Presentation owners borrow this engine; they never own or replace it.
-    Physics::PhysicsEngine m_physics;
+    SceneRuntime m_runtime;               // Scene queue and active scene-run state
+    SceneRequestQueue m_requests;         // Fixed scene-only deferred intent ring.
+    int m_perfPass = 0;                   // Scene navigation pass index for two-pass performance captures.
+    bool m_crossScenePauseLocked = false; // Operator scene-flow lock preserved across load transactions.
+    SceneWorld m_world;                   // Concrete active-scene domain owner; no lifecycle reach-back.
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

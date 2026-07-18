@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayPresentation.h
 Purpose:
   Owns replay path, camera, overlay, render-pose, and published visual state.
 
-Mental model:
+Summary:
   ReplayPresentation is the mutable authority for everything replay renders.
   ReplayRuntime sequences the owner but does not retain parallel visual state.
 
@@ -44,6 +44,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+} // namespace Core
 namespace Physics
 {
 class ColliderStore;
@@ -356,7 +360,7 @@ struct ReplayPresentationMemoryStats
 class ReplayPresentation
 {
   public:
-    ReplayPresentation();
+    explicit ReplayPresentation( Core::Profiler* profiler = nullptr );
 
     RunReplayCameraState CameraView() const noexcept;
     const RunReplayPathVisualizerState& PathVisualizer() const noexcept
@@ -466,6 +470,8 @@ class ReplayPresentation
                                   RunEditorTracer& tracer );
 
   private:
+    // Lifetime: startup-bound diagnostics borrow; never retained beyond Run.
+    Core::Profiler* m_profiler;
     RunReplayCameraState m_camera;
     RunReplayPathVisualizerState m_pathVisualizer;
     SkullbonezCore::Core::MainMemoryReplayTrajectoryStats m_trajectoryVisualStats;
@@ -477,7 +483,7 @@ class ReplayPresentation
     ReplayLauncherVisualSample m_launcherVisualCaptureScratch;
     // Invariant: replay render pose matching is a per-frame mark table capped
     // by the live model budget, so scrub/prediction rendering never allocates.
-    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> m_renderPoseBodyMatched = {};
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> m_renderPoseBodyMatched = {};
     bool m_launcherVisualBackupActive = false;
 };
 

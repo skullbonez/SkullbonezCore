@@ -104,6 +104,7 @@ void ApplyForcesForSolverBody( Physics::PhysicsBodyStore& bodyStore,
 }
 
 void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
+                                   SkullbonezCore::Core::Profiler* profiler,
                                    const Physics::ColliderStore& colliderStore,
                                    const Physics::PhysicsBodyHotFieldsConstView& hotFields,
                                    std::span<const uint8_t> sleepState,
@@ -116,7 +117,7 @@ void IntegrateRemainingSolverBody( Physics::PhysicsBodyStore& bodyStore,
     }
     if ( timeRemaining[bodyIndex] > 0.0f )
     {
-        (void)bodyStore.IntegrateBodyPose( colliderStore, bodyIndex, timeRemaining[bodyIndex] );
+        (void)bodyStore.IntegrateBodyPose( profiler, colliderStore, bodyIndex, timeRemaining[bodyIndex] );
     }
 }
 } // namespace
@@ -140,12 +141,12 @@ void ApplyForcesStageContext::operator()( int bodyIndex ) const
 
 void IntegrateRemainingStageContext::operator()( int bodyIndex ) const
 {
-    IntegrateRemainingSolverBody( bodyStore, colliderStore, hotFields, sleepState, timeRemaining, bodyIndex );
+    IntegrateRemainingSolverBody( bodyStore, profiler, colliderStore, hotFields, sleepState, timeRemaining, bodyIndex );
 }
 
 PhysicsForceStage::PhysicsForceStage()
 {
-    m_mutualGravityForces.reserve( Scene::Capacity::MAX_GAME_MODELS );
+    m_mutualGravityForces.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void PhysicsForceStage::Clear()
@@ -161,7 +162,8 @@ void PhysicsForceStage::ReserveBodyScratchCapacity( std::size_t capacity )
     m_mutualGravityPairForces.reserve( MutualGravityPairCount( pairBodyCapacity ) );
 }
 
-const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
+const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* profiler,
+                                                              std::span<const PhysicsBodyRecord> bodyRecords,
                                                               const PhysicsBodyHotFieldsConstView& hotFields,
                                                               std::span<const uint8_t> sleepState,
                                                               int modelCount,
@@ -282,7 +284,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
     // writes one unique flat slot and cannot race with another chunk.
     const auto buildPairForces = [&]( int, int rowBegin, int rowEnd )
     {
-        PROFILE_WORKER_SCOPED( "Frame/Physics/MutualGravity/PairBuildWorker" );
+        PROFILE_WORKER_SCOPED( profiler, "Frame/Physics/MutualGravity/PairBuildWorker" );
         for ( int i = rowBegin; i < rowEnd; ++i )
         {
             const PhysicsBodyRecord& bodyA = bodyRecords[static_cast<std::size_t>( i )];
@@ -330,7 +332,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
 
     const bool runParallel = execution.parallel && execution.parallelMutualGravity &&
                              modelCount >= MUTUAL_GRAVITY_PARALLEL_MIN_BODIES && workerPool.GetThreadCount() > 0;
-    PROFILE_BEGIN( "Frame/Physics/MutualGravity/PairBuild" );
+    PROFILE_BEGIN( profiler, "Frame/Physics/MutualGravity/PairBuild" );
     if ( runParallel )
     {
         workerPool.ParallelForChunksNoAlloc( chunks, chunkCount, buildPairForces );
@@ -343,7 +345,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( std::span<const Ph
             buildPairForces( chunk.chunkIndex, chunk.begin, chunk.end );
         }
     }
-    PROFILE_END( "Frame/Physics/MutualGravity/PairBuild" );
+    PROFILE_END( profiler, "Frame/Physics/MutualGravity/PairBuild" );
 
     // Invariant: replay the original triangular pair order exactly. Chunk
     // partial-body reduction would regroup additions and change float bits;
@@ -395,7 +397,7 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
                                      Threading::WorkerPool& workerPool,
                                      const Core::PhysicsExecutionConfig& execution ) const
 {
-    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
+    PROFILE_BEGIN( context.profiler, "Frame/Physics/ApplyForces" );
     if ( execution.parallel && execution.parallelApplyForces )
     {
         workerPool.ParallelForNoAlloc( 0,
@@ -412,7 +414,7 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
             context( x );
         }
     }
-    PROFILE_END( "Frame/Physics/ApplyForces" );
+    PROFILE_END( context.profiler, "Frame/Physics/ApplyForces" );
 }
 
 void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext& context,

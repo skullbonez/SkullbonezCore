@@ -28,6 +28,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "CaptureSystem.h"
+#include "../Core/ByteView.h"
 #include "CaptureController.h"
 
 #include "../Rendering/IRenderCaptureBackend.h"
@@ -57,18 +58,18 @@ struct FileCloser
 
 using FileHandle = std::unique_ptr<FILE, FileCloser>;
 
-SkullbonezCore::Core::SbResult WriteExact( FILE* file, const void* data, size_t size, const char* path )
+SkullbonezCore::Core::SbResult WriteExact( FILE* file, SkullbonezCore::Core::ByteView bytes, const char* path )
 {
     // Invariant: validation screenshots are binary artifacts; a short write is
     // a failed capture, not a partial success that downstream comparisons can
     // safely inspect.
-    if ( size == 0 )
+    if ( bytes.empty() )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    const size_t written = fwrite( data, 1, size, file );
-    if ( written != size )
+    const size_t written = fwrite( bytes.data(), 1, bytes.size(), file );
+    if ( written != bytes.size() )
     {
         return SkullbonezCore::Core::SbResult::Failure(
             "Runtime/CaptureSystem",
@@ -182,17 +183,17 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRen
     }
     FileHandle file( rawFile );
 
-    SkullbonezCore::Core::SbResult writeResult = WriteExact( file.get(), fileHeader, sizeof( fileHeader ), path );
+    SkullbonezCore::Core::SbResult writeResult = WriteExact( file.get(), fileHeader, path );
     if ( !writeResult.ok )
     {
         return writeResult;
     }
-    writeResult = WriteExact( file.get(), infoHeader, sizeof( infoHeader ), path );
+    writeResult = WriteExact( file.get(), infoHeader, path );
     if ( !writeResult.ok )
     {
         return writeResult;
     }
-    writeResult = WriteExact( file.get(), pixels.data(), static_cast<size_t>( imageSize ), path );
+    writeResult = WriteExact( file.get(), { pixels.data(), static_cast<size_t>( imageSize ) }, path );
     if ( !writeResult.ok )
     {
         return writeResult;

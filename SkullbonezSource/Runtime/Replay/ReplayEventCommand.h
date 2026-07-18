@@ -116,7 +116,7 @@ ReplayEventCommand BuildGeneratedSceneConfig( uint32_t flags,
                                               int solverBallCount,
                                               int solverBoxCount,
                                               uint32_t rngSeed,
-                                              int gameModelCapacity,
+                                              int sceneObjectCapacity,
                                               uint32_t generatedObjectTypeOverride );
 ReplayEventCommand BuildWorldOverride( float previousGravity,
                                        float previousFluidHeight,

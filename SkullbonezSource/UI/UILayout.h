@@ -110,7 +110,7 @@ UIRect MinimizedRect( int screenW, int screenH, float requestedW );
 float MinimizedWidthForTitle( const char* title, int screenW );
 float GravityStrengthFromWorld( float gravity );
 float WorldGravityFromStrength( float strength );
-int RemainingGameModelSlots( int modelCapacity, int otherCount );
+int RemainingSceneObjectSlots( int modelCapacity, int otherCount );
 
 UIRect FooterRendererComboBounds( float x, float bottomY );
 UIRect FooterWaterComboBounds( float x, float bottomY );

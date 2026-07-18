@@ -30,7 +30,7 @@ Invariants:
     untouched.
 
 Related:
-  - SkullbonezSource/Runtime/RunUiTextPass.cpp
+  - SkullbonezSource/Runtime/UiTextPass.cpp
 */
 #pragma once
 
@@ -46,7 +46,8 @@ class PhysicsEngine;
 namespace Runtime
 {
 class CaptureController;
-class SceneController;
+class SceneWorld;
+struct RunSceneState;
 
 constexpr int RUNTIME_CONTACT_AUDIO_SET_MAX = 16;
 constexpr int RUNTIME_CONTACT_AUDIO_SAMPLE_MAX = 64;
@@ -102,9 +103,10 @@ struct RuntimeViewModelContext
 {
     // Lifetime: Run builds this from owners that outlive the frame-local view
     // model rebuild. The builder copies values and never stores these borrows.
-    const SceneController& scene;
+    const RunSceneState& scene;
+    const SceneWorld& world;
+    int sceneCount = 0;
     const CaptureController& capture;
-    const Physics::PhysicsEngine& physics;
     bool presentationInterpolation = true;
     bool presentationPinned = false;
     float presentationAlpha = 1.0f;

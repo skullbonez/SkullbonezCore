@@ -41,8 +41,8 @@
 #include <cmath>
 
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
 using SkullbonezCore::Physics::BroadphaseCandidateAppendHasCapacity;
+using SkullbonezCore::Physics::BroadphaseCandidateCanTouch;
 using SkullbonezCore::Physics::BroadphaseCandidateFilterContext;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderRecordList;
@@ -51,6 +51,7 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsForceStage;
 using SkullbonezCore::Physics::PhysicsWorldForces;
+using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerPool;
 
 namespace
@@ -81,7 +82,7 @@ TEST_CASE( "Broadphase candidate append capacity rejects equality before vector 
 
 PhysicsBodyStore& TestBodyStore()
 {
-    // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS slots. Static storage matches
+    // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS slots. Static storage matches
     // runtime ownership and avoids consuming the doctest thread stack.
     static PhysicsBodyStore store;
     store.Clear();
@@ -182,12 +183,18 @@ TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and mass
     worldForces.mutualGravity.softeningLength = 0.1f;
     SkullbonezCore::Core::PhysicsExecutionConfig execution;
     execution.parallel = false;
-    WorkerPool inlinePool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool inlinePool( lockOrderValidator );
     PhysicsForceStage stage;
     stage.ReserveBodyScratchCapacity( 4u );
 
-    const Vector3* forces = stage.PrepareMutualGravityForces(
-        bodyStore.Records(), bodyStore.HotFields(), sleepState, 4, worldForces, execution, inlinePool );
+    const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(),
+                                                              bodyStore.HotFields(),
+                                                              sleepState,
+                                                              4,
+                                                              worldForces,
+                                                              execution,
+                                                              inlinePool );
 
     REQUIRE( forces != nullptr );
     CHECK( forces[0].x > 0.0f );
@@ -207,7 +214,8 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
     stage.ReserveBodyScratchCapacity( 2u );
     SkullbonezCore::Core::PhysicsExecutionConfig execution;
     execution.parallel = false;
-    WorkerPool inlinePool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool inlinePool( lockOrderValidator );
     const std::array<uint8_t, 2> sleepState = { 0u, 0u };
 
     // Invariant: the pair table computes one force and applies its exact
@@ -218,15 +226,14 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
         PhysicsBodyCreateRecord left;
         left.cold.mass = random.Float( 0.25f, 20.0f );
         left.hot.inverseMass = 1.0f / left.cold.mass;
-        left.hot.position = Vector3( random.Float( -20.0f, 20.0f ),
-                                     random.Float( -20.0f, 20.0f ),
-                                     random.Float( -20.0f, 20.0f ) );
+        left.hot.position =
+            Vector3( random.Float( -20.0f, 20.0f ), random.Float( -20.0f, 20.0f ), random.Float( -20.0f, 20.0f ) );
         PhysicsBodyCreateRecord right;
         right.cold.mass = random.Float( 0.25f, 20.0f );
         right.hot.inverseMass = 1.0f / right.cold.mass;
-        right.hot.position = left.hot.position + Vector3( random.Float( 0.5f, 12.0f ),
-                                                           random.Float( 0.5f, 12.0f ),
-                                                           random.Float( 0.5f, 12.0f ) );
+        right.hot.position =
+            left.hot.position +
+            Vector3( random.Float( 0.5f, 12.0f ), random.Float( 0.5f, 12.0f ), random.Float( 0.5f, 12.0f ) );
         (void)bodyStore.CreateBodyRecord( left );
         (void)bodyStore.CreateBodyRecord( right );
         PhysicsWorldForces worldForces;
@@ -234,8 +241,13 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
         worldForces.mutualGravity.gravitationalConstant = random.Float( 0.01f, 50.0f );
         worldForces.mutualGravity.softeningLength = random.Float( 0.0f, 2.0f );
 
-        const Vector3* forces = stage.PrepareMutualGravityForces(
-            bodyStore.Records(), bodyStore.HotFields(), sleepState, 2, worldForces, execution, inlinePool );
+        const Vector3* forces = stage.PrepareMutualGravityForces( bodyStore.Records(),
+                                                                  bodyStore.HotFields(),
+                                                                  sleepState,
+                                                                  2,
+                                                                  worldForces,
+                                                                  execution,
+                                                                  inlinePool );
 
         REQUIRE( forces != nullptr );
         CHECK( forces[0].x == -forces[1].x );

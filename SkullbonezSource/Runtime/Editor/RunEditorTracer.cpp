@@ -46,6 +46,7 @@ Related:
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/Config.h"
+#include "../../Core/ByteView.h"
 #include "../../Rendering/IRenderCommandContext.h"
 
 #include <algorithm>
@@ -91,12 +92,11 @@ constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603ull;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_PRIME = 1099511628211ull;
 
-void HashReplaySubmissionBytes( uint64_t& hash, const void* data, std::size_t byteCount )
+void HashReplaySubmissionBytes( uint64_t& hash, SkullbonezCore::Core::ByteView bytes )
 {
-    const uint8_t* bytes = static_cast<const uint8_t*>( data );
-    for ( std::size_t i = 0; i < byteCount; ++i )
+    for ( uint8_t byte : bytes )
     {
-        hash ^= static_cast<uint64_t>( bytes[i] );
+        hash ^= static_cast<uint64_t>( byte );
         hash *= REPLAY_TRAJECTORY_SUBMISSION_FNV_PRIME;
     }
 }
@@ -105,11 +105,11 @@ void HashReplaySubmissionFloatStream( const std::vector<float>& values, uint64_t
 {
     outHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
     const uint64_t floatCount = static_cast<uint64_t>( values.size() );
-    HashReplaySubmissionBytes( outHash, &floatCount, sizeof( floatCount ) );
+    HashReplaySubmissionBytes( outHash, SkullbonezCore::Core::ObjectBytes( floatCount ) );
     outBytes = floatCount * sizeof( float );
     if ( !values.empty() )
     {
-        HashReplaySubmissionBytes( outHash, values.data(), static_cast<std::size_t>( outBytes ) );
+        HashReplaySubmissionBytes( outHash, SkullbonezCore::Core::ObjectBytes( std::span<const float>( values ) ) );
     }
 }
 
@@ -121,7 +121,9 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
     for ( std::size_t index = 0; index + floatsPerRecord <= values.size(); index += floatsPerRecord )
     {
         uint64_t recordHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
-        HashReplaySubmissionBytes( recordHash, values.data() + index, floatsPerRecord * sizeof( float ) );
+        HashReplaySubmissionBytes(
+            recordHash,
+            SkullbonezCore::Core::ObjectBytes( std::span<const float>( values ).subspan( index, floatsPerRecord ) ) );
         sum += recordHash;
         // A second commutative moment prevents permutations from mattering
         // while duplicate records and individual-bit mutations remain visible.
@@ -134,9 +136,9 @@ uint64_t HashReplaySubmissionCanonicalRecords( const std::vector<float>& values,
         ++recordCount;
     }
     uint64_t hash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
-    HashReplaySubmissionBytes( hash, &recordCount, sizeof( recordCount ) );
-    HashReplaySubmissionBytes( hash, &sum, sizeof( sum ) );
-    HashReplaySubmissionBytes( hash, &mixedSum, sizeof( mixedSum ) );
+    HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( recordCount ) );
+    HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( sum ) );
+    HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( mixedSum ) );
     return hash;
 }
 
@@ -811,20 +813,23 @@ void RunEditorTracer::BuildReplayRibbonVertices( const Vector3& cameraEye, const
         const std::size_t byteCount = m_replayRibbonVertexData.size() * sizeof( float );
         uint64_t hash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
         const uint64_t floatCount = static_cast<uint64_t>( m_replayRibbonVertexData.size() );
-        HashReplaySubmissionBytes( hash, &floatCount, sizeof( floatCount ) );
-        HashReplaySubmissionBytes( hash, m_replayRibbonVertexData.data(), byteCount );
+        HashReplaySubmissionBytes( hash, SkullbonezCore::Core::ObjectBytes( floatCount ) );
+        HashReplaySubmissionBytes(
+            hash,
+            SkullbonezCore::Core::ObjectBytes( std::span<const float>( m_replayRibbonVertexData ) ) );
         m_replaySubmissionStats.vertexHash = hash;
         m_replaySubmissionStats.ordinaryVertexBytes = ordinaryVertexFloatCount * sizeof( float );
         m_replaySubmissionStats.ordinaryVertexCount =
             static_cast<uint32_t>( ordinaryVertexFloatCount / RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX );
         uint64_t ordinaryHash = REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET;
         const uint64_t ordinaryFloatCount = static_cast<uint64_t>( ordinaryVertexFloatCount );
-        HashReplaySubmissionBytes( ordinaryHash, &ordinaryFloatCount, sizeof( ordinaryFloatCount ) );
+        HashReplaySubmissionBytes( ordinaryHash, SkullbonezCore::Core::ObjectBytes( ordinaryFloatCount ) );
         if ( ordinaryVertexFloatCount > 0u )
         {
-            HashReplaySubmissionBytes( ordinaryHash,
-                                       m_replayRibbonVertexData.data(),
-                                       ordinaryVertexFloatCount * sizeof( float ) );
+            HashReplaySubmissionBytes(
+                ordinaryHash,
+                SkullbonezCore::Core::ObjectBytes(
+                    std::span<const float>( m_replayRibbonVertexData ).first( ordinaryVertexFloatCount ) ) );
         }
         m_replaySubmissionStats.ordinaryVertexHash = ordinaryHash;
         m_replaySubmissionStats.vertexBytes = static_cast<uint64_t>( byteCount );

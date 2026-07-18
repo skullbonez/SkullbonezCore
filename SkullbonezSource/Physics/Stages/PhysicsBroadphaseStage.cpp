@@ -50,7 +50,7 @@ constexpr float PHYSICS_FAST_SWEEP_MIN_DISTANCE = 1.0f;
 constexpr float PHYSICS_FAST_SWEEP_PAIR_SLOP = 1.0f;
 constexpr float BROADPHASE_MIN_CELL_SIZE = 0.5f;
 constexpr float DEFAULT_BROADPHASE_CELL = 24.0f;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 
 bool IsSolverBodyFixed( const Physics::PhysicsBodyHotFieldsConstView& hotFields, int bodyIndex )
 {
@@ -320,7 +320,7 @@ void PhysicsBroadphaseStage::ResetTransientAfterReplayRestore()
 
 std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsBroadphaseStageContext& context )
 {
-    PROFILE_BEGIN( "Frame/Physics/Broadphase" );
+    PROFILE_BEGIN( context.profiler, "Frame/Physics/Broadphase" );
     BroadphaseCandidateFilterContext broadphaseCandidateFilterContext{
         context.bodyRecords,
         context.hotFields,
@@ -333,7 +333,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         // Invariant: Broadphase is the inclusive owner marker. Every direct
         // child below is mutually exclusive so reports can sum children once
         // without adding a nested interval a second time.
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridSetup" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/GridSetup" );
         float largestBroadphaseRadius = 0.0f;
         for ( int i = 0; i < context.modelCount; ++i )
         {
@@ -354,7 +354,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         m_collisionCellKeys.clear();
     }
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/GridInsert" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/GridInsert" );
         for ( int i = 0; i < context.modelCount; ++i )
         {
             const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;
@@ -372,12 +372,12 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
     }
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/CandidatePairs" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/CandidatePairs" );
         m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
     }
 
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/FastSmallSweepAugment" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/FastSmallSweepAugment" );
         for ( int movingIndex = 0; movingIndex < context.modelCount; ++movingIndex )
         {
             if ( !IsFastSmallSweepBody( context.hotFields, context.colliderRecords, movingIndex, context.dt ) )
@@ -408,7 +408,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     }
 
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneFixedPairs" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/PruneFixedPairs" );
         m_candidatePairs.erase(
             std::remove_if( m_candidatePairs.begin(),
                             m_candidatePairs.end(),
@@ -418,7 +418,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
     if ( !context.pointJointConstraints.empty() )
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneJointPairs" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/PruneJointPairs" );
         m_candidatePairs.erase(
             std::remove_if( m_candidatePairs.begin(),
                             m_candidatePairs.end(),
@@ -427,7 +427,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     }
 
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/RecordCandidates" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/RecordCandidates" );
         for ( const auto& pair : m_candidatePairs )
         {
             if ( context.physicsPipelineTrace.size() >= MAX_PIPELINE_TRACE_RECORDS )
@@ -457,7 +457,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         }
     }
     {
-        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneSleepPairs" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/PruneSleepPairs" );
         m_candidatePairs.erase( std::remove_if( m_candidatePairs.begin(),
                                                 m_candidatePairs.end(),
                                                 SleepPrunedCandidatePairPredicate{ context.sleepState,
@@ -465,7 +465,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                                                                    context.physicsPipelineTrace } ),
                                 m_candidatePairs.end() );
     }
-    PROFILE_END( "Frame/Physics/Broadphase" );
+    PROFILE_END( context.profiler, "Frame/Physics/Broadphase" );
     return m_candidatePairs;
 }
 

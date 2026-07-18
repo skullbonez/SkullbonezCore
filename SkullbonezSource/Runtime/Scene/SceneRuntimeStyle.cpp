@@ -29,9 +29,9 @@ Related:
 #include "SceneRuntimeStyle.h"
 #include "../WindowConstants.h"
 #include "../RunDebugState.h"
-#include "SceneController.h"
+#include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
-#include "../../Scene/TestScene.h"
+#include "../../Scene/AuthoredScene.h"
 
 #include <cstdio>
 #include <cstring>
@@ -148,11 +148,12 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
     return strcmp( material.target, displayName ) == 0;
 }
 
-void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& models )
+void ResetObjectMaterials( SceneWorld& world )
 {
-    for ( int modelIndex = 0; modelIndex < models.SceneEntityCount(); ++modelIndex )
+    SceneEntityStore& entities = world.Entities();
+    for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
     {
-        if ( !models.IsSimpleRagdollPart( modelIndex ) )
+        if ( !entities.IsSimpleRagdollPart( modelIndex ) )
         {
             entities.MutableAt( modelIndex ).renderMaterial =
                 Rendering::MakeRenderMaterialFromLegacyTint( 1.0f, 1.0f, 1.0f, 0.0f );
@@ -160,21 +161,22 @@ void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& mo
     }
 }
 
-void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, const TestScene& styleScene )
+void ApplyObjectMaterials( SceneWorld& world, const AuthoredScene& styleScene )
 {
-    ResetObjectMaterials( entities, models );
-    const auto colliders = models.Colliders().Records();
+    SceneEntityStore& entities = world.Entities();
+    ResetObjectMaterials( world );
+    const auto colliders = world.Colliders().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
-        for ( int modelIndex = 0; modelIndex < models.SceneEntityCount(); ++modelIndex )
+        for ( int modelIndex = 0; modelIndex < world.SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
                                                     : ColliderShapeKind::Sphere;
             if ( SceneMaterialTargetMatches( material,
                                              entities.At( modelIndex ).displayName,
-                                             models.IsSimpleRagdollPart( modelIndex ),
+                                             entities.IsSimpleRagdollPart( modelIndex ),
                                              shapeKind ) )
             {
                 entities.MutableAt( modelIndex ).renderMaterial = material.material;
@@ -300,7 +302,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
             context.scene.cinematicOverrideMask = 0;
             context.scene.uiCinematicOverrideMask = 0;
         }
-        ResetObjectMaterials( context.entities, context.models );
+        ResetObjectMaterials( context.world );
         context.sceneBrowser.selectedCineModeSceneIndex = -1;
         return true;
     }
@@ -311,9 +313,9 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
         return false;
     }
 
-    TestScene lookScene;
+    AuthoredScene lookScene;
     const SkullbonezCore::Core::SbResult loadResult =
-        TestScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
+        AuthoredScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
     if ( !loadResult.ok )
     {
         LogStyleSceneLoadFailure( loadResult, context.sceneBrowser.paths[index].c_str() );
@@ -334,16 +336,16 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
         context.scene.cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
         context.scene.uiCinematicOverrideMask = 0;
     }
-    ApplyObjectMaterials( context.entities, context.models, lookScene );
+    ApplyObjectMaterials( context.world, lookScene );
     context.sceneBrowser.selectedCineModeSceneIndex = index;
     return true;
 }
 
 
-void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene )
+void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene )
 {
     context.launchOptions.hasCinematicRenderingOverride = false;
-    ApplyObjectMaterials( context.entities, context.models, styleScene );
+    ApplyObjectMaterials( context.world, styleScene );
 
     context.activeCinematic = context.defaultCinematic;
     ApplyCinematicSceneOverrides( context.activeCinematic,
@@ -372,9 +374,9 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
     }
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
-    TestScene styleScene;
+    AuthoredScene styleScene;
     const SkullbonezCore::Core::SbResult loadResult =
-        TestScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets, styleScene );
+        AuthoredScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets, styleScene );
     if ( !loadResult.ok )
     {
         LogStyleSceneLoadFailure( loadResult, stylePath.c_str() );

@@ -4,10 +4,9 @@ Purpose:
   Declares off-screen framebuffer resources and descriptor views for the DX12 renderer.
 
 Summary:
-  FramebufferDX12.h declares off-screen framebuffer resources and descriptor
-  views for the DX12 renderer. As a public header, keep edits anchored on DX12
-  ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  FramebufferDX12.h declares off-screen framebuffer resources and their views.
+  It borrows one Dx12DescriptorHeaps owner for RTV, DSV, and SRV rows so the
+  framebuffer cannot retain allocator aliases with independent lifetimes.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -23,8 +22,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
     must stay explicit.
-  - Descriptor, texture, pipeline, recording, retirement, and device references
-    outlive every framebuffer created for that device epoch.
+  - The descriptor owner, texture, pipeline, recording, retirement, and device
+    references outlive every framebuffer created for that device epoch.
 
 Related:
   - SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp
@@ -48,8 +47,7 @@ namespace Rendering
 class Dx12RenderDevice;
 class Dx12PipelineOwner;
 class Dx12TextureOwner;
-class Dx12CpuDescriptorAllocator;
-class Dx12DescriptorAllocator;
+class Dx12DescriptorHeaps;
 class Dx12CommandRecordingState;
 class Dx12DeferredReleaseOwner;
 class Dx12DrawGate;
@@ -74,9 +72,7 @@ class FramebufferDX12 : public IFramebuffer
     Dx12RenderDevice& m_device;
     Dx12PipelineOwner& m_pipeline;
     Dx12TextureOwner& m_textures;
-    Dx12CpuDescriptorAllocator& m_rtvDescriptors;
-    Dx12CpuDescriptorAllocator& m_dsvDescriptors;
-    Dx12DescriptorAllocator& m_srvDescriptors;
+    Dx12DescriptorHeaps& m_descriptors;
     Dx12DrawGate& m_drawGate;
     Dx12ResourceRelease& m_resourceRelease;
     ID3D12Resource* m_colorTexture;
@@ -104,9 +100,7 @@ class FramebufferDX12 : public IFramebuffer
     FramebufferDX12( Dx12RenderDevice& device,
                      Dx12PipelineOwner& pipeline,
                      Dx12TextureOwner& textures,
-                     Dx12CpuDescriptorAllocator& rtvDescriptors,
-                     Dx12CpuDescriptorAllocator& dsvDescriptors,
-                     Dx12DescriptorAllocator& srvDescriptors,
+                     Dx12DescriptorHeaps& descriptors,
                      Dx12DrawGate& drawGate,
                      Dx12ResourceRelease& resourceRelease,
                      FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );

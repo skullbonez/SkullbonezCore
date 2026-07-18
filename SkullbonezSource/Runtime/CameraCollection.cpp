@@ -497,9 +497,9 @@ void CameraCollection::SetCamera()
         else
         {
             SB_FATAL( "CameraCollection",
-                      "Tweened SetCamera requires terrain height provider. terrain=%p selected=%d count=%d "
+                      "Tweened SetCamera requires terrain height provider. terrain_present=%d selected=%d count=%d "
                       "tweenProgress=%f",
-                      static_cast<const void*>( m_terrain ),
+                      m_terrain ? 1 : 0,
                       m_selectedCamera,
                       m_arrayPosition,
                       m_tweenProgress );

@@ -67,7 +67,7 @@ class NullShader final : public SkullbonezCore::Rendering::IShader
     {
     }
 
-    bool SetConstantBufferBytes( const void*, size_t, const char* ) const override
+    bool SetConstantBufferBytes( SkullbonezCore::Core::ByteView, const char* ) const override
     {
         return true;
     }
@@ -116,10 +116,8 @@ class NullRenderResourceFactory final : public SkullbonezCore::Rendering::IRende
         return std::make_unique<NullShader>();
     }
 
-    std::unique_ptr<SkullbonezCore::Rendering::IMesh> CreateMesh( const float* vertices,
-                                                                 int vertexCount,
-                                                                 bool hasNormals,
-                                                                 bool hasTexCoords ) override
+    std::unique_ptr<SkullbonezCore::Rendering::IMesh>
+    CreateMesh( const float* vertices, int vertexCount, bool hasNormals, bool hasTexCoords ) override
     {
         const int stride = hasNormals && hasTexCoords ? 8 : ( hasTexCoords ? 5 : 3 );
         // Why: Terrain degeneracy tests need to observe the CPU-generated
@@ -163,16 +161,7 @@ class NullRenderResourceFactory final : public SkullbonezCore::Rendering::IRende
     {
     }
 
-    uint32_t CreateInstancedMesh( const float*,
-                                  int,
-                                  int,
-                                  int,
-                                  int,
-                                  int,
-                                  const int*,
-                                  int,
-                                  const int*,
-                                  int ) override
+    uint32_t CreateInstancedMesh( const float*, int, int, int, int, int, const int*, int, const int*, int ) override
     {
         return 0u;
     }

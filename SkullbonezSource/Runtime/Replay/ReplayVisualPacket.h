@@ -41,6 +41,7 @@ Related:
 #include "ReplayRecorder.h"
 #include "TrajectoryStore.h"
 #include "../../Core/MainMemoryStats.h"
+#include "../../Core/ByteView.h"
 #include "../../Maths/Quaternion.h"
 
 #include <algorithm>
@@ -65,20 +66,19 @@ namespace ReplayVisualPacketOperations
 inline uint64_t HashReplayVisualFloatBuffer( std::span<const float> values ) noexcept
 {
     uint64_t hash = REPLAY_VISUAL_BUFFER_FNV_OFFSET;
-    const auto appendBytes = [&hash]( const void* data, std::size_t byteCount )
+    const auto appendBytes = [&hash]( SkullbonezCore::Core::ByteView bytes )
     {
-        const uint8_t* bytes = static_cast<const uint8_t*>( data );
-        for ( std::size_t index = 0; index < byteCount; ++index )
+        for ( uint8_t byte : bytes )
         {
-            hash ^= static_cast<uint64_t>( bytes[index] );
+            hash ^= static_cast<uint64_t>( byte );
             hash *= REPLAY_VISUAL_BUFFER_FNV_PRIME;
         }
     };
     const uint64_t floatCount = static_cast<uint64_t>( values.size() );
-    appendBytes( &floatCount, sizeof( floatCount ) );
+    appendBytes( SkullbonezCore::Core::ObjectBytes( floatCount ) );
     if ( !values.empty() )
     {
-        appendBytes( values.data(), values.size_bytes() );
+        appendBytes( SkullbonezCore::Core::ObjectBytes( values ) );
     }
     return hash;
 }

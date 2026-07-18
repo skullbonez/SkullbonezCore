@@ -45,6 +45,7 @@ class RuntimeTools;
 enum class GeneratedObjectTypeOverride;
 struct RunDebugState;
 struct RunSceneState;
+struct RunSceneUIOverrideState;
 // Lifetime: startup replay loading borrows only interaction/camera owners.
 // Solver, scene-rebuild, and diagnostic owners are intentionally excluded so
 // a normal artifact load cannot gain the debug probe's authority.
@@ -74,8 +75,9 @@ struct ReplayArtifactTopologyOwners
     const SkullbonezCore::Core::EngineConfig& config;
     Assets::AssetSystem& assets;
     Threading::WorkerPool& workerPool;
+    RunSceneUIOverrideState& uiOverrides;
     GeneratedObjectTypeOverride& generatedObjectTypeOverride;
-    int gameModelCapacity = 0;
+    int sceneObjectCapacity = 0;
 };
 
 } // namespace Runtime

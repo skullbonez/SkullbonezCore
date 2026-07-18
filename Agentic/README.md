@@ -62,5 +62,9 @@ and validation/perf evidence.
 
 Validation scripts are pre-commit/PR gates, not routine iteration.
 `validate_full` now runs the mandatory CPU umbrella before either runtime lane;
-remaining CI and sanitizer work is tracked in
-`Plans/TODO/validation-gate-integrity.md`.
+that umbrella runs `validate_coverage` and enforces the ratified subsystem
+floors. Run `tools\validate_coverage.bat` directly for changes to floors,
+exclusions, instrumentation scope, coverage tooling, or tests intended to raise
+subsystem coverage, and when explicit final-gate floor confirmation is needed.
+Do not duplicate it after `validate_all_cpu_tests`, `validate_full`, or
+`agent_validate`; hosted mandatory CPU CI uses the same umbrella call chain.

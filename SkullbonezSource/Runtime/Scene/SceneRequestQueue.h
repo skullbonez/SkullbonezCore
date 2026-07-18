@@ -61,7 +61,17 @@ struct SceneRequestBatch
     std::size_t rejectedTransitionCount = 0;
 };
 
-bool SceneRequestIsTransition( SceneRequestType type );
+constexpr bool SceneRequestIsTransition( SceneRequestType type )
+{
+    return type != SceneRequestType::SaveCurrentDefaults;
+}
+// A failed transition may have committed teardown before reporting a
+// recoverable population error. Later requests must not observe or persist
+// that partial replacement scene.
+constexpr bool SceneRequestBatchContinuesAfter( SceneRequestType type, bool accepted )
+{
+    return !SceneRequestIsTransition( type ) || accepted;
+}
 
 class SceneRequestQueue
 {

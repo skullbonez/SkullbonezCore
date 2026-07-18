@@ -45,7 +45,7 @@ constexpr int PHYSICS_NARROWPHASE_PARALLEL_MIN_ISLANDS = 16;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_AVG_PAIRS_PER_ISLAND = 4;
 constexpr int PHYSICS_NARROWPHASE_PARALLEL_MAX_PAIRS_PER_BODY = 2;
 constexpr bool PHYSICS_NARROWPHASE_ISLAND_WORKER_ENABLED = true;
-constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 4;
+constexpr int PHYSICS_CANDIDATE_PAIR_RESERVE = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
 constexpr uint32_t PHYSICS_NARROWPHASE_ISLAND_WORKER_HASH =
     HashStr( "Frame/Physics/Narrowphase/IslandWorkerDispatch/WorkerIslands" );
 
@@ -74,11 +74,12 @@ bool PhysicsNarrowphaseStage::ObjectNarrowphaseIslandPrecedesByMinPairIndex( con
 }
 
 
-void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( std::span<const std::pair<int, int>> candidatePairs,
+void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( Core::Profiler* profiler,
+                                                             std::span<const std::pair<int, int>> candidatePairs,
                                                              int candidatePairCount,
                                                              int modelCount )
 {
-    PROFILE_SCOPED( "Frame/Physics/Narrowphase/BuildIslands" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Narrowphase/BuildIslands" );
     m_objectNarrowphaseParent.resize( static_cast<size_t>( modelCount ) );
     m_objectNarrowphaseRank.assign( static_cast<size_t>( modelCount ), 0 );
     for ( int i = 0; i < modelCount; ++i )
@@ -184,12 +185,12 @@ void PhysicsNarrowphaseStage::BuildObjectNarrowphaseIslands( std::span<const std
 PhysicsNarrowphaseStage::PhysicsNarrowphaseStage()
 {
     m_objectNarrowphaseEvents.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_objectNarrowphaseIslands.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseIslands.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_objectNarrowphaseIslandPairIndices.reserve( PHYSICS_CANDIDATE_PAIR_RESERVE );
-    m_objectNarrowphaseIslandWriteOffsets.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_objectNarrowphaseParent.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_objectNarrowphaseRank.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
-    m_objectNarrowphaseRootToIsland.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_objectNarrowphaseIslandWriteOffsets.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_objectNarrowphaseParent.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_objectNarrowphaseRank.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_objectNarrowphaseRootToIsland.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void PhysicsNarrowphaseStage::Clear()
@@ -228,7 +229,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageCo
         return false;
     }
 
-    BuildObjectNarrowphaseIslands( context.candidatePairs, candidatePairCount, modelCount );
+    BuildObjectNarrowphaseIslands( context.profiler, context.candidatePairs, candidatePairCount, modelCount );
 
     const int islandCount = static_cast<int>( m_objectNarrowphaseIslands.size() );
     const bool hasSpreadOutNarrowphaseIslands =
@@ -241,7 +242,7 @@ bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageCo
     m_objectNarrowphaseEvents.assign( context.candidatePairs.size(), ObjectNarrowphaseEvent() );
     ObjectNarrowphaseIslandStage islandStage{ *this, context };
     {
-        PROFILE_SCOPED( "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/IslandWorkerDispatch" );
         workerPool.ParallelForNoAlloc( 0,
                                        islandCount,
                                        islandStage,

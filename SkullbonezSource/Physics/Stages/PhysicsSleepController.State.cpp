@@ -79,6 +79,11 @@ std::span<const uint8_t> PhysicsSleepController::GetSleepStates() const
 {
     return m_sleepState;
 }
+
+int PhysicsSleepController::GetAwakeBodyCount() const
+{
+    return m_awakeBodyCount;
+}
 std::span<const uint8_t> PhysicsSleepController::GetUnderwaterSleepLocks() const
 {
     return m_underwaterSleepLocked;

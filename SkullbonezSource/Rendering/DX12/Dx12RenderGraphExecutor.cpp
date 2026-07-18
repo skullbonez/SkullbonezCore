@@ -289,7 +289,7 @@ Dx12RenderGraphExecutionResult ExecuteDx12RenderGraphTransitions( const RenderGr
 
         Dx12RenderGraphSingleTransitionDesc singleDesc;
         singleDesc.commandList = desc.commandList;
-        singleDesc.resource = static_cast<ID3D12Resource*>( const_cast<void*>( transition.nativeResource ) );
+        singleDesc.resource = transition.nativeResource.As<ID3D12Resource>();
         singleDesc.before = transition.before;
         singleDesc.after = transition.after;
         singleDesc.subresource = static_cast<UINT>( transition.subresource );

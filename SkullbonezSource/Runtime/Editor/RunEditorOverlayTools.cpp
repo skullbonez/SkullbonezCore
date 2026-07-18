@@ -24,7 +24,7 @@ Related:
 #include "EditorOverlayTools.h"
 #include "EditorTools.h"
 #include "../Tools/RuntimeTools.h"
-#include "../Scene/SceneController.h"
+#include "../Scene/SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 
@@ -32,8 +32,12 @@ Related:
 
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
+using SkullbonezCore::Physics::ColliderStore;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
+using SkullbonezCore::Physics::PhysicsBodyOrientation;
+using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 
 namespace SkullbonezCore
@@ -52,6 +56,9 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
     context.editor.placementPreviewVisible = false;
     context.editor.hotGizmoAxis = -1;
     context.editor.hotRotationAxis = -1;
+    Geometry::Terrain* terrain = context.world.Terrain().Get();
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
+    const ColliderStore& colliderStore = context.world.Colliders();
 
     if ( input.uiBlocksCameraMouse || context.editor.viewportLookActive )
     {
@@ -70,36 +77,30 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
         EditorTerrainPlacement terrainPlacement;
         const EditorTerrainPlacement* terrainPlacementForPreview = nullptr;
         if ( !placementScaleActive && input.hasMouseRay &&
-             TryGetEditorTerrainPlacement( context.terrain,
-                                           input.mouseRayOrigin,
-                                           input.mouseRayDirection,
-                                           terrainPlacement ) )
+             TryGetEditorTerrainPlacement( terrain, input.mouseRayOrigin, input.mouseRayDirection, terrainPlacement ) )
         {
             terrainPlacementForPreview = &terrainPlacement;
         }
         context.editor.placementPreviewVisible =
-            TryUpdateEditorPlacementPreview( { context.editor, context.terrain, context.assets, placementScaleActive },
+            TryUpdateEditorPlacementPreview( { context.editor, terrain, context.assets, placementScaleActive },
                                              context.editor.objectType,
                                              terrainPlacementForPreview );
     }
 
-    const int selectedModelIndex =
-        context.bodyStore ? ResolveSelectedEditorModelIndex( context.editor, *context.bodyStore ) : -1;
+    const int selectedModelIndex = ResolveSelectedEditorModelIndex( context.editor, bodyStore );
     const bool hasSelection = selectedModelIndex >= 0;
     bool selectionHandlesValid = false;
-    if ( hasSelection && context.bodyStore && context.colliderStore && context.editor.selectedBody.IsValid() &&
-         context.editor.selectedCollider.IsValid() )
+    if ( hasSelection && context.editor.selectedBody.IsValid() && context.editor.selectedCollider.IsValid() )
     {
-        const PhysicsBodyRecord* body = context.bodyStore->RecordForHandle( context.editor.selectedBody );
-        const ColliderRecord* collider = context.colliderStore->RecordForHandle( context.editor.selectedCollider );
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( context.editor.selectedBody );
+        const ColliderRecord* collider = colliderStore.RecordForHandle( context.editor.selectedCollider );
         selectionHandlesValid =
-            body && collider &&
-            context.bodyStore->ModelIndexForHandle( context.editor.selectedBody ) == selectedModelIndex &&
-            context.colliderStore->ModelIndexForHandle( context.editor.selectedCollider ) == selectedModelIndex &&
+            body && collider && bodyStore.ModelIndexForHandle( context.editor.selectedBody ) == selectedModelIndex &&
+            colliderStore.ModelIndexForHandle( context.editor.selectedCollider ) == selectedModelIndex &&
             collider->body == context.editor.selectedBody;
     }
 
-    if ( context.editor.selectedModelRow.value >= context.models.SceneEntityCount() ||
+    if ( context.editor.selectedModelRow.value >= context.world.SceneEntityCount() ||
          ( context.editor.selectedBody.IsValid() && !selectionHandlesValid ) )
     {
         // Invariant: Selection stores handles plus a model-row hint. If
@@ -113,7 +114,7 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
     if ( selectedModelIndex >= 0 && context.interaction.Gesture().kind != RuntimeInteractionGestureKind::GizmoDrag &&
          !context.editor.placementModeEnabled && input.hasMouseRay )
     {
-        UpdateEditorGizmoHotAxes( { context.editor, context.models, context.physics, context.interaction },
+        UpdateEditorGizmoHotAxes( { context.editor, context.world, context.interaction },
                                   input.mouseRayOrigin,
                                   input.mouseRayDirection,
                                   input.scaleMode );
@@ -125,6 +126,8 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
 
 void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const EditorToolOverlayTraceInput& input )
 {
+    const PhysicsBodyStore& bodyStore = context.world.BodyStore();
+    const ColliderStore& colliderStore = context.world.Colliders();
     // Concept: Overlay trace building is a pure visual pass over editor state.
     // It appends lines, ghosts, markers, and gizmos without claiming input or
     // mutating physics.
@@ -155,17 +158,15 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
     if ( ( context.editor.editorModeEnabled || input.inspectGizmoActive ) && !context.editor.placementModeEnabled &&
          context.editor.selectedBody.IsValid() )
     {
-        const int selectedModelIndex = PeekSelectedEditorModelIndex( context.editor, context.bodyStore );
+        const int selectedModelIndex = PeekSelectedEditorModelIndex( context.editor, bodyStore );
         Vector3 gizmoOrigin;
         float radius = 1.0f;
         const bool gizmoDragActive = input.gesture.kind == RuntimeInteractionGestureKind::GizmoDrag;
         const bool gizmoScale = gizmoDragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Scale;
         const bool gizmoRotation = gizmoDragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Rotate;
         const bool scaleMode = gizmoScale || input.scaleMode;
-        if ( selectedModelIndex >= 0 && selectedModelIndex < context.models.SceneEntityCount() &&
-             TryTraceEditorSelectionOverlayFromStores( context.models,
-                                                       context.bodyStore,
-                                                       context.colliderStore,
+        if ( selectedModelIndex >= 0 && selectedModelIndex < context.world.SceneEntityCount() &&
+             TryTraceEditorSelectionOverlayFromStores( context.world,
                                                        context.editor.selectedBody,
                                                        context.editor.selectedCollider,
                                                        selectedModelIndex,
@@ -186,12 +187,11 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
 
     if ( input.gesture.kind == RuntimeInteractionGestureKind::MousePickupDrag && context.mousePickup.body.IsValid() )
     {
-        const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( context.mousePickup.body );
-        const PhysicsColliderHandle colliderHandle =
-            context.colliderStore.HandleForBodyHandle( context.mousePickup.body );
-        const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
-        const int modelIndex = context.bodyStore.ModelIndexForHandle( context.mousePickup.body );
-        if ( !body || !collider || modelIndex < 0 || modelIndex >= context.models.SceneEntityCount() ||
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( context.mousePickup.body );
+        const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( context.mousePickup.body );
+        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+        const int modelIndex = bodyStore.ModelIndexForHandle( context.mousePickup.body );
+        if ( !body || !collider || modelIndex < 0 || modelIndex >= context.world.SceneEntityCount() ||
              collider->body != context.mousePickup.body )
         {
             // Stale drag state can happen after editor deletion or scene reload.
@@ -204,7 +204,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             // Overlay drawing should follow that live store row instead of
             // requiring post-step authoring/presentation data to be current.
             const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
-            const auto hotFields = context.bodyStore.HotFields();
+            const auto hotFields = bodyStore.HotFields();
             const Vector3 bodyPosition = PhysicsBodyPosition( hotFields, bodyIndex );
             const Vector3 grabPoint = bodyPosition + context.mousePickup.grabOffset;
             context.tracer.AddSelectionOutline( bodyPosition,
@@ -220,14 +220,13 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         }
     }
 
-    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.SceneEntityCount() )
+    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.world.SceneEntityCount() )
     {
-        const PhysicsBodyHandle bodyHandle = context.bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
-        const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( bodyHandle );
-        const PhysicsColliderHandle colliderHandle = context.colliderStore.HandleForBodyHandle( bodyHandle );
-        const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
-        if ( body && collider &&
-             context.bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&
+        const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
+        const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
+        const PhysicsColliderHandle colliderHandle = colliderStore.HandleForBodyHandle( bodyHandle );
+        const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+        if ( body && collider && bodyStore.ModelIndexForHandle( bodyHandle ) == input.attachedCameraTargetIndex &&
              collider->body == bodyHandle )
         {
             // Why: attached-camera follow is already store-backed; its overlay
@@ -235,7 +234,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             // keeping legacy model-side pose/shape caches hot for presentation.
             const float markerRadius = EditorColliderRadius( *collider ) * 1.24f;
             const std::size_t bodyIndex = static_cast<std::size_t>( input.attachedCameraTargetIndex );
-            const auto hotFields = context.bodyStore.HotFields();
+            const auto hotFields = bodyStore.HotFields();
             context.tracer.AddAttachedCameraTargetMarker( PhysicsBodyPosition( hotFields, bodyIndex ),
                                                           PhysicsBodyOrientation( hotFields, bodyIndex ),
                                                           collider->shape,

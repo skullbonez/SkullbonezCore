@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   Scene JSON may author the initial UI window, tab, stress, and test-pattern
-  state for automation scenes. Scene runtime owns the decision tree, while Run
-  still passes borrowed UI and diagnostics owners until those stores move.
+  state for automation scenes. Scene runtime produces an activation value while
+  applying diagnostics-owned fields; the UI owner consumes that value after the
+  scene transaction returns.
 
 Glossary:
   UI options: Optional `ui` block parsed from a `.scene.json` file.
@@ -22,10 +23,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - SkullbonezSource/Scene/TestScene.h
+  - SkullbonezSource/Scene/AuthoredScene.h
   - SkullbonezSource/UI/UI.h
 */
 #pragma once
+
+#include "../../Scene/AuthoredScene.h"
 
 namespace SkullbonezCore
 {
@@ -37,21 +40,32 @@ namespace Runtime
 {
 class DiagnosticsRuntime;
 struct RunDebugState;
-struct SceneUIOptions;
+struct SceneUiActivation
+{
+    // Value-only copy of authored UI intent. The scene owner retains neither
+    // the parsed AuthoredScene nor the complete UI owner across the load boundary.
+    SceneUIOptions authoredOptions;
+    double nowSeconds = 0.0;
+    bool hasAuthoredOptions = false;
+    bool preserveUIState = false;
+    bool automationScene = false;
+    bool forceVisible = false;
+    bool forceUnminimized = false;
+};
 
 struct SceneRuntimeUiOptionsContext
 {
-    // Lifetime: These are borrowed only for one scene-load application; the
-    // helper never stores UI, diagnostics, or debug references.
-    UI::InGameUI& ui;
     DiagnosticsRuntime& diagnostics;
     RunDebugState& debug;
-    double nowSeconds = 0.0;
-    bool preserveUIState = false;
-    bool automationScene = false;
+    SceneUiActivation& activation;
 };
 
-void ApplySceneRuntimeUiOptions( SceneRuntimeUiOptionsContext context, const SceneUIOptions& options );
+void PrepareSceneUiOptions( SceneRuntimeUiOptionsContext context,
+                            const SceneUIOptions& options,
+                            double nowSeconds,
+                            bool preserveUIState,
+                            bool automationScene );
+void ApplySceneUiActivation( UI::InGameUI& ui, const SceneUiActivation& activation );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

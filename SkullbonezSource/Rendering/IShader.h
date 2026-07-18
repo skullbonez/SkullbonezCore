@@ -26,6 +26,7 @@ Related:
 
 
 #include "../Core/Common.h"
+#include "../Core/ByteView.h"
 #include "../Maths/Vector3.h"
 #include "../Maths/Matrix4.h"
 #include <cstddef>
@@ -65,7 +66,7 @@ class IShader
     // uniforms one at a time. Callers must pass a struct whose field order and
     // size exactly match the shader's reflected cbuffer; false means the block
     // was rejected and the caller should skip the draw that depends on it.
-    virtual bool SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const = 0;
+    virtual bool SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const = 0;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

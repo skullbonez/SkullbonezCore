@@ -283,6 +283,18 @@ standalone CPU test executable must join
 the same commit; a test target reachable only through a direct script or
 `validate_select.bat` is not merge-gated.
 
+Coverage-floor enforcement has three invocation rules:
+
+- Run `tools\validate_coverage.bat` directly when changing coverage floors,
+  exclusions, instrumentation scope, coverage tooling, or tests whose purpose
+  is to raise subsystem coverage.
+- Run it at the final pre-commit/PR gate when the changed scope needs an
+  explicit confirmation that every subsystem remains above its ratified floor.
+- Do not duplicate it when running `tools\validate_all_cpu_tests.bat`:
+  that umbrella runs the coverage gate automatically, as do
+  `tools\validate_full.bat`, `tools\agent_validate.bat`, and the hosted
+  mandatory CPU CI lane through the same call chain.
+
 | Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
@@ -326,7 +338,7 @@ render, or tool gate; it does not replace it.
 | `TestOutput/baselines/physics_regression_varied.csv` | `validate_physics` |
 | Other physics CSV baselines or `TestOutput/baselines/physics_query*.json` | `validate_physics_deep` |
 | `Common.h` | `validate_full` |
-| `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests` |
+| `SkullbonezTests/*`, `SKULLBONEZ_TESTS.vcxproj`, `SKULLBONEZ_TESTS.vcxproj.filters` | `validate_tests`; add `validate_coverage` when the tests are intended to raise subsystem coverage |
 | `SkullbonezSource/Runtime/Replay/*`, `RunReplay*`, or replay-facing presentation/submission changes in `RunEditorTracer*` or `RuntimeRender*` | `validate_replay_visual_fidelity.bat` in addition to the normal mapped gate |
 | `SkullbonezTests/TestReplay*` or replay artifact/presentation test changes | `validate_tests`, then `validate_replay_visual_fidelity.bat` |
 | `SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json`, `SkullbonezData/interaction/prediction_ragdoll_wall_200_*.json`, or `TestOutput/baselines/replay_visual_fidelity_200_box*.json` | `validate_replay_visual_fidelity.bat` |
@@ -334,7 +346,7 @@ render, or tool gate; it does not replace it.
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
 | `Runtime/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
-| `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat` | `validate_fast`, then `tools\validate_coverage.bat` |
+| `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `Run*`, `Runtime/*` | `validate_full` |
 | `Window*` | `validate_full` |
 | `Init*` | `validate_full` |

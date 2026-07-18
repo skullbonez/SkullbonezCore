@@ -26,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
 */
 #include "ReplayVisualPacketFingerprint.h"
+#include "../../Core/ByteView.h"
 
 #include <algorithm>
 #include <bit>
@@ -45,10 +46,9 @@ void HashByte( uint64_t& hash, uint8_t value )
 
 template <typename T> void HashScalar( uint64_t& hash, T value )
 {
-    const uint8_t* bytes = reinterpret_cast<const uint8_t*>( &value );
-    for ( std::size_t index = 0; index < sizeof( T ); ++index )
+    for ( uint8_t byte : SkullbonezCore::Core::ObjectBytes( value ) )
     {
-        HashByte( hash, bytes[index] );
+        HashByte( hash, byte );
     }
 }
 

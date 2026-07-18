@@ -56,14 +56,15 @@ RotationMatrix GetOrientationMatrix( const TerrainContactBodyView& body )
     return q.GetOrientationMatrix();
 }
 
-bool GetClosestBoxTerrainVertex( const TerrainContactBodyView& body,
+bool GetClosestBoxTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
+                                 const TerrainContactBodyView& body,
                                  const BoundingBox& box,
                                  Vector3& outVertex,
                                  float& outTerrainHeight,
                                  Plane& outPlane,
                                  float& outGap )
 {
-    PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxClosestVertexProbe" );
 
     if ( body.terrain == nullptr )
     {
@@ -106,14 +107,15 @@ bool GetClosestBoxTerrainVertex( const TerrainContactBodyView& body,
     return found;
 }
 
-bool GetClosestHullTerrainVertex( const TerrainContactBodyView& body,
+bool GetClosestHullTerrainVertex( SkullbonezCore::Core::Profiler* profiler,
+                                  const TerrainContactBodyView& body,
                                   const ConvexHullShape& hull,
                                   Vector3& outVertex,
                                   float& outTerrainHeight,
                                   Plane& outPlane,
                                   float& outGap )
 {
-    PROFILE_SCOPED( "Frame/Physics/Terrain/HullClosestVertexProbe" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullClosestVertexProbe" );
 
     if ( body.terrain == nullptr )
     {
@@ -153,7 +155,8 @@ bool GetClosestHullTerrainVertex( const TerrainContactBodyView& body,
     return found;
 }
 
-float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
+float GetTerrainCollisionRatio( SkullbonezCore::Core::Profiler* profiler,
+                                const TerrainContactBodyView& body,
                                 const CollisionShape& shape,
                                 float changeInTime,
                                 Ray& outTestingRay,
@@ -210,7 +213,7 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
-        if ( !GetClosestBoxTerrainVertex( body, *box, closestVertex, terrainHeight, terrainPlane, gap ) )
+        if ( !GetClosestBoxTerrainVertex( profiler, body, *box, closestVertex, terrainHeight, terrainPlane, gap ) )
         {
             return NO_COLLISION;
         }
@@ -234,7 +237,7 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
         {
             // When no vertex is currently touching, sweep every box vertex along
             // the body's linear motion and take the earliest plane hit.
-            PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSweptVertexProbe" );
+            PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSweptVertexProbe" );
             for ( int v = 0; v < 8; ++v )
             {
                 const Vector3 local( ( v & 1 ) ? he.x : -he.x, ( v & 2 ) ? he.y : -he.y, ( v & 4 ) ? he.z : -he.z );
@@ -278,7 +281,7 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
         float terrainHeight = 0.0f;
         Plane terrainPlane;
         float gap = 0.0f;
-        if ( !GetClosestHullTerrainVertex( body, *hull, closestVertex, terrainHeight, terrainPlane, gap ) )
+        if ( !GetClosestHullTerrainVertex( profiler, body, *hull, closestVertex, terrainHeight, terrainPlane, gap ) )
         {
             return NO_COLLISION;
         }
@@ -300,7 +303,7 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
         float earliestCollisionTime = NO_COLLISION;
         Plane earliestPlane;
         {
-            PROFILE_SCOPED( "Frame/Physics/Terrain/HullSweptVertexProbe" );
+            PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullSweptVertexProbe" );
             const uint16_t vertexCount = hull->GetVertexCount();
             for ( uint16_t v = 0; v < vertexCount; ++v )
             {
@@ -360,7 +363,8 @@ float GetTerrainCollisionRatio( const TerrainContactBodyView& body,
 }
 } // namespace
 
-TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( const TerrainContactBodyView& body,
+TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( Core::Profiler* profiler,
+                                                                        const TerrainContactBodyView& body,
                                                                         const CollisionShape& shape,
                                                                         float changeInTime )
 {
@@ -376,7 +380,8 @@ TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( const Te
 
     Ray testingRay;
     Plane testingPlane;
-    const float collisionRatio = GetTerrainCollisionRatio( body, shape, changeInTime, testingRay, testingPlane );
+    const float collisionRatio =
+        GetTerrainCollisionRatio( profiler, body, shape, changeInTime, testingRay, testingPlane );
 
     if ( collisionRatio > 1.0f || collisionRatio < ZERO_TAKE_TOLERANCE )
     {
@@ -391,15 +396,16 @@ TerrainContactSweepResult SkullbonezCore::Physics::SweepTerrainContact( const Te
 }
 
 
-bool SkullbonezCore::Physics::BuildTerrainContactManifold( const TerrainContactBodyView& body,
+bool SkullbonezCore::Physics::BuildTerrainContactManifold( Core::Profiler* profiler,
+                                                           const TerrainContactBodyView& body,
                                                            const CollisionShape& shape,
                                                            int bodyIndex,
                                                            const TerrainContactSweepResult& sweep,
                                                            float availableTime,
                                                            TerrainContactManifold& out )
 {
-    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold" );
-    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/Build" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold" );
+    PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/Build" );
 
     // Geometry-only boundary for the shared terrain row path. This converts the
     // swept terrain hit into contact points, feature ids, tangent axes, and
@@ -447,7 +453,7 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( const TerrainContactB
             }
             else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
             {
-                PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/BoxVertices" );
+                PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/BoxVertices" );
 
                 const Vector3& he = shapeValue.GetHalfExtents();
                 const RotationMatrix rotMat = GetOrientationMatrix( body );
@@ -486,7 +492,7 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( const TerrainContactB
             }
             else if constexpr ( std::is_same_v<ShapeT, ConvexHullShape> )
             {
-                PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/HullVertices" );
+                PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/Manifold/HullVertices" );
 
                 const RotationMatrix rotMat = GetOrientationMatrix( body );
                 const Vector3 hullCenter = position + ( rotMat * shapeValue.GetPosition() );
@@ -556,7 +562,8 @@ bool SkullbonezCore::Physics::BuildTerrainContactManifold( const TerrainContactB
     }
 
     const RotationMatrix orientMat = GetOrientationMatrix( body );
-    const BoxTerrainSupportClassification terrainSupport = ClassifyBoxTerrainSupport( shape,
+    const BoxTerrainSupportClassification terrainSupport = ClassifyBoxTerrainSupport( profiler,
+                                                                                      shape,
                                                                                       position,
                                                                                       orientMat,
                                                                                       planeNormal,

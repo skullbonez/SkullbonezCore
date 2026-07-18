@@ -18,10 +18,8 @@ Glossary:
 
 Invariants:
   - Restore must reject samples whose body ids no longer match live store rows.
-  - World restore reaches the environment through SceneController; the context
-    must not republish a second mutable world owner.
-  - Camera restore reaches the collection through SceneController for the same
-    reason; the restore context carries no parallel camera pointer.
+  - Restore borrows SceneWorld once and resolves physics, environment, cameras,
+    entities, and stores locally; it never borrows the lifecycle controller.
   - Body state, solver caches, world settings, scene flags, and tool visuals are
     restored as one ordered operation.
   - The service must not store context borrows after returning.
@@ -37,10 +35,9 @@ Related:
 #include "../CameraCollection.h"
 #include "../RunDebugState.h"
 #include "../Render/RuntimeRenderer.h"
-#include "../Scene/SceneController.h"
+#include "../Scene/SceneWorld.h"
 #include "../Scene/SceneRuntime.h"
 #include "../Tools/RuntimeTools.h"
-#include "../Scene/SceneController.h"
 #include "../../Core/FatalError.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsBodyStore.h"
@@ -62,8 +59,7 @@ struct ReplaySolverSampleRestoreContext
     // Lifetime: Run builds this from live owners for one restore call. Every
     // referenced subsystem outlives the call, and ReplayRestoreService copies
     // only sampled values into those owners.
-    Physics::PhysicsEngine& physics;
-    SceneController& sceneController;
+    SceneWorld& world;
     RunSceneState& scene;
     RuntimeRenderer& renderer;
     RunDebugState& debug;
@@ -73,7 +69,8 @@ struct ReplaySolverSampleRestoreContext
 class ReplayRestoreService
 {
   public:
-    using ResolvedBodyTable = std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS>;
+    using ResolvedBodyTable =
+        std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
     // Resolves every retained body by stable replay identity. modelRow is only
     // a cache hint; callers may deliberately pass stale hints to prove that a
@@ -142,7 +139,8 @@ class ReplayRestoreService
 
         const int restoreModelCount = static_cast<int>( sample.bodies.size() );
         ResolvedBodyTable resolvedBodies{};
-        if ( !ResolveBodiesForRestore( Physics::PhysicsEngine::ReadBodies( context.physics ),
+        Physics::PhysicsEngine& physics = context.world.Physics();
+        if ( !ResolveBodiesForRestore( Physics::PhysicsEngine::ReadBodies( physics ),
                                        sample,
                                        resolvedBodies,
                                        outReason,
@@ -151,12 +149,12 @@ class ReplayRestoreService
             return false;
         }
 
-        if ( !context.sceneController.TrimForReplayRestore( restoreModelCount ) )
+        if ( !context.world.TrimForReplayRestore( restoreModelCount ) )
         {
             WriteReason( outReason, reasonSize, "failed to trim live model list" );
             return false;
         }
-        context.scene.ResetSceneObjectIdCursor( Physics::PhysicsEngine::ReadBodies( context.physics ) );
+        context.scene.ResetSceneObjectIdCursor( Physics::PhysicsEngine::ReadBodies( physics ) );
 
         for ( std::size_t bodyIndex = 0; bodyIndex < sample.bodies.size(); ++bodyIndex )
         {
@@ -165,25 +163,25 @@ class ReplayRestoreService
                                                        body.orientation[1],
                                                        body.orientation[2],
                                                        body.orientation[3] );
-            if ( !context.physics.RestoreReplayBodyState( resolvedBodies[bodyIndex],
-                                                          body.id.value,
-                                                          body.fixed,
-                                                          body.position,
-                                                          orientation,
-                                                          body.linearVelocity,
-                                                          body.angularVelocity,
-                                                          body.mass,
-                                                          body.inverseMass,
-                                                          body.rotationalInertia,
-                                                          body.inverseRotationalInertia ) )
+            if ( !physics.RestoreReplayBodyState( resolvedBodies[bodyIndex],
+                                                  body.id.value,
+                                                  body.fixed,
+                                                  body.position,
+                                                  orientation,
+                                                  body.linearVelocity,
+                                                  body.angularVelocity,
+                                                  body.mass,
+                                                  body.inverseMass,
+                                                  body.rotationalInertia,
+                                                  body.inverseRotationalInertia ) )
             {
                 SB_FATAL( "Runtime/ReplayRestore",
                           "Replay body commit failed after stable-id preflight; live state may be partially restored" );
             }
         }
-        context.physics.ClearPendingBodyImpulses();
+        physics.ClearPendingBodyImpulses();
 
-        if ( !context.physics.RestoreReplaySolverSnapshot(
+        if ( !physics.RestoreReplaySolverSnapshot(
                  sample.worldSnapshot,
                  Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
         {
@@ -191,9 +189,9 @@ class ReplayRestoreService
                       "Replay solver commit rejected the version/count values accepted during preflight" );
         }
 
-        context.sceneController.World().SetGravity( sample.world.gravity );
-        context.sceneController.World().SetFluidSurfaceHeight( sample.world.fluidHeight );
-        context.sceneController.World().SetFluidDensity( sample.world.fluidDensity );
+        context.world.Environment().SetGravity( sample.world.gravity );
+        context.world.Environment().SetFluidSurfaceHeight( sample.world.fluidHeight );
+        context.world.Environment().SetFluidDensity( sample.world.fluidDensity );
         context.debug.isWaterHidden = sample.world.waterHidden;
         context.debug.isTerrainHidden = sample.world.terrainHidden;
         context.scene.isFixedStep = sample.world.fixedStep;
@@ -206,10 +204,10 @@ class ReplayRestoreService
                                                       sample.worldSnapshot.tornadoSystemConfig.enabled );
         }
 
-        context.sceneController.Cameras().CancelTween();
-        context.sceneController.Cameras().SetPrimaryPosition( sample.camera.eye );
-        context.sceneController.Cameras().SetViewCoordinates( sample.camera.view );
-        context.sceneController.Cameras().SetCamera();
+        context.world.Cameras().CancelTween();
+        context.world.Cameras().SetPrimaryPosition( sample.camera.eye );
+        context.world.Cameras().SetViewCoordinates( sample.camera.view );
+        context.world.Cameras().SetCamera();
 
         context.runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
         WriteReason( outReason, reasonSize, "applied" );
@@ -247,12 +245,12 @@ class ReplayRestoreService
         input.sceneTextEnabled = context.scene.isSceneText;
         input.waterHidden = context.debug.isWaterHidden;
         input.terrainHidden = context.debug.isTerrainHidden;
-        input.cameras = &context.sceneController.Cameras();
-        input.world = &context.sceneController.World();
-        input.physics = &context.physics;
-        input.entities = &context.sceneController.Entities();
-        input.bodyStore = &Physics::PhysicsEngine::ReadBodies( context.physics );
-        input.colliderStore = &Physics::PhysicsEngine::ReadColliders( context.physics );
+        input.cameras = &context.world.Cameras();
+        input.world = &context.world.Environment();
+        input.physics = &context.world.Physics();
+        input.entities = &context.world.Entities();
+        input.bodyStore = &context.world.BodyStore();
+        input.colliderStore = &context.world.Colliders();
         input.launcherVisual = &launcherVisual;
         verifier.CaptureFrame( input );
 

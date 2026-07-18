@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/InteractionAutomationController.h
 Purpose:
-  Defines the CLI interaction automation script and report state.
+  Defines the CLI interaction automation action sequencer.
 
 Summary:
   Interaction automation is a validation harness, not gameplay state. Scripts
-  describe frame-indexed input/runtime commands, while reports capture the
-  bounded evidence that validation scripts read after the run exits.
+  describe frame-indexed input/runtime commands. Concrete input and report
+  owners hold synthetic device state and bounded evidence outside the sequencer.
 
 Glossary:
   Automation action: One scheduled command from an interaction script.
@@ -16,12 +16,15 @@ Glossary:
 
 Invariants:
   - Automation state is active only for CLI validation launches.
-  - Report vectors are validation artifacts, not hot-path gameplay storage.
-  - Input fields describe the current injected frame and must be cleared through
-    the automation owner after actions complete or fail.
+  - Report vectors are owned by `InteractionAutomationReportWriter`, not by the
+    action sequencer or hot-path gameplay storage.
+  - Synthetic input is cleared through `InteractionAutomationInputDriver` after
+    actions complete or fail.
 
 Related:
   - SkullbonezSource/Runtime/InteractionAutomationController.cpp
+  - SkullbonezSource/Runtime/InteractionAutomationInputDriver.h
+  - SkullbonezSource/Runtime/InteractionAutomationReportWriter.h
   - SkullbonezSource/Runtime/Input.h
   - Agentic/Reference/comment-style-guide.md
 */
@@ -30,6 +33,8 @@ Related:
 #include "../Core/PlatformWin32.h"
 
 #include "RuntimeFrameViews.h"
+#include "InteractionAutomationInputDriver.h"
+#include "InteractionAutomationReportWriter.h"
 
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
@@ -163,151 +168,16 @@ struct RunInteractionAutomationAction
     bool processed = false;
 };
 
-struct RunInteractionAutomationReportAction
-{
-    int frame = 0;
-    char type[64] = {};
-    char target[128] = {};
-    POINT mouse = {};
-    bool hasMouse = false;
-    bool consumed = false;
-    char detail[256] = {};
-};
-
-struct RunInteractionAutomationReportAssertion
-{
-    int frame = 0;
-    char name[64] = {};
-    char expected[128] = {};
-    char actual[128] = {};
-    bool passed = false;
-};
-
-struct ReplayVisualFidelityReportTick
-{
-    int sceneFrame = 0;
-    uint64_t revealFrame = 0;
-    uint64_t sourceFrame = 0;
-    uint64_t semanticHash = 0;
-    uint64_t headerStateHash = 0;
-    uint64_t trajectoryStateHash = 0;
-    uint64_t topologyStateHash = 0;
-    uint64_t markerStateHash = 0;
-    uint64_t ghostStateHash = 0;
-    uint64_t visualStateHash = 0;
-    uint64_t exactPacketHash = 0;
-    uint32_t schemaVersion = 0;
-    uint32_t targetId = 0;
-    uint32_t branchId = 0;
-    uint32_t eventCursor = 0;
-    uint32_t topologyVersion = 0;
-    uint32_t publishedFrameCount = 0;
-    bool predictionEnabled = false;
-    bool predictionBuilding = false;
-    bool predictionComplete = false;
-    Math::Vector::Vector3 cameraEye = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 cameraUp = Math::Vector::ZERO_VECTOR;
-    uint32_t trajectoryRecordCount = 0;
-    uint32_t futureNodeCount = 0;
-    uint32_t retainedMarkerCount = 0;
-    uint32_t ghostRequestCount = 0;
-    uint64_t droppedSegmentCount = 0;
-    uint64_t replayReserveGrowthEvents = 0;
-    bool hasGeometry = false;
-    uint64_t combinedLineHash = 0;
-    uint64_t combinedLineBytes = 0;
-    uint32_t combinedLineVertexCount = 0;
-    uint64_t ordinaryLineHash = 0;
-    uint64_t priorityLineHash = 0;
-    uint64_t priorityLineCanonicalHash = 0;
-    uint64_t ordinaryRibbonHash = 0;
-    uint64_t priorityRibbonHash = 0;
-    uint64_t priorityRibbonCanonicalHash = 0;
-    uint64_t vertexHash = 0;
-    uint64_t ordinaryVertexHash = 0;
-    uint64_t ordinaryLineBytes = 0;
-    uint64_t priorityLineBytes = 0;
-    uint64_t ordinaryRibbonBytes = 0;
-    uint64_t priorityRibbonBytes = 0;
-    uint64_t vertexBytes = 0;
-    uint64_t ordinaryVertexBytes = 0;
-    uint32_t ordinaryLineVertexCount = 0;
-    uint32_t priorityLineVertexCount = 0;
-    uint32_t ordinaryRibbonSegmentCount = 0;
-    uint32_t priorityRibbonSegmentCount = 0;
-    uint32_t vertexCount = 0;
-    uint32_t ordinaryVertexCount = 0;
-    uint32_t segmentCount = 0;
-};
-
-struct ReplayCausalProofTick
-{
-    // Concept: this is the stable causal envelope beside V0's exact submitted
-    // geometry. Counts may only grow as the fixed reveal cursor advances.
-    uint64_t revealFrame = 0;
-    uint64_t activeTopologyHash = 0;
-    uint32_t activeNodeCount = 0;
-    uint32_t revealedRecordCount = 0;
-    uint32_t revealedPointCount = 0;
-    uint32_t revealedSegmentCount = 0;
-    uint32_t entryMarkerCount = 0;
-    uint32_t restMarkerCount = 0;
-    uint32_t horizonMarkerCount = 0;
-    uint32_t ghostRequestCount = 0;
-};
-
-struct ReplayCausalTopologyNodeReport
-{
-    // PhysicsSceneObjectId-backed replay ids preserve the parent/depth chain in
-    // report JSON without borrowing mutable runtime topology storage.
-    uint32_t id = 0;
-    uint32_t parentId = 0;
-    uint64_t firstFrame = 0;
-    int depth = 0;
-    bool contactDerived = false;
-};
-
 struct InteractionAutomationController
 {
     bool enabled = false;
     bool scriptLoaded = false;
-    bool failed = false;
     bool finished = false;
-    bool reportWritten = false;
     char scriptPath[260] = {};
-    char reportPath[260] = {};
-    char failure[512] = {};
     std::vector<RunInteractionAutomationAction> actions;
-    std::vector<RunInteractionAutomationReportAction> actionReports;
-    std::vector<RunInteractionAutomationReportAssertion> assertionReports;
-    std::vector<std::string> screenshots;
-    std::vector<ReplayVisualFidelityReportTick> replayVisualFidelityTicks;
-    // Validation-only retained evidence. These vectors live only for a bounded
-    // CLI automation process and never become replay/runtime business state.
-    std::vector<ReplayCausalProofTick> replayCausalProofTicks;
-    std::vector<ReplayCausalTopologyNodeReport> replayCausalTopology;
-    std::vector<ReplayVisualTrajectoryDigestState> replayVisualTrajectoryDigests;
-    std::vector<uint8_t> replayVisualPredictionArchive;
-    int replayVisualFidelityStartFrame = -1;
-    bool replayVisualFidelityCaptureEnabled = false;
-    uint64_t replayVisualFidelityTrajectoryHash = 0;
-    uint64_t replayVisualFidelityTrajectoryRecordCount = 0;
-    uint64_t replayVisualFidelityTrajectoryPointCount = 0;
-    bool replayVisualFidelityTrajectoryCaptured = false;
-    bool replayVisualOfflineProjectionComplete = false;
-    POINT mouseClientPosition = {};
-    bool hasMouseClientPosition = false;
-    bool leftMouseDown = false;
-    bool rightMouseDown = false;
-    int keyVirtualKey = 0;
-    bool keyDown = false;
-    bool controlDown = false;
-    int releaseLeftFrame = -1;
-    int releaseRightFrame = -1;
-    int releaseKeyFrame = -1;
-    int unfocusedInputFrames = 0;
-    uint64_t editorSelectionCaptureFingerprints[2] = {};
-    bool editorSelectionCaptureValid[2] = {};
+    InteractionAutomationRunStatus status;
+    InteractionAutomationInputDriver inputDriver;
+    InteractionAutomationReportWriter reportWriter;
 };
 
 struct InteractionAutomationFrameResult
@@ -342,12 +212,5 @@ TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       CaptureController& capture,
                                       Rendering::IRenderCaptureBackend& captureBackend );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
-SkullbonezCore::Core::SbResult WriteInteractionAutomationReport( InteractionAutomationController& state,
-                                                                 const SceneController& scene,
-                                                                 const RuntimeTools& runtimeTools,
-                                                                 const ReplayAutomationView& replay,
-                                                                 const RuntimeInteractionController& interaction,
-                                                                 const RunCameraState& camera,
-                                                                 const UI::InGameUI& ui );
 } // namespace Runtime
 } // namespace SkullbonezCore

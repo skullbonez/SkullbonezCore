@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderDeviceDX12.cpp
 Purpose:
-  Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
+  Owns the DX12 device/presentation epoch, depth surface, fences, command
+  allocators, and frame pacing.
 
 Summary:
-  RenderDeviceDX12.cpp owns low-level DX12 device objects, fences, command
-  allocators, and frame pacing. As an implementation unit, keep edits anchored
-  on DX12 ownership, descriptors, resources, and command submission and on the
-  glossary/invariants below.
+  RenderDeviceDX12.cpp owns the device and presentation epoch: native device
+  objects, published extent/generation, VSync/tearing policy, main depth
+  surface, fences, command allocators, and frame pacing.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -50,8 +50,10 @@ Related:
 #include "RenderBackendDX12.CommandRecordingState.h"
 
 #include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cwchar>
 #include <d3d12sdklayers.h>
 #include <sstream>
@@ -955,6 +957,8 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
         }
         NameDx12ObjectIndexed( m_resources[i], safeName, i );
 
+        // Why: ID3D12Resource::Map writes through the native void-pointer ABI;
+        // ValidateDx12MappedPointer immediately publishes typed upload bytes.
         void* mappedPointer = nullptr;
         const HRESULT mapResult = m_resources[i]->Map( 0, nullptr, &mappedPointer );
         const Dx12MappedPointerResult checkedMap =
@@ -964,7 +968,7 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
             Shutdown();
             return false;
         }
-        m_mappedPtrs[i] = static_cast<uint8_t*>( checkedMap.pointer );
+        m_mappedPtrs[i] = checkedMap.bytes;
 
         // The arena owns byte-range accounting for this resource. The system
         // owns the COM resource and its persistent CPU Map() pointer.
@@ -1138,7 +1142,7 @@ void Dx12ReadbackBuffer::Reset()
 }
 
 
-void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
+const uint8_t* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
 {
     if ( !m_resource )
     {
@@ -1152,6 +1156,8 @@ void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
                   static_cast<unsigned long long>( m_sizeBytes ) );
     }
 
+    // Why: ID3D12Resource::Map writes through the native void-pointer ABI. The
+    // readback owner narrows it immediately and returns immutable bytes.
     void* mappedData = nullptr;
     D3D12_RANGE readRange = { 0, static_cast<SIZE_T>( sizeBytes ) };
     // Lane R: Map can fail after device removal or readback-memory pressure.
@@ -1160,7 +1166,7 @@ void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
     {
         return nullptr;
     }
-    return mappedData;
+    return static_cast<const uint8_t*>( mappedData );
 }
 
 
@@ -1391,6 +1397,12 @@ void Dx12RenderDevice::Shutdown()
     // completion; Init rollback reaches it before any command-list submission.
     m_frameFence.Reset();
 
+    if ( m_depthStencil )
+    {
+        m_depthStencil->Release();
+        m_depthStencil = nullptr;
+    }
+
     if ( m_fence )
     {
         m_fence->Release();
@@ -1440,6 +1452,170 @@ void Dx12RenderDevice::Shutdown()
     m_frameIndex = 0;
     m_allocatorIndex = 0;
     m_allowTearing = false;
+    m_vsyncEnabled = true;
+    m_width = 0;
+    m_height = 0;
+    m_recreationGeneration = 0;
+}
+
+
+void Dx12RenderDevice::PublishInitialExtent( int width, int height )
+{
+    // Invariant: generation zero means no complete render-device epoch has been
+    // published. Initial publication creates generation one exactly once.
+    if ( width <= 0 || height <= 0 || m_recreationGeneration != 0 )
+    {
+        SB_FATAL( "RenderDeviceDX12",
+                  "Invalid initial DX12 extent publication. width=%d height=%d generation=%llu",
+                  width,
+                  height,
+                  static_cast<unsigned long long>( m_recreationGeneration ) );
+    }
+    m_width = width;
+    m_height = height;
+    m_recreationGeneration = 1;
+}
+
+
+uint64_t Dx12RenderDevice::PublishResizedExtent( int width, int height )
+{
+    if ( width <= 0 || height <= 0 || m_recreationGeneration == 0 )
+    {
+        SB_FATAL( "RenderDeviceDX12",
+                  "Invalid resized DX12 extent publication. width=%d height=%d generation=%llu",
+                  width,
+                  height,
+                  static_cast<unsigned long long>( m_recreationGeneration ) );
+    }
+    m_width = width;
+    m_height = height;
+    return ++m_recreationGeneration;
+}
+
+
+SkullbonezCore::Core::SbResult
+Dx12RenderDevice::CreateDepthStencilResource( int width, int height, ID3D12Resource*& outResource ) const
+{
+    // Concept: the main depth surface is part of the published presentation
+    // epoch because its dimensions must match the swap-chain color surfaces.
+    // Creation returns a candidate; ReplaceDepthStencil is the publication step.
+    outResource = nullptr;
+    if ( !m_device || width <= 0 || height <= 0 )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
+                                                        "Invalid depth-stencil creation request. width=%d height=%d",
+                                                        width,
+                                                        height );
+    }
+
+    D3D12_HEAP_PROPERTIES heapProperties = {};
+    heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+    D3D12_RESOURCE_DESC description = {};
+    description.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    description.Width = static_cast<UINT64>( width );
+    description.Height = static_cast<UINT>( height );
+    description.DepthOrArraySize = 1;
+    description.MipLevels = 1;
+    description.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    description.SampleDesc.Count = 1;
+    description.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+    D3D12_CLEAR_VALUE clearValue = {};
+    clearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    clearValue.DepthStencil.Depth = 1.0f;
+
+    const HRESULT createResult = m_device->CreateCommittedResource( &heapProperties,
+                                                                    D3D12_HEAP_FLAG_NONE,
+                                                                    &description,
+                                                                    D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                                                    &clearValue,
+                                                                    IID_PPV_ARGS( &outResource ) );
+    if ( FAILED( createResult ) || !outResource )
+    {
+        return Dx12RuntimeResult( FAILED( createResult ) ? createResult : E_FAIL,
+                                  "CreateCommittedResource (depth stencil) failed" );
+    }
+    NameDx12Object( outResource, L"Skullbonez DX12 Main Depth Stencil" );
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+ID3D12Resource* Dx12RenderDevice::ReplaceDepthStencil( ID3D12Resource* replacement )
+{
+    // Lifetime: replacement transfers one COM reference into this owner. The
+    // caller receives the old reference and must retire or release it.
+    ID3D12Resource* previous = m_depthStencil;
+    m_depthStencil = replacement;
+    return previous;
+}
+
+
+void Dx12RenderDevice::ReportDeviceLost( const char* context, HRESULT result ) const
+{
+    const HRESULT removedReason = m_device ? m_device->GetDeviceRemovedReason() : result;
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_device_lost context=%s result=0x%08lX removed_reason=0x%08lX",
+                                             context ? context : "unknown",
+                                             static_cast<unsigned long>( result ),
+                                             static_cast<unsigned long>( removedReason ) );
+
+    FILE* file = nullptr;
+    fopen_s( &file, "dx12_device_lost.txt", "a" );
+    if ( file )
+    {
+        fprintf( file,
+                 "context=%s result=0x%08lX removed_reason=0x%08lX\n",
+                 context ? context : "unknown",
+                 static_cast<unsigned long>( result ),
+                 static_cast<unsigned long>( removedReason ) );
+    }
+
+    if ( m_device )
+    {
+        ID3D12DeviceRemovedExtendedData* dred = nullptr;
+        if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &dred ) ) ) )
+        {
+            D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT breadcrumbs = {};
+            D3D12_DRED_PAGE_FAULT_OUTPUT pageFault = {};
+            const HRESULT breadcrumbResult = dred->GetAutoBreadcrumbsOutput( &breadcrumbs );
+            const HRESULT pageFaultResult = dred->GetPageFaultAllocationOutput( &pageFault );
+
+            SkullbonezCore::Core::Log().WriteEventf(
+                "dx12_dred context=%s breadcrumbs_hr=0x%08lX breadcrumbs_head=%p page_fault_hr=0x%08lX "
+                "page_fault_va=0x%llX existing_allocations=%p recent_freed_allocations=%p",
+                context ? context : "unknown",
+                static_cast<unsigned long>( breadcrumbResult ),
+                breadcrumbs.pHeadAutoBreadcrumbNode,
+                static_cast<unsigned long>( pageFaultResult ),
+                static_cast<unsigned long long>( pageFault.PageFaultVA ),
+                pageFault.pHeadExistingAllocationNode,
+                pageFault.pHeadRecentFreedAllocationNode );
+
+            if ( file )
+            {
+                fprintf( file,
+                         "dred breadcrumbs_hr=0x%08lX breadcrumbs_head=%p page_fault_hr=0x%08lX "
+                         "page_fault_va=0x%llX existing_allocations=%p recent_freed_allocations=%p\n",
+                         static_cast<unsigned long>( breadcrumbResult ),
+                         breadcrumbs.pHeadAutoBreadcrumbNode,
+                         static_cast<unsigned long>( pageFaultResult ),
+                         static_cast<unsigned long long>( pageFault.PageFaultVA ),
+                         pageFault.pHeadExistingAllocationNode,
+                         pageFault.pHeadRecentFreedAllocationNode );
+            }
+            dred->Release();
+        }
+        else if ( file )
+        {
+            fprintf( file, "dred unavailable\n" );
+        }
+    }
+
+    if ( file )
+    {
+        fprintf( file, "---\n" );
+        fclose( file );
+    }
 }
 
 

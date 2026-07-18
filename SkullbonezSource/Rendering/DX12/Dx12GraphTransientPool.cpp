@@ -1,0 +1,483 @@
+/*
+File: SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.cpp
+Purpose:
+  Implements DX12 render-graph transient materialization and target binding.
+
+Summary:
+  Compatible logical graph lifetimes reuse physical texture slots. New slots
+  receive typed descriptor allocations and optional texture handles, while
+  callback-owned passes use a balanced transaction to render into a slot and
+  restore the previous output state.
+
+Glossary:
+  Materialization: Creating the native texture and view rows for a logical slot.
+  Covering fence: Completion proof required before descriptor/resource reuse.
+  Current access: Last graph-level resource use represented by a DX12 state.
+
+Invariants:
+  - Slot reuse requires the compiler's pool id and descriptor shape to match.
+  - Every recorded transition emits exactly one concrete DX12 barrier.
+  - Engine texture handles unregister before native resource release.
+  - Descriptor retirement remains delegated to the frame/descriptor owners.
+
+Related:
+  - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
+  - SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.h
+  - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
+  - Agentic/Reference/comment-style-guide.md
+*/
+#include "Dx12GraphTransientPool.h"
+
+#include "Dx12DescriptorHeaps.h"
+#include "Dx12FrameOwner.h"
+#include "Dx12RenderGraphExecutor.h"
+#include "RenderBackendDX12.h"
+#include "../../Core/FatalError.h"
+#include "../../Core/Log.h"
+
+#include <cstdio>
+
+using namespace SkullbonezCore::Rendering;
+
+namespace
+{
+DXGI_FORMAT ToColorFormat( RenderGraphResourceFormat format )
+{
+    switch ( format )
+    {
+    case RenderGraphResourceFormat::RGBA8:
+        return DXGI_FORMAT_R8G8B8A8_UNORM;
+    case RenderGraphResourceFormat::RGBA16F:
+        return DXGI_FORMAT_R16G16B16A16_FLOAT;
+    default:
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Unsupported render graph color transient format. format=%d",
+                  static_cast<int>( format ) );
+    }
+}
+
+DXGI_FORMAT ToSrvFormat( RenderGraphResourceFormat format )
+{
+    return format == RenderGraphResourceFormat::Depth24Stencil8 ? DXGI_FORMAT_R24_UNORM_X8_TYPELESS
+                                                                : ToColorFormat( format );
+}
+
+size_t CountDescriptorRows( const RenderGraphDescriptorNeeds& descriptors )
+{
+    return ( descriptors.renderTarget ? 1u : 0u ) + ( descriptors.depthStencil ? 1u : 0u ) +
+           ( descriptors.shaderResource ? 1u : 0u ) + ( descriptors.unorderedAccess ? 1u : 0u );
+}
+
+void MarkMaterializationFailure( RenderGraphTransientMaterializationStats& stats,
+                                 HRESULT result,
+                                 const RenderGraphResourceDesc& resource )
+{
+    stats.failed = true;
+    stats.failureHresult = static_cast<unsigned int>( result );
+    std::snprintf( stats.failureStage, sizeof( stats.failureStage ), "%s", "CreateCommittedResource" );
+    std::snprintf( stats.failureResource,
+                   sizeof( stats.failureResource ),
+                   "%s",
+                   ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
+    SkullbonezCore::Core::Log().WriteEventf(
+        "dx12_graph_transient_materialize_failed stage=%s resource=%s hresult=0x%08X",
+        stats.failureStage,
+        stats.failureResource,
+        stats.failureHresult );
+    SkullbonezCore::Core::Log().FlushAll();
+}
+} // namespace
+
+Dx12GraphTransientPool::Dx12GraphTransientPool( Dx12RenderDevice& device,
+                                                Dx12DescriptorHeaps& descriptors,
+                                                Dx12FrameOwner& frame,
+                                                Dx12TextureOwner& textures,
+                                                Dx12PipelineOwner& pipeline )
+    : m_device( device ), m_descriptors( descriptors ), m_frame( frame ), m_textures( textures ), m_pipeline( pipeline )
+{
+}
+
+RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( const RenderGraph& graph,
+                                                                              const RenderGraphCompileResult& compiled )
+{
+    // Concept: these are frame-target pool slots, not scene assets. The graph
+    // compiler proves alias compatibility; this owner keeps that proof beside
+    // the physical texture and every view row that represents it.
+    m_stats = {};
+    m_bindings.clear();
+    for ( GraphTransientResourceDX12& slot : m_resources )
+    {
+        slot.usedThisCompile = false;
+    }
+
+    ID3D12Device* device = m_device.Device();
+    if ( !device )
+    {
+        SB_FATAL( "Dx12GraphTransientPool", "Graph transient materialization requires an initialized device." );
+    }
+
+    for ( const RenderGraphTransientAllocationDesc& allocation : compiled.transientAllocations )
+    {
+        if ( allocation.resource.index >= graph.Resources().size() )
+        {
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Graph transient allocation references an invalid resource. index=%u resourceCount=%zu",
+                      allocation.resource.index,
+                      graph.Resources().size() );
+        }
+
+        const RenderGraphResourceDesc& resource = graph.Resources()[allocation.resource.index];
+        const RenderGraphTransientResourceDesc& desc = resource.transient;
+        if ( desc.kind != RenderGraphResourceKind::Texture2D )
+        {
+            SB_FATAL( "Dx12GraphTransientPool", "Graph transient materializer supports Texture2D resources only." );
+        }
+        if ( desc.format == RenderGraphResourceFormat::Unknown )
+        {
+            SB_FATAL( "Dx12GraphTransientPool", "Graph transient materializer requires a concrete format." );
+        }
+        if ( desc.descriptors.depthStencil && desc.descriptors.unorderedAccess )
+        {
+            SB_FATAL( "Dx12GraphTransientPool", "Graph transient depth resources cannot request UAV descriptors." );
+        }
+
+        GraphTransientResourceDX12* slot = nullptr;
+        for ( GraphTransientResourceDX12& candidate : m_resources )
+        {
+            if ( GraphTransientPoolSlotCanSatisfyDX12( candidate, allocation.poolSlot, desc ) )
+            {
+                slot = &candidate;
+                ++m_stats.reusedThisCompile;
+                break;
+            }
+        }
+
+        if ( !slot )
+        {
+            // Runtime allocation exception: render-graph pool growth is a
+            // warm-up materialization action. Created slots persist to shutdown;
+            // steady frames reuse the compiler-assigned physical pool.
+            m_resources.push_back( GraphTransientResourceDX12() );
+            slot = &m_resources.back();
+            slot->desc = desc;
+            slot->poolSlot = allocation.poolSlot;
+
+            D3D12_RESOURCE_DESC textureDesc = {};
+            textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            textureDesc.Width = desc.width;
+            textureDesc.Height = desc.height;
+            textureDesc.DepthOrArraySize = 1;
+            textureDesc.MipLevels = static_cast<UINT16>( desc.mipLevels );
+            textureDesc.SampleDesc.Count = 1;
+            textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+            D3D12_CLEAR_VALUE clearValue = {};
+            D3D12_CLEAR_VALUE* clearValuePtr = nullptr;
+            if ( desc.descriptors.depthStencil )
+            {
+                textureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+                textureDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+                clearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+                clearValue.DepthStencil.Depth = 1.0f;
+                clearValuePtr = &clearValue;
+            }
+            else
+            {
+                textureDesc.Format = ToColorFormat( desc.format );
+                if ( desc.descriptors.renderTarget )
+                {
+                    textureDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+                    clearValue.Format = textureDesc.Format;
+                    clearValue.Color[3] = 1.0f;
+                    clearValuePtr = &clearValue;
+                }
+                if ( desc.descriptors.unorderedAccess )
+                {
+                    textureDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+                }
+            }
+
+            D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
+            if ( !TryDx12RenderGraphAccessToResourceState( resource.initialAccess, initialState ) )
+            {
+                initialState = D3D12_RESOURCE_STATE_COMMON;
+            }
+
+            D3D12_HEAP_PROPERTIES defaultHeap = {};
+            defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
+            const HRESULT hr = device->CreateCommittedResource( &defaultHeap,
+                                                                D3D12_HEAP_FLAG_NONE,
+                                                                &textureDesc,
+                                                                initialState,
+                                                                clearValuePtr,
+                                                                IID_PPV_ARGS( &slot->resource ) );
+            if ( FAILED( hr ) )
+            {
+                // Lane R: optional post-process passes may use their older
+                // framebuffer path when native transient creation fails.
+                MarkMaterializationFailure( m_stats, hr, resource );
+                m_resources.pop_back();
+                m_stats.poolSize = m_resources.size();
+                return m_stats;
+            }
+            NameDx12Object( slot->resource, L"Skullbonez DX12 RenderGraph Transient Texture" );
+
+            if ( desc.descriptors.renderTarget )
+            {
+                slot->rtv = m_descriptors.AllocateRtv().cpuHandle;
+                device->CreateRenderTargetView( slot->resource, nullptr, slot->rtv );
+            }
+            if ( desc.descriptors.depthStencil )
+            {
+                slot->dsv = m_descriptors.AllocateDsv().cpuHandle;
+                D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+                dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+                dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+                device->CreateDepthStencilView( slot->resource, &dsvDesc, slot->dsv );
+            }
+            if ( desc.descriptors.shaderResource )
+            {
+                slot->srvIndex = m_descriptors.AllocateStatic();
+                D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                srvDesc.Format = ToSrvFormat( desc.format );
+                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                srvDesc.Texture2D.MipLevels = desc.mipLevels;
+                device->CreateShaderResourceView( slot->resource,
+                                                  &srvDesc,
+                                                  m_descriptors.StagingCpuHandle( slot->srvIndex ) );
+                m_descriptors.PublishStaticDescriptor( device, slot->srvIndex );
+            }
+            if ( desc.descriptors.unorderedAccess )
+            {
+                slot->uavIndex = m_descriptors.AllocateStatic();
+                D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+                uavDesc.Format = ToColorFormat( desc.format );
+                uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+                device->CreateUnorderedAccessView( slot->resource,
+                                                   nullptr,
+                                                   &uavDesc,
+                                                   m_descriptors.StagingCpuHandle( slot->uavIndex ) );
+                m_descriptors.PublishStaticDescriptor( device, slot->uavIndex );
+            }
+            ++m_stats.createdThisCompile;
+        }
+
+        std::snprintf( slot->resourceName,
+                       sizeof( slot->resourceName ),
+                       "%s",
+                       ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
+        if ( desc.descriptors.shaderResource && slot->textureHandle == 0 && slot->srvIndex != UINT_MAX )
+        {
+            slot->textureHandle = m_textures.RegisterSRV( slot->srvIndex );
+        }
+        const bool firstUseThisCompile = !slot->usedThisCompile;
+        slot->poolSlot = allocation.poolSlot;
+        slot->firstPass = allocation.firstPass;
+        slot->lastPass = allocation.lastPass;
+        if ( firstUseThisCompile )
+        {
+            slot->currentAccess = resource.initialAccess;
+        }
+        slot->usedThisCompile = true;
+        m_bindings.push_back( { allocation.resource, static_cast<size_t>( slot - m_resources.data() ) } );
+    }
+
+    m_stats.poolSize = m_resources.size();
+    m_stats.releasedAtFrameEnd = compiled.transientDiagnostics.releaseCount;
+    for ( const GraphTransientResourceDX12& slot : m_resources )
+    {
+        if ( slot.resource )
+        {
+            m_stats.descriptorRowsOwned += CountDescriptorRows( slot.desc.descriptors );
+        }
+    }
+    SkullbonezCore::Core::Log().WriteEventf(
+        "dx12_graph_transient_materialize allocations=%zu pool_size=%zu created_this_compile=%zu "
+        "reused_this_compile=%zu descriptor_rows_owned=%zu released_at_frame_end=%zu",
+        compiled.transientAllocations.size(),
+        m_stats.poolSize,
+        m_stats.createdThisCompile,
+        m_stats.reusedThisCompile,
+        m_stats.descriptorRowsOwned,
+        m_stats.releasedAtFrameEnd );
+    return m_stats;
+}
+
+GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourceHandle resource )
+{
+    for ( const GraphTransientBindingDX12& binding : m_bindings )
+    {
+        if ( binding.resource.index == resource.index && binding.slotIndex < m_resources.size() )
+        {
+            return &m_resources[binding.slotIndex];
+        }
+    }
+    return nullptr;
+}
+
+const GraphTransientResourceDX12* Dx12GraphTransientPool::FindSlot( RenderGraphResourceHandle resource ) const
+{
+    for ( const GraphTransientBindingDX12& binding : m_bindings )
+    {
+        if ( binding.resource.index == resource.index && binding.slotIndex < m_resources.size() )
+        {
+            return &m_resources[binding.slotIndex];
+        }
+    }
+    return nullptr;
+}
+
+RenderGraphTextureBinding Dx12GraphTransientPool::Resolve( RenderGraphResourceHandle resource ) const
+{
+    const GraphTransientResourceDX12* slot = FindSlot( resource );
+    if ( !slot || !slot->resource )
+    {
+        return {};
+    }
+    RenderGraphTextureBinding binding;
+    binding.resource = resource;
+    binding.textureHandle = slot->textureHandle;
+    binding.width = slot->desc.width;
+    binding.height = slot->desc.height;
+    binding.renderTarget = slot->desc.descriptors.renderTarget;
+    binding.shaderResource = slot->desc.descriptors.shaderResource;
+    return binding;
+}
+
+bool Dx12GraphTransientPool::Transition( const char* passName,
+                                         const char* resourceName,
+                                         ID3D12Resource* resource,
+                                         RenderGraphResourceAccess before,
+                                         RenderGraphResourceAccess after )
+{
+    if ( !resource || before == after )
+    {
+        return true;
+    }
+    if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
+    {
+        return false;
+    }
+    Dx12RenderGraphSingleTransitionDesc desc;
+    desc.commandList = m_frame.CommandList();
+    desc.resource = resource;
+    desc.before = before;
+    desc.after = after;
+    const Dx12RenderGraphBarrierRecord record =
+        ExecuteDx12RenderGraphSingleTransition( "Dx12GraphTransient", passName, resourceName, desc );
+    if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
+         record.beforeState == record.afterState || !record.emitted )
+    {
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transition did not emit one concrete barrier. pass=%s resource=%s",
+                  passName ? passName : "unknown",
+                  resourceName ? resourceName : "unknown" );
+    }
+    return true;
+}
+
+void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+{
+    if ( m_renderTargetActive )
+    {
+        SB_FATAL( "Dx12GraphTransientPool", "Graph transient render target is already active." );
+    }
+    if ( !binding.IsValid() || !binding.renderTarget )
+    {
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient render target binding is invalid. textureHandle=%u renderTarget=%d",
+                  binding.textureHandle,
+                  binding.renderTarget ? 1 : 0 );
+    }
+    GraphTransientResourceDX12* slot = FindSlot( binding.resource );
+    if ( !slot || !slot->resource || slot->rtv.ptr == 0 )
+    {
+        SB_FATAL( "Dx12GraphTransientPool", "Graph transient render target was not materialized." );
+    }
+
+    // Lifetime: one balanced callback interval borrows the current output state.
+    // No saved target escapes this owner or survives the matching End call.
+    m_savedRtv = m_pipeline.CurrentRTV();
+    m_savedDsv = m_pipeline.CurrentDSV();
+    m_savedRtvFormat = m_pipeline.RenderTargetFormat();
+    if ( !Transition( passName,
+                      slot->resourceName,
+                      slot->resource,
+                      slot->currentAccess,
+                      RenderGraphResourceAccess::RenderTarget ) )
+    {
+        return;
+    }
+    m_pipeline.SetRenderingToFBO( true, ToColorFormat( slot->desc.format ) );
+    m_textures.ClearBoundSlotsForSrv( slot->srvIndex );
+    slot->currentAccess = RenderGraphResourceAccess::RenderTarget;
+    m_pipeline.SetCurrentTargets( slot->rtv, m_savedDsv );
+    m_renderTargetActive = true;
+    m_activeRenderTarget = binding.resource;
+}
+
+void Dx12GraphTransientPool::EndRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+{
+    if ( !m_renderTargetActive || m_activeRenderTarget.index != binding.resource.index )
+    {
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient render target end does not match active binding. active=%u requested=%u",
+                  m_activeRenderTarget.index,
+                  binding.resource.index );
+    }
+    GraphTransientResourceDX12* slot = FindSlot( binding.resource );
+    if ( !slot || !slot->resource )
+    {
+        SB_FATAL( "Dx12GraphTransientPool", "Graph transient render target was lost before unbind." );
+    }
+    if ( !Transition( passName,
+                      slot->resourceName,
+                      slot->resource,
+                      slot->currentAccess,
+                      RenderGraphResourceAccess::PixelShaderResource ) )
+    {
+        return;
+    }
+    slot->currentAccess = RenderGraphResourceAccess::PixelShaderResource;
+    m_pipeline.SetRenderingToFBO( false, DXGI_FORMAT_R8G8B8A8_UNORM );
+    m_pipeline.SetCurrentTargets( m_savedRtv, m_savedDsv );
+    m_pipeline.RestoreRenderTargetFormat( m_savedRtvFormat );
+    m_renderTargetActive = false;
+    m_activeRenderTarget = {};
+}
+
+void Dx12GraphTransientPool::ReleaseAfterTerminalDrain( const char* reason )
+{
+    size_t released = 0;
+    for ( GraphTransientResourceDX12& slot : m_resources )
+    {
+        if ( slot.textureHandle != 0 )
+        {
+            const UINT srvIndex = m_textures.UnregisterSRV( slot.textureHandle );
+            if ( srvIndex != UINT_MAX )
+            {
+                m_frame.ResourceRelease().RetireStaticDescriptor( srvIndex );
+            }
+            slot.textureHandle = 0;
+        }
+        if ( slot.uavIndex != UINT_MAX )
+        {
+            m_frame.ResourceRelease().RetireStaticDescriptor( slot.uavIndex );
+            slot.uavIndex = UINT_MAX;
+        }
+        if ( ReleaseGraphTransientPoolSlotResourceDX12( slot ) )
+        {
+            ++released;
+        }
+    }
+    m_resources.clear();
+    m_bindings.clear();
+    m_stats = {};
+    m_renderTargetActive = false;
+    m_activeRenderTarget = {};
+    SkullbonezCore::Core::Log().WriteEventf( "dx12_graph_transient_release reason=%s released_resources=%zu",
+                                             reason ? reason : "unknown",
+                                             released );
+}

@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-17
+Date: 2026-07-18
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,14 +10,96 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-16th-july` (SoA/SIMD scalar-retention campaign complete) |
-| Current baseline | Scalar-only matrix: 1,000 bodies Step/Broadphase 1.0871/0.3005 ms; 2,000 bodies 1.8670/0.7549 ms. Broadphase is inclusive; never add its children. |
-| Current objective | No active implementation plan; preserve the retained scalar SoA and completed campaign evidence. |
-| Active/future progress | 0 / 0 live tasks; portfolio complete (completed campaigns excluded under MASTER rule 4) |
-| Last broad local gate | Final `validate_full` passed: 282 tests/21,389 assertions, zero-warning builds, zero DX12 errors, matching captures, and byte-exact 44,401-line physics oracle |
-| Validation for current edits | None. S8 is documentation-only; S7 source gates are green. |
+| Branch | `nightrunner-17th-july` |
+| Current baseline | Physics scale P0 is complete with zero baseline, golden, screenshot, authored-format, or coverage-floor refresh. |
+| Current objective | Execute `physics-body-count-scale-campaign` P1 next under the equivalence protocol, then continue the campaign in order. |
+| Active/future progress | 1 / 8 live tasks; 13%. |
+| Last broad local gate | P0 `validate_full` passed in approximately 132s: 292/292 tests, 21,458 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, screenshots, and byte-exact physics passed. |
+| Validation for current edits | P0 `validate_perf` and `validate_full` passed from final reviewed source; platform-marker smoke and the six-scene 0/1/4-worker determinism matrix passed. Independent review is clear; comment audit is 16/16 with zero deferred. |
 
 ## Live Queue
+
+NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
+     (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
+     parallel-eligible physics lane (persistent broadphase, zero-cost
+     sleepers, bandwidth diet, owner-gated graph-colored solver). P0 is
+     complete at 1/8. The next action is P1: build the Debug-only candidate-pair
+     set-equivalence probe, capture old-code evidence, then perform the
+     authorized canonical-order transition only after all six old/new scene
+     sets match tick-for-tick. P6 is not pre-authorized and returns to an owner
+     decision at P5. Every other task keeps the zero-refresh rule. P0 evidence:
+     `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
+
+0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
+     plans left the live ledger. Scene-controller round 2 is complete at 7/7
+     and left the live ledger under rule 4. `SceneController` has 43 public
+     declarations, its load
+     surface has 18 concrete participants, and one `SceneWorld` owns the six
+     cohesive scene-lifetime domains. The sixth independent review found zero
+     material ownership issues; full and the sole replay mega gate passed with
+     no baseline or golden refresh. Closure evidence:
+     `Agentic/Reports/2026-07-18/scene-controller-round-2-closure.md`. DX12
+     backend ownership also closed D0-D7 and left the live ledger under rule 4.
+     D0 ratified the complete private-state map.
+     D1 moved all descriptor heaps, allocators, published output handles, and
+     typed row operations into `Dx12DescriptorHeaps`. D2 moved screenshot
+     capture, readback lifetime, conversion, and the fixed uncertain-readback
+     quarantine into `Dx12BackbufferCapture`; it receives a restricted frame
+     capability with no backend reach-back. D3 moved graph pool slots, logical
+     bindings, materialization statistics, and the balanced saved-target
+     transaction into `Dx12GraphTransientPool`, which borrows concrete owners
+     and no raw heap pointer. D4 moved GPU timer/readback lifetime, draw
+     current/high-water counters, visibility statistics, and `DrawCallTrace`
+     into `Dx12Diagnostics`; its restricted frame capability exposes no
+     backend reach-back. D5 moved the fixed live-shader registry, pinned bake,
+     complete candidate staging, and no-fail PSO/bytecode adoption into
+     `Dx12ShaderDevelopment`; it has no frame, command-list, backend, callback,
+     or per-frame authority. D6 removed backend-resident device/presentation,
+     clear-intent, DXR handle, and upload-capacity state plus the obsolete
+     forwarding surface. The backend header is 867 lines and the class is 231
+     lines; it directly declares only eleven concrete owners. The independent
+     logical-module review found zero blockers; full, three consecutive direct
+     renderer gates, and bounded stress passed. Closure evidence:
+     `Agentic/Reports/2026-07-18/dx12-backend-ownership-decomposition-closure.md`.
+     Naming N0 ratified `AuthoredScene` / `AuthoredSceneParser`,
+     `RenderInstanceRenderer`, `OperatorCommandApplier`, and the two-file-family
+     N4 subset after ruling all 62 matching `Run*` / `Runtime*` source files.
+     N1 renamed the complete production scene/parser family and all consumers.
+     N2 renamed `Rendering::RenderInstanceRenderer` and retired every production
+     `GameModel` spelling. N3 renamed the stateless operator-command module and
+     recorded all domain-seam rulings. N4 performed only the three ratified
+     filename moves, reconciled the 62/62 census, resolved the reviewer's audit
+     finding, and passed full, replay, coverage, and project-filter gates.
+     Naming is complete and has left the ledger. Closure evidence:
+     `Agentic/Reports/2026-07-18/naming-and-identity-debt-closure.md`.
+     Small-findings H0 ratified the complete findings census and implementation decisions in
+     `Agentic/Reports/2026-07-18/small-findings-h0-rulings-census.md`.
+     H1 removed the last lock-validator singleton, made its Debug graph fixed
+     storage owned by startup, and preserved the standard Profile/Release lock
+     primitives. Evidence:
+     `Agentic/Reports/2026-07-18/small-findings-h1-lock-validator-ownership.md`.
+     H2 replaced the PSO key's raw COM address with an owner-issued monotonic
+     root-signature identity and proved the final source with zero-error DX12
+     validation plus bounded stress. Evidence:
+     `Agentic/Reports/2026-07-18/small-findings-h2-stable-pso-identity.md`.
+     H3 reconciled the 153-site cast census to 88 ruled retained/private sites,
+     centralized object-byte and private callback erasure, and replaced all
+     ratified typed-boundary sites. Every cumulative mapped gate passed.
+     Evidence:
+     `Agentic/Reports/2026-07-18/small-findings-h3-cast-boundary-closure.md`.
+     H4 fenced JSON to the exact 19 cold-boundary TUs with a cycle-safe reverse
+     include graph, split the complete profiler histogram owner, retained the
+     cohesive memory tab, and cleared independent review plus fast/direct/full
+     gates. Small-findings hardening is complete and has left the ledger.
+     Closure evidence:
+     `Agentic/Reports/2026-07-18/small-findings-hardening-closure.md`.
+
+00. Round-6 C0-C6 closed after a repeat independent review, direct
+    `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
+    stress. Closure evidence is in
+    `Agentic/Reports/2026-07-18/code-level-red-flags-closure.md`. The
+    GPU-hosted CI activation lane remains externally blocked and excluded from
+    the active/future denominator.
 
 00000000. `physics-broadphase-scale-attribution` is COMPLETE at 5/5; its plan
           is deleted under inventory rule 4 and closure evidence lives in
@@ -319,15 +401,14 @@ plan inventory.
   unless the owner explicitly restores a plan to `TODO/`.
 - The MASTER critical path is binding; preparation may run early only where it
   is explicitly named, and no work crosses a recorded dependency barrier.
-- Active decomposition and future spline work execute on
-  `nightrunner-14th-july`. The visual mega probe is completed historical
-  evidence; every decomposition task reruns its unchanged golden 200-box
-  manifest. Refactors do not authorize baseline refresh.
+- Round-6 work completed on `nightrunner-17th-july`. Its plan-mapped replay,
+  baseline, coverage, and graphics-stress restrictions remain recorded in the
+  closure reports.
 - Every plan-runner commit and plan-implementation prompt starts with the
   resolved MASTER progress header: plan name, completed plan tasks, and rounded
-  active/future portfolio completion. That percentage covers only the active
-  decomposition and future spline plans, not completed historical plans or the
-  externally blocked validation lane. Ordinary commits do not claim plan
+  active/future portfolio completion. With no live plans the ledger reports
+  0/0 and 100% by convention; completed historical plans and the externally
+  blocked validation lane remain excluded. Ordinary commits do not claim plan
   progress.
 - A completed plan may remain in the tip tree only when MASTER explicitly marks
   it as evidence for an unmet aggregate closure gate; it is deleted when that
@@ -374,16 +455,12 @@ plan inventory.
 
 ## Next Handoff
 
-Unit-test coverage is complete at 10/10. All required translation units are
-present in Cobertura and the ratified 85%/70%/50% tier floors are enforced.
-Closure evidence, baseline deltas, the independent review, the three-file
-comment audit, and final validation live in
-`Agentic/Reports/2026-07-17/unit-test-coverage-closure.md`. Physics SoA/SIMD is
-complete at 9/9: SoA remains, rejected SIMD and attribution-only complexity are
-gone, one complete 8,192-cell grid remains, and mandatory coverage and the full
-gate pass. Closure evidence lives in
-`Agentic/Reports/2026-07-17/soa-simd-closure.md`. There is no active local plan;
-do not regenerate behavioral physics baselines.
-Replay mass reduction remains closed at 9/9 plus R8; the externally
-administered validation-gate V3 lane remains blocked and excluded from the
-ledger.
+Round-7 scene decomposition, DX12 backend ownership, naming N0-N4, and
+small-findings H0-H4 are complete and have left the live ledger. Continue
+immediately with `physics-body-count-scale-campaign` P1. P0 is committed at
+1/8 with its matrix and rulings in
+`Agentic/Reports/2026-07-18/body-count-scale-measurements.md`. Build and capture
+the old-code Debug candidate-pair set-equivalence probe before editing pair
+emission order. Do not regenerate behavioral, physics, replay, visual, or
+screenshot artifacts until all six old/new sets match tick-for-tick. P6 still
+requires a fresh owner decision at P5.

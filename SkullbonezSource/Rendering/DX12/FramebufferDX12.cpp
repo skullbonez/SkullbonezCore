@@ -55,18 +55,15 @@ static DXGI_FORMAT ToDX12ColorFormat( FramebufferColorFormat format )
 FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device,
                                   Dx12PipelineOwner& pipeline,
                                   Dx12TextureOwner& textures,
-                                  Dx12CpuDescriptorAllocator& rtvDescriptors,
-                                  Dx12CpuDescriptorAllocator& dsvDescriptors,
-                                  Dx12DescriptorAllocator& srvDescriptors,
+                                  Dx12DescriptorHeaps& descriptors,
                                   Dx12DrawGate& drawGate,
                                   Dx12ResourceRelease& resourceRelease,
                                   FramebufferColorFormat colorFormat )
-    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_rtvDescriptors( rtvDescriptors ),
-      m_dsvDescriptors( dsvDescriptors ), m_srvDescriptors( srvDescriptors ), m_drawGate( drawGate ),
-      m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ), m_depthTexture( nullptr ),
-      m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ), m_depthSrvIndex( UINT_MAX ),
-      m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ), m_height( 0 ),
-      m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
+    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
+      m_drawGate( drawGate ), m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ),
+      m_depthTexture( nullptr ), m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ),
+      m_depthSrvIndex( UINT_MAX ), m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ),
+      m_height( 0 ), m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
 {
     m_rtvHandle = {};
     m_dsvHandle = {};
@@ -184,7 +181,7 @@ bool FramebufferDX12::Create( int width, int height )
     // Allocate descriptor rows from the backend heaps. The color/depth textures
     // are the resources; RTV/DSV are the binding records that let the output
     // merger write into those resources.
-    const Dx12CpuDescriptorAllocation rtvAllocation = m_rtvDescriptors.Allocate();
+    const Dx12CpuDescriptorAllocation rtvAllocation = m_descriptors.AllocateRtv();
     m_rtvIndex = rtvAllocation.index;
     m_rtvHandle = rtvAllocation.cpuHandle;
     // Create a Render Target View (RTV). This descriptor tells the GPU how to
@@ -193,7 +190,7 @@ bool FramebufferDX12::Create( int width, int height )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     device->CreateRenderTargetView( m_colorTexture, nullptr, m_rtvHandle );
 
-    const Dx12CpuDescriptorAllocation dsvAllocation = m_dsvDescriptors.Allocate();
+    const Dx12CpuDescriptorAllocation dsvAllocation = m_descriptors.AllocateDsv();
     m_dsvIndex = dsvAllocation.index;
     m_dsvHandle = dsvAllocation.cpuHandle;
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
@@ -207,7 +204,7 @@ bool FramebufferDX12::Create( int width, int height )
 
     // Create the SRV used after Unbind() when shaders sample the finished color
     // texture.
-    m_srvIndex = m_srvDescriptors.AllocateStatic();
+    m_srvIndex = m_descriptors.AllocateStatic();
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = colorFormat;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -217,8 +214,8 @@ bool FramebufferDX12::Create( int width, int height )
     // sample/read the color texture. The same GPU resource can have multiple
     // views: RTV for writing, SRV for reading.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
-    device->CreateShaderResourceView( m_colorTexture, &srvDesc, m_srvDescriptors.StagingCpuHandle( m_srvIndex ) );
-    m_srvDescriptors.PublishStaticDescriptor( device, m_srvIndex );
+    device->CreateShaderResourceView( m_colorTexture, &srvDesc, m_descriptors.StagingCpuHandle( m_srvIndex ) );
+    m_descriptors.PublishStaticDescriptor( device, m_srvIndex );
 
     // Register the SRV with the normal backend texture registry so renderer code
     // can bind this framebuffer with a texture handle instead of a raw descriptor
@@ -227,7 +224,7 @@ bool FramebufferDX12::Create( int width, int height )
 
     // Depth SRV: the tonemap/volumetric shaders sample this to know where solid
     // geometry blocks fog and rays. It reads only the 24-bit depth component.
-    m_depthSrvIndex = m_srvDescriptors.AllocateStatic();
+    m_depthSrvIndex = m_descriptors.AllocateStatic();
     D3D12_SHADER_RESOURCE_VIEW_DESC depthSrvDesc = {};
     depthSrvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
     depthSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -235,8 +232,8 @@ bool FramebufferDX12::Create( int width, int height )
     depthSrvDesc.Texture2D.MipLevels = 1;
     device->CreateShaderResourceView( m_depthTexture,
                                       &depthSrvDesc,
-                                      m_srvDescriptors.StagingCpuHandle( m_depthSrvIndex ) );
-    m_srvDescriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
+                                      m_descriptors.StagingCpuHandle( m_depthSrvIndex ) );
+    m_descriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
     m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex );
     m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
     m_width = width;
@@ -367,7 +364,7 @@ void FramebufferDX12::ResetResources()
     {
         if ( backendReady )
         {
-            m_resourceRelease.Retire( m_colorTexture, colorSrvToRetire, m_rtvDescriptors, m_rtvIndex );
+            m_resourceRelease.Retire( m_colorTexture, colorSrvToRetire, Dx12CpuDescriptorKind::Rtv, m_rtvIndex );
             colorSrvToRetire = UINT_MAX;
         }
         else
@@ -380,7 +377,7 @@ void FramebufferDX12::ResetResources()
     {
         if ( backendReady )
         {
-            m_resourceRelease.Retire( m_depthTexture, depthSrvToRetire, m_dsvDescriptors, m_dsvIndex );
+            m_resourceRelease.Retire( m_depthTexture, depthSrvToRetire, Dx12CpuDescriptorKind::Dsv, m_dsvIndex );
             depthSrvToRetire = UINT_MAX;
         }
         else

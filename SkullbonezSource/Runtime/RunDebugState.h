@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp
-  - SkullbonezSource/Runtime/RunUiTextPass.cpp
+  - SkullbonezSource/Runtime/UiTextPass.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */

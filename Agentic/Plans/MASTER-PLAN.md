@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-17
+Date: 2026-07-18
 Status: Authoritative inventory of every live repository plan
 
 ## Inventory Rules
@@ -90,16 +90,49 @@ Rules:
 
 The SoA/SIMD scale campaign is complete. Completed historical campaigns are
 excluded under commit-contract rule 4. The externally blocked validation lane
-remains deliberately excluded. The denominator grew 0 → 21 on 2026-07-17 when
-the owner activated the three adversarial-review round-6 remediation plans
-from the same day's hostile full-tree review.
+remains deliberately excluded. Scene-controller ownership closed at 7/7 and
+monolith TU right-sizing closed at 8/8 on 2026-07-18; both left the live ledger
+under rule 4. Their closure evidence is in
+`../Reports/2026-07-17/scene-controller-ownership-closure.md` and
+`../Reports/2026-07-17/monolith-tu-right-sizing-census.md`. Code-level red-flags
+C0-C6 closed on 2026-07-18 and also left the live ledger under rule 4. Its
+closure evidence is in
+`../Reports/2026-07-18/code-level-red-flags-closure.md`.
+
+The denominator grew 0 → 25 on 2026-07-18 when the owner registered the four
+adversarial-review round-7 plans from the same-day hostile review at tip
+06a17ff31: scene-controller decomposition round 2 (7 tasks), DX12 backend
+ownership decomposition (8 tasks), naming and identity debt (5 tasks), and
+small findings hardening (5 tasks).
+
+The active/future denominator returned from 25 to 18 on 2026-07-18 when
+scene-controller decomposition round 2 closed S0-S6 and left the live ledger
+under rule 4. Closure evidence is in
+`../Reports/2026-07-18/scene-controller-round-2-closure.md`.
+
+The denominator grew 18 → 26 on 2026-07-18 when the owner registered the
+eight-task physics body-count scale campaign (persistent broadphase,
+zero-cost sleepers, bandwidth diet, owner-gated graph-colored solver
+parallelism) from the same-day owner discussion of high-body-count engine
+techniques.
+
+The active/future denominator returned from 26 → 18 on 2026-07-18 when
+DX12 backend ownership decomposition closed D0-D7 and left the live ledger
+under rule 4. Closure evidence is in
+`../Reports/2026-07-18/dx12-backend-ownership-decomposition-closure.md`.
+
+The active/future denominator returned from 18 → 13 when naming and identity
+debt closed N0-N4 and left the live ledger under rule 4. Closure evidence is in
+`../Reports/2026-07-18/naming-and-identity-debt-closure.md`.
+
+The active/future denominator returned from 13 → 8 when small-findings
+hardening closed H0-H4 and left the live ledger under rule 4. Closure evidence
+is in `../Reports/2026-07-18/small-findings-hardening-closure.md`.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | 0 | 7 | 0% |
-| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | 0 | 8 | 0% |
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | 0 | 6 | 0% |
-| **Active/future total** | **0** | **21** | **0%** |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
+| **Active/future total** | **1** | **8** | **13%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -144,16 +177,25 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The three 2026-07-17 adversarial-review round-6 plans are the live portfolio
-(see the round-6 section below). Recommended order: `code-level-red-flags-
-remediation` C1-C3 (small isolated wins), then
-`scene-controller-ownership-decomposition` (largest architectural payoff),
-then `monolith-tu-right-sizing` (most gate-expensive; its replay tasks each
-consume one mega-gate invocation). Each plan's T0/N0/C0 census-and-rulings
-task must complete before its implementation tasks start, and the remaining
-red-flags/clamp/LTO tasks sequence per that plan's internal order.
+The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
+round 2, DX12 backend ownership, naming/identity debt, and small-findings
+hardening have all left the live ledger with closure evidence.
 
-There is no other active implementation-plan runner. `physics-soa-simd-1000-bodies`
+`physics-body-count-scale-campaign` (P0-P7) is the sole active plan. P0 is
+complete at 1/8 with the sleeping-heavy 5,000-body scene, fixed before matrix,
+capacity propagation, profiler counters, 0/1/4-worker determinism, mapped
+gates, comment audit, and independent review recorded in
+`../Reports/2026-07-18/body-count-scale-measurements.md`. Begin P1 with the
+Debug-only candidate-pair set-equivalence probe; no artifact may move before
+old/new sets match tick-for-tick on all six scenes. P6 is not pre-authorized
+and requires a fresh P5 owner decision. Every other task keeps zero refresh.
+
+The three 2026-07-17 round-6 plans are closed: scene-controller ownership
+T0-T6, monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The
+final independent review and broad/DX12 stress gates passed without baseline
+or golden refresh.
+
+`physics-soa-simd-1000-bodies`
 closed S0-S8: the byte-exact SoA scalar path remains; every SIMD/toggle/counter
 artifact is deleted; SpatialGrid has one bounded 8,192-cell table; coverage is
 mandatory; and the full gate passed without behavioral physics baseline
@@ -644,9 +686,84 @@ closure failures; each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [scene-controller-ownership-decomposition](TODO/scene-controller-ownership-decomposition.md) | Active | 0/7 | T0 ownership census and owner-ratified target map |
-| [monolith-tu-right-sizing](TODO/monolith-tu-right-sizing.md) | Active | 0/8 | N0 census, per-file owner rulings, and the DX12 re-partition parking lift |
-| [code-level-red-flags-remediation](TODO/code-level-red-flags-remediation.md) | Active | 0/6 | C0 census plus clamp-value and LTO-lane owner rulings |
+| [scene-controller ownership closure](../Reports/2026-07-17/scene-controller-ownership-closure.md) | Complete | 7/7 | Concrete scene owners and final independent ownership review closed |
+| [monolith TU right-sizing closure](../Reports/2026-07-17/monolith-tu-right-sizing-census.md) | Complete | 8/8 | All named oversized TUs received owner rulings and mapped closure evidence |
+| [code-level red-flags closure](../Reports/2026-07-18/code-level-red-flags-closure.md) | Complete | 7/7 | Repeat independent review, full gate, and bounded graphics stress closed |
+
+## Adversarial Review Remediation Round 7 (2026-07-18)
+
+Source: 2026-07-18 owner-commissioned hostile full-tree review at the
+`nightrunner-17th-july` tip 06a17ff31 (post-round-6). The owner ruled four
+areas into scope on 2026-07-18: `SceneController` remains a ratified
+multi-domain aggregate after round 6 (~120 public methods; navigation policy,
+water input, audio notify, and ragdoll queries still on the lifecycle owner;
+~20 owners still flow through every load); `RenderBackendDX12` is one class
+implementing seven interfaces across 9,437 lines with descriptor, readback,
+graph-transient, diagnostics, and shader-development state still resident;
+vestigial-identity naming (`TestScene` as the production scene type,
+`GameModelRenderer` outliving `GameModel`, `RuntimeTuning`,
+`Run*`/`Runtime*` prefix soup); and the minor red-flag set (the
+`LockOrderValidator` singleton, `PSOKey12` pointer-as-identity, the unruled
+153-site cast inventory, unfenced `nlohmann::json` reachability, two unruled
+UI tab TUs).
+
+Owner exclusions recorded 2026-07-18: the seven render consumer interfaces
+are retained unchanged for future consumers — no merging, splitting, or
+signature change in any round-7 plan. `FRAME_COUNT` stays 2 (round-6 ruling
+carries forward).
+
+Standing rules binding the round-7 and physics portfolio: zero behavioral baseline, golden,
+screenshot, or coverage-floor refresh; replay-touching tasks run the
+one-invocation 200-box mega gate per inventory rule 11; DX12-touching tasks
+carry the mandatory bounded graphics-stress proof per inventory rule 10;
+every extraction is a concrete owner with typed boundaries — mechanical TU
+splits, forwarding facades, and context bags are closure failures; renames
+must leave `SkullbonezData/` and `TestOutput/baselines/` byte-identical;
+each plan ends with one independent review.
+
+Small-findings hardening completed H0-H4 and left the active inventory under
+rule 4. Closure evidence:
+`../Reports/2026-07-18/small-findings-hardening-closure.md`.
+
+## Physics Body-Count Scale Campaign (2026-07-18)
+
+Source: the 2026-07-18 owner discussion of high-body-count engine techniques
+(Bullet incremental broadphase and pair persistence, Jolt free sleepers and
+thread-count-invariant determinism, Box2D v3 deterministic graph-colored
+multithreaded solving), grounded in the engine's own evidence: the solver
+core is 0.86% of the step (S6), the S6 SIMD experiment proved the frame is
+memory-bound, `PhysicsBroadphaseStage` reinserts every body every step
+(`PhysicsBroadphaseStage.cpp:357-371`), and sleeping bodies pay full
+insertion/pair/prune cost (`PruneSleepPairs` filters after generation,
+`PhysicsBroadphaseStage.cpp:460`).
+
+Campaign order: P0 instrumentation + sleeping-heavy 5,000-body scene and
+measurement baseline → P1 canonical pair-order determinism transition
+(owner-approved baseline/golden regeneration, set-equivalence probe first)
+→ P2 persistent incremental grid → P3 zero-cost sleepers → P4 hot-state
+compaction/pass fusion → P5 measurement checkpoint and Tier-2 owner
+decision → P6 conditional deterministic graph-colored solver parallelism
+(second approved transition) → P7 final matrix, comment audit, independent
+review, closure.
+
+Standing rules binding this campaign: run-to-run and worker-count
+(0/1/4) byte-identical determinism at every task boundary; P1 and P6 are
+the only baseline/golden-visible tasks, each governed by the plan's
+Determinism Transition Protocol (order-insensitive set-equivalence probe
+passes before any artifact regenerates; physics CSVs regenerate only from
+the final Debug binary; the 200-box replay golden regenerates only with
+explicit per-instance owner approval, one engine process, one prediction
+generation per MASTER rule 11); fixed capacity with Lane F exhaustion and
+zero steady-state allocation throughout; no solver-model change, no SIMD
+(S7 ruling stands), no GPU physics; the Measurement Ledger matrix
+(per-marker medians over `physics_scale_200/520/1000/2000` plus the new
+sleepy scene) is recorded in every implementation task's commit body with
+regressions explained; B0 inclusive-marker accounting applies to all new
+markers.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0 complete | 1/8 | P1 candidate-pair set-equivalence probe first, then the authorized canonical-order transition; no artifact refresh before equivalence |
 
 ## Features
 
@@ -690,11 +807,10 @@ Binding:
   and closes `tools\validate_replay_visual_fidelity.bat`, then every M0-M8
   decomposition task reruns it against the unchanged approved 200-box manifest.
   Refactors cannot authorize a baseline refresh.
-- The active decomposition and future spline plans execute on
-  `nightrunner-14th-july` by explicit 2026-07-14 owner decision. Decomposition
-  retains the unchanged passing baseline provenance requirement; spline
-  presentation changes still require explicit approval before any golden
-  manifest refresh.
+- The completed decomposition and future spline plans executed on
+  `nightrunner-14th-july` by explicit 2026-07-14 owner decision. Their
+  unchanged baseline provenance and approved presentation evidence remain
+  recorded in their closure reports.
 - 2026-07-11 owner ruling (definitive): no `SimulationController` — the
   implemented `SimulationSystem` pacing / `SceneController` ownership / `Run`
   frame-order split stands. No unified `EntityId` registry —

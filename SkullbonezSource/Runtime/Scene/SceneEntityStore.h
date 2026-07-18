@@ -124,13 +124,34 @@ class SceneEntityStore
     int FindByDisplayName( const char* name ) const;
     int FindBySceneObjectId( Physics::PhysicsSceneObjectId sceneObjectId ) const;
 
+    // Concept: behavior membership is durable scene metadata. These queries
+    // accept dense indices only at the synchronous caller boundary and resolve
+    // group roots from stable PhysicsSceneObjectId values instead of caching a
+    // row that can move during swap-last deletion.
+    const SceneBehaviorGroup& BehaviorGroupAt( int modelIndex ) const;
+    int ResolveBehaviorGroupRootModelIndex( const SceneBehaviorGroup& group ) const;
+    SceneBehaviorGroupKind GroupKindAt( int modelIndex ) const;
+    Physics::PhysicsSceneObjectId GroupRootObjectIdAt( int modelIndex ) const;
+    int GroupPartIndexAt( int modelIndex ) const;
+    bool IsSimpleRagdollPart( int modelIndex ) const;
+    bool IsSimpleRagdollTorso( int modelIndex ) const;
+    int RagdollRootModelIndexForPart( int modelIndex ) const;
+    bool TryFindSimpleRagdollPart( int selectedModelIndex, int partIndex, int& outModelIndex ) const;
+    // Writes at most maxIndices dense rows and returns the number written. A
+    // non-group selection yields itself; invalid output storage yields zero.
+    int GatherGroupMemberIndices( int selectedModelIndex, int* outIndices, int maxIndices ) const;
+#ifdef _DEBUG
+    // Borrows display-name pointers until the next entity mutation.
+    void FillPhysicsDiagnosticsNames( int bodyCount, std::vector<const char*>& outNames ) const;
+#endif
+
   private:
-    // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS worth
+    // Why: reserving cold scene metadata avoids touching SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS worth
     // of provenance pages in ordinary scenes while retaining a strict logical
     // ceiling. ConfigureCapacity is a scene-load preallocation boundary; all
     // CommitAppend calls must fit the existing reservation.
     std::vector<SceneEntityRecord> m_records;
-    int m_capacity = SkullbonezCore::Scene::Capacity::DEFAULT_GAME_MODEL_CAPACITY;
+    int m_capacity = SkullbonezCore::Scene::Capacity::DEFAULT_SCENE_OBJECT_CAPACITY;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

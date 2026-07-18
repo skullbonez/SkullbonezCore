@@ -319,7 +319,7 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands
 }
 
 
-SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
+SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( ID3D12Device* device,
                                                                                   ID3D12PipelineState*& candidate )
 {
     candidate = nullptr;
@@ -340,7 +340,7 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload
     D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
     desc.pRootSignature = m_genMipsRS;
     desc.CS = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
-    const HRESULT result = commands.Device()->CreateComputePipelineState( &desc, IID_PPV_ARGS( &candidate ) );
+    const HRESULT result = device->CreateComputePipelineState( &desc, IID_PPV_ARGS( &candidate ) );
     if ( FAILED( result ) || !candidate )
     {
         if ( candidate )
@@ -941,7 +941,16 @@ const TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle ) const
 
 TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle )
 {
-    return const_cast<TextureEntryDX12*>( static_cast<const Dx12TextureOwner*>( this )->ResolveEntry( handle ) );
+    TextureEntryDX12* entry = m_registry.Resolve( handle );
+    if ( !entry )
+    {
+        if ( handle != 0 )
+        {
+            ReportStaleHandle( handle );
+        }
+        return nullptr;
+    }
+    return entry;
 }
 
 
@@ -1007,26 +1016,4 @@ void RenderBackendDX12::DeleteTexture( uint32_t handle )
 {
     Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
     m_textureOwner.DeleteTexture( textureCommands, handle );
-}
-
-
-UINT RenderBackendDX12::RegisterSRV( UINT srvIndex )
-{
-    return m_textureOwner.RegisterSRV( srvIndex );
-}
-
-
-void RenderBackendDX12::UnregisterSRV( uint32_t handle )
-{
-    const UINT srvIndex = m_textureOwner.UnregisterSRV( handle );
-    if ( srvIndex != UINT_MAX )
-    {
-        m_frameOwner.ResourceRelease().RetireStaticDescriptor( srvIndex );
-    }
-}
-
-
-void RenderBackendDX12::ClearBoundTextureSlotsForSrv( UINT srvIndex )
-{
-    m_textureOwner.ClearBoundSlotsForSrv( srvIndex );
 }

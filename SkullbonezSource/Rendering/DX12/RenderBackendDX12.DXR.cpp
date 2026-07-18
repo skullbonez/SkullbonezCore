@@ -137,16 +137,6 @@ const SkullbonezCore::Core::SbResult& Dx12RaytracingOwner::FeatureResult() const
     return m_featureResult;
 }
 
-void RenderBackendDX12::CheckDXRSupport()
-{
-    // Re-probe is a publication boundary: revoke any previously exposed
-    // reflection handle before the concrete owner replaces its capability and
-    // resource lifetime.
-    ShutdownDXR();
-    m_raytracingOwner.ProbeCapability( Device() );
-}
-
-
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12Device* device )
 {
     // Concept: the raytracing root signature is the binding contract for
@@ -348,7 +338,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3D12Device* device,
-                                                                             Dx12DescriptorAllocator& descriptors,
+                                                                             Dx12DescriptorHeaps& descriptors,
                                                                              int width,
                                                                              int height )
 {
@@ -432,7 +422,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3
 
 Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device,
                                                             ID3D12GraphicsCommandList* commandList,
-                                                            Dx12DescriptorAllocator& descriptors,
+                                                            Dx12DescriptorHeaps& descriptors,
                                                             int renderWidth,
                                                             int renderHeight,
                                                             uint64_t terrainVBVA,
@@ -526,6 +516,8 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
             return outcome;
         }
         NameDx12Object( m_constantBuffer, L"Skullbonez DX12 Raytracing Constants Upload Buffer" );
+        // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
+        // immediately publishes typed constant-buffer bytes to the owner.
         void* rawMapped = nullptr;
         const HRESULT mapResult = m_constantBuffer->Map( 0, nullptr, &rawMapped );
         const Dx12MappedPointerResult checkedMap =
@@ -535,7 +527,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
             outcome.result = checkedMap.result;
             return outcome;
         }
-        m_constantBufferMapped = static_cast<uint8_t*>( checkedMap.pointer );
+        m_constantBufferMapped = checkedMap.bytes;
     }
 
     // Build the static BLAS objects once. The terrain BLAS holds terrain
@@ -575,7 +567,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CompleteSetup( ID3D12Device*
     m_terrainBlas.ReleaseAfterBuild();
     m_sphereBlas.ReleaseAfterBuild();
 
-    m_maxInstances = std::clamp( maxInstances, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_maxInstances = std::clamp( maxInstances, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     SkullbonezCore::Core::SbResult setupResult = m_tlas.Init( m_device5, m_maxInstances + 1 );
     if ( !setupResult.ok )
     {
@@ -616,7 +608,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
-    const SkullbonezCore::Core::SbResult openResult = EnsureCommandListOpen();
+    const SkullbonezCore::Core::SbResult openResult = m_frameOwner.EnsureOpen();
     if ( !openResult.ok )
     {
         return openResult;
@@ -624,9 +616,9 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
 
     const Dx12RaytracingSetupOutcome setup = m_raytracingOwner.BeginSetup( Device(),
                                                                            CommandList(),
-                                                                           m_frameOwner.Descriptors(),
-                                                                           m_width,
-                                                                           m_height,
+                                                                           m_descriptorHeaps,
+                                                                           m_renderDevice.Width(),
+                                                                           m_renderDevice.Height(),
                                                                            terrainVBVA,
                                                                            terrainVertCount,
                                                                            terrainStride,
@@ -639,19 +631,19 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         // fences command work. The raytracing owner reports whether it emitted
         // BLAS commands so the coordinator can prove their completion before
         // scratch memory is released.
-        AssertPlatformProfilerGpuStackClosed( "InitDXR command list Close" );
+        m_frameOwner.AssertProfilerClosed( "InitDXR command list Close" );
         const SkullbonezCore::Core::SbResult closeResult =
             m_frameOwner.CommitClose( CommandList()->Close(), "InitDXR command list Close" );
         if ( !closeResult.ok )
         {
             return closeResult;
         }
-        const SkullbonezCore::Core::SbResult submitResult = SubmitClosedCommandList();
+        const SkullbonezCore::Core::SbResult submitResult = m_frameOwner.SubmitClosed();
         if ( !submitResult.ok )
         {
             return submitResult;
         }
-        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( WaitForGpu() );
+        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
         if ( !waitResult.ok )
         {
             return waitResult;
@@ -681,7 +673,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     const UINT reflectionSrvIndex = m_raytracingOwner.ReflectionSrvIndex();
     if ( reflectionSrvIndex != 0 )
     {
-        m_reflectionTextureHandle = m_textureOwner.RegisterSRV( reflectionSrvIndex );
+        m_raytracingOwner.PublishReflectionTextureHandle( m_textureOwner.RegisterSRV( reflectionSrvIndex ) );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -692,7 +684,7 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms,
                                    uint64_t /*terrainBLAS*/,
                                    uint64_t /*sphereBLAS*/ )
 {
-    if ( !m_raytracingOwner.Supported() || !EnsureCommandListOpen().ok )
+    if ( !m_raytracingOwner.Supported() || !m_frameOwner.EnsureOpen().ok )
     {
         return;
     }
@@ -712,7 +704,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( const float* ins
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
-    if ( instanceCount < 0 || instanceCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS ||
+    if ( instanceCount < 0 || instanceCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS ||
          ( m_maxInstances > 0 && instanceCount > m_maxInstances ) )
     {
         // Invariant: the TLAS instance buffer was sized during InitDXR for one
@@ -720,10 +712,10 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( const float* ins
         // would overwrite the fixed raytracing instance table.
         SB_FATAL(
             "RenderBackendDX12",
-            "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d maxGameModels=%d",
+            "DX12 TLAS instance count exceeds active model capacity. requested=%d activeCapacity=%d maxSceneObjects=%d",
             instanceCount,
             m_maxInstances,
-            SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+            SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     }
 
     // Concept: a TLAS is a scene-level table of instances.
@@ -778,8 +770,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( const float* ins
 
 
 Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12Device* device,
-                                                                        ID3D12DescriptorHeap* shaderVisibleHeap,
-                                                                        Dx12DescriptorAllocator& descriptors,
+                                                                        Dx12DescriptorHeaps& descriptors,
                                                                         const Dx12TextureOwner& textures,
                                                                         const float* invViewProj,
                                                                         const float* cameraPos,
@@ -863,8 +854,7 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
     // Bind the shader-visible descriptor heap for DXR (same heap as raster, re-bound after compute).
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setdescriptorheaps
-    ID3D12DescriptorHeap* heaps[] = { shaderVisibleHeap };
-    m_commandList4->SetDescriptorHeaps( 1, heaps );
+    descriptors.Bind( m_commandList4 );
 
     // Bind the root parameters declared in CreateRTRootSignature():
     // [0] TLAS SRV, [1] output UAV table, [2] constants CBV,
@@ -973,7 +963,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
 {
     (void)width;
     (void)height;
-    if ( !m_raytracingOwner.Supported() || !EnsureCommandListOpen().ok )
+    if ( !m_raytracingOwner.Supported() || !m_frameOwner.EnsureOpen().ok )
     {
         return;
     }
@@ -987,8 +977,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
                                          skyFrontHandle,
                                          skyBackHandle };
     const Dx12RaytracingDispatchOutcome dispatch = m_raytracingOwner.DispatchReflections( Device(),
-                                                                                          m_srvHeap,
-                                                                                          m_frameOwner.Descriptors(),
+                                                                                          m_descriptorHeaps,
                                                                                           m_textureOwner,
                                                                                           invViewProj,
                                                                                           cameraPos,
@@ -1020,9 +1009,38 @@ UINT Dx12RaytracingOwner::ReflectionSrvIndex() const
 }
 
 
-uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
+uint32_t Dx12RaytracingOwner::ReflectionTextureHandle() const
 {
     return m_reflectionTextureHandle;
+}
+
+
+void Dx12RaytracingOwner::PublishReflectionTextureHandle( uint32_t handle )
+{
+    // Invariant: the texture registry exposes at most one handle for the
+    // reflection SRV during a raytracing-owner epoch.
+    if ( handle == 0 || m_reflectionTextureHandle != 0 )
+    {
+        SB_FATAL( "Dx12RaytracingOwner",
+                  "Invalid reflection texture handle publication. handle=%u current=%u",
+                  handle,
+                  m_reflectionTextureHandle );
+    }
+    m_reflectionTextureHandle = handle;
+}
+
+
+uint32_t Dx12RaytracingOwner::TakeReflectionTextureHandle()
+{
+    const uint32_t handle = m_reflectionTextureHandle;
+    m_reflectionTextureHandle = 0;
+    return handle;
+}
+
+
+uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
+{
+    return m_raytracingOwner.ReflectionTextureHandle();
 }
 
 
@@ -1083,6 +1101,7 @@ void Dx12RaytracingOwner::Shutdown()
         m_device5 = nullptr;
     }
     m_supported = false;
+    m_reflectionTextureHandle = 0;
     m_reflectionUavIndex = 0;
     m_reflectionSrvIndex = 0;
     m_reflectionWidth = 0;
@@ -1094,13 +1113,13 @@ void Dx12RaytracingOwner::Shutdown()
 
 void RenderBackendDX12::ShutdownDXR()
 {
-    if ( m_reflectionTextureHandle != 0 )
+    const uint32_t reflectionTextureHandle = m_raytracingOwner.TakeReflectionTextureHandle();
+    if ( reflectionTextureHandle != 0 )
     {
         // Lifetime: the texture registry borrows this descriptor identity. Drop
         // its public handle before the owner releases the underlying reflection
         // resource so no sibling registry entry survives as a stale tombstone.
-        m_textureOwner.UnregisterSRV( m_reflectionTextureHandle );
-        m_reflectionTextureHandle = 0;
+        m_textureOwner.UnregisterSRV( reflectionTextureHandle );
     }
     m_raytracingOwner.Shutdown();
 }

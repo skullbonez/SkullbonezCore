@@ -36,6 +36,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+}
 namespace Physics
 {
 class ColliderStore;
@@ -55,6 +59,7 @@ struct ApplyForcesStageContext
     std::vector<float>& timeRemaining;
     const Math::Vector::Vector3* mutualGravityForces = nullptr;
     float dt = 0.0f;
+    Core::Profiler* profiler = nullptr;
 
     void operator()( int bodyIndex ) const;
 };
@@ -69,6 +74,7 @@ struct IntegrateRemainingStageContext
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const uint8_t> sleepState;
     std::span<const float> timeRemaining;
+    Core::Profiler* profiler = nullptr;
 
     void operator()( int bodyIndex ) const;
 };

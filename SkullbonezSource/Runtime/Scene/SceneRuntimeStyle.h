@@ -41,11 +41,8 @@ class AssetSystem;
 }
 namespace Runtime
 {
-class SceneController;
-}
-namespace Runtime
-{
-class TestScene;
+class AuthoredScene;
+class SceneWorld;
 struct RunDebugState;
 
 struct SceneRuntimeStyleContext
@@ -53,8 +50,10 @@ struct SceneRuntimeStyleContext
     RunLaunchOptions& launchOptions;
     RunSceneState& scene;
     RunSceneBrowserState& sceneBrowser;
-    Runtime::SceneController& models;
-    SceneEntityStore& entities;
+    // Lifetime: live-style code borrows the one scene-lifetime owner and then
+    // resolves its entity/collider rows locally. Do not republish sibling
+    // subowners or reach back through SceneController.
+    SceneWorld& world;
     const Assets::AssetSystem& assets;
     SkullbonezCore::Core::CinematicRenderConfig& activeCinematic;
     const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematic;
@@ -73,7 +72,7 @@ bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
                                        const RunDebugState& debug,
                                        bool graphicsReady );
 bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index );
-void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene );
+void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene );
 bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context );
 
 } // namespace Runtime

@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/InputController.h
-  - SkullbonezSource/Runtime/RunDemoDirector.h
+  - SkullbonezSource/Runtime/DemoDirectorPlayback.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once
@@ -46,6 +46,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Environment
 {
@@ -53,7 +54,7 @@ class CameraCollection;
 }
 namespace Runtime
 {
-class SceneController;
+class SceneWorld;
 }
 namespace Geometry
 {
@@ -104,18 +105,18 @@ struct RunCameraState
         cameraTime = 0.0f;
     }
 
+    // Lifetime: each camera tick borrows SceneWorld once and derives Cameras and
+    // Terrain locally, keeping subowner identity inside this cohesive boundary.
     void UpdateViewingOrientation( RunTimerState& timers,
-                                   Environment::CameraCollection& cameras,
-                                   const Runtime::SceneController& models,
+                                   Runtime::SceneWorld& world,
                                    bool replayCameraActive,
                                    bool sceneMode,
                                    bool attachedActiveFollow,
                                    bool cameraLookCaptured,
-                                   float presentationAlpha );
+                                   float presentationAlpha,
+                                   Core::Profiler* profiler );
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
-    void TickControls( Environment::CameraCollection& cameras,
-                       Geometry::Terrain& terrain,
-                       Runtime::SceneController& models,
+    void TickControls( Runtime::SceneWorld& world,
                        AttachedCameraController& attachedCamera,
                        const SkullbonezCore::Core::EngineConfig& config,
                        bool editorModeEnabled,

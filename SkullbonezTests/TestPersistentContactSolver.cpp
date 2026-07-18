@@ -26,7 +26,7 @@
 //   - The fixture always bypasses broadphase. Terrain cases own their exact row;
 //     object cases deliberately use exact narrowphase before solver ingestion.
 //   - Static fixed lists mirror runtime storage and avoid allocating
-//     SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS records on the doctest stack.
+//     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS records on the doctest stack.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -84,7 +84,7 @@ constexpr float kSolverDt = PHYSICS_FIXED_DT;
 
 PhysicsBodyStore& TestBodyStore()
 {
-    // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS rows. Static storage matches
+    // Why: physics fixed lists own SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS rows. Static storage matches
     // runtime ownership and keeps this focused fixture off the doctest stack.
     static PhysicsBodyStore store;
     store.Clear();
@@ -115,7 +115,7 @@ struct SolverFixture
     std::vector<SolverBodyState> solverBodies;
     std::vector<PhysicsDebugContact> debugContacts;
     std::vector<TerrainContactManifold> terrainContactManifolds;
-    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS> terrainRestApplied = {};
+    std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;
     PersistentContactSolverSideEffects sideEffects;
     SkullbonezCore::Core::EngineConfig config;

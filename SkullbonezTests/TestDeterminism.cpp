@@ -76,10 +76,10 @@ using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::LoadPhysicsBodyHotState;
 using SkullbonezCore::Physics::MakeColliderCreateDesc;
 using SkullbonezCore::Physics::MakePhysicsBodyCountFromNonNegativeInt;
 using SkullbonezCore::Physics::MakePhysicsBodyCreateDesc;
-using SkullbonezCore::Physics::LoadPhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
@@ -94,6 +94,7 @@ using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
 using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 using SkullbonezCore::Threading::WorkerPool;
+using SkullbonezCore::Threading::LockOrderValidator;
 
 namespace
 {
@@ -270,7 +271,7 @@ TEST_CASE( "Physics collision-time diagnostics cover every bounded fixed-step ev
     // Four candidate pairs per model are the PhysicsWorld reserve contract;
     // terrain can add one more event for every model in the same fixed step.
     CHECK( SkullbonezCore::Physics::PhysicsDiagnosticsSink::CollisionTimeEventCapacity() ==
-           SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 5 );
+           SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 5 );
 }
 
 TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
@@ -353,7 +354,8 @@ void StepMicroWorldWith( PhysicsEngine& engine,
                          const PhysicsWorldForces& forces,
                          int workerThreadCount = 0 )
 {
-    WorkerPool workerPool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workerPool( lockOrderValidator );
     if ( workerThreadCount > 0 )
     {
         workerPool.Initialise( workerThreadCount );
@@ -620,7 +622,8 @@ MicroWorldSnapshot CaptureMicroWorldSnapshot( const PhysicsEngine& engine )
         const PhysicsBodyRecord* record =
             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( i );
         REQUIRE( record != nullptr );
-        snapshot.bodies[static_cast<std::size_t>( i )] = CaptureBodyReplayState( *record, RequireBodyHotState( engine, i ) );
+        snapshot.bodies[static_cast<std::size_t>( i )] =
+            CaptureBodyReplayState( *record, RequireBodyHotState( engine, i ) );
     }
     return snapshot;
 }
@@ -639,8 +642,10 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
     body.position = hotState.position;
     body.linearVelocity = hotState.linearVelocity;
     body.angularVelocity = hotState.angularVelocity;
-    hotState.orientation.GetComponents(
-        body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
+    hotState.orientation.GetComponents( body.orientation[0],
+                                        body.orientation[1],
+                                        body.orientation[2],
+                                        body.orientation[3] );
     body.mass = record->mass;
     body.inverseMass = hotState.inverseMass;
     body.rotationalInertia = record->rotationalInertia;

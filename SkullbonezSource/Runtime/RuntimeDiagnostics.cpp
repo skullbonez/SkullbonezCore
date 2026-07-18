@@ -35,7 +35,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/Log.h"
-#include "Scene/SceneController.h"
+#include "../Physics/PhysicsEngine.h"
 #include "../Core/Profiler.h"
 #include "Audio/ContactAudioService.h"
 #include "Replay/ReplayRecorder.h"
@@ -73,7 +73,7 @@ void FlushPendingPerfLogWrites( RunPerfLogState& perfLog )
 }
 
 bool FlushWorkingSetQueryBatch( HANDLE process,
-                                const PSAPI_WORKING_SET_EX_INFORMATION* pages,
+                                PSAPI_WORKING_SET_EX_INFORMATION* pages,
                                 std::size_t pageCount,
                                 uint64_t& privateWorkingSetBytes,
                                 uint64_t pageSize )
@@ -86,9 +86,7 @@ bool FlushWorkingSetQueryBatch( HANDLE process,
     }
 
     const SIZE_T byteCount = pageCount * sizeof( PSAPI_WORKING_SET_EX_INFORMATION );
-    const bool queried = QueryWorkingSetEx( process,
-                                            const_cast<PSAPI_WORKING_SET_EX_INFORMATION*>( pages ),
-                                            static_cast<DWORD>( byteCount ) ) != FALSE;
+    const bool queried = QueryWorkingSetEx( process, pages, static_cast<DWORD>( byteCount ) ) != FALSE;
     if ( queried )
     {
         for ( std::size_t pageIndex = 0; pageIndex < pageCount; ++pageIndex )
@@ -117,6 +115,9 @@ bool TrySamplePrivateWorkingSetBytes( HANDLE process, uint64_t& outBytes )
     std::array<PSAPI_WORKING_SET_EX_INFORMATION, QUERY_BATCH_PAGES> pages = {};
     std::size_t pageCount = 0;
 
+    // Why: VirtualQuery and PSAPI describe process memory with address-shaped
+    // Win32 fields. The walk converts them to uintptr_t only for checked range
+    // arithmetic, then reconstructs ABI pointers for each synchronous query.
     uintptr_t address = reinterpret_cast<uintptr_t>( systemInfo.lpMinimumApplicationAddress );
     const uintptr_t maxAddress = reinterpret_cast<uintptr_t>( systemInfo.lpMaximumApplicationAddress );
     uint64_t privateWorkingSetBytes = 0;
@@ -243,6 +244,8 @@ SkullbonezCore::Core::MainMemoryProcessStats RuntimeDiagnostics::SampleProcessMe
     std::memset( &pmc, 0, sizeof( pmc ) );
     pmc.cb = sizeof( pmc );
     HANDLE process = GetCurrentProcess();
+    // Why: GetProcessMemoryInfo's base-structure ABI accepts the extended
+    // structure when cb/size identify PROCESS_MEMORY_COUNTERS_EX.
     if ( GetProcessMemoryInfo( process, reinterpret_cast<PROCESS_MEMORY_COUNTERS*>( &pmc ), sizeof( pmc ) ) )
     {
         stats.available = true;
@@ -465,14 +468,14 @@ void RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( RunPerfLogState& pe
 }
 
 void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& diagnostics,
-                                                    Runtime::SceneController& models,
+                                                    Physics::PhysicsEngine& physics,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
     strcpy_s( diagnostics.path, sizeof( diagnostics.path ), path );
     diagnostics.isEnabled = diagnostics.path[0] != '\0';
     diagnostics.fixedStepForcedByDiagnostics = fixedStepForcedByDiagnostics;
-    models.Physics().SetPhysicsDiagnosticsPath( diagnostics.path );
+    physics.SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
 void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
@@ -502,7 +505,7 @@ void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
 }
 
 void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,
-                                                     Runtime::SceneController& models,
+                                                     Physics::PhysicsEngine& physics,
                                                      const RunSceneState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
@@ -517,7 +520,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     sprintf_s( diagnostics.currentRunId, sizeof( diagnostics.currentRunId ), "run_%04d", diagnostics.runSequence );
     diagnostics.isRunActive = true;
     diagnostics.contactAudioEventSequence = 0;
-    models.Physics().SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
+    physics.SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
 
     const char* solverName = "solver";
     std::string escapedScene = JsonEscape( scenePath && scenePath[0] != '\0' ? scenePath : "generated" );

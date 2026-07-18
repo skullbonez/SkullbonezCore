@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneControllerState.h
 Purpose:
-  Defines scene-controller-owned browser and UI override state.
+  Defines the UI-owned scene navigation model and its browser/override values.
 
 Summary:
-  SceneController owns scene discovery and live scene-tab override values. Run
-  borrows these shelves through the controller while broader scene loading still
-  coordinates through the composition root.
+  InGameUI owns scene discovery and live scene-tab override values as one
+  cohesive navigation model. Runtime code borrows individual values only for
+  synchronous navigation, load, replay, and reset operations.
 
 Glossary:
   Scene browser: UI-facing list of authored scene paths plus stable name
@@ -21,7 +21,7 @@ Invariants:
     `0.0f` means no override, and count values below zero mean unset.
 
 Related:
-  - SkullbonezSource/Runtime/Scene/SceneController.h
+  - SkullbonezSource/UI/UI.h
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
@@ -34,6 +34,9 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+class SceneRuntime;
+struct SceneLoadRequest;
+
 struct RunSceneBrowserState
 {
     std::vector<std::string> paths;
@@ -49,5 +52,45 @@ struct RunSceneUIOverrideState
     int solverBallCountOverride = -1;
     int solverBoxCountOverride = -1;
 };
+
+// Value snapshot passed into one cold load transaction. Browser display names
+// and c-string views stay with UI because load policy needs only normalized
+// paths, the selected cinematic row, and generated-scene overrides.
+struct SceneLoadNavigationState
+{
+    std::vector<std::string> browserPaths;
+    RunSceneUIOverrideState overrides;
+    int selectedCineModeSceneIndex = -1;
+
+    SceneLoadRequest LoadSceneFromBrowserIndex( int index, SceneRuntime& scene ) const;
+    SceneLoadRequest LoadDemoScene( SceneRuntime& scene ) const;
+};
+} // namespace Runtime
+
+namespace UI
+{
+struct SceneNavigationModel
+{
+    // Invariant: browser pointer views and live override sentinels share the
+    // UI owner's lifetime; runtime consumers may borrow but never retain them.
+    Runtime::RunSceneBrowserState browser;
+    Runtime::RunSceneUIOverrideState overrides;
+
+    // Browser policy borrows only the concrete queue owner for one synchronous
+    // decision. The returned request owns no callback, pointer, or runtime
+    // context and can cross the lifecycle submission boundary by value.
+    Runtime::SceneLoadRequest LoadSceneFromBrowserIndex( int index, Runtime::SceneRuntime& scene );
+    Runtime::SceneLoadRequest LoadDemoScene( Runtime::SceneRuntime& scene );
+    int
+    AdjacentCinematicModeBrowserIndex( int direction, int currentSceneBrowserIndex, bool isCinematicTabActive ) const;
+    Runtime::SceneLoadRequest
+    LoadAdjacentScene( int direction, int currentSceneBrowserIndex, Runtime::SceneRuntime& scene );
+};
+} // namespace UI
+
+namespace Runtime
+{
+SceneLoadNavigationState CaptureSceneLoadNavigationState( const UI::SceneNavigationModel& navigation );
+void ApplySceneLoadNavigationState( UI::SceneNavigationModel& navigation, const SceneLoadNavigationState& state );
 } // namespace Runtime
 } // namespace SkullbonezCore

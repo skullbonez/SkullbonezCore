@@ -61,7 +61,7 @@ struct Dx12PipelineDesiredState
         m_targetsDirty = true;
     }
 
-    ShaderDX12* m_activeShader = nullptr; // Borrowed identity; the owner never releases a shader.
+    const ShaderDX12* m_activeShader = nullptr; // Borrowed identity; the owner never releases a shader.
     D3D12_VIEWPORT m_viewport = {};
     D3D12_RECT m_scissorRect = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};

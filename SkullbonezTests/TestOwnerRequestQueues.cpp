@@ -30,7 +30,9 @@ Related:
 #include "../SkullbonezSource/Runtime/CaptureController.h"
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
 #include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
@@ -106,7 +108,6 @@ TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
                                                     SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
     const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
                                                   SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Audio ) |
                                                   SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
                                                   SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
                                                   SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
@@ -140,6 +141,83 @@ TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
     CHECK_FALSE( load.markManualReset );
 
     CHECK_FALSE( SceneLoadRequest::Load( -1, true, true, true ).accepted );
+}
+
+TEST_CASE( "UI scene navigation owns browser queue and demo decisions" )
+{
+    SkullbonezCore::UI::SceneNavigationModel navigation;
+    navigation.browser.paths = { "SkullbonezData\\scenes\\alpha.scene.json", "SkullbonezData/scenes/beta.scene.json" };
+    SceneRuntime scene( std::vector<std::string>{ "SkullbonezData/scenes/alpha.scene.json" } );
+    scene.BeginLoad( 0 );
+
+    const SceneLoadRequest current = navigation.LoadSceneFromBrowserIndex( 0, scene );
+    CHECK( current.accepted );
+    CHECK_FALSE( current.HasLoad() );
+    CHECK( current.enterInteractiveSceneRun );
+
+    const SceneLoadRequest appended = navigation.LoadSceneFromBrowserIndex( 1, scene );
+    CHECK( appended.HasLoad() );
+    CHECK( appended.index == 1 );
+    CHECK( scene.PathAt( 1 ) == "SkullbonezData/scenes/beta.scene.json" );
+    CHECK_FALSE( navigation.LoadSceneFromBrowserIndex( -1, scene ).accepted );
+
+    const SceneLoadRequest demo = navigation.LoadDemoScene( scene );
+    CHECK( demo.HasLoad() );
+    CHECK( demo.index == 2 );
+    CHECK( scene.PathAt( 2 ).empty() );
+    CHECK( navigation.LoadDemoScene( scene ).index == 2 );
+}
+
+TEST_CASE( "Scene load navigation snapshot is detached from the UI owner" )
+{
+    SkullbonezCore::UI::SceneNavigationModel navigation;
+    navigation.browser.paths = { "alpha.scene.json", "concept_beta.scene.json" };
+    navigation.browser.selectedCineModeSceneIndex = 1;
+    navigation.overrides.timeScaleOverride = 0.5f;
+    navigation.overrides.modelCountOverride = 24;
+
+    SceneLoadNavigationState loadNavigation = CaptureSceneLoadNavigationState( navigation );
+    navigation.browser.paths[1] = "mutated.scene.json";
+    navigation.browser.selectedCineModeSceneIndex = -1;
+    navigation.overrides.timeScaleOverride = 2.0f;
+
+    CHECK( loadNavigation.browserPaths[1] == "concept_beta.scene.json" );
+    CHECK( loadNavigation.selectedCineModeSceneIndex == 1 );
+    CHECK( loadNavigation.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
+    CHECK( loadNavigation.overrides.modelCountOverride == 24 );
+
+    SceneRuntime scene( std::vector<std::string>{ "alpha.scene.json" } );
+    scene.BeginLoad( 0 );
+    const SceneLoadRequest request = loadNavigation.LoadSceneFromBrowserIndex( 1, scene );
+    CHECK( request.HasLoad() );
+    CHECK( scene.PathAt( request.index ) == "concept_beta.scene.json" );
+
+    loadNavigation.selectedCineModeSceneIndex = 0;
+    loadNavigation.overrides.timeScaleOverride = 0.75f;
+    ApplySceneLoadNavigationState( navigation, loadNavigation );
+    CHECK( navigation.browser.paths[1] == "mutated.scene.json" );
+    CHECK( navigation.browser.selectedCineModeSceneIndex == 0 );
+    CHECK( navigation.overrides.timeScaleOverride == doctest::Approx( 0.75f ) );
+}
+
+TEST_CASE( "UI scene navigation cycles cinematic browser rows" )
+{
+    SkullbonezCore::UI::SceneNavigationModel navigation;
+    navigation.browser.paths = { "ordinary.scene.json",
+                                 "concept_one.scene.json",
+                                 "ordinary_two.scene.json",
+                                 "cinematic_two.scene.json" };
+    navigation.browser.selectedCineModeSceneIndex = 1;
+    SceneRuntime scene( std::vector<std::string>{ "ordinary.scene.json" } );
+    scene.BeginLoad( 0 );
+
+    CHECK( navigation.AdjacentCinematicModeBrowserIndex( 1, 0, false ) == 3 );
+    CHECK( navigation.AdjacentCinematicModeBrowserIndex( -1, 0, false ) == 3 );
+    CHECK( navigation.AdjacentCinematicModeBrowserIndex( 0, 0, true ) == -1 );
+
+    const SceneLoadRequest adjacent = navigation.LoadAdjacentScene( 1, 1, scene );
+    CHECK( adjacent.HasLoad() );
+    CHECK( scene.PathAt( adjacent.index ) == "cinematic_two.scene.json" );
 }
 
 TEST_CASE( "CaptureController rejects truncating paths before enqueue" )
@@ -282,6 +360,32 @@ TEST_CASE( "SceneRequestQueue accepts at most one transition per checkpoint" )
     CHECK( batch.requests[0].type == SceneRequestType::LoadBrowserIndex );
     CHECK( batch.requests[1].type == SceneRequestType::SaveCurrentDefaults );
     CHECK( batch.rejectedTransitionCount == 1 );
+}
+
+TEST_CASE( "Scene request batches stop after a failed transition" )
+{
+    CHECK( SceneRequestBatchContinuesAfter( SceneRequestType::LoadBrowserIndex, true ) );
+    CHECK_FALSE( SceneRequestBatchContinuesAfter( SceneRequestType::LoadBrowserIndex, false ) );
+    CHECK_FALSE( SceneRequestBatchContinuesAfter( SceneRequestType::CreateScene, false ) );
+    CHECK( SceneRequestBatchContinuesAfter( SceneRequestType::SaveCurrentDefaults, false ) );
+}
+
+TEST_CASE( "Scene request execution saves navigation committed by an earlier load" )
+{
+    SceneLoadNavigationState submitted;
+    submitted.overrides.timeScaleOverride = 2.0f;
+    submitted.overrides.modelCountOverride = 80;
+
+    SceneLoadConsumerOutputs outputs;
+    outputs.navigation.overrides.timeScaleOverride = 0.5f;
+    outputs.navigation.overrides.modelCountOverride = 24;
+    CHECK( &SceneNavigationForFollowingRequest( submitted, outputs ) == &submitted );
+
+    outputs.applyNavigation = true;
+    const SceneLoadNavigationState& committed = SceneNavigationForFollowingRequest( submitted, outputs );
+    CHECK( &committed == &outputs.navigation );
+    CHECK( committed.overrides.timeScaleOverride == doctest::Approx( 0.5f ) );
+    CHECK( committed.overrides.modelCountOverride == 24 );
 }
 
 TEST_CASE( "RenderDefaultsStore preserves interleaved save intent without value snapshots" )

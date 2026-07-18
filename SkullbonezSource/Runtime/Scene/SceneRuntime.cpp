@@ -11,16 +11,14 @@ Summary:
 Glossary:
   Scene queue: Ordered list of authored scene paths, where an empty path means
   the generated demo scene.
-  Scene-run state: Counters, flags, overrides, and completion gates that
-    describe the currently loaded scene.
+  Scene-run state: Counters, flags, and overrides that describe the currently
+    loaded scene.
 
 Invariants:
   - Queue paths are normalized with forward slashes for comparisons.
   - Generated demo scenes are represented by an empty queue path.
   - Cinematic deck detection is filename-based and must match browser/load
     helpers.
-  - Required contact checks read PhysicsBodyStore and ColliderStore snapshots;
-    they must not require the post-step legacy object record body mirror to be fresh.
   - Scene object id 0 is reserved as "not assigned"; live allocations must never
     wrap or cross the uint32 id ceiling.
 
@@ -31,11 +29,7 @@ Related:
 #include "SceneRuntime.h"
 
 #include "../../Core/FatalError.h"
-#include "SceneController.h"
-#include "../../Physics/ColliderStore.h"
-#include "../../Physics/ObjectContactManifold.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../Physics/PhysicsEngine.h"
 
 #include <algorithm>
 #include <cstring>
@@ -74,15 +68,6 @@ std::string SkullbonezCore::Runtime::NormalizeSceneQueuePath( const std::string&
 
 namespace
 {
-ObjectContactBodyView SceneContactBodyView( PhysicsBodyHotFieldsConstView hotFields, std::size_t bodyIndex )
-{
-    ObjectContactBodyView view;
-    view.position = PhysicsBodyPosition( hotFields, bodyIndex );
-    view.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
-    return view;
-}
-
-
 bool IsCineScenePath( const std::string& path )
 {
     const char* name = SceneFileNameFromPath( path.c_str() );
@@ -367,192 +352,4 @@ int SceneRuntime::AdjacentQueueIndex( int direction ) const
         return -1;
     }
     return ( m_state.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
-}
-
-
-std::vector<RunRequiredContactState>& SceneRuntime::RequiredContacts()
-{
-    return m_requiredContacts;
-}
-
-
-const std::vector<RunRequiredContactState>& SceneRuntime::RequiredContacts() const
-{
-    return m_requiredContacts;
-}
-
-
-std::vector<RunRequiredBroadphaseXCellsState>& SceneRuntime::RequiredBroadphaseXCells()
-{
-    return m_requiredBroadphaseXCells;
-}
-
-
-const std::vector<RunRequiredBroadphaseXCellsState>& SceneRuntime::RequiredBroadphaseXCells() const
-{
-    return m_requiredBroadphaseXCells;
-}
-
-
-void SceneRuntime::ClearRequiredAutomationGates()
-{
-    m_requiredContacts.clear();
-    m_requiredBroadphaseXCells.clear();
-}
-
-
-void SceneRuntime::UpdateRequiredContacts( SkullbonezCore::Runtime::SceneController& models, float contactEpsilon )
-{
-    if ( m_requiredContacts.empty() )
-    {
-        return;
-    }
-
-    const PhysicsBodyStore& bodyStore = models.BodyStore();
-    const ColliderStore& colliderStore = models.Colliders();
-    const auto bodyRecords = bodyStore.Records();
-    const auto colliderRecords = colliderStore.Records();
-    const int contactModelCount =
-        (std::min)( bodyStore.Count(), static_cast<int>( (std::min)( bodyRecords.size(), colliderRecords.size() ) ) );
-    for ( RunRequiredContactState& required : m_requiredContacts )
-    {
-        if ( required.touched || required.bodyA < 0 || required.bodyB < 0 || required.bodyA >= contactModelCount ||
-             required.bodyB >= contactModelCount )
-        {
-            continue;
-        }
-
-        const std::size_t bodyAIndex = static_cast<std::size_t>( required.bodyA );
-        const std::size_t bodyBIndex = static_cast<std::size_t>( required.bodyB );
-        const ColliderRecord& colliderA = colliderRecords[static_cast<size_t>( required.bodyA )];
-        const ColliderRecord& colliderB = colliderRecords[static_cast<size_t>( required.bodyB )];
-        ObjectContactManifold manifold;
-        const auto hotFields = bodyStore.HotFields();
-        if ( BuildObjectContactManifold( SceneContactBodyView( hotFields, bodyAIndex ),
-                                         colliderA.shape,
-                                         SceneContactBodyView( hotFields, bodyBIndex ),
-                                         colliderB.shape,
-                                         required.bodyA,
-                                         required.bodyB,
-                                         contactEpsilon + 0.25f,
-                                         manifold ) )
-        {
-            required.touched = true;
-        }
-    }
-
-    const std::vector<PhysicsDebugContact>& contacts = Physics::PhysicsEngine::ReadDebugContacts( models.Physics() );
-    for ( const PhysicsDebugContact& contact : contacts )
-    {
-        if ( contact.bodyA < 0 || contact.bodyB < 0 )
-        {
-            continue;
-        }
-        for ( RunRequiredContactState& required : m_requiredContacts )
-        {
-            if ( required.touched || required.bodyA < 0 || required.bodyB < 0 )
-            {
-                continue;
-            }
-            const bool sameOrder = contact.bodyA == required.bodyA && contact.bodyB == required.bodyB;
-            const bool swappedOrder = contact.bodyA == required.bodyB && contact.bodyB == required.bodyA;
-            if ( sameOrder || swappedOrder )
-            {
-                required.touched = true;
-                break;
-            }
-        }
-    }
-}
-
-
-bool SceneRuntime::RequiredContactsComplete() const
-{
-    for ( const RunRequiredContactState& contact : m_requiredContacts )
-    {
-        if ( contact.bodyA < 0 || contact.bodyB < 0 || !contact.touched )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-
-void SceneRuntime::UpdateRequiredBroadphaseXCells( const SpatialGrid::ActiveCell* activeCells, int activeCellCount )
-{
-    if ( m_requiredBroadphaseXCells.empty() || !activeCells || activeCellCount <= 0 )
-    {
-        return;
-    }
-
-    for ( RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
-    {
-        if ( required.activated )
-        {
-            continue;
-        }
-
-        required.lastActiveCellCount = activeCellCount;
-        required.lastMissingCellX = -1;
-        required.hasObservedXRange = false;
-        for ( int i = 0; i < activeCellCount; ++i )
-        {
-            const SpatialGrid::ActiveCell& active = activeCells[i];
-            if ( active.iy == required.cellY && active.iz == required.cellZ )
-            {
-                if ( !required.hasObservedXRange )
-                {
-                    required.lastObservedMinX = active.ix;
-                    required.lastObservedMaxX = active.ix;
-                    required.hasObservedXRange = true;
-                }
-                else
-                {
-                    required.lastObservedMinX = (std::min)( required.lastObservedMinX, static_cast<int>( active.ix ) );
-                    required.lastObservedMaxX = (std::max)( required.lastObservedMaxX, static_cast<int>( active.ix ) );
-                }
-            }
-        }
-
-        bool allActive = true;
-        for ( int x = required.minCellX; x <= required.maxCellX; ++x )
-        {
-            bool found = false;
-            for ( int i = 0; i < activeCellCount; ++i )
-            {
-                const SpatialGrid::ActiveCell& active = activeCells[i];
-                if ( active.ix == x && active.iy == required.cellY && active.iz == required.cellZ )
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if ( !found )
-            {
-                allActive = false;
-                required.lastMissingCellX = x;
-                break;
-            }
-        }
-
-        if ( allActive )
-        {
-            required.activated = true;
-        }
-    }
-}
-
-
-bool SceneRuntime::RequiredBroadphaseXCellsComplete() const
-{
-    for ( const RunRequiredBroadphaseXCellsState& required : m_requiredBroadphaseXCells )
-    {
-        if ( !required.activated )
-        {
-            return false;
-        }
-    }
-    return true;
 }

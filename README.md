@@ -61,8 +61,16 @@ or pushed, use the repository scripts instead of retyping long commands:
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
 | Opt-in native lifetime/static analysis | `tools\validate_native_diagnostics.bat` |
 | Every first-party CPU test target | `tools\validate_all_cpu_tests.bat` |
+| Coverage floors, exclusions, instrumentation, tooling, or coverage-raising tests | `tools\validate_coverage.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
 | Unsure at the PR gate | `tools\agent_validate.bat` |
+
+Run `tools\validate_coverage.bat` directly for coverage-specific changes and
+when a final gate needs explicit proof that ratified subsystem floors still
+hold. Do not run it a second time after `validate_all_cpu_tests.bat`:
+the CPU umbrella already includes it, and `validate_full.bat`,
+`agent_validate.bat`, and hosted mandatory CPU CI all reach it through that
+umbrella.
 
 `validate_full` is the mandatory broad superset: it runs cheap preflight checks,
 then the doctest, interaction-policy, scene-parser, and DX12-architecture CPU

@@ -64,11 +64,12 @@ using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
 
-static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
-               "FlushGPU must return a recoverable result to every resource-mutation caller." );
 static_assert(
-    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ), SkullbonezCore::Core::SbResult>::value,
-    "Terminal resource release must use its own checked drain boundary." );
+    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
+    "FlushGPU must return a recoverable result to every resource-mutation caller." );
+static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ),
+                            SkullbonezCore::Core::SbResult>::value,
+               "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
 
@@ -259,7 +260,8 @@ void TestFirstCommandFailureRemainsAuthoritative()
     Dx12CommandRecordingState state = MakeOpenCommandState();
 
     const auto first = state.CommitClose( E_FAIL, "first Close" );
-    const auto second = state.RetainFailure( SkullbonezCore::Core::SbResult::Failure( "SecondOwner", "second failure" ) );
+    const auto second =
+        state.RetainFailure( SkullbonezCore::Core::SbResult::Failure( "SecondOwner", "second failure" ) );
 
     EXPECT_TRUE( !first.ok );
     EXPECT_TRUE( !second.ok );
@@ -286,7 +288,7 @@ void TestMapResultRejectsFailedHresult()
     const Dx12MappedPointerResult checked = ValidateDx12MappedPointer( E_FAIL, unexpectedPointer, "test Map" );
 
     EXPECT_TRUE( !checked.result.ok );
-    EXPECT_TRUE( checked.pointer == nullptr );
+    EXPECT_TRUE( checked.bytes == nullptr );
 }
 
 void TestMapResultRejectsNullPointerAfterSuccess()
@@ -294,17 +296,17 @@ void TestMapResultRejectsNullPointerAfterSuccess()
     const Dx12MappedPointerResult checked = ValidateDx12MappedPointer( S_OK, nullptr, "test Map" );
 
     EXPECT_TRUE( !checked.result.ok );
-    EXPECT_TRUE( checked.pointer == nullptr );
+    EXPECT_TRUE( checked.bytes == nullptr );
 }
 
 void TestMapResultAcceptsSuccessfulMappedPointer()
 {
-    void* expectedPointer = reinterpret_cast<void*>( static_cast<uintptr_t>( 0x1234u ) );
+    uint8_t* expectedPointer = reinterpret_cast<uint8_t*>( static_cast<uintptr_t>( 0x1234u ) );
 
     const Dx12MappedPointerResult checked = ValidateDx12MappedPointer( S_OK, expectedPointer, "test Map" );
 
     EXPECT_TRUE( checked.result.ok );
-    EXPECT_TRUE( checked.pointer == expectedPointer );
+    EXPECT_TRUE( checked.bytes == expectedPointer );
 }
 
 void TestGpuDrainCloseFailureBlocksSubmission()
@@ -335,8 +337,8 @@ void TestGpuDrainWaitFailureBlocksReopenAndMutation()
     EXPECT_TRUE( drainProgress.CommitClose() );
     EXPECT_TRUE( drainProgress.CommitSubmission() );
 
-    const SkullbonezCore::Core::SbResult waitResult =
-        commandState.CommitWait( SkullbonezCore::Core::SbResult::Failure( "TestWait", "submitted work did not drain" ) );
+    const SkullbonezCore::Core::SbResult waitResult = commandState.CommitWait(
+        SkullbonezCore::Core::SbResult::Failure( "TestWait", "submitted work did not drain" ) );
     if ( waitResult.ok )
     {
         drainProgress.CommitWait();
@@ -475,7 +477,8 @@ void TestRecreationFailurePreservesPublishedGeneration()
     EXPECT_TRUE( transaction.CommitCandidateReady() );
     EXPECT_TRUE( transaction.CommitOldReferencesReleased() );
 
-    const SkullbonezCore::Core::SbResult failure = transaction.Fail( SkullbonezCore::Core::SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
+    const SkullbonezCore::Core::SbResult failure =
+        transaction.Fail( SkullbonezCore::Core::SbResult::Failure( "TestResize", "ResizeBuffers failed" ) );
 
     EXPECT_TRUE( !failure.ok );
     EXPECT_TRUE( transaction.HasFailed() );
@@ -534,14 +537,9 @@ struct RenderGraphCallbackTrace
     std::vector<std::string> labels;
 };
 
-void RecordRenderGraphCallback( const RenderGraphPassContext& context, void* userData )
+void RecordRenderGraphCallback( const RenderGraphPassContext& context, RenderGraphCallbackTrace& trace )
 {
-    auto* trace = static_cast<RenderGraphCallbackTrace*>( userData );
-    if ( !trace )
-    {
-        throw std::runtime_error( "callback trace missing" );
-    }
-    trace->labels.push_back( context.debugLabel ? context.debugLabel : context.pass->name );
+    trace.labels.push_back( context.debugLabel ? context.debugLabel : context.pass->name );
 }
 
 void TestDescriptorTransientRangeIsContiguous()
@@ -677,7 +675,8 @@ void TestRenderGraphTracksSubresourceTransitionsIndependently()
     const RenderGraphResourceHandle texture =
         graph.AddExternalResource( "MipTexture",
                                    RenderGraphResourceAccess::PixelShaderResource,
-                                   reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x6000u ) ) );
+                                   RenderGraphNativeResourceToken::From(
+                                       reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x6000u ) ) ) );
 
     const uint32_t writeMipOne = graph.AddPass( "WriteMipOne" );
     graph.AddWrite( writeMipOne, texture, RenderGraphResourceAccess::UnorderedAccess, 1u );
@@ -860,14 +859,14 @@ void TestRenderGraphExecutesCallbacksInPassOrder()
     RenderGraphCallbackTrace trace;
     const uint32_t firstPass = graph.AddPass( "FirstCallback" );
     graph.AddWrite( firstPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
-    graph.SetPassCallback( firstPass, RecordRenderGraphCallback, &trace, true, "first" );
+    graph.SetPassCallback<RecordRenderGraphCallback>( firstPass, trace, true, "first" );
 
     const uint32_t declarationOnlyPass = graph.AddPass( "DeclarationOnly" );
     graph.AddWrite( declarationOnlyPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
 
     const uint32_t secondPass = graph.AddPass( "SecondCallback" );
     graph.AddWrite( secondPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
-    graph.SetPassCallback( secondPass, RecordRenderGraphCallback, &trace, true, "second" );
+    graph.SetPassCallback<RecordRenderGraphCallback>( secondPass, trace, true, "second" );
 
     const RenderGraphCallbackExecutionResult result =
         graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute );
@@ -889,7 +888,7 @@ void TestRenderGraphDryRunValidatesCallbacksWithoutExecuting()
     RenderGraphCallbackTrace trace;
     const uint32_t pass = graph.AddPass( "DryRunCallback" );
     graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
-    graph.SetPassCallback( pass, RecordRenderGraphCallback, &trace, true, "dry-run" );
+    graph.SetPassCallback<RecordRenderGraphCallback>( pass, trace, true, "dry-run" );
 
     const RenderGraphCallbackExecutionResult result =
         graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun );
@@ -909,7 +908,7 @@ void TestRenderGraphDisabledCallbackDoesNotExecute()
     RenderGraphCallbackTrace trace;
     const uint32_t pass = graph.AddPass( "DisabledCallback" );
     graph.AddWrite( pass, target, RenderGraphResourceAccess::RenderTarget );
-    graph.SetPassCallback( pass, RecordRenderGraphCallback, &trace, false, "disabled" );
+    graph.SetPassCallback<RecordRenderGraphCallback>( pass, trace, false, "disabled" );
 
     const RenderGraphCallbackExecutionResult result =
         graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute );
@@ -952,11 +951,13 @@ void TestDx12RenderGraphAccessMapsToDx12States()
 
 void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
 {
-    const void* fakeBackbuffer = reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x1000u ) );
+    ID3D12Resource* fakeBackbuffer = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x1000u ) );
 
     RenderGraph graph;
     const RenderGraphResourceHandle backbuffer =
-        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present, fakeBackbuffer );
+        graph.AddExternalResource( "Backbuffer",
+                                   RenderGraphResourceAccess::Present,
+                                   RenderGraphNativeResourceToken::From( fakeBackbuffer ) );
 
     const uint32_t drawPass = graph.AddPass( "Draw" );
     graph.AddWrite( drawPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
@@ -992,7 +993,8 @@ void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
     const RenderGraphResourceHandle legacyTarget =
         graph.AddExternalResource( "LegacyTarget",
                                    RenderGraphResourceAccess::Unknown,
-                                   reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x2000u ) ) );
+                                   RenderGraphNativeResourceToken::From(
+                                       reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x2000u ) ) ) );
 
     const uint32_t firstWriter = graph.AddPass( "FirstWriter" );
     graph.AddWrite( firstWriter, legacyTarget, RenderGraphResourceAccess::RenderTarget );
@@ -1012,7 +1014,8 @@ void TestDx12RenderGraphExecutorIdentifiesUavAccess()
     const RenderGraphResourceHandle reflection =
         graph.AddExternalResource( "Reflection",
                                    RenderGraphResourceAccess::PixelShaderResource,
-                                   reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x3000u ) ) );
+                                   RenderGraphNativeResourceToken::From(
+                                       reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x3000u ) ) ) );
 
     const uint32_t dispatchPass = graph.AddPass( "DispatchReflection", RenderGraphQueueType::Compute );
     graph.AddWrite( dispatchPass, reflection, RenderGraphResourceAccess::UnorderedAccess );
@@ -1179,7 +1182,7 @@ bool RunFatalCase( const char* caseName )
         RenderGraph callbackGraph;
         RenderGraphCallbackTrace trace;
         const uint32_t callbackPass = callbackGraph.AddPass( "MissingDeclarations" );
-        callbackGraph.SetPassCallback( callbackPass, RecordRenderGraphCallback, &trace );
+        callbackGraph.SetPassCallback<RecordRenderGraphCallback>( callbackPass, trace );
         (void)callbackGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::DryRun );
     }
     else
@@ -1289,23 +1292,25 @@ void TestUploadOverflowDropsSteadyCallerWithoutDrain()
 void TestUploadReservationResolverInvokesOnlyColdRetry()
 {
     int retryCount = 0;
-    const Dx12UploadReservationResolution steady =
-        ResolveDx12UploadReservation( false, RuntimeAllocationPhase::Render, [&]()
-        {
-            ++retryCount;
-            return true;
-        } );
+    const Dx12UploadReservationResolution steady = ResolveDx12UploadReservation( false,
+                                                                                 RuntimeAllocationPhase::Render,
+                                                                                 [&]()
+                                                                                 {
+                                                                                     ++retryCount;
+                                                                                     return true;
+                                                                                 } );
     EXPECT_TRUE( !steady.allowed );
     EXPECT_TRUE( steady.dropped );
     EXPECT_TRUE( !steady.coldRetryAttempted );
     EXPECT_EQ( retryCount, 0 );
 
-    const Dx12UploadReservationResolution cold =
-        ResolveDx12UploadReservation( false, RuntimeAllocationPhase::SceneLoad, [&]()
-        {
-            ++retryCount;
-            return true;
-        } );
+    const Dx12UploadReservationResolution cold = ResolveDx12UploadReservation( false,
+                                                                               RuntimeAllocationPhase::SceneLoad,
+                                                                               [&]()
+                                                                               {
+                                                                                   ++retryCount;
+                                                                                   return true;
+                                                                               } );
     EXPECT_TRUE( cold.allowed );
     EXPECT_TRUE( !cold.dropped );
     EXPECT_TRUE( cold.coldRetryAttempted );
@@ -1324,7 +1329,7 @@ void TestUploadOverflowKeepsColdFlushRetry()
 
 void TestUploadRangeProbeRejectsArithmeticOverflow()
 {
-    const UINT64 maxValue = (std::numeric_limits<UINT64>::max)();
+    const UINT64 maxValue = ( std::numeric_limits<UINT64>::max )();
     EXPECT_TRUE( !CanReserveDx12UploadRange( 32u, 1024u, maxValue, 256u ) );
     EXPECT_TRUE( !CanReserveDx12UploadRange( maxValue - 1u, maxValue, 1u, 256u ) );
     EXPECT_TRUE( CanReserveDx12UploadRange( 768u, 1024u, 256u, 256u ) );

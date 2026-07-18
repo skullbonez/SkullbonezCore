@@ -42,6 +42,7 @@ Related:
 #include "../../Assets/TextureCollection.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
+#include "../../Rendering/Text.h"
 
 #include <array>
 #include <chrono>
@@ -53,7 +54,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-class SceneController;
+class SceneWorld;
 }
 namespace Physics
 {
@@ -91,7 +92,7 @@ class RuntimeRenderer
         bool consequenceGradeRequested = false;           // True while replay prediction should fade into the causality look.
     };
 
-    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, const RenderSceneView& scene );
+    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene );
     ~RuntimeRenderer();
 
     const RenderPresentationSettings& PresentationSettings() const
@@ -115,8 +116,7 @@ class RuntimeRenderer
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
-    RuntimeRenderModelFrameView BuildModelFrameView( Runtime::SceneController& scene,
-                                                     Physics::PhysicsEngine& physics,
+    RuntimeRenderModelFrameView BuildModelFrameView( Runtime::SceneWorld& scene,
                                                      Threading::WorkerPool& workerPool,
                                                      const SkullbonezCore::Core::EngineConfig& config ) const;
     bool RenderFrameEntry( const FrameEntryContext& context );
@@ -306,7 +306,7 @@ class RuntimeRenderer
     float m_consequenceGradeStrength = 0.0f;              // Render-owned fade strength for the frame-local consequence grade.
     std::chrono::steady_clock::time_point
         m_consequenceGradeLastTick;                       // Wall-clock anchor for the grade crossfade; zero means uninitialized.
-    std::array<float, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 16> m_dxrReflectionTransforms =
+    std::array<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 16> m_dxrReflectionTransforms =
         {};                                               // Scratch matrices for DXR TLAS instance upload.
     FullscreenQuadPass m_fullscreenQuadPass;              // Shared full-screen vertex buffer pass used by sky/post effects.
     SkyPass m_skyPass;                                    // Background sky pass, reused by reflection and scene target passes.
@@ -320,6 +320,9 @@ class RuntimeRenderer
     DebugOverlayPass m_debugOverlayPass;                  // Broadphase and physics debug overlay pass.
     VolumetricPass m_volumetricPass;                      // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                            // HDR-to-backbuffer resolve pass.
+    // Lifetime: fixed-capacity CPU vertex/projection state lives with the
+    // renderer process owner and is synchronously borrowed by UI/text calls.
+    Text::TextBatch m_textBatch;
     UiTextPass m_uiTextPass;                              // HUD/UI/text pass.
     // Runtime allocation policy: graph wrapper passes reuse this owner scratch
     // storage. Pass labels are borrowed literals and per-pass reads/writes are

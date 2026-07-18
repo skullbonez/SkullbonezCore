@@ -62,6 +62,7 @@ struct SceneRuntimeLoadBeginResult
 };
 
 SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& controller,
+                                                     const RunSceneUIOverrideState& uiOverrides,
                                                      const RuntimeRenderer& renderer,
                                                      const RunDebugState& debug,
                                                      const RunCameraState& camera,
@@ -70,7 +71,9 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
                                                      int index,
                                                      bool suppressExitOnComplete,
                                                      bool preserveRuntimeState );
-void CommitSceneRuntimeLoad( SceneController& controller, const SceneRuntimeLoadBeginResult& prepared );
+void CommitSceneRuntimeLoad( SceneController& controller,
+                             SceneLoadNavigationState& navigation,
+                             const SceneRuntimeLoadBeginResult& prepared );
 void RefreshSceneBrowserList( RunSceneBrowserState& sceneBrowser );
 int CurrentSceneBrowserIndex( const SceneController& controller, const RunSceneBrowserState& sceneBrowser );
 

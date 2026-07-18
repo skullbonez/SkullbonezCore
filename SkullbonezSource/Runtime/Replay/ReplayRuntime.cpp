@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayRuntime.cpp
 Purpose:
   Sequences replay owners across recording, workspace, restore, prediction, and probes.
 
-Mental model:
+Summary:
   ReplayRuntime is the composition boundary between concrete replay owners. The
   application shell supplies value commands and explicit synchronous owners;
   this file orders workspace input, transactional restore, prediction,
@@ -177,7 +177,10 @@ bool ReplayRuntimeModelIsRagdollPart( std::span<const Rendering::RenderInstanceP
 
 } // namespace
 
-ReplayRuntime::ReplayRuntime() = default;
+ReplayRuntime::ReplayRuntime( Core::Profiler* profiler )
+    : m_profiler( profiler ), m_authoring( profiler ), m_predictionOwner( profiler ), m_visualPresentation( profiler )
+{
+}
 
 
 ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent& intent )
@@ -231,8 +234,9 @@ ReplayFrameIntentResult ReplayRuntime::ApplyFrameIntent( const ReplayFrameIntent
 
 ReplaySceneTimelineResetInput
 ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sceneController,
+                                                       const RunSceneUIOverrideState& uiOverrides,
                                                        const RunSceneState& scene,
-                                                       int gameModelCapacity,
+                                                       int sceneObjectCapacity,
                                                        uint32_t generatedObjectTypeOverride )
 {
     const std::string* scenePath = sceneController.CurrentPath();
@@ -244,11 +248,11 @@ ReplayTimelineOperations::DescribeReplaySceneTimeline( const SceneController& sc
     replayReset.solverBallCount = scene.solverBallCount;
     replayReset.solverBoxCount = scene.solverBoxCount;
     replayReset.rngSeed = scene.rngSeed;
-    replayReset.gameModelCapacity = gameModelCapacity;
+    replayReset.sceneObjectCapacity = sceneObjectCapacity;
     replayReset.generatedObjectTypeOverride = generatedObjectTypeOverride;
-    replayReset.hasUiModelCountOverride = sceneController.UIOverrides().modelCountOverride >= 0;
-    replayReset.hasUiSolverCountOverride = sceneController.UIOverrides().solverBallCountOverride >= 0 ||
-                                           sceneController.UIOverrides().solverBoxCountOverride >= 0;
+    replayReset.hasUiModelCountOverride = uiOverrides.modelCountOverride >= 0;
+    replayReset.hasUiSolverCountOverride =
+        uiOverrides.solverBallCountOverride >= 0 || uiOverrides.solverBoxCountOverride >= 0;
     return replayReset;
 }
 
@@ -1026,7 +1030,7 @@ ReplaySceneTimelineResetResult ReplayRuntime::FinishSceneTimelineReset( const Re
                                                                               input.solverBallCount,
                                                                               input.solverBoxCount,
                                                                               input.rngSeed,
-                                                                              input.gameModelCapacity,
+                                                                              input.sceneObjectCapacity,
                                                                               input.generatedObjectTypeOverride ) );
     }
     return result;

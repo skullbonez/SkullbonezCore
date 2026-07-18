@@ -15,6 +15,8 @@ Glossary:
   Physics material: Runtime policy for collider friction and sphere drag.
   Body simulation limit: Scalar cap applied to body descriptors before store import.
   Contact policy: Terrain/contact thresholds copied into authored body descriptors.
+  Read view: Frame-local immutable projection of the thirteen store and
+    diagnostic reads published through PhysicsEngine.
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
   Sleep: Solver optimization that stops integrating stable bodies until an
@@ -50,6 +52,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 namespace Runtime
 {
@@ -68,10 +71,34 @@ struct PhysicsBodyUpdateDesc;
 struct PhysicsColliderCreateDesc;
 struct PhysicsMaterial;
 
+// Concept: PhysicsSceneReadView is the complete immutable query projection of
+// PhysicsScene. It exposes only the thirteen store/diagnostic reads ratified by
+// the ownership census; command authority remains on PhysicsScene.
+//
+// Lifetime: every reference and span borrows PhysicsScene-owned storage. The
+// view is frame-local and must not outlive the scene or cross a scene reset.
+struct PhysicsSceneReadView
+{
+    const PhysicsBodyStore& bodies;
+    const ColliderStore& colliders;
+    const Math::CollisionDetection::SpatialGrid& spatialGrid;
+    std::span<const int> fixedContactHighlightBodies;
+    const std::vector<int64_t>& collisionCellKeys;
+    const std::vector<uint8_t>& collisionVisualContacts;
+    std::span<const uint8_t> sleepStates;
+    std::span<const int> sleepIslandVisualIds;
+    std::span<const uint8_t> sleepSupportedStates;
+    std::span<const uint8_t> sleepInhibitedStates;
+    const std::vector<PhysicsDebugContact>& debugContacts;
+    const std::vector<PhysicsPipelineRecord>& pipelineTrace;
+    const std::vector<PointJointConstraint>& pointJointConstraints;
+};
+
 class PhysicsScene
 {
   public:
     PhysicsScene();
+    void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps current runtime policy onto cold authoring descriptors. Descriptor
@@ -173,6 +200,9 @@ class PhysicsScene
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
     bool ShouldEmitStepDiagnostics() const;
     bool ShouldEmitCollisionTimeDiagnostics() const;
+    // Returns the exact immutable query surface consumed by PhysicsEngine.
+    // Mutation continues through the named commands above.
+    PhysicsSceneReadView ReadView() const noexcept;
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogPath( const char* path );
@@ -183,25 +213,7 @@ class PhysicsScene
 #endif
 
   private:
-    // Why: PhysicsEngine is the sole public owner facade for this implementation
-    // object. The friendship does not escape store mutation authority to runtime
-    // consumers; it only lets that facade publish immutable query views.
-    friend class PhysicsEngine;
-
     void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
-    std::span<const int> GetFixedContactHighlightBodies() const;
-    const PhysicsBodyStore& BodyStore() const;
-    const ColliderStore& Colliders() const;
-    const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const;
-    const std::vector<int64_t>& GetCollisionCellKeys() const;
-    const std::vector<uint8_t>& GetCollisionVisualContacts() const;
-    std::span<const uint8_t> GetSleepStates() const;
-    std::span<const int> GetSleepIslandVisualIds() const;
-    std::span<const uint8_t> GetSleepSupportedStates() const;
-    std::span<const uint8_t> GetSleepInhibitedStates() const;
-    const std::vector<PhysicsDebugContact>& GetPhysicsDebugContacts() const;
-    const std::vector<PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const;
-    const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
 
     void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
 #ifdef _DEBUG

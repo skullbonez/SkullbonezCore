@@ -44,6 +44,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+}
 namespace Physics
 {
 struct ObjectContactBodyView
@@ -102,7 +106,8 @@ ObjectContactSweepResult SweepObjectContact( const ObjectContactBodyView& a,
                                              const Math::CollisionDetection::CollisionShape& shapeB,
                                              const Math::Vector::Vector3& linearVelocityB,
                                              float changeInTime );
-bool BuildObjectContactManifold( const ObjectContactBodyView& a,
+bool BuildObjectContactManifold( Core::Profiler* profiler,
+                                 const ObjectContactBodyView& a,
                                  const Math::CollisionDetection::CollisionShape& shapeA,
                                  const ObjectContactBodyView& b,
                                  const Math::CollisionDetection::CollisionShape& shapeB,
@@ -110,5 +115,16 @@ bool BuildObjectContactManifold( const ObjectContactBodyView& a,
                                  int bodyB,
                                  float contactSkin,
                                  ObjectContactManifold& out );
+inline bool BuildObjectContactManifold( const ObjectContactBodyView& a,
+                                        const Math::CollisionDetection::CollisionShape& shapeA,
+                                        const ObjectContactBodyView& b,
+                                        const Math::CollisionDetection::CollisionShape& shapeB,
+                                        int bodyA,
+                                        int bodyB,
+                                        float contactSkin,
+                                        ObjectContactManifold& out )
+{
+    return BuildObjectContactManifold( nullptr, a, shapeA, b, shapeB, bodyA, bodyB, contactSkin, out );
+}
 } // namespace Physics
 } // namespace SkullbonezCore

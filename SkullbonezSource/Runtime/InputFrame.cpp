@@ -42,7 +42,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
-#include "RunDemoDirector.h"
+#include "DemoDirectorPlayback.h"
 #include "RunDebugState.h"
 #include "RunLaunchOptions.h"
 #include "RunStartupState.h"
@@ -52,7 +52,7 @@ Related:
 #include "../Core/Profiler.h"
 #include "RuntimeInteractionCommands.h"
 #include "Scene/SceneRuntimeCreate.h"
-#include "RuntimeTuning.h"
+#include "OperatorCommandApplier.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
@@ -85,16 +85,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-const char* PresentationNameForModelIndex( const SkullbonezCore::Runtime::SceneController& collection, int modelIndex )
-{
-    const auto presentationRecords = collection.RenderPresentationRecords();
-    if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
-    {
-        return "";
-    }
-    return presentationRecords[static_cast<std::size_t>( modelIndex )].displayName;
-}
-
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result )
 {
     if ( result.ok )
@@ -164,10 +154,9 @@ RunCameraMode NormalizeRuntimeCameraMode( RunCameraMode mode, bool authoredScene
 }
 
 
-uint32_t RuntimeCameraModeEnabledMask( const SceneController& sceneController )
+uint32_t RuntimeCameraModeEnabledMask( bool authoredScene, int sceneEntityCount )
 {
-    const bool authoredScene = sceneController.State().isSceneMode;
-    const bool demoAvailable = !authoredScene && sceneController.SceneEntityCount() > 0;
+    const bool demoAvailable = !authoredScene && sceneEntityCount > 0;
     uint32_t mask = 0;
     mask |= demoAvailable ? 1u << static_cast<int>( RunCameraMode::Demo ) : 0u;
     mask |= authoredScene ? 1u << static_cast<int>( RunCameraMode::Scene ) : 0u;
@@ -509,15 +498,15 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RunTimerState& timers = sceneOwners.timers;
     SceneController& sceneController = sceneOwners.sceneController;
     Window& window = host.window;
-    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame;
     result.frameActive = true;
 
-    const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, sceneController.Browser() );
+    const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
     const HWND windowHandle = window.NativeWindowHandle();
     InGameUIInputResult UIResult = ui.UpdateInput(
         inputRouter.DeviceFrame(),
@@ -532,8 +521,8 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
         runtimeTools.Editor().objectType,
         static_cast<int>( camera.mode ),
         facts.cameraModeEnabledMask,
-        sceneController.Browser().namePtrs.empty() ? nullptr : sceneController.Browser().namePtrs.data(),
-        static_cast<int>( sceneController.Browser().namePtrs.size() ),
+        ui.SceneNavigation().browser.namePtrs.empty() ? nullptr : ui.SceneNavigation().browser.namePtrs.data(),
+        static_cast<int>( ui.SceneNavigation().browser.namePtrs.size() ),
         selectedSceneBrowserIndex );
     switch ( UIResult.nativeMouseCapture )
     {
@@ -584,11 +573,11 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                                             timers.simulationTimer.GetTotalTime() },
                                  inputRouter,
                                  interaction,
-                                 sceneController.Physics(),
-                                 sceneController.Entities(),
-                                 sceneController.RenderPresentationRecords(),
-                                 &sceneController.Cameras(),
-                                 sceneController.Terrain().Get(),
+                                 sceneController.Scene().Physics(),
+                                 sceneController.Scene().Entities(),
+                                 sceneController.Scene().RenderPresentationRecords(),
+                                 &sceneController.Scene().Cameras(),
+                                 sceneController.Scene().Terrain().Get(),
                                  camera,
                                  runtimeTools.MousePickup(),
                                  result.replayWorkspace );
@@ -617,6 +606,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
+    SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RunTimerState& timers = sceneOwners.timers;
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
     RunDebugState& debug = presentationEdit.State();
@@ -654,8 +644,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         result.enterInteractiveScene = true;
         const RunInternal::EditorGizmoContext editorContext{ runtimeTools.Editor(),
-                                                             sceneController,
-                                                             sceneController.Physics(),
+                                                             sceneController.Scene(),
                                                              interaction };
         const RunInternal::EditorPlacementModeChangeResult placementMode =
             toggle ? RunInternal::ToggleEditorPlacementMode( editorContext )
@@ -691,18 +680,17 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
-            RunInternal::EnterEditorModeState(
-                { runtimeTools.Editor(), sceneController, sceneController.Physics(), interaction },
-                NormalizeRuntimeCameraMode( camera.mode,
-                                            sceneController.State().isSceneMode,
-                                            facts.cameraModeEnabledMask ) );
+            RunInternal::EnterEditorModeState( { runtimeTools.Editor(), sceneController.Scene(), interaction },
+                                               NormalizeRuntimeCameraMode( camera.mode,
+                                                                           sceneController.State().isSceneMode,
+                                                                           facts.cameraModeEnabledMask ) );
             runtimeTools.CancelMousePickup( inputRouter, interaction );
             camera.mode = RunCameraMode::Inspect;
             if ( !wasFlyMode )
             {
                 EnterFlyModeCamera( inputRouter,
                                     camera,
-                                    sceneController.Cameras(),
+                                    sceneController.Scene().Cameras(),
                                     sceneController.State().isSceneMode,
                                     runtimeTools.Editor(),
                                     replayRuntime.BuildInputView() );
@@ -727,8 +715,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
                                                                   attachedCamera.State().activeFollow,
                                                                   camera.director.grabbed );
-            RunInternal::ExitEditorModeState(
-                { runtimeTools.Editor(), sceneController, sceneController.Physics(), interaction } );
+            RunInternal::ExitEditorModeState( { runtimeTools.Editor(), sceneController.Scene(), interaction } );
             camera.mode = restoreMode;
             if ( wasFlyMode && !RunCameraModeUsesFlyControls( camera.mode,
                                                               attachedCamera.State().activeFollow,
@@ -736,8 +723,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             {
                 ExitFlyModeCamera( inputRouter,
                                    camera,
-                                   sceneController.Cameras(),
-                                   *sceneController.Terrain().Get(),
+                                   sceneController.Scene().Cameras(),
+                                   *sceneController.Scene().Terrain().Get(),
                                    sceneController.State().isSceneMode );
             }
             else
@@ -766,8 +753,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                      runtimeInput );
     }
     const RunInternal::EditorGizmoContext editorGizmoContext{ runtimeTools.Editor(),
-                                                              sceneController,
-                                                              sceneController.Physics(),
+                                                              sceneController.Scene(),
                                                               interaction };
     const RunInternal::EditorPlacementPreModeUICommandResult editorPreModeCommands =
         RunInternal::ApplyEditorPlacementPreModeUICommands( editorGizmoContext, uiCommands.editor );
@@ -811,13 +797,14 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         recordUIAction( RuntimeInputAction::ToggleCollisionVisualizer );
     }
-    if ( ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext{ sceneController }, uiCommands.physics ) )
+    if ( ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext{ sceneController.Scene() },
+                                           uiCommands.physics ) )
     {
         recordUIAction( RuntimeInputAction::TogglePhysicsSleepPolicy );
     }
     RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
     const TornadoUICommandResult tornadoCommands =
-        ApplyTornadoUICommands( TornadoUICommandContext{ renderer, sceneController }, uiCommands.physics );
+        ApplyTornadoUICommands( TornadoUICommandContext{ renderer, sceneController.Scene() }, uiCommands.physics );
     RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
     if ( runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
     {
@@ -868,7 +855,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     }
     RecordRuntimePresentationWaterUIActions( presentationCommands, recordUIAction );
     const RunSimulationUICommandResult runSimulationCommands = ApplyRunSimulationUICommands(
-        RunSimulationUICommandContext{ sceneController.State(), sceneController.UIOverrides(), config, workerPool },
+        RunSimulationUICommandContext{ sceneController.State(), ui.SceneNavigation().overrides, config, workerPool },
         uiCommands.sceneOptions,
         uiCommands.run,
         uiCommands.profiler );
@@ -896,39 +883,31 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     }
     SkullbonezCore::Core::EngineConfig& liveConfig = config;
     const PhysicsFrictionUICommandResult physicsFrictionCommands =
-        ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, sceneController },
+        ApplyPhysicsFrictionUICommands( PhysicsFrictionUICommandContext{ liveConfig, sceneController.Scene() },
                                         uiCommands.physics );
     RecordPhysicsFrictionUIActions( physicsFrictionCommands, recordUIAction );
-    const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
-    {
-        return SceneRuntimeGeneratedControlContext{ sceneController.State(),
-                                                    sceneController.UIOverrides(),
-                                                    camera,
-                                                    sceneController,
-                                                    liveConfig,
-                                                    sceneController.World(),
-                                                    sceneController.Terrain().Get(),
-                                                    sceneController,
-                                                    simulation,
-                                                    runtimeTools,
-                                                    renderBackendView.deviceLifecycle,
-                                                    launchOptions.generatedObjectTypeOverride,
-                                                    facts.gameModelCapacity };
-    };
+    const SceneGeneratedControlPolicy sceneGeneratedPolicy{ liveConfig,
+                                                            launchOptions.generatedObjectTypeOverride,
+                                                            facts.sceneObjectCapacity };
+    const SceneGeneratedControlPresentation sceneGeneratedPresentation{ ui.SceneNavigation().overrides, camera };
+    const SceneGeneratedControlResetParticipants sceneGeneratedReset{ simulation,
+                                                                      runtimeTools,
+                                                                      renderBackendView.deviceLifecycle };
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
     {
         if ( action.resetReplayTimeline )
         {
             const ReplaySceneTimelineResetInput reset =
                 DescribeReplaySceneTimeline( sceneController,
+                                             ui.SceneNavigation().overrides,
                                              sceneController.State(),
-                                             facts.gameModelCapacity,
+                                             facts.sceneObjectCapacity,
                                              static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
             replayRuntime.ResetSceneTimeline( reset,
                                               ReplaySceneTimelineResetOwners{ inputRouter,
                                                                               interaction,
-                                                                              &sceneController.Cameras(),
-                                                                              sceneController.Terrain().Get(),
+                                                                              &sceneController.Scene().Cameras(),
+                                                                              sceneController.Scene().Terrain().Get(),
                                                                               camera,
                                                                               facts.replayRestoreCameraMode,
                                                                               attachedCamera.State().activeFollow,
@@ -936,11 +915,14 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         }
         if ( action.scheduleProfileReset )
         {
-            PROFILE_SCHEDULE_RESET();
+            PROFILE_SCHEDULE_RESET( host.profiler );
         }
     };
     const SceneGeneratedUICommandResult modelCountCommand =
-        ApplySceneGeneratedModelCountUICommand( makeSceneGeneratedControlContext(),
+        ApplySceneGeneratedModelCountUICommand( sceneGeneratedPolicy,
+                                                sceneGeneratedPresentation,
+                                                sceneGeneratedReset,
+                                                sceneController,
                                                 uiCommands.sceneOptions.requestedModelCount );
     if ( !modelCountCommand.action.status.ok )
     {
@@ -957,7 +939,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         recordUIAction( RuntimeInputAction::SetWorkerThreads );
     }
     const SceneGeneratedUICommandResult solverBallCountCommand =
-        ApplySceneGeneratedSolverBallCountUICommand( makeSceneGeneratedControlContext(),
+        ApplySceneGeneratedSolverBallCountUICommand( sceneGeneratedPolicy,
+                                                     sceneGeneratedPresentation,
+                                                     sceneGeneratedReset,
+                                                     sceneController,
                                                      uiCommands.run.requestedSolverBallCount );
     if ( !solverBallCountCommand.action.status.ok )
     {
@@ -970,7 +955,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         recordUIAction( RuntimeInputAction::SetSolverCounts );
     }
     const SceneGeneratedUICommandResult solverBoxCountCommand =
-        ApplySceneGeneratedSolverBoxCountUICommand( makeSceneGeneratedControlContext(),
+        ApplySceneGeneratedSolverBoxCountUICommand( sceneGeneratedPolicy,
+                                                    sceneGeneratedPresentation,
+                                                    sceneGeneratedReset,
+                                                    sceneController,
                                                     uiCommands.run.requestedSolverBoxCount );
     if ( !solverBoxCountCommand.action.status.ok )
     {
@@ -983,7 +971,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         recordUIAction( RuntimeInputAction::SetSolverCounts );
     }
     WorldOverrideChange worldOverride;
-    if ( ApplyWorldWaterUICommands( sceneController.World(), uiCommands.water, worldOverride ) )
+    if ( ApplyWorldWaterUICommands( sceneController.Scene().Environment(), uiCommands.water, worldOverride ) )
     {
         replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( worldOverride.previousGravity,
                                                                                      worldOverride.previousFluidHeight,
@@ -1012,9 +1000,8 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         result.enterInteractiveScene = true;
         ApplyCinematicModeUICommand( SceneRuntimeStyleContext{ launchOptions,
                                                                sceneController.State(),
-                                                               sceneController.Browser(),
-                                                               sceneController,
-                                                               sceneController.Entities(),
+                                                               ui.SceneNavigation().browser,
+                                                               sceneController.Scene(),
                                                                assets,
                                                                activeCinematic,
                                                                renderDefaults.CinematicBaseline() },
@@ -1069,8 +1056,7 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
             source );
     };
 
-    if ( attachedCamera.ApplyOrbitInput( sceneController,
-                                         sceneController.Cameras(),
+    if ( attachedCamera.ApplyOrbitInput( sceneController.Scene(),
                                          RunCameraModeIsAttached( replayCurrentCameraMode ),
                                          result.editorUnhandledWheelDelta,
                                          ui.BlocksCameraMouse() ) )

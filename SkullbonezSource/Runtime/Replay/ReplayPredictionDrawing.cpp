@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayPredictionDrawing.cpp
 Purpose:
   Draws immutable replay prediction and retained-path publication as overlay geometry.
 
-Mental model:
+Summary:
   ReplayPrediction publishes frame, trajectory, marker, and reveal values before
   rendering. This unit consumes those const values and emits fixed-capacity tracer
   ribbons and markers without scheduling work or mutating replay owners.
@@ -902,7 +902,7 @@ void DrawReplayPredictionRetainedMarkers( const ReplayPredictionPresentationView
                                           const ColliderStore& colliderStore,
                                           RunEditorTracer& tracer )
 {
-    // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS and independent
+    // Invariant: marker emission is bounded by SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS and independent
     // of the visualizer budget. Lines may degrade under load; already-revealed
     // yellow/grey boxes must not.
     for ( std::size_t i = 0; i < prediction.retainedMarkers.size(); ++i )
@@ -1585,6 +1585,7 @@ void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPrediction
 
 bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisualizer,
                                   const ReplayPredictionPresentationView& prediction,
+                                  SkullbonezCore::Core::Profiler* profiler,
                                   const SceneEntityStore& modelCollection,
                                   const ColliderStore& colliderStore,
                                   RunEditorTracer& tracer,
@@ -1622,7 +1623,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
     }
 
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawRoot" );
+        PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/DrawRoot" );
         DrawReplayPredictionRootTrajectoryFromStore( prediction,
                                                      pathVisualizer.targetId,
                                                      pathVisualizer.colorMode,
@@ -1647,7 +1648,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
                                                                         activePredictionFrameCount );
     if ( drawFutureTree )
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawChildren" );
+        PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/DrawChildren" );
         DrawReplayPredictionChildTrajectoriesFromStore( prediction,
                                                         pathVisualizer.colorMode,
                                                         usingBuildFrames,
@@ -1659,7 +1660,7 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
     }
 
     {
-        PROFILE_SCOPED( "Frame/Replay/Prediction/DrawAffectedBodies" );
+        PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/DrawAffectedBodies" );
         DrawReplayPredictionAffectedBodyTrails( activePredictionFrames,
                                                 activePredictionFrameCount,
                                                 pathVisualizer.colorMode,
@@ -1694,14 +1695,15 @@ bool DrawReplayPredictionOverlay( const RunReplayPathVisualizerState& pathVisual
 
 void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVisualizer,
                                      const ReplayPredictionPresentationView& prediction,
+                                     SkullbonezCore::Core::Profiler* profiler,
                                      PhysicsEngine& physicsEngine,
                                      const SceneEntityStore& entities,
                                      RunEditorTracer& tracer,
                                      ReplayRibbonDrawQuota& ribbonQuota )
 {
-    PROFILE_SCOPED( "Frame/Replay/PathVisualizer/Prediction" );
+    PROFILE_SCOPED( profiler, "Frame/Replay/PathVisualizer/Prediction" );
     const ColliderStore& colliderStore = PhysicsEngine::ReadColliders( physicsEngine );
-    DrawReplayPredictionOverlay( pathVisualizer, prediction, entities, colliderStore, tracer, ribbonQuota );
+    DrawReplayPredictionOverlay( pathVisualizer, prediction, profiler, entities, colliderStore, tracer, ribbonQuota );
 }
 
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
@@ -1789,7 +1791,7 @@ namespace SkullbonezCore::Runtime::ReplayOverlay
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context )
 {
     ReplayPathVisualizerRenderResult result;
-    PROFILE_SCOPED( "Frame/Replay/PathVisualizer" );
+    PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer" );
     // Concept: this marker owns replay presentation budgeting.
     //
     // Prediction has already published during frame update. Visible trajectory
@@ -1799,6 +1801,7 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
     ReplayRibbonDrawQuota ribbonQuota = BeginReplayRibbonDrawQuota( context.tracer );
     DrawReplayPredictionVisualizer( context.pathVisualizer,
                                     context.prediction,
+                                    context.profiler,
                                     context.physics,
                                     context.entities,
                                     context.tracer,
@@ -1852,10 +1855,10 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
             continue;
         }
 
-        PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget" );
+        PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer/RetainedTarget" );
         if ( target.id.value == pathVisualizer.targetId.value )
         {
-            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
+            PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer/RetainedTarget/DrawRoot" );
             DrawReplayPastRootTrajectoryFromStore( prediction,
                                                    target.id,
                                                    pathVisualizer.colorMode,
@@ -1865,7 +1868,7 @@ ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVis
         }
 
         {
-            PROFILE_SCOPED( "Frame/Replay/PathVisualizer/RetainedTarget/DrawMarker" );
+            PROFILE_SCOPED( context.profiler, "Frame/Replay/PathVisualizer/RetainedTarget/DrawMarker" );
             ModelRowHint targetHint;
             targetHint.value = target.modelRow.value;
             int markerIndex = -1;
@@ -1889,8 +1892,14 @@ void ReplayPresentation::RenderPathVisualizer( const ReplayPredictionPresentatio
     tracer.ClearReplayTrajectoryStats();
     const ReplayFrameIndex presentFrame =
         prediction.generationPermitted && presentSample ? presentSample->frameIndex : prediction.sourceFrame;
-    const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext
-        context{ prediction, m_pathVisualizer, physics, entities, tracer, presentFrame, presentSample != nullptr };
+    const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderContext context{ prediction,
+                                                                                             m_profiler,
+                                                                                             m_pathVisualizer,
+                                                                                             physics,
+                                                                                             entities,
+                                                                                             tracer,
+                                                                                             presentFrame,
+                                                                                             presentSample != nullptr };
     const SkullbonezCore::Runtime::ReplayOverlay::ReplayPathVisualizerRenderResult result =
         SkullbonezCore::Runtime::ReplayOverlay::RenderReplayPathVisualizer( context );
     if ( result.retainedRefreshBudgetExpired )

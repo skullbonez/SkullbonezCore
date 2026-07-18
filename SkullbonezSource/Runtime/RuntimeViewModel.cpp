@@ -98,7 +98,7 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
 {
     RuntimeViewModel view;
 
-    const RunSceneState& scene = context.scene.State();
+    const RunSceneState& scene = context.scene;
     const RunScreenshotState& screenshot = context.capture.Screenshot();
     const bool screenshotConfigured = screenshot.isScreenshotAndExit || screenshot.screenshotFrame >= 0 ||
                                       screenshot.screenshotMs >= 0 || screenshot.screenshotPath[0] != '\0' ||
@@ -110,13 +110,13 @@ RuntimeViewModel RuntimeViewModelBuilder::Build( const RuntimeViewModelContext& 
     view.fixedStep = scene.isFixedStep;
     view.screenshotPending = screenshotConfigured && !screenshot.isScreenshotSaved;
     view.sceneIndex = scene.currentSceneIndex;
-    view.sceneCount = context.scene.QueueSize();
+    view.sceneCount = context.sceneCount;
     view.frame = scene.currentFrame;
     view.targetFrameCount = scene.targetFrameCount;
     // Why: the UI displays a runtime count, but physics body rows are the
     // simulation snapshot authority. Do not ask SceneController to report a
     // model-order compatibility count for this presentation value.
-    view.modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( context.physics ).Count();
+    view.modelCount = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( context.world.Physics() ).Count();
     view.timeScale = scene.timeScale;
     view.presentationInterpolation = context.presentationInterpolation;
     view.presentationPinned = context.presentationPinned;

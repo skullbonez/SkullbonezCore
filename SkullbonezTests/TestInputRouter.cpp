@@ -17,6 +17,8 @@ Glossary:
   Context activation: Mode/UI fact mask that permits a binding to emit.
   Ghost press: False press caused by activating a context while its key was
     already held.
+  Fluid-surface command: World-unit adjustment value emitted instead of raw
+    Page Up/Page Down flags.
   Focus resynchronization: Refocus sample that remembers held input without
     treating it as newly pressed.
 
@@ -25,6 +27,7 @@ Invariants:
   - Output order follows binding order inside the caller-selected phase order.
   - A key observed in an inactive/blocked context cannot fire until released and
     pressed again.
+  - World-facing snapshots expose domain values, not physical water-control keys.
 
 Related:
   - SkullbonezSource/Runtime/InputRouter.h
@@ -521,8 +524,7 @@ TEST_CASE( "Input router: runtime snapshot joins one device and UI pointer frame
     CHECK( snapshot.pointer.uiWantsNativeMouseCursor );
     CHECK( snapshot.pointer.suppressWorldAction );
     CHECK( snapshot.enterDown );
-    CHECK( snapshot.pageDown );
-    CHECK( snapshot.pageUp );
+    CHECK( snapshot.fluidSurfaceAdjustment.velocityMetersPerSecond == doctest::Approx( 0.0f ) );
     CHECK( snapshot.frameInput.scenePhysicsEnabled );
     CHECK( snapshot.frameInput.stepHeld );
     CHECK( snapshot.frameInput.sceneTimeScale == doctest::Approx( 0.5f ) );
@@ -532,8 +534,27 @@ TEST_CASE( "Input router: runtime snapshot joins one device and UI pointer frame
     CHECK_FALSE( router.RuntimeSnapshot().appFocused );
     CHECK_FALSE( router.RuntimeSnapshot().pointer.hasClientPosition );
     CHECK_FALSE( router.RuntimeSnapshot().enterDown );
-    CHECK_FALSE( router.RuntimeSnapshot().pageDown );
-    CHECK_FALSE( router.RuntimeSnapshot().pageUp );
+    CHECK( router.RuntimeSnapshot().fluidSurfaceAdjustment.velocityMetersPerSecond == doctest::Approx( 0.0f ) );
+}
+
+
+TEST_CASE( "Input router: fluid surface command hides physical key semantics" )
+{
+    InputRouter router;
+    InputActions output;
+
+    router.BeginFrame( FocusedFrame( { VK_PRIOR } ), RuntimeInputKeyBindingView{}, output );
+    const RuntimeInputSnapshot raise = router.BuildRuntimeSnapshot( RuntimeInteractionFrameInput{}, false );
+    CHECK( raise.fluidSurfaceAdjustment.velocityMetersPerSecond == doctest::Approx( 20.0f ) );
+    CHECK( raise.fluidSurfaceAdjustment.DeltaMeters( 0.5f ) == doctest::Approx( 10.0f ) );
+
+    router.BeginFrame( FocusedFrame( { VK_NEXT } ), RuntimeInputKeyBindingView{}, output );
+    const RuntimeInputSnapshot lower = router.BuildRuntimeSnapshot( RuntimeInteractionFrameInput{}, false );
+    CHECK( lower.fluidSurfaceAdjustment.velocityMetersPerSecond == doctest::Approx( -20.0f ) );
+
+    router.BeginFrame( FocusedFrame( { VK_NEXT, VK_PRIOR } ), RuntimeInputKeyBindingView{}, output );
+    const RuntimeInputSnapshot cancelled = router.BuildRuntimeSnapshot( RuntimeInteractionFrameInput{}, false );
+    CHECK( cancelled.fluidSurfaceAdjustment.velocityMetersPerSecond == doctest::Approx( 0.0f ) );
 }
 
 

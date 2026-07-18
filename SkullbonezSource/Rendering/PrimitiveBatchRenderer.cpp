@@ -415,7 +415,8 @@ static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShade
     constants.objectStylePad = 0.0f;
     ApplyBatchLightConstants( constants, params.context, params.cinematic );
     FillShadowReceiverConstants( constants, params.context, params.shadow, params.receiveShadows, true );
-    return shader.SetConstantBufferBytes( &constants, sizeof( constants ), "PrimitiveBatchShaderConstants" );
+    return shader.SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                          "PrimitiveBatchShaderConstants" );
 }
 
 void PrimitiveBatchRenderer::SetClipPlane( float x, float y, float z, float w )
@@ -795,18 +796,19 @@ void PrimitiveBatchRenderer::BuildSphereMesh( const PrimitiveRenderContext& cont
     int staticAttribSizes[] = { 3, 3, 2 };
     // Instance layout: model matrix plus three float4 material rows, starting at location 3.
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.sphereInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
-                                                                       m_state.sphereVertexCount,
-                                                                       8,
-                                                                       SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
-                                                                       INSTANCE_FLOATS,
-                                                                       3,
-                                                                       instanceAttribSizes,
-                                                                       8,
-                                                                       staticAttribSizes,
-                                                                       3 );
+    m_state.sphereInstMesh =
+        Resources( context ).CreateInstancedMesh( verts.data(),
+                                                  m_state.sphereVertexCount,
+                                                  8,
+                                                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
+                                                  INSTANCE_FLOATS,
+                                                  3,
+                                                  instanceAttribSizes,
+                                                  8,
+                                                  staticAttribSizes,
+                                                  3 );
 
-    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 
@@ -832,7 +834,7 @@ void PrimitiveBatchRenderer::BuildLowPolySphereMesh( const PrimitiveRenderContex
         Resources( context ).CreateInstancedMesh( verts.data(),
                                                   m_state.lowPolySphereVertexCount,
                                                   8,
-                                                  SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                  SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                   INSTANCE_FLOATS,
                                                   3,
                                                   instanceAttribSizes,
@@ -840,7 +842,7 @@ void PrimitiveBatchRenderer::BuildLowPolySphereMesh( const PrimitiveRenderContex
                                                   staticAttribSizes,
                                                   3 );
 
-    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 
@@ -975,9 +977,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchBegin(
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    m_state.sphereBatchReady = m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                                                  sizeof( constants ),
-                                                                                  "InstancedShadowDepthConstants" );
+    m_state.sphereBatchReady =
+        m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                                           "InstancedShadowDepthConstants" );
     m_state.sphereInstanceData.clear();
 }
 
@@ -1037,7 +1039,7 @@ void PrimitiveBatchRenderer::BuildBoxMesh( const PrimitiveRenderContext& context
     m_state.boxInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                     m_state.boxVertexCount,
                                                                     8,
-                                                                    SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                                    SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                                     INSTANCE_FLOATS,
                                                                     3,
                                                                     instanceAttribSizes,
@@ -1045,7 +1047,7 @@ void PrimitiveBatchRenderer::BuildBoxMesh( const PrimitiveRenderContext& context
                                                                     staticAttribSizes,
                                                                     3 );
 
-    m_state.boxInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.boxInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 
@@ -1135,9 +1137,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchBegin( const PrimitiveRender
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    m_state.boxBatchReady = m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                                               sizeof( constants ),
-                                                                               "InstancedShadowDepthConstants" );
+    m_state.boxBatchReady =
+        m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                                           "InstancedShadowDepthConstants" );
     m_state.boxInstanceData.clear();
 }
 
@@ -1236,8 +1238,7 @@ void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const PrimitiveRend
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    if ( m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                            sizeof( constants ),
+    if ( m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
                                                             "InstancedShadowDepthConstants" ) )
     {
         Commands( context ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
@@ -1266,7 +1267,7 @@ void PrimitiveBatchRenderer::BuildPineMesh( const PrimitiveRenderContext& contex
     m_state.pineInstMesh = Resources( context ).CreateInstancedMesh( verts.data(),
                                                                      m_state.pineVertexCount,
                                                                      8,
-                                                                     SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS,
+                                                                     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
                                                                      INSTANCE_FLOATS,
                                                                      3,
                                                                      instanceAttribSizes,
@@ -1274,7 +1275,7 @@ void PrimitiveBatchRenderer::BuildPineMesh( const PrimitiveRenderContext& contex
                                                                      staticAttribSizes,
                                                                      3 );
 
-    m_state.pineInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * INSTANCE_FLOATS );
+    m_state.pineInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
 
 
@@ -1363,9 +1364,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthPineBatchBegin( const PrimitiveRende
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    m_state.pineBatchReady = m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                                                sizeof( constants ),
-                                                                                "InstancedShadowDepthConstants" );
+    m_state.pineBatchReady =
+        m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                                           "InstancedShadowDepthConstants" );
     m_state.pineInstanceData.clear();
 }
 

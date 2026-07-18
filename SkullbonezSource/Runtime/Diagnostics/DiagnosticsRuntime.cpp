@@ -41,8 +41,7 @@ Related:
 #include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/IRenderDiagnostics.h"
-#include "../../Scene/TestScene.h"
-#include "../Scene/SceneController.h"
+#include "../../Scene/AuthoredScene.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
 
@@ -544,10 +543,9 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         // the overlay is active, the same key owns overlay visibility.
         if ( context.sceneMode && context.cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
         {
-            const int sceneEntityCount = context.sceneEntities.SceneEntityCount();
-            if ( sceneEntityCount > 0 )
+            if ( context.sceneEntityCount > 0 )
             {
-                context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % sceneEntityCount;
+                context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % context.sceneEntityCount;
             }
         }
         else
@@ -767,7 +765,7 @@ void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
 }
 
 
-void DiagnosticsRuntime::ApplySceneAutomationOptions( const TestScene& scene,
+void DiagnosticsRuntime::ApplySceneAutomationOptions( const AuthoredScene& scene,
                                                       bool suppressAutomationExit,
                                                       int perfPass )
 {
@@ -847,7 +845,7 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemo
     if ( stats.process.available )
     {
         // Why: Task Manager numbers include memory not tracked by replay or
-        // SceneController. The reconciliation fields make that gap explicit
+        // scene stores. The reconciliation fields make that gap explicit
         // instead of hiding it in the engine bucket.
         if ( stats.process.taskManagerBytes >= stats.trackedEngineBytes )
         {
@@ -906,7 +904,7 @@ bool DiagnosticsRuntime::MainMemoryDumpRequested() const
 
 
 bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMemoryReplayStats& replay,
-                                              const Runtime::SceneController& models,
+                                              const SkullbonezCore::Core::MainMemoryGameObjectStats& gameObjects,
                                               const RunSceneState& scene,
                                               const char* checkpoint,
                                               double nowSeconds )
@@ -917,7 +915,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
     }
 
     const SkullbonezCore::Core::MainMemoryStats& stats =
-        RefreshMainMemoryStats( replay, models.CollectMemoryStats(), nowSeconds, true, true );
+        RefreshMainMemoryStats( replay, gameObjects, nowSeconds, true, true );
     FILE* file = nullptr;
     if ( fopen_s( &file, m_mainMemoryDumpPath, "wb" ) != 0 || !file )
     {
@@ -1091,12 +1089,12 @@ void DiagnosticsRuntime::SetPhysicsCollisionTimeLogOverride( const char* path )
 }
 
 
-void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Runtime::SceneController& models,
+void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics,
                                                     const char* path,
                                                     bool fixedStepForcedByDiagnostics )
 {
     RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_diagnostics.PhysicsDiagnostics(),
-                                                   models,
+                                                   physics,
                                                    path,
                                                    fixedStepForcedByDiagnostics );
 }
@@ -1113,7 +1111,7 @@ void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
 }
 
 
-void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Runtime::SceneController& models,
+void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
                                                      const RunSceneState& scene,
                                                      const SkullbonezCore::Core::EngineConfig& config,
                                                      const char* scenePath,
@@ -1122,7 +1120,7 @@ void DiagnosticsRuntime::BeginPhysicsDiagnosticsRun( Runtime::SceneController& m
     // Lifetime: RuntimeDiagnostics owns the trace file/session. This boundary
     // only supplies current runtime state and never caches trace handles.
     RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_diagnostics.PhysicsDiagnostics(),
-                                                    models,
+                                                    physics,
                                                     scene,
                                                     config,
                                                     scenePath,

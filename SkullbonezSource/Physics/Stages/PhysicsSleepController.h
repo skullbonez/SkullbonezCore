@@ -166,6 +166,7 @@ class PhysicsSleepController
     std::vector<int> m_sleepIslandVisualId;
     std::vector<int> m_sleepIslandAssignedVisualId;
     int m_nextSleepIslandVisualId = 1;
+    int m_awakeBodyCount = 0; // Dynamic awake rows at the last mirror or completed sleep-island transition.
     bool m_sleepEnabled = true;
     uint8_t m_seedSleepFrameCount = 30;
     std::vector<std::pair<int, int>> m_sleepSupportEdges;
@@ -236,6 +237,7 @@ class PhysicsSleepController
     void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
 
     std::span<const uint8_t> GetSleepStates() const;
+    int GetAwakeBodyCount() const;
     std::span<const uint8_t> GetUnderwaterSleepLocks() const;
     std::span<const int> GetSleepIslandVisualIds() const;
     std::span<const uint8_t> GetSleepSupportedStates() const;

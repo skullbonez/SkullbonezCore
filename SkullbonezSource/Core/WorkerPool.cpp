@@ -45,10 +45,22 @@ thread_local bool g_isWorkerThread = false;
 thread_local int g_workerThreadIndex = -1;
 } // namespace
 
-WorkerPool::WorkerPool()
-    : m_taskHead( 0 ), m_taskCount( 0 ), m_taskHighWater( 0 ), m_parallelTaskHead( 0 ), m_parallelTaskCount( 0 ),
-      m_parallelTaskHighWater( 0 ), m_stopping( false ), m_minParallelItems( 32 )
+WorkerPool::WorkerPool( LockOrderValidator& lockOrderValidator )
+    :
+#ifdef _DEBUG
+      m_mutex( "WorkerPool.Queue", lockOrderValidator ),
+#endif
+      m_taskHead( 0 ), m_taskCount( 0 ), m_taskHighWater( 0 ), m_parallelTaskHead( 0 ), m_parallelTaskCount( 0 ),
+      m_parallelTaskHighWater( 0 ), m_profiler( nullptr ), m_stopping( false ), m_minParallelItems( 32 )
 {
+#ifndef _DEBUG
+    static_cast<void>( lockOrderValidator );
+#endif
+}
+
+void WorkerPool::BindProfiler( Core::Profiler* profiler ) noexcept
+{
+    m_profiler = profiler;
 }
 
 
@@ -110,7 +122,7 @@ void WorkerPool::Initialise( int requestedThreadCount )
     }
 
     {
-        std::lock_guard<std::mutex> lock( m_mutex );
+        std::lock_guard<WorkerPoolMutex> lock( m_mutex );
         m_stopping = false;
     }
 
@@ -127,7 +139,7 @@ void WorkerPool::Initialise( int requestedThreadCount )
 void WorkerPool::Shutdown()
 {
     {
-        std::lock_guard<std::mutex> lock( m_mutex );
+        std::lock_guard<WorkerPoolMutex> lock( m_mutex );
         m_stopping = true;
     }
     m_workAvailable.notify_all();
@@ -142,7 +154,7 @@ void WorkerPool::Shutdown()
 
     m_threads.clear();
     {
-        std::lock_guard<std::mutex> lock( m_mutex );
+        std::lock_guard<WorkerPoolMutex> lock( m_mutex );
         m_taskHead = 0;
         m_taskCount = 0;
         m_taskHighWater = 0;
@@ -156,6 +168,9 @@ void WorkerPool::Shutdown()
 
 void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
 {
+    // Why: SubmitNoAlloc chooses the typed trampoline before this private queue
+    // boundary. The caller-owned task remains alive until its completion fence,
+    // and the fixed record never allocates or publishes erased state.
     if ( !dispatch )
     {
         return;
@@ -168,7 +183,7 @@ void WorkerPool::SubmitTaskRecord( void* taskState, TaskDispatcher dispatch )
     }
 
     {
-        std::lock_guard<std::mutex> lock( m_mutex );
+        std::lock_guard<WorkerPoolMutex> lock( m_mutex );
         if ( m_stopping )
         {
             SB_FATAL( "WorkerPool",
@@ -251,6 +266,9 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState,
                                       ParallelTaskDispatcher dispatch,
                                       const WorkerChunkRange& chunk )
 {
+    // Why: ParallelForChunksNoAlloc owns the typed stack state and waits on its
+    // fence before returning; this private fixed queue only transports the
+    // synchronous borrow plus its matching typed trampoline.
     if ( GetThreadCount() == 0 )
     {
         if ( dispatch )
@@ -261,7 +279,7 @@ void WorkerPool::SubmitParallelChunk( void* dispatchState,
     }
 
     {
-        std::lock_guard<std::mutex> lock( m_mutex );
+        std::lock_guard<WorkerPoolMutex> lock( m_mutex );
         if ( m_stopping )
         {
             SB_FATAL( "WorkerPool", "SubmitParallelChunk called while shutting down." );
@@ -321,7 +339,7 @@ void WorkerPool::WorkerLoop( int workerIndex )
         ParallelTaskRecord parallelTask = {};
         bool hasParallelTask = false;
         {
-            std::unique_lock<std::mutex> lock( m_mutex );
+            std::unique_lock<WorkerPoolMutex> lock( m_mutex );
             m_workAvailable.wait( lock, [&]() { return m_stopping || m_taskCount > 0 || m_parallelTaskCount > 0; } );
 
             if ( m_stopping && m_taskCount == 0 && m_parallelTaskCount == 0 )

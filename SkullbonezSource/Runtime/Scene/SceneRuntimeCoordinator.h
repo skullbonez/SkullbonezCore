@@ -4,9 +4,10 @@ Purpose:
   Declares scene navigation load decisions and UI request submission helpers.
 
 Summary:
-  SceneController owns queue/browser navigation and returns a value-only load
-  request. SceneController consumes that request through its cold load
-  transaction; callers only wire the explicit per-call owner borrows.
+  SceneController owns queue navigation, borrows the UI-owned browser value for
+  one decision, and returns a value-only load request. SceneController consumes
+  that request through its cold load transaction; callers only wire explicit
+  per-call owner borrows.
 
 Glossary:
   Load request: Accepted navigation result containing an optional scene load
@@ -18,7 +19,8 @@ Glossary:
     the app.
 
 Invariants:
-  - SceneController owns scene browser path storage and navigation decisions.
+  - InGameUI owns scene browser path storage; SceneController never retains it.
+  - SceneController converts one borrowed browser selection into a value request.
   - Navigation results contain values only; they retain no Run backpointer,
     callback, or borrowed execution context.
   - Scene queue indices stay owned by SceneController/SceneRuntime.

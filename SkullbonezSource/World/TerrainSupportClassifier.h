@@ -34,6 +34,10 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Core
+{
+class Profiler;
+}
 namespace Physics
 {
 // Terrain support classification is not the collision response itself. It is a
@@ -130,13 +134,14 @@ inline float ComputeBoxTerrainBestFaceNormalDotImpl( const Math::Transformation:
     return bestDot;
 }
 
-inline float ComputeBoxTerrainBestFaceNormalDot( const Math::Transformation::RotationMatrix& orientation,
+inline float ComputeBoxTerrainBestFaceNormalDot( Core::Profiler* profiler,
+                                                 const Math::Transformation::RotationMatrix& orientation,
                                                  const Math::Vector::Vector3& terrainNormal,
                                                  bool profile )
 {
     if ( profile )
     {
-        PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicyFaceAxes" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSupportPolicyFaceAxes" );
         return ComputeBoxTerrainBestFaceNormalDotImpl( orientation, terrainNormal );
     }
 
@@ -201,7 +206,8 @@ ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box,
     return result;
 }
 
-inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVertices( const Math::CollisionDetection::BoundingBox& box,
+inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVertices( Core::Profiler* profiler,
+                                                             const Math::CollisionDetection::BoundingBox& box,
                                                              const Math::Vector::Vector3& position,
                                                              const Math::Transformation::RotationMatrix& orientation,
                                                              Geometry::Terrain& terrain,
@@ -210,7 +216,7 @@ inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVertices( const Math::Collisi
 {
     if ( profile )
     {
-        PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicyVerts" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSupportPolicyVerts" );
         return ProbeBoxTerrainVerticesImpl( box, position, orientation, terrain, contactEpsilon );
     }
 
@@ -237,14 +243,15 @@ inline float ComputeConvexHullTerrainBestFaceNormalDotImpl( const Math::Collisio
     return bestDot;
 }
 
-inline float ComputeConvexHullTerrainBestFaceNormalDot( const Math::CollisionDetection::ConvexHullShape& hull,
+inline float ComputeConvexHullTerrainBestFaceNormalDot( Core::Profiler* profiler,
+                                                        const Math::CollisionDetection::ConvexHullShape& hull,
                                                         const Math::Transformation::RotationMatrix& orientation,
                                                         const Math::Vector::Vector3& terrainNormal,
                                                         bool profile )
 {
     if ( profile )
     {
-        PROFILE_SCOPED( "Frame/Physics/Terrain/HullSupportPolicyFaces" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullSupportPolicyFaces" );
         return ComputeConvexHullTerrainBestFaceNormalDotImpl( hull, orientation, terrainNormal );
     }
 
@@ -302,6 +309,7 @@ ProbeConvexHullTerrainVerticesImpl( const Math::CollisionDetection::ConvexHullSh
 
 inline BoxTerrainVertexSupportProbe
 ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape& hull,
+                                Core::Profiler* profiler,
                                 const Math::Vector::Vector3& position,
                                 const Math::Transformation::RotationMatrix& orientation,
                                 Geometry::Terrain& terrain,
@@ -310,7 +318,7 @@ ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape&
 {
     if ( profile )
     {
-        PROFILE_SCOPED( "Frame/Physics/Terrain/HullSupportPolicyVerts" );
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/HullSupportPolicyVerts" );
         return ProbeConvexHullTerrainVerticesImpl( hull, position, orientation, terrain, contactEpsilon );
     }
 
@@ -318,7 +326,8 @@ ProbeConvexHullTerrainVertices( const Math::CollisionDetection::ConvexHullShape&
 }
 
 inline BoxTerrainSupportClassification
-ClassifyBoxTerrainSupportImpl( const Math::CollisionDetection::CollisionShape& shape,
+ClassifyBoxTerrainSupportImpl( Core::Profiler* profiler,
+                               const Math::CollisionDetection::CollisionShape& shape,
                                const Math::Vector::Vector3& position,
                                const Math::Transformation::RotationMatrix& orientation,
                                const Math::Vector::Vector3& terrainNormal,
@@ -345,8 +354,8 @@ ClassifyBoxTerrainSupportImpl( const Math::CollisionDetection::CollisionShape& s
     result.isBox = box != nullptr;
     result.isConvexHull = hull != nullptr;
     result.bestFaceNormalDot =
-        box ? ComputeBoxTerrainBestFaceNormalDot( orientation, terrainNormal, profileChildren )
-            : ComputeConvexHullTerrainBestFaceNormalDot( *hull, orientation, terrainNormal, profileChildren );
+        box ? ComputeBoxTerrainBestFaceNormalDot( profiler, orientation, terrainNormal, profileChildren )
+            : ComputeConvexHullTerrainBestFaceNormalDot( profiler, *hull, orientation, terrainNormal, profileChildren );
 
     bool supportsRestingPolicy = true;
     if ( contactCount > 0 && contactCount < 4 )
@@ -362,14 +371,20 @@ ClassifyBoxTerrainSupportImpl( const Math::CollisionDetection::CollisionShape& s
     {
         if ( terrain )
         {
-            result.vertices =
-                box ? ProbeBoxTerrainVertices( *box, position, orientation, *terrain, contactEpsilon, profileChildren )
-                    : ProbeConvexHullTerrainVertices( *hull,
-                                                      position,
-                                                      orientation,
-                                                      *terrain,
-                                                      contactEpsilon,
-                                                      profileChildren );
+            result.vertices = box ? ProbeBoxTerrainVertices( profiler,
+                                                             *box,
+                                                             position,
+                                                             orientation,
+                                                             *terrain,
+                                                             contactEpsilon,
+                                                             profileChildren )
+                                  : ProbeConvexHullTerrainVertices( *hull,
+                                                                    profiler,
+                                                                    position,
+                                                                    orientation,
+                                                                    *terrain,
+                                                                    contactEpsilon,
+                                                                    profileChildren );
 
             const bool hasHeightfieldFootprint = result.vertices.supportedVertices >= 3;
             const bool hasStablePlanePatch = result.vertices.supportedVertices >= 2 && contactCount >= 3 &&
@@ -396,7 +411,8 @@ ClassifyBoxTerrainSupportImpl( const Math::CollisionDetection::CollisionShape& s
 }
 
 inline BoxTerrainSupportClassification
-ClassifyBoxTerrainSupport( const Math::CollisionDetection::CollisionShape& shape,
+ClassifyBoxTerrainSupport( Core::Profiler* profiler,
+                           const Math::CollisionDetection::CollisionShape& shape,
                            const Math::Vector::Vector3& position,
                            const Math::Transformation::RotationMatrix& orientation,
                            const Math::Vector::Vector3& terrainNormal,
@@ -407,8 +423,9 @@ ClassifyBoxTerrainSupport( const Math::CollisionDetection::CollisionShape& shape
 {
     if ( profile )
     {
-        PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicy" );
-        return ClassifyBoxTerrainSupportImpl( shape,
+        PROFILE_SCOPED( profiler, "Frame/Physics/Terrain/BoxSupportPolicy" );
+        return ClassifyBoxTerrainSupportImpl( profiler,
+                                              shape,
                                               position,
                                               orientation,
                                               terrainNormal,
@@ -418,7 +435,8 @@ ClassifyBoxTerrainSupport( const Math::CollisionDetection::CollisionShape& shape
                                               true );
     }
 
-    return ClassifyBoxTerrainSupportImpl( shape,
+    return ClassifyBoxTerrainSupportImpl( profiler,
+                                          shape,
                                           position,
                                           orientation,
                                           terrainNormal,

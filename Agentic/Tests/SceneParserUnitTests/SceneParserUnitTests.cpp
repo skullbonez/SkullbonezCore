@@ -9,7 +9,7 @@ Summary:
 
 Mental model:
   These tests protect user-facing scene authoring JSON. They load checked-in
-  fixtures and small TestOutput-generated fault cases through the same TestScene
+  fixtures and small TestOutput-generated fault cases through the same AuthoredScene
   entry points used by runtime code, then inspect the parsed data model.
 
 Glossary:
@@ -19,7 +19,7 @@ Glossary:
   Scene authoring JSON: Structured fields accepted by .scene.json and .style.json files.
   Scene object id: Stable nonzero physics identity explicitly authored in v2
     scenes or deterministically upgraded from v1 input.
-  Lane R result: Recoverable parser failure returned by TestScene::TryLoad*
+  Lane R result: Recoverable parser failure returned by AuthoredScene::TryLoad*
     entry points with owner/message diagnostics.
 
 Invariants:
@@ -29,11 +29,11 @@ Invariants:
   runtime launch state.
 
 Related:
-  - SkullbonezSource/Scene/TestScene.h
-  - SkullbonezSource/Scene/TestSceneParser.cpp
+  - SkullbonezSource/Scene/AuthoredScene.h
+  - SkullbonezSource/Scene/AuthoredSceneParser.cpp
   - SkullbonezData/styles/material_authoring_contract.style.json
 */
-#include "Scene/TestScene.h"
+#include "Scene/AuthoredScene.h"
 
 #include <cmath>
 #include <cstring>
@@ -196,11 +196,11 @@ void WriteTextFile( const char* path, const char* contents )
 void ExpectStyleLoadFails( const char* path, const char* contents, const char* expectedMessage )
 {
     WriteTextFile( path, contents );
-    TestScene scene;
-    const SkullbonezCore::Core::SbResult result = TestScene::TryLoadStyleFromFile( path, scene );
+    AuthoredScene scene;
+    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadStyleFromFile( path, scene );
     if ( !result.ok )
     {
-        EXPECT_STREQ( result.error.owner, "Scene/TestSceneParser" );
+        EXPECT_STREQ( result.error.owner, "Scene/AuthoredSceneParser" );
         const std::string message = result.error.message;
         EXPECT_CONTAINS( message, expectedMessage );
         return;
@@ -211,14 +211,14 @@ void ExpectStyleLoadFails( const char* path, const char* contents, const char* e
 
 void ExpectSceneLoadFails( const char* path, const char* expectedMessage )
 {
-    TestScene scene = TestScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
+    AuthoredScene scene = AuthoredScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
     const int originalCameraCount = scene.GetCameraCount();
     const int originalBallCount = scene.GetBallCount();
     const int originalMaterialCount = scene.GetObjectMaterialOverrideCount();
 
-    const SkullbonezCore::Core::SbResult result = TestScene::TryLoadFromFile( path, scene );
+    const SkullbonezCore::Core::SbResult result = AuthoredScene::TryLoadFromFile( path, scene );
     EXPECT_TRUE( !result.ok );
-    EXPECT_STREQ( result.error.owner, "Scene/TestSceneParser" );
+    EXPECT_STREQ( result.error.owner, "Scene/AuthoredSceneParser" );
     EXPECT_CONTAINS( std::string( result.error.message ), expectedMessage );
 
     // Invariant: a failed parse never publishes its partially appended rows to
@@ -231,8 +231,8 @@ void ExpectSceneLoadFails( const char* path, const char* expectedMessage )
 
 void TestStyleMaterialAuthoringContract()
 {
-    const TestScene scene =
-        TestScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style.json" );
+    const AuthoredScene scene =
+        AuthoredScene::LoadStyleFromFile( "SkullbonezData/styles/material_authoring_contract.style.json" );
     EXPECT_INT_EQ( scene.GetObjectMaterialOverrideCount(), 4 );
 
     const SceneObjectMaterialOverride& metal = scene.GetObjectMaterialOverride( 0 );
@@ -282,9 +282,9 @@ void TestStyleMaterialAuthoringContract()
     EXPECT_NEAR( clamped.material.stylization, 1.0f );
 }
 
-void TestSceneCanLoadMaterialAuthoringSample()
+void AuthoredSceneCanLoadMaterialAuthoringSample()
 {
-    const TestScene scene = TestScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
+    const AuthoredScene scene = AuthoredScene::LoadFromFile( "SkullbonezData/scenes/material_authoring_contract.scene.json" );
     EXPECT_INT_EQ( scene.GetCameraCount(), 1 );
     EXPECT_INT_EQ( scene.GetBallCount(), 1 );
     EXPECT_TRUE( !scene.IsPhysicsEnabled() );
@@ -389,7 +389,7 @@ void TestAssetInstanceProvenanceAndTransformComposition()
         assets.RegisterAssetLibrarySourceAsset( "assetlib.padding", paddingLibraryPath ).id;
     const SkullbonezCore::Assets::AssetLibrarySourceAsset& registeredLibrary =
         assets.RegisterAssetLibrarySourceAsset( "assetlib.contract", assetLibraryPath );
-    const TestScene scene = TestScene::LoadFromFile( scenePath, assets );
+    const AuthoredScene scene = AuthoredScene::LoadFromFile( scenePath, assets );
     EXPECT_INT_EQ( scene.GetAssetLibraryCount(), 2 );
     EXPECT_INT_EQ( scene.GetAssetInstanceCount(), 2 );
     EXPECT_INT_EQ( scene.GetAssetPartCount(), 6 );
@@ -592,7 +592,7 @@ void TestAssetIdentityFailuresAreRecoverable()
     ExpectSceneLoadFails( scenePath, "ragdoll.name produces a part name longer than 63 characters" );
 }
 
-void TestSceneObjectIdsAreSchemaVersionedAndStable()
+void AuthoredSceneObjectIdsAreSchemaVersionedAndStable()
 {
     static constexpr const char* libraryPath = "TestOutput/scene_parser_stable_ids.assets.json";
     static constexpr const char* scenePath = "TestOutput/scene_parser_stable_ids.scene.json";
@@ -619,7 +619,7 @@ void TestSceneObjectIdsAreSchemaVersionedAndStable()
   ],
   "assetInstances":[{"asset":"mixed","name":"asset","position":[4,0,0]}]
 })" );
-    const TestScene upgraded = TestScene::LoadFromFile( scenePath );
+    const AuthoredScene upgraded = AuthoredScene::LoadFromFile( scenePath );
     EXPECT_UINT_EQ( upgraded.GetSchemaVersion(), 1u );
     EXPECT_UINT_EQ( upgraded.GetBall( 0 ).sceneObjectId.value, 1u );
     EXPECT_UINT_EQ( upgraded.GetBallState( 0 ).sceneObjectId.value, 2u );
@@ -643,7 +643,7 @@ void TestSceneObjectIdsAreSchemaVersionedAndStable()
     "parts":[{"name":"box_part","sceneObjectId":300},{"name":"sphere_part","sceneObjectId":42}]
   }]
 })" );
-    const TestScene explicitIds = TestScene::LoadFromFile( scenePath );
+    const AuthoredScene explicitIds = AuthoredScene::LoadFromFile( scenePath );
     EXPECT_UINT_EQ( explicitIds.GetSchemaVersion(), 2u );
     EXPECT_UINT_EQ( explicitIds.GetBox( 0 ).sceneObjectId.value, 900u );
     EXPECT_UINT_EQ( explicitIds.GetBall( 0 ).sceneObjectId.value, 7u );
@@ -702,11 +702,11 @@ void TestSceneObjectIdsAreSchemaVersionedAndStable()
 
 const TestCase kTests[] = {
     { "Style material authoring contract", TestStyleMaterialAuthoringContract },
-    { "Scene material authoring sample loads", TestSceneCanLoadMaterialAuthoringSample },
+    { "Scene material authoring sample loads", AuthoredSceneCanLoadMaterialAuthoringSample },
     { "Material authoring rejects malformed options", TestMaterialAuthoringRejectsMalformedOptions },
     { "Asset instance provenance and transform composition", TestAssetInstanceProvenanceAndTransformComposition },
     { "Asset identity failures are recoverable", TestAssetIdentityFailuresAreRecoverable },
-    { "Scene object ids are schema-versioned and stable", TestSceneObjectIdsAreSchemaVersionedAndStable },
+    { "Scene object ids are schema-versioned and stable", AuthoredSceneObjectIdsAreSchemaVersionedAndStable },
 };
 
 } // namespace

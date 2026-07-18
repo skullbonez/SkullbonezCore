@@ -36,19 +36,19 @@ namespace SkullbonezCore
 namespace Runtime
 {
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
+                                                            const RunSceneUIOverrideState& uiOverrides,
                                                             const RuntimeRenderer& renderer,
                                                             const RunDebugState& debug,
                                                             const RunCameraState& camera )
 {
     SceneRuntimeResetSnapshot snapshot;
     const RunSceneState& scene = controller.State();
-    const RunSceneUIOverrideState& uiOverrides = controller.UIOverrides();
     // Invariant: Capture every field restored below. Adding a new preserved
     // runtime knob requires updating both sides of this snapshot contract.
     snapshot.renderPresentation = renderer.PresentationSettings();
-    snapshot.physicsSleepEnabled = controller.Physics().IsSleepEnabled();
-    snapshot.tornadoField = controller.Physics().GetTornadoFieldConfig();
-    snapshot.tornadoSystem = controller.Physics().GetTornadoSystemConfig();
+    snapshot.physicsSleepEnabled = controller.Scene().Physics().IsSleepEnabled();
+    snapshot.tornadoField = controller.Scene().Physics().GetTornadoFieldConfig();
+    snapshot.tornadoSystem = controller.Scene().Physics().GetTornadoSystemConfig();
     snapshot.debug = debug;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
@@ -57,9 +57,9 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     snapshot.isInteractiveRun = scene.isInteractiveRun;
     snapshot.targetFrameCount = scene.targetFrameCount;
     snapshot.timeScale = scene.timeScale;
-    snapshot.worldGravity = controller.World().GetGravity();
-    snapshot.worldFluidHeight = controller.World().GetFluidSurfaceHeight();
-    snapshot.worldFluidDensity = controller.World().GetFluidDensity();
+    snapshot.worldGravity = controller.Scene().Environment().GetGravity();
+    snapshot.worldFluidHeight = controller.Scene().Environment().GetFluidSurfaceHeight();
+    snapshot.worldFluidDensity = controller.Scene().Environment().GetFluidDensity();
     snapshot.hasCinematicRenderingOverride = scene.hasCinematicRenderingOverride;
     snapshot.isCinematicRenderingEnabled = scene.isCinematicRenderingEnabled;
     snapshot.hasCinematicExposure = scene.hasCinematicExposure;
@@ -83,6 +83,7 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
 
 
 void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
+                                       RunSceneUIOverrideState& uiOverrides,
                                        RuntimeRenderer& renderer,
                                        RunDebugState& debug,
                                        RunCameraState& camera,
@@ -90,13 +91,12 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
                                        bool suppressExitOnComplete )
 {
     RunSceneState& scene = controller.State();
-    RunSceneUIOverrideState& uiOverrides = controller.UIOverrides();
     // Why: Interactive resets preserve the user's run-control choices, but
     // suppressing exit also forces automation-safe non-exit behavior.
     renderer.RestorePresentationSettings( snapshot.renderPresentation );
-    controller.Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
-    controller.Physics().SetTornadoFieldConfig( snapshot.tornadoField );
-    controller.Physics().SetTornadoSystemConfig( snapshot.tornadoSystem );
+    controller.Scene().Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
+    controller.Scene().Physics().SetTornadoFieldConfig( snapshot.tornadoField );
+    controller.Scene().Physics().SetTornadoSystemConfig( snapshot.tornadoSystem );
     debug = snapshot.debug;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;
@@ -127,14 +127,14 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
 }
 
 
-void ClearSceneRuntimeUIOverrides( SceneController& controller )
+void ClearSceneRuntimeUIOverrides( RunSceneUIOverrideState& uiOverrides )
 {
     // Concept: Reset-to-defaults hands authority back to authored scene data by
     // clearing UI-generated setup overrides.
-    controller.UIOverrides().timeScaleOverride = 0.0f;
-    controller.UIOverrides().modelCountOverride = -1;
-    controller.UIOverrides().solverBallCountOverride = -1;
-    controller.UIOverrides().solverBoxCountOverride = -1;
+    uiOverrides.timeScaleOverride = 0.0f;
+    uiOverrides.modelCountOverride = -1;
+    uiOverrides.solverBallCountOverride = -1;
+    uiOverrides.solverBoxCountOverride = -1;
 }
 
 } // namespace Runtime

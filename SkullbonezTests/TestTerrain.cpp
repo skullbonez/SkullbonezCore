@@ -57,6 +57,7 @@ using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsTerrainStage;
 using SkullbonezCore::Physics::TerrainDetectionStageContext;
+using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerPool;
 
 namespace
@@ -170,7 +171,8 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
                                                 timeRemaining };
     SkullbonezCore::Core::PhysicsExecutionConfig execution;
     execution.parallel = false;
-    WorkerPool inlinePool;
+    LockOrderValidator lockOrderValidator;
+    WorkerPool inlinePool( lockOrderValidator );
     PhysicsTerrainStage stage;
 
     stage.Detect( context, 3, execution, inlinePool );

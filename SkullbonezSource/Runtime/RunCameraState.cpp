@@ -29,7 +29,7 @@ Related:
 #include "RunTimerState.h"
 #include "../Assets/AssetKeys.h"
 #include "../Core/Config.h"
-#include "Scene/SceneController.h"
+#include "Scene/SceneWorld.h"
 #include "../World/Terrain.h"
 #include "../Core/Profiler.h"
 
@@ -39,17 +39,18 @@ using SkullbonezCore::Math::Vector::Vector3;
 namespace SkullbonezCore::Runtime
 {
 void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
-                                               Environment::CameraCollection& cameras,
-                                               const Runtime::SceneController& models,
+                                               Runtime::SceneWorld& world,
                                                bool replayCameraActive,
                                                bool sceneMode,
                                                bool attachedActiveFollow,
                                                bool cameraLookCaptured,
-                                               float presentationAlpha )
+                                               float presentationAlpha,
+                                               Core::Profiler* profiler )
 {
+    Environment::CameraCollection& cameras = world.Cameras();
     if ( replayCameraActive )
     {
-        PROFILE_SCOPED( "Frame/Replay/Camera" );
+        PROFILE_SCOPED( profiler, "Frame/Replay/Camera" );
         cameraTime = 0.0f;
         timers.cameraTimer.StopTimer();
         timers.cameraTimer.StartTimer();
@@ -76,7 +77,7 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
         cameraTime = 0.0f;
     }
 
-    constexpr int cameraSlots[] = { CAMERA_GAME_MODEL_1, CAMERA_GAME_MODEL_2, CAMERA_FREE };
+    constexpr int cameraSlots[] = { CAMERA_SCENE_OBJECT_1, CAMERA_SCENE_OBJECT_2, CAMERA_FREE };
     cameras.SelectCamera( cameraSlots[selectedCamera], true );
 
     // Why: the two authored tracking slots follow presentation rows 0 and 1;
@@ -89,7 +90,7 @@ void RunCameraState::UpdateViewingOrientation( RunTimerState& timers,
         }
         Vector3 targetPosition;
         Quaternion targetOrientation;
-        if ( models.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
+        if ( world.TryGetPresentationPose( modelIndex, presentationAlpha, targetPosition, targetOrientation ) )
         {
             cameras.SetViewCoordinates( targetPosition );
         }
@@ -106,9 +107,7 @@ void RunCameraState::AdvanceAutoCycleClock( bool sceneMode, float simulationDt )
 }
 
 
-void RunCameraState::TickControls( Environment::CameraCollection& cameras,
-                                   Geometry::Terrain& terrain,
-                                   Runtime::SceneController& models,
+void RunCameraState::TickControls( Runtime::SceneWorld& world,
                                    AttachedCameraController& attachedCamera,
                                    const SkullbonezCore::Core::EngineConfig& config,
                                    bool editorModeEnabled,
@@ -117,6 +116,8 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
                                    float cameraDt,
                                    float presentationAlpha )
 {
+    Environment::CameraCollection& cameras = world.Cameras();
+    Geometry::Terrain& terrain = *world.Terrain().Get();
     constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
     const bool attachedOrbitOwnsCamera = RunCameraModeIsAttached( mode ) && attachedCamera.State().activeFollow &&
                                          attachedCamera.State().submode != AttachedCameraSubmode::RagdollEyes;
@@ -141,7 +142,7 @@ void RunCameraState::TickControls( Environment::CameraCollection& cameras,
             static_cast<float>( input.xMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
         const float orbitPitchDelta =
             static_cast<float>( input.yMove ) * CAMERA_MOUSE_REFERENCE_DT * config.camera.mouseSensitivity;
-        (void)attachedCamera.TickFollow( models, cameras, orbitYawDelta, orbitPitchDelta, presentationAlpha );
+        (void)attachedCamera.TickFollow( world, orbitYawDelta, orbitPitchDelta, presentationAlpha );
     }
     cameras.SetTweenSpeed( config.camera.cameraTweenRate * cameraDt );
 }

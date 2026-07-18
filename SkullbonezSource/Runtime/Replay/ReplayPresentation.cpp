@@ -3,7 +3,7 @@ File: SkullbonezSource/Runtime/Replay/ReplayPresentation.cpp
 Purpose:
   Initializes and owns replay presentation storage independently of ReplayRuntime.
 
-Mental model:
+Summary:
   Replay prediction and retained timelines publish values; this owner keeps the
   mutable camera, path, mask, ghost, and packet state used to turn those values
   into the exact renderer submission for one frame.
@@ -378,14 +378,14 @@ void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer
 }
 } // namespace
 
-ReplayPresentation::ReplayPresentation()
+ReplayPresentation::ReplayPresentation( Core::Profiler* profiler ) : m_profiler( profiler )
 {
     // Runtime allocation policy: path target selection is a live replay UI
     // action, so it rotates entries within a fixed pre-gameplay vector budget.
     m_pathVisualizer.targets.reserve( REPLAY_PATH_MAX_ROOT_TARGETS );
     // Runtime allocation policy: focus masks are rewritten during replay render
     // passes, so the byte vector owns its full model-capacity storage up front.
-    m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    m_focusModelMask.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     m_renderPoseBodyMatched.fill( uint8_t{ 0 } );
 }
 
@@ -842,7 +842,7 @@ bool ReplayPresentation::BuildFocusModelMask( const Physics::PhysicsBodyStore& b
                                               std::span<const RunReplayPathTraceNode> futureNodes )
 {
     if ( !m_pathVisualizer.hasTarget || m_pathVisualizer.targetId.value == 0 || modelCount <= 0 ||
-         modelCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+         modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         m_focusModelMask.clear();
         return false;
@@ -1145,7 +1145,7 @@ bool ReplayPresentation::BuildPredictionGhostDrawRequests(
 
 bool ReplayPresentation::PrepareRenderPoseBodyMatch( int modelCount ) noexcept
 {
-    if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+    if ( modelCount < 0 || modelCount > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
     {
         return false;
     }

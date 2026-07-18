@@ -4,7 +4,7 @@
 //   Lock the smallest authored-scene parse path and recoverable load-error contract.
 //
 // Summary:
-//   TestScene::LoadFromFile is a data-boundary parser. It turns committed scene
+//   AuthoredScene::LoadFromFile is a data-boundary parser. It turns committed scene
 //   JSON into immutable setup records. Runtime callers use the Lane R TryLoad
 //   path so malformed files return owner/message diagnostics without escaping.
 //
@@ -15,18 +15,18 @@
 //
 // Invariants:
 //   - Full scene files must define at least one camera.
-//   - Malformed JSON returns a path-rich Scene/TestSceneParser failure through
-//     TestScene::TryLoadFromFile.
+//   - Malformed JSON returns a path-rich Scene/AuthoredSceneParser failure through
+//     AuthoredScene::TryLoadFromFile.
 //
 // Related:
-//   - SkullbonezSource/Scene/TestScene.h
-//   - SkullbonezSource/Scene/TestSceneParser.cpp
+//   - SkullbonezSource/Scene/AuthoredScene.h
+//   - SkullbonezSource/Scene/AuthoredSceneParser.cpp
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Scene/TestScene.h"
+#include "../SkullbonezSource/Scene/AuthoredScene.h"
 
 #include <cstdio>
 #include <fstream>
@@ -36,7 +36,7 @@
 using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Runtime::SceneCamera;
 using SkullbonezCore::Runtime::SceneObjectGroupKind;
-using SkullbonezCore::Runtime::TestScene;
+using SkullbonezCore::Runtime::AuthoredScene;
 
 namespace
 {
@@ -53,7 +53,7 @@ struct TemporaryMalformedSceneFile
         std::ofstream output( path );
         if ( !output )
         {
-            throw std::runtime_error( "TestSceneParser: failed to create malformed scene fixture" );
+            throw std::runtime_error( "AuthoredSceneParser: failed to create malformed scene fixture" );
         }
         output << contents;
     }
@@ -67,20 +67,20 @@ struct TemporaryMalformedSceneFile
 void CheckLoadFailure( const SkullbonezCore::Core::SbResult& result, const char* path, const char* expectedMessage )
 {
     CHECK_FALSE( result.ok );
-    CHECK( std::string( result.error.owner ) == "Scene/TestSceneParser" );
+    CHECK( std::string( result.error.owner ) == "Scene/AuthoredSceneParser" );
     const std::string message = result.error.message;
     CHECK( message.find( expectedMessage ) != std::string::npos );
     CHECK( message.find( path ) != std::string::npos );
-    CHECK( message.find( "TestScene::LoadFromFile" ) != std::string::npos );
+    CHECK( message.find( "AuthoredScene::LoadFromFile" ) != std::string::npos );
 }
 } // namespace
 
 
-TEST_CASE( "TestSceneParser: smallest committed scene parses expected records" )
+TEST_CASE( "AuthoredSceneParser: smallest committed scene parses expected records" )
 {
-    const TestScene scene = TestScene::LoadFromFile( kSmallestCommittedScenePath );
-    TestScene tryScene;
-    const SkullbonezCore::Core::SbResult tryLoad = TestScene::TryLoadFromFile( kSmallestCommittedScenePath, tryScene );
+    const AuthoredScene scene = AuthoredScene::LoadFromFile( kSmallestCommittedScenePath );
+    AuthoredScene tryScene;
+    const SkullbonezCore::Core::SbResult tryLoad = AuthoredScene::TryLoadFromFile( kSmallestCommittedScenePath, tryScene );
     CHECK( tryLoad.ok );
     CHECK( tryScene.GetCameraCount() == 1 );
 
@@ -105,18 +105,18 @@ TEST_CASE( "TestSceneParser: smallest committed scene parses expected records" )
 }
 
 
-TEST_CASE( "TestSceneParser: malformed JSON reports recoverable load failure" )
+TEST_CASE( "AuthoredSceneParser: malformed JSON reports recoverable load failure" )
 {
     const TemporaryMalformedSceneFile malformed( "unit_scene_parser_malformed.scene.json",
                                                  "{ \"format\": \"skullbonez.scene.json\", \"cameras\": [" );
-    TestScene scene;
-    CheckLoadFailure( TestScene::TryLoadFromFile( malformed.path, scene ), malformed.path, "Invalid JSON" );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( malformed.path, scene ), malformed.path, "Invalid JSON" );
 }
 
 
-TEST_CASE( "TestSceneParser: legacy releasable trees resolve stable root ids" )
+TEST_CASE( "AuthoredSceneParser: legacy releasable trees resolve stable root ids" )
 {
-    const TestScene scene = TestScene::LoadFromFile( "SkullbonezData/scenes/nature_hull_assets.scene.json" );
+    const AuthoredScene scene = AuthoredScene::LoadFromFile( "SkullbonezData/scenes/nature_hull_assets.scene.json" );
     int groupedHullCount = 0;
     for ( int index = 0; index < scene.GetConvexHullCount(); ++index )
     {
@@ -143,93 +143,93 @@ TEST_CASE( "TestSceneParser: legacy releasable trees resolve stable root ids" )
 }
 
 
-TEST_CASE( "TestSceneParser: missing behavior-group root is a recoverable parse failure" )
+TEST_CASE( "AuthoredSceneParser: missing behavior-group root is a recoverable parse failure" )
 {
     const TemporaryMalformedSceneFile missingGroupRoot(
         "unit_scene_parser_missing_group_root.scene.json",
         R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"objects":[{"type":"convexHull","name":"tree_child","hull":"pyramid","position":[0,0,0],"restitution":0.1,"objectGroup":{"kind":"releasableTree","root":"missing_root","part":1}}]})" );
-    TestScene scene;
-    CheckLoadFailure( TestScene::TryLoadFromFile( missingGroupRoot.path, scene ),
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( missingGroupRoot.path, scene ),
                       missingGroupRoot.path,
                       "does not name an object" );
 }
 
 
-TEST_CASE( "TestSceneParser: missing camera reports recoverable load failure" )
+TEST_CASE( "AuthoredSceneParser: missing camera reports recoverable load failure" )
 {
     const TemporaryMalformedSceneFile missingCamera(
         "unit_scene_parser_missing_camera.scene.json",
         R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false})" );
-    TestScene scene;
-    CheckLoadFailure( TestScene::TryLoadFromFile( missingCamera.path, scene ),
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( missingCamera.path, scene ),
                       missingCamera.path,
                       "at least one camera" );
 }
 
 
-TEST_CASE( "TestSceneParser: wrong member type reports recoverable load failure" )
+TEST_CASE( "AuthoredSceneParser: wrong member type reports recoverable load failure" )
 {
     const TemporaryMalformedSceneFile wrongType(
         "unit_scene_parser_wrong_type.scene.json",
         R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":{}})" );
-    TestScene scene;
-    CheckLoadFailure( TestScene::TryLoadFromFile( wrongType.path, scene ), wrongType.path, "cameras must be an array" );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( wrongType.path, scene ), wrongType.path, "cameras must be an array" );
 }
 
 
-TEST_CASE( "TestSceneParser: unknown asset instance reports recoverable load failure" )
+TEST_CASE( "AuthoredSceneParser: unknown asset instance reports recoverable load failure" )
 {
     const TemporaryMalformedSceneFile unknownAsset(
         "unit_scene_parser_unknown_asset.scene.json",
         R"({"format":"skullbonez.scene.json","version":1,"physics":false,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"assetInstances":[{"asset":"missing.asset","name":"ghost","position":[0,0,0]}]})" );
-    TestScene scene;
-    CheckLoadFailure( TestScene::TryLoadFromFile( unknownAsset.path, scene ),
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( unknownAsset.path, scene ),
                       unknownAsset.path,
                       "Unknown asset instance reference" );
 }
 
 
-TEST_CASE( "TestSceneParser: legacy and current asset-library versions load" )
+TEST_CASE( "AuthoredSceneParser: legacy and current asset-library versions load" )
 {
     const TemporaryMalformedSceneFile sceneFile( "unit_versioned_asset.scene.json", kVersionedAssetScene );
 
     {
         const TemporaryMalformedSceneFile legacyLibrary( "unit_versioned.assets.json",
                                                          R"({"format":"skullbonez.asset_library.json","assets":[]})" );
-        TestScene scene;
-        CHECK( TestScene::TryLoadFromFile( sceneFile.path, scene ).ok );
+        AuthoredScene scene;
+        CHECK( AuthoredScene::TryLoadFromFile( sceneFile.path, scene ).ok );
     }
     {
         const TemporaryMalformedSceneFile currentLibrary(
             "unit_versioned.assets.json",
             R"({"format":"skullbonez.asset_library.json","version":1,"assets":[]})" );
-        TestScene scene;
-        CHECK( TestScene::TryLoadFromFile( sceneFile.path, scene ).ok );
+        AuthoredScene scene;
+        CHECK( AuthoredScene::TryLoadFromFile( sceneFile.path, scene ).ok );
     }
 }
 
 
-TEST_CASE( "TestSceneParser: future asset-library version is a named recoverable failure" )
+TEST_CASE( "AuthoredSceneParser: future asset-library version is a named recoverable failure" )
 {
     const TemporaryMalformedSceneFile sceneFile( "unit_versioned_asset.scene.json", kVersionedAssetScene );
     const TemporaryMalformedSceneFile futureLibrary(
         "unit_versioned.assets.json",
         R"({"format":"skullbonez.asset_library.json","version":2,"assets":[]})" );
 
-    TestScene scene;
-    CheckLoadFailure( TestScene::TryLoadFromFile( sceneFile.path, scene ),
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( sceneFile.path, scene ),
                       futureLibrary.path,
                       "version 2 is newer than current version 1" );
 }
 
 
-TEST_CASE( "TestSceneParser: malformed style JSON reports recoverable load failure" )
+TEST_CASE( "AuthoredSceneParser: malformed style JSON reports recoverable load failure" )
 {
     const TemporaryMalformedSceneFile malformedStyle(
         "unit_scene_parser_malformed_style.style.json",
         "{ \"format\": \"skullbonez.style.json\", \"objectMaterials\": [" );
-    TestScene scene;
-    CheckLoadFailure( TestScene::TryLoadStyleFromFile( malformedStyle.path, scene ),
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadStyleFromFile( malformedStyle.path, scene ),
                       malformedStyle.path,
                       "Invalid JSON" );
 }

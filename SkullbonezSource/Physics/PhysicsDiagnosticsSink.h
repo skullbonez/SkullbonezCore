@@ -47,7 +47,7 @@ class ColliderStore;
 class PhysicsBodyStore;
 struct PhysicsDiagnosticsView;
 
-inline constexpr int PHYSICS_COLLISION_TIME_EVENT_CAPACITY = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 5;
+inline constexpr int PHYSICS_COLLISION_TIME_EVENT_CAPACITY = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 5;
 
 // Debug CSV output boundary. Physics formats rows after the solver pass and the
 // concrete writer delegates to the process log sink; no callback, user pointer,

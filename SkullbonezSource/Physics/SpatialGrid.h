@@ -89,13 +89,13 @@ class SpatialGrid
     static constexpr int TABLE_SIZE = 8192;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
     static_assert( ( TABLE_SIZE & TABLE_MASK ) == 0, "SpatialGrid table size must remain a power of two" );
-    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS * 8;
+    static constexpr int MAX_STATIC_CELL_ENTRIES = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
-    static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS *
-                                            ( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS - 1 ) / 2 +
+    static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
+                                            ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2 +
                                         63 ) /
                                       64;
 

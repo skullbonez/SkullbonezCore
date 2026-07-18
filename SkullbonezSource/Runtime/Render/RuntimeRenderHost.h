@@ -94,7 +94,6 @@ class Window;
 class LauncherLaser;
 class RuntimeInputContext;
 class RuntimeOverlayRenderResources;
-class SceneController;
 class SceneTerrain;
 enum class RunCameraMode;
 struct RenderFrameContext;
@@ -108,7 +107,6 @@ struct RunMousePickupState;
 struct RunRayCastTestState;
 struct RunReplayPredictionFrame;
 struct RuntimeRenderPassResources;
-struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunTimerState;
 struct RuntimeRenderModelFrameView;
@@ -127,12 +125,6 @@ struct RenderWorldView
     Environment::WorldEnvironment& worldEnvironment;
     RuntimeOverlayRenderResources& overlayResources;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
-};
-
-struct RenderSceneView
-{
-    SceneController& sceneController;
-    RunSceneBrowserState& sceneBrowser;
 };
 
 struct RenderReplayOverlayView

@@ -41,6 +41,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
+#include "Diagnostics/SceneMemoryDiagnostics.h"
 #include "../Scene/SceneSnapshotWriter.h"
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
@@ -73,12 +74,12 @@ namespace
 {
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 
-std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup()
+std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( SkullbonezCore::Core::Profiler* profiler )
 {
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
     // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
     // the public composition-root header does not republish the UI graph.
-    return std::make_unique<SkullbonezCore::UI::InGameUI>();
+    return std::make_unique<SkullbonezCore::UI::InGameUI>( profiler );
 }
 
 SkullbonezCore::Environment::CameraMovementSettings
@@ -100,7 +101,7 @@ BuildCameraMovementSettings( const SkullbonezCore::Core::EngineConfig& cfg )
 void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                RunLaunchOptions& target,
                                RuntimeRenderer& renderer,
-                               SkullbonezCore::Runtime::SceneController& models,
+                               PhysicsEngine& physics,
                                SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
 {
     target.allocationGuardMode = launch.allocationGuardMode;
@@ -127,7 +128,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.noSleep )
     {
         target.noSleep = true;
-        models.Physics().SetSleepEnabled( false );
+        physics.SetSleepEnabled( false );
     }
     if ( launch.noContactAudio )
     {
@@ -138,9 +139,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = physics.GetTornadoFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
-        models.Physics().SetTornadoFieldConfig( tornadoField );
+        physics.SetTornadoFieldConfig( tornadoField );
         if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
             renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
@@ -149,9 +150,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = physics.GetTornadoFieldConfig();
         tornadoField.visualizeVelocityField = true;
-        models.Physics().SetTornadoFieldConfig( tornadoField );
+        physics.SetTornadoFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -181,7 +182,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
 
 bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
                                       ReplayRuntime& replayRuntime,
-                                      int gameModelCapacity )
+                                      int sceneObjectCapacity )
 {
     if ( !overrides.configureReplayRecording )
     {
@@ -196,7 +197,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
         replayRuntime.ConfigureRecording( overrides.replayRecordingEnabled,
                                           overrides.replayRetentionSeconds,
                                           overrides.replayHashLogPath,
-                                          gameModelCapacity );
+                                          sceneObjectCapacity );
     const ReplayRecordingConfigResult& replayConfig = replayActivation.configuration;
     if ( replayConfig.presentationStats.enabled )
     {
@@ -222,7 +223,7 @@ bool ConfigureStartupReplayRecording( const RunStartupOverrides& overrides,
 #ifdef _DEBUG
 void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
                                     DiagnosticsRuntime& diagnosticsRuntime,
-                                    SkullbonezCore::Runtime::SceneController& models )
+                                    PhysicsEngine& physics )
 {
     if ( overrides.physicsRegressionLogPath && overrides.physicsRegressionLogPath[0] != '\0' )
     {
@@ -234,7 +235,7 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
     }
     if ( overrides.physicsDiagnosticsPath && overrides.physicsDiagnosticsPath[0] != '\0' )
     {
-        diagnosticsRuntime.SetPhysicsDiagnosticsPath( models,
+        diagnosticsRuntime.SetPhysicsDiagnosticsPath( physics,
                                                       overrides.physicsDiagnosticsPath,
                                                       overrides.physicsDiagnosticsFixedStepForced );
     }
@@ -246,8 +247,8 @@ void ApplyStartupDiagnosticsPolicy( const RunStartupOverrides& overrides,
 
 void RunStartupState::ApplyStartupConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-    gameModelCapacity =
-        std::clamp( config.runtimeCapacity.gameModelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    sceneObjectCapacity =
+        std::clamp( config.runtimeCapacity.sceneObjectCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
     workerThreads = config.runtimeCapacity.workerThreads;
 }
 
@@ -258,26 +259,28 @@ Run::Run( Window& window,
           Threading::WorkerPool& workerPool,
           SkullbonezCore::Core::Profiler* profiler,
           RuntimeRenderBackendView renderBackendView )
-    : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_sceneController( std::move( sceneQueue ) ),
-      m_operatorUi( CreateOperatorUiForStartup() ),
-      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup() ),
+    : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_profiler( profiler ),
+      m_sceneController( std::move( sceneQueue ) ), m_replayRuntime( profiler ),
+      m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
+      m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup( profiler ) ),
       m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_assets,
-                                   m_sceneController.Cameras(),
-                                   m_sceneController.Terrain(),
+                                   m_sceneController.Scene().Cameras(),
+                                   m_sceneController.Scene().Terrain(),
                                    window,
                                    m_config,
-                                   m_sceneController.World(),
+                                   m_sceneController.Scene().Environment(),
                                    m_overlayDiagnostics->RenderResources(),
                                    profiler },
-                  RenderSceneView{ m_sceneController, m_sceneController.Browser() } )
+                  m_sceneController.State() )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
-    m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
-    RefreshSceneBrowserList( m_sceneController.Browser() );
-    m_sceneController.ApplyRuntimeConfig( cfg );
+    m_sceneController.Scene().Physics().BindProfiler( profiler );
+    m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
+    RefreshSceneBrowserList( m_operatorUi->SceneNavigation().browser );
+    m_sceneController.Scene().ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
     m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
@@ -295,11 +298,14 @@ Run::~Run()
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
-                                                  m_sceneController,
-                                                  m_sceneController.State(),
-                                                  "shutdown",
-                                                  m_timers.simulationTimer.GetTotalTime() );
+        m_diagnosticsRuntime.WriteMainMemoryDump(
+            m_replayRuntime.CollectMemoryStats(),
+            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ m_sceneController.Scene().Entities(),
+                                                                 m_sceneController.Scene().Physics(),
+                                                                 m_sceneController.Scene().RenderInstances() } ),
+            m_sceneController.State(),
+            "shutdown",
+            m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
     const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();
@@ -358,7 +364,11 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController, m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch,
+                              m_launchOptions,
+                              m_renderer,
+                              m_sceneController.Scene().Physics(),
+                              m_contactAudio );
     if ( m_validationHarness->ConfigureStartup( overrides, m_launchOptions ) )
     {
         m_launchOptions.interactiveSceneRun = true;
@@ -370,15 +380,16 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     {
         m_diagnosticsRuntime.SetMainMemoryDumpPath( overrides.mainMemoryDumpPath );
     }
-    if ( ConfigureStartupReplayRecording( overrides, m_replayRuntime, m_startup.gameModelCapacity ) )
+    if ( ConfigureStartupReplayRecording( overrides, m_replayRuntime, m_startup.sceneObjectCapacity ) )
     {
         m_replayRuntime.ExitInspectionCamera(
-            &m_sceneController.Cameras(),
-            m_sceneController.Terrain().Get(),
+            &m_sceneController.Scene().Cameras(),
+            m_sceneController.Scene().Terrain().Get(),
             m_camera,
             NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                         m_sceneController.State().isSceneMode,
-                                        RuntimeCameraModeEnabledMask( m_sceneController ) ),
+                                        RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                      m_sceneController.Scene().SceneEntityCount() ) ),
             m_attachedCamera.State().activeFollow,
             m_camera.director.grabbed,
             m_interaction,
@@ -401,7 +412,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     } );
     m_overlayDiagnostics->ApplyStartupPolicy( overrides, m_launchOptions, *m_operatorUi );
 #ifdef _DEBUG
-    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController );
+    ApplyStartupDiagnosticsPolicy( overrides, m_diagnosticsRuntime, m_sceneController.Scene().Physics() );
 #endif
     if ( !overrides.interactionScriptPath )
     {
@@ -413,13 +424,18 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                                                                                   overrides.interactionReportPath );
     if ( !result.ok )
     {
-        (void)WriteInteractionAutomationReport( m_interactionAutomation,
-                                                m_sceneController,
-                                                m_runtimeTools,
-                                                m_replayRuntime.BuildAutomationView(),
-                                                m_interaction,
-                                                m_camera,
-                                                *m_operatorUi );
+        const ReplayAutomationView replay = m_replayRuntime.BuildAutomationView();
+        (void)m_interactionAutomation.reportWriter.Write( InteractionAutomationReportInputs{
+            m_interactionAutomation.status,
+            m_interactionAutomation.scriptPath,
+            m_sceneController.Scene(),
+            m_sceneController.State(),
+            m_sceneController.CurrentPath() ? m_sceneController.CurrentPath()->c_str() : nullptr,
+            m_runtimeTools,
+            replay,
+            m_interaction,
+            m_camera,
+            *m_operatorUi } );
     }
     return result;
 #else
@@ -485,15 +501,15 @@ void Run::Initialise()
         m_lastSceneLoadResult = startupTerrainResult;
         return;
     }
-    m_sceneController.Terrain().Replace( std::move( startupTerrain ), false );
+    m_sceneController.Scene().Terrain().Replace( std::move( startupTerrain ), false );
 
-    m_sceneController.World() = WorldEnvironment( cfg.worldForces.fluidHeight,
-                                                  cfg.worldForces.fluidDensity,
-                                                  cfg.worldForces.gasDensity,
-                                                  cfg.worldForces.gravity );
-    m_sceneController.World().BindRenderContexts( m_config, m_assets, renderResources );
-    XZBounds tb = m_sceneController.Terrain().Get()->GetXZBounds();
-    m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
+    m_sceneController.Scene().Environment() = WorldEnvironment( cfg.worldForces.fluidHeight,
+                                                                cfg.worldForces.fluidDensity,
+                                                                cfg.worldForces.gasDensity,
+                                                                cfg.worldForces.gravity );
+    m_sceneController.Scene().Environment().BindRenderContexts( m_config, m_assets, renderResources );
+    XZBounds tb = m_sceneController.Scene().Terrain().Get()->GetXZBounds();
+    m_sceneController.Scene().Environment().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
@@ -523,29 +539,30 @@ void Run::Initialise()
         m_contactAudio.SetEnabled( false );
     }
 
-    m_lastSceneLoadResult = m_sceneController.Load( SceneLoadRequest::Load( 0, false, false, false ),
-                                                    m_config,
-                                                    m_launchOptions,
-                                                    m_renderDefaults.CinematicBaseline(),
-                                                    m_startup,
-                                                    m_diagnosticsRuntime,
-                                                    m_timers,
-                                                    m_assets,
-                                                    m_workerPool,
-                                                    m_window,
-                                                    m_inputRouter,
-                                                    m_interaction,
-                                                    m_camera,
-                                                    m_attachedCamera.State(),
-                                                    m_simulation,
-                                                    m_replayRuntime,
-                                                    m_contactAudio,
-                                                    *m_operatorUi,
-                                                    *m_overlayDiagnostics,
-                                                    *m_validationHarness,
-                                                    m_runtimeTools,
-                                                    m_renderBackendView,
-                                                    m_renderer );
+    SceneLoadConsumerOutputs sceneLoadOutputs;
+    m_lastSceneLoadResult = m_sceneController.Load(
+        SceneLoadRequest::Load( 0, false, false, false ),
+        SceneLoadPolicyInputs{ m_config,
+                               m_launchOptions,
+                               m_renderDefaults.CinematicBaseline(),
+                               m_startup,
+                               m_assets,
+                               m_workerPool },
+        SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+        SceneLoadInteractionParticipants{ m_inputRouter,
+                                          m_interaction,
+                                          m_camera,
+                                          m_attachedCamera.State(),
+                                          m_runtimeTools,
+                                          CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
+        SceneLoadPresentationParticipants{ m_replayRuntime, *m_overlayDiagnostics, m_renderBackendView, m_renderer },
+        sceneLoadOutputs );
+    ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                   m_window,
+                                   *m_operatorUi,
+                                   m_contactAudio,
+                                   *m_validationHarness,
+                                   m_launchOptions );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -553,32 +570,34 @@ void Run::Initialise()
 
     const ReplaySceneTimelineResetInput timelineReset =
         DescribeReplaySceneTimeline( m_sceneController,
+                                     m_operatorUi->SceneNavigation().overrides,
                                      m_sceneController.State(),
-                                     m_startup.gameModelCapacity,
+                                     SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
                                      static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
     ReplaySceneTimelineResetOwners timelineOwners{
         m_inputRouter,
         m_interaction,
-        &m_sceneController.Cameras(),
-        m_sceneController.Terrain().Get(),
+        &m_sceneController.Scene().Cameras(),
+        m_sceneController.Scene().Terrain().Get(),
         m_camera,
         NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                     m_sceneController.State().isSceneMode,
-                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+                                    RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                  m_sceneController.Scene().SceneEntityCount() ) ),
         m_attachedCamera.State().activeFollow,
         m_camera.director.grabbed };
     const ReplayStartupLoadInput loadInput{
         m_timers.simulationTimer.GetTotalTime(),
-        &m_sceneController.Cameras(),
+        &m_sceneController.Scene().Cameras(),
         m_runtimeTools.MousePickup(),
         NormalizeRuntimeCameraMode( m_camera.mode,
                                     m_sceneController.State().isSceneMode,
-                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+                                    RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                  m_sceneController.Scene().SceneEntityCount() ) ),
         timelineOwners };
 #ifdef _DEBUG
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
-    ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
-                                                  m_sceneController,
+    ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Scene(),
                                                   m_sceneController.State(),
                                                   m_renderer,
                                                   presentationEdit.State(),
@@ -588,8 +607,9 @@ void Run::Initialise()
                                                       m_config,
                                                       m_assets,
                                                       m_workerPool,
+                                                      m_operatorUi->SceneNavigation().overrides,
                                                       m_launchOptions.generatedObjectTypeOverride,
-                                                      m_startup.gameModelCapacity };
+                                                      SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows(
         loadInput,
         probeTransaction,
@@ -597,7 +617,8 @@ void Run::Initialise()
         m_runtimeTools.MousePickup(),
         NormalizeRuntimeCameraMode( m_camera.mode,
                                     m_sceneController.State().isSceneMode,
-                                    RuntimeCameraModeEnabledMask( m_sceneController ) ),
+                                    RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
+                                                                  m_sceneController.Scene().SceneEntityCount() ) ),
         m_timers.simulationTimer.GetTotalTime() );
 #else
     const ReplayStartupResult replayStartup = m_replayRuntime.RunStartupWorkflows( loadInput );
@@ -645,21 +666,21 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     {
         // Lifetime: scene-load-only borrows owner arrays only until the
         // synchronous snapshot write completes.
-        const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( m_sceneController.Physics() );
-        const SceneSaveView saveView{ m_sceneController.Entities(),
-                                      m_sceneController.BodyStore(),
-                                      m_sceneController.Colliders(),
+        const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( m_sceneController.Scene().Physics() );
+        const SceneSaveView saveView{ m_sceneController.Scene().Entities(),
+                                      m_sceneController.Scene().BodyStore(),
+                                      m_sceneController.Scene().Colliders(),
                                       joints.data(),
                                       static_cast<int>( joints.size() ),
-                                      m_sceneController.World().GetGravity(),
-                                      m_sceneController.World().GetFluidSurfaceHeight(),
-                                      m_sceneController.World().GetFluidDensity(),
-                                      m_sceneController.World().GetMutualGravitySettings() };
+                                      m_sceneController.Scene().Environment().GetGravity(),
+                                      m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                      m_sceneController.Scene().Environment().GetFluidDensity(),
+                                      m_sceneController.Scene().Environment().GetMutualGravitySettings() };
         const RunDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
         const SceneSaveRequest saveRequest{ snapshotOutPath,
-                                            m_sceneController.Cameras().GetCameraTranslation(),
-                                            m_sceneController.Cameras().GetCameraView(),
-                                            m_sceneController.Cameras().GetCameraUp(),
+                                            m_sceneController.Scene().Cameras().GetCameraTranslation(),
+                                            m_sceneController.Scene().Cameras().GetCameraView(),
+                                            m_sceneController.Scene().Cameras().GetCameraUp(),
                                             m_sceneController.State().isScenePhysics,
                                             m_sceneController.State().isSceneText,
                                             m_sceneController.State().isEditableScene,
@@ -679,30 +700,33 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     }
     for ( int i = 1; i < sceneCount; ++i )
     {
-        const SkullbonezCore::Core::SbResult loadResult =
-            m_sceneController.Load( SceneLoadRequest::Load( i, false, false, false ),
-                                    m_config,
-                                    m_launchOptions,
-                                    m_renderDefaults.CinematicBaseline(),
-                                    m_startup,
-                                    m_diagnosticsRuntime,
-                                    m_timers,
-                                    m_assets,
-                                    m_workerPool,
-                                    m_window,
-                                    m_inputRouter,
-                                    m_interaction,
-                                    m_camera,
-                                    m_attachedCamera.State(),
-                                    m_simulation,
-                                    m_replayRuntime,
-                                    m_contactAudio,
-                                    *m_operatorUi,
-                                    *m_overlayDiagnostics,
-                                    *m_validationHarness,
-                                    m_runtimeTools,
-                                    m_renderBackendView,
-                                    m_renderer );
+        SceneLoadConsumerOutputs sceneLoadOutputs;
+        const SkullbonezCore::Core::SbResult loadResult = m_sceneController.Load(
+            SceneLoadRequest::Load( i, false, false, false ),
+            SceneLoadPolicyInputs{ m_config,
+                                   m_launchOptions,
+                                   m_renderDefaults.CinematicBaseline(),
+                                   m_startup,
+                                   m_assets,
+                                   m_workerPool },
+            SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+            SceneLoadInteractionParticipants{ m_inputRouter,
+                                              m_interaction,
+                                              m_camera,
+                                              m_attachedCamera.State(),
+                                              m_runtimeTools,
+                                              CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
+            SceneLoadPresentationParticipants{ m_replayRuntime,
+                                               *m_overlayDiagnostics,
+                                               m_renderBackendView,
+                                               m_renderer },
+            sceneLoadOutputs );
+        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                       m_window,
+                                       *m_operatorUi,
+                                       m_contactAudio,
+                                       *m_validationHarness,
+                                       m_launchOptions );
         if ( !loadResult.ok )
         {
             return loadResult;

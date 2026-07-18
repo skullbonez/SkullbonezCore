@@ -15,7 +15,9 @@ Glossary:
   Center of buoyancy: World-space average location of displaced water. Its
   offset from the model origin creates roll/pitch torque.
   Wet sample: Fixed point inside a box-like body used to add angular water
-  damping without allocating per-frame data.
+    damping without allocating per-frame data.
+  Fluid surface adjustment: Signed meters-per-second command applied over one
+    simulation interval without exposing input-device semantics.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -24,7 +26,8 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - World-setting commands arrive in domain units and retain no input owner.
 
 Related:
   - SkullbonezSource/World/WorldEnvironment.h
@@ -510,6 +513,14 @@ SkullbonezCore::Physics::PhysicsWorldForces WorldEnvironment::GetPhysicsWorldFor
 void WorldEnvironment::SetFluidSurfaceHeight( float height )
 {
     m_fluidSurfaceHeight = height;
+}
+
+
+void WorldEnvironment::ApplyFluidSurfaceAdjustment( const FluidSurfaceAdjustment& adjustment, float deltaSeconds )
+{
+    // Invariant: input has already resolved device semantics. This world owner
+    // consumes only signed meters-per-second over the simulation interval.
+    m_fluidSurfaceHeight += adjustment.DeltaMeters( deltaSeconds );
 }
 
 

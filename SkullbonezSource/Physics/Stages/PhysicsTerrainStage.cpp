@@ -78,8 +78,8 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBo
 
 PhysicsTerrainStage::PhysicsTerrainStage()
 {
-    m_detectionCandidates.reserve( Scene::Capacity::MAX_GAME_MODELS );
-    m_contactManifolds.reserve( Scene::Capacity::MAX_GAME_MODELS );
+    m_detectionCandidates.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_contactManifolds.reserve( Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 void PhysicsTerrainStage::Clear()
@@ -112,6 +112,7 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
 
     candidate.availableTime = context.timeRemaining[bodyIndex];
     candidate.sweep = SweepTerrainContact(
+        context.profiler,
         TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.config, bodyIndex ),
         context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
         candidate.availableTime );
@@ -158,9 +159,10 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
     if ( sweep.hit )
     {
         const float colTime = sweep.collisionTime;
-        (void)context.bodyStore.IntegrateBodyPose( context.colliderStore, bodyIndex, colTime );
+        (void)context.bodyStore.IntegrateBodyPose( context.profiler, context.colliderStore, bodyIndex, colTime );
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         const bool hasManifold = Physics::BuildTerrainContactManifold(
+            context.profiler,
             TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.config, bodyIndex ),
             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
             bodyIndex,

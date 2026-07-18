@@ -53,6 +53,11 @@ class IRenderCommandContext;
 class IRenderDiagnostics;
 } // namespace Rendering
 
+namespace Text
+{
+class TextBatch;
+} // namespace Text
+
 namespace Core
 {
 /* -- Profiler
@@ -76,7 +81,11 @@ namespace Core
 class Profiler
 {
   public:
+    // Lifetime: the startup composition root owns one profiler for the complete
+    // synchronous RunApp lifetime and lends its address to hot subsystem owners.
+    Profiler();
     static constexpr int MAX_MARKERS = 192;      // Registry capacity; overflow is a profiling contract bug.
+    static constexpr int MAX_COUNTERS = 16;      // Scalar diagnostic columns carried beside marker timings.
     static constexpr int MAX_WORKER_CORES = 128; // Worker overlay capacity, not a thread-spawn request.
     static constexpr int MAX_DEPTH = 16;         // Nested marker stack depth before begin/end mismatch becomes unsafe.
     static constexpr int RING_SIZE = 600;        // ~10 s @ 60 fps
@@ -164,12 +173,20 @@ class Profiler
         float spanEndMs;
     };
 
-    static Profiler& Instance();
+    struct Counter
+    {
+        const char* name;                        // Stable CSV column name, e.g. "Counter/Physics/AwakeBodies".
+        uint32_t hash;                           // FNV-1a of the full counter name.
+        double valueThisFrame;                   // Most recent value recorded in the current render frame.
+        double lastFrameValue;                   // Value exported after FrameEnd; zero when not recorded.
+        bool writtenThisFrame;                   // Distinguishes a real zero from a counter omitted this frame.
+    };
 
     void Begin( const char* fullPath, uint32_t hash );
     void End( const char* fullPath, uint32_t hash );
     void
     RecordWorkerSample( const char* fullPath, uint32_t hash, int workerIndex, int64_t startTicks, int64_t endTicks );
+    void RecordCounter( const char* fullPath, uint32_t hash, double value );
 
     // GPU scopes keep their in-engine marker identity. Explicit platform
     // captures add CPU `_Record` mirrors and backend `_GPU` events so PIX lanes
@@ -209,7 +226,6 @@ class Profiler
     {
         return m_workerCoreSamples[i];
     }
-
     // Accessor for back-compat perf logging (returns last finished-frame total ms; 0 if marker missing)
     float LastFrameMsByHash( uint32_t hash ) const;
     float LastGpuFrameMsByHash( uint32_t hash ) const;
@@ -222,7 +238,8 @@ class Profiler
     // Renders the indented overlay using the caller's current text/UI command context.
     // xLeft / yTop in the same frustum-unit space used elsewhere; lineHeight in same space; fSize for Text2d.
     // When rightAnchored=true, xLeft is treated as the desired right edge of the panel instead.
-    void RenderOverlay( Rendering::IRenderCommandContext& renderCommands,
+    void RenderOverlay( Text::TextBatch& textBatch,
+                        Rendering::IRenderCommandContext& renderCommands,
                         float xLeft,
                         float yAnchor,
                         float lineHeight,
@@ -232,7 +249,8 @@ class Profiler
 
     // Renders the visual bar overlay through the caller's active text/UI command context.
     // absolute=false: normalized (bar fills panelWidth), absolute=true: white = idle/vsync.
-    void RenderBarOverlay( Rendering::IRenderCommandContext& renderCommands,
+    void RenderBarOverlay( Text::TextBatch& textBatch,
+                           Rendering::IRenderCommandContext& renderCommands,
                            float xLeft,
                            float yBottom,
                            float panelWidth,
@@ -240,7 +258,6 @@ class Profiler
                            bool absolute ) const;
 
   private:
-    Profiler();
     Profiler( const Profiler& ) = delete;
     Profiler& operator=( const Profiler& ) = delete;
 
@@ -249,6 +266,8 @@ class Profiler
     void BeginGpuTimerInternal( const char* fullPath, uint32_t hash );
     void EndGpuTimerInternal( const char* fullPath, uint32_t hash );
     int FindOrRegister( const char* fullPath, uint32_t hash );
+    int FindOrRegisterCounter( const char* fullPath, uint32_t hash );
+    int PerfCSVColumnCount() const;
     void AbortMismatch( const char* msg, const char* details ) const;
     void ReadPendingGpuResults();
     void AdvanceGpuWriteCursors();
@@ -272,6 +291,9 @@ class Profiler
 
     Marker m_markers[MAX_MARKERS];
     int m_markerCount;
+    Counter m_counters[MAX_COUNTERS];
+    int m_counterCount;
+    mutable int m_lastPerfCSVColumnCount;
     WorkerCoreAccumulator m_workerCoreAccumulators[MAX_WORKER_CORES];
     WorkerCoreAverageWindow m_workerCoreAverageWindows[MAX_WORKER_CORES];
     WorkerCoreSample m_workerCoreSamples[MAX_WORKER_CORES];
@@ -300,18 +322,27 @@ class Profiler
 class ProfilerScope
 {
   public:
-    ProfilerScope( const char* fullPath, uint32_t hash ) : m_fullPath( fullPath ), m_hash( hash )
+    ProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
+        : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash )
     {
-        Profiler::Instance().Begin( m_fullPath, m_hash );
+        if ( m_profiler )
+        {
+            m_profiler->Begin( m_fullPath, m_hash );
+        }
     }
     ~ProfilerScope()
     {
-        Profiler::Instance().End( m_fullPath, m_hash );
+        if ( m_profiler )
+        {
+            m_profiler->End( m_fullPath, m_hash );
+        }
     }
     ProfilerScope( const ProfilerScope& ) = delete;
     ProfilerScope& operator=( const ProfilerScope& ) = delete;
 
   private:
+    // Lifetime: captured only for this lexical scope; the startup owner outlives it.
+    Profiler* m_profiler;
     const char* m_fullPath;
     uint32_t m_hash;
 };
@@ -319,18 +350,27 @@ class ProfilerScope
 class GpuProfilerScope
 {
   public:
-    GpuProfilerScope( const char* fullPath, uint32_t hash ) : m_fullPath( fullPath ), m_hash( hash )
+    GpuProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
+        : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash )
     {
-        Profiler::Instance().GpuBegin( m_fullPath, m_hash );
+        if ( m_profiler )
+        {
+            m_profiler->GpuBegin( m_fullPath, m_hash );
+        }
     }
     ~GpuProfilerScope()
     {
-        Profiler::Instance().GpuEnd( m_fullPath, m_hash );
+        if ( m_profiler )
+        {
+            m_profiler->GpuEnd( m_fullPath, m_hash );
+        }
     }
     GpuProfilerScope( const GpuProfilerScope& ) = delete;
     GpuProfilerScope& operator=( const GpuProfilerScope& ) = delete;
 
   private:
+    // Lifetime: captured only for this lexical scope; the startup owner outlives it.
+    Profiler* m_profiler;
     const char* m_fullPath;
     uint32_t m_hash;
 };
@@ -338,12 +378,14 @@ class GpuProfilerScope
 class WorkerProfilerScope
 {
   public:
-    WorkerProfilerScope( const char* fullPath, uint32_t hash );
+    WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash );
     ~WorkerProfilerScope();
     WorkerProfilerScope( const WorkerProfilerScope& ) = delete;
     WorkerProfilerScope& operator=( const WorkerProfilerScope& ) = delete;
 
   private:
+    // Lifetime: captured only for this worker scope; the startup owner outlives it.
+    Profiler* m_profiler;
     const char* m_fullPath;
     uint32_t m_hash;
     int m_workerIndex;
@@ -359,64 +401,101 @@ class WorkerProfilerScope
 #define PROFILE_PASTE_INNER( a, b ) a##b
 #define PROFILE_PASTE( a, b ) PROFILE_PASTE_INNER( a, b )
 
-#define PROFILE_BEGIN( name )                                                                                          \
+#define PROFILE_BEGIN( profiler, name )                                                                                \
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Core::Profiler::Instance().Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );                \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ( profiler );                                                       \
+        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                      \
+            PROFILE_PASTE( _profP_, __LINE__ )->Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );                     \
     } while ( 0 )
 
-#define PROFILE_END( name )                                                                                            \
+#define PROFILE_END( profiler, name )                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Core::Profiler::Instance().End( name, PROFILE_PASTE( _profH_, __LINE__ ) );                  \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ( profiler );                                                       \
+        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                      \
+            PROFILE_PASTE( _profP_, __LINE__ )->End( name, PROFILE_PASTE( _profH_, __LINE__ ) );                       \
     } while ( 0 )
 
-#define PROFILE_SCOPED( name )                                                                                         \
+#define PROFILE_SCOPED( profiler, name )                                                                               \
     constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( name,                                    \
+    ::SkullbonezCore::Core::ProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( profiler,                                \
+                                                                              name,                                    \
                                                                               PROFILE_PASTE( _profSH_, __LINE__ ) )
 
-#define PROFILE_GPU_BEGIN( name )                                                                                      \
+#define PROFILE_GPU_BEGIN( profiler, name )                                                                            \
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Core::Profiler::Instance().GpuBegin( name, PROFILE_PASTE( _profH_, __LINE__ ) );             \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ( profiler );                                                       \
+        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                      \
+            PROFILE_PASTE( _profP_, __LINE__ )->GpuBegin( name, PROFILE_PASTE( _profH_, __LINE__ ) );                  \
     } while ( 0 )
 
-#define PROFILE_GPU_END( name )                                                                                        \
+#define PROFILE_GPU_END( profiler, name )                                                                              \
     do                                                                                                                 \
     {                                                                                                                  \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                                     \
-        ::SkullbonezCore::Core::Profiler::Instance().GpuEnd( name, PROFILE_PASTE( _profH_, __LINE__ ) );               \
+        auto* PROFILE_PASTE( _profP_, __LINE__ ) = ( profiler );                                                       \
+        if ( PROFILE_PASTE( _profP_, __LINE__ ) )                                                                      \
+            PROFILE_PASTE( _profP_, __LINE__ )->GpuEnd( name, PROFILE_PASTE( _profH_, __LINE__ ) );                    \
     } while ( 0 )
 
-#define PROFILE_GPU_SCOPED( name )                                                                                     \
+#define PROFILE_GPU_SCOPED( profiler, name )                                                                           \
     constexpr uint32_t PROFILE_PASTE( _profSH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Core::GpuProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( name,                                 \
+    ::SkullbonezCore::Core::GpuProfilerScope PROFILE_PASTE( _profS_, __LINE__ )( profiler,                             \
+                                                                                 name,                                 \
                                                                                  PROFILE_PASTE( _profSH_, __LINE__ ) )
 
-#define PROFILE_WORKER_SCOPED( name )                                                                                  \
+#define PROFILE_WORKER_SCOPED( profiler, name )                                                                        \
     constexpr uint32_t PROFILE_PASTE( _profWH_, __LINE__ ) = ::HashStr( name );                                        \
-    ::SkullbonezCore::Core::WorkerProfilerScope PROFILE_PASTE( _profW_,                                                \
-                                                               __LINE__ )( name, PROFILE_PASTE( _profWH_, __LINE__ ) )
+    ::SkullbonezCore::Core::WorkerProfilerScope PROFILE_PASTE(                                                         \
+        _profW_,                                                                                                       \
+        __LINE__ )( profiler, name, PROFILE_PASTE( _profWH_, __LINE__ ) )
 
-#define PROFILE_FRAME_BEGIN() ::SkullbonezCore::Core::Profiler::Instance().FrameBegin()
-#define PROFILE_FRAME_END() ::SkullbonezCore::Core::Profiler::Instance().FrameEnd()
-#define PROFILE_SCHEDULE_RESET() ::SkullbonezCore::Core::Profiler::Instance().ScheduleReset()
+#define PROFILE_COUNTER( profiler, name, value )                                                                       \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        constexpr uint32_t PROFILE_PASTE( _profCH_, __LINE__ ) = ::HashStr( name );                                    \
+        auto* PROFILE_PASTE( _profCP_, __LINE__ ) = ( profiler );                                                      \
+        if ( PROFILE_PASTE( _profCP_, __LINE__ ) )                                                                     \
+            PROFILE_PASTE( _profCP_, __LINE__ )                                                                        \
+                ->RecordCounter( name, PROFILE_PASTE( _profCH_, __LINE__ ), static_cast<double>( value ) );            \
+    } while ( 0 )
+
+#define PROFILE_FRAME_BEGIN( profiler )                                                                                \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if ( profiler )                                                                                                \
+            ( profiler )->FrameBegin();                                                                                \
+    } while ( 0 )
+#define PROFILE_FRAME_END( profiler )                                                                                  \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if ( profiler )                                                                                                \
+            ( profiler )->FrameEnd();                                                                                  \
+    } while ( 0 )
+#define PROFILE_SCHEDULE_RESET( profiler )                                                                             \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if ( profiler )                                                                                                \
+            ( profiler )->ScheduleReset();                                                                             \
+    } while ( 0 )
 
 #else // SKULLBONEZ_PROFILE_ENABLED
 
-#define PROFILE_BEGIN( name ) ( (void)0 )
-#define PROFILE_END( name ) ( (void)0 )
-#define PROFILE_SCOPED( name ) ( (void)0 )
-#define PROFILE_GPU_BEGIN( name ) ( (void)0 )
-#define PROFILE_GPU_END( name ) ( (void)0 )
-#define PROFILE_GPU_SCOPED( name ) ( (void)0 )
-#define PROFILE_WORKER_SCOPED( name ) ( (void)0 )
-#define PROFILE_FRAME_BEGIN() ( (void)0 )
-#define PROFILE_FRAME_END() ( (void)0 )
-#define PROFILE_SCHEDULE_RESET() ( (void)0 )
+#define PROFILE_BEGIN( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_END( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_SCOPED( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_GPU_BEGIN( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_GPU_END( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_GPU_SCOPED( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_WORKER_SCOPED( profiler, name ) ( (void)( profiler ) )
+#define PROFILE_COUNTER( profiler, name, value ) ( (void)( profiler ) )
+#define PROFILE_FRAME_BEGIN( profiler ) ( (void)( profiler ) )
+#define PROFILE_FRAME_END( profiler ) ( (void)( profiler ) )
+#define PROFILE_SCHEDULE_RESET( profiler ) ( (void)( profiler ) )
 
 #endif // SKULLBONEZ_PROFILE_ENABLED

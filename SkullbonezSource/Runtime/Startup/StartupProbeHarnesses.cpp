@@ -86,8 +86,8 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     // stores exactly as it does during a normal scene. The cold smoke keeps the
     // owner off the launcher stack and executes once before steady gameplay.
     auto collection = std::make_unique<SkullbonezCore::Runtime::SceneController>();
-    SkullbonezCore::Physics::PhysicsEngine& physics = collection->Physics();
-    SkullbonezCore::Runtime::SceneEntityStore& sceneEntities = collection->Entities();
+    SkullbonezCore::Physics::PhysicsEngine& physics = collection->Scene().Physics();
+    SkullbonezCore::Runtime::SceneEntityStore& sceneEntities = collection->Scene().Entities();
     PhysicsRuntimeHandleSmokeResult result;
     PhysicsBodyHandle createdBodies[2];
     for ( int i = 0; i < 2; ++i )
@@ -102,7 +102,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         const SkullbonezCore::Math::CollisionDetection::BoundingSphere shape(
             0.75f,
             SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = collection->TryCreateSceneEntity(
+        const auto appendResult = collection->Scene().TryCreateSceneEntity(
             std::move( model ),
             MakePhysicsBodyCreateDesc(
                 sceneObjectId,
@@ -126,9 +126,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         createdBodies[i] = appendResult.body;
     }
     const int entityCountBeforeFailure = sceneEntities.Count();
-    const int bodyCountBeforeFailure = collection->BodyStore().Count();
-    const int colliderCountBeforeFailure = collection->Colliders().Count();
-    const int renderCountBeforeFailure = collection->GetRenderInstanceStore().Count();
+    const int bodyCountBeforeFailure = collection->Scene().BodyStore().Count();
+    const int colliderCountBeforeFailure = collection->Scene().Colliders().Count();
+    const int renderCountBeforeFailure = collection->Scene().GetRenderInstanceStore().Count();
     const uint32_t descriptorCountBeforeFailure = physics.AuthoredBodyDescriptorCount().value;
     SkullbonezCore::Runtime::SceneEntityCreateDesc duplicateEntity;
     duplicateEntity.sceneObjectId = PhysicsSceneObjectId{ 1u };
@@ -136,7 +136,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const SkullbonezCore::Math::CollisionDetection::BoundingSphere duplicateShape(
         0.5f,
         SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
-    const auto duplicateResult = collection->TryCreateSceneEntity(
+    const auto duplicateResult = collection->Scene().TryCreateSceneEntity(
         std::move( duplicateEntity ),
         MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ 1u },
                                    duplicateShape,
@@ -151,12 +151,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                    nullptr,
                                    "runtime_smoke_duplicate" ),
         MakeColliderCreateDesc( duplicateShape, 0.0f, HashStr( "default" ) ) );
-    const bool failedCreationIsAtomic = !duplicateResult.status.ok &&
-                                        sceneEntities.Count() == entityCountBeforeFailure &&
-                                        collection->BodyStore().Count() == bodyCountBeforeFailure &&
-                                        collection->Colliders().Count() == colliderCountBeforeFailure &&
-                                        collection->GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
-                                        physics.AuthoredBodyDescriptorCount().value == descriptorCountBeforeFailure;
+    const bool failedCreationIsAtomic =
+        !duplicateResult.status.ok && sceneEntities.Count() == entityCountBeforeFailure &&
+        collection->Scene().BodyStore().Count() == bodyCountBeforeFailure &&
+        collection->Scene().Colliders().Count() == colliderCountBeforeFailure &&
+        collection->Scene().GetRenderInstanceStore().Count() == renderCountBeforeFailure &&
+        physics.AuthoredBodyDescriptorCount().value == descriptorCountBeforeFailure;
     const PhysicsBodyHandle bodyA = createdBodies[0];
     const PhysicsBodyHandle bodyB = createdBodies[1];
     PhysicsPointJointCreateDesc jointDesc;
@@ -165,11 +165,11 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     jointDesc.localAnchorA = SkullbonezCore::Math::Vector::Vector3( 0.25f, 0.0f, 0.0f );
     jointDesc.localAnchorB = SkullbonezCore::Math::Vector::Vector3( -0.25f, 0.0f, 0.0f );
     const PhysicsConstraintHandle jointHandle = physics.CreatePointJoint( jointDesc );
-    const PhysicsBodyStore& bodyStore = collection->BodyStore();
-    const ColliderStore& colliderStore = collection->Colliders();
-    const RenderInstanceStore& renderStore = collection->GetRenderInstanceStore();
+    const PhysicsBodyStore& bodyStore = collection->Scene().BodyStore();
+    const ColliderStore& colliderStore = collection->Scene().Colliders();
+    const RenderInstanceStore& renderStore = collection->Scene().GetRenderInstanceStore();
     const std::vector<PointJointConstraint>& pointJoints =
-        PhysicsEngine::ReadPointJointConstraints( collection->Physics() );
+        PhysicsEngine::ReadPointJointConstraints( collection->Scene().Physics() );
     const size_t initialColliderCount = colliderStore.Count();
     const ColliderRecord initialCollider = colliderStore.Records()[0];
     const SkullbonezCore::Math::Vector::Vector3 editedHalfExtents( 0.25f, 1.25f, 0.5f );
@@ -183,7 +183,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                     SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) ),
                                 EDITED_RESTITUTION,
                                 HashStr( "default" ) ) );
-    const ColliderStore& refreshedColliderStore = collection->Colliders();
+    const ColliderStore& refreshedColliderStore = collection->Scene().Colliders();
     const ColliderRecord& refreshedCollider = refreshedColliderStore.Records()[0];
     const float expectedBoxRadius = sqrtf( 0.25f * 0.25f + 1.25f * 1.25f + 0.5f * 0.5f );
     // Invariant: same-count authoring edits must be visible through the explicit
@@ -214,7 +214,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
     constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
     constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
-    // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS fixed arrays. Keep this cold
+    // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS fixed arrays. Keep this cold
     // standalone probe owner off WinMain's bounded thread stack.
     auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
     std::vector<PhysicsBodyCreateDesc> reorderBodyDescs;
@@ -261,10 +261,10 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         reorderedHotFields.awake[static_cast<std::size_t>( reorderedBodyAIndex )] == 0u &&
         fabsf( reorderedBodyARecord->pendingImpulse.y - pendingImpulse.y ) < 0.0001f &&
         fabsf( reorderedBodyARecord->pendingImpulseApplicationPoint.x - pendingImpulsePoint.x ) < 0.0001f;
-    const PhysicsBodyRecord* bodyBBeforeDelete = collection->BodyStore().RecordForHandle( bodyB );
-    const int bodyBIndexBeforeDelete = collection->BodyStore().ModelIndexForHandle( bodyB );
+    const PhysicsBodyRecord* bodyBBeforeDelete = collection->Scene().BodyStore().RecordForHandle( bodyB );
+    const int bodyBIndexBeforeDelete = collection->Scene().BodyStore().ModelIndexForHandle( bodyB );
     const PhysicsBodyHotState bodyBHotBeforeDelete =
-        bodyBIndexBeforeDelete >= 0 ? LoadPhysicsBodyHotState( collection->BodyStore().HotFields(),
+        bodyBIndexBeforeDelete >= 0 ? LoadPhysicsBodyHotState( collection->Scene().BodyStore().HotFields(),
                                                                static_cast<std::size_t>( bodyBIndexBeforeDelete ) )
                                     : PhysicsBodyHotState{};
     const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
@@ -280,25 +280,26 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                                                      bodyBHotBeforeDelete.inverseMass,
                                                                      bodyBBeforeDelete->rotationalInertia,
                                                                      bodyBHotBeforeDelete.inverseRotationalInertia );
-    const bool destroyedBodyA = collection->DestroySceneEntity( bodyA );
-    const PhysicsBodyRecord* survivingBody = collection->BodyStore().RecordForHandle( bodyB );
-    const int survivingBodyIndex = collection->BodyStore().ModelIndexForHandle( bodyB );
+    const bool destroyedBodyA = collection->Scene().DestroySceneEntity( bodyA );
+    const PhysicsBodyRecord* survivingBody = collection->Scene().BodyStore().RecordForHandle( bodyB );
+    const int survivingBodyIndex = collection->Scene().BodyStore().ModelIndexForHandle( bodyB );
     const SkullbonezCore::Math::Vector::Vector3 survivingPosition =
-        survivingBodyIndex >= 0
-            ? PhysicsBodyPosition( collection->BodyStore().HotFields(), static_cast<std::size_t>( survivingBodyIndex ) )
-            : SkullbonezCore::Math::Vector::Vector3{};
-    const bool deletionIsAtomic = seededLiveOnlyState && destroyedBodyA && !collection->BodyStore().Contains( bodyA ) &&
-                                  survivingBody && collection->BodyStore().ModelIndexForHandle( bodyB ) == 0 &&
-                                  sceneEntities.Count() == 1 && sceneEntities.At( 0 ).body == bodyB &&
-                                  collection->BodyStore().Count() == 1 && collection->Colliders().Count() == 1 &&
-                                  collection->Colliders().HandleForBodyHandle( bodyB ).IsValid() &&
-                                  collection->GetRenderInstanceStore().Count() == 1 &&
-                                  collection->GetRenderInstanceStore().PresentationCount() == 1 &&
-                                  physics.AuthoredBodyDescriptorCount().value == 1u &&
-                                  PhysicsEngine::ReadPointJointConstraints( collection->Physics() ).empty() &&
-                                  fabsf( survivingPosition.x - liveOnlyPosition.x ) < 0.0001f &&
-                                  fabsf( survivingPosition.y - liveOnlyPosition.y ) < 0.0001f &&
-                                  fabsf( survivingPosition.z - liveOnlyPosition.z ) < 0.0001f;
+        survivingBodyIndex >= 0 ? PhysicsBodyPosition( collection->Scene().BodyStore().HotFields(),
+                                                       static_cast<std::size_t>( survivingBodyIndex ) )
+                                : SkullbonezCore::Math::Vector::Vector3{};
+    const bool deletionIsAtomic =
+        seededLiveOnlyState && destroyedBodyA && !collection->Scene().BodyStore().Contains( bodyA ) && survivingBody &&
+        collection->Scene().BodyStore().ModelIndexForHandle( bodyB ) == 0 && sceneEntities.Count() == 1 &&
+        sceneEntities.At( 0 ).body == bodyB && collection->Scene().BodyStore().Count() == 1 &&
+        collection->Scene().Colliders().Count() == 1 &&
+        collection->Scene().Colliders().HandleForBodyHandle( bodyB ).IsValid() &&
+        collection->Scene().GetRenderInstanceStore().Count() == 1 &&
+        collection->Scene().GetRenderInstanceStore().PresentationCount() == 1 &&
+        physics.AuthoredBodyDescriptorCount().value == 1u &&
+        PhysicsEngine::ReadPointJointConstraints( collection->Scene().Physics() ).empty() &&
+        fabsf( survivingPosition.x - liveOnlyPosition.x ) < 0.0001f &&
+        fabsf( survivingPosition.y - liveOnlyPosition.y ) < 0.0001f &&
+        fabsf( survivingPosition.z - liveOnlyPosition.z ) < 0.0001f;
     PhysicsBodyUpdateDesc staleUpdate;
     staleUpdate.body = bodyA;
     staleUpdate.updateMask = PHYSICS_BODY_UPDATE_POSE;
@@ -312,9 +313,9 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
         survivingBody ? survivingBody->rotationalInertia : SkullbonezCore::Math::Vector::ZERO_VECTOR;
     const bool staleMutationRejected = !physics.UpdateAuthoredBody( staleUpdate );
     const bool survivingMutationAccepted = physics.UpdateAuthoredBody( survivingUpdate );
-    survivingBody = collection->BodyStore().RecordForHandle( bodyB );
-    const int mutatedBodyIndex = collection->BodyStore().ModelIndexForHandle( bodyB );
-    const auto mutatedHotFields = collection->BodyStore().HotFields();
+    survivingBody = collection->Scene().BodyStore().RecordForHandle( bodyB );
+    const int mutatedBodyIndex = collection->Scene().BodyStore().ModelIndexForHandle( bodyB );
+    const auto mutatedHotFields = collection->Scene().BodyStore().HotFields();
     const bool mutationUsesStableHandle =
         staleMutationRejected && survivingMutationAccepted && survivingBody && mutatedBodyIndex >= 0 &&
         fabsf( survivingBody->mass - 7.0f ) < 0.0001f &&

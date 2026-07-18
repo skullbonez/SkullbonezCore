@@ -33,6 +33,7 @@ Related:
 #include "../RuntimeValidationHarness.h"
 #include "../InputFrame.h"
 #include "SceneRuntimeCreate.h"
+#include "../../UI/UI.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -46,28 +47,11 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 
-bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_config,
-                                      RunLaunchOptions& m_launchOptions,
-                                      const SkullbonezCore::Core::CinematicRenderConfig& m_defaultCinematicRender,
-                                      const RunStartupState& m_startup,
-                                      DiagnosticsRuntime& m_diagnosticsRuntime,
-                                      RunTimerState& m_timers,
-                                      SkullbonezCore::Assets::AssetSystem& assets,
-                                      Threading::WorkerPool& workerPool,
-                                      Window& window,
-                                      InputRouter& m_inputRouter,
-                                      RuntimeInteractionController& m_interaction,
-                                      RunCameraState& m_camera,
-                                      AttachedCameraState& attachedCamera,
-                                      SimulationSystem& m_simulation,
-                                      ReplayRuntime& m_replayRuntime,
-                                      SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio,
-                                      UI::InGameUI& operatorUi,
-                                      RuntimeOverlayDiagnostics& overlays,
-                                      RuntimeValidationHarness& validationHarness,
-                                      RuntimeTools& m_runtimeTools,
-                                      const RuntimeRenderBackendView& m_renderBackendView,
-                                      RuntimeRenderer& m_renderer )
+bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
+                                      const SceneLoadHostParticipants& host,
+                                      const SceneLoadInteractionParticipants& interaction,
+                                      const SceneLoadPresentationParticipants& presentation,
+                                      SceneLoadConsumerOutputs& consumerOutputs )
 {
     SceneController& m_sceneController = *this;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
@@ -76,31 +60,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         {
             return false;
         }
-        return m_sceneController
-            .Load( request,
-                   m_config,
-                   m_launchOptions,
-                   m_defaultCinematicRender,
-                   m_startup,
-                   m_diagnosticsRuntime,
-                   m_timers,
-                   assets,
-                   workerPool,
-                   window,
-                   m_inputRouter,
-                   m_interaction,
-                   m_camera,
-                   attachedCamera,
-                   m_simulation,
-                   m_replayRuntime,
-                   m_contactAudio,
-                   operatorUi,
-                   overlays,
-                   validationHarness,
-                   m_runtimeTools,
-                   m_renderBackendView,
-                   m_renderer )
-            .ok;
+        return m_sceneController.Load( request, policy, host, interaction, presentation, consumerOutputs ).ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )
@@ -122,11 +82,12 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         {
         case SceneRequestType::LoadBrowserIndex:
             eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
-            accepted = executeSceneLoadRequest( m_sceneController.LoadSceneFromBrowserIndex( request.index ) );
+            accepted = executeSceneLoadRequest(
+                interaction.navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::LoadDemoScene:
             eventCode = ReplayOwnerEventCode::SceneLoadDemo;
-            accepted = executeSceneLoadRequest( m_sceneController.LoadDemoSceneFromUI() );
+            accepted = executeSceneLoadRequest( interaction.navigation.LoadDemoScene( m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::ResetCurrentScene:
             eventCode = ReplayOwnerEventCode::SceneReset;
@@ -135,18 +96,29 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                                                                                      request.preserveRuntimeState ) );
             break;
         case SceneRequestType::CreateScene:
+        {
             eventCode = ReplayOwnerEventCode::SceneCreate;
             eventText = request.text;
-            accepted = executeSceneLoadRequest(
-                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController, m_sceneController.Browser() },
-                                   request.text ) );
+            const SceneLoadRequest createRequest =
+                CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController }, request.text );
+            accepted = executeSceneLoadRequest( createRequest );
+            // Why: file creation can succeed before a later load phase fails.
+            // The UI still needs to discover that durable authored file, while
+            // replay records the create action only after the load completes.
+            consumerOutputs.refreshSceneBrowser = createRequest.accepted;
             break;
+        }
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const RunDebugState presentation = overlays.PresentationSnapshot();
-                const SkullbonezCore::Core::SbResult saveResult = m_sceneController.SaveCurrentDefaults(
-                    SceneDefaultsSaveView{ presentation, m_renderer, m_camera } );
+                const RunDebugState presentationState = presentation.overlays.PresentationSnapshot();
+                const SceneLoadNavigationState& currentNavigation =
+                    SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
+                const SkullbonezCore::Core::SbResult saveResult =
+                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentationState,
+                                                                                  presentation.renderer,
+                                                                                  interaction.camera,
+                                                                                  currentNavigation.overrides } );
                 if ( !saveResult.ok )
                 {
                     std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
@@ -162,7 +134,7 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
         // no serialized action that a restore could mistake for applied state.
         if ( accepted )
         {
-            m_replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
+            presentation.replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
                 ReplayEventKind::OwnerAction,
                 0,
                 true,
@@ -173,6 +145,13 @@ bool SceneController::ExecutePending( SkullbonezCore::Core::EngineConfig& m_conf
                 0,
                 0,
                 eventText ? eventText : ReplayOwnerEventName( eventCode ) ) );
+        }
+        if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
+        {
+            // Hazard: load/create teardown may already have cleared the old
+            // world before a recoverable failure. Never let a later save or
+            // owner action consume that incomplete replacement topology.
+            break;
         }
     }
     return batch.count > 0;

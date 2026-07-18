@@ -22,7 +22,7 @@ Invariants:
   - Overlay functions must not store references from the context.
 
 Related:
-  - SkullbonezSource/Runtime/RunUiTextPass.cpp
+  - SkullbonezSource/Runtime/UiTextPass.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #pragma once
@@ -38,6 +38,16 @@ Related:
 namespace SkullbonezCore::Rendering
 {
 class IRenderCommandContext;
+}
+
+namespace SkullbonezCore::Core
+{
+class Profiler;
+}
+
+namespace SkullbonezCore::Text
+{
+class TextBatch;
 }
 
 namespace SkullbonezCore::Physics
@@ -82,6 +92,7 @@ struct ReplayOverlayRenderContext
     // Lifetime: borrowed from the current UI/text pass; overlay code must not
     // store it after the draw call returns.
     Rendering::IRenderCommandContext& renderCommands;
+    Core::Profiler* profiler = nullptr;
     ReplayScrubberView scrubber;
     const ReplayPredictionPresentationView& prediction;
     const RunReplayPathVisualizerState& pathVisualizer;
@@ -116,6 +127,7 @@ struct ReplayPathVisualizerRenderContext
     // already published for this frame, so drawing receives prediction as a
     // read-only borrow and cannot reach worker or reveal-clock authority.
     const ReplayPredictionPresentationView& prediction;
+    Core::Profiler* profiler = nullptr;
     const RunReplayPathVisualizerState& pathVisualizer;
     SkullbonezCore::Physics::PhysicsEngine& physics;
     const SceneEntityStore& entities;
@@ -129,7 +141,7 @@ struct ReplayPathVisualizerRenderResult
     bool retainedRefreshBudgetExpired = false;
 };
 
-void RenderReplayScrubberOverlay( const ReplayOverlayRenderContext& context );
-void RenderReplayCauseTreeOverlay( const ReplayOverlayRenderContext& context );
+void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
+void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context );
 ReplayPathVisualizerRenderResult RenderReplayPathVisualizer( const ReplayPathVisualizerRenderContext& context );
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

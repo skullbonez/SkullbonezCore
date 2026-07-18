@@ -191,6 +191,8 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device,
     // Map the instance descriptor buffer to CPU memory and write the new instance transforms.
     // Map/Unmap is the DX12 way of writing CPU data to a GPU-accessible buffer.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12resource-map
+    // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
+    // immediately narrows the result to mapped bytes for this owner.
     void* rawMapped = nullptr;
     const HRESULT mapResult = m_instanceDescs->Map( 0, nullptr, &rawMapped );
     const Dx12MappedPointerResult mappedResult =
@@ -199,7 +201,7 @@ SkullbonezCore::Core::SbResult TLAS::Build( ID3D12Device5* device,
     {
         return mappedResult.result;
     }
-    memcpy( mappedResult.pointer, instances, (size_t)instanceCount * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
+    memcpy( mappedResult.bytes, instances, (size_t)instanceCount * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
     m_instanceDescs->Unmap( 0, nullptr );
 
     // Build inputs tell DXR where the per-instance table lives and how many

@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   Creating a scene is scene-runtime policy: sanitize a user-facing name, create
-  a deterministic starter scene, refresh browser state, append the path to the
-  scene queue, and ask the caller to load it interactively.
+  a deterministic starter scene, append the path to the scene queue, and ask
+  the caller to load it interactively. UI refresh is a returned consumer effect.
 
 Glossary:
   Starter scene: Minimal `.scene.json` written for a newly created editable
@@ -131,7 +131,7 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
     }
 
     // Invariant: Starter scene keys are the compatibility surface for newly
-    // editable scenes. Keep this shape aligned with TestScene parsing.
+    // editable scenes. Keep this shape aligned with AuthoredScene parsing.
     Json scene;
     scene["format"] = "skullbonez.scene.json";
     scene["version"] = 1;
@@ -208,7 +208,6 @@ SceneLoadRequest CreateSceneFromUI( SceneRuntimeCreateContext context, const cha
         return SceneLoadRequest::None();
     }
 
-    RefreshSceneBrowserList( context.sceneBrowser );
     const std::string normalizedPath = NormalizeScenePathForCreate( scenePath.generic_string() );
     return SceneLoadRequest::Load( context.controller.Append( normalizedPath ), true, true, false, true );
 }

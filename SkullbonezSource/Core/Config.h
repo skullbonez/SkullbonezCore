@@ -123,7 +123,7 @@ struct SkyboxConfig
 // compiled model maximum and WorkerPool maximum remain the hard caps.
 struct RuntimeCapacityConfig
 {
-    int gameModelCapacity = 4000;
+    int sceneObjectCapacity = 4000;
     int workerThreads = -1;                // -1 = auto, 0 = disabled, positive = explicit worker count.
 };
 
@@ -584,9 +584,11 @@ class EngineConfig
     CinematicRenderConfig cinematicRender;
 };
 
-inline int ActiveGameModelCapacity( const EngineConfig& config )
+inline int ActiveSceneObjectCapacity( const EngineConfig& config )
 {
-    return std::clamp( config.runtimeCapacity.gameModelCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    return std::clamp( config.runtimeCapacity.sceneObjectCapacity,
+                       1,
+                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 } // namespace Core

@@ -25,8 +25,6 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
-  Reload payload: Fixed staging record that retains verified replacement
-    bytecode until every live shader is ready for one atomic commit.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -34,8 +32,8 @@ Invariants:
   - The graphics PSO cache and framebuffer descriptor heaps are fixed backend
     capacity. Exhaustion means renderer capacity planning failed; do not grow
     them during draw submission or render-target allocation.
-  - At most 64 live raster shaders participate in manual reload; replacements
-    validate into fixed payload rows before any current PSO is released.
+  - Shader-development code may release this owner's PSOs only after its fixed
+    candidate registry is complete and the composition root has drained the GPU.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -108,7 +106,7 @@ size_t Dx12PipelineOwner::HashPSOKey( const PSOKey12& key )
         memcpy( &bits, &value, sizeof( bits ) );
         return static_cast<size_t>( bits );
     };
-    hashCombine( h, (size_t)key.rootSignature );
+    hashCombine( h, static_cast<size_t>( key.rootSignatureIdentity ) );
     hashCombine( h, key.shaderVSHash );
     hashCombine( h, key.shaderPSHash );
     hashCombine( h, (size_t)key.format );
@@ -428,11 +426,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // hashes, blend/depth/cull state, polygon offset, instancing mode, and
     // render-target format all participate in the Pipeline State Object. If any
     // of those values changes, the cached PSO may no longer describe the draw correctly.
-    // Include the root signature too: today raster draws share UnifiedRaster,
-    // but future graph-local resource signatures must not accidentally reuse an
-    // incompatible cached PSO.
+    // Include the root-signature identity too: today raster draws share
+    // UnifiedRaster, but future graph-local signatures must not accidentally
+    // reuse an incompatible cached PSO. The owner-issued epoch survives COM
+    // address recycling and therefore represents recipe identity, not storage.
     PSOKey12 key = {};
-    key.rootSignature = m_rootSignature;
+    key.rootSignatureIdentity = m_rootSignatureIdentity;
     key.shaderVSHash = m_activeShader->GetVSBytecodeHash();
     key.shaderPSHash = m_activeShader->GetPSBytecodeHash();
     key.format = format;
@@ -512,12 +511,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             // render-target format drift, or state toggles happening in hot
             // loops.
             SkullbonezCore::Core::Log().WriteEventf(
-                "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs_hash=%llu "
+                "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature_identity=%llu vs_hash=%llu "
                 "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
                 "rtv_format=%u",
                 static_cast<unsigned long long>( psoHash ),
                 static_cast<unsigned long long>( m_psoCacheCount ),
-                key.rootSignature,
+                static_cast<unsigned long long>( key.rootSignatureIdentity ),
                 static_cast<unsigned long long>( key.shaderVSHash ),
                 static_cast<unsigned long long>( key.shaderPSHash ),
                 static_cast<unsigned int>( key.format ),
@@ -624,81 +623,17 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
 }
 
 
-void Dx12PipelineOwner::SetActiveShader( ShaderDX12* shader )
+void Dx12PipelineOwner::SetActiveShader( const ShaderDX12* shader )
 {
     m_activeShader = shader;
     m_psoDirty = true;
 }
 
 
-void Dx12PipelineOwner::RegisterShader( ShaderDX12* shader )
+void Dx12PipelineOwner::ReleaseShaderPipelinesForReload()
 {
-    if ( !shader )
-    {
-        return;
-    }
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        if ( m_liveShaders[index] == shader )
-        {
-            return;
-        }
-    }
-    if ( m_liveShaderCount >= m_liveShaders.size() )
-    {
-        SB_FATAL( "RenderBackendDX12", "Live raster shader registry exhausted. capacity=%zu", m_liveShaders.size() );
-    }
-    m_liveShaders[m_liveShaderCount++] = shader;
-}
-
-
-void Dx12PipelineOwner::UnregisterShader( ShaderDX12* shader )
-{
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        if ( m_liveShaders[index] != shader )
-        {
-            continue;
-        }
-        m_liveShaders[index] = m_liveShaders[m_liveShaderCount - 1];
-        m_liveShaders[m_liveShaderCount - 1] = nullptr;
-        --m_liveShaderCount;
-        break;
-    }
-    if ( m_activeShader == shader )
-    {
-        m_activeShader = nullptr;
-        m_psoDirty = true;
-    }
-}
-
-
-SkullbonezCore::Core::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
-{
-    // Allocation policy: optional candidates are fixed-capacity cold utility
-    // storage. Their internal reflection containers may allocate only while the
-    // caller labels this explicit developer reload as BackendInit.
-    std::array<ShaderDX12ReloadPayload, LIVE_SHADER_CAPACITY> candidates;
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        ShaderDX12* live = m_liveShaders[index];
-        if ( !live )
-        {
-            continue;
-        }
-        if ( !live->PrepareReload( candidates[index] ) )
-        {
-            // Lane R: a changed shader interface needs a rebuilt executable with
-            // matching generated reflection; keep every current shader/PSO live.
-            return SkullbonezCore::Core::SbResult::Failure(
-                "Rendering/DX12",
-                "Shader hot reload rejected changed or invalid bytecode contract" );
-        }
-    }
-
-    // Lifetime: the backend drained the GPU before entering this transaction.
-    // Persist old driver blobs while PSOs live, then release every bytecode-bound
-    // PSO before publishing the new shader blobs.
+    // Lifetime: Dx12ShaderDevelopment proved the GPU drain and staged every
+    // replacement. Persist old blobs while their source PSOs remain live.
     m_persistentPsoCache.Shutdown();
     for ( size_t index = 0; index < m_psoCacheCount; ++index )
     {
@@ -709,20 +644,17 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
         m_psoCache[index] = {};
     }
     m_psoCacheCount = 0;
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        if ( m_liveShaders[index] )
-        {
-            m_liveShaders[index]->AdoptReload( candidates[index] );
-        }
-    }
+}
+
+
+void Dx12PipelineOwner::RestoreShaderPipelinesAfterReload()
+{
+    // Invariant: bytecode adoption is complete and cannot fail. Reopen the
+    // persistent cache against the new manifest before the next PSO lookup.
     m_lastPSOHash = 0;
     m_psoDirty = true;
     m_targetsDirty = true;
-    m_persistentPsoCache.Initialize( m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_committed owner=Dx12PipelineOwner shaders=%llu",
-                                             static_cast<unsigned long long>( m_liveShaderCount ) );
-    return SkullbonezCore::Core::SbResult::Success();
+    m_persistentPsoCache.Initialize( { m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize } );
 }
 
 
@@ -742,7 +674,7 @@ void Dx12PipelineOwner::SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat
 }
 
 
-ShaderDX12* Dx12PipelineOwner::ActiveShader() const
+const ShaderDX12* Dx12PipelineOwner::ActiveShader() const
 {
     return m_activeShader;
 }
@@ -824,15 +756,30 @@ void Dx12PipelineOwner::BindCurrentOutputs( ID3D12GraphicsCommandList* commandLi
 }
 
 
-void Dx12PipelineOwner::ClearCurrentColor( ID3D12GraphicsCommandList* commandList, const float color[4] ) const
+void Dx12PipelineOwner::SetClearColor( float r, float g, float b, float a )
 {
-    commandList->ClearRenderTargetView( m_currentRTV, color, 0, nullptr );
+    m_clearColor[0] = r;
+    m_clearColor[1] = g;
+    m_clearColor[2] = b;
+    m_clearColor[3] = a;
 }
 
 
-void Dx12PipelineOwner::ClearCurrentDepth( ID3D12GraphicsCommandList* commandList, float depth ) const
+void Dx12PipelineOwner::SetClearDepth( float depth )
 {
-    commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr );
+    m_clearDepth = depth;
+}
+
+
+void Dx12PipelineOwner::ClearCurrentColor( ID3D12GraphicsCommandList* commandList ) const
+{
+    commandList->ClearRenderTargetView( m_currentRTV, m_clearColor, 0, nullptr );
+}
+
+
+void Dx12PipelineOwner::ClearCurrentDepth( ID3D12GraphicsCommandList* commandList ) const
+{
+    commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, m_clearDepth, 0, 0, nullptr );
 }
 
 
@@ -861,9 +808,10 @@ void Dx12PipelineOwner::Shutdown()
         m_rootSignature->Release();
         m_rootSignature = nullptr;
     }
+    // Lifetime: every dependent PSO is gone before the active signature epoch
+    // is invalidated. Keep the next value monotonic across owner reuse.
+    m_rootSignatureIdentity = 0;
     m_activeShader = nullptr;
-    m_liveShaders = {};
-    m_liveShaderCount = 0;
     m_rootSignatureSerialized = {};
     m_rootSignatureSerializedSize = 0;
     ResetDesiredState();
@@ -890,6 +838,11 @@ void Dx12PipelineOwner::ResetDesiredState()
     m_polyOffsetFactor = defaults.m_polyOffsetFactor;
     m_polyOffsetUnits = defaults.m_polyOffsetUnits;
     m_renderingToFBO = defaults.m_renderingToFBO;
+    m_clearColor[0] = 0.0f;
+    m_clearColor[1] = 0.0f;
+    m_clearColor[2] = 0.0f;
+    m_clearColor[3] = 1.0f;
+    m_clearDepth = 1.0f;
     m_lastPSOHash = defaults.m_lastPSOHash;
     m_psoDirty = defaults.m_psoDirty;
     m_targetsDirty = defaults.m_targetsDirty;
@@ -981,75 +934,4 @@ void Dx12PipelineOwner::GetBlendFunc( BlendFactor& src, BlendFactor& dst ) const
 {
     src = m_blendSrc;
     dst = m_blendDst;
-}
-
-
-bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
-                                     bool instanced,
-                                     const InstancedMeshDX12* instancedMesh,
-                                     const DynamicVBDX12* dynamicVertexBuffer )
-{
-    return m_frameOwner.DrawGate().PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer );
-}
-
-
-void RenderBackendDX12::SetActiveShader( ShaderDX12* shader )
-{
-    m_pipelineOwner.SetActiveShader( shader );
-}
-
-
-void RenderBackendDX12::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv )
-{
-    m_pipelineOwner.SetCurrentTargets( rtv, dsv );
-}
-
-
-void RenderBackendDX12::SetRenderingToFBO( bool rendering,
-                                           UINT fboSrvIndex,
-                                           UINT fboDepthSrvIndex,
-                                           DXGI_FORMAT rtvFormat )
-{
-    m_pipelineOwner.SetRenderingToFBO( rendering, rtvFormat );
-    if ( rendering )
-    {
-        // Hazard: a render-target resource cannot remain sampled through a
-        // texture slot while the output-merger writes it.
-        m_textureOwner.ClearBoundSlotsForSrv( fboSrvIndex );
-        m_textureOwner.ClearBoundSlotsForSrv( fboDepthSrvIndex );
-    }
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
-{
-    const Dx12CpuDescriptorAllocatorStats stats = m_rtvDescriptors.GetStats();
-    if ( stats.used >= stats.capacity )
-    {
-        // Invariant: RTV rows are fixed backend capacity and must be budgeted
-        // before render-target creation starts consuming them.
-        SB_FATAL( "RenderBackendDX12",
-                  "DX12 RTV heap exhausted. heap=%s used=%u capacity=%u",
-                  stats.heapName ? stats.heapName : "unknown",
-                  stats.used,
-                  stats.capacity );
-    }
-    return m_rtvDescriptors.Allocate().cpuHandle;
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
-{
-    const Dx12CpuDescriptorAllocatorStats stats = m_dsvDescriptors.GetStats();
-    if ( stats.used >= stats.capacity )
-    {
-        // Invariant: DSV rows are fixed backend capacity and must be budgeted
-        // before depth-target creation starts consuming them.
-        SB_FATAL( "RenderBackendDX12",
-                  "DX12 DSV heap exhausted. heap=%s used=%u capacity=%u",
-                  stats.heapName ? stats.heapName : "unknown",
-                  stats.used,
-                  stats.capacity );
-    }
-    return m_dsvDescriptors.Allocate().cpuHandle;
 }

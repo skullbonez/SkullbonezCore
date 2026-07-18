@@ -63,6 +63,8 @@ struct PhaseCounters
 
 struct AllocationHeader
 {
+    // Why: the CRT owns the original unaligned allocation address; the tracker
+    // must preserve that opaque block so FreeTrackedMemory returns it exactly.
     void* raw;
     uint64_t size;
     uint32_t phase;
@@ -101,6 +103,8 @@ thread_local bool s_insideAllocationHook = false;
 uintptr_t ProcessImageBase() noexcept
 {
 #if defined( _WIN32 )
+    // Why: module handles are address-shaped Win32 ABI values. Diagnostics use
+    // the integer only to normalize captured callsites against this image base.
     return reinterpret_cast<uintptr_t>( GetModuleHandleW( nullptr ) );
 #else
     return 0u;
@@ -245,6 +249,9 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
 
     uintptr_t stackFrames[2] = {};
 #if defined( _WIN32 )
+    // Why: CaptureStackBackTrace reports opaque return addresses through its
+    // void-pointer ABI; the tracker stores integer addresses for bounded lookup
+    // and never dereferences them.
     void* capturedFrames[2] = {};
     const USHORT capturedCount = CaptureStackBackTrace( 2u, 2u, capturedFrames, nullptr );
     for ( USHORT index = 0; index < capturedCount && index < 2u; ++index )
@@ -304,6 +311,8 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     // Concept: the allocation hook returns the aligned user pointer, but keeps a
     // fixed-size header immediately before it. The stored raw pointer is the
     // only address that may be handed back to CRT free().
+    // Why: alignment arithmetic must use uintptr_t, then reconstruct the exact
+    // header/user pointer shapes required by the global allocation ABI.
     const uintptr_t headerStart = reinterpret_cast<uintptr_t>( raw ) + sizeof( AllocationHeader );
     const uintptr_t userAddress = ( headerStart + alignment - 1u ) & ~( static_cast<uintptr_t>( alignment ) - 1u );
     auto* header = reinterpret_cast<AllocationHeader*>( userAddress - sizeof( AllocationHeader ) );
@@ -660,6 +669,8 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
 // Concept: every global C++ allocation/deallocation overload funnels through
 // AllocateTrackedMemory/FreeTrackedMemory so sized, aligned, array, and nothrow
 // forms produce one phase-accounting path instead of partial blind spots.
+// Why: these pointer signatures are mandated by the global operator new/delete
+// ABI. They are the process allocation boundary, not an engine-facing raw API.
 void* operator new( std::size_t size )
 {
     return AllocateOrFatal( size, DEFAULT_ALIGNMENT, SKULLBONEZ_ALLOCATION_CALLSITE() );

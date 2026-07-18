@@ -49,6 +49,11 @@ using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsPipelineRecord;
 using SkullbonezCore::Physics::PointJointConstraint;
 using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
+void PhysicsEngine::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept
+{
+    m_scene.BindProfiler( profiler );
+}
+
 void PhysicsEngine::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_scene.ApplyRuntimeConfig( config );
@@ -354,68 +359,81 @@ bool PhysicsEngine::ShouldEmitCollisionTimeDiagnostics() const
 
 const PhysicsBodyStore& PhysicsEngine::ReadBodies( const PhysicsEngine& engine )
 {
-    return engine.m_scene.BodyStore();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.bodies;
 }
 
 const ColliderStore& PhysicsEngine::ReadColliders( const PhysicsEngine& engine )
 {
-    return engine.m_scene.Colliders();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.colliders;
 }
 
 const SkullbonezCore::Math::CollisionDetection::SpatialGrid&
 PhysicsEngine::ReadSpatialGrid( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetSpatialGrid();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.spatialGrid;
 }
 
 std::span<const int> PhysicsEngine::ReadFixedContactHighlightBodies( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetFixedContactHighlightBodies();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.fixedContactHighlightBodies;
 }
 
 const std::vector<int64_t>& PhysicsEngine::ReadCollisionCellKeys( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetCollisionCellKeys();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.collisionCellKeys;
 }
 
 const std::vector<uint8_t>& PhysicsEngine::ReadCollisionVisualContacts( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetCollisionVisualContacts();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.collisionVisualContacts;
 }
 
 std::span<const uint8_t> PhysicsEngine::ReadSleepStates( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetSleepStates();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.sleepStates;
 }
 
 std::span<const int> PhysicsEngine::ReadSleepIslandVisualIds( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetSleepIslandVisualIds();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.sleepIslandVisualIds;
 }
 
 std::span<const uint8_t> PhysicsEngine::ReadSleepSupportedStates( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetSleepSupportedStates();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.sleepSupportedStates;
 }
 
 std::span<const uint8_t> PhysicsEngine::ReadSleepInhibitedStates( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetSleepInhibitedStates();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.sleepInhibitedStates;
 }
 
 const std::vector<PhysicsDebugContact>& PhysicsEngine::ReadDebugContacts( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetPhysicsDebugContacts();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.debugContacts;
 }
 
 const std::vector<PhysicsPipelineRecord>& PhysicsEngine::ReadPipelineTrace( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetPhysicsPipelineTrace();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.pipelineTrace;
 }
 
 const std::vector<PointJointConstraint>& PhysicsEngine::ReadPointJointConstraints( const PhysicsEngine& engine )
 {
-    return engine.m_scene.GetPointJointConstraints();
+    const PhysicsSceneReadView readView = engine.m_scene.ReadView();
+    return readView.pointJointConstraints;
 }
 
 

@@ -452,7 +452,7 @@ ReplayAuthoring::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInpu
     if ( input.toggleAllowed && input.altDown && !VelocityEdit().keyboardAltWasDown )
     {
         const bool enableVelocityEdit = !VelocityEdit().enabled;
-        PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Toggle" );
+        PROFILE_SCOPED( m_profiler, "Frame/Replay/VelocityEdit/Toggle" );
         if ( SetVelocityEditEnabled( enableVelocityEdit ) )
         {
             result.cancelToolDrag = true;
@@ -534,7 +534,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
                                                             m_interaction,
                                                             m_inputRouter );
     };
-    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Input" );
+    PROFILE_SCOPED( m_profiler, "Frame/Replay/VelocityEdit/Input" );
     const RuntimeMouseEdges& pointer = m_inputRouter.UiSnapshot().mouse;
     const bool leftDown = pointer.leftDown;
     const bool leftPressed = pointer.leftPressed;
@@ -862,7 +862,7 @@ void ReplayAuthoring::AppendVelocityEditOverlay( ReplayBodyId targetId,
                                                  const RuntimeInteractionGesture& gesture,
                                                  RunEditorTracer& tracer ) const
 {
-    PROFILE_SCOPED( "Frame/Replay/VelocityEdit/Overlay" );
+    PROFILE_SCOPED( m_profiler, "Frame/Replay/VelocityEdit/Overlay" );
     if ( !m_velocityEdit.enabled || editorModeEnabled )
     {
         return;

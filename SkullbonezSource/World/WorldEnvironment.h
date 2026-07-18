@@ -21,6 +21,7 @@ Glossary:
   Water mesh build settings: Values used only when regenerating calm/ocean mesh
   geometry.
   Fluid force settings: Values that affect buoyancy and drag force integration.
+  Fluid surface adjustment: Typed signed velocity issued by input in world units.
   Buoyancy: Upward force from displaced fluid volume; depends on gravity, fluid
   density, and submerged volume.
   Drag coefficient: Shape factor used by viscous drag to scale velocity-based
@@ -33,7 +34,8 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Device/key vocabulary cannot cross into world-setting mutation methods.
 
 Related:
   - SkullbonezSource/World/WorldEnvironment.cpp
@@ -50,6 +52,7 @@ Related:
 #include "../Physics/PhysicsWorldForces.h"
 #include "../Rendering/IMesh.h"
 #include "../Rendering/IShader.h"
+#include "FluidSurfaceAdjustment.h"
 
 
 namespace SkullbonezCore
@@ -172,6 +175,8 @@ class WorldEnvironment
     void ReleaseRenderResources();                                                   // Releases GPU resources without rebuilding.
     float GetFluidSurfaceHeight() const;                                             // World-space Y plane where water begins.
     void SetFluidSurfaceHeight( float height );                                      // Moves the water plane without rebuilding collision geometry.
+    void ApplyFluidSurfaceAdjustment( const FluidSurfaceAdjustment& adjustment,
+                                      float deltaSeconds );                          // Applies typed input intent in world units.
     float GetGravity() const;                                                        // Gravitational acceleration in m/s^2; negative is downward.
     void SetGravity( float gravity );                                                // Updates gravity for future force integration ticks.
     float GetFluidDensity() const;                                                   // Fluid density in kg/m^3 for buoyancy and drag.

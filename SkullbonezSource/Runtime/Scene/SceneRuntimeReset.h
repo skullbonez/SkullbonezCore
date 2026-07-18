@@ -90,16 +90,18 @@ struct SceneRuntimeResetSnapshot
 };
 
 SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneController& controller,
+                                                            const RunSceneUIOverrideState& uiOverrides,
                                                             const RuntimeRenderer& renderer,
                                                             const RunDebugState& debug,
                                                             const RunCameraState& camera );
 void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
+                                       RunSceneUIOverrideState& uiOverrides,
                                        RuntimeRenderer& renderer,
                                        RunDebugState& debug,
                                        RunCameraState& camera,
                                        const SceneRuntimeResetSnapshot& snapshot,
                                        bool suppressExitOnComplete );
-void ClearSceneRuntimeUIOverrides( SceneController& controller );
+void ClearSceneRuntimeUIOverrides( RunSceneUIOverrideState& uiOverrides );
 
 } // namespace Runtime
 } // namespace SkullbonezCore

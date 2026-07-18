@@ -26,7 +26,7 @@ validation.
 | `validate_deep.bat` | Opt-in broad sweep: render, deep physics, and perf | ~depends |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
-| `validate_project_filters.bat` | Visual Studio `.vcxproj.filters` category and path-casing drift helper | ~depends |
+| `validate_project_filters.bat` | Visual Studio project/filter drift plus transitive JSON cold-boundary fence | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
@@ -63,6 +63,14 @@ Cobertura XML with OpenCppCoverage, then applies the versioned tier map in
 `coverage_floors.json`. It is part of `validate_all_cpu_tests.bat`, so the full
 PR gate enforces Tier 1 at 85%, Tier 2 at 70%, and Tier 3 at 50%; whole-product
 coverage remains informational.
+
+Run `tools\validate_coverage.bat` directly when changing coverage floors,
+exclusions, instrumentation scope, coverage tooling, or tests intended to raise
+subsystem coverage. Also run it as the final pre-commit/PR gate when explicit
+confirmation against the ratified floors is required. Do not run it again after
+`validate_all_cpu_tests.bat`: that umbrella already invokes it, and
+`validate_full.bat`, `agent_validate.bat`, and hosted mandatory CPU CI all use
+the same umbrella.
 
 Each subsystem also lists `required_instrumented_sources`. The checker fails if
 one of those translation units disappears from the XML, preventing a link or
@@ -151,6 +159,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `refresh_hulls.bat` | Rewrite every committed convex hull asset from source geometry, then verify the result |
 | `bake_hulls.bat --check\|--write` | Check or rewrite serialized convex hull v2 runtime data from source geometry |
 | `migrate_data_formats.py --check\|--write` | Check or upgrade asset-library, hull, and engine-config files to their current owned versions |
+| `generate_physics_scale_sleepy_scene.py --check\|--write` | Check or deterministically regenerate the 5,000-body sleeping-heavy scale fixture |
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Automation`, `Release`) |
@@ -158,7 +167,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
-| `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, and declared filter names |
+| `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, declared filter names, and exact transitive JSON reachability for the ratified 19 cold-boundary translation units |
 | `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
 | `validate_automation.bat` | Pre-commit boundary check plus short replay/prediction interaction smoke in the diagnostics-only Automation build |
 | `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |

@@ -75,6 +75,8 @@ uint32_t HashRuntimeName( const char* name )
     {
         return hash;
     }
+    // Why: FNV hashes the unsigned character representation so bytes above
+    // ASCII cannot sign-extend differently across compiler char defaults.
     for ( const unsigned char* p = reinterpret_cast<const unsigned char*>( name ); *p; ++p )
     {
         hash = ( hash ^ static_cast<uint32_t>( *p ) ) * 16777619u;

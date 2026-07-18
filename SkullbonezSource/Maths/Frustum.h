@@ -23,7 +23,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Maths/Frustum.cpp
-  - SkullbonezSource/Rendering/GameModelRenderer.cpp
+  - SkullbonezSource/Rendering/RenderInstanceRenderer.cpp
 */
 #pragma once
 

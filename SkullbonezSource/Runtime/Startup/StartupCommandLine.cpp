@@ -871,16 +871,16 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               static_cast<void>( args );
               int capacity = 0;
               if ( !ParseIntToken( value, capacity ) || capacity < 1 ||
-                   capacity > SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS )
+                   capacity > SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS )
               {
                   return FailCommandLineParse( "--model-capacity expects 1..%d.",
-                                               SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+                                               SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
               }
-              config.runtimeCapacity.gameModelCapacity = capacity;
+              config.runtimeCapacity.sceneObjectCapacity = capacity;
               fprintf( stdout,
                        "[models] Active model capacity: %d (compiled max %d)\n",
-                       config.runtimeCapacity.gameModelCapacity,
-                       SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+                       config.runtimeCapacity.sceneObjectCapacity,
+                       SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
               return true;
           } },
         { "--physics-parallel",

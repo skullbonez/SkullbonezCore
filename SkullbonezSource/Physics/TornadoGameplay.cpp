@@ -86,7 +86,7 @@ bool IsUnderwaterSleepLocked( std::span<const uint8_t> underwaterSleepLocked, in
 
 TornadoGameplay::TornadoGameplay()
 {
-    ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_GAME_MODELS );
+    ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
 

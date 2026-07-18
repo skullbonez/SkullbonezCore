@@ -45,6 +45,7 @@ namespace SkullbonezCore
 namespace Core
 {
 class EngineConfig;
+class Profiler;
 } // namespace Core
 
 namespace Physics
@@ -69,6 +70,7 @@ struct PhysicsBroadphaseStageContext
     int modelCount = 0;
     float dt = 0.0f;
     float contactSkin = 0.0f;
+    Core::Profiler* profiler = nullptr;
 };
 
 class PhysicsBroadphaseStage

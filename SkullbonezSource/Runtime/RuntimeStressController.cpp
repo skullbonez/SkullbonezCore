@@ -30,6 +30,7 @@ Related:
 #include "InputFrame.h"
 #include "InputRouter.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
+#include "Diagnostics/SceneMemoryDiagnostics.h"
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderer.h"
 #include "Replay/ReplayRuntime.h"
@@ -40,7 +41,7 @@ Related:
 #include "RunStartupState.h"
 #include "RunTimerState.h"
 #include "RuntimeInteractionController.h"
-#include "RuntimeTuning.h"
+#include "OperatorCommandApplier.h"
 #include "Scene/SceneController.h"
 #include "Scene/SceneRuntimeCoordinator.h"
 #include "Scene/SceneRuntimeGeneratedControls.h"
@@ -52,7 +53,7 @@ Related:
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderResourceFactory.h"
-#include "../Scene/TestScene.h"
+#include "../Scene/AuthoredScene.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UI.h"
 #include "../Core/Profiler.h"
@@ -144,7 +145,7 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
     RunSceneState& scene = sceneController.State();
     RunTimerState& timers = sceneOwners.timers;
     SimulationSystem& simulation = sceneOwners.simulation;
-    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
     switch ( StressHarness::NextAction( stress ) )
     {
     case 0:
@@ -262,10 +263,10 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
         const float timeScale = StressHarness::NextFloat( stress, 0.10f, 4.00f );
         if ( allowRuntimeChurn )
         {
-            // Concept: Scene-tab churn goes through the scene controller so
+            // Concept: Scene-tab churn writes the UI-owned navigation model so
             // reset preservation and generated-scene rebuilds see one owner.
-            sceneController.UIOverrides().timeScaleOverride = timeScale;
-            scene.timeScale = sceneController.UIOverrides().timeScaleOverride;
+            ui.SceneNavigation().overrides.timeScaleOverride = timeScale;
+            scene.timeScale = ui.SceneNavigation().overrides.timeScaleOverride;
             simulation.Reset();
         }
         break;
@@ -318,17 +319,16 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
 SceneRuntimeStyleContext
 BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
                                  RunSceneState& scene,
-                                 SceneController& sceneController,
-                                 SkullbonezCore::Runtime::SceneController& models,
+                                 RunSceneBrowserState& browser,
+                                 SceneWorld& world,
                                  const SkullbonezCore::Assets::AssetSystem& assets,
                                  SkullbonezCore::Core::EngineConfig& config,
                                  const SkullbonezCore::Core::CinematicRenderConfig& defaultCinematicRender )
 {
     return SceneRuntimeStyleContext{ launchOptions,
                                      scene,
-                                     sceneController.Browser(),
-                                     models,
-                                     sceneController.Entities(),
+                                     browser,
+                                     world,
                                      assets,
                                      ActiveSceneCinematicConfig( scene, config ),
                                      defaultCinematicRender };
@@ -357,7 +357,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         presentationOwners.renderDefaults.CinematicBaseline();
     SimulationSystem& simulation = sceneOwners.simulation;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
     SkullbonezCore::Runtime::SceneController& models = sceneController;
     switch ( stress.NextAction() )
     {
@@ -397,12 +397,12 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     }
     case 3:
     {
-        const int browserCount = static_cast<int>( sceneController.Browser().paths.size() );
+        const int browserCount = static_cast<int>( ui.SceneNavigation().browser.paths.size() );
         const int browserIndex = ( browserCount > 0 && stress.NextInt( 5 ) != 0 ) ? stress.NextInt( browserCount ) : -1;
         (void)ApplyCinematicModeFromBrowserIndex( BuildGraphicsStressStyleContext( launchOptions,
                                                                                    scene,
-                                                                                   sceneController,
-                                                                                   models,
+                                                                                   ui.SceneNavigation().browser,
+                                                                                   sceneController.Scene(),
                                                                                    assets,
                                                                                    config,
                                                                                    defaultCinematicRender ),
@@ -464,7 +464,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
     case 15:
     {
         const float timeScale = stress.NextFloat( 0.05f, 4.0f );
-        sceneController.UIOverrides().timeScaleOverride = timeScale;
+        ui.SceneNavigation().overrides.timeScaleOverride = timeScale;
         scene.timeScale = timeScale;
         simulation.Reset();
         break;
@@ -484,18 +484,18 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         break;
     }
     case 17:
-        sceneController.UIOverrides().modelCountOverride = 32 + stress.NextInt( 512 );
+        ui.SceneNavigation().overrides.modelCountOverride = 32 + stress.NextInt( 512 );
         break;
     case 18:
         launchOptions.generatedObjectTypeOverride = static_cast<GeneratedObjectTypeOverride>( stress.NextInt( 3 ) );
         break;
     case 19:
     {
-        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Scene().Physics().GetTornadoFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
         renderer.SetTornadoVisualEnabled( stress.NextInt( 2 ) != 0 );
-        models.Physics().SetTornadoFieldConfig( tornadoField );
+        models.Scene().Physics().SetTornadoFieldConfig( tornadoField );
         break;
     }
     case 20:
@@ -518,7 +518,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         simulation.Reset();
         break;
     case 23:
-        models.Physics().SetSleepEnabled( !models.Physics().IsSleepEnabled() );
+        models.Scene().Physics().SetSleepEnabled( !models.Scene().Physics().IsSleepEnabled() );
         break;
     case 24:
         debug.isTopTextHidden = !debug.isTopTextHidden;
@@ -899,7 +899,6 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     SimulationSystem& m_simulation = sceneOwners.simulation;
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
     const RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
-    const RunStartupState& m_startup = sceneOwners.startup;
     ReplayRuntime& m_replayRuntime = replayRuntime;
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     RuntimeInteractionController& m_interaction = interactionOwners.interaction;
@@ -923,22 +922,14 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     // This gate is a UI control-state crash sweep. Runtime rebuilds and world
     // debug toggles belong to render/physics validation, so they stay frozen here.
     const bool allowRuntimeChurn = StressHarness::AllowsRuntimeChurn();
-    const auto makeSceneGeneratedControlContext = [&]() -> SceneRuntimeGeneratedControlContext
-    {
-        return SceneRuntimeGeneratedControlContext{ m_sceneController.State(),
-                                                    m_sceneController.UIOverrides(),
-                                                    m_camera,
-                                                    m_sceneController,
-                                                    m_config,
-                                                    m_sceneController.World(),
-                                                    m_sceneController.Terrain().Get(),
-                                                    m_sceneController,
-                                                    m_simulation,
-                                                    m_runtimeTools,
-                                                    m_renderBackendView.deviceLifecycle,
-                                                    m_launchOptions.generatedObjectTypeOverride,
-                                                    m_startup.gameModelCapacity };
-    };
+    const SceneGeneratedControlPolicy sceneGeneratedPolicy{
+        m_config,
+        m_launchOptions.generatedObjectTypeOverride,
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
+    const SceneGeneratedControlPresentation sceneGeneratedPresentation{ m_UI.SceneNavigation().overrides, m_camera };
+    const SceneGeneratedControlResetParticipants sceneGeneratedReset{ m_simulation,
+                                                                      m_runtimeTools,
+                                                                      m_renderBackendView.deviceLifecycle };
     const auto executeSceneGeneratedControlAction =
         [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {
@@ -952,22 +943,24 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         {
             const ReplaySceneTimelineResetInput reset =
                 DescribeReplaySceneTimeline( m_sceneController,
+                                             m_UI.SceneNavigation().overrides,
                                              m_sceneController.State(),
-                                             m_startup.gameModelCapacity,
+                                             SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-            m_replayRuntime.ResetSceneTimeline( reset,
-                                                ReplaySceneTimelineResetOwners{ m_inputRouter,
-                                                                                m_interaction,
-                                                                                &m_sceneController.Cameras(),
-                                                                                m_sceneController.Terrain().Get(),
-                                                                                m_camera,
-                                                                                replayRestoreCameraMode,
-                                                                                m_attachedCamera.State().activeFollow,
-                                                                                m_camera.director.grabbed } );
+            m_replayRuntime.ResetSceneTimeline(
+                reset,
+                ReplaySceneTimelineResetOwners{ m_inputRouter,
+                                                m_interaction,
+                                                &m_sceneController.Scene().Cameras(),
+                                                m_sceneController.Scene().Terrain().Get(),
+                                                m_camera,
+                                                replayRestoreCameraMode,
+                                                m_attachedCamera.State().activeFollow,
+                                                m_camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {
-            PROFILE_SCHEDULE_RESET();
+            PROFILE_SCHEDULE_RESET( host.profiler );
         }
         return SkullbonezCore::Core::SbResult::Success();
     };
@@ -976,8 +969,12 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         const int modelCount = 96 + StressHarness::NextInt( stress, 160 );
         if ( allowRuntimeChurn )
         {
-            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
-                ApplyUIModelCountOverride( makeSceneGeneratedControlContext(), modelCount ) );
+            const SkullbonezCore::Core::SbResult actionResult =
+                executeSceneGeneratedControlAction( ApplyUIModelCountOverride( sceneGeneratedPolicy,
+                                                                               sceneGeneratedPresentation,
+                                                                               sceneGeneratedReset,
+                                                                               m_sceneController,
+                                                                               modelCount ) );
             if ( !actionResult.ok )
             {
                 return actionResult;
@@ -990,8 +987,13 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
         const int boxes = StressHarness::NextInt( stress, 1000 - balls + 1 );
         if ( allowRuntimeChurn )
         {
-            const SkullbonezCore::Core::SbResult actionResult = executeSceneGeneratedControlAction(
-                ApplyUISolverObjectCounts( makeSceneGeneratedControlContext(), balls, boxes ) );
+            const SkullbonezCore::Core::SbResult actionResult =
+                executeSceneGeneratedControlAction( ApplyUISolverObjectCounts( sceneGeneratedPolicy,
+                                                                               sceneGeneratedPresentation,
+                                                                               sceneGeneratedReset,
+                                                                               m_sceneController,
+                                                                               balls,
+                                                                               boxes ) );
             if ( !actionResult.ok )
             {
                 return actionResult;
@@ -1066,31 +1068,32 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         {
             return false;
         }
-        return sceneController
-            .Load( request,
-                   config,
-                   launchOptions,
-                   defaultCinematicRender,
-                   startup,
-                   diagnosticsRuntime,
-                   timers,
-                   assets,
-                   workerPool,
-                   *window,
-                   inputRouter,
-                   interaction,
-                   camera,
-                   attachedCamera.State(),
-                   simulation,
-                   replayRuntime,
-                   contactAudio,
-                   interactionOwners.operatorUi,
-                   sceneOwners.overlays,
-                   presentationOwners.validationHarness,
-                   runtimeTools,
-                   renderBackendView,
-                   renderer )
-            .ok;
+        SceneLoadConsumerOutputs sceneLoadOutputs;
+        const bool loaded =
+            sceneController
+                .Load(
+                    request,
+                    SceneLoadPolicyInputs{ config, launchOptions, defaultCinematicRender, startup, assets, workerPool },
+                    SceneLoadHostParticipants{ timers, diagnosticsRuntime, simulation },
+                    SceneLoadInteractionParticipants{ inputRouter,
+                                                      interaction,
+                                                      camera,
+                                                      attachedCamera.State(),
+                                                      runtimeTools,
+                                                      CaptureSceneLoadNavigationState( ui.SceneNavigation() ) },
+                    SceneLoadPresentationParticipants{ replayRuntime,
+                                                       sceneOwners.overlays,
+                                                       renderBackendView,
+                                                       renderer },
+                    sceneLoadOutputs )
+                .ok;
+        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                       *window,
+                                       ui,
+                                       contactAudio,
+                                       presentationOwners.validationHarness,
+                                       launchOptions );
+        return loaded;
     };
 
     const SkullbonezCore::Rendering::RenderMemoryStats preActionRenderStats = renderDiagnostics.GetRenderMemoryStats();
@@ -1171,11 +1174,11 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
             selectedSceneSource = "queue";
             request = SceneLoadRequest::Load( selectedSceneIndex, true, true, stress.NextInt( 2 ) != 0, true );
         }
-        else if ( !sceneController.Browser().paths.empty() )
+        else if ( !ui.SceneNavigation().browser.paths.empty() )
         {
-            selectedSceneIndex = stress.NextInt( static_cast<int>( sceneController.Browser().paths.size() ) );
+            selectedSceneIndex = stress.NextInt( static_cast<int>( ui.SceneNavigation().browser.paths.size() ) );
             selectedSceneSource = "browser";
-            request = sceneController.LoadSceneFromBrowserIndex( selectedSceneIndex );
+            request = ui.SceneNavigation().LoadSceneFromBrowserIndex( selectedSceneIndex, sceneController.Runtime() );
         }
 
         if ( executeSceneLoadRequest( request ) )
@@ -1226,11 +1229,13 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         // Why: long stress runs need memory attribution before shutdown. If the
         // process is killed after a climb, this stdout line survives with the
         // same seed/frame/scene-load position as the repro log.
-        const SkullbonezCore::Core::MainMemoryStats& memoryStats =
-            diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime.CollectMemoryStats(),
-                                                       sceneController.CollectMemoryStats(),
-                                                       timers.simulationTimer.GetTotalTime(),
-                                                       true );
+        const SkullbonezCore::Core::MainMemoryStats& memoryStats = diagnosticsRuntime.RefreshMainMemoryStats(
+            replayRuntime.CollectMemoryStats(),
+            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ sceneController.Scene().Entities(),
+                                                                 sceneController.Scene().Physics(),
+                                                                 sceneController.Scene().RenderInstances() } ),
+            timers.simulationTimer.GetTotalTime(),
+            true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
         printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
                 "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
