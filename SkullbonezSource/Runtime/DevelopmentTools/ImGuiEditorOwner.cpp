@@ -54,6 +54,7 @@ Related:
 #include <Windows.h>
 #include <shellapi.h>
 #include <algorithm>
+#include <cstddef>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -489,26 +490,33 @@ bool ImGuiEditorOwner::IsVisible() const noexcept
     return m_visible;
 }
 
-void ImGuiEditorOwner::InitializeSurfacePreferences( bool legacyVisible, bool editorVisible ) noexcept
+void ImGuiEditorOwner::InitializeSurfaceSelection( DevelopmentUiMode initialSurface ) noexcept
 {
-    if ( m_surfacePreferencesInitialized )
+    if ( m_surfaceSelectionInitialized )
     {
         return;
     }
-    m_surfacePreferencesInitialized = true;
-    m_legacySurfaceVisible = legacyVisible;
-    SetVisible( editorVisible );
+    m_surfaceSelectionInitialized = true;
+    m_selectedSurface = initialSurface;
+    SetVisible( initialSurface == DevelopmentUiMode::ImGui );
 }
 
-void ImGuiEditorOwner::SetLegacySurfaceVisible( bool visible ) noexcept
+void ImGuiEditorOwner::SelectSurface( DevelopmentUiMode surface ) noexcept
 {
-    m_surfacePreferencesInitialized = true;
-    m_legacySurfaceVisible = visible;
+    m_surfaceSelectionInitialized = true;
+    m_surfaceSelectionActivated = true;
+    m_selectedSurface = surface;
+    SetVisible( surface == DevelopmentUiMode::ImGui );
 }
 
-bool ImGuiEditorOwner::LegacySurfaceVisible() const noexcept
+DevelopmentUiMode ImGuiEditorOwner::SelectedSurface() const noexcept
 {
-    return m_legacySurfaceVisible;
+    return m_selectedSurface;
+}
+
+bool ImGuiEditorOwner::HasActivatedSurfaceSelection() const noexcept
+{
+    return m_surfaceSelectionActivated;
 }
 
 UI::OperatorEditorCommandQueues ImGuiEditorOwner::ConsumeOperatorEditorCommands() noexcept
@@ -545,7 +553,7 @@ ImGuiEditorOwner::HandleNativeMessage( HWND window, UINT message, WPARAM wParam,
     {
         // Invariant: Legacy mode retains its native input/cursor behavior.
         // Focus, DPI, display, and device messages continue keeping the dormant
-        // backend synchronized for a later explicit switch to ImGui/Both.
+        // backend synchronized for a later atomic switch to ImGui.
         return route;
     }
 
@@ -791,6 +799,16 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         submit( m_frameCommands.operatorEditor.property,
                 UI::OperatorEditorPropertyCommand{ type, value, integerValue, phase } );
     };
+    const auto submitReplay =
+        [&]( UI::OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
+    {
+        UI::OperatorEditorReplayCommand command;
+        command.type = type;
+        command.value = value;
+        command.rowIndex = rowIndex;
+        command.enabled = enabled;
+        submit( m_frameCommands.operatorEditor.replay, command );
+    };
     const auto editFloat = [&]( const char* label,
                                 UI::OperatorEditorPropertyCommandType type,
                                 float sourceValue,
@@ -994,16 +1012,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 submit( m_frameCommands.operatorEditor.scene,
                         UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetSceneDefaults } );
             }
-            if ( ImGui::MenuItem( "Hide Editor" ) )
-            {
-                m_frameCommands.requestHide = true;
-                if ( !m_legacySurfaceVisible )
-                {
-                    m_legacySurfaceVisible = true;
-                    m_frameCommands.requestLegacyVisibility = true;
-                    m_frameCommands.requestedLegacyVisible = true;
-                }
-            }
             ImGui::EndMenu();
         }
         if ( ImGui::BeginMenu( "Edit" ) )
@@ -1042,12 +1050,11 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         }
         if ( ImGui::BeginMenu( "View" ) )
         {
-            bool legacyVisible = m_legacySurfaceVisible;
-            if ( ImGui::MenuItem( "Legacy Surface", "0", &legacyVisible ) )
+            if ( ImGui::MenuItem( "Switch to Legacy UI", "Ctrl+0" ) )
             {
-                m_legacySurfaceVisible = legacyVisible;
-                m_frameCommands.requestLegacyVisibility = true;
-                m_frameCommands.requestedLegacyVisible = legacyVisible;
+                // The composition root consumes this after the ImGui frame and
+                // hides this source before activating the Legacy target.
+                m_frameCommands.requestSurfaceSwap = true;
             }
             ImGui::Separator();
             ImGui::MenuItem( ImGuiEditorPanel::SceneAndModes, nullptr, &m_showSceneAndModes );
@@ -1068,6 +1075,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 m_layoutResetRequested = true;
             }
             ImGui::EndMenu();
+        }
+        if ( ImGui::Shortcut( ImGuiMod_Ctrl | ImGuiKey_0, ImGuiInputFlags_RouteGlobal ) )
+        {
+            m_frameCommands.requestSurfaceSwap = true;
         }
         if ( ImGui::BeginMenu( "Debug" ) )
         {
@@ -2587,7 +2598,19 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 for ( std::size_t index = 0u; index < causality.relevantLinkCount; ++index )
                 {
                     const RunReplayCauseTreeRow& row = *causality.relevantLinks[index];
-                    ImGui::BulletText( "%s: %s", ImGuiEditorCauseRowKindName( row.kind ), row.name );
+                    char linkLabel[160] = {};
+                    sprintf_s( linkLabel,
+                               "%s: %s###CauseLink%zu",
+                               ImGuiEditorCauseRowKindName( row.kind ),
+                               row.name,
+                               index );
+                    if ( ImGui::Selectable( linkLabel, false ) )
+                    {
+                        const std::ptrdiff_t rowIndex = causality.relevantLinks[index] - replay.causeTree.rows.data();
+                        submitReplay( UI::OperatorEditorReplayCommandType::SelectCauseRow,
+                                      0.0f,
+                                      static_cast<int>( rowIndex ) );
+                    }
                 }
                 if ( causality.compactScanTruncated )
                 {
@@ -2735,11 +2758,179 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::Replay, &m_showReplay ) )
         {
-            ImGui::Text( "Memory preset %d  |  retention %ds  |  budget %dMiB",
-                         view.replay.memoryPreset,
-                         view.replay.requestedRetentionSeconds,
-                         view.replay.requestedBudgetMiB );
-            ImGui::TextDisabled( "Record, scrub, prediction, and cause transport arrive in E15" );
+            const bool loaded = replay.loadedPresentation;
+            const bool hasRetainedTimeline =
+                loaded ? replay.loadedSampleCount >= 2u : replay.solverStats.sampleCount >= 2u;
+            const bool hasTimeline = hasRetainedTimeline || replay.predictionTimelineAvailable;
+            const bool compact = ImGui::GetContentRegionAvail().x < 1180.0f * m_frameInput.dpiScale;
+            const float trackPosition = loaded ? replay.scrubber.presentationPosition : replay.scrubber.solverPosition;
+            ReplayFrameIndex selectedTick = 0;
+            bool hasSelectedTick = false;
+            if ( replay.selectedPrediction )
+            {
+                selectedTick = replay.selectedPrediction->frameIndex;
+                hasSelectedTick = true;
+            }
+            else if ( replay.selectedSolver )
+            {
+                selectedTick = replay.selectedSolver->frameIndex;
+                hasSelectedTick = true;
+            }
+            else if ( replay.selectedPresentation )
+            {
+                selectedTick = replay.selectedPresentation->frameIndex;
+                hasSelectedTick = true;
+            }
+
+            const bool recordingMutable = replay.recordingConfigured && !replay.recordingLockedByHashLog;
+            ImGui::BeginDisabled( !recordingMutable );
+            if ( ImGui::Button( replay.recordingEnabled ? "STOP" : "REC" ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::SetRecordingEnabled,
+                              0.0f,
+                              -1,
+                              !replay.recordingEnabled );
+            }
+            ImGui::EndDisabled();
+            if ( !recordingMutable && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
+            {
+                ImGui::SetTooltip( "%s",
+                                   replay.recordingLockedByHashLog
+                                       ? "Hash-log capture is fixed by launch policy"
+                                       : "Launch with replay enabled to reserve recording" );
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled( !hasTimeline );
+            if ( ImGui::Button( "|<" ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::JumpToStart );
+            }
+            ImGui::SameLine();
+            if ( ImGui::Button( "<" ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::StepBackward );
+            }
+            ImGui::SameLine();
+            const char* playPauseLabel = replay.scrubber.historicalSamplePaused || replay.scrubber.liveAdvanceHeld
+                                             ? ( compact ? ">" : "PLAY" )
+                                             : ( compact ? "||" : "PAUSE" );
+            if ( ImGui::Button( playPauseLabel ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::TogglePlayPause );
+            }
+            ImGui::SameLine();
+            if ( ImGui::Button( ">" ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::StepForward );
+            }
+            ImGui::SameLine();
+            if ( ImGui::Button( ">|" ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::JumpToEnd );
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if ( ImGui::Button( compact ? "LIVE" : "RETURN LIVE" ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::ReturnToLive );
+            }
+            ImGui::SameLine();
+            if ( hasSelectedTick )
+            {
+                ImGui::TextDisabled( "%s  tick %llu  %zu/%zu",
+                                     loaded ? "FILE" : "SOLVER",
+                                     static_cast<unsigned long long>( selectedTick ),
+                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCount,
+                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCapacity );
+            }
+            else
+            {
+                ImGui::TextDisabled( "%s  tick --  %zu/%zu",
+                                     loaded ? "FILE" : "SOLVER",
+                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCount,
+                                     loaded ? replay.loadedSampleCount : replay.solverStats.sampleCapacity );
+            }
+
+            float scrubPosition = trackPosition;
+            ImGui::SetNextItemWidth(
+                (std::max)( 320.0f, ImGui::GetContentRegionAvail().x * ( compact ? 0.62f : 0.72f ) ) );
+            ImGui::BeginDisabled( !hasTimeline );
+            if ( ImGui::SliderFloat( "##ReplayTransportTrack", &scrubPosition, 0.0f, 1.0f, "%.3f" ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::Scrub, scrubPosition );
+            }
+            ImGui::EndDisabled();
+            const ImVec2 trackMin = ImGui::GetItemRectMin();
+            const ImVec2 trackMax = ImGui::GetItemRectMax();
+            const float presentPosition = loaded ? 1.0f : std::clamp( replay.solverPresentTrackPosition, 0.0f, 1.0f );
+            const float presentX = trackMin.x + ( trackMax.x - trackMin.x ) * presentPosition;
+            // Concept: the thin marker exposes the replay owner's live-present
+            // boundary without making this panel calculate timeline ranges.
+            ImGui::GetWindowDrawList()->AddLine( ImVec2( presentX, trackMin.y - 2.0f ),
+                                                 ImVec2( presentX, trackMax.y + 2.0f ),
+                                                 IM_COL32( 255, 196, 64, 255 ),
+                                                 2.0f );
+            ImGui::SameLine();
+            const char* predictionLabel = replay.prediction.building ? ( compact ? "BUILD" : "PREDICTING" )
+                                                                     : ( replay.prediction.enabled ? "PRED*" : "PRED" );
+            ImGui::BeginDisabled( !replay.prediction.generationPermitted );
+            if ( ImGui::Button( predictionLabel ) )
+            {
+                submitReplay( UI::OperatorEditorReplayCommandType::TogglePrediction );
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if ( ImGui::Button( "MORE" ) )
+            {
+                ImGui::OpenPopup( "##ReplayMore" );
+            }
+            if ( ImGui::BeginPopup( "##ReplayMore" ) )
+            {
+                float revealSpeed = static_cast<float>( replay.prediction.revealSecondsPerSecond );
+                if ( ImGui::SliderFloat( "Reveal speed", &revealSpeed, 0.25f, 4.0f, "%.2fx" ) )
+                {
+                    submitReplay( UI::OperatorEditorReplayCommandType::SetRevealSpeed, revealSpeed );
+                }
+                float horizon = replay.prediction.horizonSeconds;
+                if ( ImGui::SliderFloat( "Prediction horizon", &horizon, 1.0f, 20.0f, "%.1fs" ) )
+                {
+                    submitReplay( UI::OperatorEditorReplayCommandType::SetPredictionHorizon, horizon );
+                }
+                ImGui::BeginDisabled( !replay.scrubber.historicalSamplePaused );
+                if ( ImGui::MenuItem( "Restore as branch" ) )
+                {
+                    submitReplay( UI::OperatorEditorReplayCommandType::RestoreBranch );
+                }
+                ImGui::EndDisabled();
+                if ( ImGui::MenuItem( "Save replay" ) )
+                {
+                    submitReplay( UI::OperatorEditorReplayCommandType::Save );
+                }
+                if ( ImGui::MenuItem( "Load replay..." ) )
+                {
+                    submitReplay( UI::OperatorEditorReplayCommandType::Load );
+                }
+                if ( replay.causeTree.selectedRow >= 0 &&
+                     replay.causeTree.selectedRow < static_cast<int>( replay.causeTree.rows.size() ) )
+                {
+                    const RunReplayCauseTreeRow& row =
+                        replay.causeTree.rows[static_cast<std::size_t>( replay.causeTree.selectedRow )];
+                    ImGui::SeparatorText( "Selected cause" );
+                    ImGui::Text( "%s: %s", ImGuiEditorCauseRowKindName( row.kind ), row.name );
+                }
+                ImGui::EndPopup();
+            }
+
+            if ( replay.scrubber.saveMessage[0] != '\0' )
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled( "%s", replay.scrubber.saveMessage );
+            }
+            else if ( !hasTimeline )
+            {
+                ImGui::SameLine();
+                ImGui::TextDisabled( "NO REPLAY TIMELINE" );
+            }
         }
         ImGui::End();
     }

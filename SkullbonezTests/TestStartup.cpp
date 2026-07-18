@@ -7,7 +7,7 @@
 //   Exercises the production command-line and launch-resolution units without
 //   constructing a window, renderer, worker pool, or Run owner. Table-driven
 //   failure cases assert the exact Lane-R messages consumed by automation, and
-//   development builds lock the additive editor selector's launch projection.
+//   development builds lock the exclusive editor selector's launch projection.
 //
 // Glossary:
 //   Assigned option: A value supplied as --name=value rather than a later token.
@@ -490,9 +490,11 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
 }
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-TEST_CASE( "Startup development UI: explicit modes project without changing the omitted default" )
+TEST_CASE( "Startup development UI: one startup-selected surface owns focus and Legacy remains the default" )
 {
     using SkullbonezCore::Runtime::DevelopmentUiMode;
+    using SkullbonezCore::Runtime::DevelopmentUiModeShowsImGui;
+    using SkullbonezCore::Runtime::DevelopmentUiModeShowsLegacy;
 
     struct ModeCase
     {
@@ -502,7 +504,6 @@ TEST_CASE( "Startup development UI: explicit modes project without changing the 
     const ModeCase cases[] = {
         { "--dev-ui legacy", DevelopmentUiMode::Legacy },
         { "--dev_ui=imgui", DevelopmentUiMode::ImGui },
-        { "--dev-ui both", DevelopmentUiMode::Both },
     };
 
     for ( const ModeCase& modeCase : cases )
@@ -516,6 +517,8 @@ TEST_CASE( "Startup development UI: explicit modes project without changing the 
         const RunStartupOverrides overrides = BuildRunStartupOverrides( args );
         CHECK( overrides.launch.developmentUiMode == modeCase.expected );
         CHECK( overrides.launch.developmentUiModeExplicit );
+        CHECK( DevelopmentUiModeShowsLegacy( modeCase.expected ) !=
+               DevelopmentUiModeShowsImGui( modeCase.expected ) );
     }
 
     ParsedArgs omitted;
@@ -527,8 +530,10 @@ TEST_CASE( "Startup development UI: explicit modes project without changing the 
 
 TEST_CASE( "Startup development UI: invalid mode keeps the frozen recoverable diagnostic" )
 {
-    CheckRunDirectiveFailure( "--dev-ui unknown", "--dev-ui expects legacy|imgui|both." );
-    CheckRunDirectiveFailure( "--dev-ui", "--dev-ui expects legacy|imgui|both." );
+    constexpr const char* expected = "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive.";
+    CheckRunDirectiveFailure( "--dev-ui unknown", expected );
+    CheckRunDirectiveFailure( "--dev-ui both", expected );
+    CheckRunDirectiveFailure( "--dev-ui", expected );
 }
 #endif
 

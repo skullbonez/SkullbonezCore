@@ -105,6 +105,20 @@ ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled,
     return result;
 }
 
+bool ReplayTimeline::SetRecordingEnabled( bool enabled ) noexcept
+{
+    // Hazard: hash-log capture is a startup validation contract and cannot be
+    // paused by an editor surface. Ordinary recording may stop without
+    // reconfiguring or clearing the already reserved retained rings.
+    if ( !m_recordingConfigured || !m_recordingHashLogPath.empty() ||
+         ( enabled && !m_solver.IsEnabled() && !m_presentation.IsEnabled() ) )
+    {
+        return false;
+    }
+    m_recordingEnabled = enabled;
+    return true;
+}
+
 ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request )
 {
     ReplayMemoryPolicyApplyResult result;
@@ -229,7 +243,7 @@ bool ReplayTimeline::NextPresentationSavePath( char* outPath, std::size_t outPat
 
 void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
 {
-    if ( m_events.IsEnabled() )
+    if ( m_recordingEnabled && m_events.IsEnabled() )
     {
         m_events.RecordEvent( input );
     }
@@ -237,7 +251,7 @@ void ReplayTimeline::RecordEvent( const ReplayEventInput& input )
 
 void ReplayTimeline::SubmitEvent( const ReplayEventCommand& command, const ReplayBranchInfo& branch )
 {
-    if ( command.kind == ReplayEventKind::Unknown || !m_events.IsEnabled() )
+    if ( command.kind == ReplayEventKind::Unknown || !m_recordingEnabled || !m_events.IsEnabled() )
     {
         return;
     }
@@ -349,6 +363,10 @@ void ReplayTimeline::ReportLatestCaptureMismatch()
 ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput input )
 {
     ReplayTimelineCaptureResult result;
+    if ( !m_recordingEnabled )
+    {
+        return result;
+    }
     input.eventCursor = m_events.GetStats().nextSequence;
     if ( m_solver.IsEnabled() )
     {

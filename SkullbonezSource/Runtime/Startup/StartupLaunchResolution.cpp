@@ -754,7 +754,7 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           {
               if ( !value || IsOptionValueMissing( value ) )
               {
-                  return FailCommandLineParse( "--dev-ui expects legacy|imgui|both." );
+                  return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
               }
               if ( strcmp( value, "legacy" ) == 0 )
               {
@@ -764,13 +764,9 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               {
                   args.developmentUiMode = DevelopmentUiMode::ImGui;
               }
-              else if ( strcmp( value, "both" ) == 0 )
-              {
-                  args.developmentUiMode = DevelopmentUiMode::Both;
-              }
               else
               {
-                  return FailCommandLineParse( "--dev-ui expects legacy|imgui|both." );
+                  return FailCommandLineParse( "--dev-ui expects legacy|imgui; the two surfaces are mutually exclusive." );
               }
               args.developmentUiModeExplicit = true;
               fprintf( stdout, "[dev-ui] Mode: %s\n", value );

@@ -630,8 +630,10 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     {
         return result;
     }
-    // Invariant: both front ends converge here exactly once. Legacy is the
-    // deterministic first lane; exact duplicate secondary intent coalesces.
+    // Invariant: the active surface and optional automation/probe intent
+    // converge here exactly once. Runtime selection keeps the human surfaces
+    // exclusive; arbitration still coalesces exact duplicate injected intent
+    // and rejects conflicting payloads through Lane R.
     const SkullbonezCore::UI::OperatorEditorArbitrationResult editorCommands =
         SkullbonezCore::UI::ArbitrateOperatorEditorCommands( result.commands.operatorEditor,
                                                              facts.externalEditorCommands );
@@ -647,6 +649,97 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         return result;
     }
     const InGameUICommands& uiCommands = result.commands;
+
+    // Concept: operator transport values are normalized with every other
+    // editor command, then translated once into replay-domain vocabulary.
+    // ReplayRuntime coordinates concrete owners and publishes recoverable
+    // feedback; this input boundary retains no timeline or restore authority.
+    for ( uint32_t index = 0u; index < editorCommands.commands.replay.count; ++index )
+    {
+        const SkullbonezCore::UI::OperatorEditorReplayCommand& source = editorCommands.commands.replay.commands[index];
+        if ( source.type == SkullbonezCore::UI::OperatorEditorReplayCommandType::SetMemoryPolicy )
+        {
+            continue;
+        }
+
+        ReplayTransportCommand command;
+        command.value = source.value;
+        command.rowIndex = source.rowIndex;
+        command.enabled = source.enabled;
+        switch ( source.type )
+        {
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetRecordingEnabled:
+            command.action = ReplayTransportAction::SetRecordingEnabled;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::JumpToStart:
+            command.action = ReplayTransportAction::JumpToStart;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::JumpToEnd:
+            command.action = ReplayTransportAction::JumpToEnd;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::TogglePlayPause:
+            command.action = ReplayTransportAction::TogglePlayPause;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::StepBackward:
+            command.action = ReplayTransportAction::StepBackward;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::StepForward:
+            command.action = ReplayTransportAction::StepForward;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetRevealSpeed:
+            command.action = ReplayTransportAction::SetRevealSpeed;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::Scrub:
+            command.action = ReplayTransportAction::Scrub;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::TogglePrediction:
+            command.action = ReplayTransportAction::TogglePrediction;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetPredictionHorizon:
+            command.action = ReplayTransportAction::SetPredictionHorizon;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::RestoreBranch:
+            command.action = ReplayTransportAction::RestoreBranch;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::Save:
+            command.action = ReplayTransportAction::Save;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::Load:
+            command.action = ReplayTransportAction::Load;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::ReturnToLive:
+            command.action = ReplayTransportAction::ReturnToLive;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SelectCauseRow:
+            command.action = ReplayTransportAction::SelectCauseRow;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetMemoryPolicy:
+        default:
+            continue;
+        }
+
+        ReplayWorkspaceOutput transportOutput;
+        replayRuntime.ApplyTransportCommand( command,
+                                             ReplayTransportHostContext{ host.window.NativeWindowHandle(),
+                                                                         facts.replayCurrentCameraMode,
+                                                                         facts.replayRestoreCameraMode,
+                                                                         attachedCamera.State().activeFollow,
+                                                                         camera.director.grabbed,
+                                                                         timers.simulationTimer.GetTotalTime() },
+                                             inputRouter,
+                                             interaction,
+                                             &sceneController.Scene().Cameras(),
+                                             sceneController.Scene().Terrain().Get(),
+                                             camera,
+                                             runtimeTools.MousePickup(),
+                                             transportOutput );
+        result.enterInteractiveScene = result.enterInteractiveScene || transportOutput.enterInteractive;
+        if ( result.replayWorkspace.restoreRequest.kind == ReplayLiveRestoreKind::None &&
+             transportOutput.restoreRequest.kind != ReplayLiveRestoreKind::None )
+        {
+            result.replayWorkspace.restoreRequest = transportOutput.restoreRequest;
+        }
+    }
 
     const auto updateInputMode = [&]( RuntimeInputAction action, RuntimeInputActionSource source )
     {

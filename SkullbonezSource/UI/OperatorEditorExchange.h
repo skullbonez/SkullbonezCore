@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/UI/OperatorEditorExchange.h
 Purpose:
-  Defines the shared value boundary used by both operator editor surfaces.
+  Defines the shared value boundary used by either operator editor surface.
 
 Summary:
-  Both operator front ends read the same domain-grouped frame snapshot and emit
-  fixed-capacity typed command queues. A deterministic arbitration pass
-  coalesces exact duplicate intent before projecting one canonical packet into
-  the established runtime owner command paths.
+  Legacy and ImGui use the same domain-grouped frame snapshot and fixed-capacity
+  typed command queues, but runtime selection activates only one human surface.
+  A deterministic arbitration pass also admits optional automation/probe intent
+  before projecting one canonical packet into established owner command paths.
 
 Glossary:
   Surface: One operator presentation front end, currently Legacy or ImGui.
@@ -17,9 +17,9 @@ Glossary:
   Tool command: One-frame edit-mode, history, pause, or step intent applied by
     the established editor and scene-flow owners after arbitration.
   Canonical packet: The existing InGameUICommands value consumed by runtime
-    owner appliers after this exchange has resolved both front ends.
-  Duplicate: The same typed action and payload emitted by both visible surfaces
-    during one input turn.
+    owner appliers after this exchange has resolved the active producer lane.
+  Duplicate: The same typed action and payload emitted by the active surface
+    and an injected producer during one input turn.
   Conflict: Two commands with the same stable action identity but different
     payloads during one input turn.
 
@@ -35,7 +35,7 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E13)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E15)
 */
 #pragma once
 
@@ -477,7 +477,22 @@ struct OperatorEditorDiagnosticsCommand
 
 enum class OperatorEditorReplayCommandType : uint8_t
 {
-    SetMemoryPolicy
+    SetMemoryPolicy,
+    SetRecordingEnabled,
+    JumpToStart,
+    JumpToEnd,
+    TogglePlayPause,
+    StepBackward,
+    StepForward,
+    SetRevealSpeed,
+    Scrub,
+    TogglePrediction,
+    SetPredictionHorizon,
+    RestoreBranch,
+    Save,
+    Load,
+    ReturnToLive,
+    SelectCauseRow
 };
 
 struct OperatorEditorReplayCommand
@@ -486,6 +501,9 @@ struct OperatorEditorReplayCommand
     int presetIndex = -1;
     int retentionSeconds = -1;
     int budgetMiB = -1;
+    int rowIndex = -1;
+    float value = 0.0f;
+    bool enabled = false;
 };
 
 enum class OperatorEditorToolCommandType : uint8_t
@@ -531,7 +549,7 @@ using OperatorEditorPropertyCommandQueue = OperatorEditorCommandQueue<OperatorEd
 using OperatorEditorRenderingCommandQueue = OperatorEditorCommandQueue<OperatorEditorRenderingCommand, 8u>;
 using OperatorEditorAudioCommandQueue = OperatorEditorCommandQueue<OperatorEditorAudioCommand, 4u>;
 using OperatorEditorDiagnosticsCommandQueue = OperatorEditorCommandQueue<OperatorEditorDiagnosticsCommand, 8u>;
-using OperatorEditorReplayCommandQueue = OperatorEditorCommandQueue<OperatorEditorReplayCommand, 2u>;
+using OperatorEditorReplayCommandQueue = OperatorEditorCommandQueue<OperatorEditorReplayCommand, 8u>;
 using OperatorEditorToolCommandQueue = OperatorEditorCommandQueue<OperatorEditorToolCommand, 16u>;
 
 struct OperatorEditorCommandQueues

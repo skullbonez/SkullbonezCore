@@ -94,7 +94,7 @@ TEST_CASE( "Input router: key snapshot is bounded and ignores invalid virtual ke
 }
 
 
-TEST_CASE( "ImGui input policy: Legacy ImGui and Both route each event class to one application consumer" )
+TEST_CASE( "ImGui input policy: the selected surface routes each event class to one application consumer" )
 {
     struct MatrixRow
     {
@@ -108,9 +108,9 @@ TEST_CASE( "ImGui input policy: Legacy ImGui and Both route each event class to 
         { "legacy tool mouse", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Mouse, false },
         { "legacy tool keyboard", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, false },
         { "imgui tool drag", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
-        { "both tool drag", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
+        { "imgui tool drag repeat", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
         { "imgui tool typing", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, true },
-        { "both tool text", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Text, true },
+        { "imgui tool text", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Text, true },
         { "viewport camera drag", { true, true, false, false, true, true }, ImGuiEditorMessageClass::Mouse, false },
         { "viewport replay shortcut",
           { true, false, true, false, true, true },

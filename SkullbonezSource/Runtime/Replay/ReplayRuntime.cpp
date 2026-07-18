@@ -498,9 +498,13 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
              CurrentScrubSample(),
              CurrentSolverScrubSample(),
              solverPresentTrackPosition,
+             loadedPresentation ? m_timeline.LoadedPresentation().samples.size() : 0u,
              loadedPresentation,
              m_predictionOwner.ActiveFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented(),
-             ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ) };
+             ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ),
+             m_timeline.RecordingConfigured(),
+             m_timeline.RecordingEnabled(),
+             m_timeline.RecordingLockedByHashLog() };
 }
 
 

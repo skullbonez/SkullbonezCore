@@ -258,20 +258,26 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is blocked at P1 and remains 1/8.
+`physics-body-count-scale-campaign` (P0-P7) remains 1/8 at P1 and is queued
+immediately after ImGui/Tracy E17 by the binding 2026-07-19 directive.
 The canonical emitter, Debug-only same-state dual-driver raw/final oracle,
 0/1/4 worker matrix, focused tests, `validate_perf`, and `validate_physics` all
-pass from final source. Two transition artifacts remain owner-gated: the
+pass from final source. The directive authorizes the complete bounded-
+divergence assessment and transition of two artifacts: the
 one-process replay run's sole `causal.topologyCount: 199 -> 200` golden change,
 and the mechanically derived `physics_query_varied.json` update that is outside
-P1's current allowed baseline classes. Neither artifact is committed and P1 is
-not checked complete without that authority.
+P1's earlier allowed baseline classes. Neither artifact is committed at the
+UI checkpoint; P1 closes only after the post-E17 assessment and mapped gates.
 
-`imgui-tracy-editor-campaign` (E0-E17) remains 14/18: E14's implementation and
-all independent validation are complete, but its single replay-fidelity gate
-is blocked on the same P1 `causal.topologyCount: 199 -> 200` owner approval.
-E15 is the active implementation task under the owner's direction to note
-genuine blockers and continue. E0 completed the full legacy
+`imgui-tracy-editor-campaign` (E0-E17) remains 14/18: E14-E15 implementation
+and independent validation are complete, but their single replay-fidelity
+gates are retained until the authorized P1 `causal.topologyCount: 199 -> 200`
+transition is reconciled after E17. E16 is the active implementation task
+under the binding finish-UI-first direction. The 2026-07-18 owner amendment
+keeps Legacy as the development default and makes ImGui an explicit
+`--dev-ui imgui` mode;
+parallel/Both activation is forbidden because it creates competing focus and
+input owners. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
 contract. E1 pinned Dear ImGui docking and Tracy as exact licensed gitlinks,
@@ -354,12 +360,24 @@ separate virtualized dockable detail window. Native compact/detail captures,
 1 focused case/16 assertions, a 7/7 comment audit, UI/full/allocation/Release
 proof, and the replay interaction path passed without authored-data or golden
 changes. Its mandatory single replay-fidelity invocation passed launcher and
-control proofs, then stopped only at the owner-gated topology `199 -> 200`;
-E14 remains unchecked and E15 proceeds.
+control proofs, then stopped only at the topology `199 -> 200`, now authorized
+for the binding post-E17 P1 loopback; E14 remains unchecked while UI work
+proceeds.
+E15's validated checkpoint adds the complete replay-owned bottom transport,
+recording control, prediction/scrub/cause workflows, recoverable typed command
+path, minimum-width priority collapse, and mutually exclusive Legacy/ImGui
+selection with atomic `Ctrl+0` hot swaps. Legacy remains the selected default;
+an omitted selector preserves scene-authored Legacy visibility so established
+captures and tests remain stable. Native default/control/popover/minimum-width
+and two-direction swap captures, 5 focused cases/91 assertions, a 27/27 comment
+audit, and final UI/full/allocation/Release proof passed without authored-data,
+baseline, or golden changes. Its single replay-fidelity invocation passed the
+launcher and 16 control cases/72 assertions before the same authorized topology
+transition; E15 remains unchecked and E16 proceeds.
 The campaign adds a
 development-only ImGui docked editor and Tracy
-instrumentation while retaining the old UI intact for Legacy / ImGui / Both
-comparison. The default is editor-heavy on the left, game viewport centered,
+instrumentation while retaining the old UI intact for separate Legacy and
+ImGui process launches. The ImGui default dock layout is editor-heavy on the left, game viewport centered,
 Inspector/World/Rendering/Diagnostics plus compact Causality on the right, and
 replay transport permanently docked across the bottom.
 
@@ -944,7 +962,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Blocked — P1 owner-gated | 1/8 | Await exact approval for replay topology 199 -> 200 and the mechanically derived `physics_query_varied.json`; retain the validated canonical implementation and authorized physics baselines |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 transition authorized, queued after E17 | 1/8 | Finish UI E16-E17, then perform the binding bounded-divergence assessment, reconcile replay topology 199 -> 200 and `physics_query_varied.json`, and run P1 gates |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 
@@ -958,7 +976,7 @@ development allocation boundary → Tracy lifecycle/instrumentation → ImGui
 Win32/DX12/input foundations → shared typed command seam → deterministic dock
 shell → editor-left workflow → central viewport → right-side
 Inspector/World/Rendering/Diagnostics → compact Causality → bottom replay
-transport → persistence/stress → side-by-side owner evaluation and independent
+transport → persistence/stress → separate-mode/hot-swap owner evaluation and independent
 closure review.
 
 Binding layout and migration rules: the left rail is editor-first from the top
@@ -966,12 +984,13 @@ down; the game viewport owns the center; replay controls are permanently docked
 across the bottom; Causality is compact by default so Inspector and useful
 world/render/diagnostic tools fit on the right. Tracy remains its external
 viewer and supersedes the profiler only in the new ImGui surface. The legacy
-UI remains compiled, selectable, and functionally intact for Legacy / ImGui /
-Both evaluation throughout this campaign. No legacy deletion is authorized.
+UI remains compiled, selectable, and functionally intact for exclusive Legacy
+or ImGui activation, including atomic hot swaps. Simultaneous activation is
+forbidden; no legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E15; E14 gate-blocked | 14/18 | Anchor the complete replay workflow across the bottom while retaining E14's validated checkpoint |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E16; E14-E15 retained for post-P1 gate reconciliation | 14/18 | Harden persistence, styling, scaling, automation, and long-session use while retaining both validated checkpoints |
 
 ## Features
 

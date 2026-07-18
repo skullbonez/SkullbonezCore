@@ -9,10 +9,15 @@ Summary:
 
 Glossary:
   Retention: Seconds retained by a bounded recorder ring.
+  Recording gate: Live append permission over already configured recorder rings;
+    stopping the gate does not clear or resize retained samples.
+  Hash-log lock: Startup validation capture whose append policy cannot be
+    changed interactively.
 
 Invariants:
   - Retention clamps preserve presentation history before solver history.
   - Recorder windows and loaded samples never have parallel storage in ReplayRuntime.
+  - Hash-log recording cannot be stopped by an editor command.
 
 Related:
   - ReplayRuntime.h
@@ -227,9 +232,14 @@ class ReplayTimeline
     {
         return m_recordingEnabled;
     }
+    bool RecordingLockedByHashLog() const noexcept
+    {
+        return !m_recordingHashLogPath.empty();
+    }
 
     ReplayRecordingConfigResult
     ConfigureRecording( bool enabled, int retentionSeconds, const char* hashLogPath, int runtimeBodyCapacity );
+    bool SetRecordingEnabled( bool enabled ) noexcept;
     ReplayMemoryPolicyApplyResult ApplyMemoryPolicyRequest( const ReplayMemoryPolicyRequest& request );
     void FlushHashLogs();
     void Reset( const char* sceneLabel );

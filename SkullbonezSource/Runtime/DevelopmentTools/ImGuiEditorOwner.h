@@ -18,8 +18,8 @@ Glossary:
     runtime composition root to arbitrate later.
   Layout version: Integer embedded in the persisted ini filename so an
     incompatible panel topology starts from a clean deterministic namespace.
-  Surface preference: Process-lifetime visibility choice kept outside scene and
-    replay serialization.
+  Surface selection: Process-lifetime choice of active Legacy or ImGui
+    implementation kept outside scene and replay serialization.
   Viewport mapping: Last completed fitted image rectangle used by the next input
     frame to map Win32 client pixels back to the captured render extent.
   Property preview: One active ImGui scalar value kept inside presentation until
@@ -33,17 +33,19 @@ Invariants:
   - Platform multi-viewports remain disabled until a later evidence-backed task.
   - BeginFrame and EndFrame are balanced on the same thread.
   - ImGui allocations use the dedicated DearImGui development-tool owner.
+  - ImGui is visible only while it is the selected development UI surface.
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E14)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E15)
 */
 #pragma once
 
 #include "ImGuiEditorInputPolicy.h"
 #include "ImGuiEditorLayoutPolicy.h"
+#include "../RunLaunchOptions.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../UI/OperatorEditorExchange.h"
@@ -85,9 +87,7 @@ struct ImGuiEditorFrameInput
 struct ImGuiEditorCommands
 {
     UI::OperatorEditorCommandQueues operatorEditor;
-    bool requestHide = false;
-    bool requestLegacyVisibility = false;
-    bool requestedLegacyVisible = true;
+    bool requestSurfaceSwap = false;
 };
 
 struct ImGuiEditorFrameResult
@@ -177,9 +177,10 @@ class ImGuiEditorOwner
     void Shutdown() noexcept;
     void SetVisible( bool visible ) noexcept;
     bool IsVisible() const noexcept;
-    void InitializeSurfacePreferences( bool legacyVisible, bool editorVisible ) noexcept;
-    void SetLegacySurfaceVisible( bool visible ) noexcept;
-    bool LegacySurfaceVisible() const noexcept;
+    void InitializeSurfaceSelection( DevelopmentUiMode initialSurface ) noexcept;
+    void SelectSurface( DevelopmentUiMode surface ) noexcept;
+    DevelopmentUiMode SelectedSurface() const noexcept;
+    bool HasActivatedSurfaceSelection() const noexcept;
     UI::OperatorEditorCommandQueues ConsumeOperatorEditorCommands() noexcept;
     SkullbonezCore::Core::SbResult CaptureGameViewport();
 
@@ -204,8 +205,9 @@ class ImGuiEditorOwner
     Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
     HWND m_window = nullptr;
     bool m_visible = false;
-    bool m_surfacePreferencesInitialized = false;
-    bool m_legacySurfaceVisible = true;
+    bool m_surfaceSelectionInitialized = false;
+    bool m_surfaceSelectionActivated = false;
+    DevelopmentUiMode m_selectedSurface = DevelopmentUiMode::Legacy;
     bool m_frameActive = false;
     bool m_platformBackendInitialized = false;
     bool m_gameViewportHovered = false;

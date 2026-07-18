@@ -624,6 +624,7 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     static_assert( OperatorEditorRenderingCommandQueue::capacity == 8u );
     static_assert( OperatorEditorAudioCommandQueue::capacity == 4u );
     static_assert( OperatorEditorDiagnosticsCommandQueue::capacity == 8u );
+    static_assert( OperatorEditorReplayCommandQueue::capacity == 8u );
     static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
 
     InGameUICommands legacy;
@@ -698,6 +699,73 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
     InGameUICommands projected;
     CHECK_FALSE( ProjectOperatorEditorCommands( corruptCount, projected ).ok );
     CHECK_FALSE( projected.scene.resetScene );
+}
+
+TEST_CASE( "Operator editor replay transport validates values and arbitrates one owner action" )
+{
+    using namespace SkullbonezCore::UI;
+    const auto replayCommand =
+        []( OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
+    {
+        OperatorEditorReplayCommand command;
+        command.type = type;
+        command.value = value;
+        command.rowIndex = rowIndex;
+        command.enabled = enabled;
+        return command;
+    };
+
+    OperatorEditorReplayCommandQueue valid;
+    CHECK( SubmitOperatorEditorCommand(
+               valid,
+               replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
+               .ok );
+    CHECK( SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.5f ) ).ok );
+    CHECK( SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 2.0f ) )
+               .ok );
+    CHECK( SubmitOperatorEditorCommand( valid,
+                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 3.0f ) )
+               .ok );
+    CHECK(
+        SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, 4 ) )
+            .ok );
+    CHECK( valid.count == 5u );
+
+    OperatorEditorReplayCommandQueue invalid;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     invalid,
+                     replayCommand( OperatorEditorReplayCommandType::Scrub, std::numeric_limits<float>::quiet_NaN() ) )
+                     .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalid, replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 10.0f ) )
+            .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalid,
+                                     replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 0.0f ) )
+            .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalid,
+                                     replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, -1 ) )
+            .ok );
+    CHECK( invalid.count == 0u );
+
+    OperatorEditorCommandQueues legacy;
+    OperatorEditorCommandQueues secondary;
+    REQUIRE(
+        SubmitOperatorEditorCommand( legacy.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
+            .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
+            .ok );
+    const OperatorEditorArbitrationResult duplicate = ArbitrateOperatorEditorCommands( legacy, secondary );
+    REQUIRE( duplicate.status.ok );
+    CHECK( duplicate.coalescedDuplicateCommands == 1u );
+
+    secondary = {};
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.75f ) )
+            .ok );
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( legacy, secondary ).status.ok );
 }
 
 TEST_CASE( "Operator editor world previews stay local and commits project to established owners" )
@@ -811,12 +879,12 @@ TEST_CASE( "Operator editor world previews stay local and commits project to est
     CHECK_FALSE( legacy.water.requestWorldFluidHeight );
     CHECK_FALSE( legacy.physics.toggleTornado );
     CHECK( legacy.operatorEditor.property.count == 19u );
-    const OperatorEditorArbitrationResult coexistence =
+    const OperatorEditorArbitrationResult arbitration =
         ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
-    REQUIRE( coexistence.status.ok );
-    CHECK( coexistence.acceptedLegacyCommands == 20u );
-    CHECK( coexistence.acceptedSecondaryCommands == 0u );
-    CHECK( coexistence.coalescedDuplicateCommands == 20u );
+    REQUIRE( arbitration.status.ok );
+    CHECK( arbitration.acceptedLegacyCommands == 20u );
+    CHECK( arbitration.acceptedSecondaryCommands == 0u );
+    CHECK( arbitration.coalescedDuplicateCommands == 20u );
 
     OperatorEditorPropertyCommandQueue invalid;
     CHECK_FALSE( SubmitOperatorEditorCommand(

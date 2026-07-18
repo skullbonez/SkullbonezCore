@@ -1,15 +1,25 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 14/18 tasks (E0-E13 complete; E14 implementation and all
-independent gates complete but acceptance blocked on the P1 replay-topology
-approval; E15 next) under the owner's continue-on-blocker direction
+Status: Active — 14/18 tasks (E0-E13 complete; E14-E15 implementation and
+independent gates complete but acceptance retained until the authorized P1
+replay-topology reconciliation; E16 next) under the binding finish-UI-first
+direction
 Owner direction: 2026-07-18
 Ledger: E0-E17 (14/18 complete)
+
+Owner amendment, 2026-07-18: Legacy and ImGui are mutually exclusive process
+modes because parallel surfaces compete for window focus and input. Legacy
+remains the development-build default; `--dev-ui imgui` explicitly selects the
+docked editor. A live hot swap is valid only when it deactivates the source before
+activating the target; a simultaneous `both` state is invalid. Earlier
+coexistence evidence remains historical evidence, not the current acceptance
+contract.
 
 ## Objective
 
 Build a development-only Dear ImGui editor shell and Tracy instrumentation
-lane that can run beside the existing in-game debug UI. The first default
+lane while keeping the existing in-game debug UI available as a separate
+command-line-selected process mode. The ImGui mode's first default
 dock layout must feel like an editor rather than a debug overlay:
 
 - editor mode, scene, hierarchy, creation, and selection workflows run down
@@ -21,11 +31,10 @@ dock layout must feel like an editor rather than a debug overlay:
 - Tracy owns deep CPU/timeline/allocation profiling through its external
   viewer rather than another crowded in-engine profiler tab.
 
-This campaign is an additive evaluation lane. **It does not delete, rename,
-disable, or silently replace the old UI.** The owner must be able to display
-the legacy UI, the ImGui editor, or both in the same development build and
-compare them interactively. Legacy retirement is explicitly outside this
-plan and requires a later owner-approved plan after hands-on evaluation.
+This campaign preserves the old UI but does not run it in parallel with ImGui.
+The owner can compare the default Legacy state and explicit `--dev-ui imgui`
+launches of the same development build. Legacy retirement is explicitly outside
+this plan and requires a later owner-approved plan after hands-on evaluation.
 
 ## Binding Decisions
 
@@ -49,7 +58,7 @@ plan and requires a later owner-approved plan after hands-on evaluation.
    ImGui panels may emit the same domain commands as the legacy UI; they may
    not gain `Run`, `GameModel`, renderer, replay-owner, or physics-owner
    reach-back to make migration convenient.
-6. The old profiler tab remains intact while the UIs coexist. The ImGui
+6. The old profiler tab remains intact in Legacy process mode. The ImGui
    editor does not rebuild its timing tree, timeline, percentile table, or
    histogram because Tracy supersedes those views. Engine-specific counters
    that help authoring or capacity diagnosis remain available in focused
@@ -120,9 +129,9 @@ It does **not** authorize removal from the legacy UI.
 - One task owns each implementation commit. Third-party drops, generated
   project changes, and engine integration stay reviewable; do not mix broad
   panel migration into backend bring-up.
-- Do not delete or gut `SkullbonezSource/UI/*`, legacy tab code, legacy replay
-  overlay code, or its current toggle. Coexistence tests must prove both paths
-  can be opened independently and simultaneously.
+- Do not delete or gut `SkullbonezSource/UI/*`, legacy tab code, or legacy
+  replay overlay code. Mode tests must prove each path opens independently and
+  that no launch, shortcut, or menu path activates both surfaces together.
 - Source-bearing changes receive the required learning header and nearby
   ownership/lifetime/hazard comments, followed by the repository comment
   audit before task closure.
@@ -318,9 +327,11 @@ It does **not** authorize removal from the legacy UI.
     to the relevant event class. Viewport hover/focus must preserve camera,
     selection, gizmo, and game input; editor fields must not leak keystrokes.
   - Define mouse capture, relative mode, alt-tab, DPI, resize, IME, clipboard,
-    and escape behavior. Both UIs open must not double-consume commands.
-  - Acceptance: a scripted matrix covers Legacy / ImGui / Both, viewport/tool
-    focus, typing, dragging, camera input, and replay shortcuts.
+    and escape behavior. An atomic hot swap must deactivate the source before
+    the target can consume input.
+  - Acceptance: a scripted matrix covers separate Legacy and ImGui modes plus
+    hot swaps, viewport/tool focus, typing, dragging, camera input, and replay
+    shortcuts.
   - Gates: `tools\validate_ui.bat`, `tools\validate_ui_stress.bat`,
     `tools\validate_full.bat` because `Window*` is touched.
   - Evidence:
@@ -336,10 +347,9 @@ It does **not** authorize removal from the legacy UI.
     editor views and fixed-capacity typed command queues. Both UI front ends
     consume/emit these boundaries; neither forwards through `Run`.
   - Give commands stable ownership, validation, recoverable error reporting,
-    and deterministic arbitration when the same action is emitted twice while
-    both UIs are visible.
-  - Add independent visibility flags and shortcuts for Legacy, ImGui, and Both;
-    persist them only as development preferences, not scene/replay state.
+    and deterministic duplicate arbitration at the common seam.
+  - Keep one selected Legacy-or-ImGui surface and an atomic hot-swap shortcut;
+    persist it only as a development preference, not scene/replay state.
   - Acceptance: representative scene, property, rendering, and replay commands
     produce the same owner-side effect from either UI, and both paths coexist
     without duplicated execution.
@@ -489,9 +499,9 @@ It does **not** authorize removal from the legacy UI.
     assertions, 7/7 comment audit, UI/full/allocation/Release proof, and zero
     authored-data or golden change. The single replay-fidelity invocation
     passed its launcher and 16 control cases/72 assertions, then reached only
-    Physics P1's already-owner-gated `causal.topologyCount: 199 -> 200`
-    transition. E14 therefore remains unchecked while E15 proceeds under the
-    owner's continue-on-blocker direction.
+    Physics P1's `causal.topologyCount: 199 -> 200` transition. The binding
+    2026-07-19 directive now authorizes that transition after E17. E14 therefore
+    remains unchecked while the UI campaign proceeds.
 
 - [ ] E15 — Anchor the complete replay workflow across the bottom.
   - Provide record/stop, jump start/end, play/pause, step backward/forward,
@@ -504,12 +514,26 @@ It does **not** authorize removal from the legacy UI.
     restore transactions, artifact IO, prediction archives, or timeline state.
   - Define behavior while recording, prediction is pending, no artifact is
     loaded, scrub is clamped, or the world/selection changes.
-  - Acceptance: record, stop, scrub, step, play, predict, select cause, and
-    return-to-live workflows pass with Legacy / ImGui / Both and the replay
-    bar remains docked below the viewport after layout reset.
+  - Acceptance: ImGui record, stop, scrub, step, play, predict, select cause,
+    and return-to-live workflows pass; existing Legacy replay workflows remain
+    intact in exclusive Legacy mode; replay state survives atomic hot swaps; no
+    path activates both surfaces at once; and the ImGui replay bar remains
+    docked below the viewport after layout reset.
   - Gates: `tools\validate_ui.bat`, replay interaction tests,
     `tools\validate_replay_visual_fidelity.bat` once, `tools\validate_full.bat`;
     zero replay-golden refresh.
+  - Checkpoint evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e15-replay-workflow.md` records the
+    replay-owned typed transport, recording gate, minimum-width priority
+    collapse, exclusive Legacy/ImGui selector and atomic hot swap, final native
+    captures, 5 focused cases/91 assertions, 27/27 comment audit, and final
+    UI/full/allocation/Release proof. Legacy remains the default and an omitted
+    selector preserves scene-authored Legacy visibility for stable captures.
+    The single replay-fidelity invocation passed launcher and 16 control
+    cases/72 assertions, then reached only the authorized Physics P1
+    `causal.topologyCount: 199 -> 200` transition. No authored data, baseline,
+    or golden changed. E15 therefore remains unchecked while E16 proceeds;
+    acceptance is reconciled after the binding post-E17 P1 loopback.
 
 - [ ] E16 — Harden persistence, styling, scaling, automation, and long-session use.
   - Persist panel visibility, dock layout version, sizes, filters, and benign
@@ -521,21 +545,21 @@ It does **not** authorize removal from the legacy UI.
   - Add deterministic automation hooks for panel visibility, layout reset,
     focus, essential actions, and screenshots. Stress panel churn, scene
     switching, replay scrubbing, resize/DPI, Tracy connect/disconnect, and
-    legacy coexistence for allocation/resource growth.
+    repeated Legacy/ImGui hot swaps for allocation/resource growth.
   - Acceptance: no unbounded CPU/GPU descriptor/memory growth, stable layout
-    recovery, and a screenshot set for default/minimum/ultrawide/Both modes
-    reviewed against the dock contract.
+    recovery, and a screenshot set for default/minimum/ultrawide ImGui plus a
+    separate Legacy launch reviewed against the dock contract and mode rule.
   - Gates: `tools\validate_ui.bat`, `tools\validate_ui_stress.bat`,
     `tools\validate_perf.bat`, allocation scan, DX12+stress when applicable.
 
-- [ ] E17 — Side-by-side owner evaluation, independent review, and campaign closure.
+- [ ] E17 — Separate-mode owner evaluation, independent review, and campaign closure.
   - Produce a control-disposition report proving every legacy control is kept,
     regrouped, Tracy-superseded only in ImGui, or explicitly deferred while
     still reachable in the legacy UI.
-  - Capture the final default dock layout and representative workflows with
-    Legacy, ImGui, and Both. Give the owner a development build and concise
-    playtest script; record feedback and resolve campaign-blocking usability
-    findings without deleting the old path.
+  - Capture the final default dock layout and representative workflows in
+    separate Legacy and ImGui states plus an atomic hot swap. Give the owner a
+    development build and concise playtest script; record feedback and resolve
+    campaign-blocking usability findings without deleting the old path.
   - Audit every touched source file with the comment-style skill. Run an
     independent ownership review for command authority, DX12 lifetime,
     replay ownership, allocation exception scope, and absence of a replacement
@@ -554,11 +578,13 @@ It does **not** authorize removal from the legacy UI.
 
 ## Final Acceptance
 
-- The default editor opens with editor controls down the left, the game
-  viewport dominant in the center, useful inspection/settings on the right,
-  compact causality, and replay controls permanently anchored at the bottom.
-- The user can select Legacy, ImGui, or Both and perform side-by-side evaluation
-  without loss of legacy functionality or duplicate command execution.
+- When explicitly selected, the ImGui editor's default dock layout opens with
+  editor controls down the left, the game viewport dominant in the center,
+  useful inspection/settings on the right, compact causality, and replay
+  controls permanently anchored at the bottom.
+- The default launch selects Legacy, `--dev-ui imgui` initially selects ImGui,
+  and atomic hot swaps never activate both surfaces or duplicate focus/command
+  ownership.
 - Tracy captures frame, thread, physics, render, replay, UI, allocation, and
   capacity evidence in its external viewer; ImGui contains no redundant
   general-purpose profiler replacement.

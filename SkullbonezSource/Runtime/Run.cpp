@@ -659,40 +659,49 @@ void Run::Initialise()
     }
     m_skipExecute = replayStartup.skipExecute;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Scene-authored legacy window defaults run during load. The explicit
-    // process selector wins only after those defaults have been consumed.
-    ApplyDevelopmentUiMode( true );
+    // Scene-authored legacy window defaults run during load. Reapply the
+    // selected surface so an inactive implementation cannot become a second input owner.
+    ApplyDevelopmentUiMode();
 #endif
 }
 
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void Run::ApplyDevelopmentUiMode( bool sceneDefaultsApplied )
+void Run::ApplyDevelopmentUiMode()
 {
-    if ( !m_launchOptions.developmentUiModeExplicit && !sceneDefaultsApplied )
+    // Initialize once from CLI, then preserve an explicit hot swap across
+    // scene/replay loads rather than treating scene defaults as UI authority.
+    m_imguiEditor.InitializeSurfaceSelection( m_launchOptions.developmentUiMode );
+    if ( !m_launchOptions.developmentUiModeExplicit && !m_imguiEditor.HasActivatedSurfaceSelection() )
     {
-        // Scene-authored legacy visibility has not loaded yet. Keep the additive
-        // editor dark without freezing a pre-scene value as a process preference.
+        // Invariant: an omitted selector chooses the Legacy implementation but
+        // preserves the scene-authored Legacy visibility default. This keeps
+        // ordinary launches and capture baselines stable while ImGui stays dormant.
         m_imguiEditor.SetVisible( false );
         return;
     }
-    bool initialLegacyVisible = m_operatorUi->IsVisible();
-    bool initialEditorVisible = false;
-    if ( m_launchOptions.developmentUiModeExplicit )
+    SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
+}
+
+void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
+{
+    // Invariant: deactivate the source before activating the target. The two
+    // implementations coexist in the build but never own focus in one instant.
+    if ( DevelopmentUiModeShowsLegacy( surface ) )
     {
-        initialEditorVisible = m_launchOptions.developmentUiMode != DevelopmentUiMode::Legacy;
-        initialLegacyVisible = m_launchOptions.developmentUiMode != DevelopmentUiMode::ImGui;
+        m_imguiEditor.SelectSurface( DevelopmentUiMode::Legacy );
+        if ( !m_operatorUi->IsVisible() )
+        {
+            m_operatorUi->SetVisible( true, 0.0 );
+        }
+        return;
     }
-    // Invariant: initialize once from CLI/scene defaults, then preserve operator
-    // choices across scene and replay reloads without serializing them into either.
-    m_imguiEditor.InitializeSurfacePreferences( initialLegacyVisible, initialEditorVisible );
-    // Invariant: startup overrides run before RunTimerState::Initialise. Zero is
-    // the legacy UI's established safe startup timestamp and avoids sampling an
-    // inert platform timer merely to select a presentation surface.
-    if ( m_operatorUi->IsVisible() != m_imguiEditor.LegacySurfaceVisible() )
+
+    if ( m_operatorUi->IsVisible() )
     {
-        m_operatorUi->SetVisible( m_imguiEditor.LegacySurfaceVisible(), 0.0 );
+        m_operatorUi->SetVisible( false, 0.0 );
     }
+    m_imguiEditor.SelectSurface( DevelopmentUiMode::ImGui );
 }
 #endif
 

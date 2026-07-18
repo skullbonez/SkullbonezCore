@@ -82,9 +82,13 @@ struct ReplayOverlayStateView
     const ReplayPresentationSample* currentPresentation = nullptr;
     const ReplaySolverFrameSample* currentSolver = nullptr;
     float solverPresentTrackPosition = 1.0f;
+    std::size_t loadedSampleCount = 0u;
     bool loadedPresentation = false;
     bool predictionTimelineAvailable = false;
     bool shouldRenderScrubber = false;
+    bool recordingConfigured = false;
+    bool recordingEnabled = false;
+    bool recordingLockedByHashLog = false;
 };
 
 struct ReplayOverlayRenderContext

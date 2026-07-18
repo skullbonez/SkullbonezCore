@@ -93,6 +93,7 @@ struct ReplayPredictionPresentationView
     std::size_t trajectoryChildFrameCount = 0;
     ReplayPredictionBuildMode buildMode = ReplayPredictionBuildMode::Undecided;
     float horizonSeconds = 0.0f;
+    double revealSecondsPerSecond = 1.0;
     double measuredTicksPerMs = 0.0;
     double lastBuildWallMs = 0.0;
     bool enabled = false;

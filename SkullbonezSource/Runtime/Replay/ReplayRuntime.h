@@ -281,6 +281,18 @@ class ReplayRuntime
                         RunCameraState& camera,
                         RunMousePickupState& mousePickup,
                         ReplayWorkspaceOutput& output );
+    // Applies one editor/legacy-independent transport value through the same
+    // concrete replay owners used by pointer controls. Recoverable unavailable
+    // states publish bounded scrubber feedback instead of failing the run.
+    void ApplyTransportCommand( const ReplayTransportCommand& command,
+                                const ReplayTransportHostContext& host,
+                                InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction,
+                                Environment::CameraCollection* cameras,
+                                Geometry::Terrain* terrain,
+                                RunCameraState& camera,
+                                RunMousePickupState& mousePickup,
+                                ReplayWorkspaceOutput& output );
     void ConfigureStartupWorkflows( const ReplayStartupRequest& request );
     ReplayFrameIntentResult ApplyFrameIntent( const ReplayFrameIntent& intent );
     ReplayStartupResult RunStartupWorkflows( const ReplayStartupLoadInput& loadInput

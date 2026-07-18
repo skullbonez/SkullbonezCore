@@ -102,7 +102,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  RuntimeFramePresentationView& presentationOwners,
                                                  ReplayRuntime& replayRuntime,
                                                  UiInputCaptureIntent externalUiCapture,
-                                                 UI::OperatorEditorCommandQueues externalEditorCommands )
+                                                 UI::OperatorEditorCommandQueues externalEditorCommands,
+                                                 bool legacyDevelopmentUiActive )
 {
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
@@ -730,6 +731,12 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         case RuntimeInputAction::TogglePerformanceHistogram:
         case RuntimeInputAction::ToggleMemoryOverlay:
         {
+            if ( event.action == RuntimeInputAction::ToggleUIVisibility && !legacyDevelopmentUiActive )
+            {
+                // Invariant: the legacy visibility shortcut is inert while the
+                // active ImGui surface owns focus and input.
+                break;
+            }
             const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
                 DiagnosticsUIKeyboardShortcutContext{ m_UI,
                                                       m_debug,
@@ -875,13 +882,14 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             uiFrameResult.enterInteractiveScene = false;
         }
         presentationEdit.Commit();
-        const bool quitRequested = m_inputRouter.DispatchAfterUiDismiss(
-            m_inputActions,
-            { uiFrameResult.commands.ui.userInteracted, m_timers.simulationTimer.GetTotalTime() },
-            host,
-            interactionOwners,
-            sceneOwners,
-            m_replayRuntime.BuildInputView() );
+        const bool quitRequested = m_inputRouter.DispatchAfterUiDismiss( m_inputActions,
+                                                                         { uiFrameResult.commands.ui.userInteracted,
+                                                                           m_timers.simulationTimer.GetTotalTime(),
+                                                                           legacyDevelopmentUiActive },
+                                                                         host,
+                                                                         interactionOwners,
+                                                                         sceneOwners,
+                                                                         m_replayRuntime.BuildInputView() );
         presentationEdit.Refresh();
         if ( quitRequested )
         {

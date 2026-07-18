@@ -4,17 +4,17 @@ Purpose:
   Implements bounded operator-editor command validation and arbitration.
 
 Summary:
-  Legacy one-frame fields are normalized into five domain queues. The merge
-  order is fixed, exact cross-surface duplicates collapse to one request, and a
-  same-action/different-payload conflict reports a recoverable result before any
-  runtime owner sees ambiguous intent.
+  Legacy one-frame fields are normalized into fixed domain queues. The merge
+  order is fixed, exact active-surface/injected duplicates collapse to one
+  request, and a same-action/different-payload conflict reports a recoverable
+  result before any runtime owner sees ambiguous intent.
 
 Glossary:
   Action identity: The domain enum value that names one owner-side operation.
   Projection: Conversion from the common queue back into established narrow UI
     command structs consumed by concrete runtime owners.
-  FNV-1a: Small deterministic hash used only to prove both surfaces consumed the
-    same frame values; it is not durable identity or serialization.
+  FNV-1a: Small deterministic hash used only to prove each surface implementation
+    consumed the same frame values; it is not durable identity or serialization.
 
 Invariants:
   - Validation completes before a command consumes queue capacity.
@@ -154,7 +154,8 @@ bool SameReplayIdentity( const OperatorEditorReplayCommand& left, const Operator
 bool SameReplayPayload( const OperatorEditorReplayCommand& left, const OperatorEditorReplayCommand& right )
 {
     return left.presetIndex == right.presetIndex && left.retentionSeconds == right.retentionSeconds &&
-           left.budgetMiB == right.budgetMiB;
+           left.budgetMiB == right.budgetMiB && left.rowIndex == right.rowIndex && left.value == right.value &&
+           left.enabled == right.enabled;
 }
 
 bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEditorToolCommand& right )
@@ -164,8 +165,8 @@ bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEdit
         return false;
     }
     // Entity flag actions are independent per durable scene object. Selection
-    // remains one action identity so two front ends cannot select two objects
-    // in the same turn without producing a Lane-R conflict.
+    // remains one action identity so a surface and injected producer cannot
+    // select two objects in the same turn without a Lane-R conflict.
     return ( left.type != OperatorEditorToolCommandType::SetEntityVisible &&
              left.type != OperatorEditorToolCommandType::SetEntityLocked ) ||
            left.sceneObjectId == right.sceneObjectId;
@@ -461,19 +462,60 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
                                                             const OperatorEditorReplayCommand& command,
                                                             bool* duplicate )
 {
-    if ( command.type != OperatorEditorReplayCommandType::SetMemoryPolicy )
+    switch ( command.type )
     {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay command has an unknown action type" );
+    case OperatorEditorReplayCommandType::SetMemoryPolicy:
+    {
+        const bool presetValid = command.presetIndex >= -1;
+        const bool retentionValid = command.retentionSeconds == -1 || command.retentionSeconds > 0;
+        const bool budgetValid = command.budgetMiB == -1 || command.budgetMiB > 0;
+        const bool requestsValue = command.presetIndex >= 0 || command.retentionSeconds > 0 || command.budgetMiB > 0;
+        if ( !presetValid || !retentionValid || !budgetValid || !requestsValue )
+        {
+            return SkullbonezCore::Core::SbResult::Failure(
+                OWNER,
+                "Replay memory command requires at least one valid preset, retention, or budget value" );
+        }
+        break;
     }
-    const bool presetValid = command.presetIndex >= -1;
-    const bool retentionValid = command.retentionSeconds == -1 || command.retentionSeconds > 0;
-    const bool budgetValid = command.budgetMiB == -1 || command.budgetMiB > 0;
-    const bool requestsValue = command.presetIndex >= 0 || command.retentionSeconds > 0 || command.budgetMiB > 0;
-    if ( !presetValid || !retentionValid || !budgetValid || !requestsValue )
-    {
-        return SkullbonezCore::Core::SbResult::Failure(
-            OWNER,
-            "Replay memory command requires at least one valid preset, retention, or budget value" );
+    case OperatorEditorReplayCommandType::SetRevealSpeed:
+        if ( !std::isfinite( command.value ) || command.value < 0.25f || command.value > 4.0f )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay reveal speed must be within 0.25x..4x" );
+        }
+        break;
+    case OperatorEditorReplayCommandType::Scrub:
+        if ( !std::isfinite( command.value ) || command.value < 0.0f || command.value > 1.0f )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay scrub position must be normalized" );
+        }
+        break;
+    case OperatorEditorReplayCommandType::SetPredictionHorizon:
+        if ( !std::isfinite( command.value ) || command.value < 1.0f || command.value > 20.0f )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay prediction horizon must be 1..20 seconds" );
+        }
+        break;
+    case OperatorEditorReplayCommandType::SelectCauseRow:
+        if ( command.rowIndex < 0 )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay cause row must be non-negative" );
+        }
+        break;
+    case OperatorEditorReplayCommandType::SetRecordingEnabled:
+    case OperatorEditorReplayCommandType::JumpToStart:
+    case OperatorEditorReplayCommandType::JumpToEnd:
+    case OperatorEditorReplayCommandType::TogglePlayPause:
+    case OperatorEditorReplayCommandType::StepBackward:
+    case OperatorEditorReplayCommandType::StepForward:
+    case OperatorEditorReplayCommandType::TogglePrediction:
+    case OperatorEditorReplayCommandType::RestoreBranch:
+    case OperatorEditorReplayCommandType::Save:
+    case OperatorEditorReplayCommandType::Load:
+    case OperatorEditorReplayCommandType::ReturnToLive:
+        break;
+    default:
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Replay command has an unknown action type" );
     }
     return SubmitBounded( queue, command, SameReplayIdentity, SameReplayPayload, duplicate );
 }

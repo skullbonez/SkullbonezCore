@@ -30,7 +30,7 @@ Glossary:
   Submitted-frame mark: Development profiler boundary emitted only after DX12
     accepts a successful Present for the game frame.
   Shared editor view: One immutable scene/property/render/replay/tool value
-    assembled before either operator frontend renders.
+    assembled before the selected operator frontend renders.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
@@ -39,6 +39,7 @@ Invariants:
   - Frame views are created once per frame turn and never retained by helpers.
   - A successful submitted game frame emits exactly one development profiler
     frame mark; failed or capture-only turns emit none.
+  - A development surface swap hides the source before the target begins a frame.
 
 Related:
   - RuntimeFrameViews.h defines the frame-helper calling convention.
@@ -1091,6 +1092,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
 #endif
             UiInputCaptureIntent developmentUiCapture;
             SkullbonezCore::UI::OperatorEditorCommandQueues developmentEditorCommands;
+            bool legacyDevelopmentUiActive = true;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
             // Concept: native messages were already offered to ImGui while the
             // queue drained. The previous completed editor frame now supplies
@@ -1109,6 +1111,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             developmentUiCapture.gameViewportSourceWidth = imguiInput.gameViewport.sourceWidth;
             developmentUiCapture.gameViewportSourceHeight = imguiInput.gameViewport.sourceHeight;
             developmentEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
+            legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
 #endif
             ProcessInputFrame( frameHost,
                                frameInteraction,
@@ -1116,11 +1119,32 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                framePresentation,
                                m_replayRuntime,
                                developmentUiCapture,
-                               developmentEditorCommands );
+                               developmentEditorCommands,
+                               legacyDevelopmentUiActive );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-            // The legacy 0 shortcut remains owned by established input. Mirror
-            // its result into process-lifetime surface preferences after routing.
-            m_imguiEditor.SetLegacySurfaceVisible( m_operatorUi->IsVisible() );
+            bool legacySurfaceSwapRequested = false;
+            if ( m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy &&
+                 m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) )
+            {
+                const InputActions& actions = m_inputRouter.Actions();
+                for ( std::size_t actionIndex = 0u; actionIndex < actions.Count(); ++actionIndex )
+                {
+                    const InputActionEvent& action = actions[actionIndex];
+                    legacySurfaceSwapRequested = action.action == RuntimeInputAction::ToggleUIVisibility &&
+                                                 action.edge == InputActionEdge::Pressed;
+                    if ( legacySurfaceSwapRequested )
+                    {
+                        break;
+                    }
+                }
+            }
+            if ( legacySurfaceSwapRequested )
+            {
+                // Plain 0 retains the Legacy minimize behavior. Ctrl+0 is the
+                // explicit surface chord; selection hides Legacy before ImGui
+                // begins a frame, so focus ownership never overlaps.
+                SelectDevelopmentUiSurface( DevelopmentUiMode::ImGui );
+            }
 #endif
             m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
@@ -1303,15 +1327,9 @@ SkullbonezCore::Core::SbResult Run::Execute()
                     m_applicationExit.RequestOwnedFailure( imguiResult.status );
                     return m_applicationExit.Resolve( 0 );
                 }
-                if ( imguiResult.commands.requestHide )
+                if ( imguiResult.commands.requestSurfaceSwap )
                 {
-                    m_imguiEditor.SetVisible( false );
-                }
-                if ( imguiResult.commands.requestLegacyVisibility )
-                {
-                    m_operatorUi->SetVisible( imguiResult.commands.requestedLegacyVisible,
-                                              m_timers.simulationTimer.GetTotalTime() );
-                    m_imguiEditor.SetLegacySurfaceVisible( imguiResult.commands.requestedLegacyVisible );
+                    SelectDevelopmentUiSurface( DevelopmentUiMode::Legacy );
                 }
             }
 #endif

@@ -7,16 +7,16 @@ Summary:
   Run owns top-level frame order and calls ProcessInputFrame once. The function
   receives non-copyable frame views for that turn, while InputRouter alone
   retains device, semantic-action, focus, and pointer-presentation state between
-  frames. Operator editor queues from both front ends converge in this turn
-  before established domain-owner commands are applied.
+  frames. The selected operator surface and optional automation/probe queues
+  converge in this turn before established domain-owner commands are applied.
 
 Glossary:
   Input turn: Ordered frame interval that samples hardware, offers actions to
     UI/tools/replay, and commits accepted capture/default/scene requests.
   Composition boundary: Stateless sequencing code that connects domain owners
     without taking ownership of their state or decisions.
-  Editor arbitration: Deterministic merge that keeps legacy intent first,
-    coalesces exact duplicate secondary intent, and rejects conflicting payloads.
+  Editor arbitration: Deterministic merge that keeps the canonical legacy lane
+    first, coalesces exact duplicate injected intent, and rejects conflicts.
 
 Invariants:
   - No frame view or referenced owner is retained after ProcessInputFrame returns.
@@ -188,6 +188,7 @@ void ProcessInputFrame( RuntimeFrameHostView& host,
                         RuntimeFramePresentationView& presentationOwners,
                         ReplayRuntime& replayRuntime,
                         UiInputCaptureIntent externalUiCapture,
-                        UI::OperatorEditorCommandQueues externalEditorCommands = {} );
+                        UI::OperatorEditorCommandQueues externalEditorCommands = {},
+                        bool legacyDevelopmentUiActive = true );
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -132,13 +132,14 @@ struct EditorPointerRouteInput
     Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
 };
 
-// Operation-specific facts for the after-UI escape pass. Keeping the two
-// scalars together lets the router borrow only the three capability slices it
-// needs without manufacturing a broader frame context.
+// Operation-specific facts for the after-UI escape pass. The frame-selected
+// surface bit prevents Escape from opening the dormant Legacy UI while ImGui
+// owns window focus.
 struct RuntimeAfterUiDismissInput
 {
     bool uiUserInteracted = false;
     double nowSeconds = 0.0;
+    bool legacyUiActive = true;
 };
 
 struct EditorPointerRouteResult

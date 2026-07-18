@@ -6,7 +6,8 @@ Purpose:
 Summary:
   The scrubber maps mouse/UI intent to retained solver or presentation samples.
   ReplayScrubber owns cursor transitions; ReplayRuntime receives a frame-scoped
-  workspace view and coordinates restore/application commands across owners.
+  workspace view and coordinates typed transport, restore, and application
+  commands across existing replay owners.
 
 Glossary:
   Scrubber: UI control that selects retained replay frames.
@@ -16,6 +17,8 @@ Glossary:
   Inspection camera: Temporary replay-focused camera state for selected samples.
   Control surface: Disposable front-to-back scrubber table that resolves one
     pointer target from the same named layout rectangles used for drawing.
+  Transport command: Presentation-independent request for record, timeline,
+    prediction, restore, or cold artifact work.
 
 Invariants:
   - Restoring a sample must set the scrubber status message and consume restore
@@ -23,6 +26,7 @@ Invariants:
   - Replay tool pointer ownership must release through the interaction controller.
   - Hit testing must resolve through the scrubber surface; domain handlers may
     not recreate per-button rectangles or fall-through exclusions.
+  - Transport dispatch borrows host owners synchronously and retains none.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
@@ -47,6 +51,7 @@ Related:
 #include "../../World/Terrain.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -1310,6 +1315,223 @@ ReplayScrubberPointerDecision ReplayScrubber::ResolvePointerAction( const Replay
         }
     }
     return decision;
+}
+
+void ReplayRuntime::ApplyTransportCommand( const ReplayTransportCommand& command,
+                                           const ReplayTransportHostContext& host,
+                                           InputRouter& inputRouter,
+                                           RuntimeInteractionController& interaction,
+                                           Environment::CameraCollection* cameras,
+                                           Geometry::Terrain* terrain,
+                                           RunCameraState& camera,
+                                           RunMousePickupState& mousePickup,
+                                           ReplayWorkspaceOutput& output )
+{
+    const float solverPresent = SolverPresentTrackPosition();
+    const bool hasCameraFocus = m_visualPresentation.CameraView().focusKind != RunReplayCameraFocusKind::None;
+    const auto feedback = [&]( const char* message )
+    {
+        m_scrubberOwner.PublishFeedback( m_scrubberOwner.View().activeTrack, message, host.now, 3.0 );
+        KeepReplayScrubberVisible( m_scrubberOwner, host.now );
+    };
+    const auto enterReplayWorkspace = [&]()
+    {
+        output.enterInteractive = true;
+        if ( !IsReplayScrubberToolOwner( interaction.Owner() ) )
+        {
+            interaction.SetWorldInteractionOwnerInWorkspace( RuntimeWorkspace::Replay,
+                                                             WorldInteractionOwner::ReplayScrub,
+                                                             InteractionExitReason::EnterReplay );
+        }
+    };
+    const auto setCursor = [&]( float normalized )
+    {
+        const bool loaded = HasLoadedPresentation();
+        const RunReplayTrack track = loaded ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+        const std::size_t retainedCount =
+            loaded ? m_timeline.LoadedPresentation().samples.size() : m_timeline.Solver().GetStats().sampleCount;
+        const bool predictionAvailable = !loaded && ( m_predictionOwner.ActiveFrames().size() >= 2u ||
+                                                      m_predictionOwner.State().BuildPrefixShouldBePresented() );
+        if ( retainedCount < 2u && !predictionAvailable )
+        {
+            feedback( "REPLAY UNAVAILABLE: NO RETAINED SAMPLES" );
+            return false;
+        }
+
+        const float position = std::clamp( normalized, 0.0f, 1.0f );
+        m_scrubberOwner.SelectTrack( track );
+        m_scrubberOwner.SetTrackPosition( track, position );
+        const float livePosition = loaded ? 1.0f : solverPresent;
+        m_scrubberOwner.SetHistoricalSamplePaused( loaded || !ReplayAtPresentTrackPosition( position, livePosition ) );
+        enterReplayWorkspace();
+        KeepReplayScrubberVisible( m_scrubberOwner, host.now );
+        return true;
+    };
+    const auto returnToLive = [&]()
+    {
+        if ( HasLoadedPresentation() )
+        {
+            m_timeline.ClearLoadedPresentation();
+        }
+        m_scrubberOwner.SelectTrack( RunReplayTrack::Solver );
+        m_scrubberOwner.SetAllTrackPositions( 1.0f );
+        m_scrubberOwner.SetHistoricalSamplePaused( false );
+        bool enterInteractive = false;
+        ApplyReplayLiveAdvanceAction( m_predictionOwner,
+                                      m_visualPresentation,
+                                      m_scrubberOwner,
+                                      false,
+                                      solverPresent,
+                                      m_authoring.VelocityEdit().enabled,
+                                      false,
+                                      inputRouter,
+                                      interaction,
+                                      camera,
+                                      enterInteractive );
+        m_authoring.ClearCauseTreeFocus();
+        ExitInspectionCamera( cameras,
+                              terrain,
+                              camera,
+                              host.normalizedRestoreMode,
+                              host.attachedFollow,
+                              host.directorGrabbed,
+                              interaction,
+                              inputRouter );
+        output.enterInteractive = output.enterInteractive || enterInteractive;
+        feedback( "LIVE" );
+    };
+
+    switch ( command.action )
+    {
+    case ReplayTransportAction::SetRecordingEnabled:
+        if ( m_timeline.SetRecordingEnabled( command.enabled ) )
+        {
+            feedback( command.enabled ? "RECORDING" : "RECORDING STOPPED" );
+        }
+        else if ( m_timeline.RecordingLockedByHashLog() )
+        {
+            feedback( "RECORDING LOCKED BY HASH LOG" );
+        }
+        else
+        {
+            feedback( "RECORDING UNAVAILABLE: ENABLE REPLAY AT LAUNCH" );
+        }
+        break;
+    case ReplayTransportAction::JumpToStart:
+        (void)setCursor( 0.0f );
+        break;
+    case ReplayTransportAction::JumpToEnd:
+        // End means the final visible timeline sample, including prediction.
+        // ReturnToLive is the distinct command for the solver-present marker.
+        (void)setCursor( 1.0f );
+        break;
+    case ReplayTransportAction::StepBackward:
+    case ReplayTransportAction::StepForward:
+    {
+        const bool loaded = HasLoadedPresentation();
+        const std::size_t retainedCount =
+            loaded ? m_timeline.LoadedPresentation().samples.size() : m_timeline.Solver().GetStats().sampleCount;
+        const std::size_t predictionCount = loaded ? 0u : m_predictionOwner.ActiveFrames().size();
+        const std::size_t totalCount = retainedCount + predictionCount;
+        if ( totalCount < 2u )
+        {
+            feedback( "STEP UNAVAILABLE: NO RETAINED NEIGHBOR" );
+            break;
+        }
+        const float direction = command.action == ReplayTransportAction::StepBackward ? -1.0f : 1.0f;
+        const float step = direction / static_cast<float>( totalCount - 1u );
+        (void)setCursor( m_scrubberOwner.View().position + step );
+        break;
+    }
+    case ReplayTransportAction::TogglePlayPause:
+        // Reuse the established play-hold owner for live, predicted, and
+        // loaded tracks. Returning to live is a separate explicit command and
+        // must not discard a loaded artifact when the operator presses Play.
+        HandleReplayPausePressed( m_predictionOwner,
+                                  m_visualPresentation,
+                                  m_scrubberOwner,
+                                  solverPresent,
+                                  m_authoring.VelocityEdit().enabled,
+                                  hasCameraFocus,
+                                  inputRouter,
+                                  interaction,
+                                  camera,
+                                  host.now,
+                                  output.enterInteractive );
+        break;
+    case ReplayTransportAction::SetRevealSpeed:
+        m_predictionOwner.SetRevealRatePreservingCursor( command.value );
+        feedback( "PREDICTION REVEAL SPEED UPDATED" );
+        break;
+    case ReplayTransportAction::Scrub:
+        (void)setCursor( command.value );
+        break;
+    case ReplayTransportAction::TogglePrediction:
+        HandleReplayPredictionPressed( m_predictionOwner,
+                                       m_scrubberOwner,
+                                       solverPresent,
+                                       interaction,
+                                       host.now,
+                                       output.enterInteractive );
+        break;
+    case ReplayTransportAction::SetPredictionHorizon:
+        m_predictionOwner.SetHorizonSeconds(
+            std::clamp( command.value, REPLAY_PREDICTION_MIN_SECONDS, REPLAY_PREDICTION_MAX_SECONDS ) );
+        KeepReplayScrubberVisible( m_scrubberOwner, host.now );
+        break;
+    case ReplayTransportAction::RestoreBranch:
+    {
+        ReplayScrubberRestoreSources sources;
+        sources.hasLoadedPresentation = HasLoadedPresentation();
+        sources.presentationSample = CurrentScrubSample();
+        sources.solverSample = CurrentSolverScrubSample();
+        sources.loadedPresentationPath = m_timeline.LoadedPresentation().path;
+        HandleReplayBranchPressed( m_scrubberOwner, interaction, sources, host.now, output.restoreRequest );
+        break;
+    }
+    case ReplayTransportAction::Save:
+        output.enterInteractive = true;
+        SavePresentationFromScrubber( host.now );
+        break;
+    case ReplayTransportAction::Load:
+    {
+        char path[MAX_PATH] = {};
+        if ( SelectReplayPresentationArtifact( m_scrubberOwner, host.window, host.now, path ) )
+        {
+            const bool loaded = m_timeline.LoadPresentationArtifact( path );
+            if ( loaded )
+            {
+                ActivateLoadedPresentationScrubber( host.now,
+                                                    inputRouter,
+                                                    interaction,
+                                                    cameras,
+                                                    terrain,
+                                                    camera,
+                                                    mousePickup,
+                                                    host.normalizedCurrentMode,
+                                                    host.normalizedRestoreMode,
+                                                    host.attachedFollow,
+                                                    host.directorGrabbed );
+            }
+            PublishReplayLoadResult( m_scrubberOwner, path, loaded, host.now );
+        }
+        break;
+    }
+    case ReplayTransportAction::ReturnToLive:
+        returnToLive();
+        break;
+    case ReplayTransportAction::SelectCauseRow:
+        if ( command.rowIndex >= 0 && command.rowIndex < static_cast<int>( m_authoring.CauseTree().rows.size() ) )
+        {
+            m_authoring.SetCauseTreeSelectedRow( command.rowIndex );
+            enterReplayWorkspace();
+        }
+        else
+        {
+            feedback( "CAUSE SELECTION STALE" );
+        }
+        break;
+    }
 }
 
 bool ReplayRuntime::TickScrubberInput( HWND hwnd,
