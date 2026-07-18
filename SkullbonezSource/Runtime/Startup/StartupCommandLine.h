@@ -119,6 +119,10 @@ struct ParsedArgs
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
     bool workerSelfTest = false;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::Legacy;
+    bool developmentUiModeExplicit = false;
+#endif
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     bool hasPhysicsDebugFlagsOverride = false;
     uint32_t physicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;

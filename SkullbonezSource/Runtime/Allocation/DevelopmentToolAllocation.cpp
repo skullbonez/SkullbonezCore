@@ -26,6 +26,8 @@ Related:
 */
 #include "DevelopmentToolAllocation.h"
 
+#include <new>
+
 namespace
 {
 using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationOwner;
@@ -95,5 +97,21 @@ bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
     outStats.highWaterBytes = ownerStats.highWaterBytes;
     outStats.hardCapBytes = ownerStats.hardCapacity;
     return true;
+}
+
+void* AllocateDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept
+{
+    DevelopmentToolAllocationScope allocationScope( owner );
+    return ::operator new( size, std::nothrow );
+}
+
+void FreeDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, void* pointer ) noexcept
+{
+    if ( !pointer )
+    {
+        return;
+    }
+    DevelopmentToolAllocationScope allocationScope( owner );
+    ::operator delete( pointer );
 }
 } // namespace SkullbonezCore::Runtime::Allocation

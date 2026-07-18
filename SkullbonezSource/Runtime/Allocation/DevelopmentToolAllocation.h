@@ -31,6 +31,7 @@ Related:
 #include "DevelopmentToolsCapability.h"
 #include "RuntimeReserveAllocator.h"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace SkullbonezCore::Runtime::Allocation
@@ -64,4 +65,8 @@ class DevelopmentToolAllocationScope
 
 bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
                                          DevelopmentToolAllocationStats& outStats ) noexcept;
+// Vendor allocator callbacks use these wrappers so their internal heap calls
+// always enter the named, hard-capped development owner.
+void* AllocateDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept;
+void FreeDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, void* pointer ) noexcept;
 } // namespace SkullbonezCore::Runtime::Allocation

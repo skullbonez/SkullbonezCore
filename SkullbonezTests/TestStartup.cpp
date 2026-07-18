@@ -6,7 +6,8 @@
 // Summary:
 //   Exercises the production command-line and launch-resolution units without
 //   constructing a window, renderer, worker pool, or Run owner. Table-driven
-//   failure cases assert the exact Lane-R messages consumed by automation.
+//   failure cases assert the exact Lane-R messages consumed by automation, and
+//   development builds lock the additive editor selector's launch projection.
 //
 // Glossary:
 //   Assigned option: A value supplied as --name=value rather than a later token.
@@ -487,6 +488,49 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     suiteDefaults.interactiveRun = true;
     CHECK( BuildRunStartupOverrides( suiteDefaults ).configureReplayRecording );
 }
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+TEST_CASE( "Startup development UI: explicit modes project without changing the omitted default" )
+{
+    using SkullbonezCore::Runtime::DevelopmentUiMode;
+
+    struct ModeCase
+    {
+        const char* commandLine;
+        DevelopmentUiMode expected;
+    };
+    const ModeCase cases[] = {
+        { "--dev-ui legacy", DevelopmentUiMode::Legacy },
+        { "--dev_ui=imgui", DevelopmentUiMode::ImGui },
+        { "--dev-ui both", DevelopmentUiMode::Both },
+    };
+
+    for ( const ModeCase& modeCase : cases )
+    {
+        CAPTURE( modeCase.commandLine );
+        ParsedArgs args;
+        REQUIRE( ApplyRunCliValueDirectives( View( modeCase.commandLine ), args ) );
+        CHECK( args.developmentUiMode == modeCase.expected );
+        CHECK( args.developmentUiModeExplicit );
+
+        const RunStartupOverrides overrides = BuildRunStartupOverrides( args );
+        CHECK( overrides.launch.developmentUiMode == modeCase.expected );
+        CHECK( overrides.launch.developmentUiModeExplicit );
+    }
+
+    ParsedArgs omitted;
+    REQUIRE( ApplyRunCliValueDirectives( View( "--frames 2" ), omitted ) );
+    CHECK( omitted.developmentUiMode == DevelopmentUiMode::Legacy );
+    CHECK_FALSE( omitted.developmentUiModeExplicit );
+    CHECK_FALSE( BuildRunStartupOverrides( omitted ).launch.developmentUiModeExplicit );
+}
+
+TEST_CASE( "Startup development UI: invalid mode keeps the frozen recoverable diagnostic" )
+{
+    CheckRunDirectiveFailure( "--dev-ui unknown", "--dev-ui expects legacy|imgui|both." );
+    CheckRunDirectiveFailure( "--dev-ui", "--dev-ui expects legacy|imgui|both." );
+}
+#endif
 
 TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compose once" )
 {

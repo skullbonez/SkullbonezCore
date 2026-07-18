@@ -177,6 +177,10 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.frameCountOverride = (std::max)( 1, launch.frameCountOverride );
     }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    target.developmentUiMode = launch.developmentUiMode;
+    target.developmentUiModeExplicit = launch.developmentUiModeExplicit;
+#endif
 }
 
 
@@ -276,6 +280,9 @@ Run::Run( Window& window,
                   m_sceneController.State() )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    m_imguiEditor.Start();
+#endif
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Scene().Physics().BindProfiler( profiler );
     m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
@@ -369,6 +376,9 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                               m_renderer,
                               m_sceneController.Scene().Physics(),
                               m_contactAudio );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    ApplyDevelopmentUiMode();
+#endif
     if ( m_validationHarness->ConfigureStartup( overrides, m_launchOptions ) )
     {
         m_launchOptions.interactiveSceneRun = true;
@@ -629,7 +639,33 @@ void Run::Initialise()
         return;
     }
     m_skipExecute = replayStartup.skipExecute;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Scene-authored legacy window defaults run during load. The explicit
+    // process selector wins only after those defaults have been consumed.
+    ApplyDevelopmentUiMode();
+#endif
 }
+
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+void Run::ApplyDevelopmentUiMode()
+{
+    if ( !m_launchOptions.developmentUiModeExplicit )
+    {
+        // Invariant: omitting --dev-ui preserves every legacy visibility and
+        // minimization decision byte-for-byte; the additive editor stays dark.
+        m_imguiEditor.SetVisible( false );
+        return;
+    }
+    const bool showImGui = m_launchOptions.developmentUiMode != DevelopmentUiMode::Legacy;
+    const bool showLegacy = m_launchOptions.developmentUiMode != DevelopmentUiMode::ImGui;
+    m_imguiEditor.SetVisible( showImGui );
+    // Invariant: startup overrides run before RunTimerState::Initialise. Zero is
+    // the legacy UI's established safe startup timestamp and avoids sampling an
+    // inert platform timer merely to select a presentation surface.
+    m_operatorUi->SetVisible( showLegacy, 0.0 );
+}
+#endif
 
 
 const SkullbonezCore::Core::SbResult& Run::LastSceneLoadResult() const

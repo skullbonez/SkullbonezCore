@@ -1,6 +1,6 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 5/18 tasks (E0-E4 complete; E5 next) under the owner's
+Status: Active — 6/18 tasks (E0-E5 complete; E6 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
@@ -264,7 +264,7 @@ It does **not** authorize removal from the legacy UI.
     golden refresh. The mapped replay-fidelity gate reached only Physics P1's
     already-owner-gated topology `199 -> 200` transition.
 
-- [ ] E5 — Add an engine-owned ImGui context and lifecycle.
+- [x] E5 — Add an engine-owned ImGui context and lifecycle.
   - Create a cohesive development-editor owner responsible for ImGui context,
     fonts/style, per-frame begin/end, visibility, persisted layout version,
     and orderly shutdown. It must not become a cross-domain services bag.
@@ -276,6 +276,15 @@ It does **not** authorize removal from the legacy UI.
   - Acceptance: an empty dockspace opens/closes repeatedly, survives device
     and window resize paths, and leaves the legacy UI untouched.
   - Gate: `tools\validate_ui.bat` and `tools\validate_fast.bat`.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e5-context-lifecycle.md` records the
+    cohesive development-only owner, direct composition-root storage, typed
+    frame/command values, docking/keyboard configuration, deterministic
+    DPI-aware embedded-font fallback, versioned layout, and exact
+    Legacy/ImGui/Both selector. Repeated lifecycle, resize/device-path, and
+    allocation-guard probes passed. `validate_ui`, `validate_fast`,
+    `validate_perf`, `validate_full`, and Release exclusion passed without a
+    baseline or golden refresh.
 
 - [ ] E6 — Integrate ImGui with the engine-owned DX12 frame.
   - Add a bounded ImGui descriptor/font-resource allocation owned through the

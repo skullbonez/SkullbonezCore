@@ -463,6 +463,7 @@ RUNTIME_TOOLS_PREFIXES = (
 RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
     "DiagnosticsRuntime",
+    "ImGuiEditorOwner",
     "RuntimeDiagnostics",
     "SceneMemoryDiagnostics",
     "TracyClientOwner",

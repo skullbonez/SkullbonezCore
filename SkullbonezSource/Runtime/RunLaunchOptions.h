@@ -42,6 +42,15 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+enum class DevelopmentUiMode : uint8_t
+{
+    Legacy = 0,
+    ImGui,
+    Both
+};
+#endif
+
 struct RunLaunchOptions
 {
     float timeScaleOverride = 0.0f;                           // CLI --time-scale override applied after each scene load (0 = not set)
@@ -81,6 +90,11 @@ struct RunLaunchOptions
     float physicsDebugAlphaOverride = 0.28f;
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // CLI --dev-ui selects the additive editor evaluation surface.
+    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::Legacy;
+    bool developmentUiModeExplicit = false;
+#endif
 };
 
 struct RunStartupOverrides

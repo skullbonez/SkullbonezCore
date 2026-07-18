@@ -666,6 +666,9 @@
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
         <Filter>Source Files\Runtime\Diagnostics</Filter>
       </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
+        <Filter>Source Files\Runtime\Diagnostics</Filter>
+      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
@@ -1337,6 +1340,9 @@
         <Filter>Header Files\Runtime\Allocation</Filter>
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h">
+        <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>
       </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h">

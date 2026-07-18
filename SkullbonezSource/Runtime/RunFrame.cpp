@@ -62,6 +62,9 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "DevelopmentTools/TracyClientOwner.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorOwner.h"
+#endif
 #include "OperatorCommandApplier.h"
 #include "Scene/SceneRuntimeStyle.h"
 
@@ -735,6 +738,26 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                       frameRenderDiagnostics,
                                       uiRender,
                                       renderModels );
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            // Concept: E5 owns only a CPU-side empty dockspace. DX12 draw-data
+            // submission arrives in E6 and Win32 event routing in E7.
+            const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
+            const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
+            const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput{ m_window.ClientWidth(),
+                                                                           m_window.ClientHeight(),
+                                                                           dpiScale,
+                                                                           static_cast<float>( secondsPerFrame ) };
+            if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
+            {
+                m_imguiEditor.BuildEmptyDockspace();
+                const DevelopmentTools::ImGuiEditorCommands commands = m_imguiEditor.EndFrame();
+                if ( commands.requestHide )
+                {
+                    m_imguiEditor.SetVisible( false );
+                }
+            }
+#endif
 
             PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
             {

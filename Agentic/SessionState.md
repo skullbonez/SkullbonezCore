@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E5 engine-owned ImGui context/lifecycle and typed value boundaries while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
-| Active/future progress | 6 / 26 live tasks; 23%. |
-| Last broad local gate | E4 final-source `validate_full` passed 295 tests/21,474 assertions, all coverage floors, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact physics; perf, explicit standard/heavy captures, bounded graphics stress, and exact marker-command evidence also passed. |
-| Validation for current edits | E4 owns focused Tracy owner zones and 32 bounded capacity plots behind explicit standard/heavy process modes. E5 requires `validate_ui` and `validate_fast`; no DX12 backend integration is authorized until E6. |
+| Current objective | Execute ImGui/Tracy E6 bounded DX12 descriptor/font resources and draw submission while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 7 / 26 live tasks; 27%. |
+| Last broad local gate | E5 final-source `validate_full` passed 297 tests/21,497 assertions, all coverage floors, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact physics; UI, fast, perf, resize/lifecycle, allocation, and Release-exclusion evidence also passed. |
+| Validation for current edits | E5 owns the cohesive ImGui context/lifecycle and typed value seam. E6 requires `validate_dx12_renderer`, bounded graphics stress, and the allocation repo scan; cumulative DX12/runtime mappings also require the broad gate before commit. |
 
 ## Live Queue
 
@@ -24,7 +24,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E5 (5/18). E0 froze the complete
+     direction, ImGui/Tracy is active at E6 (6/18). E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -38,13 +38,17 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      profiler paths into fixed focused zones, added 32 capacity plots, kept
      call stacks/allocation events in explicit heavy mode, and restored the
      approved perf memory budget by leaving Tracy off unless standard/heavy is
-     requested. Evidence:
+     requested. E5 added one engine-owned ImGui context/lifecycle, typed scalar
+     frame and command values, deterministic DPI-aware font fallback,
+     versioned layout, exact Legacy/ImGui/Both selection, and clean repeated
+     lifecycle/resize/allocation proof. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e2-allocation-boundary.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e3-lifecycle.md` and
-     `Agentic/Reports/2026-07-19/imgui-tracy-e4-owner-boundary-instrumentation.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e4-owner-boundary-instrumentation.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e5-context-lifecycle.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -471,11 +475,13 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
 
 ## Next Handoff
 
-Continue with ImGui/Tracy E5. Add one cohesive development-editor owner for the
-ImGui context, fonts/style, per-frame begin/end, visibility, layout version, and
-shutdown. Keep DX12 backend integration for E6 and Win32 input routing for E7;
-E5 consumes immutable frame values and emits typed command values only. Run
-`tools\validate_ui.bat` and `tools\validate_fast.bat` at the E5 commit gate.
+Continue with ImGui/Tracy E6. Give the concrete DX12 descriptor/resource owners
+a bounded ImGui font/texture allocation, record ImGui draw data after the game
+viewport and before Present, and preserve the two-frame lifetime, resize,
+device-recreate, minimized-frame, and separable-stat contracts. Keep Win32 input
+routing for E7. Run `tools\validate_dx12_renderer.bat`,
+`tools\run_graphics_stress.bat 1`, the allocation repo scan, and the cumulative
+broad gate at the E6 commit boundary.
 
 Physics P1 remains blocked only on exact owner authority for the one-process
 replay `causal.topologyCount: 199 -> 200` golden transition and the mechanically

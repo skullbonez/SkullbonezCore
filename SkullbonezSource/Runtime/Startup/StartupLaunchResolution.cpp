@@ -656,6 +656,10 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.physicsDebugAlphaOverride = args.physicsDebugAlphaOverride;
     launch.hasPhysicsDebugContactLingerOverride = args.hasPhysicsDebugContactLingerOverride;
     launch.physicsDebugContactLingerOverride = args.physicsDebugContactLingerOverride;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    launch.developmentUiMode = args.developmentUiMode;
+    launch.developmentUiModeExplicit = args.developmentUiModeExplicit;
+#endif
     overrides.liveStyleControlDirectory = args.liveStyleControlDir[0] != '\0' ? args.liveStyleControlDir : nullptr;
     overrides.mainMemoryDumpPath = args.memoryDumpPath[0] != '\0' ? args.memoryDumpPath : nullptr;
     overrides.interactionScriptPath = args.interactionScriptPath[0] != '\0' ? args.interactionScriptPath : nullptr;
@@ -743,6 +747,36 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[allocation-guard] Requested mode: %s\n", RuntimeAllocation::RuntimeAllocationGuardModeName( mode ) );
               return true;
           } },
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+        { "--dev-ui",
+          "--dev_ui",
+          []( const char* value, ParsedArgs& args ) -> bool
+          {
+              if ( !value || IsOptionValueMissing( value ) )
+              {
+                  return FailCommandLineParse( "--dev-ui expects legacy|imgui|both." );
+              }
+              if ( strcmp( value, "legacy" ) == 0 )
+              {
+                  args.developmentUiMode = DevelopmentUiMode::Legacy;
+              }
+              else if ( strcmp( value, "imgui" ) == 0 )
+              {
+                  args.developmentUiMode = DevelopmentUiMode::ImGui;
+              }
+              else if ( strcmp( value, "both" ) == 0 )
+              {
+                  args.developmentUiMode = DevelopmentUiMode::Both;
+              }
+              else
+              {
+                  return FailCommandLineParse( "--dev-ui expects legacy|imgui|both." );
+              }
+              args.developmentUiModeExplicit = true;
+              fprintf( stdout, "[dev-ui] Mode: %s\n", value );
+              return true;
+          } },
+#endif
         { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
         { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--scene-snapshot-out", "--scene_snapshot_out", ApplySceneSnapshotOutPath },
