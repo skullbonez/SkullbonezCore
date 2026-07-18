@@ -253,6 +253,35 @@ bool ImGuiEditorOwner::IsVisible() const noexcept
     return m_visible;
 }
 
+void ImGuiEditorOwner::InitializeSurfacePreferences( bool legacyVisible, bool editorVisible ) noexcept
+{
+    if ( m_surfacePreferencesInitialized )
+    {
+        return;
+    }
+    m_surfacePreferencesInitialized = true;
+    m_legacySurfaceVisible = legacyVisible;
+    SetVisible( editorVisible );
+}
+
+void ImGuiEditorOwner::SetLegacySurfaceVisible( bool visible ) noexcept
+{
+    m_surfacePreferencesInitialized = true;
+    m_legacySurfaceVisible = visible;
+}
+
+bool ImGuiEditorOwner::LegacySurfaceVisible() const noexcept
+{
+    return m_legacySurfaceVisible;
+}
+
+UI::OperatorEditorCommandQueues ImGuiEditorOwner::ConsumeOperatorEditorCommands() noexcept
+{
+    const UI::OperatorEditorCommandQueues commands = m_pendingOperatorEditorCommands;
+    m_pendingOperatorEditorCommands = {};
+    return commands;
+}
+
 ImGuiEditorNativeMessageRoute
 ImGuiEditorOwner::HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept
 {
@@ -397,13 +426,80 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
     return true;
 }
 
-void ImGuiEditorOwner::BuildEmptyDockspace()
+void ImGuiEditorOwner::BuildEmptyDockspace( const UI::OperatorEditorFrameView& view )
 {
     if ( !m_frameActive )
     {
         return;
     }
+    m_sharedViewFingerprint = UI::FingerprintOperatorEditorFrameView( view );
     ImGui::DockSpaceOverViewport( 0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode );
+
+    // Concept: E8 proves command/view coexistence with a deliberately small
+    // menu. Domain panels expand this same typed seam in later campaign tasks.
+    if ( ImGui::BeginMainMenuBar() )
+    {
+        if ( ImGui::BeginMenu( "View" ) )
+        {
+            bool legacyVisible = m_legacySurfaceVisible;
+            if ( ImGui::MenuItem( "Legacy Surface", nullptr, &legacyVisible ) )
+            {
+                m_legacySurfaceVisible = legacyVisible;
+                m_frameCommands.requestLegacyVisibility = true;
+                m_frameCommands.requestedLegacyVisible = legacyVisible;
+            }
+            if ( ImGui::MenuItem( "Hide Editor" ) )
+            {
+                m_frameCommands.requestHide = true;
+                if ( !m_legacySurfaceVisible )
+                {
+                    m_legacySurfaceVisible = true;
+                    m_frameCommands.requestLegacyVisibility = true;
+                    m_frameCommands.requestedLegacyVisible = true;
+                }
+            }
+            ImGui::EndMenu();
+        }
+        if ( ImGui::BeginMenu( "Actions" ) )
+        {
+            const auto submit = [&]( auto& queue, const auto& command )
+            {
+                if ( m_frameCommandStatus.ok )
+                {
+                    m_frameCommandStatus = UI::SubmitOperatorEditorCommand( queue, command );
+                }
+            };
+            if ( ImGui::MenuItem( "Reset Current Scene" ) )
+            {
+                submit( m_frameCommands.operatorEditor.scene,
+                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
+            }
+            if ( ImGui::MenuItem( "Set Time Scale 1x", nullptr, false, view.scene.timeScale != 1.0f ) )
+            {
+                submit(
+                    m_frameCommands.operatorEditor.property,
+                    UI::OperatorEditorPropertyCommand{ UI::OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } );
+            }
+            if ( ImGui::MenuItem( "Toggle VSync" ) )
+            {
+                submit( m_frameCommands.operatorEditor.rendering,
+                        UI::OperatorEditorRenderingCommand{ UI::OperatorEditorRenderingCommandType::ToggleVsync } );
+            }
+            if ( ImGui::MenuItem( "Reapply Replay Memory Policy",
+                                  nullptr,
+                                  false,
+                                  view.replay.requestedRetentionSeconds > 0 && view.replay.requestedBudgetMiB > 0 ) )
+            {
+                submit( m_frameCommands.operatorEditor.replay,
+                        UI::OperatorEditorReplayCommand{ UI::OperatorEditorReplayCommandType::SetMemoryPolicy,
+                                                         view.replay.memoryPreset,
+                                                         view.replay.requestedRetentionSeconds,
+                                                         view.replay.requestedBudgetMiB } );
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
 }
 
 ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
@@ -418,13 +514,31 @@ ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
     ImGui::Render();
     m_frameActive = false;
     ++m_completedFrames;
+    result.commands = m_frameCommands;
+    result.status = m_frameCommandStatus;
+    m_frameCommands = {};
+    m_frameCommandStatus = SkullbonezCore::Core::SbResult::Success();
+    if ( result.status.ok )
+    {
+        const UI::OperatorEditorArbitrationResult queued =
+            UI::ArbitrateOperatorEditorCommands( m_pendingOperatorEditorCommands, result.commands.operatorEditor );
+        result.status = queued.status;
+        if ( result.status.ok )
+        {
+            m_pendingOperatorEditorCommands = queued.commands;
+        }
+    }
     if ( !m_renderer || !ImGui::GetDrawData() )
     {
         result.status = SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
                                                                  "Completed frame has no DX12 draw-data target" );
         return result;
     }
-    result.status = m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );
+    const SkullbonezCore::Core::SbResult renderStatus = m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );
+    if ( result.status.ok )
+    {
+        result.status = renderStatus;
+    }
     return result;
 }
 
@@ -438,6 +552,7 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
     status.platformViewportsEnabled = false;
     status.layoutVersion = LAYOUT_VERSION;
     status.completedFrames = m_completedFrames;
+    status.sharedViewFingerprint = m_sharedViewFingerprint;
     status.fontSource = m_fontSource;
     if ( m_renderer )
     {

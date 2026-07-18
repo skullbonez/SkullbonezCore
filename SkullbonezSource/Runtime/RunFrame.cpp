@@ -29,6 +29,8 @@ Glossary:
     borrows without moving ownership out of the composition root.
   Submitted-frame mark: Development profiler boundary emitted only after DX12
     accepts a successful Present for the game frame.
+  Shared editor view: One immutable scene/property/render/replay value assembled
+    before either operator frontend renders.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
@@ -172,6 +174,35 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     // late UI call; no render or UI owner retains them.
     const RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
     const std::string* uiScenePath = sceneController.CurrentPath();
+    const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
+    const SkullbonezCore::Core::CinematicRenderConfig& sharedCinematic = ActiveSceneCinematicConfig( scene, config );
+    const bool sharedCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
+    const bool sharedShadows =
+        sharedCinematicRendering ? sharedCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
+    // Invariant: build this common value once. The legacy draw pass and the
+    // secondary editor receive this exact object, not independently sampled owners.
+    facts.operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
+                                       scene.currentSceneIndex,
+                                       sceneController.QueueSize(),
+                                       scene.currentFrame,
+                                       sceneController.Scene().SceneEntityCount(),
+                                       scene.timeScale };
+    facts.operatorEditorView.property = { sceneController.Scene().Environment().GetGravity(),
+                                          sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                          sceneController.Scene().Environment().GetFluidDensity() };
+    facts.operatorEditorView.rendering = { renderer.PresentationSettings().vsyncEnabled,
+                                           sharedShadows,
+                                           sharedCinematicRendering,
+                                           config.runtimeRender.presentationInterpolation,
+                                           facts.presentationAlpha };
+    facts.operatorEditorView.replay = { sharedReplayHud.memoryPreset,
+                                        sharedReplayHud.requestedRetentionSeconds,
+                                        sharedReplayHud.requestedBudgetMiB,
+                                        sharedReplayHud.presentationRetentionSeconds,
+                                        sharedReplayHud.solverRetentionSeconds,
+                                        sharedReplayHud.memoryBudgetClamped,
+                                        sharedReplayHud.solverWindowReduced };
+    facts.operatorEditorView.surfaces = { ui.IsVisible(), facts.operatorEditorView.surfaces.secondaryVisible };
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
     const ReplayOverlay::ReplayOverlayStateView replayOverlay =
@@ -194,6 +225,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                        runtimeViewModel,
                                        uiSceneBrowser,
                                        renderTargetPreviews,
+                                       facts.operatorEditorView,
                                        &workerPool,
                                        window.ClientWidth(),
                                        window.ClientHeight(),
@@ -620,6 +652,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
 #endif
             UiInputCaptureIntent developmentUiCapture;
+            SkullbonezCore::UI::OperatorEditorCommandQueues developmentEditorCommands;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
             // Concept: native messages were already offered to ImGui while the
             // queue drained. The previous completed editor frame now supplies
@@ -629,13 +662,20 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                          imguiInput.capture.keyboard,
                                                          imguiInput.capture.text,
                                                          imguiInput.nativePointerStateTouched };
+            developmentEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
 #endif
             ProcessInputFrame( frameHost,
                                frameInteraction,
                                frameScene,
                                framePresentation,
                                m_replayRuntime,
-                               developmentUiCapture );
+                               developmentUiCapture,
+                               developmentEditorCommands );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            // The legacy 0 shortcut remains owned by established input. Mirror
+            // its result into process-lifetime surface preferences after routing.
+            m_imguiEditor.SetLegacySurfaceVisible( m_operatorUi->IsVisible() );
+#endif
             m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
@@ -738,6 +778,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
             PROFILE_END( m_profiler, "Frame/Render" );
 
+            SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
+#endif
             const RuntimeUiTextFrameFacts uiTextFacts{
                 RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
                                               m_sceneController.Scene().SceneEntityCount() ),
@@ -748,7 +792,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_interaction.Gesture(),
                 presentationAlpha,
                 capturePresentationPinned,
-                secondsPerFrame };
+                secondsPerFrame,
+                operatorEditorView };
             RenderExecuteUiTextFrame( frameHost,
                                       frameInteraction,
                                       frameScene,
@@ -771,7 +816,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                                            static_cast<float>( secondsPerFrame ) };
             if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
             {
-                m_imguiEditor.BuildEmptyDockspace();
+                m_imguiEditor.BuildEmptyDockspace( operatorEditorView );
                 const DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
                 if ( !imguiResult.status.ok )
                 {
@@ -783,6 +828,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 if ( imguiResult.commands.requestHide )
                 {
                     m_imguiEditor.SetVisible( false );
+                }
+                if ( imguiResult.commands.requestLegacyVisibility )
+                {
+                    m_operatorUi->SetVisible( imguiResult.commands.requestedLegacyVisible,
+                                              m_timers.simulationTimer.GetTotalTime() );
+                    m_imguiEditor.SetLegacySurfaceVisible( imguiResult.commands.requestedLegacyVisible );
                 }
             }
 #endif

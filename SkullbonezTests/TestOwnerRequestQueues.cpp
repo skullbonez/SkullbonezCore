@@ -1,17 +1,20 @@
 /*
 File: TestOwnerRequestQueues.cpp
 Purpose:
-  Verifies fixed scene, capture, and render-default owner request contracts.
+  Verifies fixed scene, capture, render-default, and operator-editor request contracts.
 
 Summary:
   Each owner accepts only its domain intent, keeps FIFO order, and exposes a
-  fixed capacity. Invalid bounded text is rejected before it consumes storage.
+  fixed capacity. Invalid bounded text or editor payloads are rejected before
+  they consume storage, and duplicate frontend intent projects only once.
 
 Glossary:
   FIFO (First In, First Out): Requests drain in submission order.
   Wire code: Explicit serialized replay value independent of C++ enum ordinals.
   Readback result: Recoverable capture owner/message returned by the renderer
     after it attempts to copy the backbuffer into CPU-visible bytes.
+  Editor projection: Conversion of an arbitrated common action into the
+    established narrow runtime-owner command packet.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -19,11 +22,13 @@ Invariants:
   - Replay owner codes are compatibility values and must not be renumbered.
   - Render-default saves reject config versions newer than the engine-owned
     schema before rewriting any bytes.
+  - Shared editor views fingerprint semantic fields rather than object padding.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
   - SkullbonezSource/Runtime/RenderDefaultsStore.h
+  - SkullbonezSource/UI/OperatorEditorExchange.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
@@ -36,12 +41,16 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
 #include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
+#include "../SkullbonezSource/UI/UICommands.h"
 
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <string>
+#include <type_traits>
 
 using namespace SkullbonezCore::Runtime;
 
@@ -595,4 +604,114 @@ TEST_CASE( "Replay owner event codes are explicit compatibility values" )
     CHECK( static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ) == 2001 );
     CHECK( static_cast<int32_t>( ReplayOwnerEventCode::RenderSaveOrdinaryDefaults ) == 3001 );
     CHECK( static_cast<int32_t>( ReplayOwnerEventCode::RenderSaveCinematicDefaults ) == 3002 );
+}
+
+TEST_CASE( "Operator editor queues coalesce identical frontend intent before projection" )
+{
+    using namespace SkullbonezCore::UI;
+    static_assert( std::is_trivially_copyable_v<OperatorEditorCommandQueues> );
+    static_assert( OperatorEditorSceneCommandQueue::capacity == 4u );
+    static_assert( OperatorEditorPropertyCommandQueue::capacity == 4u );
+
+    InGameUICommands legacy;
+    legacy.scene.resetScene = true;
+    legacy.sceneOptions.requestedTimeScale = 0.5f;
+    legacy.renderer.toggleVsync = true;
+    legacy.replayMemory.requestPolicy = true;
+    legacy.replayMemory.requestedPresetIndex = 2;
+    legacy.replayMemory.requestedRetentionSeconds = 45;
+    legacy.replayMemory.requestedBudgetMiB = 96;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK_FALSE( legacy.scene.resetScene );
+    CHECK( legacy.sceneOptions.requestedTimeScale < 0.0f );
+    CHECK_FALSE( legacy.renderer.toggleVsync );
+    CHECK_FALSE( legacy.replayMemory.requestPolicy );
+
+    OperatorEditorCommandQueues secondary;
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.scene,
+                 { OperatorEditorSceneCommandType::ResetCurrentScene, -1 } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.property,
+                 { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.rendering,
+                 { OperatorEditorRenderingCommandType::ToggleVsync } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.replay,
+                 { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
+                 .ok );
+
+    const OperatorEditorArbitrationResult merged =
+        ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
+    REQUIRE( merged.status.ok );
+    CHECK( merged.acceptedLegacyCommands == 4u );
+    CHECK( merged.acceptedSecondaryCommands == 0u );
+    CHECK( merged.coalescedDuplicateCommands == 4u );
+
+    REQUIRE( ProjectOperatorEditorCommands( merged.commands, legacy ).ok );
+    CHECK( legacy.scene.resetScene );
+    CHECK( legacy.sceneOptions.requestedTimeScale == doctest::Approx( 0.5f ) );
+    CHECK( legacy.renderer.toggleVsync );
+    CHECK( legacy.replayMemory.requestPolicy );
+    CHECK( legacy.replayMemory.requestedPresetIndex == 2 );
+    CHECK( legacy.replayMemory.requestedRetentionSeconds == 45 );
+    CHECK( legacy.replayMemory.requestedBudgetMiB == 96 );
+}
+
+TEST_CASE( "Operator editor queue rejects conflict and malformed surface values" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues legacy;
+    OperatorEditorCommandQueues secondary;
+    REQUIRE( SubmitOperatorEditorCommand(
+                 legacy.property,
+                 { OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.property,
+                 { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+                 .ok );
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( legacy, secondary ).status.ok );
+
+    OperatorEditorPropertyCommandQueue invalidProperty;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     invalidProperty,
+                     { OperatorEditorPropertyCommandType::SetTimeScale,
+                       std::numeric_limits<float>::quiet_NaN() } )
+                     .ok );
+    CHECK( invalidProperty.count == 0u );
+
+    OperatorEditorReplayCommandQueue invalidReplay;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     invalidReplay,
+                     { OperatorEditorReplayCommandType::SetMemoryPolicy, 0, 0, 64 } )
+                     .ok );
+    CHECK( invalidReplay.count == 0u );
+
+    OperatorEditorCommandQueues corruptCount;
+    corruptCount.scene.count = OperatorEditorSceneCommandQueue::capacity + 1u;
+    InGameUICommands projected;
+    CHECK_FALSE( ProjectOperatorEditorCommands( corruptCount, projected ).ok );
+    CHECK_FALSE( projected.scene.resetScene );
+}
+
+TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorFrameView first;
+    first.scene = { "SkullbonezData/scenes/varied.scene.json", 3, 8, 42, 200, 0.75f };
+    first.property = { -9.81f, 4.0f, 998.0f };
+    first.rendering = { true, true, false, true, 0.5f };
+    first.replay = { 1, 30, 64, 30, 20, false, true };
+    first.surfaces = { true, true };
+    const OperatorEditorFrameView same = first;
+    CHECK( FingerprintOperatorEditorFrameView( first ) == FingerprintOperatorEditorFrameView( same ) );
+
+    OperatorEditorFrameView changed = first;
+    changed.replay.solverRetentionSeconds = 21;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 }

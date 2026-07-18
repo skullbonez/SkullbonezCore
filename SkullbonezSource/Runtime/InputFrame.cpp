@@ -538,6 +538,11 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     }
     result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
     result.commands = UIResult.commands;
+    result.status = NormalizeLegacyOperatorEditorCommands( result.commands );
+    if ( !result.status.ok )
+    {
+        return result;
+    }
     const DeviceInputFrame& deviceFrame = inputRouter.DeviceFrame();
     UiInputHitSnapshot uiSnapshot;
     uiSnapshot.mouse = inputRouter.UiSnapshot().mouse;
@@ -621,7 +626,23 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RenderDefaultsStore& renderDefaults = presentationOwners.renderDefaults;
     RuntimeRenderer& renderer = presentationOwners.renderer;
-    if ( !result.frameActive )
+    if ( !result.frameActive || !result.status.ok )
+    {
+        return result;
+    }
+    // Invariant: both front ends converge here exactly once. Legacy is the
+    // deterministic first lane; exact duplicate secondary intent coalesces.
+    const SkullbonezCore::UI::OperatorEditorArbitrationResult editorCommands =
+        SkullbonezCore::UI::ArbitrateOperatorEditorCommands( result.commands.operatorEditor,
+                                                             facts.externalEditorCommands );
+    if ( !editorCommands.status.ok )
+    {
+        result.status = editorCommands.status;
+        return result;
+    }
+    result.commands.operatorEditor = editorCommands.commands;
+    result.status = SkullbonezCore::UI::ProjectOperatorEditorCommands( editorCommands.commands, result.commands );
+    if ( !result.status.ok )
     {
         return result;
     }

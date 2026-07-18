@@ -173,7 +173,8 @@ class Run
     void TickAutoCycle();                                          // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                       // Frame count, exit/hold on completion, restarts; returns true to continue
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    void ApplyDevelopmentUiMode();                                 // Applies the startup selector without moving domain state into ImGui.
+    void ApplyDevelopmentUiMode(
+        bool sceneDefaultsApplied = false );                       // Applies process preferences after optional scene defaults.
 #endif
 
   public:

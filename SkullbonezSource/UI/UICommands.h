@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/UI/UICommands.h
 Purpose:
-  Implements UI Commands widgets, layout, drawing, or UI state for the in-engine controls.
+  Defines one-frame request packets emitted by in-engine operator controls.
 
 Summary:
-  UICommands.h implements UI Commands widgets, layout, drawing, or UI state
-  for the in-engine controls. As a public header, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
+  Domain command structs keep presentation intent separate from concrete owner
+  mutation. The shared editor exchange is normalized and arbitrated before its
+  representative actions are projected back into this established packet.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -26,15 +25,21 @@ Glossary:
     rejected, or hidden contact-audio body flashes.
   Simple mode request: One-frame Sound-tab command to use linear velocity energy
     instead of solver contact rows for impact audio.
+  Shared editor exchange: Fixed-capacity domain queues through which both
+    operator front ends request the same existing owner operations.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
   constants.
+  - Command packets are values; they contain no callback, owner pointer, or
+    authority to mutate runtime state directly.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include "OperatorEditorExchange.h"
 
 #include <cstdint>
 
@@ -366,6 +371,7 @@ struct UIReplayMemoryCommands
 
 struct InGameUICommands
 {
+    OperatorEditorCommandQueues operatorEditor;
     UIOnlyCommands ui;
     UIRendererCommands renderer;
     UISceneCommands scene;

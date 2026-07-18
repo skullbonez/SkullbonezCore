@@ -109,6 +109,7 @@ class AssetSystem;
 namespace UI
 {
 class InGameUI;
+struct OperatorEditorFrameView;
 struct UIRenderContext;
 } // namespace UI
 namespace Text
@@ -402,6 +403,7 @@ struct UiTextPassState
     const RuntimeViewModel& runtimeViewModel;
     const RunSceneBrowserState& sceneBrowser;
     const RuntimeRenderTargetPreviewSnapshot& renderTargetPreviews;
+    const UI::OperatorEditorFrameView& operatorEditorView;
     Threading::WorkerPool* workerPool = nullptr;
     int screenW = 1;
     int screenH = 1;

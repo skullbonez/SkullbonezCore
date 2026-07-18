@@ -714,6 +714,9 @@
     <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -1409,6 +1412,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UICommands.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\OperatorEditorExchange.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h">

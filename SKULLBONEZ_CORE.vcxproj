@@ -442,6 +442,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\UI\UI.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowInteractionOwner.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPaletteDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp" />
@@ -666,6 +667,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\UI\UICache.h" />
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h" />
     <ClInclude Include="SkullbonezSource\UI\UICommands.h" />
+    <ClInclude Include="SkullbonezSource\UI\OperatorEditorExchange.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawList.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h" />

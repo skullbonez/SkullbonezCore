@@ -98,7 +98,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  RuntimeFrameSceneView& sceneOwners,
                                                  RuntimeFramePresentationView& presentationOwners,
                                                  ReplayRuntime& replayRuntime,
-                                                 UiInputCaptureIntent externalUiCapture )
+                                                 UiInputCaptureIntent externalUiCapture,
+                                                 UI::OperatorEditorCommandQueues externalEditorCommands )
 {
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
@@ -829,7 +830,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         CameraModeEnabledMask(),
         UIBlocksKeyboardBeforeInput,
         SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-        externalUiCapture };
+        externalUiCapture,
+        externalEditorCommands };
     RuntimeUIFrameResult uiFrameResult =
         BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, m_replayRuntime, replayPointerRay, uiSamplingFacts );
     if ( uiFrameResult.frameActive )
@@ -859,7 +861,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         CameraModeEnabledMask(),
         uiFrameResult.suppressWorldActionThisFrame,
         SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
-        externalUiCapture };
+        externalUiCapture,
+        externalEditorCommands };
     presentationEdit.Commit();
     uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
                                                  keyboardToggleEditorMode,

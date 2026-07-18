@@ -213,6 +213,9 @@ struct UISoundSetFrameData
 // code, input hit-testing, and runtime state changes separated.
 struct InGameUIFrameData
 {
+    // Shared domain view consumed by both operator front ends. Legacy
+    // flat fields remain while later campaign panels migrate incrementally.
+    OperatorEditorFrameView operatorEditor;
     int screenW = 1;
     int screenH = 1;
     const char* rendererName = "";

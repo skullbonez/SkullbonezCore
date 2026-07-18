@@ -661,28 +661,38 @@ void Run::Initialise()
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Scene-authored legacy window defaults run during load. The explicit
     // process selector wins only after those defaults have been consumed.
-    ApplyDevelopmentUiMode();
+    ApplyDevelopmentUiMode( true );
 #endif
 }
 
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-void Run::ApplyDevelopmentUiMode()
+void Run::ApplyDevelopmentUiMode( bool sceneDefaultsApplied )
 {
-    if ( !m_launchOptions.developmentUiModeExplicit )
+    if ( !m_launchOptions.developmentUiModeExplicit && !sceneDefaultsApplied )
     {
-        // Invariant: omitting --dev-ui preserves every legacy visibility and
-        // minimization decision byte-for-byte; the additive editor stays dark.
+        // Scene-authored legacy visibility has not loaded yet. Keep the additive
+        // editor dark without freezing a pre-scene value as a process preference.
         m_imguiEditor.SetVisible( false );
         return;
     }
-    const bool showImGui = m_launchOptions.developmentUiMode != DevelopmentUiMode::Legacy;
-    const bool showLegacy = m_launchOptions.developmentUiMode != DevelopmentUiMode::ImGui;
-    m_imguiEditor.SetVisible( showImGui );
+    bool initialLegacyVisible = m_operatorUi->IsVisible();
+    bool initialEditorVisible = false;
+    if ( m_launchOptions.developmentUiModeExplicit )
+    {
+        initialEditorVisible = m_launchOptions.developmentUiMode != DevelopmentUiMode::Legacy;
+        initialLegacyVisible = m_launchOptions.developmentUiMode != DevelopmentUiMode::ImGui;
+    }
+    // Invariant: initialize once from CLI/scene defaults, then preserve operator
+    // choices across scene and replay reloads without serializing them into either.
+    m_imguiEditor.InitializeSurfacePreferences( initialLegacyVisible, initialEditorVisible );
     // Invariant: startup overrides run before RunTimerState::Initialise. Zero is
     // the legacy UI's established safe startup timestamp and avoids sampling an
     // inert platform timer merely to select a presentation surface.
-    m_operatorUi->SetVisible( showLegacy, 0.0 );
+    if ( m_operatorUi->IsVisible() != m_imguiEditor.LegacySurfaceVisible() )
+    {
+        m_operatorUi->SetVisible( m_imguiEditor.LegacySurfaceVisible(), 0.0 );
+    }
 }
 #endif
 

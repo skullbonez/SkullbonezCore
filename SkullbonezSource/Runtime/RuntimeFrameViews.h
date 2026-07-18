@@ -53,7 +53,8 @@ class WorkerPool;
 namespace UI
 {
 class InGameUI;
-}
+struct OperatorEditorFrameView;
+} // namespace UI
 namespace Runtime::Audio
 {
 class ContactAudioService;
@@ -202,6 +203,9 @@ struct RuntimeUiTextFrameFacts
     float presentationAlpha = 0.0f;
     bool presentationPinned = false;
     double secondsPerFrame = 0.0;
+    // Output value populated from concrete owners before either presentation
+    // surface consumes it. The caller owns the storage for this frame.
+    UI::OperatorEditorFrameView& operatorEditorView;
 
     RuntimeUiTextFrameFacts( uint32_t cameraModeEnabledMaskValue,
                              const char* cameraModeLabelValue,
@@ -210,11 +214,13 @@ struct RuntimeUiTextFrameFacts
                              const RuntimeInteractionGesture& interactionGestureValue,
                              float presentationAlphaValue,
                              bool presentationPinnedValue,
-                             double secondsPerFrameValue )
+                             double secondsPerFrameValue,
+                             UI::OperatorEditorFrameView& operatorEditorViewValue )
         : cameraModeEnabledMask( cameraModeEnabledMaskValue ), cameraModeLabel( cameraModeLabelValue ),
           launcherFireModeLabel( launcherFireModeLabelValue ), isLauncherCameraMode( isLauncherCameraModeValue ),
           interactionGesture( interactionGestureValue ), presentationAlpha( presentationAlphaValue ),
-          presentationPinned( presentationPinnedValue ), secondsPerFrame( secondsPerFrameValue )
+          presentationPinned( presentationPinnedValue ), secondsPerFrame( secondsPerFrameValue ),
+          operatorEditorView( operatorEditorViewValue )
     {
     }
     RuntimeUiTextFrameFacts( const RuntimeUiTextFrameFacts& ) = delete;

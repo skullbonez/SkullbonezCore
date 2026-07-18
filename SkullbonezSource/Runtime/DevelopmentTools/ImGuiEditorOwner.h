@@ -6,7 +6,7 @@ Purpose:
 Summary:
   ImGuiEditorOwner owns the CPU-side ImGui context, style, fonts, persisted
   layout identity, visibility, and balanced frame begin/end calls. Runtime
-  supplies immutable scalar window facts and receives a typed command packet;
+  supplies immutable window and shared domain-view facts and receives a typed command packet;
   scene, replay, rendering, physics, audio, and editor domain state never enter
   this owner.
 
@@ -17,6 +17,8 @@ Glossary:
     runtime composition root to arbitrate later.
   Layout version: Integer embedded in the persisted ini filename so an
     incompatible panel topology starts from a clean deterministic namespace.
+  Surface preference: Process-lifetime visibility choice kept outside scene and
+    replay serialization.
 
 Invariants:
   - This source is compiled only with SKULLBONEZ_DEVELOPMENT_TOOLS.
@@ -36,6 +38,7 @@ Related:
 #include "ImGuiEditorInputPolicy.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/PlatformWin32.h"
+#include "../../UI/OperatorEditorExchange.h"
 
 #include <cstdint>
 
@@ -65,7 +68,10 @@ struct ImGuiEditorFrameInput
 
 struct ImGuiEditorCommands
 {
+    UI::OperatorEditorCommandQueues operatorEditor;
     bool requestHide = false;
+    bool requestLegacyVisibility = false;
+    bool requestedLegacyVisible = true;
 };
 
 struct ImGuiEditorFrameResult
@@ -96,6 +102,7 @@ struct ImGuiEditorStatus
     bool platformViewportsEnabled = false;
     int layoutVersion = 0;
     uint64_t completedFrames = 0u;
+    uint64_t sharedViewFingerprint = 0u;
     bool rendererBound = false;
     uint32_t rendererDescriptorUsed = 0u;
     uint32_t rendererDescriptorCapacity = 0u;
@@ -127,6 +134,10 @@ class ImGuiEditorOwner
     void Shutdown() noexcept;
     void SetVisible( bool visible ) noexcept;
     bool IsVisible() const noexcept;
+    void InitializeSurfacePreferences( bool legacyVisible, bool editorVisible ) noexcept;
+    void SetLegacySurfaceVisible( bool visible ) noexcept;
+    bool LegacySurfaceVisible() const noexcept;
+    UI::OperatorEditorCommandQueues ConsumeOperatorEditorCommands() noexcept;
 
     ImGuiEditorNativeMessageRoute
     HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept;
@@ -135,7 +146,7 @@ class ImGuiEditorOwner
     void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
-    void BuildEmptyDockspace();
+    void BuildEmptyDockspace( const UI::OperatorEditorFrameView& view );
     ImGuiEditorFrameResult EndFrame();
     ImGuiEditorStatus CopyStatus() const noexcept;
 
@@ -146,6 +157,8 @@ class ImGuiEditorOwner
     Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
     HWND m_window = nullptr;
     bool m_visible = false;
+    bool m_surfacePreferencesInitialized = false;
+    bool m_legacySurfaceVisible = true;
     bool m_frameActive = false;
     bool m_platformBackendInitialized = false;
     bool m_gameViewportHovered = false;
@@ -154,6 +167,10 @@ class ImGuiEditorOwner
     int m_lastPlatformMouseCursor = -2;
     float m_appliedDpiScale = 0.0f;
     uint64_t m_completedFrames = 0u;
+    uint64_t m_sharedViewFingerprint = 0u;
+    ImGuiEditorCommands m_frameCommands;
+    UI::OperatorEditorCommandQueues m_pendingOperatorEditorCommands;
+    SkullbonezCore::Core::SbResult m_frameCommandStatus = SkullbonezCore::Core::SbResult::Success();
     uint64_t m_platformMessages = 0u;
     uint64_t m_suppressedMouseMessages = 0u;
     uint64_t m_suppressedKeyboardMessages = 0u;

@@ -137,8 +137,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 8 | 18 | 44% |
-| **Active/future total** | **9** | **26** | **35%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 9 | 18 | 50% |
+| **Active/future total** | **10** | **26** | **38%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -196,7 +196,7 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E8 under the owner's
+`imgui-tracy-editor-campaign` (E0-E17) is active at E9 under the owner's
 direction to note genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
@@ -847,7 +847,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E8 | 8/18 | Introduce shared domain view/command seams and deterministic coexistence arbitration |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E9 | 9/18 | Build the deterministic dockspace, menus, toolbar, and reset path |
 
 ## Features
 

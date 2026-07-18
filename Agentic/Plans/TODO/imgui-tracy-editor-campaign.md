@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 8/18 tasks (E0-E7 complete; E8 next) under the owner's
+Status: Active — 9/18 tasks (E0-E8 complete; E9 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (7/18 complete)
+Ledger: E0-E17 (9/18 complete)
 
 ## Objective
 
@@ -331,7 +331,7 @@ It does **not** authorize removal from the legacy UI.
     exclusion. UI, UI-stress, fast, allocation, full, and Release gates passed
     with zero warnings, DX12 errors, baseline changes, or golden refreshes.
 
-- [ ] E8 — Introduce the shared command/view-model coexistence seam.
+- [x] E8 — Introduce the shared command/view-model coexistence seam.
   - Extend or split existing frame-data records into domain-cohesive read-only
     editor views and fixed-capacity typed command queues. Both UI front ends
     consume/emit these boundaries; neither forwards through `Run`.
@@ -345,6 +345,13 @@ It does **not** authorize removal from the legacy UI.
     without duplicated execution.
   - Gates: `tools\validate_ui.bat`, mapped command-owner tests,
     `tools\validate_full.bat` for Runtime/Run-facing boundary changes.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e8-editor-exchange.md` records the
+    common domain-grouped view, fixed typed queues, two-surface normalization,
+    deterministic duplicate arbitration, Lane-R conflicts, canonical owner
+    projection, independent development visibility preferences, 32 focused
+    assertions, the full 302-case suite, and UI/full/Release evidence with no
+    oracle or authored-data change.
 
 - [ ] E9 — Build the deterministic dockspace, menus, toolbar, and reset path.
   - Implement the default topology exactly: editor-left, viewport-center,
