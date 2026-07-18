@@ -810,14 +810,15 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
                                                                              constantBytes,
                                                                              RenderUploadCategory::DynamicVertex )
                   : 0;
-    m_geometryOwner.UploadAndDrawDynamicVB( handle,
-                                            data,
-                                            vertexCount,
-                                            address,
-                                            address ? GetUploadPtr( address ) : nullptr,
-                                            CommandList(),
-                                            m_frameOwner.DrawGate(),
-                                            m_diagnostics );
+    m_geometryOwner.UploadAndDrawDynamicVB(
+        handle,
+        data,
+        vertexCount,
+        address,
+        address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
+        CommandList(),
+        m_frameOwner.DrawGate(),
+        m_diagnostics );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 
@@ -844,7 +845,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
                                       vertCount,
                                       viewProjMatrix16,
                                       address,
-                                      address ? GetUploadPtr( address ) : nullptr,
+                                      address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
                                       CommandList(),
                                       m_pipelineOwner,
                                       m_frameOwner.DrawGate(),
@@ -872,17 +873,18 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
         m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
                                                                  m_geometryOwner.TransientConstantBytes( style ),
                                                                  category );
-    m_geometryOwner.DrawTransientColoredTriangles( data,
-                                                   vertexCount,
-                                                   viewProjMatrix16,
-                                                   style,
-                                                   m_width,
-                                                   m_height,
-                                                   address,
-                                                   address ? GetUploadPtr( address ) : nullptr,
-                                                   CommandList(),
-                                                   m_frameOwner.DrawGate(),
-                                                   m_diagnostics );
+    m_geometryOwner.DrawTransientColoredTriangles(
+        data,
+        vertexCount,
+        viewProjMatrix16,
+        style,
+        m_renderDevice.Width(),
+        m_renderDevice.Height(),
+        address,
+        address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
+        CommandList(),
+        m_frameOwner.DrawGate(),
+        m_diagnostics );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 
@@ -898,27 +900,28 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
                                                  const int* staticAttribSizes,
                                                  int numStaticAttribs )
 {
-    if ( !EnsureCommandListOpen().ok )
+    if ( !m_frameOwner.EnsureOpen().ok )
     {
         return 0;
     }
     const UINT64 bytes = static_cast<UINT64>( staticVertCount ) * staticFloatsPerVert * sizeof( float );
     const D3D12_GPU_VIRTUAL_ADDRESS address =
         m_frameOwner.UploadReservations().ReserveUpload( bytes, 4, RenderUploadCategory::DynamicVertex );
-    return m_geometryOwner.CreateInstancedMesh( staticData,
-                                                staticVertCount,
-                                                staticFloatsPerVert,
-                                                instanceFloats,
-                                                instanceStartAttrib,
-                                                instanceAttribSizes,
-                                                numInstanceAttribs,
-                                                staticAttribSizes,
-                                                numStaticAttribs,
-                                                Device(),
-                                                CommandList(),
-                                                m_frameOwner.Uploads().Resource( m_frameOwner.AllocatorIndex() ),
-                                                address,
-                                                address ? GetUploadPtr( address ) : nullptr );
+    return m_geometryOwner.CreateInstancedMesh(
+        staticData,
+        staticVertCount,
+        staticFloatsPerVert,
+        instanceFloats,
+        instanceStartAttrib,
+        instanceAttribSizes,
+        numInstanceAttribs,
+        staticAttribSizes,
+        numStaticAttribs,
+        Device(),
+        CommandList(),
+        m_frameOwner.Uploads().Resource( m_frameOwner.AllocatorIndex() ),
+        address,
+        address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr );
 }
 
 
@@ -941,11 +944,12 @@ void RenderBackendDX12::UploadInstanceData( uint32_t handle, const float* data, 
         m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
                                                                  constantBytes,
                                                                  RenderUploadCategory::InstanceData );
-    m_geometryOwner.UploadInstanceData( handle,
-                                        data,
-                                        floatCount,
-                                        address,
-                                        address ? GetUploadPtr( address ) : nullptr );
+    m_geometryOwner.UploadInstanceData(
+        handle,
+        data,
+        floatCount,
+        address,
+        address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr );
 }
 
 

@@ -755,15 +755,30 @@ void Dx12PipelineOwner::BindCurrentOutputs( ID3D12GraphicsCommandList* commandLi
 }
 
 
-void Dx12PipelineOwner::ClearCurrentColor( ID3D12GraphicsCommandList* commandList, const float color[4] ) const
+void Dx12PipelineOwner::SetClearColor( float r, float g, float b, float a )
 {
-    commandList->ClearRenderTargetView( m_currentRTV, color, 0, nullptr );
+    m_clearColor[0] = r;
+    m_clearColor[1] = g;
+    m_clearColor[2] = b;
+    m_clearColor[3] = a;
 }
 
 
-void Dx12PipelineOwner::ClearCurrentDepth( ID3D12GraphicsCommandList* commandList, float depth ) const
+void Dx12PipelineOwner::SetClearDepth( float depth )
 {
-    commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr );
+    m_clearDepth = depth;
+}
+
+
+void Dx12PipelineOwner::ClearCurrentColor( ID3D12GraphicsCommandList* commandList ) const
+{
+    commandList->ClearRenderTargetView( m_currentRTV, m_clearColor, 0, nullptr );
+}
+
+
+void Dx12PipelineOwner::ClearCurrentDepth( ID3D12GraphicsCommandList* commandList ) const
+{
+    commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, m_clearDepth, 0, 0, nullptr );
 }
 
 
@@ -819,6 +834,11 @@ void Dx12PipelineOwner::ResetDesiredState()
     m_polyOffsetFactor = defaults.m_polyOffsetFactor;
     m_polyOffsetUnits = defaults.m_polyOffsetUnits;
     m_renderingToFBO = defaults.m_renderingToFBO;
+    m_clearColor[0] = 0.0f;
+    m_clearColor[1] = 0.0f;
+    m_clearColor[2] = 0.0f;
+    m_clearColor[3] = 1.0f;
+    m_clearDepth = 1.0f;
     m_lastPSOHash = defaults.m_lastPSOHash;
     m_psoDirty = defaults.m_psoDirty;
     m_targetsDirty = defaults.m_targetsDirty;
@@ -910,53 +930,4 @@ void Dx12PipelineOwner::GetBlendFunc( BlendFactor& src, BlendFactor& dst ) const
 {
     src = m_blendSrc;
     dst = m_blendDst;
-}
-
-
-bool RenderBackendDX12::PrepareDraw( VertexFormat12 format,
-                                     bool instanced,
-                                     const InstancedMeshDX12* instancedMesh,
-                                     const DynamicVBDX12* dynamicVertexBuffer )
-{
-    return m_frameOwner.DrawGate().PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer );
-}
-
-
-void RenderBackendDX12::SetActiveShader( ShaderDX12* shader )
-{
-    m_pipelineOwner.SetActiveShader( shader );
-}
-
-
-void RenderBackendDX12::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv )
-{
-    m_pipelineOwner.SetCurrentTargets( rtv, dsv );
-}
-
-
-void RenderBackendDX12::SetRenderingToFBO( bool rendering,
-                                           UINT fboSrvIndex,
-                                           UINT fboDepthSrvIndex,
-                                           DXGI_FORMAT rtvFormat )
-{
-    m_pipelineOwner.SetRenderingToFBO( rendering, rtvFormat );
-    if ( rendering )
-    {
-        // Hazard: a render-target resource cannot remain sampled through a
-        // texture slot while the output-merger writes it.
-        m_textureOwner.ClearBoundSlotsForSrv( fboSrvIndex );
-        m_textureOwner.ClearBoundSlotsForSrv( fboDepthSrvIndex );
-    }
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
-{
-    return m_descriptorHeaps.AllocateRtv().cpuHandle;
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
-{
-    return m_descriptorHeaps.AllocateDsv().cpuHandle;
 }

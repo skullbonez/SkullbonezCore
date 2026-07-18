@@ -137,16 +137,6 @@ const SkullbonezCore::Core::SbResult& Dx12RaytracingOwner::FeatureResult() const
     return m_featureResult;
 }
 
-void RenderBackendDX12::CheckDXRSupport()
-{
-    // Re-probe is a publication boundary: revoke any previously exposed
-    // reflection handle before the concrete owner replaces its capability and
-    // resource lifetime.
-    ShutdownDXR();
-    m_raytracingOwner.ProbeCapability( Device() );
-}
-
-
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateRootSignature( ID3D12Device* device )
 {
     // Concept: the raytracing root signature is the binding contract for
@@ -616,7 +606,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
-    const SkullbonezCore::Core::SbResult openResult = EnsureCommandListOpen();
+    const SkullbonezCore::Core::SbResult openResult = m_frameOwner.EnsureOpen();
     if ( !openResult.ok )
     {
         return openResult;
@@ -625,8 +615,8 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     const Dx12RaytracingSetupOutcome setup = m_raytracingOwner.BeginSetup( Device(),
                                                                            CommandList(),
                                                                            m_descriptorHeaps,
-                                                                           m_width,
-                                                                           m_height,
+                                                                           m_renderDevice.Width(),
+                                                                           m_renderDevice.Height(),
                                                                            terrainVBVA,
                                                                            terrainVertCount,
                                                                            terrainStride,
@@ -639,19 +629,19 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
         // fences command work. The raytracing owner reports whether it emitted
         // BLAS commands so the coordinator can prove their completion before
         // scratch memory is released.
-        AssertPlatformProfilerGpuStackClosed( "InitDXR command list Close" );
+        m_frameOwner.AssertProfilerClosed( "InitDXR command list Close" );
         const SkullbonezCore::Core::SbResult closeResult =
             m_frameOwner.CommitClose( CommandList()->Close(), "InitDXR command list Close" );
         if ( !closeResult.ok )
         {
             return closeResult;
         }
-        const SkullbonezCore::Core::SbResult submitResult = SubmitClosedCommandList();
+        const SkullbonezCore::Core::SbResult submitResult = m_frameOwner.SubmitClosed();
         if ( !submitResult.ok )
         {
             return submitResult;
         }
-        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( WaitForGpu() );
+        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
         if ( !waitResult.ok )
         {
             return waitResult;
@@ -681,7 +671,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     const UINT reflectionSrvIndex = m_raytracingOwner.ReflectionSrvIndex();
     if ( reflectionSrvIndex != 0 )
     {
-        m_reflectionTextureHandle = m_textureOwner.RegisterSRV( reflectionSrvIndex );
+        m_raytracingOwner.PublishReflectionTextureHandle( m_textureOwner.RegisterSRV( reflectionSrvIndex ) );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -692,7 +682,7 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms,
                                    uint64_t /*terrainBLAS*/,
                                    uint64_t /*sphereBLAS*/ )
 {
-    if ( !m_raytracingOwner.Supported() || !EnsureCommandListOpen().ok )
+    if ( !m_raytracingOwner.Supported() || !m_frameOwner.EnsureOpen().ok )
     {
         return;
     }
@@ -971,7 +961,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
 {
     (void)width;
     (void)height;
-    if ( !m_raytracingOwner.Supported() || !EnsureCommandListOpen().ok )
+    if ( !m_raytracingOwner.Supported() || !m_frameOwner.EnsureOpen().ok )
     {
         return;
     }
@@ -1017,9 +1007,38 @@ UINT Dx12RaytracingOwner::ReflectionSrvIndex() const
 }
 
 
-uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
+uint32_t Dx12RaytracingOwner::ReflectionTextureHandle() const
 {
     return m_reflectionTextureHandle;
+}
+
+
+void Dx12RaytracingOwner::PublishReflectionTextureHandle( uint32_t handle )
+{
+    // Invariant: the texture registry exposes at most one handle for the
+    // reflection SRV during a raytracing-owner epoch.
+    if ( handle == 0 || m_reflectionTextureHandle != 0 )
+    {
+        SB_FATAL( "Dx12RaytracingOwner",
+                  "Invalid reflection texture handle publication. handle=%u current=%u",
+                  handle,
+                  m_reflectionTextureHandle );
+    }
+    m_reflectionTextureHandle = handle;
+}
+
+
+uint32_t Dx12RaytracingOwner::TakeReflectionTextureHandle()
+{
+    const uint32_t handle = m_reflectionTextureHandle;
+    m_reflectionTextureHandle = 0;
+    return handle;
+}
+
+
+uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
+{
+    return m_raytracingOwner.ReflectionTextureHandle();
 }
 
 
@@ -1080,6 +1099,7 @@ void Dx12RaytracingOwner::Shutdown()
         m_device5 = nullptr;
     }
     m_supported = false;
+    m_reflectionTextureHandle = 0;
     m_reflectionUavIndex = 0;
     m_reflectionSrvIndex = 0;
     m_reflectionWidth = 0;
@@ -1091,13 +1111,13 @@ void Dx12RaytracingOwner::Shutdown()
 
 void RenderBackendDX12::ShutdownDXR()
 {
-    if ( m_reflectionTextureHandle != 0 )
+    const uint32_t reflectionTextureHandle = m_raytracingOwner.TakeReflectionTextureHandle();
+    if ( reflectionTextureHandle != 0 )
     {
         // Lifetime: the texture registry borrows this descriptor identity. Drop
         // its public handle before the owner releases the underlying reflection
         // resource so no sibling registry entry survives as a stale tombstone.
-        m_textureOwner.UnregisterSRV( m_reflectionTextureHandle );
-        m_reflectionTextureHandle = 0;
+        m_textureOwner.UnregisterSRV( reflectionTextureHandle );
     }
     m_raytracingOwner.Shutdown();
 }

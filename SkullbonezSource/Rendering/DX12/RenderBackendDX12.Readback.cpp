@@ -31,6 +31,10 @@ using namespace SkullbonezCore::Rendering;
 SkullbonezCore::Core::SbResult
 RenderBackendDX12::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
 {
-    return m_backbufferCapture
-        .Capture( m_frameOwner.CaptureFrame(), m_width, m_height, outPixels, outWidth, outHeight );
+    return m_backbufferCapture.Capture( m_frameOwner.CaptureFrame(),
+                                        m_renderDevice.Width(),
+                                        m_renderDevice.Height(),
+                                        outPixels,
+                                        outWidth,
+                                        outHeight );
 }

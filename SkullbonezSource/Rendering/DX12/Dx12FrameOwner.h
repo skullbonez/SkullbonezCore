@@ -225,6 +225,9 @@ class Dx12FrameOwner
     // Raise this to three only if profiling proves allocator-reuse waits are
     // limiting a GPU-heavy workload enough to justify the extra queued frame.
     static constexpr int FRAME_COUNT = 2;
+    // Capacity: each frame owns 32 MiB, so the two-frame configuration reserves
+    // 64 MiB. Steady runtime drops a bounded draw instead of growing this arena.
+    static constexpr UINT64 UPLOAD_BUFFER_SIZE = 32ull * 1024ull * 1024ull;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
     Dx12FrameOwner( Dx12RenderDevice& device,

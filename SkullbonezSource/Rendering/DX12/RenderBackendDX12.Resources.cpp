@@ -147,17 +147,18 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
         floatsPerVert = 3;
     }
 
-    if ( !EnsureCommandListOpen().ok )
+    if ( !m_frameOwner.EnsureOpen().ok )
     {
         return nullptr;
     }
     UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4, RenderUploadCategory::DynamicVertex );
+    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr =
+        m_frameOwner.UploadReservations().ReserveUpload( dataSize, 4, RenderUploadCategory::DynamicVertex );
     if ( uploadAddr == 0 )
     {
         return nullptr;
     }
-    uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
+    uint8_t* uploadPtr = m_frameOwner.UploadReservations().UploadPointer( uploadAddr );
 
     auto mesh = std::make_unique<MeshDX12>( m_renderDevice, m_frameOwner.DrawGate(), m_diagnostics );
     if ( !mesh->Create( Device(),

@@ -1008,25 +1008,3 @@ void RenderBackendDX12::DeleteTexture( uint32_t handle )
     Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
     m_textureOwner.DeleteTexture( textureCommands, handle );
 }
-
-
-UINT RenderBackendDX12::RegisterSRV( UINT srvIndex )
-{
-    return m_textureOwner.RegisterSRV( srvIndex );
-}
-
-
-void RenderBackendDX12::UnregisterSRV( uint32_t handle )
-{
-    const UINT srvIndex = m_textureOwner.UnregisterSRV( handle );
-    if ( srvIndex != UINT_MAX )
-    {
-        m_frameOwner.ResourceRelease().RetireStaticDescriptor( srvIndex );
-    }
-}
-
-
-void RenderBackendDX12::ClearBoundTextureSlotsForSrv( UINT srvIndex )
-{
-    m_textureOwner.ClearBoundSlotsForSrv( srvIndex );
-}

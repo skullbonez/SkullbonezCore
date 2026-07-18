@@ -86,18 +86,6 @@ bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
 }
 
 
-int RenderBackendDX12::SuspendPlatformProfilerGpuStackForSubmit( const char* reason )
-{
-    return m_frameOwner.SuspendProfilerForSubmit( reason );
-}
-
-
-void RenderBackendDX12::RestorePlatformProfilerGpuStackAfterSubmit( int suspendedDepth )
-{
-    m_frameOwner.RestoreProfilerAfterSubmit( suspendedDepth );
-}
-
-
 void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
 {
     if ( !SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
@@ -127,7 +115,7 @@ void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t ha
     {
         return;
     }
-    if ( !EnsureCommandListOpen().ok )
+    if ( !m_frameOwner.EnsureOpen().ok )
     {
         return;
     }

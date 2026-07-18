@@ -94,7 +94,7 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   state and operations (the `IRenderShaderDevelopment` implementation
   state) into a concrete owner; cold-path only, no per-frame authority.
   Gate: renderer + stress.
-- [ ] D6 — Composition-root shrink and header diet. With D1-D5 landed,
+- [x] D6 — Composition-root shrink and header diet. With D1-D5 landed,
   remove dead private members/helpers from `RenderBackendDX12`, re-home
   helper declarations to their owners, and measure the header/class size
   drop. Interface method bodies may delegate to owners, but no owner state
@@ -219,6 +219,33 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   stopped at one formatting-only finding; the touched resource file was
   formatted and the complete gate reran cleanly. No baseline, golden,
   screenshot, or coverage-floor file changed. Task elapsed time: 838.323 s.
+- D6 evidence (2026-07-18): `RenderBackendDX12` now declares only its eleven
+  concrete owner objects; it retains no raw resource, heap, allocator, extent,
+  present-policy, clear-intent, reflection-handle, recreation-generation, or
+  upload-capacity state. Device/presentation extent, generation, VSync/tearing,
+  the main depth surface, and device-loss reporting live in
+  `Dx12RenderDevice`; clear intent lives in `Dx12PipelineOwner`; the reflected
+  texture registry handle lives in `Dx12RaytracingOwner`; and the 32 MiB upload
+  capacity lives beside `Dx12FrameOwner::FRAME_COUNT`. Dead frame, descriptor,
+  pipeline, texture, DXR, profiler, and upload forwarding helpers were deleted.
+  The header fell from 993 to 867 lines during D6 (126 lines, 12.7%) and from
+  the D0 1,095-line baseline by 228 lines (20.8%); the backend class itself fell
+  from 367 to 231 lines during D6 and from 455 at D0 by 224 lines (49.2%). The
+  seven retained consumer interfaces are byte-identical to D0 and
+  `FRAME_COUNT` remains 2. Comment audit:
+  `../../Reports/2026-07-18/dx12-backend-d6-comment-audit.md`, 12/12 checked
+  with none deferred. Final gates: project filters passed with 738/738 items;
+  `validate_dx12_renderer` passed in 56.779 s with zero InfoQueue errors and all
+  committed captures accepted; `run_graphics_stress.bat 1` ran crash-free for
+  61.635 s before the exact-PID bounded stop; and `validate_full` passed in
+  142.675 s with 291/291 tests, 21,455/21,455 assertions, every coverage floor,
+  Automation replay/prediction smoke, zero-error DX12 captures, and a
+  44,401-line byte-exact physics match. The first renderer attempt stopped at
+  the two touched headers' alignment post-pass; both were corrected and the
+  complete gate reran cleanly. The exact platform-profiler probe emitted both
+  requested/enabled lines and PID 6524 was stopped exactly after 1.117 s. No
+  baseline, golden, screenshot, or coverage-floor file changed. Task elapsed
+  time: 1,506.737 s.
 
 ## Acceptance
 

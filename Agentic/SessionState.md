@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the round-7 plans in the MASTER-PLAN binding order (DX12 backend ownership, naming/identity debt, small findings hardening) plus the parallel-eligible physics body-count scale campaign P0-P7. |
-| Active/future progress | 6 / 26 live tasks; 23%. |
+| Active/future progress | 7 / 26 live tasks; 27%. |
 | Last broad local gate | Scene round-2 S6 `validate_full` passed in 143.261s: 291/291 tests, 21,455/21,455 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
-| Validation for current edits | DX12 D5 project filters passed at 738/738; `validate_fast` passed in 56.030 s with 291/291 tests and 21,455/21,455 assertions; `validate_dx12_renderer` passed in 53.680 s with zero InfoQueue errors and committed captures accepted; bounded graphics stress ran crash-free for 61.751 s. No baseline or golden changed. |
+| Validation for current edits | DX12 D6 project filters passed at 738/738; `validate_dx12_renderer` passed in 56.779 s with zero InfoQueue errors and committed captures accepted; bounded graphics stress ran crash-free for 61.635 s; `validate_full` passed in 142.675 s with all CPU, coverage, Automation, DX12, and byte-exact physics lanes. No baseline or golden changed. |
 
 ## Live Queue
 
@@ -53,8 +53,12 @@ NOW. Four live plans, 26 tasks: three round-7 plans plus the 2026-07-18
      backend reach-back. D5 moved the fixed live-shader registry, pinned bake,
      complete candidate staging, and no-fail PSO/bytecode adoption into
      `Dx12ShaderDevelopment`; it has no frame, command-list, backend, callback,
-     or per-frame authority. All mandatory gates passed. Next action: D6
-     composition-root shrink and header diet.
+     or per-frame authority. D6 removed backend-resident device/presentation,
+     clear-intent, DXR handle, and upload-capacity state plus the obsolete
+     forwarding surface. The backend header is 867 lines and the class is 231
+     lines; it directly declares only eleven concrete owners. All mandatory
+     gates passed. Next action: D7 independent logical-module ownership review
+     and closure.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -417,9 +421,11 @@ NOW. Four live plans, 26 tasks: three round-7 plans plus the 2026-07-18
 
 ## Next Handoff
 
-Round-7 scene decomposition is complete at 7/7 and DX12 D0-D5 are complete at
-6/8. Continue immediately with D6 composition-root shrink and header diet according
-to the ratified census. Preserve the seven excluded render consumer interfaces
-and `FRAME_COUNT = 2`. Every DX12 source change requires the mapped renderer
-gate and at least the standard bounded graphics-stress proof. Do not regenerate
-behavioral, physics, replay, visual, or screenshot baselines.
+Round-7 scene decomposition is complete at 7/7 and DX12 D0-D6 are complete at
+7/8. Continue immediately with D7 independent ownership review and closure over
+the complete logical backend module. Any credible reach-back, multi-domain
+state, compatibility alias, or nominal-owner finding reopens its owning task.
+Preserve the seven excluded render consumer interfaces and `FRAME_COUNT = 2`.
+Every DX12 source change requires the mapped renderer gate and at least the
+standard bounded graphics-stress proof. Do not regenerate behavioral, physics,
+replay, visual, or screenshot baselines.
