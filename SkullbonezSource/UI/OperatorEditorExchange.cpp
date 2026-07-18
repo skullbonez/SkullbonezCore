@@ -119,6 +119,16 @@ bool SameReplayPayload( const OperatorEditorReplayCommand& left, const OperatorE
            left.budgetMiB == right.budgetMiB;
 }
 
+bool SameToolIdentity( const OperatorEditorToolCommand& left, const OperatorEditorToolCommand& right )
+{
+    return left.type == right.type;
+}
+
+bool SameToolPayload( const OperatorEditorToolCommand&, const OperatorEditorToolCommand& )
+{
+    return true;
+}
+
 template <typename Queue, typename Submit>
 SkullbonezCore::Core::SbResult
 MergeQueue( Queue& target, const Queue& source, Submit submit, uint32_t& accepted, uint32_t& duplicates )
@@ -232,6 +242,24 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplay
     return SubmitBounded( queue, command, SameReplayIdentity, SameReplayPayload, duplicate );
 }
 
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCommandQueue& queue,
+                                                            const OperatorEditorToolCommand& command,
+                                                            bool* duplicate )
+{
+    switch ( command.type )
+    {
+    case OperatorEditorToolCommandType::ToggleEditorMode:
+    case OperatorEditorToolCommandType::TogglePlacementMode:
+    case OperatorEditorToolCommandType::Undo:
+    case OperatorEditorToolCommandType::Redo:
+    case OperatorEditorToolCommandType::ToggleCrossScenePause:
+    case OperatorEditorToolCommandType::StepPausedScene:
+        return SubmitBounded( queue, command, SameToolIdentity, SameToolPayload, duplicate );
+    default:
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Tool command has an unknown action type" );
+    }
+}
+
 SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICommands& commands )
 {
     OperatorEditorCommandQueues normalized = commands.operatorEditor;
@@ -278,6 +306,19 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                                                                       commands.replayMemory.requestedRetentionSeconds,
                                                                       commands.replayMemory.requestedBudgetMiB } );
     }
+    const auto normalizeTool = [&]( bool requested, OperatorEditorToolCommandType type )
+    {
+        if ( result.ok && requested )
+        {
+            result = SubmitOperatorEditorCommand( normalized.tools, OperatorEditorToolCommand{ type } );
+        }
+    };
+    normalizeTool( commands.editor.toggleEditorMode, OperatorEditorToolCommandType::ToggleEditorMode );
+    normalizeTool( commands.editor.togglePlacementMode, OperatorEditorToolCommandType::TogglePlacementMode );
+    normalizeTool( commands.editor.requestUndo, OperatorEditorToolCommandType::Undo );
+    normalizeTool( commands.editor.requestRedo, OperatorEditorToolCommandType::Redo );
+    normalizeTool( commands.scene.toggleCrossScenePause, OperatorEditorToolCommandType::ToggleCrossScenePause );
+    normalizeTool( commands.scene.requestSingleStep, OperatorEditorToolCommandType::StepPausedScene );
     if ( !result.ok )
     {
         return result;
@@ -290,6 +331,12 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     commands.water.requestWorldGravity = false;
     commands.renderer.toggleVsync = false;
     commands.replayMemory.requestPolicy = false;
+    commands.editor.toggleEditorMode = false;
+    commands.editor.togglePlacementMode = false;
+    commands.editor.requestUndo = false;
+    commands.editor.requestRedo = false;
+    commands.scene.toggleCrossScenePause = false;
+    commands.scene.requestSingleStep = false;
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -339,6 +386,16 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
                 accepted,
                 result.coalescedDuplicateCommands );
         }
+        if ( status.ok )
+        {
+            status = MergeQueue(
+                result.commands.tools,
+                source.tools,
+                []( OperatorEditorToolCommandQueue& queue, const OperatorEditorToolCommand& command, bool* duplicate )
+                { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+                accepted,
+                result.coalescedDuplicateCommands );
+        }
         return status;
     };
 
@@ -368,6 +425,12 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     commands.water.requestWorldGravity = false;
     commands.renderer.toggleVsync = false;
     commands.replayMemory.requestPolicy = false;
+    commands.editor.toggleEditorMode = false;
+    commands.editor.togglePlacementMode = false;
+    commands.editor.requestUndo = false;
+    commands.editor.requestRedo = false;
+    commands.scene.toggleCrossScenePause = false;
+    commands.scene.requestSingleStep = false;
 
     for ( uint32_t index = 0u; index < canonical.scene.count; ++index )
     {
@@ -412,6 +475,32 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
             commands.replayMemory.requestedBudgetMiB = command.budgetMiB;
         }
     }
+    for ( uint32_t index = 0u; index < canonical.tools.count; ++index )
+    {
+        switch ( canonical.tools.commands[index].type )
+        {
+        case OperatorEditorToolCommandType::ToggleEditorMode:
+            commands.editor.toggleEditorMode = true;
+            break;
+        case OperatorEditorToolCommandType::TogglePlacementMode:
+            commands.editor.togglePlacementMode = true;
+            break;
+        case OperatorEditorToolCommandType::Undo:
+            commands.editor.requestUndo = true;
+            break;
+        case OperatorEditorToolCommandType::Redo:
+            commands.editor.requestRedo = true;
+            break;
+        case OperatorEditorToolCommandType::ToggleCrossScenePause:
+            commands.scene.toggleCrossScenePause = true;
+            break;
+        case OperatorEditorToolCommandType::StepPausedScene:
+            commands.scene.requestSingleStep = true;
+            break;
+        default:
+            break;
+        }
+    }
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -444,6 +533,13 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.replay.solverWindowReduced );
     HashValue( hash, view.surfaces.legacyVisible );
     HashValue( hash, view.surfaces.secondaryVisible );
+    HashValue( hash, view.tools.editorModeEnabled );
+    HashValue( hash, view.tools.placementModeEnabled );
+    HashValue( hash, view.tools.placeStaticObject );
+    HashValue( hash, view.tools.crossScenePauseLocked );
+    HashValue( hash, view.tools.fixedStep );
+    HashValue( hash, view.tools.undoDepth );
+    HashValue( hash, view.tools.redoDepth );
     return hash;
 }
 } // namespace SkullbonezCore::UI

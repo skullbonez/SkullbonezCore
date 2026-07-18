@@ -196,7 +196,7 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E9 under the owner's
+`imgui-tracy-editor-campaign` (E0-E17) is active at E10 under the owner's
 direction to note genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
@@ -232,6 +232,16 @@ authoritative, neutralizes captured engine classes, prevents held-input ghost
 presses on return, and reconciles shared HWND capture/cursor state. The
 Legacy/ImGui/Both matrix, final 15-message probe, UI/UI-stress/fast/full gates,
 allocation scan, and Release exclusion all passed with no oracle change.
+E8 adds one domain-grouped frame view, fixed typed surface queues, deterministic
+duplicate coalescing and conflict reporting, canonical owner projection, and
+independent development visibility preferences. UI, tests, allocation, full,
+and Release gates passed without oracle or authored-data changes. E9 now owns
+deterministic layout version 2, stable dock IDs, the
+editor-left/viewport-center/utility-right/replay-bottom/status-bottom
+topology, the menu/toolbar shell, Tracy affordance, corrupt-layout recovery,
+and byte-stable operator reset. Minimum, 16:9, and ultrawide captures plus
+UI/stress/full/allocation/Release gates passed without oracle or authored-data
+changes.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
@@ -847,7 +857,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E9 | 9/18 | Build the deterministic dockspace, menus, toolbar, and reset path |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E10 | 10/18 | Deliver the left Scene & Modes, Hierarchy, and Assets/Create workflow |
 
 ## Features
 

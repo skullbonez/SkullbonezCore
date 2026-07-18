@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 9/18 tasks (E0-E8 complete; E9 next) under the owner's
+Status: Active — 10/18 tasks (E0-E9 complete; E10 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (9/18 complete)
+Ledger: E0-E17 (10/18 complete)
 
 ## Objective
 
@@ -353,7 +353,7 @@ It does **not** authorize removal from the legacy UI.
     assertions, the full 302-case suite, and UI/full/Release evidence with no
     oracle or authored-data change.
 
-- [ ] E9 — Build the deterministic dockspace, menus, toolbar, and reset path.
+- [x] E9 — Build the deterministic dockspace, menus, toolbar, and reset path.
   - Implement the default topology exactly: editor-left, viewport-center,
     utility-right, replay-bottom, status-bottommost. Build it from stable dock
     IDs only on first run or layout-version mismatch.
@@ -365,6 +365,12 @@ It does **not** authorize removal from the legacy UI.
   - Acceptance: 16:9, ultrawide, and minimum-window screenshots preserve the
     central viewport and bottom replay strip; reset is byte-stable in topology.
   - Gates: `tools\validate_ui.bat`, `tools\validate_ui_stress.bat`.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e9-dock-shell.md` records stable layout
+    version 2 and fingerprint `9482475421528666861`, identical first-run/reset
+    topology, the real menu reset path, three responsive screenshots, the full
+    304-case suite, UI/stress/full/allocation/Release gates, and clean shipping
+    exclusion with no oracle or authored-data change.
 
 - [ ] E10 — Deliver the left editor workflow from top-left downward.
   - `Scene & Modes`: edit/play state, selection mode, placement mode, active

@@ -813,6 +813,27 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         result.enterInteractiveScene = true;
         recordUIAction( RuntimeInputAction::ToggleEditorTerrainAlign );
     }
+    if ( uiCommands.editor.requestUndo && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.UndoEditorCommand( sceneController.Scene(), sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+        recordUIAction( RuntimeInputAction::UndoEditor );
+    }
+    if ( uiCommands.editor.requestRedo && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.RedoEditorCommand( sceneController.Scene(), sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+        recordUIAction( RuntimeInputAction::RedoEditor );
+    }
+    if ( uiCommands.scene.toggleCrossScenePause )
+    {
+        sceneController.ToggleCrossScenePause();
+        recordUIAction( RuntimeInputAction::ToggleCrossScenePause );
+    }
+    // Invariant: the one-frame step request joins the routed Space level later
+    // in ProcessInputFrame. It is meaningful only while the scene-flow owner is
+    // paused and is never retained as Run business state.
+    result.requestSceneStep = uiCommands.scene.requestSingleStep && sceneController.CrossScenePauseLocked();
     const DiagnosticsPhysicsOverlayUICommandResult physicsDiagnosticsCommands =
         ApplyDiagnosticsPhysicsOverlayUICommands( debug, uiCommands.physics );
     if ( physicsDiagnosticsCommands.toggledCollisionVisualizer )

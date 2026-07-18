@@ -96,6 +96,7 @@ struct RuntimeUIFrameResult
     bool suppressWorldActionThisFrame = false;
     bool frameActive = false;
     bool enterInteractiveScene = false;
+    bool requestSceneStep = false; // One accepted paused-scene step for the later runtime-input snapshot.
     int editorUnhandledWheelDelta = 0;
 };
 

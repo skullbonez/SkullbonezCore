@@ -230,6 +230,8 @@ struct UISceneCommands
     bool createScene = false;              // Create a new starter scene from requestedSceneName.
     char requestedSceneName[64] = {};
     int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
+    bool toggleCrossScenePause = false;    // Toggle the scene-flow owner's pause lock across scene transitions.
+    bool requestSingleStep = false;        // Advance one paused scene turn; never retained beyond this input frame.
 };
 
 struct UIPhysicsCommands
@@ -280,6 +282,8 @@ struct UIEditorCommands
     bool requestPlaceStatic = false;
     bool requestedPlaceStatic = false;
     int requestedObjectType = -1;
+    bool requestUndo = false;              // Ask the editor history owner to undo one committed command.
+    bool requestRedo = false;              // Ask the editor history owner to redo one committed command.
 };
 
 struct UISceneOptionCommands

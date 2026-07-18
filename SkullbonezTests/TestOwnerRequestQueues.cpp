@@ -15,6 +15,8 @@ Glossary:
     after it attempts to copy the backbuffer into CPU-visible bytes.
   Editor projection: Conversion of an arbitrated common action into the
     established narrow runtime-owner command packet.
+  Layout envelope: Responsive pixel allocation that drives stable ImGui dock
+    splits without requiring a vendor context in this test executable.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -23,6 +25,7 @@ Invariants:
   - Render-default saves reject config versions newer than the engine-owned
     schema before rewriting any bytes.
   - Shared editor views fingerprint semantic fields rather than object padding.
+  - The versioned editor topology is identical at minimum, 16:9, and ultrawide sizes.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
@@ -34,6 +37,7 @@ Related:
 
 #include "../SkullbonezSource/Runtime/CaptureController.h"
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
@@ -628,25 +632,18 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     CHECK_FALSE( legacy.replayMemory.requestPolicy );
 
     OperatorEditorCommandQueues secondary;
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.scene,
-                 { OperatorEditorSceneCommandType::ResetCurrentScene, -1 } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.property,
-                 { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.rendering,
-                 { OperatorEditorRenderingCommandType::ToggleVsync } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.replay,
-                 { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
-                 .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.scene, { OperatorEditorSceneCommandType::ResetCurrentScene, -1 } ).ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.property, { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+            .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } ).ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.replay, { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
+            .ok );
 
-    const OperatorEditorArbitrationResult merged =
-        ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
     REQUIRE( merged.status.ok );
     CHECK( merged.acceptedLegacyCommands == 4u );
     CHECK( merged.acceptedSecondaryCommands == 0u );
@@ -667,29 +664,24 @@ TEST_CASE( "Operator editor queue rejects conflict and malformed surface values"
     using namespace SkullbonezCore::UI;
     OperatorEditorCommandQueues legacy;
     OperatorEditorCommandQueues secondary;
-    REQUIRE( SubmitOperatorEditorCommand(
-                 legacy.property,
-                 { OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand(
-                 secondary.property,
-                 { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
-                 .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( legacy.property, { OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } ).ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.property, { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+            .ok );
     CHECK_FALSE( ArbitrateOperatorEditorCommands( legacy, secondary ).status.ok );
 
     OperatorEditorPropertyCommandQueue invalidProperty;
     CHECK_FALSE( SubmitOperatorEditorCommand(
                      invalidProperty,
-                     { OperatorEditorPropertyCommandType::SetTimeScale,
-                       std::numeric_limits<float>::quiet_NaN() } )
+                     { OperatorEditorPropertyCommandType::SetTimeScale, std::numeric_limits<float>::quiet_NaN() } )
                      .ok );
     CHECK( invalidProperty.count == 0u );
 
     OperatorEditorReplayCommandQueue invalidReplay;
-    CHECK_FALSE( SubmitOperatorEditorCommand(
-                     invalidReplay,
-                     { OperatorEditorReplayCommandType::SetMemoryPolicy, 0, 0, 64 } )
-                     .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalidReplay, { OperatorEditorReplayCommandType::SetMemoryPolicy, 0, 0, 64 } )
+            .ok );
     CHECK( invalidReplay.count == 0u );
 
     OperatorEditorCommandQueues corruptCount;
@@ -708,10 +700,83 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     first.rendering = { true, true, false, true, 0.5f };
     first.replay = { 1, 30, 64, 30, 20, false, true };
     first.surfaces = { true, true };
+    first.tools = { true, true, false, true, false, 3, 2 };
     const OperatorEditorFrameView same = first;
     CHECK( FingerprintOperatorEditorFrameView( first ) == FingerprintOperatorEditorFrameView( same ) );
 
     OperatorEditorFrameView changed = first;
     changed.replay.solverRetentionSeconds = 21;
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+}
+
+TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )
+{
+    using namespace SkullbonezCore::UI;
+    InGameUICommands legacy;
+    legacy.editor.toggleEditorMode = true;
+    legacy.editor.togglePlacementMode = true;
+    legacy.editor.requestUndo = true;
+    legacy.editor.requestRedo = true;
+    legacy.scene.toggleCrossScenePause = true;
+    legacy.scene.requestSingleStep = true;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK( legacy.operatorEditor.tools.count == 6u );
+
+    OperatorEditorCommandQueues secondary;
+    for ( const OperatorEditorToolCommandType type : { OperatorEditorToolCommandType::ToggleEditorMode,
+                                                       OperatorEditorToolCommandType::TogglePlacementMode,
+                                                       OperatorEditorToolCommandType::Undo,
+                                                       OperatorEditorToolCommandType::Redo,
+                                                       OperatorEditorToolCommandType::ToggleCrossScenePause,
+                                                       OperatorEditorToolCommandType::StepPausedScene } )
+    {
+        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, OperatorEditorToolCommand{ type } ).ok );
+    }
+
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
+    REQUIRE( merged.status.ok );
+    CHECK( merged.acceptedLegacyCommands == 6u );
+    CHECK( merged.acceptedSecondaryCommands == 0u );
+    CHECK( merged.coalescedDuplicateCommands == 6u );
+    REQUIRE( ProjectOperatorEditorCommands( merged.commands, legacy ).ok );
+    CHECK( legacy.editor.toggleEditorMode );
+    CHECK( legacy.editor.togglePlacementMode );
+    CHECK( legacy.editor.requestUndo );
+    CHECK( legacy.editor.requestRedo );
+    CHECK( legacy.scene.toggleCrossScenePause );
+    CHECK( legacy.scene.requestSingleStep );
+
+    OperatorEditorToolCommandQueue malformed;
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( malformed,
+                                     OperatorEditorToolCommand{ static_cast<OperatorEditorToolCommandType>( 255 ) } )
+            .ok );
+    CHECK( malformed.count == 0u );
+}
+
+TEST_CASE( "Editor dock envelope preserves viewport across supported aspect ratios" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+    const ImGuiEditorLayoutEnvelope minimum = ResolveImGuiEditorLayoutEnvelope( 1280, 640 );
+    const ImGuiEditorLayoutEnvelope widescreen = ResolveImGuiEditorLayoutEnvelope( 1920, 1000 );
+    const ImGuiEditorLayoutEnvelope ultrawide = ResolveImGuiEditorLayoutEnvelope( 3440, 1360 );
+
+    for ( const ImGuiEditorLayoutEnvelope& envelope : { minimum, widescreen, ultrawide } )
+    {
+        CHECK( envelope.editorLeftWidth + envelope.viewportWidth + envelope.utilityRightWidth ==
+               envelope.contentWidth );
+        CHECK( envelope.upperHeight + envelope.replayHeight + envelope.statusHeight == envelope.contentHeight );
+        CHECK( envelope.preservesCentralViewport );
+        CHECK( envelope.statusHeight >= 48 );
+        CHECK( envelope.replayHeight >= 112 );
+    }
+    CHECK( minimum.compactToolbarLabels );
+    CHECK_FALSE( widescreen.compactToolbarLabels );
+    CHECK( ultrawide.viewportWidth > widescreen.viewportWidth );
+    CHECK( ultrawide.editorLeftWidth == 420 );
+    CHECK( ultrawide.utilityRightWidth == 460 );
+    CHECK( FingerprintImGuiEditorDefaultTopology() == 9482475421528666861ull );
+    CHECK( std::strcmp( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR,
+                        "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
+                        "right:inspector,world,render-audio,diagnostics,causality" ) == 0 );
 }

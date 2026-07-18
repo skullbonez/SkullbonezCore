@@ -11,8 +11,10 @@ Summary:
 
 Glossary:
   Surface: One operator presentation front end, currently Legacy or ImGui.
-  Domain view: Read-only scene, property, rendering, or replay values copied for
-    one presentation frame.
+  Domain view: Read-only scene, property, rendering, replay, or tool values
+    copied for one presentation frame.
+  Tool command: One-frame edit-mode, history, pause, or step intent applied by
+    the established editor and scene-flow owners after arbitration.
   Canonical packet: The existing InGameUICommands value consumed by runtime
     owner appliers after this exchange has resolved both front ends.
   Duplicate: The same typed action and payload emitted by both visible surfaces
@@ -32,7 +34,7 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E9)
 */
 #pragma once
 
@@ -88,6 +90,17 @@ struct OperatorEditorSurfaceView
     bool secondaryVisible = false;
 };
 
+struct OperatorEditorToolView
+{
+    bool editorModeEnabled = false;
+    bool placementModeEnabled = false;
+    bool placeStaticObject = false;
+    bool crossScenePauseLocked = false;
+    bool fixedStep = false;
+    int undoDepth = 0;
+    int redoDepth = 0;
+};
+
 struct OperatorEditorFrameView
 {
     OperatorEditorSceneView scene;
@@ -95,6 +108,7 @@ struct OperatorEditorFrameView
     OperatorEditorRenderingView rendering;
     OperatorEditorReplayView replay;
     OperatorEditorSurfaceView surfaces;
+    OperatorEditorToolView tools;
 };
 
 enum class OperatorEditorSceneCommandType : uint8_t
@@ -144,6 +158,21 @@ struct OperatorEditorReplayCommand
     int budgetMiB = -1;
 };
 
+enum class OperatorEditorToolCommandType : uint8_t
+{
+    ToggleEditorMode,
+    TogglePlacementMode,
+    Undo,
+    Redo,
+    ToggleCrossScenePause,
+    StepPausedScene
+};
+
+struct OperatorEditorToolCommand
+{
+    OperatorEditorToolCommandType type = OperatorEditorToolCommandType::ToggleEditorMode;
+};
+
 template <typename Command, uint32_t Capacity> struct OperatorEditorCommandQueue
 {
     static constexpr uint32_t capacity = Capacity;
@@ -160,6 +189,7 @@ using OperatorEditorSceneCommandQueue = OperatorEditorCommandQueue<OperatorEdito
 using OperatorEditorPropertyCommandQueue = OperatorEditorCommandQueue<OperatorEditorPropertyCommand, 4u>;
 using OperatorEditorRenderingCommandQueue = OperatorEditorCommandQueue<OperatorEditorRenderingCommand, 2u>;
 using OperatorEditorReplayCommandQueue = OperatorEditorCommandQueue<OperatorEditorReplayCommand, 2u>;
+using OperatorEditorToolCommandQueue = OperatorEditorCommandQueue<OperatorEditorToolCommand, 6u>;
 
 struct OperatorEditorCommandQueues
 {
@@ -167,10 +197,11 @@ struct OperatorEditorCommandQueues
     OperatorEditorPropertyCommandQueue property;
     OperatorEditorRenderingCommandQueue rendering;
     OperatorEditorReplayCommandQueue replay;
+    OperatorEditorToolCommandQueue tools;
 
     [[nodiscard]] bool Empty() const noexcept
     {
-        return scene.Empty() && property.Empty() && rendering.Empty() && replay.Empty();
+        return scene.Empty() && property.Empty() && rendering.Empty() && replay.Empty() && tools.Empty();
     }
 };
 
@@ -194,6 +225,9 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
                                                             bool* duplicate = nullptr );
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplayCommandQueue& queue,
                                                             const OperatorEditorReplayCommand& command,
+                                                            bool* duplicate = nullptr );
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCommandQueue& queue,
+                                                            const OperatorEditorToolCommand& command,
                                                             bool* duplicate = nullptr );
 
 // Converts the representative legacy packet fields into the shared queues and

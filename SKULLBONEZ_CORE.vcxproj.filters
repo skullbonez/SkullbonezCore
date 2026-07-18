@@ -669,6 +669,9 @@
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
         <Filter>Source Files\Runtime\Diagnostics</Filter>
       </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
+        <Filter>Source Files\Runtime\Editor</Filter>
+      </ClCompile>
       <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp">
         <Filter>Source Files\Rendering\DX12</Filter>
       </ClCompile>
@@ -1353,6 +1356,9 @@
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h">
+        <Filter>Header Files\Runtime\Editor</Filter>
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h">
         <Filter>Header Files\Rendering\DX12</Filter>

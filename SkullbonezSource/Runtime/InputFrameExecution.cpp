@@ -944,17 +944,17 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const DeviceInputFrame& routedDeviceFrame = m_inputRouter.DeviceFrame();
     const UiInputHitSnapshot& routedUiSnapshot = m_inputRouter.UiSnapshot();
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
-    const RuntimeInteractionFrameInput frameInput{ SceneState().isScenePhysics,
-                                                   routedDeviceFrame.keys.IsDown( VK_SPACE ),
-                                                   replayInput.scrubPaused,
-                                                   replayInput.liveAdvanceHeld,
-                                                   mouseEdges.rightDown,
-                                                   m_runtimeTools.Editor().viewportLookActive,
-                                                   replayInput.inspectionActive && routedDeviceFrame.rightDown &&
-                                                       !routedUiSnapshot.wantsNativeCursor &&
-                                                       !routedUiSnapshot.blocksCameraMouse,
-                                                   false,
-                                                   SceneState().timeScale };
+    const RuntimeInteractionFrameInput frameInput{
+        SceneState().isScenePhysics,
+        routedDeviceFrame.keys.IsDown( VK_SPACE ) || uiFrameResult.requestSceneStep,
+        replayInput.scrubPaused,
+        replayInput.liveAdvanceHeld,
+        mouseEdges.rightDown,
+        m_runtimeTools.Editor().viewportLookActive,
+        replayInput.inspectionActive && routedDeviceFrame.rightDown && !routedUiSnapshot.wantsNativeCursor &&
+            !routedUiSnapshot.blocksCameraMouse,
+        false,
+        SceneState().timeScale };
     const RuntimeInputSnapshot& inputSnapshot =
         m_inputRouter.PublishRuntimeSnapshot( frameInput, suppressWorldActionThisFrame );
     const DeviceInputFrame& pointerDevice = m_inputRouter.DeviceFrame();

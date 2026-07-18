@@ -147,6 +147,9 @@
     <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
+      <Filter>Source Files\Runtime\Editor</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezTests\TestEditorCommandHistory.cpp">
       <Filter>Source Files\Tests</Filter>
     </ClCompile>

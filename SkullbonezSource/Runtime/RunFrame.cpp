@@ -29,8 +29,8 @@ Glossary:
     borrows without moving ownership out of the composition root.
   Submitted-frame mark: Development profiler boundary emitted only after DX12
     accepts a successful Present for the game frame.
-  Shared editor view: One immutable scene/property/render/replay value assembled
-    before either operator frontend renders.
+  Shared editor view: One immutable scene/property/render/replay/tool value
+    assembled before either operator frontend renders.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
@@ -203,6 +203,14 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                         sharedReplayHud.memoryBudgetClamped,
                                         sharedReplayHud.solverWindowReduced };
     facts.operatorEditorView.surfaces = { ui.IsVisible(), facts.operatorEditorView.surfaces.secondaryVisible };
+    const RunEditorPlacementState& sharedEditor = runtimeTools.Editor();
+    facts.operatorEditorView.tools = { sharedEditor.editorModeEnabled,
+                                       sharedEditor.placementModeEnabled,
+                                       sharedEditor.placeStaticObject,
+                                       sceneController.CrossScenePauseLocked(),
+                                       scene.isFixedStep,
+                                       static_cast<int>( sharedEditor.history.UndoDepth() ),
+                                       static_cast<int>( sharedEditor.history.RedoDepth() ) };
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
     const ReplayOverlay::ReplayOverlayStateView replayOverlay =
@@ -810,13 +818,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // Win32 message routing remains isolated to E7.
             const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
             const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
+            const DevelopmentTools::TracyClientStatus tracyStatus = DevelopmentTools::TracyClientOwner::CopyStatus();
             const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput{ m_window.ClientWidth(),
                                                                            m_window.ClientHeight(),
                                                                            dpiScale,
-                                                                           static_cast<float>( secondsPerFrame ) };
+                                                                           static_cast<float>( secondsPerFrame ),
+                                                                           tracyStatus.initialized,
+                                                                           tracyStatus.viewerConnected,
+                                                                           tracyStatus.heavyMode };
             if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
             {
-                m_imguiEditor.BuildEmptyDockspace( operatorEditorView );
+                m_imguiEditor.BuildEditorShell( operatorEditorView );
                 const DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
                 if ( !imguiResult.status.ok )
                 {

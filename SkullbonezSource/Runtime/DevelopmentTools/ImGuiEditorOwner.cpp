@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
 Purpose:
-  Owns Dear ImGui startup, empty dockspace frames, and orderly shutdown.
+  Owns Dear ImGui startup, deterministic editor-shell frames, and orderly shutdown.
 
 Summary:
   The owner installs the engine's hard-capped DearImGui allocator, creates one
@@ -13,7 +13,8 @@ Summary:
 Glossary:
   Embedded vector fallback: Dear ImGui's pinned, scalable built-in font used
     when the optional repository font asset is absent or invalid.
-  Empty dockspace: CPU-side docking host with no migrated domain panels yet.
+  Dock shell: Versioned single-window host with deterministic editor, viewport,
+    utility, replay, and status regions.
   DPI style epoch: Fresh base style rescaled from 1.0 whenever monitor scale
     changes, avoiding cumulative rounding drift.
 
@@ -37,12 +38,15 @@ Related:
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <backends/imgui_impl_win32.h>
 
 #include <Windows.h>
+#include <shellapi.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 // The pinned backend intentionally hides this declaration behind #if 0 to
 // avoid forcing Windows types on every includer. This source already owns the
@@ -53,7 +57,7 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 
 namespace
 {
-constexpr const char* IMGUI_LAYOUT_PATH = "imgui_editor_layout_v1.ini";
+constexpr const char* IMGUI_LAYOUT_PATH = "imgui_editor_layout_v2.ini";
 constexpr const char* OPTIONAL_EDITOR_FONT_PATH = "SkullbonezData/fonts/SkoreEditor-Regular.ttf";
 constexpr float EDITOR_FONT_SIZE_PIXELS = 16.0f;
 constexpr float MIN_DPI_SCALE = 0.75f;
@@ -78,6 +82,57 @@ bool IsReadableFile( const char* path ) noexcept
 {
     const DWORD attributes = GetFileAttributesA( path );
     return attributes != INVALID_FILE_ATTRIBUTES && ( attributes & FILE_ATTRIBUTE_DIRECTORY ) == 0u;
+}
+
+bool ResolveTracyViewerPath( char* output, size_t outputCapacity ) noexcept
+{
+    constexpr const char* candidates[] = {
+        "TestOutput/validation/tracy_profiler/Release/tracy-profiler.exe",
+        "ThirdPtySource/tracy/profiler/build/Release/tracy-profiler.exe",
+        "ThirdPtySource/tracy/profiler/build/tracy-profiler.exe",
+    };
+    for ( const char* candidate : candidates )
+    {
+        if ( IsReadableFile( candidate ) )
+        {
+            strcpy_s( output, outputCapacity, candidate );
+            return true;
+        }
+    }
+    const DWORD length =
+        SearchPathA( nullptr, "tracy-profiler.exe", nullptr, static_cast<DWORD>( outputCapacity ), output, nullptr );
+    return length > 0u && length < outputCapacity;
+}
+
+void DrawDisabledReason( const char* reason )
+{
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) )
+    {
+        ImGui::SetTooltip( "%s", reason );
+    }
+}
+
+void DrawDisabledWrapped( const char* text )
+{
+    ImGui::PushTextWrapPos( 0.0f );
+    ImGui::TextDisabled( "%s", text );
+    ImGui::PopTextWrapPos();
+}
+
+const char* SceneDisplayName( const char* path ) noexcept
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return "generated demo";
+    }
+    const char* slash = std::strrchr( path, '/' );
+    const char* backslash = std::strrchr( path, '\\' );
+    const char* separator = slash;
+    if ( backslash && ( !separator || backslash > separator ) )
+    {
+        separator = backslash;
+    }
+    return separator ? separator + 1 : path;
 }
 
 } // namespace
@@ -166,6 +221,13 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
         return rendererResult;
     }
     m_renderer = renderer;
+    m_layoutTopologyFingerprint = FingerprintImGuiEditorDefaultTopology();
+    m_tracyViewerAvailable = ResolveTracyViewerPath( m_tracyViewerPath, sizeof( m_tracyViewerPath ) );
+    snprintf(
+        m_tracyLaunchFeedback,
+        sizeof( m_tracyLaunchFeedback ),
+        "%s",
+        m_tracyViewerAvailable ? "Pinned Tracy viewer ready" : "Pinned Tracy viewer is not built on this machine" );
     printf( "[imgui] Context ready layout_version=%d font=%s docking=on platform_viewports=off win32=bound.\n",
             LAYOUT_VERSION,
             m_fontSource == ImGuiEditorFontSource::Asset ? "asset" : "embedded_vector_fallback" );
@@ -210,6 +272,7 @@ void ImGuiEditorOwner::Shutdown() noexcept
     m_nativePointerStateTouched = false;
     m_lastPlatformMouseCursor = -2;
     m_appliedDpiScale = 0.0f;
+    m_frameInput = {};
     m_fontSource = ImGuiEditorFontSource::None;
     printf( "[imgui] Context shutdown completed_frames=%llu messages=%llu suppressed_mouse=%llu "
             "suppressed_keyboard=%llu suppressed_text=%llu focus=%llu dpi=%llu ime=%llu.\n",
@@ -422,31 +485,159 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
     io.DisplayFramebufferScale = ImVec2( 1.0f, 1.0f );
     io.DeltaTime = std::clamp( input.deltaSeconds, MIN_DELTA_SECONDS, MAX_DELTA_SECONDS );
     ImGui::NewFrame();
+    m_frameInput = input;
     m_frameActive = true;
     return true;
 }
 
-void ImGuiEditorOwner::BuildEmptyDockspace( const UI::OperatorEditorFrameView& view )
+void ImGuiEditorOwner::ResetDefaultPanelVisibility() noexcept
+{
+    m_showSceneAndModes = true;
+    m_showHierarchy = true;
+    m_showAssetsCreate = true;
+    m_showGameViewport = true;
+    m_showInspector = true;
+    m_showWorldSimulation = true;
+    m_showRenderingAudio = true;
+    m_showDiagnostics = true;
+    m_showCausality = true;
+    m_showReplay = true;
+    m_showStatus = true;
+}
+
+void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width, float height, bool requestedReset )
+{
+    const ImGuiID root = static_cast<ImGuiID>( rootDockId );
+    const ImGuiEditorLayoutEnvelope envelope =
+        ResolveImGuiEditorLayoutEnvelope( static_cast<int>( width ), static_cast<int>( height ) );
+
+    // Invariant: remove the complete versioned tree before replaying this fixed
+    // split order. DockBuilder therefore cannot preserve a corrupt or partial
+    // child graph across an explicit reset.
+    ImGui::DockBuilderRemoveNode( root );
+    ImGui::DockBuilderAddNode( root, ImGuiDockNodeFlags_DockSpace );
+    ImGui::DockBuilderSetNodeSize( root, ImVec2( width, height ) );
+
+    ImGuiID upper = root;
+    const ImGuiID status =
+        ImGui::DockBuilderSplitNode( upper, ImGuiDir_Down, envelope.statusSplitFraction, nullptr, &upper );
+    const ImGuiID replay =
+        ImGui::DockBuilderSplitNode( upper, ImGuiDir_Down, envelope.replaySplitFraction, nullptr, &upper );
+    const ImGuiID editorLeft =
+        ImGui::DockBuilderSplitNode( upper, ImGuiDir_Left, envelope.editorLeftSplitFraction, nullptr, &upper );
+    const ImGuiID utilityRight =
+        ImGui::DockBuilderSplitNode( upper, ImGuiDir_Right, envelope.utilityRightSplitFraction, nullptr, &upper );
+    const ImGuiID viewport = upper;
+
+    ImGuiID editorUpper = editorLeft;
+    const ImGuiID assets = ImGui::DockBuilderSplitNode( editorUpper, ImGuiDir_Down, 0.30f, nullptr, &editorUpper );
+    ImGuiID scene = editorUpper;
+    const ImGuiID hierarchy = ImGui::DockBuilderSplitNode( scene, ImGuiDir_Down, 0.68f, nullptr, &scene );
+
+    ImGuiID inspector = utilityRight;
+    ImGuiID world = ImGui::DockBuilderSplitNode( inspector, ImGuiDir_Down, 0.62f, nullptr, &inspector );
+    const ImGuiID utilityTabs = ImGui::DockBuilderSplitNode( world, ImGuiDir_Down, 0.64f, nullptr, &world );
+
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::SceneAndModes, scene );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Hierarchy, hierarchy );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::AssetsCreate, assets );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::GameViewport, viewport );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Inspector, inspector );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::WorldSimulation, world );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::RenderingAudio, utilityTabs );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Diagnostics, utilityTabs );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Causality, utilityTabs );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Replay, replay );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Status, status );
+    ImGui::DockBuilderFinish( root );
+    ImGui::MarkIniSettingsDirty();
+
+    ResetDefaultPanelVisibility();
+    m_layoutTopologyFingerprint = FingerprintImGuiEditorDefaultTopology();
+    ++m_layoutBuildCount;
+    if ( requestedReset )
+    {
+        ++m_layoutResetCount;
+    }
+    printf( "[imgui-layout] version=%d reason=%s fingerprint=%llu viewport=%dx%d left=%d right=%d replay=%d "
+            "status=%d.\n",
+            LAYOUT_VERSION,
+            requestedReset ? "operator_reset" : "missing_or_version_mismatch",
+            static_cast<unsigned long long>( m_layoutTopologyFingerprint ),
+            envelope.viewportWidth,
+            envelope.upperHeight,
+            envelope.editorLeftWidth,
+            envelope.utilityRightWidth,
+            envelope.replayHeight,
+            envelope.statusHeight );
+}
+
+void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view )
 {
     if ( !m_frameActive )
     {
         return;
     }
     m_sharedViewFingerprint = UI::FingerprintOperatorEditorFrameView( view );
-    ImGui::DockSpaceOverViewport( 0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode );
 
-    // Concept: E8 proves command/view coexistence with a deliberately small
-    // menu. Domain panels expand this same typed seam in later campaign tasks.
-    if ( ImGui::BeginMainMenuBar() )
+    const auto submit = [&]( auto& queue, const auto& command )
     {
-        if ( ImGui::BeginMenu( "View" ) )
+        if ( m_frameCommandStatus.ok )
         {
-            bool legacyVisible = m_legacySurfaceVisible;
-            if ( ImGui::MenuItem( "Legacy Surface", nullptr, &legacyVisible ) )
+            m_frameCommandStatus = UI::SubmitOperatorEditorCommand( queue, command );
+        }
+    };
+    const auto submitTool = [&]( UI::OperatorEditorToolCommandType type )
+    { submit( m_frameCommands.operatorEditor.tools, UI::OperatorEditorToolCommand{ type } ); };
+    const auto launchTracyViewer = [&]()
+    {
+        if ( !m_tracyViewerAvailable )
+        {
+            return;
+        }
+        const HINSTANCE launch = ShellExecuteA( m_window, "open", m_tracyViewerPath, nullptr, nullptr, SW_SHOWNORMAL );
+        const intptr_t launchCode = reinterpret_cast<intptr_t>( launch );
+        snprintf( m_tracyLaunchFeedback,
+                  sizeof( m_tracyLaunchFeedback ),
+                  "%s",
+                  launchCode > 32 ? "Tracy viewer launched; connection is automatic"
+                                  : "Tracy viewer launch failed; rebuild or inspect the pinned executable" );
+    };
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos( viewport->WorkPos );
+    ImGui::SetNextWindowSize( viewport->WorkSize );
+    ImGui::SetNextWindowViewport( viewport->ID );
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowRounding, 0.0f );
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowBorderSize, 0.0f );
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 0.0f, 0.0f ) );
+    constexpr ImGuiWindowFlags shellFlags =
+        ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoSavedSettings;
+    const bool shellVisible = ImGui::Begin( "Skore Editor###SkoreEditorShellV2", nullptr, shellFlags );
+    ImGui::PopStyleVar( 3 );
+    if ( !shellVisible )
+    {
+        ImGui::End();
+        return;
+    }
+
+    if ( ImGui::BeginMenuBar() )
+    {
+        if ( ImGui::BeginMenu( "File" ) )
+        {
+            ImGui::MenuItem( "New Scene...", nullptr, false, false );
+            DrawDisabledReason( "Scene creation arrives with the E10 editor workflow" );
+            ImGui::MenuItem( "Load Scene...", nullptr, false, false );
+            DrawDisabledReason( "Use Scene & Modes until the E10 browser is complete" );
+            ImGui::MenuItem( "Save Scene", "Ctrl+S", false, false );
+            DrawDisabledReason( "Saving is enabled with the E10 dirty-state workflow" );
+            ImGui::Separator();
+            if ( ImGui::MenuItem( "Reset Current Scene" ) )
             {
-                m_legacySurfaceVisible = legacyVisible;
-                m_frameCommands.requestLegacyVisibility = true;
-                m_frameCommands.requestedLegacyVisible = legacyVisible;
+                submit( m_frameCommands.operatorEditor.scene,
+                        UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
             }
             if ( ImGui::MenuItem( "Hide Editor" ) )
             {
@@ -460,45 +651,295 @@ void ImGuiEditorOwner::BuildEmptyDockspace( const UI::OperatorEditorFrameView& v
             }
             ImGui::EndMenu();
         }
-        if ( ImGui::BeginMenu( "Actions" ) )
+        if ( ImGui::BeginMenu( "Edit" ) )
         {
-            const auto submit = [&]( auto& queue, const auto& command )
+            if ( ImGui::MenuItem( "Undo", "Ctrl+Z", false, view.tools.editorModeEnabled && view.tools.undoDepth > 0 ) )
             {
-                if ( m_frameCommandStatus.ok )
-                {
-                    m_frameCommandStatus = UI::SubmitOperatorEditorCommand( queue, command );
-                }
-            };
-            if ( ImGui::MenuItem( "Reset Current Scene" ) )
+                submitTool( UI::OperatorEditorToolCommandType::Undo );
+            }
+            if ( ImGui::MenuItem( "Redo", "Ctrl+Y", false, view.tools.editorModeEnabled && view.tools.redoDepth > 0 ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::Redo );
+            }
+            ImGui::Separator();
+            if ( ImGui::MenuItem( view.tools.editorModeEnabled ? "Exit Edit Mode" : "Enter Edit Mode", "`" ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
+            }
+            if ( ImGui::MenuItem( "Placement Mode",
+                                  "E",
+                                  view.tools.placementModeEnabled,
+                                  view.tools.editorModeEnabled ) )
+            {
+                submitTool( UI::OperatorEditorToolCommandType::TogglePlacementMode );
+            }
+            ImGui::EndMenu();
+        }
+        if ( ImGui::BeginMenu( "View" ) )
+        {
+            bool legacyVisible = m_legacySurfaceVisible;
+            if ( ImGui::MenuItem( "Legacy Surface", "0", &legacyVisible ) )
+            {
+                m_legacySurfaceVisible = legacyVisible;
+                m_frameCommands.requestLegacyVisibility = true;
+                m_frameCommands.requestedLegacyVisible = legacyVisible;
+            }
+            ImGui::Separator();
+            ImGui::MenuItem( ImGuiEditorPanel::SceneAndModes, nullptr, &m_showSceneAndModes );
+            ImGui::MenuItem( ImGuiEditorPanel::Hierarchy, nullptr, &m_showHierarchy );
+            ImGui::MenuItem( ImGuiEditorPanel::AssetsCreate, nullptr, &m_showAssetsCreate );
+            ImGui::MenuItem( ImGuiEditorPanel::GameViewport, nullptr, &m_showGameViewport );
+            ImGui::MenuItem( ImGuiEditorPanel::Inspector, nullptr, &m_showInspector );
+            ImGui::MenuItem( ImGuiEditorPanel::WorldSimulation, nullptr, &m_showWorldSimulation );
+            ImGui::MenuItem( "Rendering / Audio", nullptr, &m_showRenderingAudio );
+            ImGui::MenuItem( "Diagnostics", nullptr, &m_showDiagnostics );
+            ImGui::MenuItem( "Causality", nullptr, &m_showCausality );
+            ImGui::MenuItem( ImGuiEditorPanel::Replay, nullptr, &m_showReplay );
+            ImGui::MenuItem( ImGuiEditorPanel::Status, nullptr, &m_showStatus );
+            ImGui::Separator();
+            if ( ImGui::MenuItem( "Reset Editor Layout" ) )
+            {
+                m_layoutResetRequested = true;
+            }
+            ImGui::EndMenu();
+        }
+        if ( ImGui::BeginMenu( "Debug" ) )
+        {
+            ImGui::TextDisabled( "Tracy: %s",
+                                 m_frameInput.tracyViewerConnected
+                                     ? "connected"
+                                     : ( m_frameInput.tracyInitialized ? "waiting for viewer" : "disabled" ) );
+            if ( ImGui::MenuItem( "Launch Tracy Viewer", nullptr, false, m_tracyViewerAvailable ) )
+            {
+                launchTracyViewer();
+            }
+            if ( !m_tracyViewerAvailable )
+            {
+                DrawDisabledReason( "Build the pinned Tracy profiler or place tracy-profiler.exe on PATH" );
+            }
+            ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
+            ImGui::Separator();
+            ImGui::TextDisabled( "Layout v%d / %llu",
+                                 LAYOUT_VERSION,
+                                 static_cast<unsigned long long>( m_layoutTopologyFingerprint ) );
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
+
+    const ImGuiEditorLayoutEnvelope shellEnvelope =
+        ResolveImGuiEditorLayoutEnvelope( static_cast<int>( ImGui::GetContentRegionAvail().x ),
+                                          static_cast<int>( ImGui::GetContentRegionAvail().y ) );
+    const char* modeLabel = view.tools.editorModeEnabled ? "EDIT" : "PLAY";
+    const char* placementLabel = shellEnvelope.compactToolbarLabels ? "PLACE" : "PLACEMENT";
+    const float toolbarHeight = 34.0f * m_frameInput.dpiScale;
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 8.0f, 5.0f ) );
+    if ( ImGui::BeginChild( "##SkoreEditorToolbar", ImVec2( 0.0f, toolbarHeight ), ImGuiChildFlags_Borders ) )
+    {
+        if ( ImGui::Button( modeLabel ) )
+        {
+            submitTool( UI::OperatorEditorToolCommandType::ToggleEditorMode );
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled( !view.tools.editorModeEnabled );
+        if ( ImGui::Button( placementLabel ) )
+        {
+            submitTool( UI::OperatorEditorToolCommandType::TogglePlacementMode );
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled( !view.tools.editorModeEnabled || view.tools.undoDepth <= 0 );
+        if ( ImGui::Button( "UNDO" ) )
+        {
+            submitTool( UI::OperatorEditorToolCommandType::Undo );
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled( !view.tools.editorModeEnabled || view.tools.redoDepth <= 0 );
+        if ( ImGui::Button( "REDO" ) )
+        {
+            submitTool( UI::OperatorEditorToolCommandType::Redo );
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if ( ImGui::Button( view.tools.crossScenePauseLocked ? "PLAY" : "PAUSE" ) )
+        {
+            submitTool( UI::OperatorEditorToolCommandType::ToggleCrossScenePause );
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled( !view.tools.crossScenePauseLocked );
+        if ( ImGui::Button( "STEP" ) )
+        {
+            submitTool( UI::OperatorEditorToolCommandType::StepPausedScene );
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::TextDisabled( "%s  |  frame %d  |  %.2fx",
+                             SceneDisplayName( view.scene.sceneName ),
+                             view.scene.currentFrame,
+                             view.scene.timeScale );
+        ImGui::SameLine();
+        ImGui::BeginDisabled( !m_tracyViewerAvailable );
+        if ( ImGui::Button( m_frameInput.tracyViewerConnected ? "TRACY CONNECTED" : "OPEN TRACY" ) )
+        {
+            launchTracyViewer();
+        }
+        ImGui::EndDisabled();
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
+
+    const ImVec2 dockSize = ImGui::GetContentRegionAvail();
+    const ImGuiID rootDockId = ImGui::GetID( IMGUI_EDITOR_DOCKSPACE_NAME );
+    const bool missingLayout = ImGui::DockBuilderGetNode( rootDockId ) == nullptr;
+    if ( m_layoutResetRequested || missingLayout )
+    {
+        BuildDefaultDockLayout( rootDockId, dockSize.x, dockSize.y, m_layoutResetRequested );
+        m_layoutResetRequested = false;
+    }
+    ImGui::DockSpace( rootDockId, dockSize );
+    ImGui::End();
+
+    if ( m_showSceneAndModes )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::SceneAndModes, &m_showSceneAndModes ) )
+        {
+            ImGui::TextUnformatted( view.tools.editorModeEnabled ? "Edit mode" : "Play mode" );
+            ImGui::Text( "Scene %d / %d", view.scene.currentSceneIndex + 1, view.scene.sceneCount );
+            if ( ImGui::Button( "Reset Current Scene" ) )
             {
                 submit( m_frameCommands.operatorEditor.scene,
                         UI::OperatorEditorSceneCommand{ UI::OperatorEditorSceneCommandType::ResetCurrentScene, -1 } );
             }
-            if ( ImGui::MenuItem( "Set Time Scale 1x", nullptr, false, view.scene.timeScale != 1.0f ) )
-            {
-                submit(
-                    m_frameCommands.operatorEditor.property,
-                    UI::OperatorEditorPropertyCommand{ UI::OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } );
-            }
-            if ( ImGui::MenuItem( "Toggle VSync" ) )
+        }
+        ImGui::End();
+    }
+
+    if ( m_showHierarchy )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::Hierarchy, &m_showHierarchy ) )
+        {
+            ImGui::Text( "%d scene objects", view.scene.modelCount );
+            DrawDisabledWrapped( "Filter and stable selection arrive in E10" );
+        }
+        ImGui::End();
+    }
+
+    if ( m_showAssetsCreate )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::AssetsCreate, &m_showAssetsCreate ) )
+        {
+            ImGui::TextUnformatted( view.tools.placeStaticObject ? "Placement: static" : "Placement: dynamic" );
+            DrawDisabledWrapped( "Registered asset browser arrives in E10" );
+        }
+        ImGui::End();
+    }
+
+    bool gameViewportHovered = false;
+    bool gameViewportFocused = false;
+    if ( m_showGameViewport )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::GameViewport, &m_showGameViewport ) )
+        {
+            gameViewportHovered = ImGui::IsWindowHovered( ImGuiHoveredFlags_RootAndChildWindows );
+            gameViewportFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
+            const ImVec2 available = ImGui::GetContentRegionAvail();
+            ImGui::SetCursorPos( ImVec2( 18.0f, 18.0f ) );
+            ImGui::TextDisabled( "GAME VIEWPORT  |  reserved %d x %d",
+                                 static_cast<int>( available.x ),
+                                 static_cast<int>( available.y ) );
+            DrawDisabledWrapped( "DX12 image, picking, gizmos, and DPI mapping arrive in E11" );
+        }
+        ImGui::End();
+    }
+    SetGameViewportInputState( gameViewportHovered, gameViewportFocused );
+
+    if ( m_showInspector )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::Inspector, &m_showInspector ) )
+        {
+            ImGui::TextDisabled( "No selection" );
+            ImGui::Separator();
+            ImGui::TextDisabled( "Contextual properties arrive in E12" );
+        }
+        ImGui::End();
+    }
+
+    if ( m_showWorldSimulation )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::WorldSimulation, &m_showWorldSimulation ) )
+        {
+            ImGui::Text( "Gravity %.2f", view.property.worldGravity );
+            ImGui::Text( "Fluid %.2fm / %.1fkg/m3", view.property.worldFluidHeight, view.property.worldFluidDensity );
+        }
+        ImGui::End();
+    }
+
+    if ( m_showRenderingAudio )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::RenderingAudio, &m_showRenderingAudio ) )
+        {
+            ImGui::Text( "VSync %s", view.rendering.vsyncEnabled ? "on" : "off" );
+            ImGui::Text( "Shadows %s", view.rendering.shadowsEnabled ? "on" : "off" );
+            if ( ImGui::Button( "Toggle VSync" ) )
             {
                 submit( m_frameCommands.operatorEditor.rendering,
                         UI::OperatorEditorRenderingCommand{ UI::OperatorEditorRenderingCommandType::ToggleVsync } );
             }
-            if ( ImGui::MenuItem( "Reapply Replay Memory Policy",
-                                  nullptr,
-                                  false,
-                                  view.replay.requestedRetentionSeconds > 0 && view.replay.requestedBudgetMiB > 0 ) )
-            {
-                submit( m_frameCommands.operatorEditor.replay,
-                        UI::OperatorEditorReplayCommand{ UI::OperatorEditorReplayCommandType::SetMemoryPolicy,
-                                                         view.replay.memoryPreset,
-                                                         view.replay.requestedRetentionSeconds,
-                                                         view.replay.requestedBudgetMiB } );
-            }
-            ImGui::EndMenu();
         }
-        ImGui::EndMainMenuBar();
+        ImGui::End();
+    }
+
+    if ( m_showDiagnostics )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::Diagnostics, &m_showDiagnostics ) )
+        {
+            ImGui::Text( "Tracy %s", m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
+            ImGui::Text( "Presentation alpha %.3f", view.rendering.presentationAlpha );
+            ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
+        }
+        ImGui::End();
+    }
+
+    if ( m_showCausality )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::Causality, &m_showCausality ) )
+        {
+            ImGui::TextDisabled( "Compact contextual summary" );
+            ImGui::TextDisabled( "Full cause detail arrives in E14" );
+        }
+        ImGui::End();
+    }
+
+    if ( m_showReplay )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::Replay, &m_showReplay ) )
+        {
+            ImGui::Text( "Memory preset %d  |  retention %ds  |  budget %dMiB",
+                         view.replay.memoryPreset,
+                         view.replay.requestedRetentionSeconds,
+                         view.replay.requestedBudgetMiB );
+            ImGui::TextDisabled( "Record, scrub, prediction, and cause transport arrive in E15" );
+        }
+        ImGui::End();
+    }
+
+    if ( m_showStatus )
+    {
+        if ( ImGui::Begin( ImGuiEditorPanel::Status,
+                           &m_showStatus,
+                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
+        {
+            const float framesPerSecond = m_frameInput.deltaSeconds > 0.0f ? 1.0f / m_frameInput.deltaSeconds : 0.0f;
+            ImGui::Text( "%s  |  %d objects  |  undo %d / redo %d  |  %.1f FPS  |  Tracy %s",
+                         view.tools.editorModeEnabled ? "EDIT" : "PLAY",
+                         view.scene.modelCount,
+                         view.tools.undoDepth,
+                         view.tools.redoDepth,
+                         framesPerSecond,
+                         m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
+        }
+        ImGui::End();
     }
 }
 
@@ -553,6 +994,9 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
     status.layoutVersion = LAYOUT_VERSION;
     status.completedFrames = m_completedFrames;
     status.sharedViewFingerprint = m_sharedViewFingerprint;
+    status.layoutTopologyFingerprint = m_layoutTopologyFingerprint;
+    status.layoutBuildCount = m_layoutBuildCount;
+    status.layoutResetCount = m_layoutResetCount;
     status.fontSource = m_fontSource;
     if ( m_renderer )
     {

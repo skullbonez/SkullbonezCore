@@ -5,10 +5,10 @@ Purpose:
 
 Summary:
   ImGuiEditorOwner owns the CPU-side ImGui context, style, fonts, persisted
-  layout identity, visibility, and balanced frame begin/end calls. Runtime
-  supplies immutable window and shared domain-view facts and receives a typed command packet;
-  scene, replay, rendering, physics, audio, and editor domain state never enter
-  this owner.
+  layout identity, deterministic dock shell, visibility, and balanced frame
+  begin/end calls. Runtime supplies immutable window and shared domain-view
+  facts and receives a typed command packet; scene, replay, rendering, physics,
+  audio, and editor domain state never enter this owner.
 
 Glossary:
   Editor frame input: Value-only display facts borrowed for one synchronous
@@ -31,11 +31,12 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E7)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E9)
 */
 #pragma once
 
 #include "ImGuiEditorInputPolicy.h"
+#include "ImGuiEditorLayoutPolicy.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/PlatformWin32.h"
 #include "../../UI/OperatorEditorExchange.h"
@@ -64,6 +65,9 @@ struct ImGuiEditorFrameInput
     int displayHeight = 0;
     float dpiScale = 1.0f;
     float deltaSeconds = 1.0f / 60.0f;
+    bool tracyInitialized = false;
+    bool tracyViewerConnected = false;
+    bool tracyHeavyMode = false;
 };
 
 struct ImGuiEditorCommands
@@ -103,6 +107,9 @@ struct ImGuiEditorStatus
     int layoutVersion = 0;
     uint64_t completedFrames = 0u;
     uint64_t sharedViewFingerprint = 0u;
+    uint64_t layoutTopologyFingerprint = 0u;
+    uint32_t layoutBuildCount = 0u;
+    uint32_t layoutResetCount = 0u;
     bool rendererBound = false;
     uint32_t rendererDescriptorUsed = 0u;
     uint32_t rendererDescriptorCapacity = 0u;
@@ -122,7 +129,7 @@ struct ImGuiEditorStatus
 class ImGuiEditorOwner
 {
   public:
-    static constexpr int LAYOUT_VERSION = 1;
+    static constexpr int LAYOUT_VERSION = IMGUI_EDITOR_LAYOUT_VERSION;
 
     ImGuiEditorOwner() noexcept = default;
     ~ImGuiEditorOwner();
@@ -146,12 +153,14 @@ class ImGuiEditorOwner
     void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
-    void BuildEmptyDockspace( const UI::OperatorEditorFrameView& view );
+    void BuildEditorShell( const UI::OperatorEditorFrameView& view );
     ImGuiEditorFrameResult EndFrame();
     ImGuiEditorStatus CopyStatus() const noexcept;
 
   private:
     void ApplyDpiStyle( float dpiScale );
+    void BuildDefaultDockLayout( uint32_t rootDockId, float width, float height, bool requestedReset );
+    void ResetDefaultPanelVisibility() noexcept;
 
     ImGuiContext* m_context = nullptr;
     Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
@@ -166,8 +175,27 @@ class ImGuiEditorOwner
     bool m_nativePointerStateTouched = false;
     int m_lastPlatformMouseCursor = -2;
     float m_appliedDpiScale = 0.0f;
+    ImGuiEditorFrameInput m_frameInput;
     uint64_t m_completedFrames = 0u;
     uint64_t m_sharedViewFingerprint = 0u;
+    uint64_t m_layoutTopologyFingerprint = 0u;
+    uint32_t m_layoutBuildCount = 0u;
+    uint32_t m_layoutResetCount = 0u;
+    bool m_layoutResetRequested = false;
+    bool m_showSceneAndModes = true;
+    bool m_showHierarchy = true;
+    bool m_showAssetsCreate = true;
+    bool m_showGameViewport = true;
+    bool m_showInspector = true;
+    bool m_showWorldSimulation = true;
+    bool m_showRenderingAudio = true;
+    bool m_showDiagnostics = true;
+    bool m_showCausality = true;
+    bool m_showReplay = true;
+    bool m_showStatus = true;
+    bool m_tracyViewerAvailable = false;
+    char m_tracyViewerPath[512] = {};
+    char m_tracyLaunchFeedback[160] = "Viewer not launched";
     ImGuiEditorCommands m_frameCommands;
     UI::OperatorEditorCommandQueues m_pendingOperatorEditorCommands;
     SkullbonezCore::Core::SbResult m_frameCommandStatus = SkullbonezCore::Core::SbResult::Success();
