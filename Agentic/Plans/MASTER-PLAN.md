@@ -129,10 +129,16 @@ The active/future denominator returned from 13 → 8 when small-findings
 hardening closed H0-H4 and left the live ledger under rule 4. Closure evidence
 is in `../Reports/2026-07-18/small-findings-hardening-closure.md`.
 
+The denominator grew 8 → 26 on 2026-07-18 when the owner registered the
+18-task ImGui + Tracy development-editor campaign. It is sequenced directly
+after the physics body-count scale campaign and retains the complete legacy UI
+for side-by-side owner evaluation.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| **Active/future total** | **1** | **8** | **13%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 0 | 18 | 0% |
+| **Active/future total** | **1** | **26** | **4%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -181,7 +187,7 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is the sole active plan. P0 is
+`physics-body-count-scale-campaign` (P0-P7) is the active plan. P0 is
 complete at 1/8 with the sleeping-heavy 5,000-body scene, fixed before matrix,
 capacity propagation, profiler counters, 0/1/4-worker determinism, mapped
 gates, comment audit, and independent review recorded in
@@ -189,6 +195,13 @@ gates, comment audit, and independent review recorded in
 Debug-only candidate-pair set-equivalence probe; no artifact may move before
 old/new sets match tick-for-tick on all six scenes. P6 is not pre-authorized
 and requires a fresh P5 owner decision. Every other task keeps zero refresh.
+
+`imgui-tracy-editor-campaign` (E0-E17) is the next plan and begins only after
+physics P7 closes. It adds a development-only ImGui docked editor and Tracy
+instrumentation while retaining the old UI intact for Legacy / ImGui / Both
+comparison. The default is editor-heavy on the left, game viewport centered,
+Inspector/World/Rendering/Diagnostics plus compact Causality on the right, and
+replay transport permanently docked across the bottom.
 
 The three 2026-07-17 round-6 plans are closed: scene-controller ownership
 T0-T6, monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The
@@ -764,6 +777,33 @@ markers.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 owner-blocked | 1/8 | Same-binary evidence puts solver-state divergence at row/frame 102 and later set drift at tick 152; independent review requires an explicit owner amendment to two-driver same-state raw/final equivalence before retry, with no artifact refresh yet |
+
+## ImGui + Tracy Development Editor Campaign (2026-07-18)
+
+Source: the owner selected Dear ImGui and Tracy for development tooling and
+directed a real engine-editor layout rather than extending the crowded legacy
+tab strip. The complete 18-task campaign is
+[`imgui-tracy-editor-campaign`](TODO/imgui-tracy-editor-campaign.md).
+
+Campaign order: coexistence inventory → pinned dependencies and narrow
+development allocation boundary → Tracy lifecycle/instrumentation → ImGui
+Win32/DX12/input foundations → shared typed command seam → deterministic dock
+shell → editor-left workflow → central viewport → right-side
+Inspector/World/Rendering/Diagnostics → compact Causality → bottom replay
+transport → persistence/stress → side-by-side owner evaluation and independent
+closure review.
+
+Binding layout and migration rules: the left rail is editor-first from the top
+down; the game viewport owns the center; replay controls are permanently docked
+across the bottom; Causality is compact by default so Inspector and useful
+world/render/diagnostic tools fit on the right. Tracy remains its external
+viewer and supersedes the profiler only in the new ImGui surface. The legacy
+UI remains compiled, selectable, and functionally intact for Legacy / ImGui /
+Both evaluation throughout this campaign. No legacy deletion is authorized.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Future | 0/18 | Begin E0 only after `physics-body-count-scale-campaign` P7 closes |
 
 ## Features
 
