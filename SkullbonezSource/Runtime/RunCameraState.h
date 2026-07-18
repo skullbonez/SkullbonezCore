@@ -28,7 +28,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Run.h
   - SkullbonezSource/Runtime/InputController.h
-  - SkullbonezSource/Runtime/RunDemoDirector.h
+  - SkullbonezSource/Runtime/DemoDirectorPlayback.h
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #pragma once

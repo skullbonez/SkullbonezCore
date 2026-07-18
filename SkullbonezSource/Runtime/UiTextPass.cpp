@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunUiTextPass.cpp
+File: SkullbonezSource/Runtime/UiTextPass.cpp
 Purpose:
   Implements the UI/Text render pass owned by RuntimeRenderer.
 

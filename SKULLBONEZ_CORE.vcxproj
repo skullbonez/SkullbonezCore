@@ -346,7 +346,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorTracer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\RunEditorObjectPlacement.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirectorPlayback.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationController.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'!='Automation|x64'">true</ExcludedFromBuild>
     </ClCompile>
@@ -371,7 +371,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeValidationHarness.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\World\SkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\Text.cpp" />
@@ -504,7 +504,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\Config.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Run.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\DemoDirectorPlayback.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InteractionAutomationInputDriver.h" />

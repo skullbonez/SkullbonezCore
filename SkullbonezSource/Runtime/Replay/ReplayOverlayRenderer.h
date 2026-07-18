@@ -22,7 +22,7 @@ Invariants:
   - Overlay functions must not store references from the context.
 
 Related:
-  - SkullbonezSource/Runtime/RunUiTextPass.cpp
+  - SkullbonezSource/Runtime/UiTextPass.cpp
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #pragma once

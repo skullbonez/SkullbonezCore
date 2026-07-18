@@ -41,7 +41,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
-#include "RunDemoDirector.h"
+#include "DemoDirectorPlayback.h"
 #include "RuntimeInteractionCommands.h"
 #include "Scene/SceneRuntimeCreate.h"
 #include "OperatorCommandApplier.h"

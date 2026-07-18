@@ -50,7 +50,7 @@ Related:
 #include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayRestoreService.h"
-#include "RunDemoDirector.h"
+#include "DemoDirectorPlayback.h"
 #include "Scene/SceneRuntimeLoad.h"
 
 #include "CaptureSystem.h"

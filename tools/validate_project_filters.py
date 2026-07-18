@@ -288,7 +288,7 @@ RUNTIME_CAPTURE_PREFIXES = (
 
 RUNTIME_DEMO_PREFIXES = (
     "DemoDirector",
-    "RunDemoDirector",
+    "DemoDirectorPlayback",
 )
 
 RUNTIME_INPUT_PREFIXES = (
@@ -432,7 +432,7 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
 # Why: shared runtime UI values have their own physical owner and Solution
 # Explorer filter; keeping this explicit prevents them drifting into Runtime.
 RUNTIME_UI_PREFIXES = (
-    "RunUiTextPass",
+    "UiTextPass",
     "RuntimeViewModel",
     "RuntimeUiSurface",
 )

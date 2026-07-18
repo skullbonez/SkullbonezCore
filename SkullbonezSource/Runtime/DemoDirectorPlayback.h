@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunDemoDirector.h
+File: SkullbonezSource/Runtime/DemoDirectorPlayback.h
 Purpose:
   Declares presentation-only Demo Director playback/style/pacing helpers for Run split files.
 
@@ -25,7 +25,7 @@ Invariants:
     prediction physics samples.
 
 Related:
-  - SkullbonezSource/Runtime/RunDemoDirector.cpp
+  - SkullbonezSource/Runtime/DemoDirectorPlayback.cpp
   - SkullbonezSource/Runtime/RunCameraState.h
   - SkullbonezSource/Runtime/RunCameraState.h
 */

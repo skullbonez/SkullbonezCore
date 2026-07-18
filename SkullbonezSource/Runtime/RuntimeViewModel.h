@@ -30,7 +30,7 @@ Invariants:
     untouched.
 
 Related:
-  - SkullbonezSource/Runtime/RunUiTextPass.cpp
+  - SkullbonezSource/Runtime/UiTextPass.cpp
 */
 #pragma once
 

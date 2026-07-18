@@ -418,7 +418,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RunFrame.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunDemoDirector.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\DemoDirectorPlayback.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\InteractionAutomationController.cpp">
@@ -475,7 +475,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\OperatorCommandApplier.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\RunUiTextPass.cpp">
+    <ClCompile Include="SkullbonezSource\Runtime\UiTextPass.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
@@ -896,7 +896,7 @@
     <ClInclude Include="SkullbonezSource\Runtime\RunCameraState.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\RunDemoDirector.h">
+    <ClInclude Include="SkullbonezSource\Runtime\DemoDirectorPlayback.h">
       <Filter>Header Files\Runtime\Demo</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RunDebugState.h">

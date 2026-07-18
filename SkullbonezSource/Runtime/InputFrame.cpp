@@ -42,7 +42,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
-#include "RunDemoDirector.h"
+#include "DemoDirectorPlayback.h"
 #include "RunDebugState.h"
 #include "RunLaunchOptions.h"
 #include "RunStartupState.h"

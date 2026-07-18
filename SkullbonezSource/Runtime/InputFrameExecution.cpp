@@ -43,7 +43,7 @@ Related:
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
-#include "RunDemoDirector.h"
+#include "DemoDirectorPlayback.h"
 #include "RenderDefaultsStore.h"
 #include "Render/RuntimeRenderer.h"
 #include "RunDebugState.h"

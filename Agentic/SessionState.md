@@ -12,14 +12,14 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
-| Current objective | Execute naming/identity debt N0-N4, then small findings hardening H0-H4, plus the parallel-eligible physics body-count scale campaign P0-P7. |
-| Active/future progress | 4 / 18 live tasks; 22%. |
-| Last broad local gate | Naming N3 `validate_full` passed in 153.373s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation, zero-error DX12 captures, and byte-exact physics passed. |
-| Validation for current edits | N3 focused Profile build passed in 13.146s; the task's single replay-fidelity run passed in 430.624s with every false-pass control; project filters passed 738/738 in 1.725s. The 14/14 comment audit passed; `FRAME_COUNT = 2`, authored data, baselines, and the seven excluded renderer interfaces are unchanged. |
+| Current objective | Execute small findings hardening H0-H4, then the physics body-count scale campaign P0-P7. |
+| Active/future progress | 0 / 13 live tasks; 0%. |
+| Last broad local gate | Naming N4 `validate_full` passed in 165.249s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation, zero-error DX12 captures, and byte-exact physics passed. |
+| Validation for current edits | N4 focused Profile build passed in 15.050s; the task's single replay-fidelity run passed in 431.062s; direct coverage passed in 20.394s; project filters passed 738/738 in 1.598s. The reviewer-found audit omission is fixed at 14/14; `FRAME_COUNT = 2`, authored data, baselines, and the seven excluded renderer interfaces are unchanged. |
 
 ## Live Queue
 
-NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
+NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
      physics body-count scale campaign
      (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
      parallel-eligible physics lane (persistent broadphase, zero-cost
@@ -30,8 +30,8 @@ NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
      owner-approved baseline/golden transition points; every other task in
      every lane keeps the zero-refresh rule.
 
-0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): two live plans,
-     10 tasks. Scene-controller round 2 is complete at 7/7 and left the live
+0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): one live plan,
+     5 tasks. Scene-controller round 2 is complete at 7/7 and left the live
      ledger under rule 4. `SceneController` has 43 public declarations, its load
      surface has 18 concrete participants, and one `SceneWorld` owns the six
      cohesive scene-lifetime domains. The sixth independent review found zero
@@ -65,10 +65,13 @@ NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
      N4 subset after ruling all 62 matching `Run*` / `Runtime*` source files.
      N1 renamed the complete production scene/parser family and all consumers.
      N2 renamed `Rendering::RenderInstanceRenderer` and retired every production
-     `GameModel` spelling. N3 renamed the stateless operator-command module,
-     recorded all domain-seam keep/delegate rulings, and passed the broad and
-     single replay gates without artifact changes. Remaining binding order:
-     naming/identity N4, then small-findings H0-H4.
+     `GameModel` spelling. N3 renamed the stateless operator-command module and
+     recorded all domain-seam rulings. N4 performed only the three ratified
+     filename moves, reconciled the 62/62 census, resolved the reviewer's audit
+     finding, and passed full, replay, coverage, and project-filter gates.
+     Naming is complete and has left the ledger. Closure evidence:
+     `Agentic/Reports/2026-07-18/naming-and-identity-debt-closure.md`. Remaining
+     binding order: small-findings H0-H4.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -431,13 +434,10 @@ NOW. Three live plans, 18 tasks: two round-7 plans plus the 2026-07-18
 
 ## Next Handoff
 
-Round-7 scene decomposition and DX12 backend ownership decomposition are
-complete and have left the live ledger. Naming N0-N3 are complete. Continue
-immediately with N4: rename only `RunDemoDirector.*` to
-`DemoDirectorPlayback.*` and `RunUiTextPass.cpp` to `UiTextPass.cpp`, reconcile
-the 62/62 ruling census, obtain one independent pure-rename/ownership review,
-and close the plan. Then proceed to the now-unblocked
-`small-findings-hardening` H0-H4.
+Round-7 scene decomposition, DX12 backend ownership decomposition, and naming
+N0-N4 are complete and have left the live ledger. Continue immediately with
+`small-findings-hardening` H0: produce the ratified findings census and rule
+each item before implementation.
 The physics body-count campaign remains parallel-eligible. Preserve the seven
 excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines outside the two

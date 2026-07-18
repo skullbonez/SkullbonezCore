@@ -52,7 +52,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayOverlayLayout.h"
-#include "RunDemoDirector.h"
+#include "DemoDirectorPlayback.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
 

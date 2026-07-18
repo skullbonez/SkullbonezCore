@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/RunDemoDirector.cpp
+File: SkullbonezSource/Runtime/DemoDirectorPlayback.cpp
 Purpose:
   Applies Demo Director shot-list camera poses, phase styles, and reveal pacing.
 
@@ -36,11 +36,11 @@ Invariants:
   - Empty or missing shot lists leave Director mode as a no-op.
 
 Related:
-  - SkullbonezSource/Runtime/RunDemoDirector.h
+  - SkullbonezSource/Runtime/DemoDirectorPlayback.h
   - SkullbonezSource/Runtime/DemoDirector.h
   - SkullbonezSource/Runtime/Scene/SceneController.h
 */
-#include "RunDemoDirector.h"
+#include "DemoDirectorPlayback.h"
 #include "Scene/SceneRuntimeStyle.h"
 #include "Scene/SceneWorld.h"
 

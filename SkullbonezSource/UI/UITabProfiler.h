@@ -47,7 +47,7 @@ constexpr int MAX_WORKER_CORE_SAMPLES = 128;
 constexpr int HISTOGRAM_SAMPLE_COUNT = 120;
 constexpr int SLIDER_WORKER_THREADS = 19;
 
-// Concept: FrameSnapshot is the profiler tab's runtime boundary. RunUiTextPass
+// Concept: FrameSnapshot is the profiler tab's runtime boundary. UiTextPass
 // owns the live SkullbonezCore::Core::Profiler/renderer reads, copies fixed-capacity values here, and
 // the UI keeps this copy for drawing plus next-frame input hit tests.
 // Lifetime: name pointers are borrowed from profiler/render diagnostics storage
