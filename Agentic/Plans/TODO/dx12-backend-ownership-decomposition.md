@@ -76,7 +76,7 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   heap, descriptor sizes, static/transient SRV allocation, and the
   CPU-descriptor allocators behind one concrete descriptor owner that
   enforces the fence-lifetime rule internally. Gate: renderer + stress.
-- [ ] D2 — Capture/readback owner. Move screenshot capture, readback
+- [x] D2 — Capture/readback owner. Move screenshot capture, readback
   buffers, and the uncertain-readback retention policy
   (`m_uncertainReadbackResources`) into a concrete capture owner
   implementing the `IRenderCaptureBackend` operations' state. Gate:
@@ -145,6 +145,22 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   with 21,455/21,455 assertions; `validate_dx12_renderer` passed in 52.978 s
   with zero InfoQueue errors and all committed captures accepted; and
   `run_graphics_stress.bat 1` ran crash-free for 61.395 s. No baseline,
+  golden, screenshot, or coverage-floor file changed.
+- D2 evidence (2026-07-18): `Dx12BackbufferCapture` now owns screenshot
+  capture, readback buffer lifetime, output conversion, and the fixed two-row
+  uncertain-readback quarantine. It receives a restricted `Dx12CaptureFrame`
+  capability rather than a backend pointer; the frame owner retains command
+  submission, wait, and backbuffer-transition authority. The backend no longer
+  declares readback resources or quarantine state, and the retained
+  `IRenderCaptureBackend` entry point is a thin typed delegation. The seven
+  retained consumer interfaces are byte-identical and `FRAME_COUNT` remains 2.
+  Comment audit:
+  `../../Reports/2026-07-18/dx12-backend-d2-comment-audit.md`, 8/8 checked with
+  none deferred. Final gates: project filters passed with 732/732 items;
+  `validate_fast` passed formatting, Profile and Debug builds, and 291/291
+  tests with 21,455/21,455 assertions; `validate_dx12_renderer` passed in
+  53.234 s with zero InfoQueue errors and all committed captures accepted; and
+  `run_graphics_stress.bat 1` ran crash-free for 61.620 s. No baseline,
   golden, screenshot, or coverage-floor file changed.
 
 ## Acceptance

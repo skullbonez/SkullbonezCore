@@ -9,8 +9,9 @@ Summary:
   texture residency and binding state, Dx12PipelineOwner retains the ordinary
   raster recipe, Dx12GeometryOwner retains bounded geometry resources, and
   Dx12RaytracingOwner retains the optional reflection path. Dx12DescriptorHeaps
-  owns every descriptor table and row allocator, while the private frame epoch
-  and retirement owners live in Dx12FrameOwner.h.
+  owns every descriptor table and row allocator, Dx12BackbufferCapture owns
+  screenshot readback/quarantine, and the private frame epoch and retirement
+  owners live in Dx12FrameOwner.h.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -75,6 +76,7 @@ Related:
 #include "Dx12CachedPsoStore.h"
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
+#include "Dx12BackbufferCapture.h"
 #include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
 #include "Dx12DescriptorHeaps.h"
@@ -692,6 +694,9 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // frame owner that borrows them for fence-proven reuse.
     Dx12DescriptorHeaps m_descriptorHeaps;
     Dx12FrameOwner m_frameOwner;
+    // Lifetime: uncertain screenshot resources remain inside this owner until
+    // shutdown proves both command-queue and present-queue completion.
+    Dx12BackbufferCapture m_backbufferCapture;
     ID3D12Device* Device() const
     {
         return m_renderDevice.Device();
@@ -733,12 +738,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // not read yet. Dx12FrameUploadSystem owns the upload resources, their
     // persistent CPU Map() pointers, and the arena reset policy tied to the
     // frame fence.
-    // Lifetime: an uncertain screenshot submission cannot release its readback
-    // buffer. Keep the bounded COM references until terminal shutdown proves a
-    // full queue drain; a failed terminal drain stops before Release.
-    std::array<ID3D12Resource*, FRAME_COUNT> m_uncertainReadbackResources = {};
-    size_t m_uncertainReadbackResourceCount = 0;
-
     int m_width = 0;
     int m_height = 0;
     bool m_isVsyncEnabled = true;
@@ -781,7 +780,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void TryConsumeGpuTimerReadback( bool waitForFence );
     SkullbonezCore::Core::SbResult CreateDepthStencil( int w, int h );
     SkullbonezCore::Core::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
-    bool TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );

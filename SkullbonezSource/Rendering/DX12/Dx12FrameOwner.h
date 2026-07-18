@@ -8,7 +8,7 @@ Summary:
   back-buffer state, profiler suspension, and deferred release for one bounded
   two-frame lifecycle. It borrows Dx12DescriptorHeaps so descriptor rows reset
   and retire only when this owner proves their covering fence. Restricted
-  capability views expose only draw, upload, or retirement operations.
+  capability views expose only draw, upload, retirement, or capture operations.
 
 Glossary:
   Recording epoch: One reusable command-list lifetime from successful Reset to Close.
@@ -19,6 +19,7 @@ Glossary:
 Invariants:
   - FRAME_COUNT remains two unless profiling explicitly justifies added queued latency.
   - Allocators, upload bytes, resources, and borrowed descriptor rows are never reused before their covering fence.
+  - Backbuffer access advances only after the corresponding native barrier emits.
   - The first recording/device failure is sticky until a new device lifecycle resets the owner.
   - Capability objects cannot reach unrelated backend state.
 
@@ -156,6 +157,37 @@ class Dx12ResourceRelease
     Dx12FrameOwner& m_owner;
 };
 
+struct Dx12CaptureSubmitOutcome
+{
+    SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
+    bool readbackUseUncertain = false;
+    const char* failedOperation = nullptr;
+};
+
+// Capability: screenshot capture may record against the current backbuffer and
+// synchronously submit it, but cannot access uploads, retirement, descriptors,
+// fault policy, or unrelated pipeline state.
+class Dx12CaptureFrame
+{
+  public:
+    explicit Dx12CaptureFrame( Dx12FrameOwner& owner ) : m_owner( owner )
+    {
+    }
+
+    SkullbonezCore::Core::SbResult EnsureOpen();
+    bool HasFailure() const;
+    const SkullbonezCore::Core::SbResult& CurrentResult() const;
+    RenderGraphResourceAccess BackBufferAccess() const;
+    bool TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after );
+    ID3D12Device* Device() const;
+    ID3D12GraphicsCommandList* CommandList() const;
+    ID3D12Resource* BackBuffer() const;
+    Dx12CaptureSubmitOutcome SubmitAndWait();
+
+  private:
+    Dx12FrameOwner& m_owner;
+};
+
 // Concept: one owner governs the complete command/frame epoch.
 //
 // It owns every state row whose invariant crosses Close, Execute, Signal, Wait,
@@ -187,6 +219,10 @@ class Dx12FrameOwner
     Dx12ResourceRelease& ResourceRelease()
     {
         return m_resourceRelease;
+    }
+    Dx12CaptureFrame& CaptureFrame()
+    {
+        return m_captureFrame;
     }
     SkullbonezCore::Core::SbResult EnsureOpen();
     SkullbonezCore::Core::SbResult SubmitClosed();
@@ -297,6 +333,7 @@ class Dx12FrameOwner
     {
         m_backBufferAccess = access;
     }
+    bool TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after );
     Dx12DescriptorHeaps& Descriptors()
     {
         return m_descriptors;
@@ -387,6 +424,7 @@ class Dx12FrameOwner
     Dx12DrawGate m_drawGate;
     Dx12UploadReservations m_uploadReservations;
     Dx12ResourceRelease m_resourceRelease;
+    Dx12CaptureFrame m_captureFrame;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

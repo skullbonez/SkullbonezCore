@@ -44,7 +44,7 @@ Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device,
                                 Dx12TextureOwner& textures,
                                 Dx12DescriptorHeaps& descriptors )
     : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
-      m_drawGate( *this ), m_uploadReservations( *this ), m_resourceRelease( *this )
+      m_drawGate( *this ), m_uploadReservations( *this ), m_resourceRelease( *this ), m_captureFrame( *this )
 {
 }
 
@@ -85,6 +85,39 @@ void Dx12FrameOwner::ResetAfterShutdown()
     m_uploadFlushCount = 0;
     m_uploadDropCount = 0;
     std::fill_n( m_uploadCategoryDropCount, RENDER_UPLOAD_CATEGORY_COUNT, uint64_t{ 0 } );
+}
+
+
+bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
+{
+    ID3D12Resource* backbuffer = RenderTarget( FrameIndex() );
+    if ( !backbuffer || BackBufferAccess() == after )
+    {
+        return false;
+    }
+    if ( !CanRecord() && !EnsureOpen().ok )
+    {
+        return false;
+    }
+
+    Dx12RenderGraphSingleTransitionDesc desc;
+    desc.commandList = CommandList();
+    desc.resource = backbuffer;
+    desc.before = BackBufferAccess();
+    desc.after = after;
+    const Dx12RenderGraphBarrierRecord record =
+        ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit", passName, "SwapchainBackbuffer", desc );
+    if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
+         record.beforeState == record.afterState || !record.emitted )
+    {
+        // Hazard: advance the tracked state only after exactly one native
+        // barrier was emitted for the current swap-chain image.
+        SB_FATAL( "Dx12FrameOwner",
+                  "DX12 backbuffer transition did not emit exactly one concrete barrier. pass=%s",
+                  passName ? passName : "unknown" );
+    }
+    SetBackBufferAccess( after );
+    return true;
 }
 
 
@@ -938,4 +971,83 @@ void Dx12ResourceRelease::Retire( ID3D12Resource* resource,
 void Dx12ResourceRelease::RetireStaticDescriptor( UINT descriptorIndex )
 {
     m_owner.RetireStaticDescriptor( descriptorIndex );
+}
+
+
+SkullbonezCore::Core::SbResult Dx12CaptureFrame::EnsureOpen()
+{
+    return m_owner.EnsureOpen();
+}
+
+
+bool Dx12CaptureFrame::HasFailure() const
+{
+    return m_owner.HasFailure();
+}
+
+
+const SkullbonezCore::Core::SbResult& Dx12CaptureFrame::CurrentResult() const
+{
+    return m_owner.CurrentResult();
+}
+
+
+RenderGraphResourceAccess Dx12CaptureFrame::BackBufferAccess() const
+{
+    return m_owner.BackBufferAccess();
+}
+
+
+bool Dx12CaptureFrame::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
+{
+    return m_owner.TransitionBackbuffer( passName, after );
+}
+
+
+ID3D12Device* Dx12CaptureFrame::Device() const
+{
+    return m_owner.Device();
+}
+
+
+ID3D12GraphicsCommandList* Dx12CaptureFrame::CommandList() const
+{
+    return m_owner.CommandList();
+}
+
+
+ID3D12Resource* Dx12CaptureFrame::BackBuffer() const
+{
+    return m_owner.RenderTarget( m_owner.FrameIndex() );
+}
+
+
+Dx12CaptureSubmitOutcome Dx12CaptureFrame::SubmitAndWait()
+{
+    Dx12CaptureSubmitOutcome outcome;
+    m_owner.AssertProfilerClosed( "CaptureBackbuffer" );
+    outcome.result = m_owner.CommitClose( m_owner.CommandList()->Close(), "CaptureBackbuffer command list Close" );
+    if ( !outcome.result.ok )
+    {
+        outcome.readbackUseUncertain = true;
+        outcome.failedOperation = "Close";
+        return outcome;
+    }
+
+    outcome.result = m_owner.SubmitClosed();
+    if ( !outcome.result.ok )
+    {
+        // Invariant: SubmitClosed reports failure only before ExecuteCommandLists;
+        // the local readback remains safe for ordinary destruction.
+        outcome.failedOperation = "Submit";
+        return outcome;
+    }
+
+    outcome.result = m_owner.CommitWait( m_owner.WaitForGpu() );
+    if ( !outcome.result.ok )
+    {
+        outcome.readbackUseUncertain = true;
+        outcome.failedOperation = "Wait";
+    }
+    return outcome;
 }

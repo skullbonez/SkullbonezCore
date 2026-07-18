@@ -412,30 +412,6 @@ bool RenderBackendDX12::ExecuteGraphTransition( const char* passName,
 }
 
 
-bool RenderBackendDX12::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
-{
-    ID3D12Resource* backbuffer = m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() );
-    if ( !backbuffer || m_frameOwner.BackBufferAccess() == after )
-    {
-        return false;
-    }
-
-    // Hazard: text-only or diagnostic frames can reach Present() without
-    // Clear(), so the present barrier must start from the tracked state instead
-    // of assuming the swap-chain image was rendered this frame.
-    if ( !ExecuteGraphTransition( passName,
-                                  "SwapchainBackbuffer",
-                                  backbuffer,
-                                  m_frameOwner.BackBufferAccess(),
-                                  after ) )
-    {
-        return false;
-    }
-    m_frameOwner.SetBackBufferAccess( after );
-    return true;
-}
-
-
 bool RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
                                                 const char* resourceName,
                                                 ID3D12Resource* resource )
@@ -1554,7 +1530,7 @@ void RenderBackendDX12::Shutdown()
                 openResult.error.owner,
                 openResult.error.message );
         }
-        if ( !TransitionBackbuffer( "ShutdownBackbufferPresent", RenderGraphResourceAccess::Present ) )
+        if ( !m_frameOwner.TransitionBackbuffer( "ShutdownBackbufferPresent", RenderGraphResourceAccess::Present ) )
         {
             const SkullbonezCore::Core::SbResult transitionResult = m_frameOwner.CurrentResult();
             SB_FATAL( "RenderBackendDX12",
@@ -1651,17 +1627,9 @@ void RenderBackendDX12::Shutdown()
                   m_frameOwner.RetirementCount() );
     }
 
-    // Lifetime: screenshot readbacks detached after an uncertain wait remain
-    // process-owned until the successful terminal drains above make Release safe.
-    for ( size_t i = 0; i < m_uncertainReadbackResourceCount; ++i )
-    {
-        if ( m_uncertainReadbackResources[i] )
-        {
-            m_uncertainReadbackResources[i]->Release();
-            m_uncertainReadbackResources[i] = nullptr;
-        }
-    }
-    m_uncertainReadbackResourceCount = 0;
+    // Lifetime: both terminal drains above succeeded, so detached screenshot
+    // readbacks can no longer be referenced by the GPU or DXGI present queue.
+    m_backbufferCapture.ReleaseAfterTerminalDrain();
 
     // DXR resources hang off newer D3D12 interfaces and contain GPU-side
     // acceleration structures. Release them before the shared renderer objects
@@ -1790,7 +1758,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
         std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
     }
 
-    TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
+    m_frameOwner.TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
     if ( m_frameOwner.HasFailure() )
     {
         return m_frameOwner.CurrentResult();
@@ -2251,7 +2219,7 @@ void RenderBackendDX12::Clear( bool color, bool depth )
 
     if ( !m_pipelineOwner.RenderingToFramebuffer() )
     {
-        TransitionBackbuffer( "ClearBackbuffer", RenderGraphResourceAccess::RenderTarget );
+        m_frameOwner.TransitionBackbuffer( "ClearBackbuffer", RenderGraphResourceAccess::RenderTarget );
         if ( m_frameOwner.HasFailure() )
         {
             return;
