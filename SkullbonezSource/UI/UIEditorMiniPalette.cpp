@@ -371,7 +371,7 @@ float RenderSliderY( int index, float baseY )
     float y = baseY;
     for ( int i = 0; i <= index; ++i )
     {
-        if ( kRenderSliderSpecs[i].section )
+        if ( RenderSliderStartsSection( i ) )
         {
             y += UI_RENDER_SECTION_H;
         }
@@ -389,7 +389,7 @@ int RenderContentHeight()
     float height = UI_RENDER_START_Y;
     for ( int i = 0; i < static_cast<int>( UIRenderParam::Count ); ++i )
     {
-        if ( kRenderSliderSpecs[i].section )
+        if ( RenderSliderStartsSection( i ) )
         {
             height += UI_RENDER_SECTION_H;
         }

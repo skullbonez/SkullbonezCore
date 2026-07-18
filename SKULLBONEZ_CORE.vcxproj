@@ -665,6 +665,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\World\FluidSurfaceAdjustment.h" />
     <ClInclude Include="SkullbonezSource\UI\UI.h" />
     <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h" />
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h" />
     <ClInclude Include="SkullbonezSource\UI\UIButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h" />

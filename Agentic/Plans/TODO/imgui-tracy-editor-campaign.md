@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 13/18 tasks (E0-E12 complete; E13 next) under the owner's
+Status: Active — 14/18 tasks (E0-E13 complete; E14 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (13/18 complete)
+Ledger: E0-E17 (14/18 complete)
 
 ## Objective
 
@@ -441,7 +441,7 @@ It does **not** authorize removal from the legacy UI.
     6/6 comment audit, and UI/physics/full/perf/allocation/Release gates. No
     authored data, baseline, or golden changed.
 
-- [ ] E13 — Consolidate Rendering, Audio, and Diagnostics on the right.
+- [x] E13 — Consolidate Rendering, Audio, and Diagnostics on the right.
   - Rendering sections: Lighting, Environment, Shadows, Post, Water, and
     Terrain/Materials. Merge Sky/Cine concepts into these canonical sections.
   - Audio Authoring: contact recipes/material bands/sample library/global
@@ -457,6 +457,14 @@ It does **not** authorize removal from the legacy UI.
     dominate it.
   - Gates: `tools\validate_ui.bat`, renderer/physics gates when their source
     boundaries change, and DX12+stress for render backend work.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e13-render-audio-diagnostics.md`
+    records the canonical 25 ordinary/64 cinematic/8-feature Rendering
+    catalog, bounded Audio Authoring and Diagnostics views, item-by-item legacy
+    disposition, native command probes, 7 focused cases/205 assertions, 10/10
+    comment audit, and UI/physics/full/perf/allocation/Release gates. No authored
+    data, baseline, or golden changed; E13 touched no backend/shader source, so
+    its conditional bounded graphics-stress gate did not apply.
 
 - [ ] E14 — Reduce Causality to a useful contextual right-side tool.
   - Default compact view shows selected object, current replay tick, immediate

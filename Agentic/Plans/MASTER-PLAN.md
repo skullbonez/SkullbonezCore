@@ -137,8 +137,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 13 | 18 | 72% |
-| **Active/future total** | **14** | **26** | **54%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 14 | 18 | 78% |
+| **Active/future total** | **15** | **26** | **58%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -196,7 +196,7 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E13 under the owner's
+`imgui-tracy-editor-campaign` (E0-E17) is active at E14 under the owner's
 direction to note genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
@@ -265,6 +265,15 @@ through preview-without-mutation and one release-time commit, with deterministic
 Legacy/ImGui duplicate coalescing. Native authoring evidence and the UI,
 physics, full, perf, allocation, and Release-exclusion gates passed without an
 authored-data, baseline, or golden change.
+E13 consolidates the right rail into one canonical six-section Rendering
+surface, bounded Audio Authoring, and domain Diagnostics. Shared metadata owns
+25 ordinary, 64 cinematic, and 8 feature rows; fixed editor views expose 13
+audio globals, 16 four-band contact recipes, a 64-sample library, and bounded
+physics/render/memory/worker/audio/UI facts. Native command probes, focused
+reducer tests, the 10/10 comment audit, and cumulative UI/physics/full/perf,
+allocation, and Release gates passed without an authored-data, baseline, or
+golden change. Generic profiling remains in Tracy and E13 touched no render
+backend or shader source.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
@@ -880,7 +889,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E13 | 13/18 | Consolidate Rendering, Audio, and Diagnostics on the right |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E14 | 14/18 | Reduce Causality to a useful contextual right-side tool |
 
 ## Features
 

@@ -63,6 +63,7 @@ Related:
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "Allocation/RuntimeReserveAllocator.h"
 #include "DevelopmentTools/TracyClientOwner.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "DevelopmentTools/ImGuiEditorOwner.h"
@@ -145,6 +146,190 @@ bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
     }
 }
 
+void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
+                                      const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+{
+    using SkullbonezCore::UI::UICinematicFeature;
+    using SkullbonezCore::UI::UICinematicParam;
+    using SkullbonezCore::UI::UIRenderParam;
+    // Invariant: every enum slot crosses the runtime/presentation boundary
+    // explicitly. The count assertions make a newly authored parameter fail
+    // the build until this bounded projection is updated.
+    static_assert( static_cast<int>( UIRenderParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount );
+    static_assert( static_cast<int>( UICinematicParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount );
+    static_assert( static_cast<int>( UICinematicFeature::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount );
+    const auto ordinaryValue = [&]( UIRenderParam parameter, float value )
+    { view.ordinaryParameters[static_cast<int>( parameter )] = value; };
+    ordinaryValue( UIRenderParam::SunIntensity, ordinary.sunIntensity );
+    ordinaryValue( UIRenderParam::SunRed, ordinary.sunColorR );
+    ordinaryValue( UIRenderParam::SunGreen, ordinary.sunColorG );
+    ordinaryValue( UIRenderParam::SunBlue, ordinary.sunColorB );
+    ordinaryValue( UIRenderParam::AmbientStrength, ordinary.ambientStrength );
+    ordinaryValue( UIRenderParam::SkyRed, ordinary.skyAmbientR );
+    ordinaryValue( UIRenderParam::SkyGreen, ordinary.skyAmbientG );
+    ordinaryValue( UIRenderParam::SkyBlue, ordinary.skyAmbientB );
+    ordinaryValue( UIRenderParam::GroundRed, ordinary.groundAmbientR );
+    ordinaryValue( UIRenderParam::GroundGreen, ordinary.groundAmbientG );
+    ordinaryValue( UIRenderParam::GroundBlue, ordinary.groundAmbientB );
+    ordinaryValue( UIRenderParam::ShadowStrength, ordinary.shadow.strength );
+    ordinaryValue( UIRenderParam::ShadowSoftness, ordinary.shadow.softness );
+    ordinaryValue( UIRenderParam::ShadowDepthBias, ordinary.shadow.depthBias );
+    ordinaryValue( UIRenderParam::ShadowSlopeBias, ordinary.shadow.slopeBias );
+    ordinaryValue( UIRenderParam::WaterRed, ordinary.waterTintR );
+    ordinaryValue( UIRenderParam::WaterGreen, ordinary.waterTintG );
+    ordinaryValue( UIRenderParam::WaterBlue, ordinary.waterTintB );
+    ordinaryValue( UIRenderParam::WaterAlpha, ordinary.waterAlpha );
+    ordinaryValue( UIRenderParam::WaterReflection, ordinary.waterReflectionStrength );
+    ordinaryValue( UIRenderParam::WaterFresnel, ordinary.waterFresnelF0 );
+    ordinaryValue( UIRenderParam::BallRoughness, ordinary.ballRoughnessScale );
+    ordinaryValue( UIRenderParam::BallSpecular, ordinary.ballSpecularScale );
+    ordinaryValue( UIRenderParam::BoxRoughness, ordinary.boxRoughnessScale );
+    ordinaryValue( UIRenderParam::BoxSpecular, ordinary.boxSpecularScale );
+
+    const auto cinematicValue = [&]( UICinematicParam parameter, float value )
+    { view.cinematicParameters[static_cast<int>( parameter )] = value; };
+    cinematicValue( UICinematicParam::Exposure, cinematic.exposure );
+    cinematicValue( UICinematicParam::Gamma, cinematic.gamma );
+    cinematicValue( UICinematicParam::SkyMode, static_cast<float>( cinematic.skyMode ) );
+    cinematicValue( UICinematicParam::TerrainMode, static_cast<float>( cinematic.terrainMode ) );
+    cinematicValue( UICinematicParam::ObjectStyle, static_cast<float>( cinematic.objectStyle ) );
+    cinematicValue( UICinematicParam::WaterMode, static_cast<float>( cinematic.waterMode ) );
+    cinematicValue( UICinematicParam::StyleSaturation, cinematic.styleSaturation );
+    cinematicValue( UICinematicParam::StyleContrast, cinematic.styleContrast );
+    cinematicValue( UICinematicParam::StyleVignette, cinematic.styleVignette );
+    cinematicValue( UICinematicParam::SunAzimuth, cinematic.sunAzimuth );
+    cinematicValue( UICinematicParam::SunElevation, cinematic.sunElevation );
+    cinematicValue( UICinematicParam::SunBrightness, cinematic.sunIntensity );
+    cinematicValue( UICinematicParam::SunRed, cinematic.sunColorR );
+    cinematicValue( UICinematicParam::SunGreen, cinematic.sunColorG );
+    cinematicValue( UICinematicParam::SunBlue, cinematic.sunColorB );
+    cinematicValue( UICinematicParam::SkyGlow, cinematic.skyGlowStrength );
+    cinematicValue( UICinematicParam::HorizonRed, cinematic.skyHorizonR );
+    cinematicValue( UICinematicParam::HorizonGreen, cinematic.skyHorizonG );
+    cinematicValue( UICinematicParam::HorizonBlue, cinematic.skyHorizonB );
+    cinematicValue( UICinematicParam::ZenithRed, cinematic.skyZenithR );
+    cinematicValue( UICinematicParam::ZenithGreen, cinematic.skyZenithG );
+    cinematicValue( UICinematicParam::ZenithBlue, cinematic.skyZenithB );
+    cinematicValue( UICinematicParam::CloudCoverage, cinematic.cloudCoverage );
+    cinematicValue( UICinematicParam::CloudSoftness, cinematic.cloudSoftness );
+    cinematicValue( UICinematicParam::CloudScale, cinematic.cloudScale );
+    cinematicValue( UICinematicParam::CloudIntensity, cinematic.cloudIntensity );
+    cinematicValue( UICinematicParam::ShaftStrength, cinematic.sunShaftStrength );
+    cinematicValue( UICinematicParam::ShaftFalloff, cinematic.sunShaftFalloff );
+    cinematicValue( UICinematicParam::VolumetricStrength, cinematic.volumetricStrength );
+    cinematicValue( UICinematicParam::VolumetricDensity, cinematic.volumetricDensity );
+    cinematicValue( UICinematicParam::VolumetricDecay, cinematic.volumetricDecay );
+    cinematicValue( UICinematicParam::BloomThreshold, cinematic.bloomThreshold );
+    cinematicValue( UICinematicParam::BloomKnee, cinematic.bloomKnee );
+    cinematicValue( UICinematicParam::BloomStrength, cinematic.bloomStrength );
+    cinematicValue( UICinematicParam::BloomRadius, cinematic.bloomRadius );
+    cinematicValue( UICinematicParam::TerrainRelief, cinematic.terrainRelief );
+    cinematicValue( UICinematicParam::TerrainTintRed, cinematic.terrainTintR );
+    cinematicValue( UICinematicParam::TerrainTintGreen, cinematic.terrainTintG );
+    cinematicValue( UICinematicParam::TerrainTintBlue, cinematic.terrainTintB );
+    cinematicValue( UICinematicParam::TerrainAccentRed, cinematic.terrainAccentR );
+    cinematicValue( UICinematicParam::TerrainAccentGreen, cinematic.terrainAccentG );
+    cinematicValue( UICinematicParam::TerrainAccentBlue, cinematic.terrainAccentB );
+    cinematicValue( UICinematicParam::TerrainGridScale, cinematic.terrainGridScale );
+    cinematicValue( UICinematicParam::TerrainGridStrength, cinematic.terrainGridStrength );
+    cinematicValue( UICinematicParam::WaterTintRed, cinematic.waterTintR );
+    cinematicValue( UICinematicParam::WaterTintGreen, cinematic.waterTintG );
+    cinematicValue( UICinematicParam::WaterTintBlue, cinematic.waterTintB );
+    cinematicValue( UICinematicParam::WaterAlpha, cinematic.waterAlpha );
+    cinematicValue( UICinematicParam::WaterReflection, cinematic.waterReflectionStrength );
+    cinematicValue( UICinematicParam::WaterGlint, cinematic.waterGlintStrength );
+    cinematicValue( UICinematicParam::BasinCenterX, cinematic.basinCenterX );
+    cinematicValue( UICinematicParam::BasinCenterZ, cinematic.basinCenterZ );
+    cinematicValue( UICinematicParam::BasinRadiusX, cinematic.basinRadiusX );
+    cinematicValue( UICinematicParam::BasinRadiusZ, cinematic.basinRadiusZ );
+    cinematicValue( UICinematicParam::BasinFeather, cinematic.basinFeather );
+    cinematicValue( UICinematicParam::BasinDepth, cinematic.basinDepth );
+    cinematicValue( UICinematicParam::BasinRimLift, cinematic.basinRimLift );
+    cinematicValue( UICinematicParam::FogDensity, cinematic.fogDensity );
+    cinematicValue( UICinematicParam::FogOpacity, cinematic.fogMaxOpacity );
+    cinematicValue( UICinematicParam::FogStart, cinematic.fogStart );
+    cinematicValue( UICinematicParam::FogEnd, cinematic.fogEnd );
+    cinematicValue( UICinematicParam::FogRed, cinematic.fogColorR );
+    cinematicValue( UICinematicParam::FogGreen, cinematic.fogColorG );
+    cinematicValue( UICinematicParam::FogBlue, cinematic.fogColorB );
+
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Sky )] = cinematic.skyAtmosphereEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Clouds )] = cinematic.cloudsEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::GodRays )] = cinematic.godRaysEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] =
+        cinematic.volumetricLightingEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Bloom )] = cinematic.bloomEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Fog )] = cinematic.fogEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::TerrainRelief )] = cinematic.terrainReliefEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
+}
+
+void FillOperatorAudioView( SkullbonezCore::UI::OperatorEditorAudioView& view,
+                            const RuntimeContactAudioSnapshot& audio )
+{
+    // Lifetime: names and paths borrow the startup-loaded audio catalog only
+    // for this synchronous frame; counts clamp every borrowed array boundary.
+    view.enabled = audio.enabled;
+    view.available = audio.available;
+    view.simpleMode = audio.simpleMode;
+    view.globalParameters[0] = audio.simpleMinLinearEnergy;
+    view.globalParameters[1] = audio.simpleMinLinearDeltaSpeed;
+    view.globalParameters[2] = audio.simpleLinearEnergyRange;
+    view.globalParameters[3] = audio.masterGain;
+    view.globalParameters[4] = audio.maxDistanceScale;
+    view.globalParameters[5] = audio.minClosingSpeed;
+    view.globalParameters[6] = audio.minImpactScore;
+    view.globalParameters[7] = audio.impactScoreRangeSeconds;
+    view.globalParameters[8] = static_cast<float>( audio.burstVoicesPerWindow );
+    view.globalParameters[9] = audio.rollingLevelDb;
+    view.globalParameters[10] = audio.rollingMaxDistance;
+    view.globalParameters[11] = audio.rollingMinSlipSpeed;
+    view.globalParameters[12] = static_cast<float>( audio.rollingVoicesPerWindow );
+    view.setCount = (std::min)( audio.soundSetCount, SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_SET_CAPACITY );
+    view.sampleCount = (std::min)( audio.soundSampleCount, SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY );
+    for ( int sampleIndex = 0; sampleIndex < view.sampleCount; ++sampleIndex )
+    {
+        view.samplePaths[sampleIndex] = audio.soundSamplePaths[sampleIndex];
+    }
+    for ( int setIndex = 0; setIndex < view.setCount; ++setIndex )
+    {
+        const Audio::ContactAudioSetTuning& source = audio.soundSets[setIndex];
+        SkullbonezCore::UI::OperatorEditorAudioSetView& target = view.sets[setIndex];
+        target.name = source.name;
+        target.materialA = source.materialA;
+        target.materialB = source.materialB;
+        target.parameters[0] = source.minImpulse;
+        target.parameters[1] = source.impulseRange;
+        target.parameters[2] = source.cooldownMs;
+        target.parameters[3] = source.overrideCooldownMs;
+        target.parameters[4] = source.maxDistance;
+        target.parameters[5] = source.baseGain;
+        target.parameters[6] = source.pitchMin;
+        target.parameters[7] = source.pitchMax;
+        target.parameters[8] = static_cast<float>( source.maxVoices );
+        target.sampleCount = source.sampleCount;
+        target.bandCount =
+            (std::min)( source.bandCount,
+                        static_cast<uint32_t>( SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_BAND_CAPACITY ) );
+        for ( uint32_t bandIndex = 0u; bandIndex < target.bandCount; ++bandIndex )
+        {
+            const Audio::ContactAudioBandTuning& sourceBand = source.bands[bandIndex];
+            SkullbonezCore::UI::OperatorEditorAudioBandView& targetBand = target.bands[bandIndex];
+            targetBand.name = sourceBand.name;
+            targetBand.minImpulse = sourceBand.minImpulse;
+            targetBand.impulseRange = sourceBand.impulseRange;
+            targetBand.baseGain = sourceBand.baseGain;
+            targetBand.pitchMin = sourceBand.pitchMin;
+            targetBand.pitchMax = sourceBand.pitchMax;
+            targetBand.sampleCount = sourceBand.sampleCount;
+        }
+    }
+}
+
 
 void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                RuntimeFrameInteractionView& interactionOwners,
@@ -195,11 +380,18 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     facts.operatorEditorView.property = { sceneController.Scene().Environment().GetGravity(),
                                           sceneController.Scene().Environment().GetFluidSurfaceHeight(),
                                           sceneController.Scene().Environment().GetFluidDensity() };
-    facts.operatorEditorView.rendering = { renderer.PresentationSettings().vsyncEnabled,
-                                           sharedShadows,
-                                           sharedCinematicRendering,
-                                           config.runtimeRender.presentationInterpolation,
-                                           facts.presentationAlpha };
+    SkullbonezCore::UI::OperatorEditorRenderingView& sharedRendering = facts.operatorEditorView.rendering;
+    sharedRendering.vsyncEnabled = renderer.PresentationSettings().vsyncEnabled;
+    sharedRendering.shadowsEnabled = sharedShadows;
+    sharedRendering.cinematicRendering = sharedCinematicRendering;
+    sharedRendering.presentationInterpolation = config.runtimeRender.presentationInterpolation;
+    sharedRendering.presentationAlpha = facts.presentationAlpha;
+    sharedRendering.terrainHidden = debug.isTerrainHidden;
+    sharedRendering.waterHidden = debug.isWaterHidden;
+    sharedRendering.waterFrozen = debug.isWaterFreezeDebug;
+    sharedRendering.waterFlat = debug.isWaterFlatDebug;
+    sharedRendering.waterReflectionMode = debug.isWaterNoReflect ? 2 : ( debug.isWaterRTReflect ? 1 : 0 );
+    FillOperatorRenderingParameters( sharedRendering, config.ordinaryRender, sharedCinematic );
     const char* sharedGizmoMode = "translate";
     if ( facts.interactionGesture.kind == RuntimeInteractionGestureKind::GizmoDrag )
     {
@@ -373,6 +565,90 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
 #endif
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
+    if ( facts.operatorEditorView.surfaces.secondaryVisible )
+    {
+        // Why: the secondary surface can be visible while the legacy UI is
+        // hidden. Sample its bounded authoring/diagnostic values here instead
+        // of making ImGui depend on whether the legacy text pass happens to run.
+        runtimeViewModel =
+            RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController.State(),
+                                                                     sceneController.Scene(),
+                                                                     sceneController.QueueSize(),
+                                                                     diagnosticsRuntime.Capture(),
+                                                                     config.runtimeRender.presentationInterpolation,
+                                                                     facts.presentationPinned,
+                                                                     facts.presentationAlpha },
+                                            contactAudio );
+        renderTargetPreviews = renderer.BuildRenderTargetPreviewSnapshot(
+            sharedShadows,
+            sharedCinematicRendering,
+            sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
+        FillOperatorAudioView( facts.operatorEditorView.audio, runtimeViewModel.contactAudio );
+
+        SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = facts.operatorEditorView.diagnostics;
+        // Invariant: the right rail reads fixed snapshots and cached counters;
+        // opening Diagnostics must not trigger an allocation scan or grow data.
+        const SkullbonezCore::Core::MainMemoryStats& mainMemory = diagnosticsRuntime.MainMemoryStatsSnapshot();
+        const SkullbonezCore::Rendering::RenderMemoryStats renderMemory = renderDiagnostics.GetRenderMemoryStats();
+        diagnostics.rendererName = renderDiagnostics.GetRendererName();
+        diagnostics.drawCalls = renderDiagnostics.GetFrameDrawCallCount();
+        diagnostics.uiDrawCalls = timers.lastUIDrawCalls;
+        diagnostics.workerThreadCount = workerPool.GetThreadCount();
+        diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
+        diagnostics.fps = facts.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / facts.secondsPerFrame ) : 0.0f;
+        diagnostics.renderMs =
+            ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
+        diagnostics.physicsMs =
+            ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) * 1000.0f;
+        diagnostics.cpuFrameMs = timers.cpuFrameWorkMs;
+        diagnostics.gpuFrameMs = timers.gpuFrameWorkMs;
+        diagnostics.physicsDebugFlags = debug.physicsDebugFlags;
+        const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+        int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
+        if ( stageIndex < 0 )
+        {
+            stageIndex += stageCount;
+        }
+        diagnostics.physicsPipelineStageIndex = stageIndex;
+        diagnostics.physicsPipelineStageCount = stageCount;
+        diagnostics.physicsPipelineStageName =
+            PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
+        diagnostics.physicsDebugAlpha = debug.physicsDebugAlpha;
+        diagnostics.physicsDebugContactLinger = debug.physicsDebugContactLinger;
+        diagnostics.rayCastImpulseStrength = runtimeTools.RayCastTest().impulseStrength;
+        diagnostics.launcherProjectileSpeed = runtimeTools.RayCastTest().projectileSpeed;
+        diagnostics.collisionVisualizer = debug.isCollisionVisualizer;
+        diagnostics.physicsDebugTransparent = debug.isPhysicsDebugTransparent;
+        diagnostics.broadphaseOverlay = debug.isBroadphaseOverlay;
+        diagnostics.tornadoVisualShell = renderer.TornadoVisualSettingsSnapshot().enabled;
+        diagnostics.tornadoFieldVectors =
+            sceneController.Scene().Physics().GetTornadoFieldConfig().visualizeVelocityField;
+        diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
+        diagnostics.audioDebugCounters = runtimeViewModel.contactAudio.debugCounters;
+        diagnostics.audioFlashModeLabel = runtimeViewModel.contactAudio.flashModeLabel;
+        diagnostics.audioEventsSeen = runtimeViewModel.contactAudio.stats.eventsSeen;
+        diagnostics.audioCandidates = runtimeViewModel.contactAudio.stats.patchCandidates;
+        diagnostics.audioSubmittedVoices = runtimeViewModel.contactAudio.stats.submittedVoices;
+        diagnostics.audioDroppedVoices = runtimeViewModel.contactAudio.stats.droppedVoices;
+        diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
+        diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
+        diagnostics.uploadUsedBytes = renderMemory.uploadUsedBytes;
+        diagnostics.uploadCapacityBytes = renderMemory.uploadCapacityBytes;
+        diagnostics.replayReserveGrowthEvents =
+            SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+        diagnostics.renderTargetCount =
+            (std::min)( renderTargetPreviews.count, SkullbonezCore::UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
+        for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
+        {
+            const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<size_t>( index )];
+            diagnostics.renderTargets[index] = { source.label,
+                                                 source.width,
+                                                 source.height,
+                                                 source.available && source.textureHandle != 0u,
+                                                 source.depth,
+                                                 source.hdr };
+        }
+    }
     const ReplayOverlay::ReplayOverlayStateView replayOverlay =
         replayRuntime.BuildOverlayStateView( runtimeTools.Editor().editorModeEnabled,
                                              ui.IsVisible(),

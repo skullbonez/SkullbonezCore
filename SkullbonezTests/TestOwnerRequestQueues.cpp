@@ -45,6 +45,7 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
 #include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
+#include "../SkullbonezSource/Physics/PhysicsDebugData.h"
 #include "../SkullbonezSource/UI/UICommands.h"
 
 #include <cmath>
@@ -616,6 +617,9 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     static_assert( std::is_trivially_copyable_v<OperatorEditorCommandQueues> );
     static_assert( OperatorEditorSceneCommandQueue::capacity == 8u );
     static_assert( OperatorEditorPropertyCommandQueue::capacity == 24u );
+    static_assert( OperatorEditorRenderingCommandQueue::capacity == 8u );
+    static_assert( OperatorEditorAudioCommandQueue::capacity == 4u );
+    static_assert( OperatorEditorDiagnosticsCommandQueue::capacity == 8u );
     static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
 
     InGameUICommands legacy;
@@ -832,7 +836,10 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     first.scene.canSaveCurrentScene = true;
     first.scene.dirty = true;
     first.property = { -9.81f, 4.0f, 998.0f };
-    first.rendering = { true, true, false, true, 0.5f };
+    first.rendering.vsyncEnabled = true;
+    first.rendering.shadowsEnabled = true;
+    first.rendering.presentationInterpolation = true;
+    first.rendering.presentationAlpha = 0.5f;
     first.viewport = { "Inspect", "translate", false };
     first.replay = { 1, 30, 64, 30, 20, false, true };
     first.surfaces = { true, true };
@@ -865,6 +872,158 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     changed.inspector.selectionState = OperatorEditorInspectorSelectionState::Single;
     changed.inspector.sceneObjectId = 91u;
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.rendering.cinematicParameters[static_cast<int>( UICinematicParam::Exposure )] = 1.25f;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.audio.globalParameters[static_cast<int>( UISoundParam::MasterGain )] = 0.75f;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.diagnostics.audioEventsSeen = 9u;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+}
+
+TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical owner projection" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues preview;
+    REQUIRE( SubmitOperatorEditorCommand( preview.rendering,
+                                          { OperatorEditorRenderingCommandType::SetCinematicParameter,
+                                            static_cast<int>( UICinematicParam::Exposure ),
+                                            1.4f,
+                                            OperatorEditorEditPhase::Preview } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( preview.audio,
+                                          { OperatorEditorAudioCommandType::SetGlobalParameter,
+                                            static_cast<int>( UISoundParam::MasterGain ),
+                                            -1,
+                                            -1,
+                                            -1,
+                                            0.8f,
+                                            OperatorEditorEditPhase::Preview } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( preview.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
+                                            0u,
+                                            0,
+                                            0.5f,
+                                            OperatorEditorEditPhase::Preview } )
+                 .ok );
+    InGameUICommands previewPacket;
+    REQUIRE( ProjectOperatorEditorCommands( preview, previewPacket ).ok );
+    CHECK( previewPacket.cinematic.requestedParam == UICinematicParam::None );
+    CHECK( previewPacket.sound.requestedParam == UISoundParam::None );
+    CHECK( previewPacket.physics.requestedPhysicsDebugAlpha < 0.0f );
+
+    OperatorEditorCommandQueues recipeCommit;
+    REQUIRE( SubmitOperatorEditorCommand( recipeCommit.audio,
+                                          { OperatorEditorAudioCommandType::SetRecipeParameter,
+                                            static_cast<int>( UISoundParam::SetBaseGain ),
+                                            2,
+                                            -1,
+                                            -1,
+                                            1.25f } )
+                 .ok );
+    InGameUICommands recipePacket;
+    REQUIRE( ProjectOperatorEditorCommands( recipeCommit, recipePacket ).ok );
+    CHECK( recipePacket.sound.requestedParam == UISoundParam::SetBaseGain );
+    CHECK( recipePacket.sound.requestedSetIndex == 2 );
+    CHECK( recipePacket.sound.requestedValue == doctest::Approx( 1.25f ) );
+
+    OperatorEditorCommandQueues commits;
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                          { OperatorEditorRenderingCommandType::SetOrdinaryParameter,
+                                            static_cast<int>( UIRenderParam::WaterFresnel ),
+                                            0.04f } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                          { OperatorEditorRenderingCommandType::SetCinematicParameter,
+                                            static_cast<int>( UICinematicParam::BloomStrength ),
+                                            0.6f } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                          { OperatorEditorRenderingCommandType::ToggleCinematicFeature,
+                                            static_cast<int>( UICinematicFeature::Bloom ) } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering, { OperatorEditorRenderingCommandType::ToggleWaterFreeze } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.audio,
+                                          { OperatorEditorAudioCommandType::SetBandParameter,
+                                            static_cast<int>( UISoundBandParam::PitchMax ),
+                                            2,
+                                            1,
+                                            -1,
+                                            1.1f } )
+                 .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( commits.audio, { OperatorEditorAudioCommandType::PreviewSample, -1, -1, -1, 7 } )
+            .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
+                                            SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 4 } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 commits.diagnostics,
+                 { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
+                 .ok );
+
+    InGameUICommands projected;
+    REQUIRE( ProjectOperatorEditorCommands( commits, projected ).ok );
+    CHECK( projected.renderTuning.requestedParam == UIRenderParam::WaterFresnel );
+    CHECK( projected.renderTuning.requestedValue == doctest::Approx( 0.04f ) );
+    CHECK( projected.cinematic.requestedParam == UICinematicParam::BloomStrength );
+    CHECK( projected.cinematic.requestedValue == doctest::Approx( 0.6f ) );
+    CHECK( projected.cinematic.requestedFeature == UICinematicFeature::Bloom );
+    CHECK( projected.sceneOptions.toggleWaterFreeze );
+    CHECK( projected.sound.requestedBandParam == UISoundBandParam::PitchMax );
+    CHECK( projected.sound.requestedBandIndex == 1 );
+    CHECK( projected.sound.previewSampleIndex == 7 );
+    CHECK( projected.physics.togglePhysicsDebugFlags == SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS );
+    CHECK( projected.profiler.requestedWorkerThreads == 4 );
+    CHECK( projected.physics.requestRayCastImpulseStrength );
+    CHECK( projected.physics.requestedRayCastImpulseStrength == doctest::Approx( 125.0f ) );
+
+    InGameUICommands legacy;
+    legacy.renderTuning.requestedParam = UIRenderParam::WaterFresnel;
+    legacy.renderTuning.requestedValue = 0.04f;
+    legacy.cinematic.requestedParam = UICinematicParam::BloomStrength;
+    legacy.cinematic.requestedValue = 0.6f;
+    legacy.cinematic.requestedFeature = UICinematicFeature::Bloom;
+    legacy.sceneOptions.toggleWaterFreeze = true;
+    legacy.sound.requestedSetIndex = 2;
+    legacy.sound.requestedBandIndex = 1;
+    legacy.sound.requestedBandParam = UISoundBandParam::PitchMax;
+    legacy.sound.requestedValue = 1.1f;
+    legacy.sound.previewSampleIndex = 7;
+    legacy.physics.togglePhysicsDebugFlags = SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
+    legacy.profiler.requestedWorkerThreads = 4;
+    legacy.physics.requestRayCastImpulseStrength = true;
+    legacy.physics.requestedRayCastImpulseStrength = 125.0f;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK( legacy.renderTuning.requestedParam == UIRenderParam::None );
+    CHECK( legacy.cinematic.requestedParam == UICinematicParam::None );
+    CHECK( legacy.sound.requestedBandParam == UISoundBandParam::None );
+    CHECK( legacy.physics.togglePhysicsDebugFlags == 0u );
+    CHECK( legacy.profiler.requestedWorkerThreads == -2 );
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
+    REQUIRE( merged.status.ok );
+    CHECK( merged.acceptedSecondaryCommands == 0u );
+    CHECK( merged.coalescedDuplicateCommands == 9u );
+
+    OperatorEditorAudioCommandQueue malformedAudio;
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( malformedAudio, { OperatorEditorAudioCommandType::SetBandParameter, 99, 0, 0 } )
+            .ok );
+    OperatorEditorDiagnosticsCommandQueue malformedDiagnostics;
+    CHECK_FALSE( SubmitOperatorEditorCommand( malformedDiagnostics,
+                                              { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 0u } )
+                     .ok );
 }
 
 TEST_CASE( "Operator editor scene hierarchy and asset intents project through typed owner packets" )

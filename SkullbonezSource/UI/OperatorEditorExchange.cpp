@@ -104,9 +104,46 @@ bool SameRenderingIdentity( const OperatorEditorRenderingCommand& left, const Op
     return left.type == right.type;
 }
 
-bool SameRenderingPayload( const OperatorEditorRenderingCommand&, const OperatorEditorRenderingCommand& )
+bool SameRenderingPayload( const OperatorEditorRenderingCommand& left, const OperatorEditorRenderingCommand& right )
 {
-    return true;
+    return left.parameter == right.parameter && left.value == right.value && left.phase == right.phase;
+}
+
+bool SameAudioIdentity( const OperatorEditorAudioCommand& left, const OperatorEditorAudioCommand& right )
+{
+    const auto isScalar = []( OperatorEditorAudioCommandType type )
+    {
+        return type == OperatorEditorAudioCommandType::SetGlobalParameter ||
+               type == OperatorEditorAudioCommandType::SetRecipeParameter ||
+               type == OperatorEditorAudioCommandType::SetBandParameter;
+    };
+    // Invariant: UISoundCommands has one requestedValue slot. A human can edit
+    // only one scalar at a time, and malformed multi-scalar packets must fail
+    // here instead of silently overwriting a value during projection.
+    if ( isScalar( left.type ) && isScalar( right.type ) )
+    {
+        return true;
+    }
+    return left.type == right.type;
+}
+
+bool SameAudioPayload( const OperatorEditorAudioCommand& left, const OperatorEditorAudioCommand& right )
+{
+    return left.parameter == right.parameter && left.setIndex == right.setIndex && left.bandIndex == right.bandIndex &&
+           left.sampleIndex == right.sampleIndex && left.value == right.value && left.phase == right.phase;
+}
+
+bool SameDiagnosticsIdentity( const OperatorEditorDiagnosticsCommand& left,
+                              const OperatorEditorDiagnosticsCommand& right )
+{
+    return left.type == right.type;
+}
+
+bool SameDiagnosticsPayload( const OperatorEditorDiagnosticsCommand& left,
+                             const OperatorEditorDiagnosticsCommand& right )
+{
+    return left.flag == right.flag && left.integerValue == right.integerValue && left.value == right.value &&
+           left.phase == right.phase;
 }
 
 bool SameReplayIdentity( const OperatorEditorReplayCommand& left, const OperatorEditorReplayCommand& right )
@@ -270,11 +307,154 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
                                                             const OperatorEditorRenderingCommand& command,
                                                             bool* duplicate )
 {
-    if ( command.type != OperatorEditorRenderingCommandType::ToggleVsync )
+    switch ( command.type )
     {
+    case OperatorEditorRenderingCommandType::ToggleVsync:
+    case OperatorEditorRenderingCommandType::ToggleShadows:
+    case OperatorEditorRenderingCommandType::ToggleTerrainHidden:
+    case OperatorEditorRenderingCommandType::ToggleWaterHidden:
+    case OperatorEditorRenderingCommandType::ToggleWaterFreeze:
+    case OperatorEditorRenderingCommandType::ToggleWaterFlat:
+    case OperatorEditorRenderingCommandType::CycleWaterReflection:
+    case OperatorEditorRenderingCommandType::ToggleCinematicRendering:
+    case OperatorEditorRenderingCommandType::SaveOrdinaryDefaults:
+    case OperatorEditorRenderingCommandType::SaveSkyDefaults:
+        break;
+    case OperatorEditorRenderingCommandType::ToggleCinematicFeature:
+        if ( command.parameter < 0 || command.parameter >= static_cast<int>( UICinematicFeature::Count ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering feature index is out of range" );
+        }
+        break;
+    case OperatorEditorRenderingCommandType::SetOrdinaryParameter:
+        if ( command.parameter < 0 || command.parameter >= static_cast<int>( UIRenderParam::Count ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Ordinary render parameter is out of range" );
+        }
+        break;
+    case OperatorEditorRenderingCommandType::SetCinematicParameter:
+        if ( command.parameter < 0 || command.parameter >= static_cast<int>( UICinematicParam::Count ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Cinematic render parameter is out of range" );
+        }
+        break;
+    default:
         return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering command has an unknown action type" );
     }
+    if ( !std::isfinite( command.value ) )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering command requires a finite value" );
+    }
+    if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Rendering command has an unknown edit phase" );
+    }
     return SubmitBounded( queue, command, SameRenderingIdentity, SameRenderingPayload, duplicate );
+}
+
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorAudioCommandQueue& queue,
+                                                            const OperatorEditorAudioCommand& command,
+                                                            bool* duplicate )
+{
+    switch ( command.type )
+    {
+    case OperatorEditorAudioCommandType::ToggleEnabled:
+    case OperatorEditorAudioCommandType::ToggleSimpleMode:
+        break;
+    case OperatorEditorAudioCommandType::SetGlobalParameter:
+        if ( command.parameter < 0 || command.parameter >= 13 )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio global parameter is out of range" );
+        }
+        break;
+    case OperatorEditorAudioCommandType::SetRecipeParameter:
+        if ( command.parameter < 13 || command.parameter >= static_cast<int>( UISoundParam::Count ) ||
+             command.setIndex < 0 || command.setIndex >= OPERATOR_EDITOR_AUDIO_SET_CAPACITY )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio recipe command has invalid indices" );
+        }
+        break;
+    case OperatorEditorAudioCommandType::SetBandParameter:
+        if ( command.parameter < 0 || command.parameter >= static_cast<int>( UISoundBandParam::Count ) ||
+             command.setIndex < 0 || command.setIndex >= OPERATOR_EDITOR_AUDIO_SET_CAPACITY || command.bandIndex < 0 ||
+             command.bandIndex >= OPERATOR_EDITOR_AUDIO_BAND_CAPACITY )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio band command has invalid indices" );
+        }
+        break;
+    case OperatorEditorAudioCommandType::PreviewSample:
+    case OperatorEditorAudioCommandType::SelectSample:
+        if ( command.sampleIndex < 0 || command.sampleIndex >= OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio sample command has an invalid index" );
+        }
+        if ( command.type == OperatorEditorAudioCommandType::SelectSample &&
+             ( command.setIndex < 0 || command.setIndex >= OPERATOR_EDITOR_AUDIO_SET_CAPACITY ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio sample assignment has an invalid recipe" );
+        }
+        break;
+    default:
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio command has an unknown action type" );
+    }
+    if ( !std::isfinite( command.value ) )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio command requires a finite value" );
+    }
+    if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio command has an unknown edit phase" );
+    }
+    return SubmitBounded( queue, command, SameAudioIdentity, SameAudioPayload, duplicate );
+}
+
+SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagnosticsCommandQueue& queue,
+                                                            const OperatorEditorDiagnosticsCommand& command,
+                                                            bool* duplicate )
+{
+    switch ( command.type )
+    {
+    case OperatorEditorDiagnosticsCommandType::ToggleAudioCounters:
+    case OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode:
+    case OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer:
+    case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugTransparent:
+    case OperatorEditorDiagnosticsCommandType::ToggleBroadphaseOverlay:
+    case OperatorEditorDiagnosticsCommandType::ToggleTerrainContactProbe:
+    case OperatorEditorDiagnosticsCommandType::ToggleTornadoVisualShell:
+    case OperatorEditorDiagnosticsCommandType::ToggleTornadoFieldVectors:
+    case OperatorEditorDiagnosticsCommandType::ToggleRayCastVisualization:
+    case OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious:
+    case OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext:
+        break;
+    case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag:
+        if ( command.flag == 0u )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Physics debug flag command requires one flag" );
+        }
+        break;
+    case OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha:
+    case OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger:
+    case OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength:
+    case OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed:
+        if ( !std::isfinite( command.value ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Diagnostics value must be finite" );
+        }
+        break;
+    case OperatorEditorDiagnosticsCommandType::SetWorkerThreads:
+        if ( command.integerValue < -1 )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Worker count must be auto, disabled, or positive" );
+        }
+        break;
+    default:
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Diagnostics command has an unknown action type" );
+    }
+    if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Diagnostics command has an unknown edit phase" );
+    }
+    return SubmitBounded( queue, command, SameDiagnosticsIdentity, SameDiagnosticsPayload, duplicate );
 }
 
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorReplayCommandQueue& queue,
@@ -338,6 +518,8 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorToolCo
 
 SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICommands& commands )
 {
+    // Invariant: normalization drains legacy one-frame fields exactly once.
+    // Typed queues then become the only arbitration input for either surface.
     OperatorEditorCommandQueues normalized = commands.operatorEditor;
     SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
     if ( commands.scene.resetScene )
@@ -450,6 +632,159 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
             normalized.rendering,
             OperatorEditorRenderingCommand{ OperatorEditorRenderingCommandType::ToggleVsync } );
     }
+    const auto normalizeRendering =
+        [&]( bool requested, OperatorEditorRenderingCommandType type, int parameter = -1, float value = 0.0f )
+    {
+        if ( result.ok && requested )
+        {
+            result = SubmitOperatorEditorCommand(
+                normalized.rendering,
+                OperatorEditorRenderingCommand{ type, parameter, value, OperatorEditorEditPhase::Commit } );
+        }
+    };
+    normalizeRendering( commands.sceneOptions.toggleShadows, OperatorEditorRenderingCommandType::ToggleShadows );
+    normalizeRendering( commands.renderTuning.toggleShadows, OperatorEditorRenderingCommandType::ToggleShadows );
+    normalizeRendering( commands.sceneOptions.toggleTerrainHidden,
+                        OperatorEditorRenderingCommandType::ToggleTerrainHidden );
+    normalizeRendering( commands.sceneOptions.toggleWaterHidden,
+                        OperatorEditorRenderingCommandType::ToggleWaterHidden );
+    normalizeRendering( commands.sceneOptions.toggleWaterFreeze,
+                        OperatorEditorRenderingCommandType::ToggleWaterFreeze );
+    normalizeRendering( commands.sceneOptions.toggleWaterFlat, OperatorEditorRenderingCommandType::ToggleWaterFlat );
+    normalizeRendering( commands.water.toggleWaterReflection,
+                        OperatorEditorRenderingCommandType::CycleWaterReflection );
+    normalizeRendering( commands.cinematic.toggleRendering,
+                        OperatorEditorRenderingCommandType::ToggleCinematicRendering );
+    normalizeRendering( commands.renderTuning.saveDefaults, OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
+    normalizeRendering( commands.cinematic.saveSkyDefaults, OperatorEditorRenderingCommandType::SaveSkyDefaults );
+    normalizeRendering( commands.cinematic.requestedFeature != UICinematicFeature::None,
+                        OperatorEditorRenderingCommandType::ToggleCinematicFeature,
+                        static_cast<int>( commands.cinematic.requestedFeature ) );
+    normalizeRendering( commands.renderTuning.requestedParam != UIRenderParam::None,
+                        OperatorEditorRenderingCommandType::SetOrdinaryParameter,
+                        static_cast<int>( commands.renderTuning.requestedParam ),
+                        commands.renderTuning.requestedValue );
+    normalizeRendering( commands.cinematic.requestedParam != UICinematicParam::None,
+                        OperatorEditorRenderingCommandType::SetCinematicParameter,
+                        static_cast<int>( commands.cinematic.requestedParam ),
+                        commands.cinematic.requestedValue );
+
+    const auto normalizeAudio = [&]( bool requested,
+                                     OperatorEditorAudioCommandType type,
+                                     int parameter = -1,
+                                     int setIndex = -1,
+                                     int bandIndex = -1,
+                                     int sampleIndex = -1,
+                                     float value = 0.0f )
+    {
+        if ( result.ok && requested )
+        {
+            result = SubmitOperatorEditorCommand( normalized.audio,
+                                                  OperatorEditorAudioCommand{ type,
+                                                                              parameter,
+                                                                              setIndex,
+                                                                              bandIndex,
+                                                                              sampleIndex,
+                                                                              value,
+                                                                              OperatorEditorEditPhase::Commit } );
+        }
+    };
+    normalizeAudio( commands.sound.toggleEnabled, OperatorEditorAudioCommandType::ToggleEnabled );
+    normalizeAudio( commands.sound.toggleSimpleMode, OperatorEditorAudioCommandType::ToggleSimpleMode );
+    if ( commands.sound.requestedParam != UISoundParam::None )
+    {
+        const int parameter = static_cast<int>( commands.sound.requestedParam );
+        normalizeAudio( true,
+                        parameter < static_cast<int>( UISoundParam::SetMinImpulse )
+                            ? OperatorEditorAudioCommandType::SetGlobalParameter
+                            : OperatorEditorAudioCommandType::SetRecipeParameter,
+                        parameter,
+                        commands.sound.requestedSetIndex,
+                        -1,
+                        -1,
+                        commands.sound.requestedValue );
+    }
+    normalizeAudio( commands.sound.requestedBandParam != UISoundBandParam::None,
+                    OperatorEditorAudioCommandType::SetBandParameter,
+                    static_cast<int>( commands.sound.requestedBandParam ),
+                    commands.sound.requestedSetIndex,
+                    commands.sound.requestedBandIndex,
+                    -1,
+                    commands.sound.requestedValue );
+    normalizeAudio( commands.sound.previewSampleIndex >= 0,
+                    OperatorEditorAudioCommandType::PreviewSample,
+                    -1,
+                    -1,
+                    -1,
+                    commands.sound.previewSampleIndex );
+    normalizeAudio( commands.sound.selectSampleIndex >= 0,
+                    OperatorEditorAudioCommandType::SelectSample,
+                    -1,
+                    commands.sound.requestedSetIndex,
+                    -1,
+                    commands.sound.selectSampleIndex );
+
+    const auto normalizeDiagnostics = [&]( bool requested,
+                                           OperatorEditorDiagnosticsCommandType type,
+                                           uint32_t flag = 0u,
+                                           int integerValue = 0,
+                                           float value = 0.0f )
+    {
+        if ( result.ok && requested )
+        {
+            result = SubmitOperatorEditorCommand(
+                normalized.diagnostics,
+                OperatorEditorDiagnosticsCommand{ type, flag, integerValue, value, OperatorEditorEditPhase::Commit } );
+        }
+    };
+    normalizeDiagnostics( commands.sound.toggleDebugCounters,
+                          OperatorEditorDiagnosticsCommandType::ToggleAudioCounters );
+    normalizeDiagnostics( commands.sound.cycleFlashMode, OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode );
+    normalizeDiagnostics( commands.physics.toggleCollisionVisualizer,
+                          OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer );
+    normalizeDiagnostics( commands.physics.togglePhysicsDebugTransparent,
+                          OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugTransparent );
+    normalizeDiagnostics( commands.physics.toggleBroadphaseOverlay,
+                          OperatorEditorDiagnosticsCommandType::ToggleBroadphaseOverlay );
+    normalizeDiagnostics( commands.physics.toggleTerrainContactProbe,
+                          OperatorEditorDiagnosticsCommandType::ToggleTerrainContactProbe );
+    normalizeDiagnostics( commands.physics.toggleTornadoVisualShell,
+                          OperatorEditorDiagnosticsCommandType::ToggleTornadoVisualShell );
+    normalizeDiagnostics( commands.physics.toggleTornadoFieldVectors,
+                          OperatorEditorDiagnosticsCommandType::ToggleTornadoFieldVectors );
+    normalizeDiagnostics( commands.physics.toggleRayCastVisualization,
+                          OperatorEditorDiagnosticsCommandType::ToggleRayCastVisualization );
+    normalizeDiagnostics( commands.physics.togglePhysicsDebugFlags != 0u,
+                          OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
+                          commands.physics.togglePhysicsDebugFlags );
+    normalizeDiagnostics( commands.physics.stepPhysicsPipelinePrevious,
+                          OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious );
+    normalizeDiagnostics( commands.physics.stepPhysicsPipelineNext,
+                          OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext );
+    normalizeDiagnostics( commands.physics.requestedPhysicsDebugAlpha >= 0.0f,
+                          OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
+                          0u,
+                          0,
+                          commands.physics.requestedPhysicsDebugAlpha );
+    normalizeDiagnostics( commands.physics.requestedPhysicsDebugContactLinger >= 0.0f,
+                          OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger,
+                          0u,
+                          0,
+                          commands.physics.requestedPhysicsDebugContactLinger );
+    normalizeDiagnostics( commands.physics.requestRayCastImpulseStrength,
+                          OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength,
+                          0u,
+                          0,
+                          commands.physics.requestedRayCastImpulseStrength );
+    normalizeDiagnostics( commands.physics.requestLauncherProjectileSpeed,
+                          OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
+                          0u,
+                          0,
+                          commands.physics.requestedLauncherProjectileSpeed );
+    normalizeDiagnostics( commands.profiler.requestedWorkerThreads >= -1,
+                          OperatorEditorDiagnosticsCommandType::SetWorkerThreads,
+                          0u,
+                          commands.profiler.requestedWorkerThreads );
     if ( result.ok && commands.replayMemory.requestPolicy )
     {
         result =
@@ -521,6 +856,42 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     commands.physics.requestTornadoSwirl = false;
     commands.physics.requestTornadoLift = false;
     commands.renderer.toggleVsync = false;
+    commands.sceneOptions.toggleShadows = false;
+    commands.sceneOptions.toggleTerrainHidden = false;
+    commands.sceneOptions.toggleWaterHidden = false;
+    commands.sceneOptions.toggleWaterFreeze = false;
+    commands.sceneOptions.toggleWaterFlat = false;
+    commands.water.toggleWaterReflection = false;
+    commands.renderTuning.toggleShadows = false;
+    commands.renderTuning.saveDefaults = false;
+    commands.renderTuning.requestedParam = UIRenderParam::None;
+    commands.cinematic.toggleRendering = false;
+    commands.cinematic.saveSkyDefaults = false;
+    commands.cinematic.requestedFeature = UICinematicFeature::None;
+    commands.cinematic.requestedParam = UICinematicParam::None;
+    commands.sound.toggleEnabled = false;
+    commands.sound.toggleSimpleMode = false;
+    commands.sound.requestedParam = UISoundParam::None;
+    commands.sound.requestedBandParam = UISoundBandParam::None;
+    commands.sound.previewSampleIndex = -1;
+    commands.sound.selectSampleIndex = -1;
+    commands.sound.toggleDebugCounters = false;
+    commands.sound.cycleFlashMode = false;
+    commands.physics.toggleCollisionVisualizer = false;
+    commands.physics.togglePhysicsDebugTransparent = false;
+    commands.physics.toggleBroadphaseOverlay = false;
+    commands.physics.toggleTerrainContactProbe = false;
+    commands.physics.toggleTornadoVisualShell = false;
+    commands.physics.toggleTornadoFieldVectors = false;
+    commands.physics.toggleRayCastVisualization = false;
+    commands.physics.togglePhysicsDebugFlags = 0u;
+    commands.physics.stepPhysicsPipelinePrevious = false;
+    commands.physics.stepPhysicsPipelineNext = false;
+    commands.physics.requestedPhysicsDebugAlpha = -1.0f;
+    commands.physics.requestedPhysicsDebugContactLinger = -1.0f;
+    commands.physics.requestRayCastImpulseStrength = false;
+    commands.physics.requestLauncherProjectileSpeed = false;
+    commands.profiler.requestedWorkerThreads = -2;
     commands.replayMemory.requestPolicy = false;
     commands.editor.toggleEditorMode = false;
     commands.editor.togglePlacementMode = false;
@@ -571,6 +942,27 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
         if ( status.ok )
         {
             status = MergeQueue(
+                result.commands.audio,
+                source.audio,
+                []( OperatorEditorAudioCommandQueue& queue, const OperatorEditorAudioCommand& command, bool* duplicate )
+                { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+                accepted,
+                result.coalescedDuplicateCommands );
+        }
+        if ( status.ok )
+        {
+            status = MergeQueue(
+                result.commands.diagnostics,
+                source.diagnostics,
+                []( OperatorEditorDiagnosticsCommandQueue& queue,
+                    const OperatorEditorDiagnosticsCommand& command,
+                    bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
+                accepted,
+                result.coalescedDuplicateCommands );
+        }
+        if ( status.ok )
+        {
+            status = MergeQueue(
                 result.commands.replay,
                 source.replay,
                 []( OperatorEditorReplayCommandQueue& queue,
@@ -603,6 +995,8 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
 SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEditorCommandQueues& exchange,
                                                               InGameUICommands& commands )
 {
+    // Invariant: preview commands never escape presentation. Projection emits
+    // only committed intent into the established narrow owner packets.
     // Lane R: surfaces are untrusted presentation inputs. Re-run bounded
     // validation before modifying the established owner command packet.
     const OperatorEditorArbitrationResult validated = ArbitrateOperatorEditorCommands( exchange, {} );
@@ -639,6 +1033,42 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     commands.physics.requestTornadoSwirl = false;
     commands.physics.requestTornadoLift = false;
     commands.renderer.toggleVsync = false;
+    commands.sceneOptions.toggleShadows = false;
+    commands.sceneOptions.toggleTerrainHidden = false;
+    commands.sceneOptions.toggleWaterHidden = false;
+    commands.sceneOptions.toggleWaterFreeze = false;
+    commands.sceneOptions.toggleWaterFlat = false;
+    commands.water.toggleWaterReflection = false;
+    commands.renderTuning.toggleShadows = false;
+    commands.renderTuning.saveDefaults = false;
+    commands.renderTuning.requestedParam = UIRenderParam::None;
+    commands.cinematic.toggleRendering = false;
+    commands.cinematic.saveSkyDefaults = false;
+    commands.cinematic.requestedFeature = UICinematicFeature::None;
+    commands.cinematic.requestedParam = UICinematicParam::None;
+    commands.sound.toggleEnabled = false;
+    commands.sound.toggleSimpleMode = false;
+    commands.sound.requestedParam = UISoundParam::None;
+    commands.sound.requestedBandParam = UISoundBandParam::None;
+    commands.sound.previewSampleIndex = -1;
+    commands.sound.selectSampleIndex = -1;
+    commands.sound.toggleDebugCounters = false;
+    commands.sound.cycleFlashMode = false;
+    commands.physics.toggleCollisionVisualizer = false;
+    commands.physics.togglePhysicsDebugTransparent = false;
+    commands.physics.toggleBroadphaseOverlay = false;
+    commands.physics.toggleTerrainContactProbe = false;
+    commands.physics.toggleTornadoVisualShell = false;
+    commands.physics.toggleTornadoFieldVectors = false;
+    commands.physics.toggleRayCastVisualization = false;
+    commands.physics.togglePhysicsDebugFlags = 0u;
+    commands.physics.stepPhysicsPipelinePrevious = false;
+    commands.physics.stepPhysicsPipelineNext = false;
+    commands.physics.requestedPhysicsDebugAlpha = -1.0f;
+    commands.physics.requestedPhysicsDebugContactLinger = -1.0f;
+    commands.physics.requestRayCastImpulseStrength = false;
+    commands.physics.requestLauncherProjectileSpeed = false;
+    commands.profiler.requestedWorkerThreads = -2;
     commands.replayMemory.requestPolicy = false;
     commands.editor.toggleEditorMode = false;
     commands.editor.togglePlacementMode = false;
@@ -769,9 +1199,160 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     }
     for ( uint32_t index = 0u; index < canonical.rendering.count; ++index )
     {
-        if ( canonical.rendering.commands[index].type == OperatorEditorRenderingCommandType::ToggleVsync )
+        const OperatorEditorRenderingCommand& command = canonical.rendering.commands[index];
+        if ( command.phase == OperatorEditorEditPhase::Preview )
         {
+            continue;
+        }
+        switch ( command.type )
+        {
+        case OperatorEditorRenderingCommandType::ToggleVsync:
             commands.renderer.toggleVsync = true;
+            break;
+        case OperatorEditorRenderingCommandType::ToggleShadows:
+            commands.renderTuning.toggleShadows = true;
+            break;
+        case OperatorEditorRenderingCommandType::ToggleTerrainHidden:
+            commands.sceneOptions.toggleTerrainHidden = true;
+            break;
+        case OperatorEditorRenderingCommandType::ToggleWaterHidden:
+            commands.sceneOptions.toggleWaterHidden = true;
+            break;
+        case OperatorEditorRenderingCommandType::ToggleWaterFreeze:
+            commands.sceneOptions.toggleWaterFreeze = true;
+            break;
+        case OperatorEditorRenderingCommandType::ToggleWaterFlat:
+            commands.sceneOptions.toggleWaterFlat = true;
+            break;
+        case OperatorEditorRenderingCommandType::CycleWaterReflection:
+            commands.water.toggleWaterReflection = true;
+            break;
+        case OperatorEditorRenderingCommandType::ToggleCinematicRendering:
+            commands.cinematic.toggleRendering = true;
+            break;
+        case OperatorEditorRenderingCommandType::ToggleCinematicFeature:
+            commands.cinematic.requestedFeature = static_cast<UICinematicFeature>( command.parameter );
+            break;
+        case OperatorEditorRenderingCommandType::SetOrdinaryParameter:
+            commands.renderTuning.requestedParam = static_cast<UIRenderParam>( command.parameter );
+            commands.renderTuning.requestedValue = command.value;
+            break;
+        case OperatorEditorRenderingCommandType::SetCinematicParameter:
+            commands.cinematic.requestedParam = static_cast<UICinematicParam>( command.parameter );
+            commands.cinematic.requestedValue = command.value;
+            break;
+        case OperatorEditorRenderingCommandType::SaveOrdinaryDefaults:
+            commands.renderTuning.saveDefaults = true;
+            break;
+        case OperatorEditorRenderingCommandType::SaveSkyDefaults:
+            commands.cinematic.saveSkyDefaults = true;
+            break;
+        default:
+            break;
+        }
+    }
+    for ( uint32_t index = 0u; index < canonical.audio.count; ++index )
+    {
+        const OperatorEditorAudioCommand& command = canonical.audio.commands[index];
+        if ( command.phase == OperatorEditorEditPhase::Preview )
+        {
+            continue;
+        }
+        switch ( command.type )
+        {
+        case OperatorEditorAudioCommandType::ToggleEnabled:
+            commands.sound.toggleEnabled = true;
+            break;
+        case OperatorEditorAudioCommandType::ToggleSimpleMode:
+            commands.sound.toggleSimpleMode = true;
+            break;
+        case OperatorEditorAudioCommandType::SetGlobalParameter:
+        case OperatorEditorAudioCommandType::SetRecipeParameter:
+            commands.sound.requestedParam = static_cast<UISoundParam>( command.parameter );
+            commands.sound.requestedSetIndex = command.setIndex;
+            commands.sound.requestedValue = command.value;
+            break;
+        case OperatorEditorAudioCommandType::SetBandParameter:
+            commands.sound.requestedBandParam = static_cast<UISoundBandParam>( command.parameter );
+            commands.sound.requestedSetIndex = command.setIndex;
+            commands.sound.requestedBandIndex = command.bandIndex;
+            commands.sound.requestedValue = command.value;
+            break;
+        case OperatorEditorAudioCommandType::PreviewSample:
+            commands.sound.previewSampleIndex = command.sampleIndex;
+            break;
+        case OperatorEditorAudioCommandType::SelectSample:
+            commands.sound.requestedSetIndex = command.setIndex;
+            commands.sound.selectSampleIndex = command.sampleIndex;
+            break;
+        default:
+            break;
+        }
+    }
+    for ( uint32_t index = 0u; index < canonical.diagnostics.count; ++index )
+    {
+        const OperatorEditorDiagnosticsCommand& command = canonical.diagnostics.commands[index];
+        if ( command.phase == OperatorEditorEditPhase::Preview )
+        {
+            continue;
+        }
+        switch ( command.type )
+        {
+        case OperatorEditorDiagnosticsCommandType::ToggleAudioCounters:
+            commands.sound.toggleDebugCounters = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode:
+            commands.sound.cycleFlashMode = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer:
+            commands.physics.toggleCollisionVisualizer = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugTransparent:
+            commands.physics.togglePhysicsDebugTransparent = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::ToggleBroadphaseOverlay:
+            commands.physics.toggleBroadphaseOverlay = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::ToggleTerrainContactProbe:
+            commands.physics.toggleTerrainContactProbe = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::ToggleTornadoVisualShell:
+            commands.physics.toggleTornadoVisualShell = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::ToggleTornadoFieldVectors:
+            commands.physics.toggleTornadoFieldVectors = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::ToggleRayCastVisualization:
+            commands.physics.toggleRayCastVisualization = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag:
+            commands.physics.togglePhysicsDebugFlags = command.flag;
+            break;
+        case OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious:
+            commands.physics.stepPhysicsPipelinePrevious = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext:
+            commands.physics.stepPhysicsPipelineNext = true;
+            break;
+        case OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha:
+            commands.physics.requestedPhysicsDebugAlpha = command.value;
+            break;
+        case OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger:
+            commands.physics.requestedPhysicsDebugContactLinger = command.value;
+            break;
+        case OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength:
+            commands.physics.requestRayCastImpulseStrength = true;
+            commands.physics.requestedRayCastImpulseStrength = command.value;
+            break;
+        case OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed:
+            commands.physics.requestLauncherProjectileSpeed = true;
+            commands.physics.requestedLauncherProjectileSpeed = command.value;
+            break;
+        case OperatorEditorDiagnosticsCommandType::SetWorkerThreads:
+            commands.profiler.requestedWorkerThreads = command.integerValue;
+            break;
+        default:
+            break;
         }
     }
     for ( uint32_t index = 0u; index < canonical.replay.count; ++index )
@@ -873,6 +1454,23 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.rendering.cinematicRendering );
     HashValue( hash, view.rendering.presentationInterpolation );
     HashValue( hash, view.rendering.presentationAlpha );
+    HashValue( hash, view.rendering.terrainHidden );
+    HashValue( hash, view.rendering.waterHidden );
+    HashValue( hash, view.rendering.waterFrozen );
+    HashValue( hash, view.rendering.waterFlat );
+    HashValue( hash, view.rendering.waterReflectionMode );
+    for ( float value : view.rendering.ordinaryParameters )
+    {
+        HashValue( hash, value );
+    }
+    for ( float value : view.rendering.cinematicParameters )
+    {
+        HashValue( hash, value );
+    }
+    for ( bool value : view.rendering.cinematicFeatures )
+    {
+        HashValue( hash, value );
+    }
     const char* cameraModeLabel = view.viewport.cameraModeLabel ? view.viewport.cameraModeLabel : "";
     const char* gizmoModeLabel = view.viewport.gizmoModeLabel ? view.viewport.gizmoModeLabel : "";
     HashBytes( hash, cameraModeLabel, std::strlen( cameraModeLabel ) );
@@ -990,6 +1588,79 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.world.fixedStep );
     HashValue( hash, view.world.physicsSleepEnabled );
     HashValue( hash, view.world.tornadoEnabled );
+    HashValue( hash, view.audio.enabled );
+    HashValue( hash, view.audio.available );
+    HashValue( hash, view.audio.simpleMode );
+    HashValue( hash, view.audio.setCount );
+    HashValue( hash, view.audio.sampleCount );
+    for ( float value : view.audio.globalParameters )
+    {
+        HashValue( hash, value );
+    }
+    const int audioSetCount = view.audio.setCount < OPERATOR_EDITOR_AUDIO_SET_CAPACITY
+                                  ? view.audio.setCount
+                                  : OPERATOR_EDITOR_AUDIO_SET_CAPACITY;
+    for ( int setIndex = 0; setIndex < audioSetCount; ++setIndex )
+    {
+        const OperatorEditorAudioSetView& set = view.audio.sets[setIndex];
+        hashLabel( set.name );
+        HashValue( hash, set.materialA );
+        HashValue( hash, set.materialB );
+        HashValue( hash, set.sampleCount );
+        HashValue( hash, set.bandCount );
+        for ( float value : set.parameters )
+        {
+            HashValue( hash, value );
+        }
+        const uint32_t bandCount =
+            set.bandCount < OPERATOR_EDITOR_AUDIO_BAND_CAPACITY ? set.bandCount : OPERATOR_EDITOR_AUDIO_BAND_CAPACITY;
+        for ( uint32_t bandIndex = 0u; bandIndex < bandCount; ++bandIndex )
+        {
+            const OperatorEditorAudioBandView& band = set.bands[bandIndex];
+            hashLabel( band.name );
+            HashValue( hash, band.minImpulse );
+            HashValue( hash, band.impulseRange );
+            HashValue( hash, band.baseGain );
+            HashValue( hash, band.pitchMin );
+            HashValue( hash, band.pitchMax );
+            HashValue( hash, band.sampleCount );
+        }
+    }
+    const int audioSampleCount = view.audio.sampleCount < OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY
+                                     ? view.audio.sampleCount
+                                     : OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY;
+    for ( int sampleIndex = 0; sampleIndex < audioSampleCount; ++sampleIndex )
+    {
+        hashLabel( view.audio.samplePaths[sampleIndex] );
+    }
+    hashLabel( view.diagnostics.rendererName );
+    hashLabel( view.diagnostics.physicsPipelineStageName );
+    hashLabel( view.diagnostics.audioFlashModeLabel );
+    HashValue( hash, view.diagnostics.renderTargetCount );
+    HashValue( hash, view.diagnostics.drawCalls );
+    HashValue( hash, view.diagnostics.uiDrawCalls );
+    HashValue( hash, view.diagnostics.workerThreadCount );
+    HashValue( hash, view.diagnostics.physicsDebugFlags );
+    HashValue( hash, view.diagnostics.trackedEngineBytes );
+    HashValue( hash, view.diagnostics.uploadUsedBytes );
+    HashValue( hash, view.diagnostics.replayReserveGrowthEvents );
+    HashValue( hash, view.diagnostics.audioEventsSeen );
+    HashValue( hash, view.diagnostics.collisionVisualizer );
+    HashValue( hash, view.diagnostics.physicsDebugTransparent );
+    HashValue( hash, view.diagnostics.broadphaseOverlay );
+    const int renderTargetCount = view.diagnostics.renderTargetCount < OPERATOR_EDITOR_RENDER_TARGET_CAPACITY
+                                      ? view.diagnostics.renderTargetCount
+                                      : OPERATOR_EDITOR_RENDER_TARGET_CAPACITY;
+    for ( int targetIndex = 0; targetIndex < renderTargetCount; ++targetIndex )
+    {
+        const OperatorEditorRenderTargetView& target = view.diagnostics.renderTargets[targetIndex];
+        hashLabel( target.label );
+        HashValue( hash, target.width );
+        HashValue( hash, target.height );
+        HashValue( hash, target.available );
+        HashValue( hash, target.depth );
+        HashValue( hash, target.hdr );
+    }
     return hash;
 }
 } // namespace SkullbonezCore::UI

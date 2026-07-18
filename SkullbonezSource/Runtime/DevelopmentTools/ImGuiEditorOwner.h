@@ -144,6 +144,16 @@ struct ImGuiEditorPropertyEditState
     bool active = false;
 };
 
+struct ImGuiEditorParameterizedEditState
+{
+    int action = -1;
+    int parameter = -1;
+    int setIndex = -1;
+    int bandIndex = -1;
+    float value = 0.0f;
+    bool active = false;
+};
+
 class ImGuiEditorOwner
 {
   public:
@@ -221,6 +231,14 @@ class ImGuiEditorOwner
     char m_hierarchyFilter[64] = {};
     char m_assetFilter[64] = {};
     ImGuiEditorPropertyEditState m_propertyEdit;
+    // Invariant: each authoring domain owns one active scalar identity so a
+    // pointer release cannot commit a preview that originated in another rail.
+    ImGuiEditorParameterizedEditState m_renderingEdit;
+    ImGuiEditorParameterizedEditState m_audioEdit;
+    ImGuiEditorParameterizedEditState m_diagnosticsEdit;
+    int m_audioSetIndex = 0;
+    int m_audioBandIndex = 0;
+    int m_audioSampleIndex = 0;
     bool m_focusSceneCreate = false;
     bool m_focusSceneFilter = false;
     ImGuiEditorCommands m_frameCommands;

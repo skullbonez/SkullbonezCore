@@ -40,6 +40,8 @@ Related:
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 #include "../../UI/UITabEditor.h"
 #include "../../UI/UILayout.h"
+#include "../../UI/UIRenderAuthoringCatalog.h"
+#include "../../Physics/PhysicsDebugData.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -193,6 +195,103 @@ const char* AssetCategoryForObjectType( int objectType ) noexcept
     return "Registered Assets";
 }
 
+struct AudioScalarSpec
+{
+    const char* label;
+    int parameter;
+    float minValue;
+    float maxValue;
+    float step;
+    const char* format;
+};
+
+constexpr AudioScalarSpec kAudioGlobalSpecs[] = {
+    { "Simple min energy", 0, 0.0f, 1000.0f, 2.5f, "%.1f" },
+    { "Simple delta speed", 1, 0.0f, 20.0f, 0.05f, "%.2f" },
+    { "Simple energy range", 2, 1.0f, 5000.0f, 10.0f, "%.0f" },
+    { "Master gain", 3, 0.0f, 4.0f, 0.05f, "%.2f" },
+    { "Distance scale", 4, 0.01f, 16.0f, 0.05f, "%.2fx" },
+    { "Min closing speed", 5, 0.0f, 20.0f, 0.05f, "%.2f" },
+    { "Min impact score", 6, 0.0f, 5000.0f, 1.0f, "%.1f" },
+    { "Score range", 7, 0.001f, 10.0f, 0.05f, "%.2fs" },
+    { "Burst voices / 100ms", 8, 1.0f, 40.0f, 1.0f, "%.0f" },
+    { "Rolling level", 9, -60.0f, 0.0f, 1.0f, "%.0f dB" },
+    { "Rolling distance", 10, 1.0f, 200.0f, 1.0f, "%.0f" },
+    { "Rolling slip speed", 11, 0.1f, 20.0f, 0.05f, "%.2f" },
+    { "Rolling voices / 100ms", 12, 0.0f, 12.0f, 1.0f, "%.0f" },
+};
+
+constexpr AudioScalarSpec kAudioRecipeSpecs[] = {
+    { "Min impulse", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetMinImpulse ), 0.0f, 100.0f, 0.05f, "%.2f" },
+    { "Impulse range",
+      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetImpulseRange ),
+      0.05f,
+      100.0f,
+      0.05f,
+      "%.2f" },
+    { "Pair cooldown",
+      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetCooldownMs ),
+      0.0f,
+      1000.0f,
+      5.0f,
+      "%.0f ms" },
+    { "Spike rearm",
+      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetOverrideCooldownMs ),
+      0.0f,
+      1000.0f,
+      5.0f,
+      "%.0f ms" },
+    { "Patch distance",
+      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetMaxDistance ),
+      1.0f,
+      500.0f,
+      1.0f,
+      "%.0f" },
+    { "Set gain", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetBaseGain ), 0.0f, 4.0f, 0.05f, "%.2f" },
+    { "Pitch min", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetPitchMin ), 0.25f, 4.0f, 0.01f, "%.2f" },
+    { "Pitch max", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetPitchMax ), 0.25f, 4.0f, 0.01f, "%.2f" },
+    { "Voice cap", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetMaxVoices ), 1.0f, 32.0f, 1.0f, "%.0f" },
+};
+
+constexpr AudioScalarSpec kAudioBandSpecs[] = {
+    { "Min impulse",
+      static_cast<int>( SkullbonezCore::UI::UISoundBandParam::MinImpulse ),
+      0.0f,
+      100.0f,
+      0.05f,
+      "%.2f" },
+    { "Impulse range",
+      static_cast<int>( SkullbonezCore::UI::UISoundBandParam::ImpulseRange ),
+      0.05f,
+      100.0f,
+      0.05f,
+      "%.2f" },
+    { "Base gain", static_cast<int>( SkullbonezCore::UI::UISoundBandParam::BaseGain ), 0.0f, 4.0f, 0.05f, "%.2f" },
+    { "Pitch min", static_cast<int>( SkullbonezCore::UI::UISoundBandParam::PitchMin ), 0.25f, 4.0f, 0.01f, "%.2f" },
+    { "Pitch max", static_cast<int>( SkullbonezCore::UI::UISoundBandParam::PitchMax ), 0.25f, 4.0f, 0.01f, "%.2f" },
+};
+
+static_assert( sizeof( kAudioGlobalSpecs ) / sizeof( kAudioGlobalSpecs[0] ) == 13u );
+static_assert( sizeof( kAudioRecipeSpecs ) / sizeof( kAudioRecipeSpecs[0] ) == 9u );
+static_assert( sizeof( kAudioBandSpecs ) / sizeof( kAudioBandSpecs[0] ) == 5u );
+
+const char* SampleLeafName( const char* path ) noexcept
+{
+    if ( !path || path[0] == '\0' )
+    {
+        return "No samples loaded";
+    }
+    const char* slash = std::strrchr( path, '/' );
+    const char* backslash = std::strrchr( path, '\\' );
+    const char* leaf = slash && backslash ? ( slash > backslash ? slash : backslash ) : ( slash ? slash : backslash );
+    return leaf ? leaf + 1 : path;
+}
+
+double BytesToMiB( uint64_t bytes ) noexcept
+{
+    return static_cast<double>( bytes ) / ( 1024.0 * 1024.0 );
+}
+
 } // namespace
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
@@ -329,6 +428,9 @@ void ImGuiEditorOwner::Shutdown() noexcept
     m_gameViewportFocused = false;
     m_gameViewportRect = {};
     m_propertyEdit = {};
+    m_renderingEdit = {};
+    m_audioEdit = {};
+    m_diagnosticsEdit = {};
     m_nativePointerStateTouched = false;
     m_lastPlatformMouseCursor = -2;
     m_appliedDpiScale = 0.0f;
@@ -364,6 +466,9 @@ void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
         // A hidden presentation cannot own a pending scalar preview. Dropping
         // it is a cancel, not an owner mutation.
         m_propertyEdit = {};
+        m_renderingEdit = {};
+        m_audioEdit = {};
+        m_diagnosticsEdit = {};
         io.ClearInputMouse();
     }
     m_visible = visible;
@@ -689,6 +794,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
         float preview = ownsPreview ? m_propertyEdit.floatValue : sourceValue;
+        ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
         const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
         if ( ImGui::IsItemActivated() )
         {
@@ -725,6 +831,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         bool ownsPreview = m_propertyEdit.active && m_propertyEdit.type == type;
         int preview = ownsPreview ? m_propertyEdit.integerValue : sourceValue;
+        ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
         const bool changed = ImGui::SliderInt( label, &preview, minimum, maximum );
         if ( ImGui::IsItemActivated() )
         {
@@ -752,6 +859,52 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         else if ( ownsPreview && changed )
         {
             submitProperty( type, 0.0f, m_propertyEdit.integerValue, UI::OperatorEditorEditPhase::Preview );
+        }
+    };
+    const auto editParameterized = [&]( ImGuiEditorParameterizedEditState& state,
+                                        const char* label,
+                                        int action,
+                                        int parameter,
+                                        int setIndex,
+                                        int bandIndex,
+                                        float sourceValue,
+                                        float speed,
+                                        float minimum,
+                                        float maximum,
+                                        const char* format,
+                                        const auto& submitValue )
+    {
+        // Invariant: action plus parameter/set/band is the complete edit
+        // identity. Values stay presentation-local until this exact item is
+        // released, preventing a rebuilt rail from committing stale state.
+        bool ownsPreview = state.active && state.action == action && state.parameter == parameter &&
+                           state.setIndex == setIndex && state.bandIndex == bandIndex;
+        float preview = ownsPreview ? state.value : sourceValue;
+        ImGui::SetNextItemWidth( (std::max)( 108.0f, ImGui::GetContentRegionAvail().x * 0.48f ) );
+        const bool changed = ImGui::DragFloat( label, &preview, speed, minimum, maximum, format );
+        if ( ImGui::IsItemActivated() )
+        {
+            state = { action, parameter, setIndex, bandIndex, sourceValue, true };
+            ownsPreview = true;
+        }
+        if ( ownsPreview && changed )
+        {
+            state.value = preview;
+        }
+        const bool deactivated = ImGui::IsItemDeactivated();
+        const bool commit = ImGui::IsItemDeactivatedAfterEdit();
+        if ( ownsPreview && commit )
+        {
+            submitValue( state.value, UI::OperatorEditorEditPhase::Commit );
+            state.active = false;
+        }
+        else if ( ownsPreview && deactivated )
+        {
+            state.active = false;
+        }
+        else if ( ownsPreview && changed )
+        {
+            submitValue( state.value, UI::OperatorEditorEditPhase::Preview );
         }
     };
     const auto launchTracyViewer = [&]()
@@ -1707,12 +1860,411 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::RenderingAudio, &m_showRenderingAudio ) )
         {
-            ImGui::Text( "VSync %s", view.rendering.vsyncEnabled ? "on" : "off" );
-            ImGui::Text( "Shadows %s", view.rendering.shadowsEnabled ? "on" : "off" );
-            if ( ImGui::Button( "Toggle VSync" ) )
+            if ( ImGui::BeginTabBar( "##RenderingAudioTabs" ) )
             {
-                submit( m_frameCommands.operatorEditor.rendering,
-                        UI::OperatorEditorRenderingCommand{ UI::OperatorEditorRenderingCommandType::ToggleVsync } );
+                if ( ImGui::BeginTabItem( "Rendering" ) )
+                {
+                    const auto submitRendering =
+                        [&]( UI::OperatorEditorRenderingCommandType type,
+                             int parameter = -1,
+                             float value = 0.0f,
+                             UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
+                    {
+                        submit( m_frameCommands.operatorEditor.rendering,
+                                UI::OperatorEditorRenderingCommand{ type, parameter, value, phase } );
+                    };
+                    bool vsync = view.rendering.vsyncEnabled;
+                    if ( ImGui::Checkbox( "VSync", &vsync ) )
+                    {
+                        submitRendering( UI::OperatorEditorRenderingCommandType::ToggleVsync );
+                    }
+                    ImGui::SameLine();
+                    bool cinematic = view.rendering.cinematicRendering;
+                    if ( ImGui::Checkbox( "Cinematic", &cinematic ) )
+                    {
+                        submitRendering( UI::OperatorEditorRenderingCommandType::ToggleCinematicRendering );
+                    }
+                    ImGui::SameLine();
+                    if ( ImGui::SmallButton( "Save profile" ) )
+                    {
+                        submitRendering( cinematic ? UI::OperatorEditorRenderingCommandType::SaveSkyDefaults
+                                                   : UI::OperatorEditorRenderingCommandType::SaveOrdinaryDefaults );
+                    }
+                    ImGui::TextDisabled( "%s profile | preview locally, commit once on release",
+                                         cinematic ? "cinematic" : "ordinary" );
+
+                    // Concept: the shared section catalog changes presentation
+                    // topology only. Ordinary and cinematic values still travel
+                    // through their existing domain enums and runtime owners.
+                    for ( int rawSection = static_cast<int>( UI::UIRenderAuthoringSection::Lighting );
+                          rawSection <= static_cast<int>( UI::UIRenderAuthoringSection::TerrainMaterials );
+                          ++rawSection )
+                    {
+                        const UI::UIRenderAuthoringSection section =
+                            static_cast<UI::UIRenderAuthoringSection>( rawSection );
+                        const bool commonSection = section == UI::UIRenderAuthoringSection::Lighting ||
+                                                   section == UI::UIRenderAuthoringSection::Environment;
+                        const ImGuiTreeNodeFlags flags = commonSection ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+                        if ( !ImGui::CollapsingHeader( UI::UIRenderAuthoringSectionName( section ), flags ) )
+                        {
+                            continue;
+                        }
+
+                        if ( section == UI::UIRenderAuthoringSection::Shadows )
+                        {
+                            bool shadows = view.rendering.shadowsEnabled;
+                            if ( ImGui::Checkbox( "Enabled##CanonicalShadows", &shadows ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleShadows );
+                            }
+                        }
+                        else if ( section == UI::UIRenderAuthoringSection::Water )
+                        {
+                            bool hidden = view.rendering.waterHidden;
+                            if ( ImGui::Checkbox( "Hidden", &hidden ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterHidden );
+                            }
+                            ImGui::SameLine();
+                            bool frozen = view.rendering.waterFrozen;
+                            if ( ImGui::Checkbox( "Freeze", &frozen ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterFreeze );
+                            }
+                            ImGui::SameLine();
+                            bool flat = view.rendering.waterFlat;
+                            if ( ImGui::Checkbox( "Flat", &flat ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleWaterFlat );
+                            }
+                            if ( ImGui::Button( view.rendering.waterReflectionMode == 0
+                                                    ? "Reflection: raster"
+                                                    : ( view.rendering.waterReflectionMode == 1
+                                                            ? "Reflection: DXR"
+                                                            : "Reflection: off" ) ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::CycleWaterReflection );
+                            }
+                        }
+                        else if ( section == UI::UIRenderAuthoringSection::TerrainMaterials )
+                        {
+                            bool terrainHidden = view.rendering.terrainHidden;
+                            if ( ImGui::Checkbox( "Terrain hidden", &terrainHidden ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleTerrainHidden );
+                            }
+                        }
+
+                        ImGui::PushID( rawSection );
+                        ImGui::SeparatorText( "Ordinary" );
+                        for ( const UI::RenderSliderSpec& spec : UI::kRenderSliderSpecs )
+                        {
+                            if ( spec.section != section )
+                            {
+                                continue;
+                            }
+                            const int parameter = static_cast<int>( spec.param );
+                            ImGui::PushID( parameter );
+                            editParameterized(
+                                m_renderingEdit,
+                                spec.label,
+                                static_cast<int>( UI::OperatorEditorRenderingCommandType::SetOrdinaryParameter ),
+                                parameter,
+                                -1,
+                                -1,
+                                view.rendering.ordinaryParameters[parameter],
+                                spec.step,
+                                spec.minValue,
+                                spec.maxValue,
+                                spec.valueFormat,
+                                [&]( float value, UI::OperatorEditorEditPhase phase )
+                                {
+                                    submitRendering( UI::OperatorEditorRenderingCommandType::SetOrdinaryParameter,
+                                                     parameter,
+                                                     value,
+                                                     phase );
+                                } );
+                            ImGui::PopID();
+                        }
+
+                        ImGui::SeparatorText( "Cinematic" );
+                        for ( const UI::CinematicFeatureSpec& feature : UI::kCinematicFeatureSpecs )
+                        {
+                            if ( feature.section != section )
+                            {
+                                continue;
+                            }
+                            const int parameter = static_cast<int>( feature.feature );
+                            bool enabled = view.rendering.cinematicFeatures[parameter];
+                            ImGui::PushID( 1000 + parameter );
+                            if ( ImGui::Checkbox( feature.label, &enabled ) )
+                            {
+                                submitRendering( UI::OperatorEditorRenderingCommandType::ToggleCinematicFeature,
+                                                 parameter );
+                            }
+                            ImGui::PopID();
+                        }
+                        for ( const UI::CinematicSliderSpec& spec : UI::kCinematicSliderSpecs )
+                        {
+                            if ( spec.section != section )
+                            {
+                                continue;
+                            }
+                            const int parameter = static_cast<int>( spec.param );
+                            ImGui::PushID( 2000 + parameter );
+                            editParameterized(
+                                m_renderingEdit,
+                                spec.label,
+                                static_cast<int>( UI::OperatorEditorRenderingCommandType::SetCinematicParameter ),
+                                parameter,
+                                -1,
+                                -1,
+                                view.rendering.cinematicParameters[parameter],
+                                spec.step,
+                                spec.minValue,
+                                spec.maxValue,
+                                spec.valueFormat,
+                                [&]( float value, UI::OperatorEditorEditPhase phase )
+                                {
+                                    submitRendering( UI::OperatorEditorRenderingCommandType::SetCinematicParameter,
+                                                     parameter,
+                                                     value,
+                                                     phase );
+                                } );
+                            ImGui::PopID();
+                        }
+                        ImGui::PopID();
+                    }
+                    ImGui::EndTabItem();
+                }
+
+                if ( ImGui::BeginTabItem( "Audio Authoring" ) )
+                {
+                    const UI::OperatorEditorAudioView& audio = view.audio;
+                    const auto submitAudio =
+                        [&]( UI::OperatorEditorAudioCommandType type,
+                             int parameter = -1,
+                             int setIndex = -1,
+                             int bandIndex = -1,
+                             int sampleIndex = -1,
+                             float value = 0.0f,
+                             UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
+                    {
+                        submit( m_frameCommands.operatorEditor.audio,
+                                UI::OperatorEditorAudioCommand{ type,
+                                                                parameter,
+                                                                setIndex,
+                                                                bandIndex,
+                                                                sampleIndex,
+                                                                value,
+                                                                phase } );
+                    };
+                    ImGui::BeginDisabled( !audio.available );
+                    bool enabled = audio.enabled;
+                    if ( ImGui::Checkbox( "Contact audio", &enabled ) )
+                    {
+                        submitAudio( UI::OperatorEditorAudioCommandType::ToggleEnabled );
+                    }
+                    ImGui::SameLine();
+                    bool simpleMode = audio.simpleMode;
+                    if ( ImGui::Checkbox( "Simple linear mode", &simpleMode ) )
+                    {
+                        submitAudio( UI::OperatorEditorAudioCommandType::ToggleSimpleMode );
+                    }
+
+                    if ( ImGui::CollapsingHeader( "Global tuning", ImGuiTreeNodeFlags_DefaultOpen ) )
+                    {
+                        for ( const AudioScalarSpec& spec : kAudioGlobalSpecs )
+                        {
+                            ImGui::PushID( spec.parameter );
+                            editParameterized(
+                                m_audioEdit,
+                                spec.label,
+                                static_cast<int>( UI::OperatorEditorAudioCommandType::SetGlobalParameter ),
+                                spec.parameter,
+                                -1,
+                                -1,
+                                audio.globalParameters[spec.parameter],
+                                spec.step,
+                                spec.minValue,
+                                spec.maxValue,
+                                spec.format,
+                                [&]( float value, UI::OperatorEditorEditPhase phase )
+                                {
+                                    submitAudio( UI::OperatorEditorAudioCommandType::SetGlobalParameter,
+                                                 spec.parameter,
+                                                 -1,
+                                                 -1,
+                                                 -1,
+                                                 value,
+                                                 phase );
+                                } );
+                            ImGui::PopID();
+                        }
+                    }
+
+                    m_audioSetIndex = audio.setCount > 0 ? std::clamp( m_audioSetIndex, 0, audio.setCount - 1 ) : 0;
+                    const UI::OperatorEditorAudioSetView* selectedSet =
+                        audio.setCount > 0 ? &audio.sets[m_audioSetIndex] : nullptr;
+                    if ( ImGui::CollapsingHeader( "Contact recipes / material bands", ImGuiTreeNodeFlags_DefaultOpen ) )
+                    {
+                        const char* setLabel = selectedSet && selectedSet->name ? selectedSet->name : "No recipes";
+                        if ( ImGui::BeginCombo( "Recipe", setLabel ) )
+                        {
+                            for ( int index = 0; index < audio.setCount; ++index )
+                            {
+                                const bool selected = index == m_audioSetIndex;
+                                if ( ImGui::Selectable( audio.sets[index].name, selected ) )
+                                {
+                                    m_audioSetIndex = index;
+                                    m_audioBandIndex = 0;
+                                }
+                                if ( selected )
+                                {
+                                    ImGui::SetItemDefaultFocus();
+                                }
+                            }
+                            ImGui::EndCombo();
+                        }
+                        if ( selectedSet )
+                        {
+                            ImGui::TextDisabled( "materials %u / %u | %u samples",
+                                                 selectedSet->materialA,
+                                                 selectedSet->materialB,
+                                                 selectedSet->sampleCount );
+                            for ( int row = 0; row < 9; ++row )
+                            {
+                                const AudioScalarSpec& spec = kAudioRecipeSpecs[row];
+                                ImGui::PushID( 100 + row );
+                                editParameterized(
+                                    m_audioEdit,
+                                    spec.label,
+                                    static_cast<int>( UI::OperatorEditorAudioCommandType::SetRecipeParameter ),
+                                    spec.parameter,
+                                    m_audioSetIndex,
+                                    -1,
+                                    selectedSet->parameters[row],
+                                    spec.step,
+                                    spec.minValue,
+                                    spec.maxValue,
+                                    spec.format,
+                                    [&]( float value, UI::OperatorEditorEditPhase phase )
+                                    {
+                                        submitAudio( UI::OperatorEditorAudioCommandType::SetRecipeParameter,
+                                                     spec.parameter,
+                                                     m_audioSetIndex,
+                                                     -1,
+                                                     -1,
+                                                     value,
+                                                     phase );
+                                    } );
+                                ImGui::PopID();
+                            }
+                            m_audioBandIndex =
+                                selectedSet->bandCount > 0u
+                                    ? std::clamp( m_audioBandIndex, 0, static_cast<int>( selectedSet->bandCount ) - 1 )
+                                    : 0;
+                            if ( selectedSet->bandCount > 0u )
+                            {
+                                const UI::OperatorEditorAudioBandView& band = selectedSet->bands[m_audioBandIndex];
+                                if ( ImGui::BeginCombo( "Band", band.name ) )
+                                {
+                                    for ( uint32_t index = 0u; index < selectedSet->bandCount; ++index )
+                                    {
+                                        if ( ImGui::Selectable( selectedSet->bands[index].name,
+                                                                static_cast<int>( index ) == m_audioBandIndex ) )
+                                        {
+                                            m_audioBandIndex = static_cast<int>( index );
+                                        }
+                                    }
+                                    ImGui::EndCombo();
+                                }
+                                const float bandValues[] = { band.minImpulse,
+                                                             band.impulseRange,
+                                                             band.baseGain,
+                                                             band.pitchMin,
+                                                             band.pitchMax };
+                                for ( int row = 0; row < 5; ++row )
+                                {
+                                    const AudioScalarSpec& spec = kAudioBandSpecs[row];
+                                    ImGui::PushID( 200 + row );
+                                    editParameterized(
+                                        m_audioEdit,
+                                        spec.label,
+                                        static_cast<int>( UI::OperatorEditorAudioCommandType::SetBandParameter ),
+                                        spec.parameter,
+                                        m_audioSetIndex,
+                                        m_audioBandIndex,
+                                        bandValues[row],
+                                        spec.step,
+                                        spec.minValue,
+                                        spec.maxValue,
+                                        spec.format,
+                                        [&]( float value, UI::OperatorEditorEditPhase phase )
+                                        {
+                                            submitAudio( UI::OperatorEditorAudioCommandType::SetBandParameter,
+                                                         spec.parameter,
+                                                         m_audioSetIndex,
+                                                         m_audioBandIndex,
+                                                         -1,
+                                                         value,
+                                                         phase );
+                                        } );
+                                    ImGui::PopID();
+                                }
+                            }
+                        }
+                    }
+
+                    if ( ImGui::CollapsingHeader( "Sample library" ) )
+                    {
+                        m_audioSampleIndex =
+                            audio.sampleCount > 0 ? std::clamp( m_audioSampleIndex, 0, audio.sampleCount - 1 ) : 0;
+                        const char* sampleLabel = audio.sampleCount > 0
+                                                      ? SampleLeafName( audio.samplePaths[m_audioSampleIndex] )
+                                                      : "No samples loaded";
+                        if ( ImGui::BeginCombo( "Sample", sampleLabel ) )
+                        {
+                            for ( int index = 0; index < audio.sampleCount; ++index )
+                            {
+                                if ( ImGui::Selectable( SampleLeafName( audio.samplePaths[index] ),
+                                                        index == m_audioSampleIndex ) )
+                                {
+                                    m_audioSampleIndex = index;
+                                }
+                            }
+                            ImGui::EndCombo();
+                        }
+                        ImGui::BeginDisabled( audio.sampleCount <= 0 );
+                        if ( ImGui::Button( "Play" ) )
+                        {
+                            submitAudio( UI::OperatorEditorAudioCommandType::PreviewSample,
+                                         -1,
+                                         -1,
+                                         -1,
+                                         m_audioSampleIndex );
+                        }
+                        ImGui::SameLine();
+                        ImGui::BeginDisabled( !selectedSet );
+                        if ( ImGui::Button( "Use in recipe" ) )
+                        {
+                            submitAudio( UI::OperatorEditorAudioCommandType::SelectSample,
+                                         -1,
+                                         m_audioSetIndex,
+                                         -1,
+                                         m_audioSampleIndex );
+                        }
+                        ImGui::EndDisabled();
+                        ImGui::EndDisabled();
+                    }
+                    ImGui::EndDisabled();
+                    if ( !audio.available )
+                    {
+                        DrawDisabledWrapped( "Contact audio is unavailable; authoring remains visible for context." );
+                    }
+                    ImGui::EndTabItem();
+                }
+                ImGui::EndTabBar();
             }
         }
         ImGui::End();
@@ -1722,9 +2274,254 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::Diagnostics, &m_showDiagnostics ) )
         {
+            const UI::OperatorEditorDiagnosticsView& diagnostics = view.diagnostics;
+            const auto submitDiagnostics = [&](
+                                               UI::OperatorEditorDiagnosticsCommandType type,
+                                               uint32_t flag = 0u,
+                                               int integerValue = 0,
+                                               float value = 0.0f,
+                                               UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
+            {
+                submit( m_frameCommands.operatorEditor.diagnostics,
+                        UI::OperatorEditorDiagnosticsCommand{ type, flag, integerValue, value, phase } );
+            };
+            // Why: retain domain counters and owner controls here while Tracy
+            // remains the sole generic timeline/histogram/percentile surface.
             ImGui::Text( "Tracy %s", m_frameInput.tracyViewerConnected ? "connected" : "waiting" );
-            ImGui::Text( "Presentation alpha %.3f", view.rendering.presentationAlpha );
-            ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
+            ImGui::TextDisabled( "Timeline, histograms, and percentiles live in Tracy." );
+
+            if ( ImGui::CollapsingHeader( "Physics overlays / pipeline", ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                bool collision = diagnostics.collisionVisualizer;
+                if ( ImGui::Checkbox( "Collision visualizer", &collision ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer );
+                }
+                bool transparent = diagnostics.physicsDebugTransparent;
+                if ( ImGui::Checkbox( "Transparent volumes", &transparent ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugTransparent );
+                }
+                bool broadphase = diagnostics.broadphaseOverlay;
+                if ( ImGui::Checkbox( "Broadphase grid", &broadphase ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleBroadphaseOverlay );
+                }
+                const struct
+                {
+                    const char* label;
+                    uint32_t flag;
+                } flagRows[] = {
+                    { "Axes", Physics::PHYSICS_DEBUG_AXES },
+                    { "Contacts", Physics::PHYSICS_DEBUG_CONTACTS },
+                    { "Sleep state", Physics::PHYSICS_DEBUG_SLEEP },
+                    { "Pipeline", Physics::PHYSICS_DEBUG_PIPELINE },
+                };
+                for ( const auto& row : flagRows )
+                {
+                    bool enabled = ( diagnostics.physicsDebugFlags & row.flag ) != 0u;
+                    ImGui::PushID( static_cast<int>( row.flag ) );
+                    if ( ImGui::Checkbox( row.label, &enabled ) )
+                    {
+                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, row.flag );
+                    }
+                    ImGui::PopID();
+                }
+                bool tornadoShell = diagnostics.tornadoVisualShell;
+                if ( ImGui::Checkbox( "Tornado shell", &tornadoShell ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTornadoVisualShell );
+                }
+                bool tornadoVectors = diagnostics.tornadoFieldVectors;
+                if ( ImGui::Checkbox( "Tornado vectors", &tornadoVectors ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTornadoFieldVectors );
+                }
+                bool ray = diagnostics.rayCastVisualization;
+                if ( ImGui::Checkbox( "Ray casts", &ray ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleRayCastVisualization );
+                }
+                if ( ImGui::Button( "Toggle terrain contact probe" ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleTerrainContactProbe );
+                }
+                ImGui::Text( "Pipeline %d / %d: %s",
+                             diagnostics.physicsPipelineStageIndex + 1,
+                             diagnostics.physicsPipelineStageCount,
+                             diagnostics.physicsPipelineStageName );
+                if ( ImGui::Button( "Previous stage" ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::StepPhysicsPipelinePrevious );
+                }
+                ImGui::SameLine();
+                if ( ImGui::Button( "Next stage" ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::StepPhysicsPipelineNext );
+                }
+                struct DiagnosticScalar
+                {
+                    const char* label;
+                    UI::OperatorEditorDiagnosticsCommandType type;
+                    float value;
+                    float minValue;
+                    float maxValue;
+                    float step;
+                    const char* format;
+                } diagnosticScalars[] = {
+                    { "Volume alpha",
+                      UI::OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
+                      diagnostics.physicsDebugAlpha,
+                      0.0f,
+                      1.0f,
+                      0.01f,
+                      "%.2f" },
+                    { "Contact linger",
+                      UI::OperatorEditorDiagnosticsCommandType::SetPhysicsContactLinger,
+                      diagnostics.physicsDebugContactLinger,
+                      0.0f,
+                      4.0f,
+                      0.05f,
+                      "%.2fs" },
+                    { "Ray impulse",
+                      UI::OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength,
+                      diagnostics.rayCastImpulseStrength,
+                      0.0f,
+                      500.0f,
+                      1.0f,
+                      "%.0f" },
+                    { "Projectile speed",
+                      UI::OperatorEditorDiagnosticsCommandType::SetLauncherProjectileSpeed,
+                      diagnostics.launcherProjectileSpeed,
+                      1.0f,
+                      500.0f,
+                      1.0f,
+                      "%.0f" },
+                };
+                for ( const DiagnosticScalar& scalar : diagnosticScalars )
+                {
+                    const int action = static_cast<int>( scalar.type );
+                    ImGui::PushID( action );
+                    editParameterized( m_diagnosticsEdit,
+                                       scalar.label,
+                                       action,
+                                       -1,
+                                       -1,
+                                       -1,
+                                       scalar.value,
+                                       scalar.step,
+                                       scalar.minValue,
+                                       scalar.maxValue,
+                                       scalar.format,
+                                       [&]( float value, UI::OperatorEditorEditPhase phase )
+                                       { submitDiagnostics( scalar.type, 0u, 0, value, phase ); } );
+                    ImGui::PopID();
+                }
+            }
+
+            if ( ImGui::CollapsingHeader( "Renderer", ImGuiTreeNodeFlags_DefaultOpen ) )
+            {
+                ImGui::Text( "%s | draw %d + UI %d",
+                             diagnostics.rendererName,
+                             diagnostics.drawCalls,
+                             diagnostics.uiDrawCalls );
+                ImGui::Text( "Render %.2f ms | GPU %.2f ms | alpha %.3f",
+                             diagnostics.renderMs,
+                             diagnostics.gpuFrameMs,
+                             view.rendering.presentationAlpha );
+                if ( ImGui::CollapsingHeader( "Render Targets" ) )
+                {
+                    for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
+                    {
+                        const UI::OperatorEditorRenderTargetView& target = diagnostics.renderTargets[index];
+                        ImGui::Text( "%s  %dx%d  %s%s%s",
+                                     target.label,
+                                     target.width,
+                                     target.height,
+                                     target.available ? "ready" : "unavailable",
+                                     target.depth ? " depth" : "",
+                                     target.hdr ? " HDR" : "" );
+                    }
+                    if ( diagnostics.renderTargetCount == 0 )
+                    {
+                        ImGui::TextDisabled( "No render targets are currently published." );
+                    }
+                }
+            }
+
+            if ( ImGui::CollapsingHeader( "Engine Memory" ) )
+            {
+                ImGui::Text( "Tracked %.2f MiB | reconciled %.2f MiB",
+                             BytesToMiB( diagnostics.trackedEngineBytes ),
+                             BytesToMiB( diagnostics.reconciledTotalBytes ) );
+                ImGui::Text( "Upload %.2f / %.2f MiB",
+                             BytesToMiB( diagnostics.uploadUsedBytes ),
+                             BytesToMiB( diagnostics.uploadCapacityBytes ) );
+                ImGui::Text( "Replay reserve growth events %llu",
+                             static_cast<unsigned long long>( diagnostics.replayReserveGrowthEvents ) );
+                ImGui::TextDisabled( "Cached owner counters only; this panel does not trigger an unbounded scan." );
+            }
+
+            if ( ImGui::CollapsingHeader( "Workers" ) )
+            {
+                const char* preview = diagnostics.workerThreadCount == 0 ? "disabled" : "explicit";
+                if ( ImGui::BeginCombo( "Worker threads", preview ) )
+                {
+                    if ( ImGui::Selectable( "Auto", false ) )
+                    {
+                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, -1 );
+                    }
+                    if ( ImGui::Selectable( "Disabled", diagnostics.workerThreadCount == 0 ) )
+                    {
+                        submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 0 );
+                    }
+                    for ( int count = 1; count <= diagnostics.maxWorkerThreadCount; ++count )
+                    {
+                        char label[24] = {};
+                        snprintf( label, sizeof( label ), "%d", count );
+                        if ( ImGui::Selectable( label, diagnostics.workerThreadCount == count ) )
+                        {
+                            submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, count );
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::Text( "Current %d | worker core %.2f ms",
+                             diagnostics.workerThreadCount,
+                             diagnostics.workerCoreTotalMs );
+            }
+
+            if ( ImGui::CollapsingHeader( "Audio" ) )
+            {
+                bool counters = diagnostics.audioDebugCounters;
+                if ( ImGui::Checkbox( "Reducer counters", &counters ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleAudioCounters );
+                }
+                if ( ImGui::Button( diagnostics.audioFlashModeLabel ) )
+                {
+                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode );
+                }
+                ImGui::Text( "Events %llu | candidates %llu | voices %llu | dropped %llu",
+                             static_cast<unsigned long long>( diagnostics.audioEventsSeen ),
+                             static_cast<unsigned long long>( diagnostics.audioCandidates ),
+                             static_cast<unsigned long long>( diagnostics.audioSubmittedVoices ),
+                             static_cast<unsigned long long>( diagnostics.audioDroppedVoices ) );
+            }
+
+            if ( ImGui::CollapsingHeader( "UI" ) )
+            {
+                ImGui::Text( "%.1f FPS | CPU %.2f ms | physics %.2f ms",
+                             diagnostics.fps,
+                             diagnostics.cpuFrameMs,
+                             diagnostics.physicsMs );
+                ImGui::Text( "Frames %llu | messages %llu | suppressed mouse %llu / keyboard %llu",
+                             static_cast<unsigned long long>( m_completedFrames ),
+                             static_cast<unsigned long long>( m_platformMessages ),
+                             static_cast<unsigned long long>( m_suppressedMouseMessages ),
+                             static_cast<unsigned long long>( m_suppressedKeyboardMessages ) );
+                ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
+            }
         }
         ImGui::End();
     }

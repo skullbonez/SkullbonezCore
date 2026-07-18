@@ -1402,6 +1402,9 @@
     <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>

@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E13 Rendering, Audio, and Diagnostics consolidation while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
-| Active/future progress | 14 / 26 live tasks; 54%. |
-| Last broad local gate | E12 final-source `validate_full` passed the CPU umbrella, all coverage floors, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact 44,401-line physics regression; UI, physics, perf, allocation, Release build/exclusion, focused command tests, and native Inspector/World evidence also passed. |
-| Validation for current edits | E12 owns the contextual Inspector and canonical World/Simulation authoring surface. E13 changes right-side Rendering, Audio, and Diagnostics panels and requires UI plus renderer/physics gates when those source boundaries change, with DX12 plus bounded stress for render-backend work. |
+| Current objective | Execute ImGui/Tracy E14 compact Causality and expanded-detail coexistence while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 15 / 26 live tasks; 58%. |
+| Last broad local gate | E13 final-source `validate_full` passed 309 cases/21,812 assertions, all coverage floors, Automation/replay, zero-error DX12 comparison, and the byte-exact 44,401-line physics oracle; UI, physics, perf, allocation, Release build/exclusion, focused reducer tests, native Rendering/Audio/Diagnostics command probes, and the 10/10 comment audit also passed. |
+| Validation for current edits | E13 owns canonical Rendering, bounded Audio Authoring, and domain Diagnostics. E14 changes replay-facing Causality presentation and must run UI, replay interaction probes, and exactly one replay visual-fidelity invocation with zero golden refresh. |
 
 ## Live Queue
 
@@ -24,7 +24,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E13 (13/18). E0 froze the complete
+     direction, ImGui/Tracy is active at E14 (14/18). E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -79,6 +79,12 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      preview/commit property commands. A native release-to-commit probe plus UI,
      physics, full, perf, allocation, and Release-exclusion gates passed with a
      6/6 comment audit and no authored-data or oracle change. Evidence:
+     E13 added one six-section Rendering surface backed by shared 25 ordinary,
+     64 cinematic, and 8 feature rows; bounded Audio Authoring; and bounded
+     Physics/Renderer/Memory/Workers/Audio/UI Diagnostics. Native typed-command
+     probes plus UI, physics, full, perf, allocation, Release, focused reducer,
+     and 10/10 comment-audit gates passed with no authored-data, baseline, or
+     golden change. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
@@ -93,6 +99,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      `Agentic/Reports/2026-07-19/imgui-tracy-e10-left-editor-workflow.md` and
      `Agentic/Reports/2026-07-19/imgui-tracy-e11-game-viewport.md` and
      `Agentic/Reports/2026-07-19/imgui-tracy-e12-inspector-world.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e13-render-audio-diagnostics.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -519,17 +526,15 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
 
 ## Next Handoff
 
-Continue with ImGui/Tracy E13. Consolidate the right rail into canonical
-Rendering sections for Lighting, Environment, Shadows, Post, Water, and
-Terrain/Materials; Audio Authoring for contact recipes, material bands, sample
-library, and global tuning; and Diagnostics for Physics, Renderer, Engine
-Memory/replay reserve, Workers, UI, and Audio runtime facts. Keep generic
-timeline, histogram, and percentile views out because Tracy owns them. Keep
-render targets and advanced pipelines closed by default, prevent diagnostic
-overlays from becoming serialized scene state, reconcile the legacy disposition
-item by item, and run `tools\validate_ui.bat` plus mapped renderer/physics gates.
-Run DX12 validation and bounded graphics stress only if E13 changes render
-backend source.
+Continue with ImGui/Tracy E14. Keep Causality compact in the right rail by
+default: selected object, replay tick, immediate cause/effect summary,
+prediction state, and a bounded relevant-link list. Preserve the full causal
+tree and all existing queries behind a separately dockable expanded/detail
+view without deleting the legacy rendering or data path. Update context from
+selection/tick changes without unbounded per-frame scans or allocations, and
+make empty, stale, truncated, and capacity-limited states explicit. Run
+`tools\validate_ui.bat`, replay interaction probes, and exactly one
+`tools\validate_replay_visual_fidelity.bat` invocation with zero golden refresh.
 
 Physics P1 remains blocked only on exact owner authority for the one-process
 replay `causal.topologyCount: 199 -> 200` golden transition and the mechanically
