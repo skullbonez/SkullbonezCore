@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-18
+Date: 2026-07-19
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E3 Tracy lifecycle, submitted-frame mark, stable thread names, and editor-visible connection/build state while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
-| Active/future progress | 4 / 26 live tasks; 15%. |
-| Last broad local gate | E2 final-source `validate_full` passed the CPU/coverage, Automation/replay, DX12, and byte-exact physics lanes; focused allocation-policy, test, fast, Release build, and Release artifact inspections also passed. |
-| Validation for current edits | E2 provides the shared development capability and separate hard-capped ImGui/Tracy allocation owners without weakening the gameplay guard; Release has no development-tool source, object, or inspected token. E3 requires `validate_fast`, platform-profiler marker smoke, and the mapped Runtime gate. |
+| Current objective | Execute ImGui/Tracy E4 focused owner-boundary zones, capacity plots/counters, and explicit heavy-mode policy while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 5 / 26 live tasks; 19%. |
+| Last broad local gate | E3 final-source `validate_full` passed 295 tests/21,471 assertions, all coverage floors, Automation/replay, zero-error DX12 screenshot comparison, and byte-exact physics; focused external-capture, thread-name, disabled-test, Release-exclusion, fast, and exact marker-command evidence also passed. |
+| Validation for current edits | E3 owns Tracy lifetime around all engine workers, emits one post-Present frame mark, names the real 1+63 thread topology, and exposes fixed editor connection state. E4 requires mapped subsystem gates, `validate_perf`, platform-profiler marker smoke, and the mapped Runtime gate. |
 
 ## Live Queue
 
@@ -24,18 +24,22 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E3 (3/18). E0 froze the complete
+     direction, ImGui/Tracy is active at E4 (4/18). E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
      licenses, bootstrap/update documentation, development-only project inputs,
      and Release exclusion. E2 established the shared development capability,
      separate bounded ImGui/Tracy allocation rows, exact calling-thread scope,
-     gameplay-guard acceptance probe, and Release artifact exclusion. Evidence:
+     gameplay-guard acceptance probe, and Release artifact exclusion. E3 added
+     the manual/on-demand Tracy lifetime, post-Present frame mark, one composite
+     main plus 63 unique worker labels, fixed editor connection state, and
+     external-viewer/no-viewer/Release/full-gate proof. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
-     `Agentic/Reports/2026-07-18/imgui-tracy-e2-allocation-boundary.md`.
+     `Agentic/Reports/2026-07-18/imgui-tracy-e2-allocation-boundary.md` and
+     `Agentic/Reports/2026-07-18/imgui-tracy-e3-lifecycle.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7

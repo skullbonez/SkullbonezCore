@@ -13,6 +13,8 @@ Glossary:
   and platform APIs through reference-counted objects.
   Startup owner: A focused helper unit that parses options, resolves launch
     policy, runs an early probe, or installs crash diagnostics before Run exists.
+  Manual profiler lifetime: Development-build Tracy ownership explicitly
+    bracketed around every engine thread instead of static initialization.
   Lane R result: Recoverable CLI/startup failure that returns a process exit
     code with owner/message diagnostics instead of using a fatal exception.
 
@@ -21,6 +23,8 @@ Invariants:
     validation launches deterministic from their command line.
   - Early-exit smoke modes must return before worker, window, renderer, or Run
     startup if their evidence claims subsystem isolation.
+  - Tracy starts before WorkerPool and stops after WorkerPool joins, while the
+    log and Windows platform services are still alive.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -31,6 +35,7 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "DevelopmentTools/TracyClientOwner.h"
 #include "Input.h"
 #include "Run.h"
 #include "Startup/StartupCommandLine.h"
@@ -367,6 +372,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
+#if defined( TRACY_ENABLE )
+    // Lifetime: this owner starts before WorkerPool creates instrumentable
+    // threads and is explicitly stopped after their joins on every exit path.
+    DevelopmentTools::TracyClientOwner tracyClientOwner;
+    tracyClientOwner.Start();
+#endif
+
     // Lifetime: declaration order keeps the Debug lock graph alive until after
     // WorkerPool joins and destroys every mutex borrow.
     LockOrderValidator lockOrderValidator;
@@ -376,6 +388,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     {
         const bool workersOk = RunWorkerSystemSelfTest( workerPool, stdout );
         workerPool.Shutdown();
+#if defined( TRACY_ENABLE )
+        tracyClientOwner.Shutdown();
+#endif
         CoUninitialize();
         return workersOk ? 0 : 1;
     }
@@ -390,6 +405,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     {
         ReportStartupFailure( windowResult, "SkullbonezCore Startup Failed" );
         workerPool.Shutdown();
+#if defined( TRACY_ENABLE )
+        tracyClientOwner.Shutdown();
+#endif
         CoUninitialize();
         return 1;
     }
@@ -403,6 +421,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     {
         ReportStartupFailure( renderBackendResult, "SkullbonezCore Renderer Startup Failed" );
         workerPool.Shutdown();
+#if defined( TRACY_ENABLE )
+        tracyClientOwner.Shutdown();
+#endif
         CleanupWindow( window, hInstance, renderBackend );
         CoUninitialize();
         return 1;
@@ -413,6 +434,9 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     {
         ReportStartupFailure( initialResizeResult, "SkullbonezCore Renderer Startup Failed" );
         workerPool.Shutdown();
+#if defined( TRACY_ENABLE )
+        tracyClientOwner.Shutdown();
+#endif
         CleanupWindow( window, hInstance, renderBackend );
         CoUninitialize();
         return 1;
@@ -439,6 +463,11 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         profiler->BindRenderDiagnostics( nullptr );
 #endif
         workerPool.Shutdown();
+#if defined( TRACY_ENABLE )
+        // Lifetime: no engine worker can publish another marker after this
+        // point, while logging and COM/platform teardown are still available.
+        tracyClientOwner.Shutdown();
+#endif
         CleanupWindow( window, hInstance, renderBackend );
     }
     RuntimeAllocation::PrintRuntimeAllocationSummary( stdout );

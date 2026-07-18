@@ -2,7 +2,7 @@
 // File: SkullbonezTests/TestRuntimeContracts.cpp
 // Purpose:
 //   Exercises result values, logger concurrency, worker-task lifetime, and
-//   Lane F probes.
+//   Lane F probes, including disabled development-profiler compile contracts.
 //
 // Summary:
 //   Ordinary contracts run in doctest. Contracts that must abort launch this
@@ -14,11 +14,14 @@
 //   Lane F: Fatal-invariant error path that records diagnostics and terminates.
 //   Lane R: Recoverable result path that returns an owned error instead of
 //     terminating the engine.
+//   Disabled marker seam: Development-profiler macro that must discard its
+//     argument tokens when the vendor client is absent from the test build.
 //
 // Invariants:
 //   - Fatal child cases return normally only when the case name is unknown.
 //   - Blocking task tests release the worker before local state is destroyed.
 //   - Every threaded worker test shuts its pool down before local task state expires.
+//   - Disabled development-profiler macros never evaluate caller expressions.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -34,6 +37,7 @@
 #include "../SkullbonezSource/Core/SbResult.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h"
 #include "TestFatalCases.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -58,6 +62,15 @@ using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
+
+TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
+{
+    int evaluatedArguments = 0;
+    SKORE_TRACY_NAME_WORKER_THREAD( ++evaluatedArguments );
+    SKORE_TRACY_MARK_SUBMITTED_FRAME();
+
+    CHECK( evaluatedArguments == 0 );
+}
 
 namespace
 {

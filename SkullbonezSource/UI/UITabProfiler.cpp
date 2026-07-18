@@ -12,7 +12,9 @@ Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+    widget.
+  Tool connection badge: Bounded profiler-row text derived from the copied
+    Tracy build/lifetime/viewer flags rather than a live tool query.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
@@ -20,6 +22,8 @@ Invariants:
   - Histogram sampling and panel interaction remain behind the public profiler
     tab API; this coordinator does not reach into histogram implementation
     helpers.
+  - The Tracy badge formats into the tab's fixed stack buffer and performs no
+    retained-state or heap growth.
 
 Related:
   - SkullbonezSource/UI/UITabProfiler.h
@@ -697,6 +701,19 @@ void Draw( UIProfilerTabState& state,
     if ( IsProfilerRowVisible( contentY, contentH, contentY + PROFILER_WORKER_TOGGLE_Y, 24.0f ) )
     {
         state.workerToggle.DrawToggle( draw, "Workers", displayWorkerCount > 0, 0.30f, 0.82f, 0.95f );
+#if defined( TRACY_ENABLE )
+        const char* tracyState = frame.tracyViewerConnected ? "connected"
+                                 : frame.tracyInitialized   ? "waiting for viewer"
+                                                            : "stopped";
+        snprintf( buf, sizeof( buf ), "Tracy: %s", tracyState );
+        draw.Text( contentX + 190.0f,
+                   contentY + PROFILER_WORKER_TOGGLE_Y + 6.0f,
+                   10.5f,
+                   frame.tracyViewerConnected ? 0.35f : 0.88f,
+                   frame.tracyViewerConnected ? 0.88f : 0.74f,
+                   frame.tracyViewerConnected ? 0.55f : 0.32f,
+                   buf );
+#endif
     }
     snprintf( buf, sizeof( buf ), "%d / %d", displayWorkerCount, workerMax );
     if ( IsProfilerRowVisible( contentY, contentH, contentY + PROFILER_WORKER_SLIDER_Y, 34.0f ) )

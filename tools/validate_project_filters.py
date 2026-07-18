@@ -465,6 +465,7 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsRuntime",
     "RuntimeDiagnostics",
     "SceneMemoryDiagnostics",
+    "TracyClientOwner",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution

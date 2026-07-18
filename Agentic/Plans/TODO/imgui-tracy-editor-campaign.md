@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 3/18 tasks (E0-E2 complete; E3 next) under the owner's
+Status: Active — 4/18 tasks (E0-E3 complete; E4 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (3/18 complete)
+Ledger: E0-E17 (4/18 complete)
 
 ## Objective
 
@@ -211,7 +211,7 @@ It does **not** authorize removal from the legacy UI.
     no tool source, object, capability, owner, or symbol token; no baseline or
     golden changed.
 
-- [ ] E3 — Bring up the minimal Tracy client lifecycle.
+- [x] E3 — Bring up the minimal Tracy client lifecycle.
   - Initialize/shutdown the client at the platform/application boundary with
     an explicit lifetime that outlives instrumented worker threads and ends
     before logging/platform teardown.
@@ -226,6 +226,17 @@ It does **not** authorize removal from the legacy UI.
     without a viewer.
   - Gates: `tools\validate_fast.bat`,
     `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers`.
+  - Evidence:
+    `../../Reports/2026-07-18/imgui-tracy-e3-lifecycle.md` records the explicit
+    manual/on-demand application lifetime, post-Present frame boundary, real
+    main/worker topology, fixed editor connection snapshot, and disabled macro
+    contract. A pinned external capture connected and received 101 stable
+    frame marks; a live probe observed one composite main label and 63 unique
+    worker labels. No-viewer, connected/disconnected, exact platform-marker,
+    Release-exclusion, focused-test, fast, and cumulative full-gate evidence
+    all passed. Full closed with 295 tests, 21,471 assertions, zero DX12
+    validation errors, matching screenshots, and byte-exact physics output;
+    no oracle changed.
 
 - [ ] E4 — Instrument Tracy at owner boundaries, not every function.
   - Map existing platform-profiler owner intervals to Tracy zones first so

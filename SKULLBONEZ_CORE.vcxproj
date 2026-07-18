@@ -26,6 +26,7 @@
     <ProjectGuid>{92972446-7D18-4AD1-AE43-15671C767306}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+    <SkoreBuildTracyClient>true</SkoreBuildTracyClient>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -297,9 +298,12 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
-    </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+        <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
+      </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
+        <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
+      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\AttachedCameraController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
@@ -507,8 +511,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h" />
+      <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h" />
+      <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h" />
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h" />
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\CaptureSystem.h" />

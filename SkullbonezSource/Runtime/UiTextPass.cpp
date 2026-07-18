@@ -17,12 +17,16 @@ Glossary:
   Text-only mode: Validation mode that skips world rendering and renders glyphs
     on a solid background to isolate text output.
   UI frame data: Borrowed per-frame snapshot passed to the immediate-mode UI.
+  Profiler connection snapshot: Three fixed booleans copied from the Tracy
+    owner without a process scan, socket probe, string construction, or growth.
 
 Invariants:
   - Font resources are created once through EnsureGpuResources and released
     before backend teardown.
   - Render flushes Text2d before returning, so callers do not inherit queued UI
     glyphs into later frame work.
+  - Development-tool status is copied into the UI snapshot; draw code never
+    reaches back into the live Tracy owner.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
@@ -34,6 +38,7 @@ Related:
 #include "RuntimeViewModel.h"
 #include "Scene/SceneRuntime.h"
 #include "Allocation/RuntimeReserveAllocator.h"
+#include "DevelopmentTools/TracyClientOwner.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayPresentation.h"
@@ -630,6 +635,14 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
                 target.spanEndMs = source.spanEndMs;
                 UIData.workerCoreTotalMs += (std::max)( 0.0f, target.coreMs );
             }
+        }
+#endif
+#if defined( TRACY_ENABLE )
+        {
+            const DevelopmentTools::TracyClientStatus tracyStatus = DevelopmentTools::TracyClientOwner::CopyStatus();
+            UIData.profiler.tracyBuildEnabled = tracyStatus.buildEnabled;
+            UIData.profiler.tracyInitialized = tracyStatus.initialized;
+            UIData.profiler.tracyViewerConnected = tracyStatus.viewerConnected;
         }
 #endif
         {

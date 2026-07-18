@@ -13,11 +13,15 @@ Glossary:
   Content signature: Hash of UI-visible values used to invalidate cached draws.
   Interaction signature: Hash of pointer/focus state used to invalidate hit data.
   Preview catalog: Bounded render-target list offered to the UI for inspection.
+  Profiler connection snapshot: Fixed build, lifetime, and viewer-state flags
+    copied into a profiler frame without retaining the live tool owner.
 
 Invariants:
   - Hash field order is part of draw-cache invalidation behavior.
   - Preview helpers clamp every authored/runtime count to fixed UI capacities.
   - Functions retain no UI owner pointer or mutable frame state.
+  - Tracy status participates in the profiler signature so a viewer connection
+    transition invalidates the cached draw without per-frame text allocation.
 
 Related:
   - UIFrameComposition.h declares value contracts and constants.
@@ -139,6 +143,11 @@ uint32_t HashProfilerFrameSnapshot( uint32_t hash, const ProfilerTab::FrameSnaps
 {
     // Invariant: profiler tab draw caching depends on bounded snapshot values,
     // not live singleton reads. Hash only the fixed arrays copied into UIData.
+#if defined( TRACY_ENABLE )
+    hash = HashBool( hash, frame.tracyBuildEnabled );
+    hash = HashBool( hash, frame.tracyInitialized );
+    hash = HashBool( hash, frame.tracyViewerConnected );
+#endif
     const int markerCount = std::clamp( frame.markerCount, 0, ProfilerTab::MAX_MARKERS );
     hash = HashInt( hash, markerCount );
     for ( int markerIndex = 0; markerIndex < markerCount; ++markerIndex )

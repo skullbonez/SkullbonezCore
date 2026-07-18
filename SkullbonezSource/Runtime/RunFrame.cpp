@@ -27,12 +27,16 @@ Glossary:
     scheduled and auto-cycle capture automation.
   Frame view: Non-copyable stack record of references used to name per-call
     borrows without moving ownership out of the composition root.
+  Submitted-frame mark: Development profiler boundary emitted only after DX12
+    accepts a successful Present for the game frame.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
     in a stable order used by validation and replay comparisons.
   - Capture pinning is decided before physics and camera work for that frame.
   - Frame views are created once per frame turn and never retained by helpers.
+  - A successful submitted game frame emits exactly one development profiler
+    frame mark; failed or capture-only turns emit none.
 
 Related:
   - RuntimeFrameViews.h defines the frame-helper calling convention.
@@ -57,6 +61,7 @@ Related:
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "DevelopmentTools/TracyClientOwner.h"
 #include "OperatorCommandApplier.h"
 #include "Scene/SceneRuntimeStyle.h"
 
@@ -792,6 +797,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_applicationExit.RequestOwnedFailure( presentResult );
                 return m_applicationExit.Resolve( 0 );
             }
+
+            // Invariant: Tracy counts submitted game frames, not attempted
+            // render turns, capture-only continues, or failed Presents.
+            SKORE_TRACY_MARK_SUBMITTED_FRAME();
 
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );
