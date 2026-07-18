@@ -1,8 +1,8 @@
 # Small Findings Hardening — Close The Round-7 Minor Red Flags
 
 Date: 2026-07-18
-Status: Active — 0/5 tasks
-Branch: owner decision at H0 (feature branch; never directly on `main`)
+Status: Active — 1/5 tasks
+Branch: `nightrunner-17th-july` (owner-ratified at H0; never directly on `main`)
 Impact area: `Core/LockOrderValidator.*`, `Rendering/DX12/*` (PSO cache
 identity), targeted cast sites across `SkullbonezSource/`, JSON include
 boundary, `UI/UITab*.cpp`
@@ -54,7 +54,7 @@ treatment as every other monolith.
 
 ## Tasks
 
-- [ ] H0 — Rulings census. One dated table: the full 153-site cast
+- [x] H0 — Rulings census. One dated table: the full 153-site cast
   inventory grouped by file with per-group proposed disposition; current
   `LockOrderValidator` call sites and its proposed owner; PSO-key identity
   design options (owner-issued stable id vs generation counter);
@@ -108,3 +108,11 @@ treatment as every other monolith.
   hot/runtime TUs cannot silently regain the include.
 - Independent review clear; all mapped gates pass from final source with
   zero baseline refresh.
+
+## Evidence
+
+- H0: `Agentic/Reports/2026-07-18/small-findings-h0-rulings-census.md`
+  reconciles all 153 sites across 43 files, the sole executable validator
+  caller, 19 transitively JSON-reachable TUs, both UI TU measurements, and the
+  ratified startup-owner / pipeline-identity / JSON-fence / UI-split decisions.
+  Documentation only; no repository validation required.

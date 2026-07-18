@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute small findings hardening H0-H4, then the physics body-count scale campaign P0-P7. |
-| Active/future progress | 0 / 13 live tasks; 0%. |
+| Active/future progress | 1 / 13 live tasks; 8%. |
 | Last broad local gate | Naming N4 `validate_full` passed in 165.249s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation, zero-error DX12 captures, and byte-exact physics passed. |
-| Validation for current edits | N4 focused Profile build passed in 15.050s; the task's single replay-fidelity run passed in 431.062s; direct coverage passed in 20.394s; project filters passed 738/738 in 1.598s. The reviewer-found audit omission is fixed at 14/14; `FRAME_COUNT = 2`, authored data, baselines, and the seven excluded renderer interfaces are unchanged. |
+| Validation for current edits | Hardening H0 is documentation only and requires no repository validation. Its report rules all 153 cast sites, 19 JSON-reachable TUs, the startup lock-validator owner, owner-issued PSO identity, and both UI TUs. Naming N4 remains the last broad validated source tip. |
 
 ## Live Queue
 
@@ -71,7 +71,9 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
      finding, and passed full, replay, coverage, and project-filter gates.
      Naming is complete and has left the ledger. Closure evidence:
      `Agentic/Reports/2026-07-18/naming-and-identity-debt-closure.md`. Remaining
-     binding order: small-findings H0-H4.
+     binding order: small-findings H1-H4. H0 ratified the complete findings
+     census and implementation decisions in
+     `Agentic/Reports/2026-07-18/small-findings-h0-rulings-census.md`.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -436,8 +438,10 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
 
 Round-7 scene decomposition, DX12 backend ownership decomposition, and naming
 N0-N4 are complete and have left the live ledger. Continue immediately with
-`small-findings-hardening` H0: produce the ratified findings census and rule
-each item before implementation.
+`small-findings-hardening` H1: make `LockOrderValidator` startup-owned, wire it
+through `WorkerPool`, delete `Instance()`/`State()`, and preserve the
+compiled-out Profile/Release posture. Required gates: `validate_fast` and
+`validate_perf`.
 The physics body-count campaign remains parallel-eligible. Preserve the seven
 excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines outside the two

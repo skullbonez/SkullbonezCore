@@ -127,9 +127,9 @@ debt closed N0-N4 and left the live ledger under rule 4. Closure evidence is in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
+| [small-findings-hardening](TODO/small-findings-hardening.md) | 1 | 5 | 20% |
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **0** | **13** | **0%** |
+| **Active/future total** | **1** | **13** | **8%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -722,7 +722,7 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 0/5 | H0 rulings census; DX12 dependency satisfied |
+| [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 1/5 | H1 startup-owned lock-order validator |
 
 ## Physics Body-Count Scale Campaign (2026-07-18)
 
