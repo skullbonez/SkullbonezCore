@@ -337,6 +337,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                RuntimeFramePresentationView& presentationOwners,
                                ReplayRuntime& replayRuntime,
                                const RuntimeUiTextFrameFacts& facts,
+                               const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
                                SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
                                const SkullbonezCore::UI::UIRenderContext& uiRender,
                                const RuntimeRenderModelFrameView& renderModels )
@@ -649,13 +650,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                  source.hdr };
         }
     }
-    const ReplayOverlay::ReplayOverlayStateView replayOverlay =
-        replayRuntime.BuildOverlayStateView( runtimeTools.Editor().editorModeEnabled,
-                                             ui.IsVisible(),
-                                             ui.IsMinimized(),
-                                             facts.interactionGesture.kind,
-                                             renderModels.presentationRecords,
-                                             renderModels.bodyStore );
     const UiTextPassState uiTextState{ debug,
                                        sceneController.CrossScenePauseLocked(),
                                        scene,
@@ -1263,12 +1257,23 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 capturePresentationPinned,
                 secondsPerFrame,
                 operatorEditorView };
+            // Lifetime: replay publishes one immutable cause/scrubber view for
+            // both the legacy late pass and the development editor. E14 reads
+            // its rows directly instead of building a second causality tree.
+            const ReplayOverlay::ReplayOverlayStateView replayOverlay =
+                m_replayRuntime.BuildOverlayStateView( m_runtimeTools.Editor().editorModeEnabled,
+                                                       m_operatorUi->IsVisible(),
+                                                       m_operatorUi->IsMinimized(),
+                                                       m_interaction.Gesture().kind,
+                                                       renderModels.presentationRecords,
+                                                       renderModels.bodyStore );
             RenderExecuteUiTextFrame( frameHost,
                                       frameInteraction,
                                       frameScene,
                                       framePresentation,
                                       m_replayRuntime,
                                       uiTextFacts,
+                                      replayOverlay,
                                       frameRenderDiagnostics,
                                       uiRender,
                                       renderModels );
@@ -1289,7 +1294,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                                            tracyStatus.heavyMode };
             if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
             {
-                m_imguiEditor.BuildEditorShell( operatorEditorView );
+                m_imguiEditor.BuildEditorShell( operatorEditorView, replayOverlay );
                 const DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
                 if ( !imguiResult.status.ok )
                 {

@@ -1351,6 +1351,9 @@
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>
       </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h">
+        <Filter>Header Files\Runtime\Editor</Filter>
+      </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>
       </ClInclude>

@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E14 compact Causality and expanded-detail coexistence while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Current objective | Execute ImGui/Tracy E15 bottom replay transport while retaining E14's validated implementation checkpoint and the P1 source checkpoint; both P1 and E14 await exact replay-topology approval. |
 | Active/future progress | 15 / 26 live tasks; 58%. |
-| Last broad local gate | E13 final-source `validate_full` passed 309 cases/21,812 assertions, all coverage floors, Automation/replay, zero-error DX12 comparison, and the byte-exact 44,401-line physics oracle; UI, physics, perf, allocation, Release build/exclusion, focused reducer tests, native Rendering/Audio/Diagnostics command probes, and the 10/10 comment audit also passed. |
-| Validation for current edits | E13 owns canonical Rendering, bounded Audio Authoring, and domain Diagnostics. E14 changes replay-facing Causality presentation and must run UI, replay interaction probes, and exactly one replay visual-fidelity invocation with zero golden refresh. |
+| Last broad local gate | E14 checkpoint `validate_full` passed 310 cases/21,828 assertions, all coverage floors, Automation/replay, zero-error DX12 comparison, and the byte-exact 44,401-line physics oracle; UI, allocation, Release exclusion, native Causality, focused projection, and the 7/7 comment audit also passed. The single replay-fidelity gate is blocked only on owner-gated topology 199 -> 200. |
+| Validation for current edits | E15 is replay-facing and requires UI, replay interaction tests, exactly one replay visual-fidelity invocation, and full with zero golden refresh. E14 remains unchecked until the shared topology approval resolves its sole gate mismatch. |
 
 ## Live Queue
 
@@ -24,7 +24,9 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E14 (14/18). E0 froze the complete
+     direction, ImGui/Tracy remains 14/18: E14 implementation and independent
+     validation are complete but acceptance is blocked on the same topology
+     approval; E15 is active. E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -85,6 +87,13 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      probes plus UI, physics, full, perf, allocation, Release, focused reducer,
      and 10/10 comment-audit gates passed with no authored-data, baseline, or
      golden change. Evidence:
+     E14 added one bounded compact Causality projection over the shared replay
+     publication plus a separately dockable, virtualized full-detail table.
+     Native compact/detail captures, 1 focused case/16 assertions, UI/full,
+     allocation, Release exclusion, and the 7/7 comment audit passed with no
+     authored-data or golden change. Its single replay-fidelity invocation
+     passed launcher/control proof and reached only the owner-gated topology
+     `199 -> 200`, so E14 remains unchecked while E15 proceeds. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
@@ -100,6 +109,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      `Agentic/Reports/2026-07-19/imgui-tracy-e11-game-viewport.md` and
      `Agentic/Reports/2026-07-19/imgui-tracy-e12-inspector-world.md`.
      `Agentic/Reports/2026-07-19/imgui-tracy-e13-render-audio-diagnostics.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e14-causality.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -526,15 +536,20 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
 
 ## Next Handoff
 
-Continue with ImGui/Tracy E14. Keep Causality compact in the right rail by
-default: selected object, replay tick, immediate cause/effect summary,
-prediction state, and a bounded relevant-link list. Preserve the full causal
-tree and all existing queries behind a separately dockable expanded/detail
-view without deleting the legacy rendering or data path. Update context from
-selection/tick changes without unbounded per-frame scans or allocations, and
-make empty, stale, truncated, and capacity-limited states explicit. Run
-`tools\validate_ui.bat`, replay interaction probes, and exactly one
-`tools\validate_replay_visual_fidelity.bat` invocation with zero golden refresh.
+Continue with ImGui/Tracy E15. Keep the replay transport permanently docked
+below the viewport and route record/stop, start/end, play/pause, step,
+scrubbing, speed, prediction, selected-cause, and return-to-live workflows
+through existing Replay owners. Preserve core transport and the scrubber at
+1280 x 720 by collapsing labels and secondary popovers first. Make recording,
+pending prediction, missing artifact, clamped scrub, world/selection changes,
+and recoverable errors explicit. Run `tools\validate_ui.bat`, replay
+interaction tests, exactly one `tools\validate_replay_visual_fidelity.bat`, and
+`tools\validate_full.bat` with zero golden refresh.
+
+E14's implementation checkpoint is retained and validated, but its checkbox
+remains open because its single replay-fidelity invocation reached the same
+owner-gated `causal.topologyCount: 199 -> 200` transition as P1. Do not refresh
+that golden; E15 continues under the owner's blocker policy.
 
 Physics P1 remains blocked only on exact owner authority for the one-process
 replay `causal.topologyCount: 199 -> 200` golden transition and the mechanically

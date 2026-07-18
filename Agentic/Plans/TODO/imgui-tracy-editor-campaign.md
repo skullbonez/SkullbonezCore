@@ -1,8 +1,8 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 14/18 tasks (E0-E13 complete; E14 next) under the owner's
-continue-on-blocker direction while physics P1 awaits two explicit
-transition-artifact approvals
+Status: Active — 14/18 tasks (E0-E13 complete; E14 implementation and all
+independent gates complete but acceptance blocked on the P1 replay-topology
+approval; E15 next) under the owner's continue-on-blocker direction
 Owner direction: 2026-07-18
 Ledger: E0-E17 (14/18 complete)
 
@@ -482,6 +482,16 @@ It does **not** authorize removal from the legacy UI.
   - Gates: `tools\validate_ui.bat`,
     `tools\validate_replay_visual_fidelity.bat` once in the task invocation,
     and replay interaction probes; zero golden refresh.
+  - Checkpoint evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e14-causality.md` records the compact
+    fixed-bound projection, virtualized dockable detail, shared replay-owned
+    publication, explicit edge states, native screenshots, 1 focused case/16
+    assertions, 7/7 comment audit, UI/full/allocation/Release proof, and zero
+    authored-data or golden change. The single replay-fidelity invocation
+    passed its launcher and 16 control cases/72 assertions, then reached only
+    Physics P1's already-owner-gated `causal.topologyCount: 199 -> 200`
+    transition. E14 therefore remains unchecked while E15 proceeds under the
+    owner's continue-on-blocker direction.
 
 - [ ] E15 — Anchor the complete replay workflow across the bottom.
   - Provide record/stop, jump start/end, play/pause, step backward/forward,

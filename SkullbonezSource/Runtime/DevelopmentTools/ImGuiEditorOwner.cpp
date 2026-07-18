@@ -19,6 +19,8 @@ Glossary:
     changes, avoiding cumulative rounding drift.
   Preview/commit edit: Scalar drag state rendered locally while active, followed
     by one typed owner command when the item deactivates after an edit.
+  Causality detail: Dockable, virtualized view of replay-owned immutable rows;
+    local table selection never mutates replay focus or serialized state.
 
 Invariants:
   - All vendor allocation and deallocation callbacks retain DearImGui owner
@@ -32,8 +34,10 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/RunFrame.cpp
   - ThirdPtySource/imgui/imgui.h
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E14)
 */
 #include "ImGuiEditorOwner.h"
+#include "ImGuiEditorCausalityProjection.h"
 
 #include "../Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
@@ -684,6 +688,7 @@ void ImGuiEditorOwner::ResetDefaultPanelVisibility() noexcept
     m_showRenderingAudio = true;
     m_showDiagnostics = true;
     m_showCausality = true;
+    m_showCausalityDetail = false;
     m_showReplay = true;
     m_showStatus = true;
 }
@@ -755,13 +760,15 @@ void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width,
             envelope.statusHeight );
 }
 
-void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view )
+void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view,
+                                         const ReplayOverlay::ReplayOverlayStateView& replay )
 {
     if ( !m_frameActive )
     {
         return;
     }
     m_sharedViewFingerprint = UI::FingerprintOperatorEditorFrameView( view );
+    const ImGuiEditorCausalityContext causality = BuildImGuiEditorCausalityContext( replay );
 
     const auto submit = [&]( auto& queue, const auto& command )
     {
@@ -1052,6 +1059,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::MenuItem( "Rendering / Audio", nullptr, &m_showRenderingAudio );
             ImGui::MenuItem( "Diagnostics", nullptr, &m_showDiagnostics );
             ImGui::MenuItem( "Causality", nullptr, &m_showCausality );
+            ImGui::MenuItem( "Causality Detail", nullptr, &m_showCausalityDetail );
             ImGui::MenuItem( ImGuiEditorPanel::Replay, nullptr, &m_showReplay );
             ImGui::MenuItem( ImGuiEditorPanel::Status, nullptr, &m_showStatus );
             ImGui::Separator();
@@ -2530,8 +2538,195 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     {
         if ( ImGui::Begin( ImGuiEditorPanel::Causality, &m_showCausality ) )
         {
-            ImGui::TextDisabled( "Compact contextual summary" );
-            ImGui::TextDisabled( "Full cause detail arrives in E14" );
+            ImGui::Text( "Context: %s", ImGuiEditorCausalityStateName( causality.state ) );
+            ImGui::SameLine();
+            if ( ImGui::SmallButton( "Open Detail" ) )
+            {
+                m_showCausalityDetail = true;
+            }
+
+            if ( causality.hasReplayTick )
+            {
+                ImGui::Text( "Replay tick %llu | prediction %s",
+                             static_cast<unsigned long long>( causality.replayTick ),
+                             ImGuiEditorPredictionStateName( causality.predictionState ) );
+            }
+            else
+            {
+                ImGui::Text( "Replay tick -- | prediction %s",
+                             ImGuiEditorPredictionStateName( causality.predictionState ) );
+            }
+
+            if ( causality.selectedObjectRow )
+            {
+                ImGui::SeparatorText( "Selected object" );
+                ImGui::Text( "%s  [body %u]",
+                             causality.selectedObjectRow->name,
+                             causality.selectedObjectRow->id.value );
+                ImGui::TextWrapped( "%s", causality.selectedObjectRow->detail );
+
+                ImGui::SeparatorText( "Immediate cause / effect" );
+                if ( causality.immediateCauseRow )
+                {
+                    ImGui::Text( "Cause: %s", causality.immediateCauseRow->name );
+                }
+                else
+                {
+                    ImGui::TextDisabled( "Cause: root or retained live state" );
+                }
+                if ( causality.selectedRow )
+                {
+                    ImGui::Text( "Effect: %s", causality.selectedRow->name );
+                    if ( causality.selectedRow->detail[0] != '\0' )
+                    {
+                        ImGui::TextWrapped( "%s", causality.selectedRow->detail );
+                    }
+                }
+
+                ImGui::SeparatorText( "Relevant links" );
+                for ( std::size_t index = 0u; index < causality.relevantLinkCount; ++index )
+                {
+                    const RunReplayCauseTreeRow& row = *causality.relevantLinks[index];
+                    ImGui::BulletText( "%s: %s", ImGuiEditorCauseRowKindName( row.kind ), row.name );
+                }
+                if ( causality.compactScanTruncated )
+                {
+                    ImGui::TextDisabled( "Bounded compact list; open detail for all %zu rows.",
+                                         causality.totalRowCount );
+                }
+            }
+            else if ( causality.state == ImGuiEditorCausalityState::CapacityLimited )
+            {
+                ImGui::TextWrapped( "The replay explanation exceeded its pre-reserved row capacity. "
+                                    "The legacy overlay and editor both fail closed; reduce scene/contact scope." );
+            }
+            else if ( causality.state == ImGuiEditorCausalityState::Stale )
+            {
+                ImGui::TextWrapped( "The prior causal focus no longer resolves at this replay tick." );
+            }
+            else
+            {
+                ImGui::TextDisabled( "Select a replay path target to inspect causes and effects." );
+            }
+        }
+        ImGui::End();
+    }
+
+    if ( m_showCausalityDetail )
+    {
+        ImGui::SetNextWindowSize( ImVec2( 760.0f, 520.0f ), ImGuiCond_FirstUseEver );
+        if ( ImGui::Begin( ImGuiEditorPanel::CausalityDetail, &m_showCausalityDetail ) )
+        {
+            const RunReplayCauseTreeState& tree = replay.causeTree;
+            ImGui::Text( "%zu published rows | %s | prediction %s",
+                         tree.rows.size(),
+                         ImGuiEditorCausalityStateName( causality.state ),
+                         ImGuiEditorPredictionStateName( causality.predictionState ) );
+            ImGui::TextDisabled( "Borrowed replay rows; no second tree, full-tree rescan, or scene serialization." );
+
+            if ( m_causalityDetailSelectedRow < 0 ||
+                 m_causalityDetailSelectedRow >= static_cast<int>( tree.rows.size() ) )
+            {
+                m_causalityDetailSelectedRow = causality.selectedRowIndex;
+            }
+
+            const float detailHeight = m_causalityDetailSelectedRow >= 0 ? 250.0f : -1.0f;
+            if ( ImGui::BeginTable( "##CausalityRows",
+                                    6,
+                                    ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY |
+                                        ImGuiTableFlags_Resizable,
+                                    ImVec2( 0.0f, detailHeight ) ) )
+            {
+                ImGui::TableSetupScrollFreeze( 0, 1 );
+                ImGui::TableSetupColumn( "#", ImGuiTableColumnFlags_WidthFixed, 42.0f );
+                ImGui::TableSetupColumn( "Kind", ImGuiTableColumnFlags_WidthFixed, 108.0f );
+                ImGui::TableSetupColumn( "Object", ImGuiTableColumnFlags_WidthStretch, 0.23f );
+                ImGui::TableSetupColumn( "Parent", ImGuiTableColumnFlags_WidthFixed, 62.0f );
+                ImGui::TableSetupColumn( "First tick", ImGuiTableColumnFlags_WidthFixed, 82.0f );
+                ImGui::TableSetupColumn( "Detail", ImGuiTableColumnFlags_WidthStretch, 0.77f );
+                ImGui::TableHeadersRow();
+
+                // Invariant: the detail panel virtualizes the owner-published
+                // rows. Large cause trees cost only the visible table slice and
+                // never allocate or copy a replacement hierarchy.
+                ImGuiListClipper clipper;
+                clipper.Begin( static_cast<int>( tree.rows.size() ) );
+                while ( clipper.Step() )
+                {
+                    for ( int rowIndex = clipper.DisplayStart; rowIndex < clipper.DisplayEnd; ++rowIndex )
+                    {
+                        const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( rowIndex )];
+                        ImGui::PushID( rowIndex );
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex( 0 );
+                        char rowLabel[24] = {};
+                        sprintf_s( rowLabel, "%d", rowIndex );
+                        if ( ImGui::Selectable( rowLabel,
+                                                rowIndex == m_causalityDetailSelectedRow,
+                                                ImGuiSelectableFlags_SpanAllColumns ) )
+                        {
+                            m_causalityDetailSelectedRow = rowIndex;
+                        }
+                        ImGui::TableSetColumnIndex( 1 );
+                        ImGui::TextUnformatted( ImGuiEditorCauseRowKindName( row.kind ) );
+                        ImGui::TableSetColumnIndex( 2 );
+                        ImGui::Indent( static_cast<float>( (std::max)( 0, row.depth ) ) * 10.0f );
+                        ImGui::TextUnformatted( row.name );
+                        ImGui::Unindent( static_cast<float>( (std::max)( 0, row.depth ) ) * 10.0f );
+                        ImGui::TableSetColumnIndex( 3 );
+                        ImGui::Text( "%u", row.parentId.value );
+                        ImGui::TableSetColumnIndex( 4 );
+                        ImGui::Text( "%llu", static_cast<unsigned long long>( row.firstFrame ) );
+                        ImGui::TableSetColumnIndex( 5 );
+                        ImGui::TextUnformatted( row.detail );
+                        ImGui::PopID();
+                    }
+                }
+                ImGui::EndTable();
+            }
+
+            if ( m_causalityDetailSelectedRow >= 0 &&
+                 m_causalityDetailSelectedRow < static_cast<int>( tree.rows.size() ) )
+            {
+                const RunReplayCauseTreeRow& row = tree.rows[static_cast<std::size_t>( m_causalityDetailSelectedRow )];
+                ImGui::SeparatorText( "Selected row detail" );
+                ImGui::Text( "%s | body %u | parent %u | counterpart %u | depth %d",
+                             ImGuiEditorCauseRowKindName( row.kind ),
+                             row.id.value,
+                             row.parentId.value,
+                             row.counterpartId.value,
+                             row.depth );
+                ImGui::TextWrapped( "%s — %s", row.name, row.detail );
+                ImGui::Text( "model %d / counterpart %d | contact %d | solver %d | pipeline %d | feature %d",
+                             row.modelRow.value,
+                             row.counterpartModelRow.value,
+                             row.contactIndex,
+                             row.solverRowIndex,
+                             row.pipelineIndex,
+                             row.featureId );
+                ImGui::Text( "points %d | penetration %.4f | normal %.4f | tangent %.4f | warm %.4f",
+                             row.manifoldPointCount,
+                             row.penetration,
+                             row.normalImpulse,
+                             row.tangentImpulse,
+                             row.warmStartImpulse );
+                ImGui::Text( "bias %.4f | effective mass %.4f | friction limit %.4f | %s%s",
+                             row.bias,
+                             row.effectiveMass,
+                             row.frictionLimit,
+                             row.prediction ? "prediction " : "",
+                             row.terrain ? "terrain" : ( row.warmStarted ? "warm-started" : "" ) );
+                ImGui::Text( "point %.3f %.3f %.3f | normal %.3f %.3f %.3f | impulse %.3f %.3f %.3f",
+                             row.point.x,
+                             row.point.y,
+                             row.point.z,
+                             row.normal.x,
+                             row.normal.y,
+                             row.normal.z,
+                             row.impulse.x,
+                             row.impulse.y,
+                             row.impulse.z );
+            }
         }
         ImGui::End();
     }

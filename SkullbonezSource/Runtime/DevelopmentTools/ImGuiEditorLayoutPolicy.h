@@ -16,6 +16,8 @@ Glossary:
   Topology fingerprint: FNV-1a hash of the versioned stable region/panel order.
   Game viewport rect: Letterboxed image rectangle plus the source render extent
     used by picking, placement, and gizmo coordinate mapping.
+  Detail panel: Stable, normally closed window identity that can float or dock
+    without changing the default topology descriptor.
 
 Invariants:
   - The viewport receives all width left after bounded editor and utility rails.
@@ -27,7 +29,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E9)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E9, E14)
 */
 #pragma once
 
@@ -54,6 +56,7 @@ inline constexpr const char* WorldSimulation = "World / Simulation";
 inline constexpr const char* RenderingAudio = "Render###SkoreRenderAudio";
 inline constexpr const char* Diagnostics = "Diag###SkoreDiagnostics";
 inline constexpr const char* Causality = "Cause###SkoreCausality";
+inline constexpr const char* CausalityDetail = "Cause Detail###SkoreCausalityDetail";
 inline constexpr const char* Replay = "Replay";
 inline constexpr const char* Status = "Status";
 } // namespace ImGuiEditorPanel

@@ -26,18 +26,22 @@ Invariants:
     schema before rewriting any bytes.
   - Shared editor views fingerprint semantic fields rather than object padding.
   - The versioned editor topology is identical at minimum, 16:9, and ultrawide sizes.
+  - Compact causality reads only a bounded neighborhood of replay-owned rows and
+    reports empty, stale, truncated, and capacity-limited states separately.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
   - SkullbonezSource/Runtime/RenderDefaultsStore.h
   - SkullbonezSource/UI/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/CaptureController.h"
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
@@ -1165,6 +1169,83 @@ TEST_CASE( "Editor dock envelope preserves viewport across supported aspect rati
     CHECK( std::strcmp( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR,
                         "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
                         "right:inspector,world,render-audio,diagnostics,causality" ) == 0 );
+}
+
+TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+
+    ReplayScrubberView scrubber;
+    ReplayPredictionPresentationView prediction;
+    RunReplayPathVisualizerState path;
+    RunReplayVelocityEditState velocity;
+    RunReplayCauseTreeState tree;
+    ReplayRecorderStats solverStats;
+    ReplayOverlayStateView replay{ scrubber, prediction, path, velocity, tree, solverStats };
+
+    ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::Empty );
+    CHECK( context.relevantLinkCount == 0u );
+
+    path.hasTarget = true;
+    path.targetId.value = 17u;
+    context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::CapacityLimited );
+
+    tree.rows.reserve( 32u );
+    tree.focusedId.value = 17u;
+    context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::Stale );
+
+    RunReplayCauseTreeRow root;
+    root.id.value = 7u;
+    strcpy_s( root.name, "Root crate" );
+    strcpy_s( root.detail, "retained root state" );
+    tree.rows.push_back( root );
+
+    RunReplayCauseTreeRow child;
+    child.id.value = 17u;
+    child.parentId.value = 7u;
+    child.firstFrame = 41u;
+    child.depth = 1;
+    strcpy_s( child.name, "Affected sphere" );
+    strcpy_s( child.detail, "first affected frame 41" );
+    tree.rows.push_back( child );
+    tree.selectedRow = 1;
+
+    ReplaySolverFrameSample selectedSolver;
+    selectedSolver.frameIndex = 42u;
+    replay.selectedSolver = &selectedSolver;
+    replay.prediction.enabled = true;
+    replay.prediction.building = true;
+    replay.prediction.targetId.value = 17u;
+
+    context = BuildImGuiEditorCausalityContext( replay );
+    REQUIRE( context.selectedObjectRow != nullptr );
+    REQUIRE( context.immediateCauseRow != nullptr );
+    CHECK( context.state == ImGuiEditorCausalityState::Ready );
+    CHECK( context.selectedObjectRow->id.value == 17u );
+    CHECK( context.immediateCauseRow->id.value == 7u );
+    CHECK( context.hasReplayTick );
+    CHECK( context.replayTick == 42u );
+    CHECK( context.predictionState == ImGuiEditorPredictionState::Building );
+
+    for ( int index = 0; index < 12; ++index )
+    {
+        RunReplayCauseTreeRow detail;
+        detail.kind = RunReplayCauseTreeRowKind::SolverRow;
+        detail.id.value = 17u;
+        detail.parentId.value = 7u;
+        detail.depth = 2;
+        sprintf_s( detail.name, "Solver row %d", index );
+        tree.rows.push_back( detail );
+    }
+    context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::Truncated );
+    CHECK( context.relevantLinkCount == IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY );
+    CHECK( context.compactScanTruncated );
+    CHECK( context.totalRowCount == 14u );
 }
 
 TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )

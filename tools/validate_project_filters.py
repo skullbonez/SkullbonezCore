@@ -444,6 +444,7 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
     "EditorOverlayTools",
     "EditorHullAssets",
+    "ImGuiEditorCausalityProjection",
     "ImGuiEditorLayoutPolicy",
     "LauncherLaser",
     "LauncherTools",

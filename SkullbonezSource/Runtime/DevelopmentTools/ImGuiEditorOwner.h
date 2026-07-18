@@ -7,8 +7,9 @@ Summary:
   ImGuiEditorOwner owns the CPU-side ImGui context, style, fonts, persisted
   layout identity, deterministic dock shell, viewport presentation geometry,
   visibility, and balanced frame begin/end calls. Runtime supplies immutable
-  window and shared domain-view facts and receives typed command/input values;
-  scene, replay, rendering, physics, audio, and editor state never enter this owner.
+  window, shared domain facts, and a frame-local replay publication and receives
+  typed command/input values; mutable scene, replay, rendering, physics, audio,
+  and editor owners never enter this presentation owner.
 
 Glossary:
   Editor frame input: Value-only display facts borrowed for one synchronous
@@ -23,6 +24,8 @@ Glossary:
     frame to map Win32 client pixels back to the captured render extent.
   Property preview: One active ImGui scalar value kept inside presentation until
     release commits one typed command to the established runtime owner path.
+  Causality publication: Immutable replay rows borrowed for one frame; the
+    compact and detail panels may retain only local row indices and visibility.
 
 Invariants:
   - This source is compiled only with SKULLBONEZ_DEVELOPMENT_TOOLS.
@@ -35,7 +38,7 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E12)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E14)
 */
 #pragma once
 
@@ -52,6 +55,11 @@ struct ImGuiContext;
 namespace SkullbonezCore::Rendering
 {
 class Dx12ImGuiRendererOwner;
+}
+
+namespace SkullbonezCore::Runtime::ReplayOverlay
+{
+struct ReplayOverlayStateView;
 }
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
@@ -182,7 +190,8 @@ class ImGuiEditorOwner
     void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
-    void BuildEditorShell( const UI::OperatorEditorFrameView& view );
+    void BuildEditorShell( const UI::OperatorEditorFrameView& view,
+                           const ReplayOverlay::ReplayOverlayStateView& replay );
     ImGuiEditorFrameResult EndFrame();
     ImGuiEditorStatus CopyStatus() const noexcept;
 
@@ -221,6 +230,9 @@ class ImGuiEditorOwner
     bool m_showRenderingAudio = true;
     bool m_showDiagnostics = true;
     bool m_showCausality = true;
+    // Invariant: detail visibility and its row index are presentation-only;
+    // neither value selects a replay row or enters authored serialization.
+    bool m_showCausalityDetail = false;
     bool m_showReplay = true;
     bool m_showStatus = true;
     bool m_tracyViewerAvailable = false;
@@ -239,6 +251,7 @@ class ImGuiEditorOwner
     int m_audioSetIndex = 0;
     int m_audioBandIndex = 0;
     int m_audioSampleIndex = 0;
+    int m_causalityDetailSelectedRow = -1;
     bool m_focusSceneCreate = false;
     bool m_focusSceneFilter = false;
     ImGuiEditorCommands m_frameCommands;

@@ -524,6 +524,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h" />
       <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h" />
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h" />

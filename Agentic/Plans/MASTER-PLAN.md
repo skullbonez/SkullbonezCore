@@ -196,8 +196,11 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E14 under the owner's
-direction to note genuine blockers and continue. E0 completed the full legacy
+`imgui-tracy-editor-campaign` (E0-E17) remains 14/18: E14's implementation and
+all independent validation are complete, but its single replay-fidelity gate
+is blocked on the same P1 `causal.topologyCount: 199 -> 200` owner approval.
+E15 is the active implementation task under the owner's direction to note
+genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
 contract. E1 pinned Dear ImGui docking and Tracy as exact licensed gitlinks,
@@ -274,6 +277,14 @@ reducer tests, the 10/10 comment audit, and cumulative UI/physics/full/perf,
 allocation, and Release gates passed without an authored-data, baseline, or
 golden change. Generic profiling remains in Tracy and E13 touched no render
 backend or shader source.
+E14's validated checkpoint projects one bounded compact cause summary from the
+existing immutable replay publication and exposes every existing row through a
+separate virtualized dockable detail window. Native compact/detail captures,
+1 focused case/16 assertions, a 7/7 comment audit, UI/full/allocation/Release
+proof, and the replay interaction path passed without authored-data or golden
+changes. Its mandatory single replay-fidelity invocation passed launcher and
+control proofs, then stopped only at the owner-gated topology `199 -> 200`;
+E14 remains unchecked and E15 proceeds.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
@@ -889,7 +900,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E14 | 14/18 | Reduce Causality to a useful contextual right-side tool |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E15; E14 gate-blocked | 14/18 | Anchor the complete replay workflow across the bottom while retaining E14's validated checkpoint |
 
 ## Features
 
