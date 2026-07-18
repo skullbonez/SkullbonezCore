@@ -324,6 +324,7 @@ void ImGuiEditorOwner::Shutdown() noexcept
     m_visible = false;
     m_gameViewportHovered = false;
     m_gameViewportFocused = false;
+    m_gameViewportRect = {};
     m_nativePointerStateTouched = false;
     m_lastPlatformMouseCursor = -2;
     m_appliedDpiScale = 0.0f;
@@ -363,6 +364,7 @@ void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
     {
         m_gameViewportHovered = false;
         m_gameViewportFocused = false;
+        m_gameViewportRect = {};
     }
 }
 
@@ -398,6 +400,20 @@ UI::OperatorEditorCommandQueues ImGuiEditorOwner::ConsumeOperatorEditorCommands(
     const UI::OperatorEditorCommandQueues commands = m_pendingOperatorEditorCommands;
     m_pendingOperatorEditorCommands = {};
     return commands;
+}
+
+SkullbonezCore::Core::SbResult ImGuiEditorOwner::CaptureGameViewport()
+{
+    if ( !m_visible )
+    {
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+    if ( !m_renderer )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
+                                                        "Visible game viewport has no DX12 renderer owner" );
+    }
+    return m_renderer->CaptureGameViewport();
 }
 
 ImGuiEditorNativeMessageRoute
@@ -485,6 +501,7 @@ ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
 {
     ImGuiEditorInputFrameState state;
     state.capture = CopyInputCapture();
+    state.gameViewport = m_gameViewportRect;
     state.nativePointerStateTouched = m_nativePointerStateTouched;
     m_nativePointerStateTouched = false;
     return state;
@@ -492,9 +509,8 @@ ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
 
 void ImGuiEditorOwner::SetGameViewportInputState( bool hovered, bool focused ) noexcept
 {
-    // Concept: E10 will publish the central image item's hover/focus result
-    // through this value seam. E7 establishes the policy now so later panels do
-    // not invent a second input path or special-case gameplay callbacks.
+    // Concept: the fitted E11 image item publishes hover/focus through the E7
+    // policy seam; gameplay callbacks never learn about ImGui windows.
     m_gameViewportHovered = m_visible && hovered;
     m_gameViewportFocused = m_visible && focused;
 }
@@ -682,11 +698,13 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         return;
     }
 
+    bool selectedEntityVisible = false;
     bool selectedEntityLocked = false;
     for ( uint32_t index = 0u; index < view.hierarchy.rowCount; ++index )
     {
         if ( view.hierarchy.rows[index].sceneObjectId == view.hierarchy.selectedSceneObjectId )
         {
+            selectedEntityVisible = view.hierarchy.rows[index].visible;
             selectedEntityLocked = view.hierarchy.rows[index].locked;
             break;
         }
@@ -1185,34 +1203,118 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
 
     bool gameViewportHovered = false;
     bool gameViewportFocused = false;
+    m_gameViewportRect = {};
     if ( m_showGameViewport )
     {
         if ( ImGui::Begin( ImGuiEditorPanel::GameViewport, &m_showGameViewport ) )
         {
-            gameViewportHovered = ImGui::IsWindowHovered( ImGuiHoveredFlags_RootAndChildWindows );
             gameViewportFocused = ImGui::IsWindowFocused( ImGuiFocusedFlags_RootAndChildWindows );
-            const ImVec2 available = ImGui::GetContentRegionAvail();
-            const ImVec2 dropOrigin = ImGui::GetCursorScreenPos();
-            ImGui::InvisibleButton( "##GameViewportDropSurface", available );
-            if ( ImGui::BeginDragDropTarget() )
+            ImGui::TextDisabled( "Camera" );
+            ImGui::SameLine();
+            ImGui::TextUnformatted( view.viewport.cameraModeLabel ? view.viewport.cameraModeLabel : "unknown" );
+            ImGui::SameLine();
+            ImGui::TextDisabled( "| Gizmo" );
+            ImGui::SameLine();
+            ImGui::TextUnformatted( view.viewport.gizmoModeLabel ? view.viewport.gizmoModeLabel : "translate" );
+            ImGui::SameLine();
+            ImGui::TextDisabled( "| Snap free" );
+            ImGui::SameLine();
+            if ( ImGui::SmallButton( view.rendering.vsyncEnabled ? "VSync on" : "VSync off" ) )
             {
-                if ( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SKORE_ASSET_OBJECT_TYPE" ) )
-                {
-                    if ( payload->DataSize == sizeof( int ) )
-                    {
-                        submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType,
-                                    0u,
-                                    *static_cast<const int*>( payload->Data ) );
-                    }
-                }
-                ImGui::EndDragDropTarget();
+                submit( m_frameCommands.operatorEditor.rendering,
+                        UI::OperatorEditorRenderingCommand{ UI::OperatorEditorRenderingCommandType::ToggleVsync } );
             }
-            ImGui::GetWindowDrawList()->AddText( ImVec2( dropOrigin.x + 18.0f, dropOrigin.y + 18.0f ),
-                                                 ImGui::GetColorU32( ImGuiCol_TextDisabled ),
-                                                 "GAME VIEWPORT | drop assets here" );
-            ImGui::GetWindowDrawList()->AddText( ImVec2( dropOrigin.x + 18.0f, dropOrigin.y + 40.0f ),
-                                                 ImGui::GetColorU32( ImGuiCol_TextDisabled ),
-                                                 "DX12 image, picking, gizmos, and DPI mapping arrive in E11" );
+            ImGui::SameLine();
+            ImGui::BeginDisabled();
+            ImGui::SmallButton( "Pop-out: single window" );
+            ImGui::EndDisabled();
+            DrawDisabledReason( "Native platform viewports remain disabled by the campaign's single-window policy" );
+
+            const ImVec2 available = ImGui::GetContentRegionAvail();
+            const ImVec2 availableMin = ImGui::GetCursorScreenPos();
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            drawList->AddRectFilled( availableMin,
+                                     ImVec2( availableMin.x + available.x, availableMin.y + available.y ),
+                                     IM_COL32( 8, 10, 14, 255 ) );
+            const uint64_t textureId = m_renderer ? m_renderer->GameViewportTextureId() : 0u;
+            const int sourceWidth = m_renderer ? m_renderer->GameViewportWidth() : 0;
+            const int sourceHeight = m_renderer ? m_renderer->GameViewportHeight() : 0;
+            // Why: fitting the persistent full-client copy here keeps dock
+            // movement CPU-only. Picking receives the same value rectangle, so
+            // image pixels, world outlines, placement previews, and input agree.
+            m_gameViewportRect = ResolveImGuiGameViewportRect( availableMin.x,
+                                                               availableMin.y,
+                                                               available.x,
+                                                               available.y,
+                                                               sourceWidth,
+                                                               sourceHeight,
+                                                               m_frameInput.dpiScale );
+            if ( textureId != 0u && m_gameViewportRect.valid )
+            {
+                // Lifetime: textureId names the owner's stable descriptor row;
+                // the resource behind it may change only after a drained
+                // swap-chain resize, never while this draw list is in flight.
+                const ImVec2 imageMin( m_gameViewportRect.imageMinX, m_gameViewportRect.imageMinY );
+                const ImVec2 imageMax( imageMin.x + m_gameViewportRect.imageWidth,
+                                       imageMin.y + m_gameViewportRect.imageHeight );
+                ImGui::SetCursorScreenPos( imageMin );
+                ImGui::InvisibleButton( "##GameViewportImage",
+                                        ImVec2( m_gameViewportRect.imageWidth, m_gameViewportRect.imageHeight ) );
+                gameViewportHovered = ImGui::IsItemHovered();
+                drawList->AddImage( ImTextureRef( static_cast<ImTextureID>( textureId ) ), imageMin, imageMax );
+                if ( ImGui::BeginDragDropTarget() )
+                {
+                    if ( const ImGuiPayload* payload = ImGui::AcceptDragDropPayload( "SKORE_ASSET_OBJECT_TYPE" ) )
+                    {
+                        if ( payload->DataSize == sizeof( int ) )
+                        {
+                            submitTool( UI::OperatorEditorToolCommandType::SetPlacementObjectType,
+                                        0u,
+                                        *static_cast<const int*>( payload->Data ) );
+                        }
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+                char selectionOverlay[160] = {};
+                if ( view.hierarchy.selectedSceneObjectId != 0u )
+                {
+                    snprintf( selectionOverlay,
+                              sizeof( selectionOverlay ),
+                              "Selection #%u | %s | %s",
+                              view.hierarchy.selectedSceneObjectId,
+                              selectedEntityVisible ? "visible" : "hidden",
+                              selectedEntityLocked ? "locked" : "editable" );
+                }
+                else
+                {
+                    snprintf( selectionOverlay, sizeof( selectionOverlay ), "Selection: none" );
+                }
+                char presentationOverlay[192] = {};
+                snprintf( presentationOverlay,
+                          sizeof( presentationOverlay ),
+                          "%dx%d @ %.2fx | %s | interpolation %s alpha %.2f%s",
+                          sourceWidth,
+                          sourceHeight,
+                          m_gameViewportRect.dpiScale,
+                          view.rendering.cinematicRendering ? "cinematic" : "ordinary",
+                          view.rendering.presentationInterpolation ? "on" : "off",
+                          view.rendering.presentationAlpha,
+                          view.viewport.presentationPinned ? " | pinned" : "" );
+                const ImVec2 overlayMin( imageMin.x + 10.0f, imageMin.y + 10.0f );
+                const ImVec2 overlayMax( imageMin.x + 360.0f, imageMin.y + 52.0f );
+                drawList->AddRectFilled( overlayMin, overlayMax, IM_COL32( 12, 15, 20, 210 ), 4.0f );
+                drawList->AddText( ImVec2( overlayMin.x + 8.0f, overlayMin.y + 5.0f ),
+                                   ImGui::GetColorU32( ImGuiCol_Text ),
+                                   selectionOverlay );
+                drawList->AddText( ImVec2( overlayMin.x + 8.0f, overlayMin.y + 23.0f ),
+                                   ImGui::GetColorU32( ImGuiCol_TextDisabled ),
+                                   presentationOverlay );
+            }
+            else
+            {
+                ImGui::SetCursorScreenPos( ImVec2( availableMin.x + 18.0f, availableMin.y + 18.0f ) );
+                ImGui::TextDisabled( "DX12 game viewport image unavailable" );
+            }
         }
         ImGui::End();
     }
@@ -1372,6 +1474,11 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
         status.rendererDescriptorHighWater = rendererStats.descriptorHighWater;
         status.rendererRecordedFrames = rendererStats.recordedFrames;
         status.rendererIndexedDraws = rendererStats.indexedDraws;
+        status.gameViewportCaptures = rendererStats.gameViewportCaptures;
+        status.gameViewportRecreations = rendererStats.gameViewportRecreations;
+        status.gameViewportWidth = rendererStats.gameViewportWidth;
+        status.gameViewportHeight = rendererStats.gameViewportHeight;
+        status.gameViewportAvailable = rendererStats.gameViewportAvailable;
     }
     status.platformMessages = m_platformMessages;
     status.suppressedMouseMessages = m_suppressedMouseMessages;

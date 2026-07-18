@@ -34,7 +34,7 @@ Related:
   - SkullbonezSource/UI/UICommands.h
   - SkullbonezSource/Runtime/InputFrame.cpp
   - SkullbonezSource/Runtime/DevelopmentTools editor owner
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E10)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E8-E11)
 */
 #pragma once
 
@@ -109,6 +109,15 @@ struct OperatorEditorRenderingView
     float presentationAlpha = 1.0f;
 };
 
+struct OperatorEditorViewportView
+{
+    // Lifetime: labels are borrowed from runtime camera/gesture owners for one
+    // synchronous presentation frame.
+    const char* cameraModeLabel = "unknown";
+    const char* gizmoModeLabel = "translate";
+    bool presentationPinned = false;
+};
+
 struct OperatorEditorReplayView
 {
     int memoryPreset = 0;
@@ -143,6 +152,7 @@ struct OperatorEditorFrameView
     OperatorEditorSceneView scene;
     OperatorEditorPropertyView property;
     OperatorEditorRenderingView rendering;
+    OperatorEditorViewportView viewport;
     OperatorEditorReplayView replay;
     OperatorEditorSurfaceView surfaces;
     OperatorEditorToolView tools;

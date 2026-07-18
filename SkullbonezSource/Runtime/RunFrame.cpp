@@ -200,6 +200,24 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                            sharedCinematicRendering,
                                            config.runtimeRender.presentationInterpolation,
                                            facts.presentationAlpha };
+    const char* sharedGizmoMode = "translate";
+    if ( facts.interactionGesture.kind == RuntimeInteractionGestureKind::GizmoDrag )
+    {
+        switch ( facts.interactionGesture.gizmoKind )
+        {
+        case RuntimeGizmoDragKind::Rotate:
+            sharedGizmoMode = "rotate";
+            break;
+        case RuntimeGizmoDragKind::Scale:
+            sharedGizmoMode = "scale";
+            break;
+        case RuntimeGizmoDragKind::Translate:
+        case RuntimeGizmoDragKind::None:
+        default:
+            break;
+        }
+    }
+    facts.operatorEditorView.viewport = { facts.cameraModeLabel, sharedGizmoMode, facts.presentationPinned };
     facts.operatorEditorView.replay = { sharedReplayHud.memoryPreset,
                                         sharedReplayHud.requestedRetentionSeconds,
                                         sharedReplayHud.requestedBudgetMiB,
@@ -705,6 +723,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                          imguiInput.capture.keyboard,
                                                          imguiInput.capture.text,
                                                          imguiInput.nativePointerStateTouched };
+            developmentUiCapture.gameViewportMappingActive = imguiInput.gameViewport.valid;
+            developmentUiCapture.gameViewportMinX = imguiInput.gameViewport.imageMinX;
+            developmentUiCapture.gameViewportMinY = imguiInput.gameViewport.imageMinY;
+            developmentUiCapture.gameViewportWidth = imguiInput.gameViewport.imageWidth;
+            developmentUiCapture.gameViewportHeight = imguiInput.gameViewport.imageHeight;
+            developmentUiCapture.gameViewportDpiScale = imguiInput.gameViewport.dpiScale;
+            developmentUiCapture.gameViewportSourceWidth = imguiInput.gameViewport.sourceWidth;
+            developmentUiCapture.gameViewportSourceHeight = imguiInput.gameViewport.sourceHeight;
             developmentEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
 #endif
             ProcessInputFrame( frameHost,
@@ -820,6 +846,23 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 Render( renderModels, presentationAlpha );
             }
             PROFILE_END( m_profiler, "Frame/Render" );
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            // Invariant: copy the completed world backbuffer before either
+            // operator surface draws. The persistent texture follows only the
+            // swap-chain extent, so dock drags never recreate GPU resources.
+            if ( m_imguiEditor.IsVisible() )
+            {
+                const SkullbonezCore::Core::SbResult viewportCapture = m_imguiEditor.CaptureGameViewport();
+                if ( !viewportCapture.ok )
+                {
+                    m_timers.frameTimer.StopTimer();
+                    PROFILE_FRAME_END( m_profiler );
+                    m_applicationExit.RequestOwnedFailure( viewportCapture );
+                    return m_applicationExit.Resolve( 0 );
+                }
+            }
+#endif
 
             SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )

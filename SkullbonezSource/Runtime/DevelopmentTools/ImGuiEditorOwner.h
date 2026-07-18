@@ -5,10 +5,10 @@ Purpose:
 
 Summary:
   ImGuiEditorOwner owns the CPU-side ImGui context, style, fonts, persisted
-  layout identity, deterministic dock shell, visibility, and balanced frame
-  begin/end calls. Runtime supplies immutable window and shared domain-view
-  facts and receives a typed command packet; scene, replay, rendering, physics,
-  audio, and editor domain state never enter this owner.
+  layout identity, deterministic dock shell, viewport presentation geometry,
+  visibility, and balanced frame begin/end calls. Runtime supplies immutable
+  window and shared domain-view facts and receives typed command/input values;
+  scene, replay, rendering, physics, audio, and editor state never enter this owner.
 
 Glossary:
   Editor frame input: Value-only display facts borrowed for one synchronous
@@ -19,6 +19,8 @@ Glossary:
     incompatible panel topology starts from a clean deterministic namespace.
   Surface preference: Process-lifetime visibility choice kept outside scene and
     replay serialization.
+  Viewport mapping: Last completed fitted image rectangle used by the next input
+    frame to map Win32 client pixels back to the captured render extent.
 
 Invariants:
   - This source is compiled only with SKULLBONEZ_DEVELOPMENT_TOOLS.
@@ -31,7 +33,7 @@ Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E9)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E11)
 */
 #pragma once
 
@@ -94,6 +96,7 @@ struct ImGuiEditorNativeMessageRoute
 struct ImGuiEditorInputFrameState
 {
     ImGuiEditorInputCapture capture;
+    ImGuiGameViewportRect gameViewport;
     bool nativePointerStateTouched = false;
 };
 
@@ -116,6 +119,11 @@ struct ImGuiEditorStatus
     uint32_t rendererDescriptorHighWater = 0u;
     uint64_t rendererRecordedFrames = 0u;
     uint64_t rendererIndexedDraws = 0u;
+    uint64_t gameViewportCaptures = 0u;
+    uint32_t gameViewportRecreations = 0u;
+    int gameViewportWidth = 0;
+    int gameViewportHeight = 0;
+    bool gameViewportAvailable = false;
     uint64_t platformMessages = 0u;
     uint64_t suppressedMouseMessages = 0u;
     uint64_t suppressedKeyboardMessages = 0u;
@@ -145,6 +153,7 @@ class ImGuiEditorOwner
     void SetLegacySurfaceVisible( bool visible ) noexcept;
     bool LegacySurfaceVisible() const noexcept;
     UI::OperatorEditorCommandQueues ConsumeOperatorEditorCommands() noexcept;
+    SkullbonezCore::Core::SbResult CaptureGameViewport();
 
     ImGuiEditorNativeMessageRoute
     HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept;
@@ -172,6 +181,7 @@ class ImGuiEditorOwner
     bool m_platformBackendInitialized = false;
     bool m_gameViewportHovered = false;
     bool m_gameViewportFocused = false;
+    ImGuiGameViewportRect m_gameViewportRect;
     bool m_nativePointerStateTouched = false;
     int m_lastPlatformMouseCursor = -2;
     float m_appliedDpiScale = 0.0f;

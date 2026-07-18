@@ -708,6 +708,7 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     first.scene.dirty = true;
     first.property = { -9.81f, 4.0f, 998.0f };
     first.rendering = { true, true, false, true, 0.5f };
+    first.viewport = { "Inspect", "translate", false };
     first.replay = { 1, 30, 64, 30, 20, false, true };
     first.surfaces = { true, true };
     first.tools = { true, true, false, true, false, true, 3, 2 };
@@ -725,6 +726,10 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
 
     changed = first;
     changed.hierarchy.rows[0].locked = true;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.viewport.gizmoModeLabel = "rotate";
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 }
 
@@ -867,4 +872,43 @@ TEST_CASE( "Editor dock envelope preserves viewport across supported aspect rati
     CHECK( std::strcmp( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR,
                         "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
                         "right:inspector,world,render-audio,diagnostics,causality" ) == 0 );
+}
+
+TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+    const ImGuiGameViewportRect widePane =
+        ResolveImGuiGameViewportRect( 100.0f, 50.0f, 1000.0f, 500.0f, 800, 600, 1.5f );
+    REQUIRE( widePane.valid );
+    CHECK( widePane.letterboxed );
+    CHECK( widePane.imageMinX == doctest::Approx( 266.6667f ) );
+    CHECK( widePane.imageMinY == doctest::Approx( 50.0f ) );
+    CHECK( widePane.imageWidth == doctest::Approx( 666.6667f ) );
+    CHECK( widePane.imageHeight == doctest::Approx( 500.0f ) );
+    CHECK( widePane.dpiScale == doctest::Approx( 1.5f ) );
+
+    int sourceX = -1;
+    int sourceY = -1;
+    CHECK( MapImGuiGameViewportPoint( widePane, 600.0f, 300.0f, sourceX, sourceY ) );
+    CHECK( sourceX == 400 );
+    CHECK( sourceY == 300 );
+    CHECK_FALSE( MapImGuiGameViewportPoint( widePane, 120.0f, 300.0f, sourceX, sourceY ) );
+    CHECK( sourceX == 0 );
+    CHECK( sourceY == 0 );
+
+    const ImGuiGameViewportRect tallPane =
+        ResolveImGuiGameViewportRect( 10.0f, 20.0f, 500.0f, 900.0f, 1920, 1080, 2.0f );
+    REQUIRE( tallPane.valid );
+    CHECK( tallPane.letterboxed );
+    CHECK( tallPane.imageMinX == doctest::Approx( 10.0f ) );
+    CHECK( tallPane.imageMinY == doctest::Approx( 329.375f ) );
+    CHECK( tallPane.imageWidth == doctest::Approx( 500.0f ) );
+    CHECK( tallPane.imageHeight == doctest::Approx( 281.25f ) );
+    CHECK( MapImGuiGameViewportPoint( tallPane, 509.9f, 610.5f, sourceX, sourceY ) );
+    CHECK( sourceX == 1919 );
+    CHECK( sourceY == 1079 );
+
+    const ImGuiGameViewportRect invalid = ResolveImGuiGameViewportRect( 0.0f, 0.0f, 0.0f, 100.0f, 800, 600, 0.0f );
+    CHECK_FALSE( invalid.valid );
+    CHECK( invalid.dpiScale == doctest::Approx( 1.0f ) );
 }

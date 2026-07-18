@@ -241,6 +241,17 @@ struct UiInputCaptureIntent
     bool keyboard = false;
     bool text = false;
     bool nativePointerStateTouched = false;
+    // Value-only fitted image rectangle from an external editor. Input
+    // composition maps the one captured client point through it before any
+    // world pick, placement, camera, or gizmo owner sees coordinates.
+    bool gameViewportMappingActive = false;
+    float gameViewportMinX = 0.0f;
+    float gameViewportMinY = 0.0f;
+    float gameViewportWidth = 0.0f;
+    float gameViewportHeight = 0.0f;
+    float gameViewportDpiScale = 1.0f;
+    int gameViewportSourceWidth = 0;
+    int gameViewportSourceHeight = 0;
 };
 
 

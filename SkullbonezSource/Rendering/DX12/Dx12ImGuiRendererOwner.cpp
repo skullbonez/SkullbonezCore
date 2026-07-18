@@ -5,10 +5,10 @@ Purpose:
 
 Summary:
   The owner gives the pinned ImGui backend one bounded descriptor capability,
-  asks it to build device objects for the current context, then records draw
-  data after world/UI rendering and before Present. The engine frame owner
-  retains command-list and backbuffer transitions; the descriptor owner retains
-  all heap rows; the vendor backend receives no swap-chain authority.
+  copies completed world pixels into one persistent viewport texture, then
+  records draw data after world/UI rendering and before Present. The engine
+  frame owner retains command-list and backbuffer transitions; the descriptor
+  owner retains all heap rows; the vendor backend receives no swap-chain authority.
 
 Glossary:
   Font upload: First-frame texture transfer performed by the pinned backend on
@@ -25,6 +25,7 @@ Invariants:
   - Resize replaces only backbuffers/RTVs; ImGui device resources and its fixed
     descriptor heap survive the resize epoch without stale backbuffer aliases.
   - A failed engine recording epoch prevents any ImGui command emission.
+  - Backbuffer copy transitions restore the exact access observed on entry.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12ImGuiRendererOwner.h
@@ -129,12 +130,143 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::BindContext( ImGuiContext
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
                                                         "Dear ImGui DX12 device-object creation failed" );
     }
+    m_gameViewportDescriptor = m_descriptors.AllocateDevelopmentUi();
 
     const Dx12DevelopmentUiDescriptorStats descriptorStats = m_descriptors.DevelopmentUiStats();
     printf( "[imgui-dx12] Renderer ready frames=%d descriptors=%u/%u.\n",
             Dx12FrameOwner::FRAME_COUNT,
             descriptorStats.used,
             descriptorStats.capacity );
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::EnsureGameViewportTexture( int width, int height )
+{
+    if ( width <= 0 || height <= 0 )
+    {
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+    const uint64_t deviceGeneration = m_device.RecreationGeneration();
+    if ( m_gameViewportTexture && m_gameViewportWidth == width && m_gameViewportHeight == height &&
+         m_gameViewportDeviceGeneration == deviceGeneration )
+    {
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    // Concept: this is a development-only cold resize allocation. The world
+    // render target remains swap-chain sized; dock motion only changes the
+    // fitted rectangle, while this texture changes solely with published output
+    // extent/generation after the renderer's GPU drain.
+    D3D12_HEAP_PROPERTIES heap = {};
+    heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+    heap.CreationNodeMask = 1u;
+    heap.VisibleNodeMask = 1u;
+
+    D3D12_RESOURCE_DESC texture = {};
+    texture.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    texture.Width = static_cast<UINT64>( width );
+    texture.Height = static_cast<UINT>( height );
+    texture.DepthOrArraySize = 1u;
+    texture.MipLevels = 1u;
+    texture.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    texture.SampleDesc.Count = 1u;
+    texture.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    texture.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    ID3D12Resource* candidate = nullptr;
+    const HRESULT createResult = m_device.Device()->CreateCommittedResource( &heap,
+                                                                             D3D12_HEAP_FLAG_NONE,
+                                                                             &texture,
+                                                                             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                                                                             nullptr,
+                                                                             IID_PPV_ARGS( &candidate ) );
+    if ( FAILED( createResult ) || !candidate )
+    {
+        // Lane R: the editor image is optional development presentation, but a
+        // requested visible surface cannot silently display stale pixels.
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12/ImGui",
+            "CreateCommittedResource for the game viewport failed (hr=0x%08X extent=%dx%d)",
+            static_cast<unsigned int>( createResult ),
+            width,
+            height );
+    }
+    candidate->SetName( L"Skore ImGui Game Viewport Copy" );
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+    srv.Format = texture.Format;
+    srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srv.Texture2D.MipLevels = 1u;
+    m_device.Device()->CreateShaderResourceView( candidate, &srv, m_gameViewportDescriptor.cpuHandle );
+
+    // Lifetime: swap-chain extent/generation publication follows a GPU drain.
+    // Reusing the one descriptor row is therefore safe for prior ImGui draws.
+    if ( m_gameViewportTexture )
+    {
+        m_gameViewportTexture->Release();
+    }
+    m_gameViewportTexture = candidate;
+    m_gameViewportWidth = width;
+    m_gameViewportHeight = height;
+    m_gameViewportDeviceGeneration = deviceGeneration;
+    ++m_gameViewportRecreations;
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::CaptureGameViewport()
+{
+    if ( !m_initialized )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12/ImGui",
+                                                        "Game viewport capture has no live renderer binding" );
+    }
+    SkullbonezCore::Core::SbResult result = m_frame.EnsureOpen();
+    if ( !result.ok )
+    {
+        return result;
+    }
+    ID3D12Resource* backbuffer = m_frame.RenderTarget( m_frame.FrameIndex() );
+    ID3D12GraphicsCommandList* commandList = m_frame.CommandList();
+    if ( !backbuffer || !commandList )
+    {
+        return SkullbonezCore::Core::SbResult::Failure(
+            "Rendering/DX12/ImGui",
+            "Game viewport capture has no active backbuffer or command list" );
+    }
+    const D3D12_RESOURCE_DESC backbufferDesc = backbuffer->GetDesc();
+    result = EnsureGameViewportTexture( static_cast<int>( backbufferDesc.Width ),
+                                        static_cast<int>( backbufferDesc.Height ) );
+    if ( !result.ok || !m_gameViewportTexture )
+    {
+        return result;
+    }
+
+    const RenderGraphResourceAccess accessBeforeCopy = m_frame.BackBufferAccess();
+    // Hazard: the copy shares the live graphics command list with world and UI
+    // recording. Both resources must return to their entry/sample states before
+    // subsequent ImGui draw commands are allowed to observe them.
+    if ( !m_frame.TransitionBackbuffer( "DevelopmentViewportCopyBegin", RenderGraphResourceAccess::CopySource ) )
+    {
+        return m_frame.CurrentResult();
+    }
+    D3D12_RESOURCE_BARRIER toCopy = {};
+    toCopy.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    toCopy.Transition.pResource = m_gameViewportTexture;
+    toCopy.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    toCopy.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+    toCopy.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    commandList->ResourceBarrier( 1, &toCopy );
+    commandList->CopyResource( m_gameViewportTexture, backbuffer );
+    D3D12_RESOURCE_BARRIER toSample = toCopy;
+    toSample.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    toSample.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    commandList->ResourceBarrier( 1, &toSample );
+    if ( !m_frame.TransitionBackbuffer( "DevelopmentViewportCopyRestore", accessBeforeCopy ) )
+    {
+        return m_frame.CurrentResult();
+    }
+    ++m_gameViewportCaptures;
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -211,6 +343,19 @@ void Dx12ImGuiRendererOwner::Shutdown( ImGuiContext& context ) noexcept
     }
     ImGui::SetCurrentContext( &context );
     ImGui_ImplDX12_Shutdown();
+    if ( m_gameViewportTexture )
+    {
+        m_gameViewportTexture->Release();
+        m_gameViewportTexture = nullptr;
+    }
+    if ( m_gameViewportDescriptor.cpuHandle.ptr != 0u )
+    {
+        m_descriptors.FreeDevelopmentUi( m_gameViewportDescriptor.cpuHandle, m_gameViewportDescriptor.gpuHandle );
+        m_gameViewportDescriptor = {};
+    }
+    m_gameViewportWidth = 0;
+    m_gameViewportHeight = 0;
+    m_gameViewportDeviceGeneration = 0;
     m_initialized = false;
 
     const Dx12DevelopmentUiDescriptorStats descriptorStats = m_descriptors.DevelopmentUiStats();
@@ -222,9 +367,12 @@ void Dx12ImGuiRendererOwner::Shutdown( ImGuiContext& context ) noexcept
                   descriptorStats.capacity,
                   descriptorStats.highWater );
     }
-    printf( "[imgui-dx12] Renderer shutdown frames=%llu draws=%llu descriptors=%u high_water=%u/%u.\n",
+    printf( "[imgui-dx12] Renderer shutdown frames=%llu draws=%llu viewport_captures=%llu "
+            "viewport_recreates=%u descriptors=%u high_water=%u/%u.\n",
             static_cast<unsigned long long>( m_recordedFrames ),
             static_cast<unsigned long long>( m_indexedDraws ),
+            static_cast<unsigned long long>( m_gameViewportCaptures ),
+            m_gameViewportRecreations,
             descriptorStats.used,
             descriptorStats.highWater,
             descriptorStats.capacity );
@@ -233,6 +381,21 @@ void Dx12ImGuiRendererOwner::Shutdown( ImGuiContext& context ) noexcept
 bool Dx12ImGuiRendererOwner::IsInitialized() const noexcept
 {
     return m_initialized;
+}
+
+uint64_t Dx12ImGuiRendererOwner::GameViewportTextureId() const noexcept
+{
+    return m_gameViewportTexture ? m_gameViewportDescriptor.gpuHandle.ptr : 0u;
+}
+
+int Dx12ImGuiRendererOwner::GameViewportWidth() const noexcept
+{
+    return m_gameViewportWidth;
+}
+
+int Dx12ImGuiRendererOwner::GameViewportHeight() const noexcept
+{
+    return m_gameViewportHeight;
 }
 
 Dx12ImGuiRenderStats Dx12ImGuiRendererOwner::CopyStats() const noexcept
@@ -248,5 +411,10 @@ Dx12ImGuiRenderStats Dx12ImGuiRendererOwner::CopyStats() const noexcept
     stats.indexedDraws = m_indexedDraws;
     stats.vertices = m_vertices;
     stats.indices = m_indices;
+    stats.gameViewportCaptures = m_gameViewportCaptures;
+    stats.gameViewportRecreations = m_gameViewportRecreations;
+    stats.gameViewportWidth = m_gameViewportWidth;
+    stats.gameViewportHeight = m_gameViewportHeight;
+    stats.gameViewportAvailable = m_gameViewportTexture != nullptr;
     return stats;
 }

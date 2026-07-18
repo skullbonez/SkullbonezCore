@@ -5,21 +5,25 @@ Purpose:
 
 Summary:
   A fixed topology descriptor and responsive pixel envelope translate the
-  current dock content size into stable split fractions. The ImGui owner uses
-  the values to build nodes; tests can verify 16:9, ultrawide, and minimum-size
-  behavior without constructing a vendor context.
+  current dock content size into stable split fractions. The same value-only
+  policy fits the captured game image into its central pane and maps pointer
+  pixels back to the source render extent without constructing a vendor context.
 
 Glossary:
   Content envelope: Space below the shell menu and toolbar available to docks.
   Primary region: Editor-left, viewport-center, utility-right, replay-bottom,
     or bottommost status.
   Topology fingerprint: FNV-1a hash of the versioned stable region/panel order.
+  Game viewport rect: Letterboxed image rectangle plus the source render extent
+    used by picking, placement, and gizmo coordinate mapping.
 
 Invariants:
   - The viewport receives all width left after bounded editor and utility rails.
   - Status is split before replay so it remains the bottommost leaf.
   - The descriptor contains no transient node id, pixel size, or pointer.
   - A reset always feeds the same descriptor and split order to DockBuilder.
+  - ImGui and Win32 client coordinates are physical pixels in the single-window
+    backend; DPI scales chrome, but never scales the pointer a second time.
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
@@ -72,6 +76,31 @@ struct ImGuiEditorLayoutEnvelope
     bool preservesCentralViewport = false;
 };
 
+struct ImGuiGameViewportRect
+{
+    float imageMinX = 0.0f;
+    float imageMinY = 0.0f;
+    float imageWidth = 0.0f;
+    float imageHeight = 0.0f;
+    float dpiScale = 1.0f;
+    int sourceWidth = 0;
+    int sourceHeight = 0;
+    bool valid = false;
+    bool letterboxed = false;
+};
+
 ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, int contentHeight ) noexcept;
+ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
+                                                    float availableMinY,
+                                                    float availableWidth,
+                                                    float availableHeight,
+                                                    int sourceWidth,
+                                                    int sourceHeight,
+                                                    float dpiScale ) noexcept;
+bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
+                                float clientX,
+                                float clientY,
+                                int& outSourceX,
+                                int& outSourceY ) noexcept;
 uint64_t FingerprintImGuiEditorDefaultTopology() noexcept;
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

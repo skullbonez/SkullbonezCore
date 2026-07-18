@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 11/18 tasks (E0-E10 complete; E11 next) under the owner's
+Status: Active — 12/18 tasks (E0-E11 complete; E12 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (10/18 complete)
+Ledger: E0-E17 (12/18 complete)
 
 ## Objective
 
@@ -396,7 +396,7 @@ It does **not** authorize removal from the legacy UI.
     audit, UI/DX12/stress/perf/full/allocation/Release gates, and clean shipping
     exclusion with no authored-data, baseline, or golden change.
 
-- [ ] E11 — Make the central game viewport an editor-grade surface.
+- [x] E11 — Make the central game viewport an editor-grade surface.
   - Reserve the central dock node for the game render target and derive its
     content rectangle, aspect handling, DPI mapping, hover/focus, and input
     coordinates explicitly.
@@ -411,6 +411,14 @@ It does **not** authorize removal from the legacy UI.
     behavior and zero DX12 errors.
   - Gates: `tools\validate_ui.bat`, `tools\validate_dx12_renderer.bat`,
     `tools\run_graphics_stress.bat 1`.
+  - Evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e11-game-viewport.md` records the
+    persistent DX12 viewport capture resource, physical-pixel letterbox/input
+    mapping, compact overlay, native selection/placement/resize matrix,
+    18,029-capture lifecycle with exactly two resource recreations and a 2/16
+    descriptor high-water mark, 12/12 comment audit, UI/DX12/stress/perf/full/
+    allocation/Release gates, and clean shipping exclusion with no authored,
+    baseline, or golden change.
 
 - [ ] E12 — Build the right-side Inspector and World/Simulation panels.
   - Inspector is selection-contextual and grouped by Transform, Identity,

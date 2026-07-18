@@ -31,6 +31,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "InputFrame.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorLayoutPolicy.h"
+#endif
 #include "RuntimeOverlayDiagnostics.h"
 #include "RuntimeValidationHarness.h"
 #include "RuntimeStressController.h"
@@ -235,6 +238,36 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         PostQuitMessage( 1 );
         return;
     }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Concept: the last completed UI frame publishes the fitted image value.
+    // Mapping immediately after the sole device sample gives every existing
+    // world interaction owner one coherent source-space point this frame.
+    if ( deviceFrame.hasClientPosition && externalUiCapture.gameViewportMappingActive )
+    {
+        DevelopmentTools::ImGuiGameViewportRect viewport;
+        viewport.imageMinX = externalUiCapture.gameViewportMinX;
+        viewport.imageMinY = externalUiCapture.gameViewportMinY;
+        viewport.imageWidth = externalUiCapture.gameViewportWidth;
+        viewport.imageHeight = externalUiCapture.gameViewportHeight;
+        viewport.dpiScale = externalUiCapture.gameViewportDpiScale;
+        viewport.sourceWidth = externalUiCapture.gameViewportSourceWidth;
+        viewport.sourceHeight = externalUiCapture.gameViewportSourceHeight;
+        viewport.valid = true;
+        int mappedX = 0;
+        int mappedY = 0;
+        if ( DevelopmentTools::MapImGuiGameViewportPoint( viewport,
+                                                          static_cast<float>( deviceFrame.clientX ),
+                                                          static_cast<float>( deviceFrame.clientY ),
+                                                          mappedX,
+                                                          mappedY ) )
+        {
+            // Invariant: every downstream pointer consumer sees the same mapped
+            // source pixel; no tool resamples Win32 coordinates independently.
+            deviceFrame.clientX = mappedX;
+            deviceFrame.clientY = mappedY;
+        }
+    }
+#endif
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
     m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions, externalUiCapture );
     UiInputHitSnapshot preUiPointer;

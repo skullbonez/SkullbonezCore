@@ -669,6 +669,11 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.rendering.cinematicRendering );
     HashValue( hash, view.rendering.presentationInterpolation );
     HashValue( hash, view.rendering.presentationAlpha );
+    const char* cameraModeLabel = view.viewport.cameraModeLabel ? view.viewport.cameraModeLabel : "";
+    const char* gizmoModeLabel = view.viewport.gizmoModeLabel ? view.viewport.gizmoModeLabel : "";
+    HashBytes( hash, cameraModeLabel, std::strlen( cameraModeLabel ) );
+    HashBytes( hash, gizmoModeLabel, std::strlen( gizmoModeLabel ) );
+    HashValue( hash, view.viewport.presentationPinned );
     HashValue( hash, view.replay.memoryPreset );
     HashValue( hash, view.replay.requestedRetentionSeconds );
     HashValue( hash, view.replay.requestedBudgetMiB );

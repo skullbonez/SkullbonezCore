@@ -6,7 +6,8 @@ Purpose:
 Summary:
   Pixel-bounded side rails and bottom strips protect a useful central viewport
   at the supported minimum while allowing ultrawide space to accrue to the
-  viewport. Fractions are derived from those pixels for Dear ImGui DockBuilder.
+  viewport. The policy also fits and maps a source render image without placing
+  ImGui types or renderer authority in input composition.
 
 Glossary:
   Split fraction: Portion taken by the directional child passed to DockBuilder.
@@ -16,6 +17,7 @@ Invariants:
   - Every divisor is positive after input normalization.
   - Side-rail caps prevent ultrawide layouts from becoming tool-heavy.
   - The topology hash depends only on the versioned descriptor bytes.
+  - Letterbox math preserves source aspect and maps only pixels inside the image.
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h
@@ -53,6 +55,73 @@ ImGuiEditorLayoutEnvelope ResolveImGuiEditorLayoutEnvelope( int contentWidth, in
     result.compactToolbarLabels = result.contentWidth < 1500;
     result.preservesCentralViewport = result.viewportWidth >= 480 && result.upperHeight >= 360;
     return result;
+}
+
+ImGuiGameViewportRect ResolveImGuiGameViewportRect( float availableMinX,
+                                                    float availableMinY,
+                                                    float availableWidth,
+                                                    float availableHeight,
+                                                    int sourceWidth,
+                                                    int sourceHeight,
+                                                    float dpiScale ) noexcept
+{
+    ImGuiGameViewportRect result;
+    result.dpiScale = std::isfinite( dpiScale ) && dpiScale > 0.0f ? dpiScale : 1.0f;
+    result.sourceWidth = sourceWidth;
+    result.sourceHeight = sourceHeight;
+    if ( !std::isfinite( availableMinX ) || !std::isfinite( availableMinY ) || !std::isfinite( availableWidth ) ||
+         !std::isfinite( availableHeight ) || availableWidth <= 0.0f || availableHeight <= 0.0f || sourceWidth <= 0 ||
+         sourceHeight <= 0 )
+    {
+        return result;
+    }
+
+    const float sourceAspect = static_cast<float>( sourceWidth ) / static_cast<float>( sourceHeight );
+    const float availableAspect = availableWidth / availableHeight;
+    if ( availableAspect > sourceAspect )
+    {
+        result.imageHeight = availableHeight;
+        result.imageWidth = availableHeight * sourceAspect;
+    }
+    else
+    {
+        result.imageWidth = availableWidth;
+        result.imageHeight = availableWidth / sourceAspect;
+    }
+    result.imageMinX = availableMinX + ( availableWidth - result.imageWidth ) * 0.5f;
+    result.imageMinY = availableMinY + ( availableHeight - result.imageHeight ) * 0.5f;
+    result.letterboxed = std::fabs( result.imageWidth - availableWidth ) > 0.5f ||
+                         std::fabs( result.imageHeight - availableHeight ) > 0.5f;
+    result.valid = result.imageWidth >= 1.0f && result.imageHeight >= 1.0f;
+    return result;
+}
+
+bool MapImGuiGameViewportPoint( const ImGuiGameViewportRect& viewport,
+                                float clientX,
+                                float clientY,
+                                int& outSourceX,
+                                int& outSourceY ) noexcept
+{
+    outSourceX = 0;
+    outSourceY = 0;
+    if ( !viewport.valid || !std::isfinite( clientX ) || !std::isfinite( clientY ) )
+    {
+        return false;
+    }
+    const float maxX = viewport.imageMinX + viewport.imageWidth;
+    const float maxY = viewport.imageMinY + viewport.imageHeight;
+    if ( clientX < viewport.imageMinX || clientY < viewport.imageMinY || clientX >= maxX || clientY >= maxY )
+    {
+        return false;
+    }
+
+    // Invariant: both coordinate systems are physical client pixels. DPI is
+    // retained for evidence/status only; applying it here would double-scale.
+    const float normalizedX = ( clientX - viewport.imageMinX ) / viewport.imageWidth;
+    const float normalizedY = ( clientY - viewport.imageMinY ) / viewport.imageHeight;
+    outSourceX = std::clamp( static_cast<int>( normalizedX * viewport.sourceWidth ), 0, viewport.sourceWidth - 1 );
+    outSourceY = std::clamp( static_cast<int>( normalizedY * viewport.sourceHeight ), 0, viewport.sourceHeight - 1 );
+    return true;
 }
 
 uint64_t FingerprintImGuiEditorDefaultTopology() noexcept
