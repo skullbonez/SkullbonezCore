@@ -123,10 +123,10 @@ under rule 4. Closure evidence is in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 1 | 5 | 20% |
+| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 2 | 5 | 40% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **1** | **18** | **6%** |
+| **Active/future total** | **2** | **18** | **11%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -720,7 +720,7 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 1/5 | N1 rename `TestScene*` to the ratified `AuthoredScene*` family |
+| [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 2/5 | N2 rename `GameModelRenderer` to `RenderInstanceRenderer` |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 0/5 | H0 rulings census; DX12 dependency satisfied |
 
 ## Physics Body-Count Scale Campaign (2026-07-18)

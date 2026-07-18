@@ -23,12 +23,12 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Scene/RunScene.cpp
-  - SkullbonezSource/Scene/TestScene.h
+  - SkullbonezSource/Scene/AuthoredScene.h
   - SkullbonezSource/UI/UI.h
 */
 #pragma once
 
-#include "../../Scene/TestScene.h"
+#include "../../Scene/AuthoredScene.h"
 
 namespace SkullbonezCore
 {
@@ -43,7 +43,7 @@ struct RunDebugState;
 struct SceneUiActivation
 {
     // Value-only copy of authored UI intent. The scene owner retains neither
-    // the parsed TestScene nor the complete UI owner across the load boundary.
+    // the parsed AuthoredScene nor the complete UI owner across the load boundary.
     SceneUIOptions authoredOptions;
     double nowSeconds = 0.0;
     bool hasAuthoredOptions = false;

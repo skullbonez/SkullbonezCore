@@ -44,7 +44,7 @@ Related:
 #include "Scene/SceneRuntimeStyle.h"
 #include "Scene/SceneWorld.h"
 
-#include "../Scene/TestScene.h"
+#include "../Scene/AuthoredScene.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -233,9 +233,9 @@ void ApplyPhaseStyleIfNeeded( DemoDirectorPlaybackState& director, SceneRuntimeS
         return;
     }
 
-    TestScene styleScene;
+    AuthoredScene styleScene;
     const SkullbonezCore::Core::SbResult loadResult =
-        TestScene::TryLoadStyleFromFile( phase.stylePath, styleContext.assets, styleScene );
+        AuthoredScene::TryLoadStyleFromFile( phase.stylePath, styleContext.assets, styleScene );
     if ( loadResult.ok )
     {
         ApplyLiveStyleScene( styleContext, styleScene );

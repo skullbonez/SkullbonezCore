@@ -68,7 +68,7 @@ Related:
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UI.h"
-#include "../../Scene/TestScene.h"
+#include "../../Scene/AuthoredScene.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -827,8 +827,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     else
     {
         SceneState().isSceneMode = true;
-        TestScene scene;
-        const SkullbonezCore::Core::SbResult sceneLoad = TestScene::TryLoadFromFile( scenePath.c_str(), assets, scene );
+        AuthoredScene scene;
+        const SkullbonezCore::Core::SbResult sceneLoad =
+            AuthoredScene::TryLoadFromFile( scenePath.c_str(), assets, scene );
         if ( !sceneLoad.ok )
         {
             m_lastSceneLoadResult = sceneLoad;

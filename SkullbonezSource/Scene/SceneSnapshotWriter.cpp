@@ -290,7 +290,7 @@ SkullbonezCore::Core::SbResult SceneSnapshotWriter::Save( const SceneSaveView& s
 {
     // Invariant: Editable scene saves emit state-form objects whose positions,
     // velocities, sleeping flags, and materials can round-trip through
-    // TestSceneParser without reinterpreting authored placement offsets.
+    // AuthoredSceneParser without reinterpreting authored placement offsets.
     if ( sceneView.entities.Count() != sceneView.bodies.Count() ||
          sceneView.entities.Count() != sceneView.colliders.Count() )
     {

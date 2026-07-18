@@ -131,7 +131,7 @@ bool WriteStarterSceneFile( const std::filesystem::path& path, const std::string
     }
 
     // Invariant: Starter scene keys are the compatibility surface for newly
-    // editable scenes. Keep this shape aligned with TestScene parsing.
+    // editable scenes. Keep this shape aligned with AuthoredScene parsing.
     Json scene;
     scene["format"] = "skullbonez.scene.json";
     scene["version"] = 1;

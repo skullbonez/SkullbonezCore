@@ -1,11 +1,11 @@
 /*
-File: TestSceneParserSchema.h
+File: AuthoredSceneParserSchema.h
 Purpose:
   Shares parser schema primitives, declarations, and parse state across
-  owner-specific TestSceneParser translation units.
+  owner-specific AuthoredSceneParser translation units.
 
 Summary:
-  JSON validation helpers translate authored values into one TestSceneParser
+  JSON validation helpers translate authored values into one AuthoredSceneParser
   instance. Domain translation units mutate that instance synchronously; this
   header owns declarations and value helpers, not a second scene model.
 
@@ -17,20 +17,20 @@ Glossary:
     parse so legacy helper calls can stop without throwing.
 
 Invariants:
-  - One parser instance owns one TestScene result and one failure state.
+  - One parser instance owns one AuthoredScene result and one failure state.
   - Helper definitions are inline and parser state is never shared across parses.
   - Authored field names and section order remain compatibility surfaces.
 
 Related:
-  - TestSceneParser.cpp owns document composition and public entry points.
-  - TestSceneParserAssets.cpp owns asset-library expansion.
-  - TestSceneParserBodies.cpp owns body, joint, material, and group rows.
-  - TestSceneParserRuntime.cpp owns simulation and runtime settings.
-  - TestSceneParserPresentation.cpp owns UI, water, cinematic, and camera fields.
+  - AuthoredSceneParser.cpp owns document composition and public entry points.
+  - AuthoredSceneParserAssets.cpp owns asset-library expansion.
+  - AuthoredSceneParserBodies.cpp owns body, joint, material, and group rows.
+  - AuthoredSceneParserRuntime.cpp owns simulation and runtime settings.
+  - AuthoredSceneParserPresentation.cpp owns UI, water, cinematic, and camera fields.
 */
 #pragma once
 
-#include "TestScene.h"
+#include "AuthoredScene.h"
 #include "../Assets/AssetSystem.h"
 #include "../Core/FatalError.h"
 #include "../Maths/Quaternion.h"
@@ -60,7 +60,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-namespace TestSceneParserDetail
+namespace AuthoredSceneParserDetail
 {
 using Json = nlohmann::ordered_json;
 
@@ -109,7 +109,7 @@ inline SkullbonezCore::Core::SbResult ParserFailureResult( const ParserFailureSt
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
-    return SkullbonezCore::Core::SbResult::Failure( "Scene/TestSceneParser", "%s", state.message.c_str() );
+    return SkullbonezCore::Core::SbResult::Failure( "Scene/AuthoredSceneParser", "%s", state.message.c_str() );
 }
 
 inline Math::Orientation::Quaternion MakeSceneEulerQuaternion( float eulerXDeg, float eulerYDeg, float eulerZDeg )
@@ -512,7 +512,7 @@ inline void Fail( const std::string& path, const std::string& detail )
     // Concept: Parser failures include the file path and logical context because
     // scene JSON is edited by humans and validation scripts.
     std::ostringstream message;
-    message << detail << " in " << path << "  (TestScene::LoadFromFile)";
+    message << detail << " in " << path << "  (AuthoredScene::LoadFromFile)";
     if ( s_activeParserFailure && !s_activeParserFailure->failed )
     {
         s_activeParserFailure->failed = true;
@@ -1035,13 +1035,13 @@ inline float ReadUnitFloat( const Json& value, const std::string& path, const ch
     return std::clamp( ReadFloat( value, path, context ), 0.0f, 1.0f );
 }
 
-} // namespace TestSceneParserDetail
+} // namespace AuthoredSceneParserDetail
 
-class TestSceneParser
+class AuthoredSceneParser
 {
   private:
-    using Json = TestSceneParserDetail::Json;
-    using ParserFailureState = TestSceneParserDetail::ParserFailureState;
+    using Json = AuthoredSceneParserDetail::Json;
+    using ParserFailureState = AuthoredSceneParserDetail::ParserFailureState;
 
     struct ParsedAssetDefinition
     {
@@ -1066,7 +1066,7 @@ class TestSceneParser
         }
     };
 
-    TestScene m_scene;
+    AuthoredScene m_scene;
     Assets::AssetContext m_assets;
     ParserFailureState m_failure;
     std::vector<ParsedAssetDefinition> m_assetDefinitions;
@@ -1165,14 +1165,14 @@ class TestSceneParser
     void ApplyRequirements( const Json& requirements, const std::string& path );
     void ApplySceneBody( const Json& root, const std::string& path );
     void LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth );
-    SkullbonezCore::Core::SbResult TryLoadDocument( const char* path, bool styleOnly, TestScene& outScene );
+    SkullbonezCore::Core::SbResult TryLoadDocument( const char* path, bool styleOnly, AuthoredScene& outScene );
 
   public:
-    explicit TestSceneParser( Assets::AssetContext assets );
-    SkullbonezCore::Core::SbResult TryLoadScene( const char* path, TestScene& outScene );
-    SkullbonezCore::Core::SbResult TryLoadStyle( const char* path, TestScene& outScene );
-    TestScene LoadScene( const char* path );
-    TestScene LoadStyle( const char* path );
+    explicit AuthoredSceneParser( Assets::AssetContext assets );
+    SkullbonezCore::Core::SbResult TryLoadScene( const char* path, AuthoredScene& outScene );
+    SkullbonezCore::Core::SbResult TryLoadStyle( const char* path, AuthoredScene& outScene );
+    AuthoredScene LoadScene( const char* path );
+    AuthoredScene LoadStyle( const char* path );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

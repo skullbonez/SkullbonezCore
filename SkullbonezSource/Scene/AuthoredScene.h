@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Scene/TestScene.h
+File: SkullbonezSource/Scene/AuthoredScene.h
 Purpose:
-  Stores parsed test-scene JSON and applies it to runtime scene state.
+  Stores parsed authored-scene JSON and applies it to runtime scene state.
 
 Summary:
-  TestScene.h stores parsed test-scene JSON and applies it to runtime scene
+  AuthoredScene.h stores parsed authored-scene JSON and applies it to runtime scene
   state. As a public header, keep edits anchored on scene-file parsing or
   snapshot contracts and on the glossary/invariants below.
 
@@ -36,7 +36,7 @@ Invariants:
   - Every successfully parsed physics row has a valid scene object id.
 
 Related:
-  - SkullbonezSource/Scene/TestScene.cpp
+  - SkullbonezSource/Scene/AuthoredScene.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -61,14 +61,14 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-class TestScene;
-class TestSceneParser;
-TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+class AuthoredScene;
+class AuthoredSceneParser;
+AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
 SkullbonezCore::Core::SbResult
-TryLoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene );
+TryLoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene );
 SkullbonezCore::Core::SbResult
-TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene );
+TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene );
 
 struct SceneCamera
 {
@@ -171,7 +171,7 @@ struct SceneAssetPartRef
     char partName[128] = {};                                     // Asset recipe name before instance-name expansion.
     char objectName[64] = {};                                    // Generated display name used by current material/object paths.
     uint32_t partIndex = 0;                                      // Authored order inside the asset recipe.
-    uint32_t sourceIndex = 0;                                    // Row in the exact TestScene vector named by source.
+    uint32_t sourceIndex = 0;                                    // Row in the exact AuthoredScene vector named by source.
     SceneAssetPartSource source = SceneAssetPartSource::BallState;
     float posX = 0.0f, posY = 0.0f, posZ = 0.0f;                 // Composed world position.
     float orientX = 0.0f, orientY = 0.0f, orientZ = 0.0f, orientW = 1.0f;
@@ -183,7 +183,7 @@ struct SceneAssetInstanceRecord
     char assetName[128] = {};
     char instanceName[64] = {};
     uint32_t libraryRefIndex = 0;
-    uint32_t firstPart = 0;                                      // Range into TestScene's ordered asset-part vector.
+    uint32_t firstPart = 0;                                      // Range into AuthoredScene's ordered asset-part vector.
     uint32_t partCount = 0;
     uint32_t overrideMask = 0;
     float posX = 0.0f, posY = 0.0f, posZ = 0.0f;
@@ -507,22 +507,22 @@ struct SceneUIOptions
     int stressActionsPerFrame = 4;
 };
 
-/* -- Test Scene
+/* -- Authored Scene
 -------------------------------------------------------------------------------------------------------------------------------------------------
 
     Loads and holds a deterministic scene description from a .scene.json file.
     Used for render regression testing — provides fixed cameras, fixed ball placements,
     and control over physics and frame count.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class TestScene
+class AuthoredScene
 {
 
   private:
     // Parser-local construction helpers populate the immutable scene record in
     // one pass; runtime systems use public read-only access below.
-    friend TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-    friend TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
-    friend class TestSceneParser;
+    friend AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+    friend AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets );
+    friend class AuthoredSceneParser;
 
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
@@ -551,25 +551,25 @@ class TestScene
     SceneUIOptions m_UIOptions;
 
   public:
-    TestScene();
-    static TestScene LoadFromFile( const char* path );
+    AuthoredScene();
+    static AuthoredScene LoadFromFile( const char* path );
     // Lane R: runtime scene/style callers use TryLoad* so malformed authored
     // JSON returns owner/message diagnostics at the load boundary.
-    static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, TestScene& outScene );
+    static SkullbonezCore::Core::SbResult TryLoadFromFile( const char* path, AuthoredScene& outScene );
 
     // Runtime callers pass the owned asset registry so scene asset-library
     // tokens resolve through an explicit parser dependency.
-    static TestScene LoadFromFile( const char* path, const Assets::AssetSystem& assets );
+    static AuthoredScene LoadFromFile( const char* path, const Assets::AssetSystem& assets );
     static SkullbonezCore::Core::SbResult
-    TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene );
-    static TestScene LoadStyleFromFile( const char* path );
-    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( const char* path, TestScene& outScene );
+    TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene );
+    static AuthoredScene LoadStyleFromFile( const char* path );
+    static SkullbonezCore::Core::SbResult TryLoadStyleFromFile( const char* path, AuthoredScene& outScene );
 
     // Style scenes use the same parser and may include asset-library references
     // through shared scene snippets, so they accept the explicit registry too.
-    static TestScene LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets );
+    static AuthoredScene LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets );
     static SkullbonezCore::Core::SbResult
-    TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene );
+    TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene );
 
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;

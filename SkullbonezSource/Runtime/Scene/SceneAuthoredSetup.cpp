@@ -53,7 +53,7 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Physics/PhysicsMass.h"
 #include "../../Physics/Ragdoll.h"
-#include "../../Scene/TestScene.h"
+#include "../../Scene/AuthoredScene.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 
@@ -408,13 +408,13 @@ int FindModelByName( const SceneEntityStore& entities, const char* name )
 }
 
 void ApplyAssetAffiliation( SceneEntityCreateDesc& entity,
-                            const TestScene& scene,
+                            const AuthoredScene& scene,
                             SceneAssetPartSource source,
                             uint32_t sourceIndex )
 {
     // Why: parser provenance keeps exact shape-vector indices. Resolve that
     // cold key once during creation so steady runtime rows retain durable asset
-    // identity without keeping or searching the parsed TestScene.
+    // identity without keeping or searching the parsed AuthoredScene.
     for ( int partRow = 0; partRow < scene.GetAssetPartCount(); ++partRow )
     {
         const SceneAssetPartRef& part = scene.GetAssetPart( partRow );
@@ -451,7 +451,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::AppendSimpleRagdoll( SceneSim
 }
 
 
-void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const TestScene& scene )
+void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const AuthoredScene& scene )
 {
     bool hasFreeCamera = false;
     Vector3 firstPosition( 900.0f, 110.0f, 900.0f );
@@ -482,7 +482,7 @@ void SceneAuthoredSetup::SetUpCameras( SceneAuthoredCameraContext context, const
 
 
 SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuthoredModelContext context,
-                                                                       const TestScene& scene )
+                                                                       const AuthoredScene& scene )
 {
     // Invariant: Model insertion order follows scene schema sections. Runtime
     // validation, saved editable scenes, and point-joint name resolution all
@@ -875,7 +875,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
 }
 
 
-void SceneAuthoredSetup::SetUpRequiredContacts( SceneAuthoredModelContext context, const TestScene& scene )
+void SceneAuthoredSetup::SetUpRequiredContacts( SceneAuthoredModelContext context, const AuthoredScene& scene )
 {
     // Lifetime: Required contacts store body indices resolved for this load.
     // Scene reloads must rebuild them because model storage is recreated.
@@ -897,7 +897,7 @@ void SceneAuthoredSetup::SetUpRequiredContacts( SceneAuthoredModelContext contex
 }
 
 
-void SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const TestScene& scene )
+void SceneAuthoredSetup::SetUpRequiredBroadphaseXCells( SceneAuthoredModelContext context, const AuthoredScene& scene )
 {
     context.automationGates.ReserveRequiredBroadphaseXCells(
         static_cast<std::size_t>( scene.GetRequiredBroadphaseXCellCount() ) );

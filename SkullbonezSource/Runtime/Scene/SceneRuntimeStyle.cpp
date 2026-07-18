@@ -31,7 +31,7 @@ Related:
 #include "../RunDebugState.h"
 #include "SceneWorld.h"
 #include "../../Physics/ColliderStore.h"
-#include "../../Scene/TestScene.h"
+#include "../../Scene/AuthoredScene.h"
 
 #include <cstdio>
 #include <cstring>
@@ -161,7 +161,7 @@ void ResetObjectMaterials( SceneWorld& world )
     }
 }
 
-void ApplyObjectMaterials( SceneWorld& world, const TestScene& styleScene )
+void ApplyObjectMaterials( SceneWorld& world, const AuthoredScene& styleScene )
 {
     SceneEntityStore& entities = world.Entities();
     ResetObjectMaterials( world );
@@ -313,9 +313,9 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
         return false;
     }
 
-    TestScene lookScene;
+    AuthoredScene lookScene;
     const SkullbonezCore::Core::SbResult loadResult =
-        TestScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
+        AuthoredScene::TryLoadFromFile( context.sceneBrowser.paths[index].c_str(), context.assets, lookScene );
     if ( !loadResult.ok )
     {
         LogStyleSceneLoadFailure( loadResult, context.sceneBrowser.paths[index].c_str() );
@@ -342,7 +342,7 @@ bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int i
 }
 
 
-void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene )
+void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene )
 {
     context.launchOptions.hasCinematicRenderingOverride = false;
     ApplyObjectMaterials( context.world, styleScene );
@@ -374,9 +374,9 @@ bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context )
     }
 
     const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style.json";
-    TestScene styleScene;
+    AuthoredScene styleScene;
     const SkullbonezCore::Core::SbResult loadResult =
-        TestScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets, styleScene );
+        AuthoredScene::TryLoadStyleFromFile( stylePath.c_str(), context.assets, styleScene );
     if ( !loadResult.ok )
     {
         LogStyleSceneLoadFailure( loadResult, stylePath.c_str() );

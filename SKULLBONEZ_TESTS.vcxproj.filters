@@ -333,22 +333,22 @@
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredScene.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParser.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserAssets.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserAssets.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserBodies.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserBodies.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserPresentation.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserPresentation.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserRuntime.cpp">
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp">
       <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp">

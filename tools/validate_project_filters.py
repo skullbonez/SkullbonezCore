@@ -239,13 +239,13 @@ RENDERING_PREFIXES = (
 SCENE_PREFIXES = (
     "SceneRequestExecution",
     "SceneSnapshotWriter",
-    "TestScene",
-    "TestSceneParser",
-    "TestSceneParserAssets",
-    "TestSceneParserBodies",
-    "TestSceneParserPresentation",
-    "TestSceneParserRuntime",
-    "TestSceneParserSchema",
+    "AuthoredScene",
+    "AuthoredSceneParser",
+    "AuthoredSceneParserAssets",
+    "AuthoredSceneParserBodies",
+    "AuthoredSceneParserPresentation",
+    "AuthoredSceneParserRuntime",
+    "AuthoredSceneParserSchema",
 )
 
 WORLD_PREFIXES = (

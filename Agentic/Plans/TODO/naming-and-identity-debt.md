@@ -1,7 +1,7 @@
 # Naming And Identity Debt — Make The Code Say What It Is
 
 Date: 2026-07-18
-Status: Active — 1/5 tasks
+Status: Active — 2/5 tasks
 Branch: `nightrunner-17th-july` (ratified at N0; never directly on `main`)
 Impact area: `SkullbonezSource/Scene/*`, `Rendering/GameModelRenderer.*`,
 `Runtime/RuntimeTuning.*`, targeted `Run*`/`Runtime*` files, project files
@@ -56,7 +56,7 @@ defer.
   Owner ratifies each target name and the branch before any edit.
   Evidence: dated census under `Agentic/Reports/`. Gate: none
   (documentation).
-- [ ] N1 — Scene system rename. `TestScene` → the ratified production name
+- [x] N1 — Scene system rename. `TestScene` → the ratified production name
   (candidate: `AuthoredScene` or `Scene`; owner decides at N0), including
   the parser family, filenames, include paths, project/filter entries, and
   in-comment vocabulary. Authored `*.scene.json` files, schema keys, and
@@ -110,6 +110,22 @@ defer.
   manifests for 347 `SkullbonezData/` files and 24 baseline files are recorded
   for exact N1-N4 reconciliation. N0 is documentation-only; no repository
   validation was required.
+- N1 evidence (2026-07-18): the eight production scene/parser files and every
+  production consumer now use `AuthoredScene` / `AuthoredSceneParser`; there
+  are zero `TestScene` occurrences in `SkullbonezSource/` and 434 occurrences
+  of the production spelling. Three test harness filenames intentionally keep
+  `TestScene*`, while their source, assertions, and the standalone parser
+  project use the production names. The 30/30 comment audit is recorded in
+  `Agentic/Reports/2026-07-18/naming-n1-comment-audit.md`. A focused Profile
+  build passed in 22.992 s. The first broad attempt stopped at six formatting
+  rows; the next exposed the missed standalone parser-project paths after the
+  preceding CPU lanes passed. Both were corrected without behavioral edits.
+  The final `validate_full` passed in 169.262 s with 291/291 doctests,
+  21,455/21,455 assertions, every coverage/CPU lane, Automation, zero-error
+  DX12 captures, and byte-exact physics. Direct migration (39 files), project
+  filter (738/738), and parser-test checks passed. The authored-data and
+  baseline manifests remain exactly `311c995e...a847` and
+  `d1de0ad4...90be`; no baseline or golden changed. N1 took about 13 minutes.
 
 ## Acceptance
 

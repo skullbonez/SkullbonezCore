@@ -1,12 +1,12 @@
 /*
-File: TestSceneParserPresentation.cpp
+File: AuthoredSceneParserPresentation.cpp
 Purpose:
   Parses debug water, terrain, editor, UI, cinematic, and camera presentation fields.
 
 Summary:
   This translation unit handles one schema domain while mutating the single
-  TestSceneParser result. Shared validation and failure policy live in
-  TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.
+  AuthoredSceneParser result. Shared validation and failure policy live in
+  AuthoredSceneParserSchema.h; top-level document order stays in AuthoredSceneParser.cpp.
 
 Glossary:
   Schema domain: Cohesive authored section translated without creating another
@@ -19,34 +19,34 @@ Invariants:
   - Stable scene identities and source ordering are preserved exactly.
 
 Related:
-  - TestSceneParserSchema.h declares shared parser state and helpers.
+  - AuthoredSceneParserSchema.h declares shared parser state and helpers.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
 */
-#include "TestSceneParserSchema.h"
+#include "AuthoredSceneParserSchema.h"
 
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-using TestSceneParserDetail::CopyStringField;
-using TestSceneParserDetail::Fail;
-using TestSceneParserDetail::FindMember;
-using TestSceneParserDetail::Lowercase;
-using TestSceneParserDetail::ParsePhysicsDebugMode;
-using TestSceneParserDetail::ParseUITab;
-using TestSceneParserDetail::ParseWaterReflectionMode;
-using TestSceneParserDetail::ReadBool;
-using TestSceneParserDetail::ReadFloat;
-using TestSceneParserDetail::ReadInt;
-using TestSceneParserDetail::ReadRequiredStringField;
-using TestSceneParserDetail::ReadString;
-using TestSceneParserDetail::ReadUInt;
-using TestSceneParserDetail::ReadVec3;
-using TestSceneParserDetail::RequireArray;
-using TestSceneParserDetail::RequireMember;
-using TestSceneParserDetail::RequireObject;
+using AuthoredSceneParserDetail::CopyStringField;
+using AuthoredSceneParserDetail::Fail;
+using AuthoredSceneParserDetail::FindMember;
+using AuthoredSceneParserDetail::Lowercase;
+using AuthoredSceneParserDetail::ParsePhysicsDebugMode;
+using AuthoredSceneParserDetail::ParseUITab;
+using AuthoredSceneParserDetail::ParseWaterReflectionMode;
+using AuthoredSceneParserDetail::ReadBool;
+using AuthoredSceneParserDetail::ReadFloat;
+using AuthoredSceneParserDetail::ReadInt;
+using AuthoredSceneParserDetail::ReadRequiredStringField;
+using AuthoredSceneParserDetail::ReadString;
+using AuthoredSceneParserDetail::ReadUInt;
+using AuthoredSceneParserDetail::ReadVec3;
+using AuthoredSceneParserDetail::RequireArray;
+using AuthoredSceneParserDetail::RequireMember;
+using AuthoredSceneParserDetail::RequireObject;
 
-void TestSceneParser::ApplyPhysicsDebug( const Json& debug, const std::string& path )
+void AuthoredSceneParser::ApplyPhysicsDebug( const Json& debug, const std::string& path )
 {
     RequireObject( debug, path, "debug.physics" );
     if ( const Json* mode = FindMember( debug, "mode" ) )
@@ -98,7 +98,7 @@ void TestSceneParser::ApplyPhysicsDebug( const Json& debug, const std::string& p
     }
 }
 
-void TestSceneParser::ApplyDebug( const Json& debug, const std::string& path )
+void AuthoredSceneParser::ApplyDebug( const Json& debug, const std::string& path )
 {
     // Concept: water debug fields are explicit presentation overrides. They do
     // not mutate the authored water simulation or its physics parameters.
@@ -138,7 +138,7 @@ void TestSceneParser::ApplyDebug( const Json& debug, const std::string& path )
     }
 }
 
-void TestSceneParser::ApplyTerrain( const Json& terrain, const std::string& path )
+void AuthoredSceneParser::ApplyTerrain( const Json& terrain, const std::string& path )
 {
     RequireObject( terrain, path, "terrain" );
     if ( const Json* flatSlope = FindMember( terrain, "flatSlope" ) )
@@ -160,7 +160,7 @@ void TestSceneParser::ApplyTerrain( const Json& terrain, const std::string& path
     }
 }
 
-void TestSceneParser::ApplyEditor( const Json& editor, const std::string& path )
+void AuthoredSceneParser::ApplyEditor( const Json& editor, const std::string& path )
 {
     RequireObject( editor, path, "editor" );
     if ( const Json* editable = FindMember( editor, "editableScene" ) )
@@ -169,7 +169,7 @@ void TestSceneParser::ApplyEditor( const Json& editor, const std::string& path )
     }
 }
 
-void TestSceneParser::ApplyUI( const Json& ui, const std::string& path )
+void AuthoredSceneParser::ApplyUI( const Json& ui, const std::string& path )
 {
     RequireObject( ui, path, "ui" );
     SceneUIOptions& out = m_scene.m_UIOptions;
@@ -299,7 +299,7 @@ void TestSceneParser::ApplyUI( const Json& ui, const std::string& path )
     }
 }
 
-void TestSceneParser::ApplyCinematicBool( const Json& cinematic, const std::string& path )
+void AuthoredSceneParser::ApplyCinematicBool( const Json& cinematic, const std::string& path )
 {
     struct BoolField
     {
@@ -345,7 +345,7 @@ void TestSceneParser::ApplyCinematicBool( const Json& cinematic, const std::stri
     }
 }
 
-void TestSceneParser::ApplyCinematicInt( const Json& cinematic, const std::string& path )
+void AuthoredSceneParser::ApplyCinematicInt( const Json& cinematic, const std::string& path )
 {
     struct IntField
     {
@@ -381,7 +381,7 @@ void TestSceneParser::ApplyCinematicInt( const Json& cinematic, const std::strin
     }
 }
 
-void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::string& path )
+void AuthoredSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::string& path )
 {
     // Invariant: each accepted scalar sets its matching override bit. Runtime
     // style merging relies on the value and mask changing atomically.
@@ -600,7 +600,7 @@ void TestSceneParser::ApplyCinematicFloat( const Json& cinematic, const std::str
     }
 }
 
-void TestSceneParser::ApplyCinematicVector( const Json& cinematic, const std::string& path )
+void AuthoredSceneParser::ApplyCinematicVector( const Json& cinematic, const std::string& path )
 {
     SkullbonezCore::Core::CinematicRenderConfig& c = m_scene.m_sceneOptions.cinematicRender;
 
@@ -679,7 +679,7 @@ void TestSceneParser::ApplyCinematicVector( const Json& cinematic, const std::st
     }
 }
 
-void TestSceneParser::ApplyCinematic( const Json& cinematic, const std::string& path )
+void AuthoredSceneParser::ApplyCinematic( const Json& cinematic, const std::string& path )
 {
     RequireObject( cinematic, path, "cinematic" );
     ApplyCinematicBool( cinematic, path );
@@ -688,7 +688,7 @@ void TestSceneParser::ApplyCinematic( const Json& cinematic, const std::string& 
     ApplyCinematicVector( cinematic, path );
 }
 
-void TestSceneParser::ApplyCamera( const Json& camera, const std::string& path )
+void AuthoredSceneParser::ApplyCamera( const Json& camera, const std::string& path )
 {
     // Invariant: scene files expose one camera record with normalized direction
     // vectors; invalid cardinality or degenerate vectors fail the whole parse.

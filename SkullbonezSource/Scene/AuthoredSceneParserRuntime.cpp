@@ -1,12 +1,12 @@
 /*
-File: TestSceneParserRuntime.cpp
+File: AuthoredSceneParserRuntime.cpp
 Purpose:
   Parses simulation, tornado, playback, capture, logging, and runtime settings.
 
 Summary:
   This translation unit handles one schema domain while mutating the single
-  TestSceneParser result. Shared validation and failure policy live in
-  TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.
+  AuthoredSceneParser result. Shared validation and failure policy live in
+  AuthoredSceneParserSchema.h; top-level document order stays in AuthoredSceneParser.cpp.
 
 Glossary:
   Schema domain: Cohesive authored section translated without creating another
@@ -19,31 +19,31 @@ Invariants:
   - Stable scene identities and source ordering are preserved exactly.
 
 Related:
-  - TestSceneParserSchema.h declares shared parser state and helpers.
+  - AuthoredSceneParserSchema.h declares shared parser state and helpers.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
 */
-#include "TestSceneParserSchema.h"
+#include "AuthoredSceneParserSchema.h"
 
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-using TestSceneParserDetail::CopyStringField;
-using TestSceneParserDetail::Fail;
-using TestSceneParserDetail::FindMember;
-using TestSceneParserDetail::Lowercase;
-using TestSceneParserDetail::MaxConfigurableWorkerThreadCount;
-using TestSceneParserDetail::ReadBool;
-using TestSceneParserDetail::ReadFloat;
-using TestSceneParserDetail::ReadInt;
-using TestSceneParserDetail::ReadString;
-using TestSceneParserDetail::ReadUInt;
-using TestSceneParserDetail::ReadVec3;
-using TestSceneParserDetail::RequireArray;
-using TestSceneParserDetail::RequireMember;
-using TestSceneParserDetail::RequireObject;
+using AuthoredSceneParserDetail::CopyStringField;
+using AuthoredSceneParserDetail::Fail;
+using AuthoredSceneParserDetail::FindMember;
+using AuthoredSceneParserDetail::Lowercase;
+using AuthoredSceneParserDetail::MaxConfigurableWorkerThreadCount;
+using AuthoredSceneParserDetail::ReadBool;
+using AuthoredSceneParserDetail::ReadFloat;
+using AuthoredSceneParserDetail::ReadInt;
+using AuthoredSceneParserDetail::ReadString;
+using AuthoredSceneParserDetail::ReadUInt;
+using AuthoredSceneParserDetail::ReadVec3;
+using AuthoredSceneParserDetail::RequireArray;
+using AuthoredSceneParserDetail::RequireMember;
+using AuthoredSceneParserDetail::RequireObject;
 
-void TestSceneParser::ApplyPlayback( const Json& playback, const std::string& path )
+void AuthoredSceneParser::ApplyPlayback( const Json& playback, const std::string& path )
 {
     // Concept: playback fields are deterministic-run policy, not presentation
     // hints. Fixed-step and completion settings therefore remain authored scene
@@ -99,8 +99,8 @@ void TestSceneParser::ApplyPlayback( const Json& playback, const std::string& pa
     }
 }
 
-Physics::MutualGravitySettings TestSceneParser::ReadMutualGravitySettings( const Json& mutualGravity,
-                                                                           const std::string& path )
+Physics::MutualGravitySettings AuthoredSceneParser::ReadMutualGravitySettings( const Json& mutualGravity,
+                                                                               const std::string& path )
 {
     // Invariant: an enabled gravity model must arrive complete and physically
     // bounded; accepting partial values would make defaults machine-dependent.
@@ -151,7 +151,7 @@ Physics::MutualGravitySettings TestSceneParser::ReadMutualGravitySettings( const
     return settings;
 }
 
-void TestSceneParser::ApplySimulation( const Json& simulation, const std::string& path )
+void AuthoredSceneParser::ApplySimulation( const Json& simulation, const std::string& path )
 {
     RequireObject( simulation, path, "simulation" );
     if ( const Json* physics = FindMember( simulation, "physics" ) )
@@ -236,11 +236,11 @@ void TestSceneParser::ApplySimulation( const Json& simulation, const std::string
     }
 }
 
-void TestSceneParser::ApplyTornadoFloat( const Json& source,
-                                         const std::string& path,
-                                         const char* memberName,
-                                         float& target,
-                                         float minimum )
+void AuthoredSceneParser::ApplyTornadoFloat( const Json& source,
+                                             const std::string& path,
+                                             const char* memberName,
+                                             float& target,
+                                             float minimum )
 {
     if ( const Json* value = FindMember( source, memberName ) )
     {
@@ -249,9 +249,9 @@ void TestSceneParser::ApplyTornadoFloat( const Json& source,
     }
 }
 
-void TestSceneParser::ApplyTornadoVortex( const Json& object,
-                                          const std::string& path,
-                                          Physics::TornadoSystemConfig& system )
+void AuthoredSceneParser::ApplyTornadoVortex( const Json& object,
+                                              const std::string& path,
+                                              Physics::TornadoSystemConfig& system )
 {
     RequireObject( object, path, "tornadoSystem.vortices[]" );
     Physics::TornadoVortexConfig vortex;
@@ -330,7 +330,7 @@ void TestSceneParser::ApplyTornadoVortex( const Json& object,
     system.vortices.push_back( vortex );
 }
 
-void TestSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const std::string& path )
+void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const std::string& path )
 {
     RequireObject( tornadoSystem, path, "tornadoSystem" );
     Physics::TornadoSystemConfig system;
@@ -359,7 +359,7 @@ void TestSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const std::
     m_scene.m_tornadoSystem.config = system;
 }
 
-void TestSceneParser::ApplyRuntime( const Json& runtime, const std::string& path )
+void AuthoredSceneParser::ApplyRuntime( const Json& runtime, const std::string& path )
 {
     RequireObject( runtime, path, "runtime" );
     if ( const Json* vsync = FindMember( runtime, "vsync" ) )
@@ -374,7 +374,7 @@ void TestSceneParser::ApplyRuntime( const Json& runtime, const std::string& path
     }
 }
 
-void TestSceneParser::ApplyCapture( const Json& capture, const std::string& path )
+void AuthoredSceneParser::ApplyCapture( const Json& capture, const std::string& path )
 {
     RequireObject( capture, path, "capture" );
     if ( const Json* screenshot = FindMember( capture, "screenshot" ) )
@@ -415,7 +415,7 @@ void TestSceneParser::ApplyCapture( const Json& capture, const std::string& path
     }
 }
 
-void TestSceneParser::ApplyLogging( const Json& logging, const std::string& path )
+void AuthoredSceneParser::ApplyLogging( const Json& logging, const std::string& path )
 {
     RequireObject( logging, path, "logging" );
     if ( const Json* perfLog = FindMember( logging, "perfLog" ) )

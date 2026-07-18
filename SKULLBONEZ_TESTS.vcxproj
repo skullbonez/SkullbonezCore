@@ -277,12 +277,12 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Scene\TestScene.cpp" />
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParser.cpp" />
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserAssets.cpp" />
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserBodies.cpp" />
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserPresentation.cpp" />
-    <ClCompile Include="SkullbonezSource\Scene\TestSceneParserRuntime.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredScene.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParser.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserAssets.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserBodies.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\World\Terrain.cpp" />
   </ItemGroup>

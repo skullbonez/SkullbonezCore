@@ -38,7 +38,7 @@ Related:
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
-#include "../Scene/TestScene.h"
+#include "../Scene/AuthoredScene.h"
 
 #include <algorithm>
 #include <cmath>

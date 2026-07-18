@@ -1,10 +1,10 @@
 /*
-File: SkullbonezSource/Scene/TestScene.cpp
+File: SkullbonezSource/Scene/AuthoredScene.cpp
 Purpose:
-  Stores parsed test-scene JSON and applies it to runtime scene state.
+  Stores parsed authored-scene JSON and applies it to runtime scene state.
 
 Summary:
-  TestScene.cpp stores parsed test-scene JSON and applies it to runtime scene
+  AuthoredScene.cpp stores parsed authored-scene JSON and applies it to runtime scene
   state. As an implementation unit, keep edits anchored on scene-file parsing
   or snapshot contracts and on the glossary/invariants below.
 
@@ -27,11 +27,11 @@ Invariants:
     diverged.
 
 Related:
-  - SkullbonezSource/Scene/TestScene.h
+  - SkullbonezSource/Scene/AuthoredScene.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "TestScene.h"
+#include "AuthoredScene.h"
 
 #include "../Core/FatalError.h"
 
@@ -48,7 +48,7 @@ FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName,
     // internal caller asking for an index outside the paired count is a scene
     // setup invariant failure. Fatal diagnostics keep the owner and collection
     // visible without unwinding through runtime setup.
-    SB_FATAL( "TestScene",
+    SB_FATAL( "AuthoredScene",
               "%s index out of range in %s. index=%d count=%d",
               collectionName,
               functionName,
@@ -57,445 +57,447 @@ FatalSceneIndexOutOfRange( const char* collectionName, const char* functionName,
 }
 
 
-SkullbonezCore::Core::SbResult
-TryLoadSceneFile( const char* path, SkullbonezCore::Assets::AssetContext assets, bool styleOnly, TestScene& outScene )
+SkullbonezCore::Core::SbResult TryLoadSceneFile( const char* path,
+                                                 SkullbonezCore::Assets::AssetContext assets,
+                                                 bool styleOnly,
+                                                 AuthoredScene& outScene )
 {
     return styleOnly ? TryLoadStyleSceneFromFileImpl( path, assets, outScene )
-                     : TryLoadTestSceneFromFileImpl( path, assets, outScene );
+                     : TryLoadAuthoredSceneFromFileImpl( path, assets, outScene );
 }
 } // namespace
 
 
-TestScene::TestScene()
+AuthoredScene::AuthoredScene()
 {
 }
 
 
-TestScene TestScene::LoadFromFile( const char* path )
+AuthoredScene AuthoredScene::LoadFromFile( const char* path )
 {
-    return LoadTestSceneFromFileImpl( path, Assets::AssetContext{} );
+    return LoadAuthoredSceneFromFileImpl( path, Assets::AssetContext{} );
 }
 
 
-SkullbonezCore::Core::SbResult TestScene::TryLoadFromFile( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadFromFile( const char* path, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{}, false, outScene );
 }
 
 
-TestScene TestScene::LoadFromFile( const char* path, const Assets::AssetSystem& assets )
+AuthoredScene AuthoredScene::LoadFromFile( const char* path, const Assets::AssetSystem& assets )
 {
-    return LoadTestSceneFromFileImpl( path, Assets::AssetContext{ &assets } );
+    return LoadAuthoredSceneFromFileImpl( path, Assets::AssetContext{ &assets } );
 }
 
 
 SkullbonezCore::Core::SbResult
-TestScene::TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
+AuthoredScene::TryLoadFromFile( const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{ &assets }, false, outScene );
 }
 
 
-TestScene TestScene::LoadStyleFromFile( const char* path )
+AuthoredScene AuthoredScene::LoadStyleFromFile( const char* path )
 {
     return LoadStyleSceneFromFileImpl( path, Assets::AssetContext{} );
 }
 
 
-SkullbonezCore::Core::SbResult TestScene::TryLoadStyleFromFile( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredScene::TryLoadStyleFromFile( const char* path, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{}, true, outScene );
 }
 
 
-TestScene TestScene::LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets )
+AuthoredScene AuthoredScene::LoadStyleFromFile( const char* path, const Assets::AssetSystem& assets )
 {
     return LoadStyleSceneFromFileImpl( path, Assets::AssetContext{ &assets } );
 }
 
 
 SkullbonezCore::Core::SbResult
-TestScene::TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, TestScene& outScene )
+AuthoredScene::TryLoadStyleFromFile( const char* path, const Assets::AssetSystem& assets, AuthoredScene& outScene )
 {
     return TryLoadSceneFile( path, Assets::AssetContext{ &assets }, true, outScene );
 }
 
 
-bool TestScene::IsPhysicsEnabled() const
+bool AuthoredScene::IsPhysicsEnabled() const
 {
     return m_sceneOptions.isPhysicsEnabled;
 }
 
 
-bool TestScene::IsTextEnabled() const
+bool AuthoredScene::IsTextEnabled() const
 {
     return m_sceneOptions.isTextEnabled;
 }
 
 
-bool TestScene::IsTextOnly() const
+bool AuthoredScene::IsTextOnly() const
 {
     return m_sceneOptions.isTextOnly;
 }
 
 
-bool TestScene::IsWaterHidden() const
+bool AuthoredScene::IsWaterHidden() const
 {
     return m_sceneOptions.waterHidden;
 }
 
 
-bool TestScene::IsTerrainHidden() const
+bool AuthoredScene::IsTerrainHidden() const
 {
     return m_sceneOptions.terrainHidden;
 }
 
 
-bool TestScene::IsEditableScene() const
+bool AuthoredScene::IsEditableScene() const
 {
     return m_sceneOptions.editableScene;
 }
 
 
-bool TestScene::HasCinematicRenderingOverride() const
+bool AuthoredScene::HasCinematicRenderingOverride() const
 {
     return m_sceneOptions.hasCinematicRenderingOverride;
 }
 
 
-bool TestScene::IsCinematicRenderingEnabled() const
+bool AuthoredScene::IsCinematicRenderingEnabled() const
 {
     return m_sceneOptions.cinematicRendering;
 }
 
 
-bool TestScene::HasCinematicExposure() const
+bool AuthoredScene::HasCinematicExposure() const
 {
     return m_sceneOptions.hasCinematicExposure;
 }
 
 
-float TestScene::GetCinematicExposure() const
+float AuthoredScene::GetCinematicExposure() const
 {
     return m_sceneOptions.cinematicExposure;
 }
 
 
-bool TestScene::HasCinematicGamma() const
+bool AuthoredScene::HasCinematicGamma() const
 {
     return m_sceneOptions.hasCinematicGamma;
 }
 
 
-float TestScene::GetCinematicGamma() const
+float AuthoredScene::GetCinematicGamma() const
 {
     return m_sceneOptions.cinematicGamma;
 }
 
 
-uint64_t TestScene::GetCinematicOverrideMask() const
+uint64_t AuthoredScene::GetCinematicOverrideMask() const
 {
     return m_sceneOptions.cinematicOverrideMask;
 }
 
 
-const SkullbonezCore::Core::CinematicRenderConfig& TestScene::GetCinematicRenderConfig() const
+const SkullbonezCore::Core::CinematicRenderConfig& AuthoredScene::GetCinematicRenderConfig() const
 {
     return m_sceneOptions.cinematicRender;
 }
 
 
-int TestScene::GetFrameCount() const
+int AuthoredScene::GetFrameCount() const
 {
     return m_sceneOptions.frameCount;
 }
 
 
-const char* TestScene::GetScreenshotPath() const
+const char* AuthoredScene::GetScreenshotPath() const
 {
     return m_captureOptions.screenshotPath;
 }
 
 
-int TestScene::GetScreenshotFrame() const
+int AuthoredScene::GetScreenshotFrame() const
 {
     return m_captureOptions.screenshotFrame;
 }
 
 
-int TestScene::GetScreenshotMs() const
+int AuthoredScene::GetScreenshotMs() const
 {
     return m_captureOptions.screenshotMs;
 }
 
 
-unsigned int TestScene::GetSeed() const
+unsigned int AuthoredScene::GetSeed() const
 {
     return m_sceneOptions.seed;
 }
 
 
-int TestScene::GetSolverBallCount() const
+int AuthoredScene::GetSolverBallCount() const
 {
     return m_sceneOptions.solverBallCount;
 }
 
 
-int TestScene::GetSolverBoxCount() const
+int AuthoredScene::GetSolverBoxCount() const
 {
     return m_sceneOptions.solverBoxCount;
 }
 
 
-bool TestScene::HasModelCapacityOverride() const
+bool AuthoredScene::HasModelCapacityOverride() const
 {
     return m_sceneOptions.modelCapacity > 0;
 }
 
 
-int TestScene::GetModelCapacity() const
+int AuthoredScene::GetModelCapacity() const
 {
     return m_sceneOptions.modelCapacity;
 }
 
 
-bool TestScene::HasWorkerThreadOverride() const
+bool AuthoredScene::HasWorkerThreadOverride() const
 {
     return m_sceneOptions.workerThreads >= -1;
 }
 
 
-int TestScene::GetWorkerThreads() const
+int AuthoredScene::GetWorkerThreads() const
 {
     return m_sceneOptions.workerThreads;
 }
 
 
-const char* TestScene::GetPerfLogPath() const
+const char* AuthoredScene::GetPerfLogPath() const
 {
     return m_loggingOptions.perfLogPath;
 }
 
 
-bool TestScene::IsPerfLogFlushEnabled() const
+bool AuthoredScene::IsPerfLogFlushEnabled() const
 {
     return m_loggingOptions.isPerfLogFlush;
 }
 
 
-int TestScene::GetPerfLogFlushInterval() const
+int AuthoredScene::GetPerfLogFlushInterval() const
 {
     return m_loggingOptions.perfLogFlushInterval;
 }
 
-bool TestScene::HasVsyncOverride() const
+bool AuthoredScene::HasVsyncOverride() const
 {
     return m_runtimeOverrides.hasVsyncOverride;
 }
 
 
-bool TestScene::IsVsyncEnabled() const
+bool AuthoredScene::IsVsyncEnabled() const
 {
     return m_runtimeOverrides.isVsyncEnabled;
 }
 
 
-bool TestScene::HasPipelineSyncOverride() const
+bool AuthoredScene::HasPipelineSyncOverride() const
 {
     return m_runtimeOverrides.hasPipelineSyncOverride;
 }
 
 
-bool TestScene::IsPipelineSyncEnabled() const
+bool AuthoredScene::IsPipelineSyncEnabled() const
 {
     return m_runtimeOverrides.isPipelineSyncEnabled;
 }
 
 
-int TestScene::GetScreenshotInterval() const
+int AuthoredScene::GetScreenshotInterval() const
 {
     return m_captureOptions.screenshotInterval;
 }
 
 
-const char* TestScene::GetScreenshotDir() const
+const char* AuthoredScene::GetScreenshotDir() const
 {
     return m_captureOptions.screenshotDir;
 }
 
 
-int TestScene::GetCameraCount() const
+int AuthoredScene::GetCameraCount() const
 {
     return static_cast<int>( m_cameras.size() );
 }
 
 
-uint32_t TestScene::GetSchemaVersion() const
+uint32_t AuthoredScene::GetSchemaVersion() const
 {
     return m_schemaVersion;
 }
 
 
-float TestScene::GetTimeScale() const
+float AuthoredScene::GetTimeScale() const
 {
     return m_sceneOptions.timeScale;
 }
 
 
-bool TestScene::IsFixedStep() const
+bool AuthoredScene::IsFixedStep() const
 {
     return m_sceneOptions.isFixedStep;
 }
 
 
-bool TestScene::ShouldPauseSnapshotState() const
+bool AuthoredScene::ShouldPauseSnapshotState() const
 {
     return m_sceneOptions.pauseSnapshotState;
 }
 
 
-uint32_t TestScene::GetPhysicsDebugFlags() const
+uint32_t AuthoredScene::GetPhysicsDebugFlags() const
 {
     return m_sceneOptions.physicsDebugFlags;
 }
 
 
-bool TestScene::IsPhysicsDebugTransparent() const
+bool AuthoredScene::IsPhysicsDebugTransparent() const
 {
     return m_sceneOptions.physicsDebugTransparent;
 }
 
 
-float TestScene::GetPhysicsDebugAlpha() const
+float AuthoredScene::GetPhysicsDebugAlpha() const
 {
     return m_sceneOptions.physicsDebugAlpha;
 }
 
 
-float TestScene::GetPhysicsDebugContactLinger() const
+float AuthoredScene::GetPhysicsDebugContactLinger() const
 {
     return m_sceneOptions.physicsDebugContactLinger;
 }
 
 
-float TestScene::GetTrackHeight() const
+float AuthoredScene::GetTrackHeight() const
 {
     return m_sceneOptions.trackHeight;
 }
 
 
-float TestScene::GetAutoCycleInterval() const
+float AuthoredScene::GetAutoCycleInterval() const
 {
     return m_sceneOptions.autoCycleInterval;
 }
 
 
-bool TestScene::IsScreenshotAndExit() const
+bool AuthoredScene::IsScreenshotAndExit() const
 {
     return m_sceneOptions.screenshotAndExit;
 }
 
 
-bool TestScene::IsExitOnComplete() const
+bool AuthoredScene::IsExitOnComplete() const
 {
     return m_sceneOptions.exitOnComplete;
 }
 
 
-bool TestScene::IsCollisionVisualizerEnabled() const
+bool AuthoredScene::IsCollisionVisualizerEnabled() const
 {
     return m_sceneOptions.collisionVisualizer;
 }
 
 
-bool TestScene::IsBroadphaseOverlayEnabled() const
+bool AuthoredScene::IsBroadphaseOverlayEnabled() const
 {
     return m_sceneOptions.broadphaseOverlay;
 }
 
 
-bool TestScene::IsWaterFreezeDebugEnabled() const
+bool AuthoredScene::IsWaterFreezeDebugEnabled() const
 {
     return m_sceneOptions.waterFreezeDebug;
 }
 
 
-bool TestScene::IsWaterFlatDebugEnabled() const
+bool AuthoredScene::IsWaterFlatDebugEnabled() const
 {
     return m_sceneOptions.waterFlatDebug;
 }
 
 
-int TestScene::GetWaterReflectionMode() const
+int AuthoredScene::GetWaterReflectionMode() const
 {
     return m_sceneOptions.waterReflectionMode;
 }
 
 
-bool TestScene::HasFlatSlope() const
+bool AuthoredScene::HasFlatSlope() const
 {
     return m_terrainOverride.hasFlatSlope;
 }
 
 
-float TestScene::GetFlatBaseY() const
+float AuthoredScene::GetFlatBaseY() const
 {
     return m_terrainOverride.flatBaseY;
 }
 
 
-float TestScene::GetFlatSlopeX() const
+float AuthoredScene::GetFlatSlopeX() const
 {
     return m_terrainOverride.flatSlopeX;
 }
 
 
-float TestScene::GetFlatSlopeZ() const
+float AuthoredScene::GetFlatSlopeZ() const
 {
     return m_terrainOverride.flatSlopeZ;
 }
 
 
-int TestScene::GetBallCount() const
+int AuthoredScene::GetBallCount() const
 {
     return static_cast<int>( m_balls.size() );
 }
 
 
-const SceneCamera& TestScene::GetCamera( int index ) const
+const SceneCamera& AuthoredScene::GetCamera( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_cameras.size() ) )
     {
-        FatalSceneIndexOutOfRange( "Camera", "TestScene::GetCamera", index, static_cast<int>( m_cameras.size() ) );
+        FatalSceneIndexOutOfRange( "Camera", "AuthoredScene::GetCamera", index, static_cast<int>( m_cameras.size() ) );
     }
 
     return m_cameras[index];
 }
 
 
-const SceneBall& TestScene::GetBall( int index ) const
+const SceneBall& AuthoredScene::GetBall( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_balls.size() ) )
     {
-        FatalSceneIndexOutOfRange( "Ball", "TestScene::GetBall", index, static_cast<int>( m_balls.size() ) );
+        FatalSceneIndexOutOfRange( "Ball", "AuthoredScene::GetBall", index, static_cast<int>( m_balls.size() ) );
     }
 
     return m_balls[index];
 }
 
 
-int TestScene::GetBallStateCount() const
+int AuthoredScene::GetBallStateCount() const
 {
     return static_cast<int>( m_ballStates.size() );
 }
 
 
-const SceneBallState& TestScene::GetBallState( int index ) const
+const SceneBallState& AuthoredScene::GetBallState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_ballStates.size() ) )
     {
         FatalSceneIndexOutOfRange( "BallState",
-                                   "TestScene::GetBallState",
+                                   "AuthoredScene::GetBallState",
                                    index,
                                    static_cast<int>( m_ballStates.size() ) );
     }
@@ -504,18 +506,18 @@ const SceneBallState& TestScene::GetBallState( int index ) const
 }
 
 
-int TestScene::GetBoxStateCount() const
+int AuthoredScene::GetBoxStateCount() const
 {
     return static_cast<int>( m_boxStates.size() );
 }
 
 
-const SceneBoxState& TestScene::GetBoxState( int index ) const
+const SceneBoxState& AuthoredScene::GetBoxState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_boxStates.size() ) )
     {
         FatalSceneIndexOutOfRange( "BoxState",
-                                   "TestScene::GetBoxState",
+                                   "AuthoredScene::GetBoxState",
                                    index,
                                    static_cast<int>( m_boxStates.size() ) );
     }
@@ -524,35 +526,35 @@ const SceneBoxState& TestScene::GetBoxState( int index ) const
 }
 
 
-int TestScene::GetBoxCount() const
+int AuthoredScene::GetBoxCount() const
 {
     return static_cast<int>( m_boxes.size() );
 }
 
 
-const SceneBox& TestScene::GetBox( int index ) const
+const SceneBox& AuthoredScene::GetBox( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_boxes.size() ) )
     {
-        FatalSceneIndexOutOfRange( "Box", "TestScene::GetBox", index, static_cast<int>( m_boxes.size() ) );
+        FatalSceneIndexOutOfRange( "Box", "AuthoredScene::GetBox", index, static_cast<int>( m_boxes.size() ) );
     }
 
     return m_boxes[index];
 }
 
 
-int TestScene::GetConvexHullCount() const
+int AuthoredScene::GetConvexHullCount() const
 {
     return static_cast<int>( m_convexHulls.size() );
 }
 
 
-const SceneConvexHull& TestScene::GetConvexHull( int index ) const
+const SceneConvexHull& AuthoredScene::GetConvexHull( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_convexHulls.size() ) )
     {
         FatalSceneIndexOutOfRange( "ConvexHull",
-                                   "TestScene::GetConvexHull",
+                                   "AuthoredScene::GetConvexHull",
                                    index,
                                    static_cast<int>( m_convexHulls.size() ) );
     }
@@ -561,18 +563,18 @@ const SceneConvexHull& TestScene::GetConvexHull( int index ) const
 }
 
 
-int TestScene::GetConvexHullStateCount() const
+int AuthoredScene::GetConvexHullStateCount() const
 {
     return static_cast<int>( m_convexHullStates.size() );
 }
 
 
-const SceneConvexHullState& TestScene::GetConvexHullState( int index ) const
+const SceneConvexHullState& AuthoredScene::GetConvexHullState( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_convexHullStates.size() ) )
     {
         FatalSceneIndexOutOfRange( "ConvexHullState",
-                                   "TestScene::GetConvexHullState",
+                                   "AuthoredScene::GetConvexHullState",
                                    index,
                                    static_cast<int>( m_convexHullStates.size() ) );
     }
@@ -581,35 +583,38 @@ const SceneConvexHullState& TestScene::GetConvexHullState( int index ) const
 }
 
 
-int TestScene::GetRagdollCount() const
+int AuthoredScene::GetRagdollCount() const
 {
     return static_cast<int>( m_ragdolls.size() );
 }
 
 
-const SceneRagdoll& TestScene::GetRagdoll( int index ) const
+const SceneRagdoll& AuthoredScene::GetRagdoll( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_ragdolls.size() ) )
     {
-        FatalSceneIndexOutOfRange( "Ragdoll", "TestScene::GetRagdoll", index, static_cast<int>( m_ragdolls.size() ) );
+        FatalSceneIndexOutOfRange( "Ragdoll",
+                                   "AuthoredScene::GetRagdoll",
+                                   index,
+                                   static_cast<int>( m_ragdolls.size() ) );
     }
 
     return m_ragdolls[index];
 }
 
 
-int TestScene::GetPointJointConstraintCount() const
+int AuthoredScene::GetPointJointConstraintCount() const
 {
     return static_cast<int>( m_pointJointConstraints.size() );
 }
 
 
-const ScenePointJointConstraint& TestScene::GetPointJointConstraint( int index ) const
+const ScenePointJointConstraint& AuthoredScene::GetPointJointConstraint( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_pointJointConstraints.size() ) )
     {
         FatalSceneIndexOutOfRange( "PointJointConstraint",
-                                   "TestScene::GetPointJointConstraint",
+                                   "AuthoredScene::GetPointJointConstraint",
                                    index,
                                    static_cast<int>( m_pointJointConstraints.size() ) );
     }
@@ -618,18 +623,18 @@ const ScenePointJointConstraint& TestScene::GetPointJointConstraint( int index )
 }
 
 
-int TestScene::GetRequiredContactCount() const
+int AuthoredScene::GetRequiredContactCount() const
 {
     return static_cast<int>( m_requiredContacts.size() );
 }
 
 
-const SceneRequiredContact& TestScene::GetRequiredContact( int index ) const
+const SceneRequiredContact& AuthoredScene::GetRequiredContact( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_requiredContacts.size() ) )
     {
         FatalSceneIndexOutOfRange( "RequiredContact",
-                                   "TestScene::GetRequiredContact",
+                                   "AuthoredScene::GetRequiredContact",
                                    index,
                                    static_cast<int>( m_requiredContacts.size() ) );
     }
@@ -638,18 +643,18 @@ const SceneRequiredContact& TestScene::GetRequiredContact( int index ) const
 }
 
 
-int TestScene::GetRequiredBroadphaseXCellCount() const
+int AuthoredScene::GetRequiredBroadphaseXCellCount() const
 {
     return static_cast<int>( m_requiredBroadphaseXCells.size() );
 }
 
 
-const SceneRequiredBroadphaseXCells& TestScene::GetRequiredBroadphaseXCell( int index ) const
+const SceneRequiredBroadphaseXCells& AuthoredScene::GetRequiredBroadphaseXCell( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_requiredBroadphaseXCells.size() ) )
     {
         FatalSceneIndexOutOfRange( "RequiredBroadphaseXCell",
-                                   "TestScene::GetRequiredBroadphaseXCell",
+                                   "AuthoredScene::GetRequiredBroadphaseXCell",
                                    index,
                                    static_cast<int>( m_requiredBroadphaseXCells.size() ) );
     }
@@ -658,18 +663,18 @@ const SceneRequiredBroadphaseXCells& TestScene::GetRequiredBroadphaseXCell( int 
 }
 
 
-int TestScene::GetAssetLibraryCount() const
+int AuthoredScene::GetAssetLibraryCount() const
 {
     return static_cast<int>( m_assetLibraries.size() );
 }
 
 
-const SceneAssetLibraryRef& TestScene::GetAssetLibrary( int index ) const
+const SceneAssetLibraryRef& AuthoredScene::GetAssetLibrary( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_assetLibraries.size() ) )
     {
         FatalSceneIndexOutOfRange( "AssetLibrary",
-                                   "TestScene::GetAssetLibrary",
+                                   "AuthoredScene::GetAssetLibrary",
                                    index,
                                    static_cast<int>( m_assetLibraries.size() ) );
     }
@@ -678,18 +683,18 @@ const SceneAssetLibraryRef& TestScene::GetAssetLibrary( int index ) const
 }
 
 
-int TestScene::GetAssetInstanceCount() const
+int AuthoredScene::GetAssetInstanceCount() const
 {
     return static_cast<int>( m_assetInstances.size() );
 }
 
 
-const SceneAssetInstanceRecord& TestScene::GetAssetInstance( int index ) const
+const SceneAssetInstanceRecord& AuthoredScene::GetAssetInstance( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_assetInstances.size() ) )
     {
         FatalSceneIndexOutOfRange( "AssetInstance",
-                                   "TestScene::GetAssetInstance",
+                                   "AuthoredScene::GetAssetInstance",
                                    index,
                                    static_cast<int>( m_assetInstances.size() ) );
     }
@@ -698,18 +703,18 @@ const SceneAssetInstanceRecord& TestScene::GetAssetInstance( int index ) const
 }
 
 
-int TestScene::GetAssetPartCount() const
+int AuthoredScene::GetAssetPartCount() const
 {
     return static_cast<int>( m_assetParts.size() );
 }
 
 
-const SceneAssetPartRef& TestScene::GetAssetPart( int index ) const
+const SceneAssetPartRef& AuthoredScene::GetAssetPart( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_assetParts.size() ) )
     {
         FatalSceneIndexOutOfRange( "AssetPart",
-                                   "TestScene::GetAssetPart",
+                                   "AuthoredScene::GetAssetPart",
                                    index,
                                    static_cast<int>( m_assetParts.size() ) );
     }
@@ -718,18 +723,18 @@ const SceneAssetPartRef& TestScene::GetAssetPart( int index ) const
 }
 
 
-int TestScene::GetObjectMaterialOverrideCount() const
+int AuthoredScene::GetObjectMaterialOverrideCount() const
 {
     return static_cast<int>( m_objectMaterials.size() );
 }
 
 
-const SceneObjectMaterialOverride& TestScene::GetObjectMaterialOverride( int index ) const
+const SceneObjectMaterialOverride& AuthoredScene::GetObjectMaterialOverride( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_objectMaterials.size() ) )
     {
         FatalSceneIndexOutOfRange( "ObjectMaterialOverride",
-                                   "TestScene::GetObjectMaterialOverride",
+                                   "AuthoredScene::GetObjectMaterialOverride",
                                    index,
                                    static_cast<int>( m_objectMaterials.size() ) );
     }
@@ -738,55 +743,55 @@ const SceneObjectMaterialOverride& TestScene::GetObjectMaterialOverride( int ind
 }
 
 
-bool TestScene::HasWorldOverride() const
+bool AuthoredScene::HasWorldOverride() const
 {
     return m_worldOverride.hasWorldOverride;
 }
 
 
-float TestScene::GetWorldGravity() const
+float AuthoredScene::GetWorldGravity() const
 {
     return m_worldOverride.worldGravity;
 }
 
 
-float TestScene::GetWorldFluidHeight() const
+float AuthoredScene::GetWorldFluidHeight() const
 {
     return m_worldOverride.worldFluidHeight;
 }
 
 
-float TestScene::GetWorldFluidDensity() const
+float AuthoredScene::GetWorldFluidDensity() const
 {
     return m_worldOverride.worldFluidDensity;
 }
 
 
-const SkullbonezCore::Physics::MutualGravitySettings& TestScene::GetWorldMutualGravitySettings() const
+const SkullbonezCore::Physics::MutualGravitySettings& AuthoredScene::GetWorldMutualGravitySettings() const
 {
     return m_worldOverride.mutualGravity;
 }
 
 
-bool TestScene::HasMutualGravityEnabled() const
+bool AuthoredScene::HasMutualGravityEnabled() const
 {
     return m_worldOverride.mutualGravity.enabled;
 }
 
 
-bool TestScene::HasTornadoSystem() const
+bool AuthoredScene::HasTornadoSystem() const
 {
     return m_tornadoSystem.hasTornadoSystem;
 }
 
 
-const SkullbonezCore::Physics::TornadoSystemConfig& TestScene::GetTornadoSystemConfig() const
+const SkullbonezCore::Physics::TornadoSystemConfig& AuthoredScene::GetTornadoSystemConfig() const
 {
     return m_tornadoSystem.config;
 }
 
 
-const SceneUIOptions& TestScene::GetUIOptions() const
+const SceneUIOptions& AuthoredScene::GetUIOptions() const
 {
     return m_UIOptions;
 }

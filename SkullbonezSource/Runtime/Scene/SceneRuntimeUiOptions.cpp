@@ -28,7 +28,7 @@ Related:
 #include "SceneRuntimeUiOptions.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../RunDebugState.h"
-#include "../../Scene/TestScene.h"
+#include "../../Scene/AuthoredScene.h"
 #include "../../UI/UI.h"
 
 #include <algorithm>

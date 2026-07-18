@@ -1,12 +1,12 @@
 /*
-File: TestSceneParserAssets.cpp
+File: AuthoredSceneParserAssets.cpp
 Purpose:
   Validates asset libraries and expands authored asset instances with provenance.
 
 Summary:
   This translation unit handles one schema domain while mutating the single
-  TestSceneParser result. Shared validation and failure policy live in
-  TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.
+  AuthoredSceneParser result. Shared validation and failure policy live in
+  AuthoredSceneParserSchema.h; top-level document order stays in AuthoredSceneParser.cpp.
 
 Glossary:
   Schema domain: Cohesive authored section translated without creating another
@@ -19,40 +19,40 @@ Invariants:
   - Stable scene identities and source ordering are preserved exactly.
 
 Related:
-  - TestSceneParserSchema.h declares shared parser state and helpers.
+  - AuthoredSceneParserSchema.h declares shared parser state and helpers.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
 */
-#include "TestSceneParserSchema.h"
+#include "AuthoredSceneParserSchema.h"
 
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-using TestSceneParserDetail::CopyCheckedStringField;
-using TestSceneParserDetail::EndsWith;
-using TestSceneParserDetail::Fail;
-using TestSceneParserDetail::FindMember;
-using TestSceneParserDetail::MakeSceneEulerQuaternion;
-using TestSceneParserDetail::ParserFailed;
-using TestSceneParserDetail::QuaternionToJson;
-using TestSceneParserDetail::ReadBool;
-using TestSceneParserDetail::ReadFloat;
-using TestSceneParserDetail::ReadInferredContactMaterial;
-using TestSceneParserDetail::ReadJsonFile;
-using TestSceneParserDetail::ReadString;
-using TestSceneParserDetail::ReadUInt;
-using TestSceneParserDetail::ReadVec3;
-using TestSceneParserDetail::RequireArray;
-using TestSceneParserDetail::RequireMember;
-using TestSceneParserDetail::RequireObject;
-using TestSceneParserDetail::Vector3ToJson;
+using AuthoredSceneParserDetail::CopyCheckedStringField;
+using AuthoredSceneParserDetail::EndsWith;
+using AuthoredSceneParserDetail::Fail;
+using AuthoredSceneParserDetail::FindMember;
+using AuthoredSceneParserDetail::MakeSceneEulerQuaternion;
+using AuthoredSceneParserDetail::ParserFailed;
+using AuthoredSceneParserDetail::QuaternionToJson;
+using AuthoredSceneParserDetail::ReadBool;
+using AuthoredSceneParserDetail::ReadFloat;
+using AuthoredSceneParserDetail::ReadInferredContactMaterial;
+using AuthoredSceneParserDetail::ReadJsonFile;
+using AuthoredSceneParserDetail::ReadString;
+using AuthoredSceneParserDetail::ReadUInt;
+using AuthoredSceneParserDetail::ReadVec3;
+using AuthoredSceneParserDetail::RequireArray;
+using AuthoredSceneParserDetail::RequireMember;
+using AuthoredSceneParserDetail::RequireObject;
+using AuthoredSceneParserDetail::Vector3ToJson;
 
 namespace
 {
 constexpr uint32_t ASSET_LIBRARY_FORMAT_VERSION = 1;
 }
 
-const Assets::AssetLibrarySourceAsset* TestSceneParser::FindRegisteredAssetLibrary( const std::string& token ) const
+const Assets::AssetLibrarySourceAsset* AuthoredSceneParser::FindRegisteredAssetLibrary( const std::string& token ) const
 {
     if ( !m_assets.assets || token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".assets.json" ) )
@@ -70,7 +70,7 @@ const Assets::AssetLibrarySourceAsset* TestSceneParser::FindRegisteredAssetLibra
     return m_assets.assets->FindAssetLibrarySourceAsset( prefixedToken.c_str() );
 }
 
-std::string TestSceneParser::ResolveAssetLibraryPath( const std::string& token ) const
+std::string AuthoredSceneParser::ResolveAssetLibraryPath( const std::string& token ) const
 {
     if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".assets.json" ) )
@@ -86,7 +86,8 @@ std::string TestSceneParser::ResolveAssetLibraryPath( const std::string& token )
     return std::string( "SkullbonezData/assets/" ) + token + ".assets.json";
 }
 
-const TestSceneParser::ParsedAssetDefinition* TestSceneParser::FindAssetDefinition( const std::string& name ) const
+const AuthoredSceneParser::ParsedAssetDefinition*
+AuthoredSceneParser::FindAssetDefinition( const std::string& name ) const
 {
     for ( const ParsedAssetDefinition& asset : m_assetDefinitions )
     {
@@ -99,7 +100,7 @@ const TestSceneParser::ParsedAssetDefinition* TestSceneParser::FindAssetDefiniti
     return nullptr;
 }
 
-bool TestSceneParser::RegisterSceneObjectName( const char* name, const std::string& path )
+bool AuthoredSceneParser::RegisterSceneObjectName( const char* name, const std::string& path )
 {
     // Invariant: display-name material targeting and current runtime lookup
     // are unambiguous only when every parsed shape row owns a unique name.
@@ -113,7 +114,7 @@ bool TestSceneParser::RegisterSceneObjectName( const char* name, const std::stri
     return true;
 }
 
-void TestSceneParser::ValidateAssetMaterial( const Json& owner, const std::string& path, const char* context ) const
+void AuthoredSceneParser::ValidateAssetMaterial( const Json& owner, const std::string& path, const char* context ) const
 {
     const Json& material = RequireMember( owner, path, context, "material" );
     RequireObject( material, path, "asset.material" );
@@ -139,10 +140,10 @@ void TestSceneParser::ValidateAssetMaterial( const Json& owner, const std::strin
     }
 }
 
-void TestSceneParser::ValidateAssetCommonPhysicsFields( const Json& asset,
-                                                        const std::string& path,
-                                                        const char* context,
-                                                        bool requireMass ) const
+void AuthoredSceneParser::ValidateAssetCommonPhysicsFields( const Json& asset,
+                                                            const std::string& path,
+                                                            const char* context,
+                                                            bool requireMass ) const
 {
     if ( const Json* mass = FindMember( asset, "mass" ) )
     {
@@ -199,7 +200,7 @@ void TestSceneParser::ValidateAssetCommonPhysicsFields( const Json& asset,
 }
 
 std::string
-TestSceneParser::ReadAssetPrimitiveType( const Json& asset, const std::string& path, const char* context ) const
+AuthoredSceneParser::ReadAssetPrimitiveType( const Json& asset, const std::string& path, const char* context ) const
 {
     // Concept: old compound parts used a bare `hull` member. Keep that as a
     // convex-hull shorthand while new container parts name their primitive.
@@ -221,7 +222,9 @@ TestSceneParser::ReadAssetPrimitiveType( const Json& asset, const std::string& p
     return std::string();
 }
 
-void TestSceneParser::ValidateAssetBoxFields( const Json& asset, const std::string& path, const char* context ) const
+void AuthoredSceneParser::ValidateAssetBoxFields( const Json& asset,
+                                                  const std::string& path,
+                                                  const char* context ) const
 {
     float halfX = 0.0f;
     float halfY = 0.0f;
@@ -235,7 +238,9 @@ void TestSceneParser::ValidateAssetBoxFields( const Json& asset, const std::stri
     ValidateAssetCommonPhysicsFields( asset, path, context, true );
 }
 
-void TestSceneParser::ValidateAssetSphereFields( const Json& asset, const std::string& path, const char* context ) const
+void AuthoredSceneParser::ValidateAssetSphereFields( const Json& asset,
+                                                     const std::string& path,
+                                                     const char* context ) const
 {
     const float radius = ReadFloat( RequireMember( asset, path, context, "radius" ), path, "asset.radius" );
     if ( radius <= 0.0f )
@@ -255,17 +260,17 @@ void TestSceneParser::ValidateAssetSphereFields( const Json& asset, const std::s
     ValidateAssetCommonPhysicsFields( asset, path, context, true );
 }
 
-void TestSceneParser::ValidateConvexHullAssetFields( const Json& asset,
-                                                     const std::string& path,
-                                                     const char* context ) const
+void AuthoredSceneParser::ValidateConvexHullAssetFields( const Json& asset,
+                                                         const std::string& path,
+                                                         const char* context ) const
 {
     ReadString( RequireMember( asset, path, context, "hull" ), path, "asset.hull" );
     ValidateAssetCommonPhysicsFields( asset, path, context, false );
 }
 
-void TestSceneParser::ValidateAssetPrimitiveFields( const Json& asset,
-                                                    const std::string& path,
-                                                    const char* context ) const
+void AuthoredSceneParser::ValidateAssetPrimitiveFields( const Json& asset,
+                                                        const std::string& path,
+                                                        const char* context ) const
 {
     const std::string primitiveType = ReadAssetPrimitiveType( asset, path, context );
     if ( primitiveType == "convexHull" )
@@ -287,7 +292,7 @@ void TestSceneParser::ValidateAssetPrimitiveFields( const Json& asset,
     return;
 }
 
-void TestSceneParser::UpgradeAssetLibraryV0ToV1( Json& root, const std::string& path )
+void AuthoredSceneParser::UpgradeAssetLibraryV0ToV1( Json& root, const std::string& path )
 {
     // Version 0 is the unversioned asset-library grammar. Its fields already
     // have v1 meaning, so the deterministic upgrade is an explicit stamp with
@@ -296,7 +301,7 @@ void TestSceneParser::UpgradeAssetLibraryV0ToV1( Json& root, const std::string& 
     root["version"] = ASSET_LIBRARY_FORMAT_VERSION;
 }
 
-void TestSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32_t libraryRefIndex )
+void AuthoredSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32_t libraryRefIndex )
 {
     Json root = ReadJsonFile( assetPath );
     RequireObject( root, assetPath, "asset library root" );
@@ -408,7 +413,7 @@ void TestSceneParser::LoadAssetLibrary( const std::string& assetPath, uint32_t l
     }
 }
 
-void TestSceneParser::LoadAssetLibraries( const Json& root, const std::string& path )
+void AuthoredSceneParser::LoadAssetLibraries( const Json& root, const std::string& path )
 {
     const Json* libraries = FindMember( root, "assetLibraries" );
     if ( !libraries )
@@ -444,9 +449,9 @@ void TestSceneParser::LoadAssetLibraries( const Json& root, const std::string& p
     }
 }
 
-void TestSceneParser::CheckGeneratedSceneName( const std::string& name,
-                                               const std::string& path,
-                                               const char* context ) const
+void AuthoredSceneParser::CheckGeneratedSceneName( const std::string& name,
+                                                   const std::string& path,
+                                                   const char* context ) const
 {
     if ( name.empty() )
     {
@@ -460,9 +465,9 @@ void TestSceneParser::CheckGeneratedSceneName( const std::string& name,
     }
 }
 
-std::string TestSceneParser::BuildAssetPartName( const std::string& instanceName,
-                                                 const std::string& partName,
-                                                 const std::string& path ) const
+std::string AuthoredSceneParser::BuildAssetPartName( const std::string& instanceName,
+                                                     const std::string& partName,
+                                                     const std::string& path ) const
 {
     std::string name = instanceName;
     name += "_";
@@ -475,9 +480,9 @@ std::string TestSceneParser::BuildAssetPartName( const std::string& instanceName
     return name;
 }
 
-void TestSceneParser::ApplyAssetMaterialForTarget( const Json& asset,
-                                                   const std::string& path,
-                                                   const std::string& target )
+void AuthoredSceneParser::ApplyAssetMaterialForTarget( const Json& asset,
+                                                       const std::string& path,
+                                                       const std::string& target )
 {
     const Json& source = RequireMember( asset, path, "asset", "material" );
     Json material = source;
@@ -490,15 +495,15 @@ void TestSceneParser::ApplyAssetMaterialForTarget( const Json& asset,
     ApplyObjectMaterial( material, path );
 }
 
-void TestSceneParser::RecordAssetPart( const std::string& path,
-                                       const std::string& partName,
-                                       const std::string& objectName,
-                                       Physics::PhysicsSceneObjectId sceneObjectId,
-                                       uint32_t partIndex,
-                                       SceneAssetPartSource source,
-                                       uint32_t sourceIndex,
-                                       const Math::Vector::Vector3& worldPosition,
-                                       const Math::Orientation::Quaternion& worldOrientation )
+void AuthoredSceneParser::RecordAssetPart( const std::string& path,
+                                           const std::string& partName,
+                                           const std::string& objectName,
+                                           Physics::PhysicsSceneObjectId sceneObjectId,
+                                           uint32_t partIndex,
+                                           SceneAssetPartSource source,
+                                           uint32_t sourceIndex,
+                                           const Math::Vector::Vector3& worldPosition,
+                                           const Math::Orientation::Quaternion& worldOrientation )
 {
     SceneAssetPartRef part;
     if ( !CopyCheckedStringField( part.partName, partName, path, "asset part name" ) ||
@@ -519,13 +524,13 @@ void TestSceneParser::RecordAssetPart( const std::string& path,
     m_scene.m_assetParts.push_back( part );
 }
 
-void TestSceneParser::ApplyAssetPrimitivePart( const Json& asset,
-                                               const std::string& path,
-                                               const std::string& objectName,
-                                               const std::string& partName,
-                                               uint32_t partIndex,
-                                               const AssetInstanceExpansion& instance,
-                                               const Json* authoredPartIdentity )
+void AuthoredSceneParser::ApplyAssetPrimitivePart( const Json& asset,
+                                                   const std::string& path,
+                                                   const std::string& objectName,
+                                                   const std::string& partName,
+                                                   uint32_t partIndex,
+                                                   const AssetInstanceExpansion& instance,
+                                                   const Json* authoredPartIdentity )
 {
     std::string effectiveObjectName = objectName;
     const Json* liveStateType = authoredPartIdentity ? FindMember( *authoredPartIdentity, "type" ) : nullptr;
@@ -896,7 +901,7 @@ void TestSceneParser::ApplyAssetPrimitivePart( const Json& asset,
     return;
 }
 
-void TestSceneParser::ApplyAssetInstance( const Json& instance, const std::string& path )
+void AuthoredSceneParser::ApplyAssetInstance( const Json& instance, const std::string& path )
 {
     RequireObject( instance, path, "assetInstance" );
     if ( ParserFailed() )
@@ -1104,7 +1109,7 @@ void TestSceneParser::ApplyAssetInstance( const Json& instance, const std::strin
     }
     // Invariant: publish the instance range only after every expanded shape
     // and ordered part reference has succeeded. Failed parses discard the
-    // private TestScene and never expose a partial range to the caller.
+    // private AuthoredScene and never expose a partial range to the caller.
     record.partCount = static_cast<uint32_t>( m_scene.m_assetParts.size() ) - record.firstPart;
     if ( record.partCount > 0 )
     {
@@ -1113,7 +1118,7 @@ void TestSceneParser::ApplyAssetInstance( const Json& instance, const std::strin
     m_scene.m_assetInstances.push_back( record );
 }
 
-void TestSceneParser::ApplyAssetInstances( const Json& root, const std::string& path )
+void AuthoredSceneParser::ApplyAssetInstances( const Json& root, const std::string& path )
 {
     const Json* instances = FindMember( root, "assetInstances" );
     if ( !instances )

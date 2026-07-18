@@ -53,7 +53,7 @@ Related:
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderResourceFactory.h"
-#include "../Scene/TestScene.h"
+#include "../Scene/AuthoredScene.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UI.h"
 #include "../Core/Profiler.h"

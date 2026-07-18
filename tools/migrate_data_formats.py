@@ -25,7 +25,7 @@
 #
 # Related:
 #   - tools/bake_hulls.py
-#   - SkullbonezSource/Scene/TestSceneParserAssets.cpp
+#   - SkullbonezSource/Scene/AuthoredSceneParserAssets.cpp
 #   - SkullbonezSource/Core/Config.cpp
 
 from __future__ import annotations

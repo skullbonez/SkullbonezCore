@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Scene/SceneSnapshotWriter.cpp
-  - SkullbonezSource/Scene/TestSceneParser.cpp
+  - SkullbonezSource/Scene/AuthoredSceneParser.cpp
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -33,7 +33,7 @@ Related:
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/Scene/SceneSnapshotWriter.h"
-#include "../SkullbonezSource/Scene/TestScene.h"
+#include "../SkullbonezSource/Scene/AuthoredScene.h"
 
 #include <filesystem>
 #include <fstream>
@@ -296,7 +296,7 @@ void CheckRecreatedOwners( const SceneEntityStore& sourceEntities,
 }
 
 void ApplyParsedAffiliation( SceneEntityCreateDesc& entity,
-                             const TestScene& scene,
+                             const AuthoredScene& scene,
                              SceneAssetPartSource source,
                              uint32_t sourceIndex )
 {
@@ -326,7 +326,7 @@ void ApplyParsedAffiliation( SceneEntityCreateDesc& entity,
     }
 }
 
-void ApplyParsedMaterial( SceneEntityCreateDesc& entity, const TestScene& scene, const char* displayName )
+void ApplyParsedMaterial( SceneEntityCreateDesc& entity, const AuthoredScene& scene, const char* displayName )
 {
     for ( int index = 0; index < scene.GetObjectMaterialOverrideCount(); ++index )
     {
@@ -341,7 +341,7 @@ void ApplyParsedMaterial( SceneEntityCreateDesc& entity, const TestScene& scene,
 void AppendParsedEntity( SceneEntityStore& entities,
                          PhysicsBodyStore& bodies,
                          ColliderStore& colliders,
-                         const TestScene& scene,
+                         const AuthoredScene& scene,
                          SceneAssetPartSource source,
                          uint32_t sourceIndex,
                          PhysicsSceneObjectId id,
@@ -399,7 +399,7 @@ void AppendParsedEntity( SceneEntityStore& entities,
     entities.CommitAppend( entity, bodyHandle );
 }
 
-void RecreateParsedOwners( const TestScene& scene,
+void RecreateParsedOwners( const AuthoredScene& scene,
                            SceneEntityStore& entities,
                            PhysicsBodyStore& bodies,
                            ColliderStore& colliders )
@@ -638,7 +638,7 @@ TEST_CASE( "SceneSnapshotWriter: schema-v2 asset parts reparse from authoritativ
     request.physicsOn = true;
     REQUIRE( SceneSnapshotWriter::Save( view, request ).ok );
 
-    const TestScene saved = TestScene::LoadFromFile( kSnapshotPath );
+    const AuthoredScene saved = AuthoredScene::LoadFromFile( kSnapshotPath );
     CHECK( saved.GetSchemaVersion() == 2u );
     CHECK( saved.GetAssetLibraryCount() == 1 );
     CHECK( saved.GetAssetInstanceCount() == 1 );

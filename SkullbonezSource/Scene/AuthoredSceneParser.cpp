@@ -1,12 +1,12 @@
 /*
-File: TestSceneParser.cpp
+File: AuthoredSceneParser.cpp
 Purpose:
   Owns scene document composition, schema identity upgrades, and public parse entry points.
 
 Summary:
   This translation unit handles one schema domain while mutating the single
-  TestSceneParser result. Shared validation and failure policy live in
-  TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.
+  AuthoredSceneParser result. Shared validation and failure policy live in
+  AuthoredSceneParserSchema.h; top-level document order stays in AuthoredSceneParser.cpp.
 
 Glossary:
   Schema domain: Cohesive authored section translated without creating another
@@ -19,34 +19,34 @@ Invariants:
   - Stable scene identities and source ordering are preserved exactly.
 
 Related:
-  - TestSceneParserSchema.h declares shared parser state and helpers.
+  - AuthoredSceneParserSchema.h declares shared parser state and helpers.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
 */
-#include "TestSceneParserSchema.h"
+#include "AuthoredSceneParserSchema.h"
 
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-using TestSceneParserDetail::ApplyRootedTreeCompatibilityClearanceToHulls;
-using TestSceneParserDetail::AssignReleasableTreeGroupsToHulls;
-using TestSceneParserDetail::EndsWith;
-using TestSceneParserDetail::Fail;
-using TestSceneParserDetail::FindMember;
-using TestSceneParserDetail::kMaxStyleIncludeDepth;
-using TestSceneParserDetail::ParserFailed;
-using TestSceneParserDetail::ParserFailureResult;
-using TestSceneParserDetail::ParserFailureScope;
-using TestSceneParserDetail::ReadJsonFile;
-using TestSceneParserDetail::ReadString;
-using TestSceneParserDetail::ReadUInt;
-using TestSceneParserDetail::RequireArray;
-using TestSceneParserDetail::RequireMember;
-using TestSceneParserDetail::RequireObject;
-using TestSceneParserDetail::ValidateReleasableTreeGroups;
+using AuthoredSceneParserDetail::ApplyRootedTreeCompatibilityClearanceToHulls;
+using AuthoredSceneParserDetail::AssignReleasableTreeGroupsToHulls;
+using AuthoredSceneParserDetail::EndsWith;
+using AuthoredSceneParserDetail::Fail;
+using AuthoredSceneParserDetail::FindMember;
+using AuthoredSceneParserDetail::kMaxStyleIncludeDepth;
+using AuthoredSceneParserDetail::ParserFailed;
+using AuthoredSceneParserDetail::ParserFailureResult;
+using AuthoredSceneParserDetail::ParserFailureScope;
+using AuthoredSceneParserDetail::ReadJsonFile;
+using AuthoredSceneParserDetail::ReadString;
+using AuthoredSceneParserDetail::ReadUInt;
+using AuthoredSceneParserDetail::RequireArray;
+using AuthoredSceneParserDetail::RequireMember;
+using AuthoredSceneParserDetail::RequireObject;
+using AuthoredSceneParserDetail::ValidateReleasableTreeGroups;
 
 Physics::PhysicsSceneObjectId
-TestSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count, const std::string& path )
+AuthoredSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count, const std::string& path )
 {
     Physics::PhysicsSceneObjectId result{ first };
     if ( first == 0 )
@@ -80,8 +80,10 @@ TestSceneParser::RegisterSceneObjectIdRange( uint32_t first, uint32_t count, con
     return result;
 }
 
-Physics::PhysicsSceneObjectId
-TestSceneParser::ReadSceneObjectId( const Json& object, const std::string& path, const char* context, uint32_t count )
+Physics::PhysicsSceneObjectId AuthoredSceneParser::ReadSceneObjectId( const Json& object,
+                                                                      const std::string& path,
+                                                                      const char* context,
+                                                                      uint32_t count )
 {
     uint32_t first = 0;
     if ( m_currentDocumentVersion == 2 )
@@ -109,7 +111,7 @@ TestSceneParser::ReadSceneObjectId( const Json& object, const std::string& path,
 }
 
 Physics::PhysicsSceneObjectId
-TestSceneParser::AllocateVersion1SceneObjectIdRange( uint32_t& next, uint32_t count, const std::string& path )
+AuthoredSceneParser::AllocateVersion1SceneObjectIdRange( uint32_t& next, uint32_t count, const std::string& path )
 {
     const uint32_t maxId = ( std::numeric_limits<uint32_t>::max )();
     while ( next != 0 && count > 0 && count - 1u <= maxId - next )
@@ -136,7 +138,7 @@ TestSceneParser::AllocateVersion1SceneObjectIdRange( uint32_t& next, uint32_t co
     return {};
 }
 
-void TestSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path )
+void AuthoredSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path )
 {
     uint32_t next = 1;
     auto assignRows = [&]( auto& rows )
@@ -210,11 +212,11 @@ void TestSceneParser::UpgradeVersion1SceneObjectIds( const std::string& path )
     AssignReleasableTreeGroupsToHulls( m_scene.m_convexHullStates );
 }
 
-const TestSceneParser::Json* TestSceneParser::ReadAssetPartIdentity( const Json& instance,
-                                                                     const std::string& path,
-                                                                     uint32_t partIndex,
-                                                                     uint32_t expectedPartCount,
-                                                                     const std::string& expectedPartName )
+const AuthoredSceneParser::Json* AuthoredSceneParser::ReadAssetPartIdentity( const Json& instance,
+                                                                             const std::string& path,
+                                                                             uint32_t partIndex,
+                                                                             uint32_t expectedPartCount,
+                                                                             const std::string& expectedPartName )
 {
     const Json* parts = FindMember( instance, "parts" );
     if ( m_currentDocumentVersion == 1 )
@@ -262,7 +264,7 @@ const TestSceneParser::Json* TestSceneParser::ReadAssetPartIdentity( const Json&
     return ParserFailed() ? nullptr : &identity;
 }
 
-std::string TestSceneParser::ResolveStylePath( const std::string& token ) const
+std::string AuthoredSceneParser::ResolveStylePath( const std::string& token ) const
 {
     if ( token.find( '/' ) != std::string::npos || token.find( '\\' ) != std::string::npos ||
          EndsWith( token, ".style.json" ) )
@@ -272,7 +274,10 @@ std::string TestSceneParser::ResolveStylePath( const std::string& token ) const
     return std::string( "SkullbonezData/styles/" ) + token + ".style.json";
 }
 
-void TestSceneParser::LoadStyleIncludes( const Json& root, const std::string& path, const char* memberName, int depth )
+void AuthoredSceneParser::LoadStyleIncludes( const Json& root,
+                                             const std::string& path,
+                                             const char* memberName,
+                                             int depth )
 {
     const Json* includes = FindMember( root, memberName );
     if ( !includes )
@@ -300,7 +305,7 @@ void TestSceneParser::LoadStyleIncludes( const Json& root, const std::string& pa
     }
 }
 
-void TestSceneParser::ApplySceneBody( const Json& root, const std::string& path )
+void AuthoredSceneParser::ApplySceneBody( const Json& root, const std::string& path )
 {
     LoadAssetLibraries( root, path );
     if ( ParserFailed() )
@@ -478,7 +483,7 @@ void TestSceneParser::ApplySceneBody( const Json& root, const std::string& path 
     }
 }
 
-void TestSceneParser::LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth )
+void AuthoredSceneParser::LoadDocumentIntoScene( const std::string& path, bool styleOnly, int depth )
 {
     if ( depth > kMaxStyleIncludeDepth )
     {
@@ -551,45 +556,46 @@ void TestSceneParser::LoadDocumentIntoScene( const std::string& path, bool style
 
 // Lifetime: the parser only borrows the asset registry during this parse.
 // A null registry keeps standalone tools on the historical path fallback.
-TestSceneParser::TestSceneParser( Assets::AssetContext assets ) : m_assets( assets )
+AuthoredSceneParser::AuthoredSceneParser( Assets::AssetContext assets ) : m_assets( assets )
 {
 }
 
-SkullbonezCore::Core::SbResult TestSceneParser::TryLoadScene( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadScene( const char* path, AuthoredScene& outScene )
 {
     return TryLoadDocument( path, false, outScene );
 }
 
-SkullbonezCore::Core::SbResult TestSceneParser::TryLoadStyle( const char* path, TestScene& outScene )
+SkullbonezCore::Core::SbResult AuthoredSceneParser::TryLoadStyle( const char* path, AuthoredScene& outScene )
 {
     return TryLoadDocument( path, true, outScene );
 }
 
-TestScene TestSceneParser::LoadScene( const char* path )
+AuthoredScene AuthoredSceneParser::LoadScene( const char* path )
 {
-    TestScene scene;
+    AuthoredScene scene;
     const SkullbonezCore::Core::SbResult result = TryLoadScene( path, scene );
     if ( !result.ok )
     {
-        SB_FATAL( "Scene/TestSceneParser", "%s", result.error.message );
+        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.error.message );
     }
     return scene;
 }
 
-TestScene TestSceneParser::LoadStyle( const char* path )
+AuthoredScene AuthoredSceneParser::LoadStyle( const char* path )
 {
-    TestScene scene;
+    AuthoredScene scene;
     const SkullbonezCore::Core::SbResult result = TryLoadStyle( path, scene );
     if ( !result.ok )
     {
-        SB_FATAL( "Scene/TestSceneParser", "%s", result.error.message );
+        SB_FATAL( "Scene/AuthoredSceneParser", "%s", result.error.message );
     }
     return scene;
 }
 
-SkullbonezCore::Core::SbResult TestSceneParser::TryLoadDocument( const char* path, bool styleOnly, TestScene& outScene )
+SkullbonezCore::Core::SbResult
+AuthoredSceneParser::TryLoadDocument( const char* path, bool styleOnly, AuthoredScene& outScene )
 {
-    m_scene = TestScene();
+    m_scene = AuthoredScene();
     m_assetDefinitions.clear();
     m_sceneObjectNames.clear();
     m_sceneObjectIds.clear();
@@ -626,26 +632,26 @@ SkullbonezCore::Core::SbResult TestSceneParser::TryLoadDocument( const char* pat
 }
 
 
-TestScene LoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets )
+AuthoredScene LoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets )
 {
-    return TestSceneParser( assets ).LoadScene( path );
+    return AuthoredSceneParser( assets ).LoadScene( path );
 }
 
-TestScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets )
+AuthoredScene LoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets )
 {
-    return TestSceneParser( assets ).LoadStyle( path );
-}
-
-SkullbonezCore::Core::SbResult
-TryLoadTestSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
-{
-    return TestSceneParser( assets ).TryLoadScene( path, outScene );
+    return AuthoredSceneParser( assets ).LoadStyle( path );
 }
 
 SkullbonezCore::Core::SbResult
-TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, TestScene& outScene )
+TryLoadAuthoredSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene )
 {
-    return TestSceneParser( assets ).TryLoadStyle( path, outScene );
+    return AuthoredSceneParser( assets ).TryLoadScene( path, outScene );
+}
+
+SkullbonezCore::Core::SbResult
+TryLoadStyleSceneFromFileImpl( const char* path, Assets::AssetContext assets, AuthoredScene& outScene )
+{
+    return AuthoredSceneParser( assets ).TryLoadStyle( path, outScene );
 }
 } // namespace Runtime
 } // namespace SkullbonezCore

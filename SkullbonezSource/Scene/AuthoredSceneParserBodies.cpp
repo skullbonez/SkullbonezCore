@@ -1,12 +1,12 @@
 /*
-File: TestSceneParserBodies.cpp
+File: AuthoredSceneParserBodies.cpp
 Purpose:
   Parses bodies, state rows, joints, materials, requirements, and object-group metadata.
 
 Summary:
   This translation unit handles one schema domain while mutating the single
-  TestSceneParser result. Shared validation and failure policy live in
-  TestSceneParserSchema.h; top-level document order stays in TestSceneParser.cpp.
+  AuthoredSceneParser result. Shared validation and failure policy live in
+  AuthoredSceneParserSchema.h; top-level document order stays in AuthoredSceneParser.cpp.
 
 Glossary:
   Schema domain: Cohesive authored section translated without creating another
@@ -19,36 +19,36 @@ Invariants:
   - Stable scene identities and source ordering are preserved exactly.
 
 Related:
-  - TestSceneParserSchema.h declares shared parser state and helpers.
+  - AuthoredSceneParserSchema.h declares shared parser state and helpers.
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md owns this decomposition.
 */
-#include "TestSceneParserSchema.h"
+#include "AuthoredSceneParserSchema.h"
 
 namespace SkullbonezCore
 {
 namespace Runtime
 {
-using TestSceneParserDetail::CopyOptionalContactMaterial;
-using TestSceneParserDetail::Fail;
-using TestSceneParserDetail::FindMember;
-using TestSceneParserDetail::LoadConvexHullDefaultMass;
-using TestSceneParserDetail::ParseMaterialModeValue;
-using TestSceneParserDetail::ParserFailed;
-using TestSceneParserDetail::ReadBool;
-using TestSceneParserDetail::ReadFloat;
-using TestSceneParserDetail::ReadInt;
-using TestSceneParserDetail::ReadOptionalSceneObjectGroup;
-using TestSceneParserDetail::ReadRequiredStringField;
-using TestSceneParserDetail::ReadString;
-using TestSceneParserDetail::ReadUnitFloat;
-using TestSceneParserDetail::ReadVec3;
-using TestSceneParserDetail::ReadVec4;
-using TestSceneParserDetail::RequireArray;
-using TestSceneParserDetail::RequireMember;
-using TestSceneParserDetail::RequireObject;
-using TestSceneParserDetail::SetObjectMaterialBaseColor;
+using AuthoredSceneParserDetail::CopyOptionalContactMaterial;
+using AuthoredSceneParserDetail::Fail;
+using AuthoredSceneParserDetail::FindMember;
+using AuthoredSceneParserDetail::LoadConvexHullDefaultMass;
+using AuthoredSceneParserDetail::ParseMaterialModeValue;
+using AuthoredSceneParserDetail::ParserFailed;
+using AuthoredSceneParserDetail::ReadBool;
+using AuthoredSceneParserDetail::ReadFloat;
+using AuthoredSceneParserDetail::ReadInt;
+using AuthoredSceneParserDetail::ReadOptionalSceneObjectGroup;
+using AuthoredSceneParserDetail::ReadRequiredStringField;
+using AuthoredSceneParserDetail::ReadString;
+using AuthoredSceneParserDetail::ReadUnitFloat;
+using AuthoredSceneParserDetail::ReadVec3;
+using AuthoredSceneParserDetail::ReadVec4;
+using AuthoredSceneParserDetail::RequireArray;
+using AuthoredSceneParserDetail::RequireMember;
+using AuthoredSceneParserDetail::RequireObject;
+using AuthoredSceneParserDetail::SetObjectMaterialBaseColor;
 
-void TestSceneParser::ApplyBall( const Json& object, const std::string& path, bool isFixed )
+void AuthoredSceneParser::ApplyBall( const Json& object, const std::string& path, bool isFixed )
 {
     SceneBall ball = {};
     ball.sceneObjectId = ReadSceneObjectId( object, path, "ball" );
@@ -94,7 +94,7 @@ void TestSceneParser::ApplyBall( const Json& object, const std::string& path, bo
     m_scene.m_balls.push_back( ball );
 }
 
-void TestSceneParser::ApplyBox( const Json& object, const std::string& path, bool isFixed )
+void AuthoredSceneParser::ApplyBox( const Json& object, const std::string& path, bool isFixed )
 {
     SceneBox box = {};
     box.sceneObjectId = ReadSceneObjectId( object, path, "box" );
@@ -135,10 +135,10 @@ void TestSceneParser::ApplyBox( const Json& object, const std::string& path, boo
     m_scene.m_boxes.push_back( box );
 }
 
-void TestSceneParser::ApplyConvexHull( const Json& object,
-                                       const std::string& path,
-                                       bool isFixed,
-                                       const Math::Orientation::Quaternion* composedOrientation )
+void AuthoredSceneParser::ApplyConvexHull( const Json& object,
+                                           const std::string& path,
+                                           bool isFixed,
+                                           const Math::Orientation::Quaternion* composedOrientation )
 {
     SceneConvexHull hull = {};
     hull.sceneObjectId = ReadSceneObjectId( object, path, "convexHull" );
@@ -216,7 +216,7 @@ void TestSceneParser::ApplyConvexHull( const Json& object,
     m_scene.m_convexHulls.push_back( hull );
 }
 
-void TestSceneParser::ApplyBallState( const Json& object, const std::string& path )
+void AuthoredSceneParser::ApplyBallState( const Json& object, const std::string& path )
 {
     SceneBallState state = {};
     state.sceneObjectId = ReadSceneObjectId( object, path, "ballState" );
@@ -276,7 +276,7 @@ void TestSceneParser::ApplyBallState( const Json& object, const std::string& pat
     m_scene.m_ballStates.push_back( state );
 }
 
-void TestSceneParser::ApplyBoxState( const Json& object, const std::string& path )
+void AuthoredSceneParser::ApplyBoxState( const Json& object, const std::string& path )
 {
     SceneBoxState state = {};
     state.sceneObjectId = ReadSceneObjectId( object, path, "boxState" );
@@ -338,7 +338,7 @@ void TestSceneParser::ApplyBoxState( const Json& object, const std::string& path
     m_scene.m_boxStates.push_back( state );
 }
 
-void TestSceneParser::ApplyConvexHullState( const Json& object, const std::string& path )
+void AuthoredSceneParser::ApplyConvexHullState( const Json& object, const std::string& path )
 {
     SceneConvexHullState state = {};
     state.sceneObjectId = ReadSceneObjectId( object, path, "convexHullState" );
@@ -411,7 +411,7 @@ void TestSceneParser::ApplyConvexHullState( const Json& object, const std::strin
     m_scene.m_convexHullStates.push_back( state );
 }
 
-void TestSceneParser::ApplyRagdoll( const Json& object, const std::string& path )
+void AuthoredSceneParser::ApplyRagdoll( const Json& object, const std::string& path )
 {
     SceneRagdoll ragdoll = {};
     ragdoll.firstSceneObjectId =
@@ -469,7 +469,7 @@ void TestSceneParser::ApplyRagdoll( const Json& object, const std::string& path 
     m_scene.m_ragdolls.push_back( ragdoll );
 }
 
-void TestSceneParser::ApplyObject( const Json& object, const std::string& path )
+void AuthoredSceneParser::ApplyObject( const Json& object, const std::string& path )
 {
     RequireObject( object, path, "object" );
     const std::string type = ReadString( RequireMember( object, path, "object", "type" ), path, "object.type" );
@@ -519,7 +519,7 @@ void TestSceneParser::ApplyObject( const Json& object, const std::string& path )
     }
 }
 
-void TestSceneParser::ApplyPointJointConstraint( const Json& jointJson, const std::string& path )
+void AuthoredSceneParser::ApplyPointJointConstraint( const Json& jointJson, const std::string& path )
 {
     RequireObject( jointJson, path, "ragdollJoint" );
     ScenePointJointConstraint joint = {};
@@ -560,7 +560,7 @@ void TestSceneParser::ApplyPointJointConstraint( const Json& jointJson, const st
     m_scene.m_pointJointConstraints.push_back( joint );
 }
 
-void TestSceneParser::ApplyObjectMaterial( const Json& materialJson, const std::string& path )
+void AuthoredSceneParser::ApplyObjectMaterial( const Json& materialJson, const std::string& path )
 {
     RequireObject( materialJson, path, "objectMaterial" );
     SceneObjectMaterialOverride material = {};
@@ -687,7 +687,7 @@ void TestSceneParser::ApplyObjectMaterial( const Json& materialJson, const std::
     m_scene.m_objectMaterials.push_back( material );
 }
 
-void TestSceneParser::ApplyRequirements( const Json& requirements, const std::string& path )
+void AuthoredSceneParser::ApplyRequirements( const Json& requirements, const std::string& path )
 {
     RequireObject( requirements, path, "requirements" );
     if ( const Json* contacts = FindMember( requirements, "contacts" ) )

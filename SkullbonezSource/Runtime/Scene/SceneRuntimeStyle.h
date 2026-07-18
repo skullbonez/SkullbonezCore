@@ -41,7 +41,7 @@ class AssetSystem;
 }
 namespace Runtime
 {
-class TestScene;
+class AuthoredScene;
 class SceneWorld;
 struct RunDebugState;
 
@@ -72,7 +72,7 @@ bool IsSceneCinematicRenderingEnabled( const RunSceneState& scene,
                                        const RunDebugState& debug,
                                        bool graphicsReady );
 bool ApplyCinematicModeFromBrowserIndex( SceneRuntimeStyleContext context, int index );
-void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const TestScene& styleScene );
+void ApplyLiveStyleScene( SceneRuntimeStyleContext context, const AuthoredScene& styleScene );
 bool ApplyDemoHeroStyleOverride( SceneRuntimeStyleContext context );
 
 } // namespace Runtime

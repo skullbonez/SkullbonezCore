@@ -56,7 +56,7 @@ struct UIPhysicsCommands;
 namespace Runtime
 {
 class SceneController;
-class TestScene;
+class AuthoredScene;
 enum class RuntimeInputAction;
 struct RunDebugState;
 
@@ -143,7 +143,7 @@ class DiagnosticsRuntime
     void ResetForSceneLoad( int completedPerfPass );
     void ConfigurePerfLogFlush( bool enabled, int interval );
     void OpenScenePerfLog( const char* path, int pass );
-    void ApplySceneAutomationOptions( const TestScene& scene, bool suppressAutomationExit, int perfPass );
+    void ApplySceneAutomationOptions( const AuthoredScene& scene, bool suppressAutomationExit, int perfPass );
     bool PerfTestActive() const;
     void TickPerfLog( const RuntimePerfTickContext& context );
     RuntimeProfilerFrameTimes SampleProfilerFrameTimes() const;

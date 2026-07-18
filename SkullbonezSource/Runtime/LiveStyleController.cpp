@@ -28,7 +28,7 @@ Related:
 #include "CaptureController.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 #include "Scene/SceneRuntimeStyle.h"
-#include "../Scene/TestScene.h"
+#include "../Scene/AuthoredScene.h"
 #include <cstdio>
 #include <cstring>
 
@@ -259,9 +259,9 @@ void LiveStyleController::Tick( SceneRuntimeStyleContext context )
     if ( styleStamp != 0 && styleStamp != m_styleStamp )
     {
         m_styleStamp = styleStamp;
-        TestScene styleScene;
+        AuthoredScene styleScene;
         const SkullbonezCore::Core::SbResult loadResult =
-            TestScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
+            AuthoredScene::TryLoadStyleFromFile( m_stylePath, context.assets, styleScene );
         if ( loadResult.ok )
         {
             ApplyLiveStyleScene( context, styleScene );

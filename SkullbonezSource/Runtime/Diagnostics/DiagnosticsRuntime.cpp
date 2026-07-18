@@ -41,7 +41,7 @@ Related:
 #include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
 #include "../../Rendering/IRenderDiagnostics.h"
-#include "../../Scene/TestScene.h"
+#include "../../Scene/AuthoredScene.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
 
@@ -765,7 +765,7 @@ void DiagnosticsRuntime::OpenScenePerfLog( const char* path, int pass )
 }
 
 
-void DiagnosticsRuntime::ApplySceneAutomationOptions( const TestScene& scene,
+void DiagnosticsRuntime::ApplySceneAutomationOptions( const AuthoredScene& scene,
                                                       bool suppressAutomationExit,
                                                       int perfPass )
 {
