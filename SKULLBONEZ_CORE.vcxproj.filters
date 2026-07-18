@@ -196,6 +196,29 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ThirdPtySource\imgui\imgui.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\imgui_draw.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\imgui_tables.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\imgui_widgets.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_dx12.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\tracy\public\TracyClient.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
       <Filter>Source Files\Assets</Filter>
     </ClCompile>

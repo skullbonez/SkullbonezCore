@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    Development-only include paths. Engine files retain the project's /W4
+    policy; warning suppression is attached only to the explicit third-party
+    translation units in SKULLBONEZ_CORE.vcxproj.
+  -->
+  <PropertyGroup>
+    <SkoreThirdPartyRoot>$(MSBuildThisFileDirectory)ThirdPtySource\</SkoreThirdPartyRoot>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SkoreThirdPartyRoot)imgui;$(SkoreThirdPartyRoot)imgui\backends;$(SkoreThirdPartyRoot)tracy\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

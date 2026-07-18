@@ -1,10 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 1/18 tasks (E0 complete; E1 next) under the owner's
+Status: Active — 2/18 tasks (E0-E1 complete; E2 next) under the owner's
 continue-on-blocker direction while physics P1 awaits two explicit
 transition-artifact approvals
 Owner direction: 2026-07-18
-Ledger: E0-E17 (0/18 complete)
+Ledger: E0-E17 (2/18 complete)
 
 ## Objective
 
@@ -160,7 +160,7 @@ It does **not** authorize removal from the legacy UI.
     changed; the existing editor interaction harness's post-capture
     fixed-coordinate failure is recorded as a follow-up risk.
 
-- [ ] E1 — Pin Dear ImGui and Tracy as reproducible development dependencies.
+- [x] E1 — Pin Dear ImGui and Tracy as reproducible development dependencies.
   - Choose a pinned Dear ImGui docking revision and pinned Tracy client/server
     revision; preserve their licenses and upstream notices.
   - Prefer repository-controlled dependency acquisition or a documented
@@ -172,6 +172,14 @@ It does **not** authorize removal from the legacy UI.
   - Acceptance: clean bootstrap/build documentation identifies revisions,
     hashes, licenses, update procedure, and Release exclusion.
   - Gate: `tools\validate_fast.bat` after project/tooling changes.
+  - Evidence:
+    `../../Reports/2026-07-18/imgui-tracy-e1-dependencies.md` records Dear
+    ImGui `v1.92.8-docking` at `b61e56346a92cfcaf1f43a545ca37b0b32239654`
+    and Tracy `v0.13.1` at `05cceee0df3b8d7c6fa87e9638af311dbabc63cb`,
+    license hashes, exact vendor source inputs, development-only property-sheet
+    wiring, and reproducible submodule bootstrap. `validate_fast` passed all
+    five stages, and a final Release build passed with no ImGui/Tracy source or
+    object in its compile/link commands.
 
 - [ ] E2 — Establish the development-tools and allocation-policy boundary.
   - Introduce one explicit compile-time development-tools capability used by

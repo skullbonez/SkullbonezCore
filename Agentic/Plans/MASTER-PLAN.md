@@ -137,8 +137,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 1 | 18 | 6% |
-| **Active/future total** | **2** | **26** | **8%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 2 | 18 | 11% |
+| **Active/future total** | **3** | **26** | **12%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -196,11 +196,14 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E1 under the owner's
+`imgui-tracy-editor-campaign` (E0-E17) is active at E2 under the owner's
 direction to note genuine blockers and continue. E0 completed the full legacy
 surface/command/frame-field/hotkey/owner inventory, captured seven current
 screenshots, and ratified the development/configuration and coexistence
-contract. The campaign adds a development-only ImGui docked editor and Tracy
+contract. E1 pinned Dear ImGui docking and Tracy as exact licensed gitlinks,
+wired only their required sources into development configurations, proved a
+fresh bootstrap path, and confirmed Release excludes them. The campaign adds a
+development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
 comparison. The default is editor-heavy on the left, game viewport centered,
 Inspector/World/Rendering/Diagnostics plus compact Causality on the right, and
@@ -814,7 +817,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E1 | 1/18 | Pin reproducible Dear ImGui docking and Tracy revisions, licenses, acquisition/update path, project filters, and Release exclusion |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E2 | 2/18 | Establish one development-tools capability and a narrow allocation-policy boundary while preserving the gameplay guard and Release exclusion |
 
 ## Features
 
