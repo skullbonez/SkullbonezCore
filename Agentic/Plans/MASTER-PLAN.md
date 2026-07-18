@@ -118,11 +118,11 @@ techniques.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 5 | 8 | 63% |
+| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 6 | 8 | 75% |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 0 | 5 | 0% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **5** | **26** | **19%** |
+| **Active/future total** | **6** | **26** | **23%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -716,7 +716,7 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 5/8 | D5 shader-development ownership extraction |
+| [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 6/8 | D6 composition-root shrink and header diet |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active | 0/5 | N0 rename census after round-2 scene split |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | Active — blocked on DX12 plan | 0/5 | H0 rulings census after backend decomposition lands |
 

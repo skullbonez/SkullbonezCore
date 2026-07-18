@@ -12,7 +12,8 @@ Summary:
   owns every descriptor table and row allocator, Dx12BackbufferCapture owns
   screenshot readback/quarantine, Dx12GraphTransientPool owns physical graph
   targets and their balanced binding transaction, Dx12Diagnostics owns timing
-  and draw evidence, and the private frame epoch and retirement owners live in
+  and draw evidence, Dx12ShaderDevelopment owns cold reload registration and
+  adoption, and the private frame epoch and retirement owners live in
   Dx12FrameOwner.h.
 
 Glossary:
@@ -57,6 +58,7 @@ Related:
   - SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp
   - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
   - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
+  - SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.h
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
@@ -86,6 +88,7 @@ Related:
 #include "MeshDX12.h"
 #include "Dx12DescriptorHeaps.h"
 #include "Dx12Diagnostics.h"
+#include "Dx12ShaderDevelopment.h"
 #include "Dx12FrameOwner.h"
 #include "BLASDX12.h"
 #include "TLASDX12.h"
@@ -283,7 +286,7 @@ class Dx12TextureOwner
 {
   public:
     SkullbonezCore::Core::SbResult Initialize( Dx12TextureCommands& commands );
-    SkullbonezCore::Core::SbResult PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
+    SkullbonezCore::Core::SbResult PrepareGenerateMipsShaderReload( ID3D12Device* device,
                                                                     ID3D12PipelineState*& candidate );
     void AdoptGenerateMipsShaderReload( ID3D12PipelineState* candidate );
     void Shutdown();
@@ -350,9 +353,8 @@ class Dx12PipelineOwner
                       const InstancedMeshDX12* instancedMesh,
                       const DynamicVBDX12* dynamicVertexBuffer );
     void SetActiveShader( ShaderDX12* shader );
-    void RegisterShader( ShaderDX12* shader );
-    void UnregisterShader( ShaderDX12* shader );
-    SkullbonezCore::Core::SbResult ReloadShadersFromBakedAssets();
+    void ReleaseShaderPipelinesForReload();
+    void RestoreShaderPipelinesAfterReload();
     ShaderDX12* ActiveShader() const;
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
@@ -396,15 +398,10 @@ class Dx12PipelineOwner
     void ResetDesiredState();
 
     static constexpr size_t CACHE_CAPACITY = 96;
-    static constexpr size_t LIVE_SHADER_CAPACITY = 64;
     static constexpr size_t ROOT_SIGNATURE_SERIALIZED_CAPACITY = 4096;
     Dx12CachedPsoStore m_persistentPsoCache;
     std::array<CachedPSODX12, CACHE_CAPACITY> m_psoCache = {};
     size_t m_psoCacheCount = 0;
-    // Lifetime: registered ShaderDX12 objects unregister before the backend
-    // owner dies. The fixed table stages one all-or-nothing manual reload.
-    std::array<ShaderDX12*, LIVE_SHADER_CAPACITY> m_liveShaders = {};
-    size_t m_liveShaderCount = 0;
     // Canonical UnifiedRaster bytes reopen the P4 cache after a changed manifest
     // without retaining the temporary root-signature serialization blob.
     std::array<std::uint8_t, ROOT_SIGNATURE_SERIALIZED_CAPACITY> m_rootSignatureSerialized = {};
@@ -661,6 +658,9 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Dx12TextureOwner m_textureOwner;
     Dx12PipelineOwner m_pipelineOwner;
     Dx12GeometryOwner m_geometryOwner;
+    // Cold-only registry and transactional shader-generation adoption. It
+    // borrows concrete shader-domain owners and has no per-frame authority.
+    Dx12ShaderDevelopment m_shaderDevelopment;
 
     // Currently bound render state. DX12 does not remember high-level engine
     // intent for us, so the backend tracks the desired state and emits concrete

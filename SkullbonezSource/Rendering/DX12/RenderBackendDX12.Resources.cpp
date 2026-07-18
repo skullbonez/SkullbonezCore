@@ -1,14 +1,14 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp
 Purpose:
-  Creates, transitions, and names DX12 resources and owns the opt-in offline-DXC
-  hot-reload transaction.
+  Creates, transitions, and names DX12 resources and delegates the opt-in
+  offline-DXC hot-reload transaction.
 
 Summary:
   RenderBackendDX12.Resources.cpp creates, transitions, and names DX12
-  resources used by the renderer. As an implementation unit, keep edits
-  anchored on DX12 ownership, descriptors, resources, and command submission
-  and on the glossary/invariants below.
+  resources used by the renderer. The shader-development interface remains a
+  composition-root sequence here: ask its concrete owner to bake, drain the
+  frame owner, then let that owner stage and publish the verified generation.
 
 Glossary:
   Upload arena: Frame-scoped CPU-visible staging memory used to seed default
@@ -25,8 +25,8 @@ Invariants:
   - Mesh resource creation stops before pointer access when command reopening
     or upload reservation has latched a failure.
   - Meshes borrow Dx12Diagnostics as one owner, never separate counter/trace aliases.
-  - Shader reload is disabled without the exact launch token and never mutates
-    live bytecode before the complete bake and replacement contracts pass.
+  - Dx12ShaderDevelopment rejects reload without the exact launch token and
+    never mutates live bytecode before every replacement contract passes.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -35,7 +35,6 @@ Related:
 #include "RenderBackendDX12.h"
 #include "../../Runtime/WindowConstants.h"
 #include "ShaderDX12.h"
-#include "ShaderBytecodeManifest.h"
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"
 #include "../RenderGraph.h"
@@ -53,7 +52,6 @@ Related:
 
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
-using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
@@ -81,7 +79,10 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
     {
         return nullptr;
     }
-    auto shader = std::make_unique<ShaderDX12>( m_renderDevice, m_pipelineOwner, m_frameOwner.UploadReservations() );
+    auto shader = std::make_unique<ShaderDX12>( m_renderDevice,
+                                                m_pipelineOwner,
+                                                m_shaderDevelopment,
+                                                m_frameOwner.UploadReservations() );
     if ( !shader->Compile( hlslPath.c_str() ) )
     {
         // Lane R: shader files and compiler output are external inputs. Return
@@ -97,59 +98,16 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
 
 bool RenderBackendDX12::ShaderHotReloadEnabled() const
 {
-    return DevShaderHotReloadEnabled();
+    return m_shaderDevelopment.Enabled();
 }
 
 
 SkullbonezCore::Core::SbResult RenderBackendDX12::ReloadShadersFromSource()
 {
-    if ( !ShaderHotReloadEnabled() )
+    const SkullbonezCore::Core::SbResult bakeResult = m_shaderDevelopment.BakeSourceGeneration();
+    if ( !bakeResult.ok )
     {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader hot reload requires --dev-shader-hot-reload" );
-    }
-    constexpr char BAKE_PATH[] = "tools\\bake_shaders.bat";
-    if ( GetFileAttributesA( BAKE_PATH ) == INVALID_FILE_ATTRIBUTES )
-    {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader bake tool is unavailable from this working directory" );
-    }
-
-    // Cold utility action: invoke the same pinned DXC bake used by validation.
-    // The process is synchronous so the manifest and all stage files become one
-    // complete generation before any live shader attempts to read them.
-    char commandLine[] = "cmd.exe /d /c tools\\bake_shaders.bat";
-    STARTUPINFOA startup = {};
-    startup.cb = sizeof( startup );
-    PROCESS_INFORMATION process = {};
-    fprintf( stdout, "[shader-hot-reload] bake begin\n" );
-    fflush( stdout );
-    if ( !CreateProcessA( nullptr,
-                          commandLine,
-                          nullptr,
-                          nullptr,
-                          FALSE,
-                          CREATE_NO_WINDOW,
-                          nullptr,
-                          nullptr,
-                          &startup,
-                          &process ) )
-    {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader bake process failed to start (error=%lu)",
-                                                        GetLastError() );
-    }
-    const DWORD waitResult = WaitForSingleObject( process.hProcess, INFINITE );
-    DWORD exitCode = ERROR_PROCESS_ABORTED;
-    const bool exited = waitResult == WAIT_OBJECT_0 && GetExitCodeProcess( process.hProcess, &exitCode );
-    CloseHandle( process.hThread );
-    CloseHandle( process.hProcess );
-    if ( !exited || exitCode != 0 )
-    {
-        return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
-                                                        "Shader bake failed (wait=%lu exit=%lu)",
-                                                        waitResult,
-                                                        exitCode );
+        return bakeResult;
     }
 
     // Lifetime: all current PSOs may still be referenced by submitted command
@@ -160,27 +118,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::ReloadShadersFromSource()
     {
         return drainResult;
     }
-    ID3D12PipelineState* generateMipsCandidate = nullptr;
-    Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
-    const SkullbonezCore::Core::SbResult computeReloadResult =
-        m_textureOwner.PrepareGenerateMipsShaderReload( textureCommands, generateMipsCandidate );
-    if ( !computeReloadResult.ok )
-    {
-        return computeReloadResult;
-    }
-    const SkullbonezCore::Core::SbResult reloadResult = m_pipelineOwner.ReloadShadersFromBakedAssets();
-    if ( !reloadResult.ok )
-    {
-        generateMipsCandidate->Release();
-        return reloadResult;
-    }
-    m_textureOwner.AdoptGenerateMipsShaderReload( generateMipsCandidate );
-    m_geometryOwner.InvalidateGridLinePipelinesForShaderReload();
-    m_pipelineOwner.InvalidateCommandState();
-    fprintf( stdout, "[shader-hot-reload] committed\n" );
-    fflush( stdout );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_complete owner=RenderBackendDX12" );
-    return SkullbonezCore::Core::SbResult::Success();
+    return m_shaderDevelopment.ReloadBakedGeneration( Device() );
 }
 
 

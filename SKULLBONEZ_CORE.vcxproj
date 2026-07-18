@@ -431,6 +431,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp" />
@@ -649,6 +650,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12GraphTransientPool.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12DescriptorHeaps.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.h" />

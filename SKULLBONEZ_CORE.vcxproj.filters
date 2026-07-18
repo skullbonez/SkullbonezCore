@@ -586,6 +586,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12FrameOwner.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -1239,6 +1242,9 @@
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12Diagnostics.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ShaderDevelopment.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderMaterial.h">

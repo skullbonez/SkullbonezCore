@@ -1,7 +1,7 @@
 # DX12 Backend Ownership Decomposition — Retire The Last Laundered God Class
 
 Date: 2026-07-18
-Status: Active — 5/8 tasks
+Status: Active — 6/8 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Rendering/DX12/*`, `Rendering/I*.h` consumers,
 project filters
@@ -90,7 +90,7 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   consumption, draw-call counters/high-water, visibility stats,
   `DrawCallTrace`, and fault injection behind the diagnostics owner
   surface. Gate: renderer + stress.
-- [ ] D5 — Shader-development owner. Move hot-reload / shader-development
+- [x] D5 — Shader-development owner. Move hot-reload / shader-development
   state and operations (the `IRenderShaderDevelopment` implementation
   state) into a concrete owner; cold-path only, no per-frame authority.
   Gate: renderer + stress.
@@ -197,6 +197,28 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   probe emitted both requested/enabled evidence lines and its interactive
   process was stopped by exact PID after 43.143 s. No baseline, golden,
   screenshot, or coverage-floor file changed. Task elapsed time: 1,138.739 s.
+- D5 evidence (2026-07-18): `Dx12ShaderDevelopment` now owns the fixed 64-row
+  live raster-shader registry, exact-token developer policy, pinned offline-DXC
+  bake launch, complete candidate staging, and the no-fail adoption transaction
+  across raster shaders, the generate-mips compute PSO, overlay PSOs, and the
+  bounded persistent pipeline cache. `ShaderDX12` registers with that owner
+  rather than `Dx12PipelineOwner`; shutdown proves the registry is empty after
+  geometry-owned shader teardown. The owner stores only concrete pipeline,
+  texture, and geometry references and receives one transient `ID3D12Device*`
+  for compute-PSO staging—no frame, command list, backend, callback, or per-frame
+  authority. The backend retains only the ratified top-level bake / GPU-drain /
+  adoption sequence. The seven retained consumer interfaces are byte-identical
+  and `FRAME_COUNT` remains 2. Comment audit:
+  `../../Reports/2026-07-18/dx12-backend-d5-comment-audit.md`, 10/10 checked
+  with none deferred. Final gates: project filters passed with 738/738 items;
+  `validate_fast` passed in 56.030 s with formatting, Profile and Debug builds,
+  and 291/291 tests with 21,455/21,455 assertions;
+  `validate_dx12_renderer` passed in 53.680 s with zero InfoQueue errors and all
+  committed captures accepted; and `run_graphics_stress.bat 1` ran crash-free
+  for 61.751 s before the exact-PID bounded stop. The first fast-gate attempt
+  stopped at one formatting-only finding; the touched resource file was
+  formatted and the complete gate reran cleanly. No baseline, golden,
+  screenshot, or coverage-floor file changed. Task elapsed time: 838.323 s.
 
 ## Acceptance
 

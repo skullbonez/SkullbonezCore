@@ -33,6 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "ShaderDX12.h"
+#include "Dx12ShaderDevelopment.h"
 #include "ShaderBytecodeManifest.h"
 #include "RenderBackendDX12.h"
 #include "../ShaderContracts.h"
@@ -84,24 +85,26 @@ size_t HashShaderBytecode( ID3DBlob* blob )
 
 ShaderDX12::ShaderDX12( Dx12RenderDevice& device,
                         Dx12PipelineOwner& pipeline,
+                        Dx12ShaderDevelopment& shaderDevelopment,
                         Dx12UploadReservations& uploadReservations,
-                        bool registerWithPipeline )
-    : m_device( device ), m_pipeline( pipeline ), m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ),
-      m_cbSize( 0 ), m_cbDirty( false ), m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
+                        bool registerForDevelopment )
+    : m_device( device ), m_pipeline( pipeline ), m_shaderDevelopment( shaderDevelopment ),
+      m_uploadReservations( uploadReservations ), m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ),
+      m_vsBytecodeHash( 0 ), m_psBytecodeHash( 0 ), m_contract( nullptr )
 {
-    if ( registerWithPipeline )
+    if ( registerForDevelopment )
     {
-        m_pipeline.RegisterShader( this );
-        m_registeredWithPipeline = true;
+        m_shaderDevelopment.RegisterShader( this );
+        m_registeredForDevelopment = true;
     }
 }
 
 
 ShaderDX12::~ShaderDX12()
 {
-    if ( m_registeredWithPipeline )
+    if ( m_registeredForDevelopment )
     {
-        m_pipeline.UnregisterShader( this );
+        m_shaderDevelopment.UnregisterShader( this );
     }
 }
 
@@ -210,7 +213,7 @@ bool ShaderDX12::CanAdoptReload( const ShaderDX12& candidate ) const
 
 bool ShaderDX12::PrepareReload( ShaderDX12ReloadPayload& payload ) const
 {
-    ShaderDX12 candidate( m_device, m_pipeline, m_uploadReservations, false );
+    ShaderDX12 candidate( m_device, m_pipeline, m_shaderDevelopment, m_uploadReservations, false );
     if ( !candidate.Compile( m_sourcePath.c_str() ) || !CanAdoptReload( candidate ) )
     {
         return false;

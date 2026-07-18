@@ -184,7 +184,8 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
 
 
 RenderBackendDX12::RenderBackendDX12()
-    : m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
+    : m_shaderDevelopment( m_pipelineOwner, m_textureOwner, m_geometryOwner ),
+      m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
       m_graphTransientPool( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner )
 {
 }
@@ -1131,6 +1132,7 @@ void RenderBackendDX12::Shutdown()
     // pipelines only after the terminal GPU drain above proves no command list
     // can still reference them.
     m_geometryOwner.Shutdown();
+    m_shaderDevelopment.ResetAfterShutdown();
     m_textureOwner.Shutdown();
     m_pipelineOwner.Shutdown();
     m_frameOwner.Uploads().Shutdown();

@@ -25,8 +25,6 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
-  Reload payload: Fixed staging record that retains verified replacement
-    bytecode until every live shader is ready for one atomic commit.
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
@@ -34,8 +32,8 @@ Invariants:
   - The graphics PSO cache and framebuffer descriptor heaps are fixed backend
     capacity. Exhaustion means renderer capacity planning failed; do not grow
     them during draw submission or render-target allocation.
-  - At most 64 live raster shaders participate in manual reload; replacements
-    validate into fixed payload rows before any current PSO is released.
+  - Shader-development code may release this owner's PSOs only after its fixed
+    candidate registry is complete and the composition root has drained the GPU.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -631,74 +629,10 @@ void Dx12PipelineOwner::SetActiveShader( ShaderDX12* shader )
 }
 
 
-void Dx12PipelineOwner::RegisterShader( ShaderDX12* shader )
+void Dx12PipelineOwner::ReleaseShaderPipelinesForReload()
 {
-    if ( !shader )
-    {
-        return;
-    }
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        if ( m_liveShaders[index] == shader )
-        {
-            return;
-        }
-    }
-    if ( m_liveShaderCount >= m_liveShaders.size() )
-    {
-        SB_FATAL( "RenderBackendDX12", "Live raster shader registry exhausted. capacity=%zu", m_liveShaders.size() );
-    }
-    m_liveShaders[m_liveShaderCount++] = shader;
-}
-
-
-void Dx12PipelineOwner::UnregisterShader( ShaderDX12* shader )
-{
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        if ( m_liveShaders[index] != shader )
-        {
-            continue;
-        }
-        m_liveShaders[index] = m_liveShaders[m_liveShaderCount - 1];
-        m_liveShaders[m_liveShaderCount - 1] = nullptr;
-        --m_liveShaderCount;
-        break;
-    }
-    if ( m_activeShader == shader )
-    {
-        m_activeShader = nullptr;
-        m_psoDirty = true;
-    }
-}
-
-
-SkullbonezCore::Core::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
-{
-    // Allocation policy: optional candidates are fixed-capacity cold utility
-    // storage. Their internal reflection containers may allocate only while the
-    // caller labels this explicit developer reload as BackendInit.
-    std::array<ShaderDX12ReloadPayload, LIVE_SHADER_CAPACITY> candidates;
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        ShaderDX12* live = m_liveShaders[index];
-        if ( !live )
-        {
-            continue;
-        }
-        if ( !live->PrepareReload( candidates[index] ) )
-        {
-            // Lane R: a changed shader interface needs a rebuilt executable with
-            // matching generated reflection; keep every current shader/PSO live.
-            return SkullbonezCore::Core::SbResult::Failure(
-                "Rendering/DX12",
-                "Shader hot reload rejected changed or invalid bytecode contract" );
-        }
-    }
-
-    // Lifetime: the backend drained the GPU before entering this transaction.
-    // Persist old driver blobs while PSOs live, then release every bytecode-bound
-    // PSO before publishing the new shader blobs.
+    // Lifetime: Dx12ShaderDevelopment proved the GPU drain and staged every
+    // replacement. Persist old blobs while their source PSOs remain live.
     m_persistentPsoCache.Shutdown();
     for ( size_t index = 0; index < m_psoCacheCount; ++index )
     {
@@ -709,20 +643,17 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::ReloadShadersFromBakedAssets()
         m_psoCache[index] = {};
     }
     m_psoCacheCount = 0;
-    for ( size_t index = 0; index < m_liveShaderCount; ++index )
-    {
-        if ( m_liveShaders[index] )
-        {
-            m_liveShaders[index]->AdoptReload( candidates[index] );
-        }
-    }
+}
+
+
+void Dx12PipelineOwner::RestoreShaderPipelinesAfterReload()
+{
+    // Invariant: bytecode adoption is complete and cannot fail. Reopen the
+    // persistent cache against the new manifest before the next PSO lookup.
     m_lastPSOHash = 0;
     m_psoDirty = true;
     m_targetsDirty = true;
     m_persistentPsoCache.Initialize( m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize );
-    SkullbonezCore::Core::Log().WriteEventf( "dx12_shader_hot_reload_committed owner=Dx12PipelineOwner shaders=%llu",
-                                             static_cast<unsigned long long>( m_liveShaderCount ) );
-    return SkullbonezCore::Core::SbResult::Success();
 }
 
 
@@ -862,8 +793,6 @@ void Dx12PipelineOwner::Shutdown()
         m_rootSignature = nullptr;
     }
     m_activeShader = nullptr;
-    m_liveShaders = {};
-    m_liveShaderCount = 0;
     m_rootSignatureSerialized = {};
     m_rootSignatureSerializedSize = 0;
     ResetDesiredState();

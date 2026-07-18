@@ -20,8 +20,8 @@ Glossary:
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
     must stay explicit.
-  - Device, pipeline, and upload-owner references are stable for the shader's
-    lifetime; the shader never retains the aggregate backend.
+  - Device, pipeline, shader-development, and upload-owner references are stable
+    for the shader's lifetime; the shader never retains the aggregate backend.
 
 Related:
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
@@ -48,6 +48,7 @@ namespace Rendering
 
 class Dx12RenderDevice;
 class Dx12PipelineOwner;
+class Dx12ShaderDevelopment;
 class Dx12UploadReservations;
 struct ShaderProgramDesc;
 
@@ -78,6 +79,7 @@ class ShaderDX12 : public IShader
   private:
     Dx12RenderDevice& m_device;
     Dx12PipelineOwner& m_pipeline;
+    Dx12ShaderDevelopment& m_shaderDevelopment;
     Dx12UploadReservations& m_uploadReservations;
     Microsoft::WRL::ComPtr<ID3DBlob> m_vsBlob;
     Microsoft::WRL::ComPtr<ID3DBlob> m_psBlob;
@@ -97,7 +99,7 @@ class ShaderDX12 : public IShader
     size_t m_psBytecodeHash;
     std::string m_sourcePath;
     const ShaderProgramDesc* m_contract;
-    bool m_registeredWithPipeline = false;
+    bool m_registeredForDevelopment = false;
     struct ResourceInfo
     {
         UINT bindPoint;
@@ -127,8 +129,9 @@ class ShaderDX12 : public IShader
   public:
     ShaderDX12( Dx12RenderDevice& device,
                 Dx12PipelineOwner& pipeline,
+                Dx12ShaderDevelopment& shaderDevelopment,
                 Dx12UploadReservations& uploadReservations,
-                bool registerWithPipeline = true );
+                bool registerForDevelopment = true );
     ~ShaderDX12() override;
 
     bool Compile( const char* hlslPath );

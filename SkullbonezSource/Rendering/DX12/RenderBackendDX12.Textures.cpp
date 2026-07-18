@@ -319,7 +319,7 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::Initialize( Dx12TextureCommands
 }
 
 
-SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( Dx12TextureCommands& commands,
+SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload( ID3D12Device* device,
                                                                                   ID3D12PipelineState*& candidate )
 {
     candidate = nullptr;
@@ -340,7 +340,7 @@ SkullbonezCore::Core::SbResult Dx12TextureOwner::PrepareGenerateMipsShaderReload
     D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
     desc.pRootSignature = m_genMipsRS;
     desc.CS = { csBlob->GetBufferPointer(), csBlob->GetBufferSize() };
-    const HRESULT result = commands.Device()->CreateComputePipelineState( &desc, IID_PPV_ARGS( &candidate ) );
+    const HRESULT result = device->CreateComputePipelineState( &desc, IID_PPV_ARGS( &candidate ) );
     if ( FAILED( result ) || !candidate )
     {
         if ( candidate )
