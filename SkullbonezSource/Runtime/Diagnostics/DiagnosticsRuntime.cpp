@@ -544,7 +544,7 @@ bool HandleDiagnosticsKeyboardShortcut( DiagnosticsKeyboardShortcutContext conte
         // the overlay is active, the same key owns overlay visibility.
         if ( context.sceneMode && context.cameraTrackBallIndex >= 0 && !debug.isBroadphaseOverlay )
         {
-            const int sceneEntityCount = context.sceneEntities.SceneEntityCount();
+            const int sceneEntityCount = context.sceneEntities.Scene().SceneEntityCount();
             if ( sceneEntityCount > 0 )
             {
                 context.cameraTrackBallIndex = ( context.cameraTrackBallIndex + 1 ) % sceneEntityCount;

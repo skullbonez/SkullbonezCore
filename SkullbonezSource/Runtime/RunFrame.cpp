@@ -152,7 +152,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     SceneController& sceneController = sceneOwners.sceneController;
     RunSceneState& scene = sceneController.State();
     SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
-    SkullbonezCore::Environment::WorldEnvironment& worldEnvironment = sceneController.World();
+    SkullbonezCore::Environment::WorldEnvironment& worldEnvironment = sceneController.Scene().Environment();
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
@@ -207,7 +207,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
         runtimeViewModel =
             RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController,
                                                                      diagnosticsRuntime.Capture(),
-                                                                     sceneController.Physics(),
+                                                                     sceneController.Scene().Physics(),
                                                                      config.runtimeRender.presentationInterpolation,
                                                                      facts.presentationPinned,
                                                                      facts.presentationAlpha },
@@ -302,7 +302,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
 
     contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
 
-    const auto colliderRecords = models.Colliders().Records();
+    const auto colliderRecords = models.Scene().Colliders().Records();
     auto materialForBody = [&]( int bodyIndex ) -> uint32_t
     {
         if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
@@ -318,7 +318,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         // did a dynamic body experience enough mass-scaled linear velocity
         // change to be heard? Motion comes from PhysicsBodyStore and contact
         // material comes from the paired ColliderStore row.
-        const PhysicsBodyStore& bodyStore = models.BodyStore();
+        const PhysicsBodyStore& bodyStore = models.Scene().BodyStore();
         const auto bodyRecords = bodyStore.Records();
         const auto hotFields = bodyStore.HotFields();
         const int simpleBodyCount = static_cast<int>(
@@ -344,7 +344,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
         // Why: PhysicsDebugContact rows are emitted after accumulated normal
         // impulses are known. Audio can consume those facts without entering
         // solver math or changing deterministic physics state.
-        const std::vector<PhysicsDebugContact>& contacts = PhysicsEngine::ReadDebugContacts( models.Physics() );
+        const std::vector<PhysicsDebugContact>& contacts = PhysicsEngine::ReadDebugContacts( models.Scene().Physics() );
         for ( const PhysicsDebugContact& contact : contacts )
         {
             if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
@@ -442,10 +442,10 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     const RunSceneState& scene = models.State();
     RunTimerState& timers = sceneOwners.timers;
     const RunDebugState debug = sceneOwners.overlays.PresentationSnapshot();
-    SkullbonezCore::Environment::CameraCollection& cameras = models.Cameras();
-    SkullbonezCore::Environment::WorldEnvironment& world = models.World();
-    PhysicsEngine& physics = models.Physics();
-    const SceneEntityStore& entities = models.Entities();
+    SkullbonezCore::Environment::CameraCollection& cameras = models.Scene().Cameras();
+    SkullbonezCore::Environment::WorldEnvironment& world = models.Scene().Environment();
+    PhysicsEngine& physics = models.Scene().Physics();
+    const SceneEntityStore& entities = models.Scene().Entities();
     RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( profiler, "Frame/Physics/Step/ReplayCapture" );
     ReplayCaptureInput input;
@@ -461,8 +461,8 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     input.world = &world;
     input.physics = &physics;
     input.entities = &entities;
-    input.bodyStore = &models.BodyStore();
-    input.colliderStore = &models.Colliders();
+    input.bodyStore = &models.Scene().BodyStore();
+    input.colliderStore = &models.Scene().Colliders();
     replayRuntime.CaptureFrame( input, runtimeTools );
 }
 
@@ -613,13 +613,13 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                           m_sceneController.State(),
                                           m_operatorUi->SceneNavigation().browser,
                                           m_sceneController,
-                                          m_sceneController.Entities(),
+                                          m_sceneController.Scene().Entities(),
                                           m_assets,
                                           ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                           m_renderDefaults.CinematicBaseline() } );
             PROFILE_END( m_profiler, "Frame/Input" );
 
-            m_sceneController.BeginCollisionVisualFrame();
+            m_sceneController.Scene().BeginCollisionVisualFrame();
             const std::string* captureScenePath = m_sceneController.CurrentPath();
             const RuntimeCaptureSceneContext captureContext{ m_sceneController.State().isSceneMode,
                                                              m_sceneController.State().isInteractiveRun,
@@ -652,17 +652,17 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 // cannot decide whether the private engine advances.
                 RuntimeAllocation::RuntimeAllocationScope allocationScope(
                     RuntimeAllocation::RuntimeAllocationPhase::Replay );
-                m_replayRuntime.UpdatePrediction( m_sceneController.Physics(),
-                                                  m_sceneController.Entities(),
+                m_replayRuntime.UpdatePrediction( m_sceneController.Scene().Physics(),
+                                                  m_sceneController.Scene().Entities(),
                                                   m_config,
-                                                  m_sceneController.World().GetPhysicsWorldForces(),
+                                                  m_sceneController.Scene().Environment().GetPhysicsWorldForces(),
                                                   m_workerPool,
                                                   m_sceneController.State().isScenePhysics,
                                                   m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                   m_timers.simulationTimer.GetTotalTime() );
             }
 
-            m_overlayDiagnostics->UpdatePostPhysics( m_sceneController,
+            m_overlayDiagnostics->UpdatePostPhysics( m_sceneController.Scene(),
                                                      *m_validationHarness,
                                                      m_config.bodySimulation.contactEpsilon,
                                                      secondsPerFrame );
@@ -699,10 +699,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 }
             }
 
-            RuntimeRenderModelFrameView renderModels = m_renderer.BuildModelFrameView( m_sceneController,
-                                                                                       m_sceneController.Physics(),
-                                                                                       m_workerPool,
-                                                                                       m_config );
+            RuntimeRenderModelFrameView renderModels =
+                m_renderer.BuildModelFrameView( m_sceneController.Scene(), m_workerPool, m_config );
 
             PROFILE_BEGIN( m_profiler, "Frame/Render" );
             {
@@ -869,7 +867,7 @@ float Run::TickPhysics( double secondsPerFrame,
     }
     const bool manipulatorPhysics = policy.manipulatorActive;
     const bool contactAudioStep = m_contactAudio.IsEnabled();
-    const auto physicsWorldForces = m_sceneController.World().GetPhysicsWorldForces();
+    const auto physicsWorldForces = m_sceneController.Scene().Environment().GetPhysicsWorldForces();
     constexpr bool canStepPhysics = true;
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{ secondsPerFrame,
                                                                               policy.physicsTimeScale,
@@ -892,21 +890,21 @@ float Run::TickPhysics( double secondsPerFrame,
             PROFILE_SCOPED( m_profiler, "Frame/Physics/Step" );
             {
                 PROFILE_SCOPED( m_profiler, "Frame/Physics/Step/PresentationCaptureBegin" );
-                m_sceneController.BeginPhysicsStepPresentationCapture();
+                m_sceneController.Scene().BeginPhysicsStepPresentationCapture();
             }
             if ( manipulatorPhysics )
             {
                 m_runtimeTools.ApplyMousePickupPhysicsStep( m_sceneController,
-                                                            m_sceneController.Physics(),
+                                                            m_sceneController.Scene().Physics(),
                                                             m_inputRouter,
                                                             m_interaction );
             }
 
             SkullbonezCore::Rendering::RenderInstanceStore& contactPresentation =
-                m_sceneController.MutableRenderInstances();
-            contactPresentation.TickContactFeedback( m_sceneController.SceneEntityCount(), PHYSICS_FIXED_DT );
+                m_sceneController.Scene().MutableRenderInstances();
+            contactPresentation.TickContactFeedback( m_sceneController.Scene().SceneEntityCount(), PHYSICS_FIXED_DT );
             const ScenePhysicsPostStepOutput postStep =
-                m_sceneController.StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
+                m_sceneController.Scene().StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
             // The physics owner publishes a bounded span; the presentation owner
             // consumes it before the next step can replace those dense-row facts.
             for ( int modelIndex : postStep.fixedContactModelIndices )
@@ -915,7 +913,7 @@ float Run::TickPhysics( double secondsPerFrame,
             }
             {
                 PROFILE_SCOPED( m_profiler, "Frame/Physics/Step/PresentationCaptureComplete" );
-                m_sceneController.CompletePhysicsStepPresentationCapture();
+                m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
             }
 
             if ( manipulatorPhysics || replayCapture || contactAudioStep )
@@ -942,13 +940,13 @@ float Run::TickPhysics( double secondsPerFrame,
         directorPrediction.revealProgress = directorReplayInput.predictionRevealProgress;
         const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
             m_camera,
-            m_sceneController.Cameras(),
+            m_sceneController.Scene().Cameras(),
             directorPrediction,
             SceneRuntimeStyleContext{ m_launchOptions,
                                       m_sceneController.State(),
                                       m_operatorUi->SceneNavigation().browser,
                                       m_sceneController,
-                                      m_sceneController.Entities(),
+                                      m_sceneController.Scene().Entities(),
                                       m_assets,
                                       ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                       m_renderDefaults.CinematicBaseline() },
@@ -970,19 +968,19 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
                             float presentationAlpha )
 {
     m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController,
-                                                      m_sceneController.Physics(),
+                                                      m_sceneController.Scene().Physics(),
                                                       m_inputRouter,
                                                       m_interaction );
     if ( m_contactAudio.IsEnabled() )
     {
-        Vector3 listenerPosition = m_sceneController.Cameras().GetRenderCameraTranslation();
+        Vector3 listenerPosition = m_sceneController.Scene().Cameras().GetRenderCameraTranslation();
         // Why: audio distance/pan decisions for an attached camera must use the
         // same interpolated target endpoint as the upcoming rendered camera,
         // not the previous frame's cached render pose.
         if ( RunCameraModeIsAttached( m_camera.mode ) )
         {
-            (void)m_attachedCamera.TryGetPresentationListenerPosition( m_sceneController,
-                                                                       m_sceneController.Cameras(),
+            (void)m_attachedCamera.TryGetPresentationListenerPosition( m_sceneController.Scene(),
+                                                                       m_sceneController.Scene().Cameras(),
                                                                        presentationAlpha,
                                                                        listenerPosition );
         }
@@ -992,7 +990,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
                                      m_sceneController.State(),
                                      listenerPosition,
                                      m_sceneController,
-                                     m_sceneController.MutableRenderInstances(),
+                                     m_sceneController.Scene().MutableRenderInstances(),
                                      m_profiler );
     }
     const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
@@ -1010,7 +1008,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
                                          m_sceneController.State(),
                                          m_startup.gameModelCapacity,
                                          static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-        ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
+        ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Scene().Physics(),
                                                       m_sceneController,
                                                       m_sceneController.State(),
                                                       m_renderer,
@@ -1019,8 +1017,8 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
         const ReplaySceneTimelineResetOwners timelineOwners{
             m_inputRouter,
             m_interaction,
-            &m_sceneController.Cameras(),
-            m_sceneController.Terrain().Get(),
+            &m_sceneController.Scene().Cameras(),
+            m_sceneController.Scene().Terrain().Get(),
             m_camera,
             NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                         m_sceneController.State().isSceneMode,
@@ -1183,7 +1181,7 @@ void Run::TickAutoCycle()
     const RuntimeCaptureResult result =
         m_diagnosticsRuntime.Capture().TickAutoCycle( m_sceneController.State().isSceneMode,
                                                       m_sceneController.State().isInteractiveRun,
-                                                      m_sceneController.SceneEntityCount(),
+                                                      m_sceneController.Scene().SceneEntityCount(),
                                                       m_camera.autoCycleInterval,
                                                       m_camera.autoCycleAccum,
                                                       m_camera.autoCycleShotsTaken,
@@ -1301,9 +1299,9 @@ bool Run::TickSceneAdvance()
 void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlpha )
 {
     m_camera.AdvanceAutoCycleClock( m_sceneController.State().isSceneMode, simulationDt );
-    m_camera.TickControls( m_sceneController.Cameras(),
-                           *m_sceneController.Terrain().Get(),
-                           m_sceneController,
+    m_camera.TickControls( m_sceneController.Scene().Cameras(),
+                           *m_sceneController.Scene().Terrain().Get(),
+                           m_sceneController.Scene(),
                            m_attachedCamera,
                            m_config,
                            m_runtimeTools.Editor().editorModeEnabled,
@@ -1317,13 +1315,13 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
     directorPrediction.revealProgress = replayInput.predictionRevealProgress;
     const DemoDirectorTickResult directorResult = DemoDirectorPlayback::Tick(
         m_camera,
-        m_sceneController.Cameras(),
+        m_sceneController.Scene().Cameras(),
         directorPrediction,
         SceneRuntimeStyleContext{ m_launchOptions,
                                   m_sceneController.State(),
                                   m_operatorUi->SceneNavigation().browser,
                                   m_sceneController,
-                                  m_sceneController.Entities(),
+                                  m_sceneController.Scene().Entities(),
                                   m_assets,
                                   ActiveSceneCinematicConfig( m_sceneController.State(), m_config ),
                                   m_renderDefaults.CinematicBaseline() },
@@ -1336,6 +1334,7 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
         (void)m_replayRuntime.ApplyFrameIntent( intent );
     }
 
-    m_sceneController.World().ApplyFluidSurfaceAdjustment( m_inputRouter.RuntimeSnapshot().fluidSurfaceAdjustment,
-                                                           simulationDt );
+    m_sceneController.Scene().Environment().ApplyFluidSurfaceAdjustment(
+        m_inputRouter.RuntimeSnapshot().fluidSurfaceAdjustment,
+        simulationDt );
 }

@@ -46,9 +46,9 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     // Invariant: Capture every field restored below. Adding a new preserved
     // runtime knob requires updating both sides of this snapshot contract.
     snapshot.renderPresentation = renderer.PresentationSettings();
-    snapshot.physicsSleepEnabled = controller.Physics().IsSleepEnabled();
-    snapshot.tornadoField = controller.Physics().GetTornadoFieldConfig();
-    snapshot.tornadoSystem = controller.Physics().GetTornadoSystemConfig();
+    snapshot.physicsSleepEnabled = controller.Scene().Physics().IsSleepEnabled();
+    snapshot.tornadoField = controller.Scene().Physics().GetTornadoFieldConfig();
+    snapshot.tornadoSystem = controller.Scene().Physics().GetTornadoSystemConfig();
     snapshot.debug = debug;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
@@ -57,9 +57,9 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     snapshot.isInteractiveRun = scene.isInteractiveRun;
     snapshot.targetFrameCount = scene.targetFrameCount;
     snapshot.timeScale = scene.timeScale;
-    snapshot.worldGravity = controller.World().GetGravity();
-    snapshot.worldFluidHeight = controller.World().GetFluidSurfaceHeight();
-    snapshot.worldFluidDensity = controller.World().GetFluidDensity();
+    snapshot.worldGravity = controller.Scene().Environment().GetGravity();
+    snapshot.worldFluidHeight = controller.Scene().Environment().GetFluidSurfaceHeight();
+    snapshot.worldFluidDensity = controller.Scene().Environment().GetFluidDensity();
     snapshot.hasCinematicRenderingOverride = scene.hasCinematicRenderingOverride;
     snapshot.isCinematicRenderingEnabled = scene.isCinematicRenderingEnabled;
     snapshot.hasCinematicExposure = scene.hasCinematicExposure;
@@ -94,9 +94,9 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
     // Why: Interactive resets preserve the user's run-control choices, but
     // suppressing exit also forces automation-safe non-exit behavior.
     renderer.RestorePresentationSettings( snapshot.renderPresentation );
-    controller.Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
-    controller.Physics().SetTornadoFieldConfig( snapshot.tornadoField );
-    controller.Physics().SetTornadoSystemConfig( snapshot.tornadoSystem );
+    controller.Scene().Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
+    controller.Scene().Physics().SetTornadoFieldConfig( snapshot.tornadoField );
+    controller.Scene().Physics().SetTornadoSystemConfig( snapshot.tornadoSystem );
     debug = snapshot.debug;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;

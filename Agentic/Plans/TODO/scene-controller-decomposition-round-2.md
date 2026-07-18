@@ -1,7 +1,7 @@
 # Scene Controller Decomposition Round 2 — Split The Ratified Aggregate
 
 Date: 2026-07-18
-Status: Active — 4/7 tasks
+Status: Active — 5/7 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/RunFrame.cpp`,
 `Runtime/RunInput.cpp`, `Runtime/InputFrame.cpp`, UI navigation consumers,
@@ -89,7 +89,7 @@ owners genuinely participate, not because bags merge.
   `SceneEntityStore` (which owns the behavior-group data), exposing them to
   former callers through the store accessor; delete the controller relays
   rather than forwarding. Gate: `validate_full`.
-- [ ] S4 — Extract the concrete world-state owner per the S0 map (working
+- [x] S4 — Extract the concrete world-state owner per the S0 map (working
   name decided at S0; a domain noun, not `*State`/`*Context`). It owns the
   entity store, physics engine lifetime, cameras, terrain, world settings,
   and render instance store as one scene-lifetime unit with typed
@@ -165,6 +165,29 @@ owners genuinely participate, not because bags merge.
   byte-exact physics comparison passed. No baseline or golden was refreshed.
   Logs: `TestOutput/validation/agent_logs/scene_round2_s3_validate_fast.log` and
   `TestOutput/validation/agent_logs/scene_round2_s3_validate_full.log`.
+- S4 evidence (2026-07-18): concrete `SceneWorld` now owns the entity store,
+  physics engine lifetime, cameras, terrain, world environment, and render
+  instance store. `StepPhysics`, replay topology repair/trim, presentation
+  capture, and cross-store creation/deletion moved with that authority.
+  `SceneController` composes exactly one world and exposes only `Scene()`;
+  attached-camera, render-frame, and overlay helpers borrow `SceneWorld`
+  directly instead of using lifecycle forwarding APIs. The touched-file
+  comment audit inspected 45/45 source-bearing files with zero deferred.
+  Project filters passed 727/727, allocation-policy self-test/repository scans
+  passed (`scanned=380`, `allowlist_errors=0`), and
+  `tools\validate_fast.bat` passed in 81.564s. Final
+  `tools\validate_full.bat` passed in 135.419s: 288/288 doctest cases and
+  21,438/21,438 assertions, all coverage floors, Automation replay/prediction
+  smoke, zero DX12 validation errors with accepted captures, and byte-exact
+  physics passed. The explicit `tools\validate_physics.bat` gate passed in
+  52.074s. The single `tools\validate_replay_visual_fidelity.bat` invocation
+  passed in 428.126s with 2,401 ticks, 200 moved wall bricks, 187 toppled
+  bricks, one presented cascade, durable save/load proof, and every false-pass
+  control. No baseline or golden was refreshed. Logs:
+  `TestOutput/agent_logs/s4_validate_fast_20260718_final.log`,
+  `TestOutput/agent_logs/s4_validate_full_20260718_rerun.log`,
+  `TestOutput/agent_logs/s4_validate_physics_20260718.log`, and
+  `TestOutput/agent_logs/s4_validate_replay_visual_fidelity_20260718.log`.
 - Round-6 closure evidence
   (`Agentic/Reports/2026-07-17/scene-controller-ownership-closure.md`) is
   the baseline census; contradicting it requires the fresh S0 measurements.

@@ -78,8 +78,8 @@ bool RuntimeTools::PrepareSelectionCommand( const RuntimeInteractionCommand& com
         return false;
     }
 
-    const Physics::PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const Physics::ColliderStore& colliderStore = collection.Colliders();
+    const Physics::PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
+    const Physics::ColliderStore& colliderStore = collection.Scene().Colliders();
     Physics::PhysicsBodyHandle selectedBody;
     Physics::PhysicsColliderHandle selectedCollider;
     Physics::ModelRowHint selectedModelRow;
@@ -623,7 +623,7 @@ bool RuntimeTools::FireLauncherRay( Runtime::SceneController& collection,
                                     const Math::Vector::Vector3& rayDirection,
                                     const Math::Vector::Vector3& cameraUp )
 {
-    const int modelCount = collection.SceneEntityCount();
+    const int modelCount = collection.Scene().SceneEntityCount();
     if ( !LauncherPhysicsStoresReady( physics, modelCount ) )
     {
         return false;
@@ -670,7 +670,7 @@ LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerI
         return result;
     }
 
-    const int modelCountBefore = collection.SceneEntityCount();
+    const int modelCountBefore = collection.Scene().SceneEntityCount();
     result.replayEvent =
         ReplayEventCommandOperations::BuildLauncherFire( rayOrigin,
                                                          rayDirection,
@@ -682,16 +682,16 @@ LauncherPointerResult RuntimeTools::RouteLauncherPointer( const LauncherPointerI
     result.recordReplayEvent = true;
     // Why: the launcher is a cold input action, so it repairs any construction-
     // time collection/store drift before entering handle-based physics queries.
-    if ( collection.RepairPhysicsBodyAndColliderTopology() && FireLauncherRay( collection,
-                                                                               physics,
-                                                                               scene,
-                                                                               terrain,
-                                                                               input.activeModelCapacity,
-                                                                               rayOrigin,
-                                                                               rayDirection,
-                                                                               cameraUp ) )
+    if ( collection.Scene().RepairPhysicsBodyAndColliderTopology() && FireLauncherRay( collection,
+                                                                                       physics,
+                                                                                       scene,
+                                                                                       terrain,
+                                                                                       input.activeModelCapacity,
+                                                                                       rayOrigin,
+                                                                                       rayDirection,
+                                                                                       cameraUp ) )
     {
-        scene.modelCount = collection.SceneEntityCount();
+        scene.modelCount = collection.Scene().SceneEntityCount();
     }
     return result;
 }
@@ -815,7 +815,7 @@ bool RuntimeTools::FireLauncherProjectile( Runtime::SceneController& collection,
                                                                     Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
     const Physics::PhysicsSceneObjectId sceneObjectId = scene.AllocateSceneObjectId();
     projectile.sceneObjectId = sceneObjectId;
-    const auto appendResult = collection.TryCreateSceneEntity(
+    const auto appendResult = collection.Scene().TryCreateSceneEntity(
         std::move( projectile ),
         Physics::MakePhysicsBodyCreateDesc( sceneObjectId,
                                             projectileShape,
@@ -897,8 +897,8 @@ void RuntimeTools::PrepareOverlayTrace( Runtime::SceneController& models,
                                                 m_rayCastTest,
                                                 m_mousePickup,
                                                 models,
-                                                models.BodyStore(),
-                                                models.Colliders(),
+                                                models.Scene().BodyStore(),
+                                                models.Scene().Colliders(),
                                                 assets,
                                                 m_editorTracer },
                                               { input.rayLingerSeconds,

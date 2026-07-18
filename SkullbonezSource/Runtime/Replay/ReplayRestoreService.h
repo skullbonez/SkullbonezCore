@@ -151,7 +151,7 @@ class ReplayRestoreService
             return false;
         }
 
-        if ( !context.sceneController.TrimForReplayRestore( restoreModelCount ) )
+        if ( !context.sceneController.Scene().TrimForReplayRestore( restoreModelCount ) )
         {
             WriteReason( outReason, reasonSize, "failed to trim live model list" );
             return false;
@@ -191,9 +191,9 @@ class ReplayRestoreService
                       "Replay solver commit rejected the version/count values accepted during preflight" );
         }
 
-        context.sceneController.World().SetGravity( sample.world.gravity );
-        context.sceneController.World().SetFluidSurfaceHeight( sample.world.fluidHeight );
-        context.sceneController.World().SetFluidDensity( sample.world.fluidDensity );
+        context.sceneController.Scene().Environment().SetGravity( sample.world.gravity );
+        context.sceneController.Scene().Environment().SetFluidSurfaceHeight( sample.world.fluidHeight );
+        context.sceneController.Scene().Environment().SetFluidDensity( sample.world.fluidDensity );
         context.debug.isWaterHidden = sample.world.waterHidden;
         context.debug.isTerrainHidden = sample.world.terrainHidden;
         context.scene.isFixedStep = sample.world.fixedStep;
@@ -206,10 +206,10 @@ class ReplayRestoreService
                                                       sample.worldSnapshot.tornadoSystemConfig.enabled );
         }
 
-        context.sceneController.Cameras().CancelTween();
-        context.sceneController.Cameras().SetPrimaryPosition( sample.camera.eye );
-        context.sceneController.Cameras().SetViewCoordinates( sample.camera.view );
-        context.sceneController.Cameras().SetCamera();
+        context.sceneController.Scene().Cameras().CancelTween();
+        context.sceneController.Scene().Cameras().SetPrimaryPosition( sample.camera.eye );
+        context.sceneController.Scene().Cameras().SetViewCoordinates( sample.camera.view );
+        context.sceneController.Scene().Cameras().SetCamera();
 
         context.runtimeTools.RestoreReplayLauncherVisualSample( sample.launcherVisual );
         WriteReason( outReason, reasonSize, "applied" );
@@ -247,10 +247,10 @@ class ReplayRestoreService
         input.sceneTextEnabled = context.scene.isSceneText;
         input.waterHidden = context.debug.isWaterHidden;
         input.terrainHidden = context.debug.isTerrainHidden;
-        input.cameras = &context.sceneController.Cameras();
-        input.world = &context.sceneController.World();
+        input.cameras = &context.sceneController.Scene().Cameras();
+        input.world = &context.sceneController.Scene().Environment();
         input.physics = &context.physics;
-        input.entities = &context.sceneController.Entities();
+        input.entities = &context.sceneController.Scene().Entities();
         input.bodyStore = &Physics::PhysicsEngine::ReadBodies( context.physics );
         input.colliderStore = &Physics::PhysicsEngine::ReadColliders( context.physics );
         input.launcherVisual = &launcherVisual;

@@ -472,7 +472,7 @@ void RuntimeDiagnostics::SetPhysicsDiagnosticsPath( RunPhysicsDiagnosticsState& 
     strcpy_s( diagnostics.path, sizeof( diagnostics.path ), path );
     diagnostics.isEnabled = diagnostics.path[0] != '\0';
     diagnostics.fixedStepForcedByDiagnostics = fixedStepForcedByDiagnostics;
-    models.Physics().SetPhysicsDiagnosticsPath( diagnostics.path );
+    models.Scene().Physics().SetPhysicsDiagnosticsPath( diagnostics.path );
 }
 
 void RuntimeDiagnostics::LogSceneFinished( RunSceneState& scene,
@@ -517,7 +517,7 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     sprintf_s( diagnostics.currentRunId, sizeof( diagnostics.currentRunId ), "run_%04d", diagnostics.runSequence );
     diagnostics.isRunActive = true;
     diagnostics.contactAudioEventSequence = 0;
-    models.Physics().SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
+    models.Scene().Physics().SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
 
     const char* solverName = "solver";
     std::string escapedScene = JsonEscape( scenePath && scenePath[0] != '\0' ? scenePath : "generated" );

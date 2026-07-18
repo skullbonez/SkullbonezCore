@@ -86,18 +86,18 @@ bool CapturePrimitiveRecipe( const SceneController& collection,
                              int modelIndex,
                              EditorPrimitiveRecreateRecipe& outRecipe )
 {
-    if ( modelIndex < 0 || modelIndex >= collection.SceneEntityCount() )
+    if ( modelIndex < 0 || modelIndex >= collection.Scene().SceneEntityCount() )
     {
         return false;
     }
-    const SceneEntityRecord& entity = collection.Entities().At( modelIndex );
+    const SceneEntityRecord& entity = collection.Scene().Entities().At( modelIndex );
     if ( entity.behaviorGroup.kind != SceneBehaviorGroupKind::None || entity.asset.isAssetBacked )
     {
         return false;
     }
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
-    const ColliderRecord* collider = ColliderForModelIndex( collection.Colliders(), modelIndex );
+    const ColliderRecord* collider = ColliderForModelIndex( collection.Scene().Colliders(), modelIndex );
     if ( !body || !collider || body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, outRecipe.shape ) )
     {
@@ -173,20 +173,20 @@ bool RecreatePrimitive( SceneController& collection,
     bodyDesc.contactReleaseImpulseThreshold = recipe.body.contactReleaseImpulseThreshold;
     // Lifetime: history stores no terrain pointer. Resolve the current scene
     // terrain only while recreating the body after undo/redo.
-    bodyDesc.terrain = collection.Terrain().Get();
+    bodyDesc.terrain = collection.Scene().Terrain().Get();
 
     PhysicsColliderCreateDesc colliderDesc =
         MakeColliderCreateDesc( shape, recipe.restitution, recipe.contactMaterialId, recipe.contactMaterialName );
     colliderDesc.friction = recipe.friction;
     const SceneEntityCreateResult result =
-        collection.TryCreateSceneEntity( recipe.entity, std::move( bodyDesc ), std::move( colliderDesc ) );
+        collection.Scene().TryCreateSceneEntity( recipe.entity, std::move( bodyDesc ), std::move( colliderDesc ) );
     if ( !result.status.ok )
     {
         return false;
     }
     outBody = result.body;
-    outCollider = collection.Colliders().HandleForBodyHandle( outBody );
-    collection.State().modelCount = collection.SceneEntityCount();
+    outCollider = collection.Scene().Colliders().HandleForBodyHandle( outBody );
+    collection.State().modelCount = collection.Scene().SceneEntityCount();
     if ( outCollider.IsValid() )
     {
         return true;
@@ -194,13 +194,13 @@ bool RecreatePrimitive( SceneController& collection,
 
     // Hazard: never report a failed inverse after leaving its partially
     // recreated entity live; that would desynchronize the cursor and scene.
-    if ( !collection.DestroySceneEntity( outBody ) )
+    if ( !collection.Scene().DestroySceneEntity( outBody ) )
     {
         // Lane F: a successful create must remain synchronously removable
         // before any later command can observe it.
         SB_FATAL( "EditorCommandHistory", "Failed to roll back an incomplete primitive recreation." );
     }
-    collection.State().modelCount = collection.SceneEntityCount();
+    collection.State().modelCount = collection.Scene().SceneEntityCount();
     outBody = {};
     return false;
 }
@@ -208,17 +208,17 @@ bool RecreatePrimitive( SceneController& collection,
 
 bool DestroyBySceneId( SceneController& collection, PhysicsSceneObjectId sceneObjectId )
 {
-    const int modelIndex = collection.Entities().FindBySceneObjectId( sceneObjectId );
+    const int modelIndex = collection.Scene().Entities().FindBySceneObjectId( sceneObjectId );
     if ( modelIndex < 0 )
     {
         return false;
     }
-    const PhysicsBodyHandle body = collection.BodyStore().HandleForModelIndex( modelIndex );
-    if ( !body.IsValid() || !collection.DestroySceneEntity( body ) )
+    const PhysicsBodyHandle body = collection.Scene().BodyStore().HandleForModelIndex( modelIndex );
+    if ( !body.IsValid() || !collection.Scene().DestroySceneEntity( body ) )
     {
         return false;
     }
-    collection.State().modelCount = collection.SceneEntityCount();
+    collection.State().modelCount = collection.Scene().SceneEntityCount();
     return true;
 }
 
@@ -233,10 +233,11 @@ bool ApplyTransformEntry( SceneController& collection, const EditorCommandEntry&
     {
         const EditorTransformHistoryItem& item = entry.transforms[index];
         const EditorTransformSnapshot& snapshot = useAfter ? item.after : item.before;
-        modelIndices[index] = collection.Entities().FindBySceneObjectId( item.sceneObjectId );
+        modelIndices[index] = collection.Scene().Entities().FindBySceneObjectId( item.sceneObjectId );
         if ( modelIndices[index] < 0 ||
-             ( snapshot.hasShape && ( !TryBuildEditorPrimitiveShape( snapshot.shape, shapes[index] ) ||
-                                      !ColliderForModelIndex( collection.Colliders(), modelIndices[index] ) ) ) )
+             ( snapshot.hasShape &&
+               ( !TryBuildEditorPrimitiveShape( snapshot.shape, shapes[index] ) ||
+                 !ColliderForModelIndex( collection.Scene().Colliders(), modelIndices[index] ) ) ) )
         {
             return false;
         }
@@ -252,7 +253,8 @@ bool ApplyTransformEntry( SceneController& collection, const EditorCommandEntry&
         update.orientation = snapshot.orientation;
         if ( snapshot.hasShape )
         {
-            const ColliderRecord* collider = ColliderForModelIndex( collection.Colliders(), modelIndices[index] );
+            const ColliderRecord* collider =
+                ColliderForModelIndex( collection.Scene().Colliders(), modelIndices[index] );
             if ( !collider )
             {
                 return false;
@@ -263,7 +265,7 @@ bool ApplyTransformEntry( SceneController& collection, const EditorCommandEntry&
                                                                              collider->contactMaterialName );
             colliderDesc.friction = collider->friction;
             if ( !RunInternal::ResetEditorModelMotionAndWake( collection,
-                                                              collection.Physics(),
+                                                              collection.Scene().Physics(),
                                                               modelIndices[index],
                                                               update,
                                                               std::move( colliderDesc ) ) )
@@ -276,7 +278,7 @@ bool ApplyTransformEntry( SceneController& collection, const EditorCommandEntry&
         else
         {
             if ( !RunInternal::ResetEditorModelMotionAndWake( collection,
-                                                              collection.Physics(),
+                                                              collection.Scene().Physics(),
                                                               modelIndices[index],
                                                               update ) )
             {
@@ -325,8 +327,8 @@ void RuntimeTools::RecordEditorTransformHistory( SceneController& collection,
     }
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Transform;
-    const PhysicsBodyStore& bodies = collection.BodyStore();
-    const ColliderStore& colliders = collection.Colliders();
+    const PhysicsBodyStore& bodies = collection.Scene().BodyStore();
+    const ColliderStore& colliders = collection.Scene().Colliders();
 
     if ( gizmoKind == RuntimeGizmoDragKind::Scale )
     {
@@ -362,7 +364,7 @@ void RuntimeTools::RecordEditorTransformHistory( SceneController& collection,
     else
     {
         const int groupCount =
-            RunInternal::ValidCapturedEditorGizmoGroupCount( m_editor, collection.SceneEntityCount() );
+            RunInternal::ValidCapturedEditorGizmoGroupCount( m_editor, collection.Scene().SceneEntityCount() );
         const int count = groupCount > 0 ? groupCount : 1;
         for ( int groupIndex = 0; groupIndex < count; ++groupIndex )
         {
@@ -436,9 +438,9 @@ bool RuntimeTools::UndoEditorCommand( SceneController& collection )
     {
         m_editor.selectedBody = body;
         m_editor.selectedCollider = collider;
-        m_editor.selectedModelRow.value = collection.BodyStore().ModelIndexForHandle( body );
+        m_editor.selectedModelRow.value = collection.Scene().BodyStore().ModelIndexForHandle( body );
     }
-    else if ( m_editor.selectedBody.IsValid() && !collection.BodyStore().Contains( m_editor.selectedBody ) )
+    else if ( m_editor.selectedBody.IsValid() && !collection.Scene().BodyStore().Contains( m_editor.selectedBody ) )
     {
         m_editor.selectedBody = {};
         m_editor.selectedCollider = {};
@@ -461,9 +463,9 @@ bool RuntimeTools::RedoEditorCommand( SceneController& collection )
     {
         m_editor.selectedBody = body;
         m_editor.selectedCollider = collider;
-        m_editor.selectedModelRow.value = collection.BodyStore().ModelIndexForHandle( body );
+        m_editor.selectedModelRow.value = collection.Scene().BodyStore().ModelIndexForHandle( body );
     }
-    else if ( m_editor.selectedBody.IsValid() && !collection.BodyStore().Contains( m_editor.selectedBody ) )
+    else if ( m_editor.selectedBody.IsValid() && !collection.Scene().BodyStore().Contains( m_editor.selectedBody ) )
     {
         m_editor.selectedBody = {};
         m_editor.selectedCollider = {};
@@ -475,16 +477,16 @@ bool RuntimeTools::RedoEditorCommand( SceneController& collection )
 
 bool RuntimeTools::DeleteEditorSelection( SceneController& collection )
 {
-    const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, collection.BodyStore() );
+    const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, collection.Scene().BodyStore() );
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Delete;
     if ( !m_editor.editorModeEnabled || modelIndex < 0 ||
          !CapturePrimitiveRecipe( collection, modelIndex, entry.primitive ) ||
-         !collection.DestroySceneEntity( m_editor.selectedBody ) )
+         !collection.Scene().DestroySceneEntity( m_editor.selectedBody ) )
     {
         return false;
     }
-    collection.State().modelCount = collection.SceneEntityCount();
+    collection.State().modelCount = collection.Scene().SceneEntityCount();
     m_editor.history.Push( entry );
     m_editor.selectedBody = {};
     m_editor.selectedCollider = {};

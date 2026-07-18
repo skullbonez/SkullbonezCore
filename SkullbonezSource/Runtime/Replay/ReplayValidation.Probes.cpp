@@ -83,7 +83,7 @@ constexpr const char* REPLAY_PROBE_OWNER = "ReplayProbe";
 
 bool TryGetReplayProbeBodyHotState( const SceneController& collection, int modelIndex, PhysicsBodyHotState& outState )
 {
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
     if ( !TryGetReplayProbeBodyRecord( collection, modelIndex ) || modelIndex < 0 || modelIndex >= bodyStore.Count() )
     {
         return false;
@@ -297,7 +297,7 @@ bool TryPrepareReplayProbeRenderPosition( SkullbonezCore::Runtime::SceneControll
                                           int modelIndex,
                                           Vector3& outPosition )
 {
-    const auto instances = collection.RenderInstances().Records();
+    const auto instances = collection.Scene().RenderInstances().Records();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( instances.size() ) )
     {
         return false;
@@ -314,16 +314,16 @@ bool ApplyReplayProbePresentationSampleForRender( SkullbonezCore::Runtime::Scene
     // Why: probes consume replay scrub poses exactly where the renderer consumes
     // them: after the live render snapshot refresh and before draw submission.
     // This proves presentation overrides do not mutate live body rows.
-    collection.PrepareRenderInstances();
-    return presentation.ApplyPresentationSampleForRender( collection.MutableRenderInstances(),
-                                                          collection.BodyStore(),
-                                                          collection.Colliders(),
+    collection.Scene().PrepareRenderInstances();
+    return presentation.ApplyPresentationSampleForRender( collection.Scene().MutableRenderInstances(),
+                                                          collection.Scene().BodyStore(),
+                                                          collection.Scene().Colliders(),
                                                           sample );
 }
 
 void RestoreReplayProbeRenderInstances( SkullbonezCore::Runtime::SceneController& collection )
 {
-    collection.PrepareRenderInstances();
+    collection.Scene().PrepareRenderInstances();
 }
 
 float ReplaySaveProbeDistanceSquared( const Vector3& a, const Vector3& b )
@@ -415,7 +415,7 @@ InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
 {
     runtimeTools.Editor().placementScale = Vector3( 2.0f, 2.0f, 2.0f );
     runtimeTools.Editor().autoTerrainAlign = false;
-    const int modelCountBeforePlace = models.SceneEntityCount();
+    const int modelCountBeforePlace = models.Scene().SceneEntityCount();
     EditorObjectPlacementContext placementContext{ runtimeTools.Editor(),
                                                    models,
                                                    physics,
@@ -444,7 +444,7 @@ InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
         commands.placedScale = placementResult.placementScale;
         commands.placedYawRadians = placementResult.placementYawRadians;
         const PhysicsBodyRecord* placedBodyBeforeEdit =
-            models.BodyStore().RecordForHandle( placementResult.placedBody );
+            models.Scene().BodyStore().RecordForHandle( placementResult.placedBody );
         PhysicsBodyHotState placedHotBeforeEdit;
         if ( !placedBodyBeforeEdit ||
              !TryGetReplayProbeBodyHotState( models, modelCountBeforePlace, placedHotBeforeEdit ) )
@@ -493,7 +493,8 @@ InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
         {
             return ReplayProbeFailure( "replay save probe failed to commit edited physics rows" );
         }
-        const PhysicsBodyRecord* placedBodyAfterEdit = models.BodyStore().RecordForModelIndex( modelCountBeforePlace );
+        const PhysicsBodyRecord* placedBodyAfterEdit =
+            models.Scene().BodyStore().RecordForModelIndex( modelCountBeforePlace );
         PhysicsBodyHotState placedHotAfterEdit;
         if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 ||
              !TryGetReplayProbeBodyHotState( models, modelCountBeforePlace, placedHotAfterEdit ) )
@@ -505,7 +506,7 @@ InjectReplaySaveProbePlacementCoverage( RuntimeTools& runtimeTools,
         commands.transformedReplayBodyId = placedBodyAfterEdit->replayBodyId;
         commands.transformedPosition = placedHotAfterEdit.position;
         commands.transformedOrientation = placedHotAfterEdit.orientation;
-        commands.transformedModelCount = models.SceneEntityCount();
+        commands.transformedModelCount = models.Scene().SceneEntityCount();
         commands.transformedScaleAxis = PROBE_SCALE_AXIS;
         commands.transformedScaleFactor = PROBE_SCALE_FACTOR;
     }
@@ -536,10 +537,10 @@ void InjectReplaySaveProbeLauncherCoverage( RuntimeTools& runtimeTools,
         commands.launcherRayDirection = rayDirection;
         commands.launcherCameraUp = cameraUp;
         commands.launcherProjectile = runtimeTools.RayCastTest().fireMode == RunLauncherFireMode::Projectile;
-        commands.launcherModelCount = models.SceneEntityCount();
+        commands.launcherModelCount = models.Scene().SceneEntityCount();
         // Why: RuntimeTools now fails closed unless Run has completed the cold
         // collection-to-store topology repair at the owner boundary.
-        const bool launcherStoresReady = models.RepairPhysicsBodyAndColliderTopology();
+        const bool launcherStoresReady = models.Scene().RepairPhysicsBodyAndColliderTopology();
         if ( launcherStoresReady && runtimeTools.FireLauncherRay( models,
                                                                   physics,
                                                                   scene,
@@ -549,7 +550,7 @@ void InjectReplaySaveProbeLauncherCoverage( RuntimeTools& runtimeTools,
                                                                   rayDirection,
                                                                   cameraUp ) )
         {
-            scene.modelCount = models.SceneEntityCount();
+            scene.modelCount = models.Scene().SceneEntityCount();
         }
     }
 }
@@ -760,24 +761,26 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
         case ReplayProbeSaveAction::InjectEventCoverage:
         {
             ReplaySaveProbeEventCommands commands;
-            InjectReplaySaveProbeWorldCoverage( transaction.sampleOwners.sceneController.World(), commands );
-            result.status = InjectReplaySaveProbePlacementCoverage( transaction.sampleOwners.runtimeTools,
-                                                                    transaction.sampleOwners.sceneController,
-                                                                    transaction.sampleOwners.sceneController.Physics(),
-                                                                    transaction.sampleOwners.scene,
-                                                                    transaction.sampleOwners.sceneController.World(),
-                                                                    transaction.sampleOwners.sceneController.Terrain(),
-                                                                    topology.assets,
-                                                                    topology.gameModelCapacity,
-                                                                    commands );
+            InjectReplaySaveProbeWorldCoverage( transaction.sampleOwners.sceneController.Scene().Environment(),
+                                                commands );
+            result.status =
+                InjectReplaySaveProbePlacementCoverage( transaction.sampleOwners.runtimeTools,
+                                                        transaction.sampleOwners.sceneController,
+                                                        transaction.sampleOwners.sceneController.Scene().Physics(),
+                                                        transaction.sampleOwners.scene,
+                                                        transaction.sampleOwners.sceneController.Scene().Environment(),
+                                                        transaction.sampleOwners.sceneController.Scene().Terrain(),
+                                                        topology.assets,
+                                                        topology.gameModelCapacity,
+                                                        commands );
             if ( result.status.ok )
             {
                 InjectReplaySaveProbeLauncherCoverage( transaction.sampleOwners.runtimeTools,
-                                                       transaction.sampleOwners.sceneController.Cameras(),
+                                                       transaction.sampleOwners.sceneController.Scene().Cameras(),
                                                        transaction.sampleOwners.sceneController,
-                                                       transaction.sampleOwners.sceneController.Physics(),
+                                                       transaction.sampleOwners.sceneController.Scene().Physics(),
                                                        transaction.sampleOwners.scene,
-                                                       transaction.sampleOwners.sceneController.Terrain(),
+                                                       transaction.sampleOwners.sceneController.Scene().Terrain(),
                                                        topology.gameModelCapacity,
                                                        commands );
             }
@@ -1219,21 +1222,21 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
                                                       presentation,
                                                       prediction,
                                                       transaction.sampleOwners.physics,
-                                                      sceneController.Entities() );
-            const ReplayVisualPacket projected = BuildReplayProbeVisualProjection(
-                ReplayProbeVisualProjectionDesc{ .timeline = timeline,
-                                                 .scrubber = scrubber,
-                                                 .presentation = presentation,
-                                                 .authoring = authoring,
-                                                 .prediction = prediction,
-                                                 .physics = transaction.sampleOwners.physics,
-                                                 .entities = sceneController.Entities(),
-                                                 .presentationRecords = sceneController.RenderPresentationRecords(),
-                                                 .bodyStore = sceneController.BodyStore(),
-                                                 .runtimeTools = runtimeTools,
-                                                 .cameraEye = expected.cameraEye,
-                                                 .cameraUp = expected.cameraUp,
-                                                 .replayReserveGrowthEvents = expected.replayReserveGrowthEvents } );
+                                                      sceneController.Scene().Entities() );
+            const ReplayVisualPacket projected = BuildReplayProbeVisualProjection( ReplayProbeVisualProjectionDesc{
+                .timeline = timeline,
+                .scrubber = scrubber,
+                .presentation = presentation,
+                .authoring = authoring,
+                .prediction = prediction,
+                .physics = transaction.sampleOwners.physics,
+                .entities = sceneController.Scene().Entities(),
+                .presentationRecords = sceneController.Scene().RenderPresentationRecords(),
+                .bodyStore = sceneController.Scene().BodyStore(),
+                .runtimeTools = runtimeTools,
+                .cameraEye = expected.cameraEye,
+                .cameraUp = expected.cameraUp,
+                .replayReserveGrowthEvents = expected.replayReserveGrowthEvents } );
             const ReplayVisualPacketFingerprint fingerprint =
                 BuildReplayVisualPacketFingerprint( projected, trajectoryDigests );
             if ( fingerprint.visualStateHash != expected.visualStateHash )
@@ -1253,24 +1256,24 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
         }
     }
 
-    const bool armed =
-        ReplayPresentationOperations::ActivateLoadedPresentation( hasLoadedPresentation(),
-                                                                  std::clamp( normalized, 0.0f, 1.0f ),
-                                                                  now,
-                                                                  scrubber,
-                                                                  presentation,
-                                                                  authoring,
-                                                                  prediction,
-                                                                  &transaction.sampleOwners.sceneController.Cameras(),
-                                                                  transaction.timelineOwners.terrain,
-                                                                  transaction.timelineOwners.camera,
-                                                                  mousePickup,
-                                                                  normalizedCurrentMode,
-                                                                  transaction.timelineOwners.normalizedRestoreMode,
-                                                                  transaction.timelineOwners.attachedFollow,
-                                                                  transaction.timelineOwners.directorGrabbed,
-                                                                  transaction.timelineOwners.interaction,
-                                                                  transaction.timelineOwners.inputRouter );
+    const bool armed = ReplayPresentationOperations::ActivateLoadedPresentation(
+        hasLoadedPresentation(),
+        std::clamp( normalized, 0.0f, 1.0f ),
+        now,
+        scrubber,
+        presentation,
+        authoring,
+        prediction,
+        &transaction.sampleOwners.sceneController.Scene().Cameras(),
+        transaction.timelineOwners.terrain,
+        transaction.timelineOwners.camera,
+        mousePickup,
+        normalizedCurrentMode,
+        transaction.timelineOwners.normalizedRestoreMode,
+        transaction.timelineOwners.attachedFollow,
+        transaction.timelineOwners.directorGrabbed,
+        transaction.timelineOwners.interaction,
+        transaction.timelineOwners.inputRouter );
     if ( !armed )
     {
         return ReplayProbeFailure( "replay load probe could not arm the loaded presentation scrubber" );
@@ -1619,23 +1622,24 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::PrepareBranchFileProbe( Replay
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    (void)ReplayPresentationOperations::ActivateLoadedPresentation( true,
-                                                                    0.25f,
-                                                                    now,
-                                                                    scrubber,
-                                                                    presentation,
-                                                                    authoring,
-                                                                    prediction,
-                                                                    &transaction.sampleOwners.sceneController.Cameras(),
-                                                                    transaction.timelineOwners.terrain,
-                                                                    transaction.timelineOwners.camera,
-                                                                    mousePickup,
-                                                                    normalizedCurrentMode,
-                                                                    transaction.timelineOwners.normalizedRestoreMode,
-                                                                    transaction.timelineOwners.attachedFollow,
-                                                                    transaction.timelineOwners.directorGrabbed,
-                                                                    transaction.timelineOwners.interaction,
-                                                                    transaction.timelineOwners.inputRouter );
+    (void)ReplayPresentationOperations::ActivateLoadedPresentation(
+        true,
+        0.25f,
+        now,
+        scrubber,
+        presentation,
+        authoring,
+        prediction,
+        &transaction.sampleOwners.sceneController.Scene().Cameras(),
+        transaction.timelineOwners.terrain,
+        transaction.timelineOwners.camera,
+        mousePickup,
+        normalizedCurrentMode,
+        transaction.timelineOwners.normalizedRestoreMode,
+        transaction.timelineOwners.attachedFollow,
+        transaction.timelineOwners.directorGrabbed,
+        transaction.timelineOwners.interaction,
+        transaction.timelineOwners.inputRouter );
     scrubber.SetHistoricalSamplePaused( true );
     scrubber.SelectTrack( RunReplayTrack::Presentation );
     scrubber.SetTrackPosition( RunReplayTrack::Presentation, 1.0f );

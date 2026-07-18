@@ -755,7 +755,8 @@ bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext contex
         return false;
     }
 
-    context.modelCollection.Physics().SetSleepEnabled( !context.modelCollection.Physics().IsSleepEnabled() );
+    context.modelCollection.Scene().Physics().SetSleepEnabled(
+        !context.modelCollection.Scene().Physics().IsSleepEnabled() );
     return true;
 }
 
@@ -794,7 +795,7 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
         // Invariant: SceneController caches per-model runtime tuning so
         // existing bodies and newly added bodies must observe the same live
         // physics settings immediately after UI config edits.
-        context.modelCollection.ApplyRuntimeConfig( liveConfig );
+        context.modelCollection.Scene().ApplyRuntimeConfig( liveConfig );
     }
     return result;
 }
@@ -804,8 +805,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     // Why: RunInput owns input-mode bookkeeping, while this helper owns the
     // physics-facing mutation and single sync point for accepted tornado edits.
     TornadoUICommandResult result;
-    Physics::TornadoFieldConfig tornadoField = context.modelCollection.Physics().GetTornadoFieldConfig();
-    Physics::TornadoSystemConfig tornadoSystem = context.modelCollection.Physics().GetTornadoSystemConfig();
+    Physics::TornadoFieldConfig tornadoField = context.modelCollection.Scene().Physics().GetTornadoFieldConfig();
+    Physics::TornadoSystemConfig tornadoSystem = context.modelCollection.Scene().Physics().GetTornadoSystemConfig();
     TornadoVisualSettings tornadoVisual = context.renderer.TornadoVisualSettingsSnapshot();
     bool tornadoFieldChanged = false;
     const bool hasTornadoSystem = !tornadoSystem.vortices.empty();
@@ -910,8 +911,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( tornadoFieldChanged )
     {
-        context.modelCollection.Physics().SetTornadoFieldConfig( tornadoField );
-        context.modelCollection.Physics().SetTornadoSystemConfig( tornadoSystem );
+        context.modelCollection.Scene().Physics().SetTornadoFieldConfig( tornadoField );
+        context.modelCollection.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
     }
     context.renderer.SetTornadoVisualSettings( tornadoVisual );
     return result;

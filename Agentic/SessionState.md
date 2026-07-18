@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 4 / 25 live tasks; 16%. |
-| Last broad local gate | Scene round-2 S3 `validate_full` passed in approximately 148s: 288/288 tests, 21,438/21,438 assertions, and every coverage floor passed; Automation/replay smoke passed; DX12 reported zero validation errors with committed captures accepted; and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | S3 focused behavior-group coverage passed 12/12 assertions; the allocation self-test/repository scan and 726/726 project-filter scan passed; `validate_fast` passed in approximately 74s. No baseline or golden refresh. |
+| Active/future progress | 5 / 25 live tasks; 20%. |
+| Last broad local gate | Scene round-2 S4 `validate_full` passed in 135.419s: 288/288 tests, 21,438/21,438 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
+| Validation for current edits | S4 project filters passed 727/727; allocation-policy self-test/repository scans passed; `validate_fast` passed in 81.564s; explicit physics passed in 52.074s; and the sole replay visual-fidelity invocation passed in 428.126s. No baseline or golden refresh. |
 
 ## Live Queue
 
@@ -33,8 +33,12 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
      world-unit command and moved bounded solver/audio contact output consumption
      directly to `RenderInstanceStore`. S3 moved grouping/name queries to
      `SceneEntityStore`, deleted every matching controller relay, and placed
-     aggregate memory accounting at the const-owner diagnostics boundary. Next
-     action: scene S4, extracting `SceneWorld` and moving `StepPhysics`.
+     aggregate memory accounting at the const-owner diagnostics boundary. S4
+     introduced concrete `SceneWorld` ownership for entities, physics, cameras,
+     terrain, world settings, and render instances; `SceneController` now
+     composes it and exposes only `Scene()`, while world lifecycle and
+     `StepPhysics` authority moved with the owner. Next action: scene S5,
+     shrinking load participant surfaces against the split.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -397,11 +401,12 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
 
 ## Next Handoff
 
-Round-7 scene decomposition is active at 4/7. S3 moved grouping/ragdoll/name
-queries to `SceneEntityStore`, deleted controller relays, and placed aggregate
-memory accounting at `SceneMemoryDiagnostics` over const owner references. The
-focused, allocation, project-filter, fast, and full gates passed. Continue S4 by
-extracting concrete `SceneWorld` ownership for entities, physics, cameras,
-terrain, world settings, and render instances; move `StepPhysics` to that owner
-without reach-back or compatibility accessors. Do not regenerate behavioral,
-physics, replay, visual, or screenshot baselines.
+Round-7 scene decomposition is active at 5/7. S4 introduced concrete
+`SceneWorld` ownership for entities, physics, cameras, terrain, world settings,
+and render instances; moved world lifecycle, replay topology, presentation, and
+`StepPhysics` authority with that owner; and left `SceneController` with only a
+`Scene()` borrow for world access. Allocation, project-filter, fast, full,
+explicit physics, and sole replay visual-fidelity gates passed. Continue S5 by
+removing world-internal owners from public load participant structs and record
+the before/after participant counts. Do not regenerate behavioral, physics,
+replay, visual, or screenshot baselines.

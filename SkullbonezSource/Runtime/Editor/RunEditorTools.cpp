@@ -144,7 +144,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
         return false;
     }
 
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
     if ( !body || body->replayBodyId == 0 )
     {
@@ -159,7 +159,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
                                                                  body->replayBodyId,
                                                                  PhysicsBodyPosition( hotFields, bodyIndex ),
                                                                  PhysicsBodyOrientation( hotFields, bodyIndex ),
-                                                                 collection.SceneEntityCount(),
+                                                                 collection.Scene().SceneEntityCount(),
                                                                  scaleAxis,
                                                                  scaleFactor ) ) )
     {
@@ -368,9 +368,9 @@ int GatherSelectedEditorTransformGroup( const SceneController& collection,
                                         EditorGizmoGroupIndices& outIndices )
 {
     outIndices.fill( -1 );
-    return collection.Entities().GatherGroupMemberIndices( selectedIndex,
-                                                           outIndices.data(),
-                                                           static_cast<int>( outIndices.size() ) );
+    return collection.Scene().Entities().GatherGroupMemberIndices( selectedIndex,
+                                                                   outIndices.data(),
+                                                                   static_cast<int>( outIndices.size() ) );
 }
 
 
@@ -576,7 +576,7 @@ void CaptureEditorGizmoDragGroupState( RunEditorPlacementState& editor,
     editor.gizmoDragGroupCount = 0;
     editor.gizmoDragGroupIndices.fill( -1 );
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( editor, bodyStore );
-    if ( selectedModelIndex < 0 || selectedModelIndex >= collection.SceneEntityCount() )
+    if ( selectedModelIndex < 0 || selectedModelIndex >= collection.Scene().SceneEntityCount() )
     {
         return;
     }
@@ -640,13 +640,13 @@ void WakeEditorPhysicsBody( SkullbonezCore::Runtime::SceneController& collection
                             PhysicsEngine& physics,
                             int modelIndex )
 {
-    const int modelCount = collection.SceneEntityCount();
+    const int modelCount = collection.Scene().SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
     }
 
-    if ( !collection.RepairPhysicsBodyAndColliderTopology() )
+    if ( !collection.Scene().RepairPhysicsBodyAndColliderTopology() )
     {
         return;
     }
@@ -666,13 +666,13 @@ void SeedEditorPhysicsBodyAsleep( SkullbonezCore::Runtime::SceneController& coll
                                   PhysicsEngine& physics,
                                   int modelIndex )
 {
-    const int modelCount = collection.SceneEntityCount();
+    const int modelCount = collection.Scene().SceneEntityCount();
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
         return;
     }
 
-    if ( !collection.RepairPhysicsBodyAndColliderTopology() )
+    if ( !collection.Scene().RepairPhysicsBodyAndColliderTopology() )
     {
         return;
     }
@@ -696,7 +696,7 @@ bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& co
     // Why: Direct editor transforms teleport the body. Clearing velocities and
     // waking dynamic bodies prevents stale solver momentum from immediately
     // dragging the authored pose away.
-    const PhysicsBodyHandle bodyHandle = collection.BodyStore().HandleForModelIndex( index );
+    const PhysicsBodyHandle bodyHandle = collection.Scene().BodyStore().HandleForModelIndex( index );
     update.body = bodyHandle;
     update.updateMask |= PHYSICS_BODY_UPDATE_VELOCITY;
     update.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
@@ -705,7 +705,7 @@ bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& co
     {
         return false;
     }
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     // Why: the explicit edit just refreshed the physics row; wake eligibility
     // should now follow PhysicsBodyStore, not legacy model-side body state.
@@ -726,7 +726,7 @@ bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& co
     // Why: scale edits change the authored descriptor sidecar and the physics
     // collider row. Commit them together so wake decisions, picks, and replay
     // recording all see one coherent body/collider state.
-    const PhysicsBodyHandle bodyHandle = collection.BodyStore().HandleForModelIndex( index );
+    const PhysicsBodyHandle bodyHandle = collection.Scene().BodyStore().HandleForModelIndex( index );
     update.body = bodyHandle;
     update.updateMask |= PHYSICS_BODY_UPDATE_VELOCITY;
     update.linearVelocity = SkullbonezCore::Math::Vector::ZERO_VECTOR;
@@ -735,7 +735,7 @@ bool ResetEditorModelMotionAndWake( SkullbonezCore::Runtime::SceneController& co
     {
         return false;
     }
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForHandle( bodyHandle );
     if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( index )] == 0u )
     {
@@ -967,7 +967,7 @@ bool BeginEditorGizmoDragGesture( EditorGizmoContext context,
     gesture.button = RuntimePointerButton::Left;
     gesture.startX = clientX;
     gesture.startY = clientY;
-    gesture.body = context.models.BodyStore().HandleForModelIndex( modelIndex );
+    gesture.body = context.models.Scene().BodyStore().HandleForModelIndex( modelIndex );
     gesture.axis = axis;
     gesture.angular = gizmoKind == RuntimeGizmoDragKind::Rotate;
     gesture.gizmoKind = gizmoKind;
@@ -1105,8 +1105,8 @@ int RuntimeTools::RefreshEditorPointerPreview( const EditorPointerPreviewInput& 
                                                Geometry::Terrain* terrain,
                                                const Assets::AssetSystem& assets )
 {
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const ColliderStore& colliderStore = collection.Colliders();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
+    const ColliderStore& colliderStore = collection.Scene().Colliders();
     const int selectedModelIndex = ResolveSelectedEditorModelIndex( m_editor, bodyStore );
     const PhysicsBodyStore* selectedBodyStore = nullptr;
     const ColliderStore* selectedColliderStore = nullptr;
@@ -1151,8 +1151,8 @@ bool RuntimeTools::PrepareEditorPointerSelection( const EditorPointerSelectionIn
     {
         RuntimePickRequest request;
         request.purpose = RuntimePickPurpose::EditorSelection;
-        request.bodyStore = &collection.BodyStore();
-        request.colliderStore = &collection.Colliders();
+        request.bodyStore = &collection.Scene().BodyStore();
+        request.colliderStore = &collection.Scene().Colliders();
         request.rayOrigin = input.rayOrigin;
         request.rayDirection = input.rayDirection;
         RuntimePickService::TryPickModel( request, result );
@@ -1284,10 +1284,10 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
         return result;
     }
 
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const ColliderStore& colliderStore = collection.Colliders();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
+    const ColliderStore& colliderStore = collection.Scene().Colliders();
     if ( input.leftReleased && !input.suppressWorldAction && input.selectedModelIndex >= 0 &&
-         input.selectedModelIndex < collection.SceneEntityCount() )
+         input.selectedModelIndex < collection.Scene().SceneEntityCount() )
     {
         if ( gesture.gizmoKind == RuntimeGizmoDragKind::Scale )
         {
@@ -1319,7 +1319,8 @@ EditorGizmoDragPointerResult RuntimeTools::RouteEditorGizmoDragPointer( const Ed
         }
         else
         {
-            const int groupCount = ValidCapturedEditorGizmoGroupCount( m_editor, collection.SceneEntityCount() );
+            const int groupCount =
+                ValidCapturedEditorGizmoGroupCount( m_editor, collection.Scene().SceneEntityCount() );
             if ( groupCount > 0 )
             {
                 for ( int groupIndex = 0; groupIndex < groupCount; ++groupIndex )
@@ -1412,8 +1413,8 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
         return false;
     }
 
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
-    const ColliderStore& colliderStore = collection.Colliders();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
+    const ColliderStore& colliderStore = collection.Scene().Colliders();
     EditorGizmoContext gizmoContext{ m_editor, collection, physics, interaction };
     outPlan.owner = inspectGizmoActive ? WorldInteractionOwner::InspectGizmo : WorldInteractionOwner::EditorGizmo;
     outPlan.reason = inspectGizmoActive ? InteractionExitReason::EnterInspect : InteractionExitReason::EnterEdit;
@@ -1423,7 +1424,7 @@ bool RuntimeTools::PrepareEditorGizmoGesture( bool inspectGizmoActive,
 
     if ( scaleMode )
     {
-        if ( selectedModelIndex >= collection.SceneEntityCount() || m_editor.hotGizmoAxis < 0 )
+        if ( selectedModelIndex >= collection.Scene().SceneEntityCount() || m_editor.hotGizmoAxis < 0 )
         {
             return false;
         }
@@ -1541,7 +1542,7 @@ EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGiz
                                            : plan.kind == EditorGizmoGestureKind::Scale
                                                ? RuntimeGizmoDragKind::Scale
                                                : RuntimeGizmoDragKind::Translate;
-    const int selectedModelIndex = collection.BodyStore().ModelIndexForHandle( plan.selectedBody );
+    const int selectedModelIndex = collection.Scene().BodyStore().ModelIndexForHandle( plan.selectedBody );
     if ( selectedModelIndex < 0 )
     {
         return result;
@@ -1576,7 +1577,7 @@ EditorGizmoGestureResult RuntimeTools::CommitEditorGizmoGesture( const EditorGiz
     }
     CaptureEditorGizmoDragGroupState( m_editor,
                                       collection,
-                                      collection.BodyStore(),
+                                      collection.Scene().BodyStore(),
                                       plan.kind != EditorGizmoGestureKind::Scale );
     result.consumed = true;
     result.kind = plan.kind;
@@ -1633,10 +1634,10 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     SceneController& models = sceneOwners.sceneController;
-    PhysicsEngine& physics = models.Physics();
+    PhysicsEngine& physics = models.Scene().Physics();
     RunSceneState& scene = models.State();
-    Environment::WorldEnvironment& world = models.World();
-    Geometry::Terrain* terrain = models.Terrain().Get();
+    Environment::WorldEnvironment& world = models.Scene().Environment();
+    Geometry::Terrain* terrain = models.Scene().Terrain().Get();
     Assets::AssetSystem& assets = host.assets;
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
@@ -1658,7 +1659,7 @@ EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRou
         routeResult.interactionTransition = transition;
         routeResult.hasInteractionTransition = true;
     };
-    const PhysicsBodyStore& editorBodyStore = models.BodyStore();
+    const PhysicsBodyStore& editorBodyStore = models.Scene().BodyStore();
     const bool previewInspectGizmoActive =
         runtimeTools.InspectGizmoInteractionActive( input.cameraMode, input.replayInspectionActive );
     const bool previewCanUseMouseRay = !input.blocksCameraMouse && !runtimeTools.Editor().viewportLookActive &&

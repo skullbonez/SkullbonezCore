@@ -263,7 +263,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Editor\LauncherTools.cpp" />
     <ClCompile Include="SkullbonezSource\Core\AmortizedTask.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneController.Objects.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\GameModelRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\SceneSnapshotWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.cpp" />
@@ -534,6 +534,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeViewModel.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneAuthoredSetup.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneController.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneWorld.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneTerrain.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneControllerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.h" />

@@ -319,7 +319,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     {
         EnterInteractiveSceneRun();
         const RunInternal::EditorPlacementModeChangeResult placementMode = RunInternal::ToggleEditorPlacementMode(
-            { m_runtimeTools.Editor(), m_sceneController, m_sceneController.Physics(), m_interaction } );
+            { m_runtimeTools.Editor(), m_sceneController, m_sceneController.Scene().Physics(), m_interaction } );
         completeEditorPlacementModeTransition( source, placementMode );
     };
     const bool flyCamera =
@@ -480,7 +480,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             break;
         case RuntimeInputAction::CycleAttachedCameraSubmode:
             if ( RunCameraModeIsAttached( m_camera.mode ) &&
-                 m_attachedCamera.CycleMode( m_sceneController, m_sceneController.Cameras() ) )
+                 m_attachedCamera.CycleMode( m_sceneController.Scene(), m_sceneController.Scene().Cameras() ) )
             {
                 m_inputRouter.RecordModeAction( interactionOwners,
                                                 m_runtimeInput,
@@ -491,7 +491,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         case RuntimeInputAction::ToggleAttachedCameraPin:
             if ( RunCameraModeIsAttached( m_camera.mode ) )
             {
-                const bool activeFollow = m_attachedCamera.TogglePin( m_sceneController, m_sceneController.Cameras() );
+                const bool activeFollow =
+                    m_attachedCamera.TogglePin( m_sceneController.Scene(), m_sceneController.Scene().Cameras() );
                 if ( !activeFollow )
                 {
                     if ( m_inputRouter.ReleasePointerToUi(
@@ -520,14 +521,14 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 const double simulationSeconds = m_timers.simulationTimer.GetTimeSinceLastStart();
                 m_runtimeTools.WriteLauncherReproSnapshotWithStatusMessage(
                     { m_sceneController,
-                      m_sceneController.Entities(),
-                      &m_sceneController.Cameras(),
-                      m_sceneController.Terrain().Get(),
-                      m_sceneController.World(),
+                      m_sceneController.Scene().Entities(),
+                      &m_sceneController.Scene().Cameras(),
+                      m_sceneController.Scene().Terrain().Get(),
+                      m_sceneController.Scene().Environment(),
                       SceneState(),
                       m_sceneController.CurrentPath(),
                       m_launchOptions,
-                      m_sceneController.Physics().IsSleepEnabled(),
+                      m_sceneController.Scene().Physics().IsSleepEnabled(),
                       m_renderer.VsyncEnabled(),
                       m_renderer.PipelineSyncEnabled(),
                       m_config.bodySimulation.contactEpsilon,
@@ -547,12 +548,12 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             }
             if ( m_camera.director.grabbed )
             {
-                if ( DemoDirectorPlayback::EndGrab( m_camera, m_sceneController.Cameras() ) )
+                if ( DemoDirectorPlayback::EndGrab( m_camera, m_sceneController.Scene().Cameras() ) )
                 {
                     ExitFlyModeCamera( m_inputRouter,
                                        m_camera,
-                                       m_sceneController.Cameras(),
-                                       *m_sceneController.Terrain().Get(),
+                                       m_sceneController.Scene().Cameras(),
+                                       *m_sceneController.Scene().Terrain().Get(),
                                        SceneState().isSceneMode );
                     m_inputRouter.ApplyPointerPresentation(
                         EvaluateRuntimePointerPresentation( m_inputRouter,
@@ -561,11 +562,11 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                     m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
                 }
             }
-            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_sceneController.Cameras() ) )
+            else if ( DemoDirectorPlayback::BeginGrab( m_camera, m_sceneController.Scene().Cameras() ) )
             {
                 EnterFlyModeCamera( m_inputRouter,
                                     m_camera,
-                                    m_sceneController.Cameras(),
+                                    m_sceneController.Scene().Cameras(),
                                     SceneState().isSceneMode,
                                     m_runtimeTools.Editor(),
                                     m_replayRuntime.BuildInputView() );
@@ -581,7 +582,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                    RunCameraModeUsesFlyControls( m_camera.mode,
                                                  m_attachedCamera.State().activeFollow,
                                                  m_camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_sceneController.Cameras() ) )
+                 DemoDirectorPlayback::SetCurrentPhasePose( m_camera, m_sceneController.Scene().Cameras() ) )
             {
                 m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
             }
@@ -591,7 +592,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                    RunCameraModeUsesFlyControls( m_camera.mode,
                                                  m_attachedCamera.State().activeFollow,
                                                  m_camera.director.grabbed ) ) &&
-                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_sceneController.Cameras() ) )
+                 DemoDirectorPlayback::SelectNextPhaseForAuthoring( m_camera, m_sceneController.Scene().Cameras() ) )
             {
                 m_inputRouter.RecordModeAction( interactionOwners, m_runtimeInput, event.action, event.source );
             }
@@ -716,7 +717,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                               SceneState(),
                                               m_UI.SceneNavigation().browser,
                                               m_sceneController,
-                                              m_sceneController.Entities(),
+                                              m_sceneController.Scene().Entities(),
                                               m_assets,
                                               ActiveSceneCinematicConfig( SceneState(), m_config ),
                                               m_renderDefaults.CinematicBaseline() },
@@ -762,7 +763,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
         if ( velocityEditResult.cameraAction == ReplayKeyboardVelocityEditCameraAction::EnterInspection )
         {
-            m_replayRuntime.EnterInspectionCamera( &m_sceneController.Cameras(),
+            m_replayRuntime.EnterInspectionCamera( &m_sceneController.Scene().Cameras(),
                                                    m_camera,
                                                    NormalizeCameraModeForCurrentScene( m_camera.mode ),
                                                    m_interaction,
@@ -772,8 +773,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         else if ( velocityEditResult.cameraAction == ReplayKeyboardVelocityEditCameraAction::ExitInspection )
         {
             m_replayRuntime.ExitInspectionCamera(
-                &m_sceneController.Cameras(),
-                m_sceneController.Terrain().Get(),
+                &m_sceneController.Scene().Cameras(),
+                m_sceneController.Scene().Terrain().Get(),
                 m_camera,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
                 m_attachedCamera.State().activeFollow,
@@ -793,7 +794,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         }
     }
     ReplayPathPickInput replayPointerRay;
-    replayPointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
+    replayPointerRay.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(),
                                                                    m_window,
                                                                    replayPointerRay.rayOrigin,
                                                                    replayPointerRay.rayDirection );
@@ -864,7 +865,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                          SceneState(),
                                          m_startup.gameModelCapacity,
                                          static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-        ReplaySolverSampleRestoreContext sampleOwners{ m_sceneController.Physics(),
+        ReplaySolverSampleRestoreContext sampleOwners{ m_sceneController.Scene().Physics(),
                                                        m_sceneController,
                                                        SceneState(),
                                                        m_renderer,
@@ -873,8 +874,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         ReplaySceneTimelineResetOwners timelineOwners{
             m_inputRouter,
             m_interaction,
-            &m_sceneController.Cameras(),
-            m_sceneController.Terrain().Get(),
+            &m_sceneController.Scene().Cameras(),
+            m_sceneController.Scene().Terrain().Get(),
             m_camera,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
             m_attachedCamera.State().activeFollow,
@@ -942,17 +943,17 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     pointerInput.clientY = pointerDevice.clientY;
     pointerInput.activeModelCapacity = m_startup.gameModelCapacity;
     pointerInput.cameraMode = m_camera.mode;
-    pointerInput.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
+    pointerInput.hasWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(),
                                                                m_window,
                                                                pointerInput.rayOrigin,
                                                                pointerInput.rayDirection );
-    pointerInput.hasClampedWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Cameras(),
+    pointerInput.hasClampedWorldRay = m_inputRouter.TryBuildWorldRay( m_sceneController.Scene().Cameras(),
                                                                       m_window,
                                                                       pointerInput.clampedRayOrigin,
                                                                       pointerInput.clampedRayDirection,
                                                                       true );
-    pointerInput.cameraEye = m_sceneController.Cameras().GetCameraTranslation();
-    pointerInput.cameraView = m_sceneController.Cameras().GetCameraView();
+    pointerInput.cameraEye = m_sceneController.Scene().Cameras().GetCameraTranslation();
+    pointerInput.cameraView = m_sceneController.Scene().Cameras().GetCameraView();
     const RuntimePointerRouteResult pointerResult =
         m_inputRouter.RouteRuntimePointer( pointerInput,
                                            host,

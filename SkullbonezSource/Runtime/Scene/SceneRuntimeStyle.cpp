@@ -150,7 +150,7 @@ bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material,
 
 void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& models )
 {
-    for ( int modelIndex = 0; modelIndex < models.SceneEntityCount(); ++modelIndex )
+    for ( int modelIndex = 0; modelIndex < models.Scene().SceneEntityCount(); ++modelIndex )
     {
         if ( !entities.IsSimpleRagdollPart( modelIndex ) )
         {
@@ -163,11 +163,11 @@ void ResetObjectMaterials( SceneEntityStore& entities, const SceneController& mo
 void ApplyObjectMaterials( SceneEntityStore& entities, SceneController& models, const TestScene& styleScene )
 {
     ResetObjectMaterials( entities, models );
-    const auto colliders = models.Colliders().Records();
+    const auto colliders = models.Scene().Colliders().Records();
     for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
     {
         const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
-        for ( int modelIndex = 0; modelIndex < models.SceneEntityCount(); ++modelIndex )
+        for ( int modelIndex = 0; modelIndex < models.Scene().SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind

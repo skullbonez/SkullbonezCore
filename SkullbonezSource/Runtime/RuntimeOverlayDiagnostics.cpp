@@ -21,7 +21,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/RuntimeOverlayDiagnostics.h
-  - SkullbonezSource/Runtime/Scene/SceneController.h
+  - SkullbonezSource/Runtime/Scene/SceneWorld.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
 */
 #include "RuntimeOverlayDiagnostics.h"
@@ -32,7 +32,7 @@ Related:
 #include "Allocation/RuntimeAllocationTracker.h"
 #include "Render/RuntimeRenderInputs.h"
 #include "RunLaunchOptions.h"
-#include "Scene/SceneController.h"
+#include "Scene/SceneWorld.h"
 #include "../Core/Profiler.h"
 #include "../Physics/PhysicsApi.h"
 #include "../UI/UI.h"
@@ -119,7 +119,7 @@ void RuntimeOverlayDiagnostics::ApplyStartupPolicy( const RunStartupOverrides& o
 }
 
 
-void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
+void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneWorld& scene,
                                                    RuntimeValidationHarness& validationHarness,
                                                    float contactEpsilon,
                                                    double secondsPerFrame )
@@ -180,7 +180,7 @@ void RuntimeOverlayDiagnostics::UpdatePostPhysics( SceneController& scene,
     PROFILE_END( m_profiler, "Frame/PostPhysics/PhysicsDebugVisualizer" );
 
     PROFILE_BEGIN( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );
-    scene.Physics().EndCollisionVisualFrame();
+    scene.EndCollisionVisualFrame();
     PROFILE_END( m_profiler, "Frame/PostPhysics/EndCollisionVisualFrame" );
     PROFILE_END( m_profiler, "Frame/PostPhysics" );
 }

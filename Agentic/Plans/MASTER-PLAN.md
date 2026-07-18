@@ -107,11 +107,11 @@ small findings hardening (5 tasks).
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | 4 | 7 | 57% |
+| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | 5 | 7 | 71% |
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | 0 | 8 | 0% |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | 0 | 5 | 0% |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | 0 | 5 | 0% |
-| **Active/future total** | **4** | **25** | **16%** |
+| **Active/future total** | **5** | **25** | **20%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -700,7 +700,7 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | Active | 4/7 | S4 extract the concrete `SceneWorld` owner and move `StepPhysics` |
+| [scene-controller-decomposition-round-2](TODO/scene-controller-decomposition-round-2.md) | Active | 5/7 | S5 shrink the load participant surface against the split |
 | [dx12-backend-ownership-decomposition](TODO/dx12-backend-ownership-decomposition.md) | Active | 0/8 | D0 state census and owner-ratified owner map |
 | [naming-and-identity-debt](TODO/naming-and-identity-debt.md) | Active — blocked on scene plan | 0/5 | N0 rename census after round-2 scene split lands |
 | [small-findings-hardening](TODO/small-findings-hardening.md) | Active — blocked on DX12 plan | 0/5 | H0 rulings census after backend decomposition lands |

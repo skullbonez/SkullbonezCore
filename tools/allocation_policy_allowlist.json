@@ -294,14 +294,14 @@
       "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
     },
     {
-      "path": "SkullbonezSource/Runtime/Scene/SceneController.Objects.cpp",
+      "path": "SkullbonezSource/Runtime/Scene/SceneWorld.cpp",
       "patterns": [
         ".push_back(",
         ".reserve("
       ],
-      "owner": "SceneController coordinated scene-store preallocation",
+      "owner": "SceneWorld coordinated scene-store preallocation",
       "phase": "scene_load_preallocation",
-      "reason": "Scene metadata, authored physics helpers, and render presentation rows are reserved while scene data is loaded or reset, before steady gameplay uses the fixed capacity.",
+      "reason": "SceneWorld metadata, authored physics helpers, and render presentation rows are reserved while scene data is loaded or reset, before steady gameplay uses the fixed capacity.",
       "cap": "Bounded by configured game model capacity and active scene entity count.",
       "removal_or_wrapper_plan": "Replace cold descriptor helper vectors with bounded scratch storage when scene loading joins the strict no-STL-growth phase."
     },

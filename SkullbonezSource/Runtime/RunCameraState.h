@@ -54,7 +54,7 @@ class CameraCollection;
 }
 namespace Runtime
 {
-class SceneController;
+class SceneWorld;
 }
 namespace Geometry
 {
@@ -107,7 +107,7 @@ struct RunCameraState
 
     void UpdateViewingOrientation( RunTimerState& timers,
                                    Environment::CameraCollection& cameras,
-                                   const Runtime::SceneController& models,
+                                   const Runtime::SceneWorld& models,
                                    bool replayCameraActive,
                                    bool sceneMode,
                                    bool attachedActiveFollow,
@@ -117,7 +117,7 @@ struct RunCameraState
     void AdvanceAutoCycleClock( bool sceneMode, float simulationDt );
     void TickControls( Environment::CameraCollection& cameras,
                        Geometry::Terrain& terrain,
-                       Runtime::SceneController& models,
+                       Runtime::SceneWorld& models,
                        AttachedCameraController& attachedCamera,
                        const SkullbonezCore::Core::EngineConfig& config,
                        bool editorModeEnabled,

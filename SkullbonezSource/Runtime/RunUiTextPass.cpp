@@ -905,11 +905,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         }
         UIData.physicsDebugAlpha = state.debug.physicsDebugAlpha;
         UIData.physicsDebugContactLinger = state.debug.physicsDebugContactLinger;
-        UIData.physicsSleepEnabled = state.modelOwner.Physics().IsSleepEnabled();
+        UIData.physicsSleepEnabled = state.modelOwner.Scene().Physics().IsSleepEnabled();
         UIData.collisionVisualizer = state.debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = state.debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = state.debug.isBroadphaseOverlay;
-        const Physics::TornadoFieldConfig& tornadoField = state.modelOwner.Physics().GetTornadoFieldConfig();
+        const Physics::TornadoFieldConfig& tornadoField = state.modelOwner.Scene().Physics().GetTornadoFieldConfig();
         UIData.tornadoEnabled = tornadoField.enabled;
         UIData.tornadoVisualShell = state.renderPresentation.tornadoVisual.enabled && tornadoField.enabled;
         UIData.tornadoFieldVectors = tornadoField.visualizeVelocityField;

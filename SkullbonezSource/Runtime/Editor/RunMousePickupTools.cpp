@@ -132,8 +132,8 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
 
     RuntimePickRequest request;
     request.purpose = RuntimePickPurpose::ManipulatorPickup;
-    request.bodyStore = &collection.BodyStore();
-    request.colliderStore = &collection.Colliders();
+    request.bodyStore = &collection.Scene().BodyStore();
+    request.colliderStore = &collection.Scene().Colliders();
     request.rayOrigin = input.rayOrigin;
     request.rayDirection = input.rayDirection;
 
@@ -143,7 +143,7 @@ MousePickupPointerResult RuntimeTools::RouteMousePickupPointer( const MousePicku
         return routeResult;
     }
 
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
     const PhysicsBodyRecord* pickedBody = bodyStore.RecordForHandle( result.body );
     const int pickedBodyIndex = bodyStore.ModelIndexForHandle( result.body );
     if ( !pickedBody || pickedBodyIndex < 0 )
@@ -216,7 +216,7 @@ void RuntimeTools::ApplyMousePickupPhysicsStep( Runtime::SceneController& models
     // physics write so deleted/reused body slots cannot receive a stale tool
     // impulse.
     RunMousePickupState& pickup = m_mousePickup;
-    const PhysicsBodyStore& bodyStore = models.BodyStore();
+    const PhysicsBodyStore& bodyStore = models.Scene().BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
     if ( !bodyRecord || bodyIndex < 0 )
@@ -272,7 +272,7 @@ void RuntimeTools::RestoreMousePickupAngularVelocity( Runtime::SceneController& 
     }
 
     RunMousePickupState& pickup = m_mousePickup;
-    const PhysicsBodyStore& bodyStore = models.BodyStore();
+    const PhysicsBodyStore& bodyStore = models.Scene().BodyStore();
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( pickup.body );
     const int bodyIndex = bodyStore.ModelIndexForHandle( pickup.body );
     if ( !bodyRecord || bodyIndex < 0 )

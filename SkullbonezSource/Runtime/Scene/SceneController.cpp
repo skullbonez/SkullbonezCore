@@ -52,39 +52,6 @@ constexpr double SCENE_PERF_PASS_SECONDS = 2.0;
 
 SceneController::SceneController()
 {
-    ReserveForActiveGameModelCapacity();
-}
-
-
-ScenePhysicsPostStepOutput SceneController::StepPhysics( float fixedDt,
-                                                         const SkullbonezCore::Core::EngineConfig& config,
-                                                         const Physics::PhysicsWorldForces& worldForces,
-                                                         Threading::WorkerPool& workerPool )
-{
-    // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
-    // sidecars are imported only when topology changes; same-count editor or
-    // replay mutations must commit explicitly before this step reads rows.
-    RepairPhysicsBodyAndColliderTopology();
-
-    const char* const* diagnosticNames = nullptr;
-    int diagnosticNameCount = 0;
-    Physics::PhysicsDiagnosticsCsvWriter diagnosticsCsvWriter;
-#ifdef _DEBUG
-    std::vector<const char*> physicsDiagnosticsModelNames;
-    if ( m_physics.ShouldEmitStepDiagnostics() || m_physics.ShouldEmitCollisionTimeDiagnostics() )
-    {
-        // Lifetime: Debug diagnostics borrow name pointers only until Step
-        // returns; physics never retains this presentation table.
-        SceneEntities().FillPhysicsDiagnosticsNames( Physics::PhysicsEngine::ReadBodies( m_physics ).Count(),
-                                                     physicsDiagnosticsModelNames );
-        diagnosticNames = physicsDiagnosticsModelNames.empty() ? nullptr : physicsDiagnosticsModelNames.data();
-        diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
-    }
-#endif
-    m_physics
-        .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
-
-    return ScenePhysicsPostStepOutput{ Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) };
 }
 
 
@@ -122,42 +89,6 @@ bool SceneController::CrossScenePauseLocked() const
 
 SceneController::SceneController( std::vector<std::string> queue ) : m_runtime( std::move( queue ) )
 {
-    ReserveForActiveGameModelCapacity();
-}
-
-
-bool SceneController::TrimForReplayRestore( int bodyCount )
-{
-    const int liveBodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
-    const int liveColliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
-    const uint32_t authoredBodyCount = m_physics.AuthoredBodyDescriptorCount().value;
-    if ( bodyCount < 0 || bodyCount > liveBodyCount || static_cast<uint32_t>( bodyCount ) > authoredBodyCount ||
-         !CanTrimPresentationRowsForSceneRestore( bodyCount ) || bodyCount > m_entities.Count() )
-    {
-        return false;
-    }
-
-    const Physics::PhysicsBodyCount bodies = Physics::MakePhysicsBodyCountFromNonNegativeInt( bodyCount );
-    const Physics::PhysicsColliderCount colliders = Physics::MakePhysicsColliderCountFromNonNegativeInt( bodyCount );
-    const Physics::PhysicsAuthoredBodyCount authored =
-        Physics::MakePhysicsAuthoredBodyCountFromNonNegativeInt( bodyCount );
-    // Concept: replay topology restore is a two-phase transaction. Every owner
-    // rejects an impossible target above before the first write. Once commit
-    // starts, a failed shrink means an internal topology invariant broke; it is
-    // not a recoverable replay-file error because earlier owners may already
-    // have retired handles.
-    // Invariant: physics rows shrink before presentation and metadata rows.
-    // Every surviving handle was validated by replay id before this command,
-    // and PhysicsBodyStore retires removed handles.
-    if ( !m_physics.TrimBodiesToCount( bodies ) ||
-         ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
-         !m_physics.TrimAuthoredBodyDescriptorsToCount( authored ) ||
-         !TrimPresentationRowsForSceneRestore( bodyCount ) || !m_entities.TrimToCount( bodyCount ) )
-    {
-        SB_FATAL( "Runtime/SceneController",
-                  "Replay topology commit failed after a successful preflight; live owners may be partially trimmed" );
-    }
-    return true;
 }
 
 
@@ -173,63 +104,15 @@ const RunSceneState& SceneController::State() const
 }
 
 
-SceneEntityStore& SceneController::Entities()
-{
-    return m_entities;
-}
-
-
-const SceneEntityStore& SceneController::Entities() const
-{
-    return m_entities;
-}
-
-
-Environment::CameraCollection& SceneController::Cameras()
-{
-    return m_cameras;
-}
-
-
-const Environment::CameraCollection& SceneController::Cameras() const
-{
-    return m_cameras;
-}
-
-
-Environment::WorldEnvironment& SceneController::World()
+SceneWorld& SceneController::Scene()
 {
     return m_world;
 }
 
 
-const Environment::WorldEnvironment& SceneController::World() const
+const SceneWorld& SceneController::Scene() const
 {
     return m_world;
-}
-
-
-SceneTerrain& SceneController::Terrain()
-{
-    return m_terrain;
-}
-
-
-const SceneTerrain& SceneController::Terrain() const
-{
-    return m_terrain;
-}
-
-
-Physics::PhysicsEngine& SceneController::Physics()
-{
-    return m_physics;
-}
-
-
-const Physics::PhysicsEngine& SceneController::Physics() const
-{
-    return m_physics;
 }
 
 
@@ -289,9 +172,9 @@ void SceneController::BeginLoad( int index )
 
 void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
-    const int entityCount = m_entities.Count();
-    const int bodyCount = Physics::PhysicsEngine::ReadBodies( m_physics ).Count();
-    const int colliderCount = Physics::PhysicsEngine::ReadColliders( m_physics ).Count();
+    const int entityCount = m_world.Entities().Count();
+    const int bodyCount = Physics::PhysicsEngine::ReadBodies( m_world.Physics() ).Count();
+    const int colliderCount = Physics::PhysicsEngine::ReadColliders( m_world.Physics() ).Count();
     const bool requiresEmptyTopology = event == SceneRuntimeLifecycleEvent::AfterSceneCleared ||
                                        event == SceneRuntimeLifecycleEvent::BeforeScenePopulate;
     const bool requiresMatchedTopology = event == SceneRuntimeLifecycleEvent::AfterScenePopulate ||

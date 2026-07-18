@@ -181,7 +181,7 @@ Vector3 ScaleSceneVector( const Vector3& value, float scale )
 SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAppendContext context,
                                                             const RagdollBuildOptions& options )
 {
-    const int firstBody = context.models.SceneEntityCount();
+    const int firstBody = context.models.Scene().SceneEntityCount();
     const uint32_t groupId = static_cast<uint32_t>( firstBody + 1 );
     const float scale = Ragdoll::ClampScale( options.scale );
     Quaternion orientation = options.orientation;
@@ -229,21 +229,21 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAp
 
         // Invariant: ragdoll grouping is prefab metadata. Pass root/part facts
         // directly so the creation transaction never parses display names to recover it.
-        const auto appendResult =
-            context.models.TryCreateSceneEntity( std::move( model ),
-                                                 MakeSceneBodyDesc( partSceneObjectId,
-                                                                    shape,
-                                                                    position,
-                                                                    orientation,
-                                                                    Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                    Vector3( 0.0f, 0.0f, 0.0f ),
-                                                                    inertia,
-                                                                    mass,
-                                                                    parts[i].restitution,
-                                                                    options.fixed,
-                                                                    context.terrain,
-                                                                    name ),
-                                                 MakeSceneColliderDesc( shape, parts[i].restitution, "default" ) );
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity(
+            std::move( model ),
+            MakeSceneBodyDesc( partSceneObjectId,
+                               shape,
+                               position,
+                               orientation,
+                               Vector3( 0.0f, 0.0f, 0.0f ),
+                               Vector3( 0.0f, 0.0f, 0.0f ),
+                               inertia,
+                               mass,
+                               parts[i].restitution,
+                               options.fixed,
+                               context.terrain,
+                               name ),
+            MakeSceneColliderDesc( shape, parts[i].restitution, "default" ) );
         if ( !appendResult.status.ok )
         {
             return appendResult.status;
@@ -252,7 +252,7 @@ SkullbonezCore::Core::SbResult AppendAuthoredSimpleRagdoll( SceneSimpleRagdollAp
 
     int jointCount = 0;
     const RagdollJointDesc* joints = Ragdoll::SimpleJoints( jointCount );
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.Scene().BodyStore();
     for ( int i = 0; i < jointCount; ++i )
     {
         PhysicsPointJointCreateDesc desc;
@@ -506,7 +506,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
         const Physics::PhysicsSceneObjectId sceneObjectId = ball.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( ball.m_radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.TryCreateSceneEntity(
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity(
             std::move( entity ),
             MakeSceneBodyDesc(
                 sceneObjectId,
@@ -549,7 +549,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
         const Physics::PhysicsSceneObjectId sceneObjectId = bs.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
         const BoundingSphere shape( bs.radius, Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.TryCreateSceneEntity(
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity(
             std::move( entity ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
@@ -594,7 +594,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.TryCreateSceneEntity(
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity(
             std::move( entity ),
             MakeSceneBodyDesc(
                 sceneObjectId,
@@ -629,7 +629,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
         const Physics::PhysicsSceneObjectId sceneObjectId = box.sceneObjectId;
         entity.sceneObjectId = sceneObjectId;
         const BoundingBox shape( Vector3( box.halfX, box.halfY, box.halfZ ), Vector3( 0.0f, 0.0f, 0.0f ) );
-        const auto appendResult = context.models.TryCreateSceneEntity(
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity(
             std::move( entity ),
             MakeSceneBodyDesc( sceneObjectId,
                                shape,
@@ -716,7 +716,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
             hullScene.name );
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const auto appendResult = context.models.TryCreateSceneEntity(
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity(
             std::move( entity ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
@@ -771,7 +771,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
                                hullScene.name );
         bodyDesc.releasesFromFixedOnContact = hullScene.contactReleaseOnImpact;
         bodyDesc.contactReleaseImpulseThreshold = hullScene.contactReleaseImpulseThreshold;
-        const auto appendResult = context.models.TryCreateSceneEntity(
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity(
             std::move( entity ),
             bodyDesc,
             MakeSceneHullColliderDesc( hull, hullScene.restitution, hullScene.contactMaterial ) );
@@ -815,7 +815,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
         }
     }
 
-    const PhysicsBodyStore& bodyStore = context.models.BodyStore();
+    const PhysicsBodyStore& bodyStore = context.models.Scene().BodyStore();
     for ( int i = 0; i < scene.GetPointJointConstraintCount(); ++i )
     {
         const ScenePointJointConstraint& sceneJoint = scene.GetPointJointConstraint( i );
@@ -852,8 +852,8 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
         // and exact-name targets can hit authored objects, generated ragdolls,
         // and snapshot bodies uniformly.
         const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
-        const auto colliders = context.models.Colliders().Records();
-        for ( int modelIndex = 0; modelIndex < context.models.SceneEntityCount(); ++modelIndex )
+        const auto colliders = context.models.Scene().Colliders().Records();
+        for ( int modelIndex = 0; modelIndex < context.models.Scene().SceneEntityCount(); ++modelIndex )
         {
             const ColliderShapeKind shapeKind = modelIndex < static_cast<int>( colliders.size() )
                                                     ? colliders[static_cast<std::size_t>( modelIndex )].shapeKind
@@ -870,7 +870,7 @@ SkullbonezCore::Core::SbResult SceneAuthoredSetup::SetUpSceneEntities( SceneAuth
 
     // Invariant: runtime-created objects continue after the highest authored id,
     // even when schema v2 deliberately uses sparse/non-contiguous values.
-    context.sceneState.ResetSceneObjectIdCursor( context.models.BodyStore() );
+    context.sceneState.ResetSceneObjectIdCursor( context.models.Scene().BodyStore() );
     SetUpRequiredContacts( context, scene );
     SetUpRequiredBroadphaseXCells( context, scene );
     return SkullbonezCore::Core::SbResult::Success();

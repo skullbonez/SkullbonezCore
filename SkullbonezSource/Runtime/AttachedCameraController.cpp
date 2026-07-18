@@ -32,7 +32,7 @@ Related:
 #include "AttachedCameraController.h"
 #include "CameraCollection.h"
 #include "RuntimePickService.h"
-#include "Scene/SceneController.h"
+#include "Scene/SceneWorld.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
 #include "../Physics/PhysicsEngine.h"
@@ -126,7 +126,7 @@ float AttachedCameraTargetRadius( float bodyBoundingRadius, const ColliderRecord
 }
 
 
-const char* PresentationNameForModelIndex( const SceneController& collection, int modelIndex )
+const char* PresentationNameForModelIndex( const SceneWorld& collection, int modelIndex )
 {
     const auto presentationRecords = collection.RenderPresentationRecords();
     if ( modelIndex < 0 || modelIndex >= static_cast<int>( presentationRecords.size() ) )
@@ -286,7 +286,7 @@ void AttachedCameraController::RestoreReturnState( Environment::CameraCollection
 }
 
 
-bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneController& collection, int& outModelIndex )
+bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneWorld& collection, int& outModelIndex )
 {
     if ( TryResolveTargetIdentity( collection, m_state.target, outModelIndex ) )
     {
@@ -297,7 +297,7 @@ bool AttachedCameraController::ResolveTargetIdentity( const Runtime::SceneContro
 }
 
 
-bool AttachedCameraController::TickFollow( const Runtime::SceneController& collection,
+bool AttachedCameraController::TickFollow( const Runtime::SceneWorld& collection,
                                            Environment::CameraCollection& cameras,
                                            float orbitYawDelta,
                                            float orbitPitchDelta,
@@ -349,7 +349,7 @@ bool AttachedCameraController::TickFollow( const Runtime::SceneController& colle
 }
 
 
-bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime::SceneController& collection,
+bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime::SceneWorld& collection,
                                                                    const Environment::CameraCollection& cameras,
                                                                    float presentationAlpha,
                                                                    Vector3& outPosition ) const
@@ -393,7 +393,7 @@ bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime
 }
 
 
-bool AttachedCameraController::CycleMode( const Runtime::SceneController& collection,
+bool AttachedCameraController::CycleMode( const Runtime::SceneWorld& collection,
                                           Environment::CameraCollection& cameras )
 {
     AttachedCameraPhysicsTarget target;
@@ -411,7 +411,7 @@ bool AttachedCameraController::CycleMode( const Runtime::SceneController& collec
 }
 
 
-bool AttachedCameraController::TogglePin( const Runtime::SceneController& collection,
+bool AttachedCameraController::TogglePin( const Runtime::SceneWorld& collection,
                                           Environment::CameraCollection& cameras )
 {
     m_state.activeFollow = !m_state.activeFollow;
@@ -429,7 +429,7 @@ bool AttachedCameraController::TogglePin( const Runtime::SceneController& collec
 }
 
 
-bool AttachedCameraController::ApplyOrbitInput( const Runtime::SceneController& collection,
+bool AttachedCameraController::ApplyOrbitInput( const Runtime::SceneWorld& collection,
                                                 Environment::CameraCollection& cameras,
                                                 bool attachModeActive,
                                                 int unhandledWheelDelta,
@@ -454,7 +454,7 @@ bool AttachedCameraController::ApplyOrbitInput( const Runtime::SceneController& 
 }
 
 
-bool AttachedCameraController::SetTarget( const Runtime::SceneController& collection,
+bool AttachedCameraController::SetTarget( const Runtime::SceneWorld& collection,
                                           Environment::CameraCollection& cameras,
                                           int modelIndex,
                                           AttachedCameraTargetSelection& outSelection )
@@ -469,7 +469,7 @@ bool AttachedCameraController::SetTarget( const Runtime::SceneController& collec
 }
 
 
-AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Runtime::SceneController& collection,
+AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Runtime::SceneWorld& collection,
                                                                Environment::CameraCollection& cameras,
                                                                int seedModelIndex,
                                                                AttachedCameraTargetSelection& outSelection )
@@ -493,7 +493,7 @@ AttachedCameraSeedResult AttachedCameraController::SeedTarget( const Runtime::Sc
 }
 
 
-bool AttachedCameraController::PickTarget( const Runtime::SceneController& collection,
+bool AttachedCameraController::PickTarget( const Runtime::SceneWorld& collection,
                                            Environment::CameraCollection& cameras,
                                            bool hasWorldRay,
                                            const Vector3& rayOrigin,
@@ -535,7 +535,7 @@ void AttachedCameraController::ClearTarget( AttachedCameraState& state )
 }
 
 
-bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const SceneController& collection,
+bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const SceneWorld& collection,
                                                                      int modelIndex,
                                                                      AttachedCameraTarget& target )
 {
@@ -557,7 +557,7 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const Scene
 }
 
 
-bool AttachedCameraController::TryResolveTargetIdentity( const SceneController& collection,
+bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& collection,
                                                          AttachedCameraTarget& target,
                                                          int& outModelIndex )
 {
@@ -642,7 +642,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneController& 
 }
 
 
-bool AttachedCameraController::TryResolvePhysicsTarget( const SceneController& collection,
+bool AttachedCameraController::TryResolvePhysicsTarget( const SceneWorld& collection,
                                                         AttachedCameraTarget& target,
                                                         AttachedCameraPhysicsTarget& outTarget,
                                                         int* outModelIndex )
@@ -676,7 +676,7 @@ bool AttachedCameraController::TryResolvePhysicsTarget( const SceneController& c
 }
 
 
-bool AttachedCameraController::TryResolveRagdollHead( const SceneController& collection,
+bool AttachedCameraController::TryResolveRagdollHead( const SceneWorld& collection,
                                                       int selectedModelIndex,
                                                       int& outHeadModelIndex )
 {
@@ -714,7 +714,7 @@ bool AttachedCameraController::TryResolveRagdollHead( const SceneController& col
 }
 
 
-bool AttachedCameraController::SelectTarget( const SceneController& collection,
+bool AttachedCameraController::SelectTarget( const SceneWorld& collection,
                                              AttachedCameraState& state,
                                              int modelIndex,
                                              AttachedCameraTargetSelection& outSelection )
@@ -758,7 +758,7 @@ bool AttachedCameraController::SelectTarget( const SceneController& collection,
 }
 
 
-bool AttachedCameraController::CycleSubmode( const SceneController& collection,
+bool AttachedCameraController::CycleSubmode( const SceneWorld& collection,
                                              AttachedCameraState& state,
                                              AttachedCameraPhysicsTarget& outTarget,
                                              bool& outShouldCaptureFixedOffset )
@@ -851,7 +851,7 @@ bool AttachedCameraController::ApplyOrbitWheel( AttachedCameraState& state,
 }
 
 
-bool AttachedCameraController::BuildFollowPose( const SceneController& collection,
+bool AttachedCameraController::BuildFollowPose( const SceneWorld& collection,
                                                 AttachedCameraState& state,
                                                 const AttachedCameraPhysicsTarget& target,
                                                 int modelIndex,

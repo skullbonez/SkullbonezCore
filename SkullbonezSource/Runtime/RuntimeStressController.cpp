@@ -145,7 +145,7 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
     RunSceneState& scene = sceneController.State();
     RunTimerState& timers = sceneOwners.timers;
     SimulationSystem& simulation = sceneOwners.simulation;
-    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
     switch ( StressHarness::NextAction( stress ) )
     {
     case 0:
@@ -330,7 +330,7 @@ BuildGraphicsStressStyleContext( RunLaunchOptions& launchOptions,
                                      scene,
                                      browser,
                                      models,
-                                     sceneController.Entities(),
+                                     sceneController.Scene().Entities(),
                                      assets,
                                      ActiveSceneCinematicConfig( scene, config ),
                                      defaultCinematicRender };
@@ -359,7 +359,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         presentationOwners.renderDefaults.CinematicBaseline();
     SimulationSystem& simulation = sceneOwners.simulation;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.World();
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
     SkullbonezCore::Runtime::SceneController& models = sceneController;
     switch ( stress.NextAction() )
     {
@@ -494,11 +494,11 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         break;
     case 19:
     {
-        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Scene().Physics().GetTornadoFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
         renderer.SetTornadoVisualEnabled( stress.NextInt( 2 ) != 0 );
-        models.Physics().SetTornadoFieldConfig( tornadoField );
+        models.Scene().Physics().SetTornadoFieldConfig( tornadoField );
         break;
     }
     case 20:
@@ -521,7 +521,7 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         simulation.Reset();
         break;
     case 23:
-        models.Physics().SetSleepEnabled( !models.Physics().IsSleepEnabled() );
+        models.Scene().Physics().SetSleepEnabled( !models.Scene().Physics().IsSleepEnabled() );
         break;
     case 24:
         debug.isTopTextHidden = !debug.isTopTextHidden;
@@ -950,15 +950,16 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
                                              m_sceneController.State(),
                                              m_startup.gameModelCapacity,
                                              static_cast<uint32_t>( m_launchOptions.generatedObjectTypeOverride ) );
-            m_replayRuntime.ResetSceneTimeline( reset,
-                                                ReplaySceneTimelineResetOwners{ m_inputRouter,
-                                                                                m_interaction,
-                                                                                &m_sceneController.Cameras(),
-                                                                                m_sceneController.Terrain().Get(),
-                                                                                m_camera,
-                                                                                replayRestoreCameraMode,
-                                                                                m_attachedCamera.State().activeFollow,
-                                                                                m_camera.director.grabbed } );
+            m_replayRuntime.ResetSceneTimeline(
+                reset,
+                ReplaySceneTimelineResetOwners{ m_inputRouter,
+                                                m_interaction,
+                                                &m_sceneController.Scene().Cameras(),
+                                                m_sceneController.Scene().Terrain().Get(),
+                                                m_camera,
+                                                replayRestoreCameraMode,
+                                                m_attachedCamera.State().activeFollow,
+                                                m_camera.director.grabbed } );
         }
         if ( action.scheduleProfileReset )
         {
@@ -1224,9 +1225,9 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         // same seed/frame/scene-load position as the repro log.
         const SkullbonezCore::Core::MainMemoryStats& memoryStats = diagnosticsRuntime.RefreshMainMemoryStats(
             replayRuntime.CollectMemoryStats(),
-            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ sceneController.Entities(),
-                                                                 sceneController.Physics(),
-                                                                 sceneController.RenderInstances() } ),
+            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ sceneController.Scene().Entities(),
+                                                                 sceneController.Scene().Physics(),
+                                                                 sceneController.Scene().RenderInstances() } ),
             timers.simulationTimer.GetTotalTime(),
             true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();

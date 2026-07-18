@@ -54,7 +54,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-class SceneController;
+class SceneWorld;
 }
 namespace Physics
 {
@@ -116,8 +116,7 @@ class RuntimeRenderer
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
-    RuntimeRenderModelFrameView BuildModelFrameView( Runtime::SceneController& scene,
-                                                     Physics::PhysicsEngine& physics,
+    RuntimeRenderModelFrameView BuildModelFrameView( Runtime::SceneWorld& scene,
                                                      Threading::WorkerPool& workerPool,
                                                      const SkullbonezCore::Core::EngineConfig& config ) const;
     bool RenderFrameEntry( const FrameEntryContext& context );

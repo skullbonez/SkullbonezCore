@@ -468,10 +468,11 @@ SaveCurrentEditableSceneSnapshot( const std::string& scenePath,
 {
     // Lifetime: editable persistence borrows the active scene's owner arrays
     // only for the synchronous write; scene reload may replace them afterward.
-    const auto& joints = SkullbonezCore::Physics::PhysicsEngine::ReadPointJointConstraints( modelCollection.Physics() );
+    const auto& joints =
+        SkullbonezCore::Physics::PhysicsEngine::ReadPointJointConstraints( modelCollection.Scene().Physics() );
     const SceneSaveView saveView{ entities,
-                                  modelCollection.BodyStore(),
-                                  modelCollection.Colliders(),
+                                  modelCollection.Scene().BodyStore(),
+                                  modelCollection.Scene().Colliders(),
                                   joints.data(),
                                   static_cast<int>( joints.size() ),
                                   world.GetGravity(),
@@ -547,7 +548,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     RunDebugState& m_debug = presentationEdit.State();
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
-    const bool retainedPhysicsSleepEnabled = Physics().IsSleepEnabled();
+    const bool retainedPhysicsSleepEnabled = Scene().Physics().IsSleepEnabled();
     if ( !request.accepted )
     {
         // Lane R: a rejected navigation value cannot identify a scene to load;
@@ -579,9 +580,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         }
         if ( mode == RunCameraMode::Scene )
         {
-            return SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
+            return Scene().SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
         }
-        if ( mode == RunCameraMode::Demo && SceneEntityCount() <= 0 )
+        if ( mode == RunCameraMode::Demo && Scene().SceneEntityCount() <= 0 )
         {
             return RunCameraMode::Inspect;
         }
@@ -646,8 +647,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     validationHarness.SceneGates().ResetForLoad();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
 
-    m_sceneController.Cameras().Reset();
-    m_sceneController.Clear();
+    m_sceneController.Scene().Cameras().Reset();
+    m_sceneController.Scene().Clear();
 
     runtimeTools.CancelMousePickup( inputRouter, interaction );
     AttachedCameraController::Reset( attachedCamera );
@@ -655,8 +656,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         replayRuntime.ClearInteractionForSceneLoad( ReplaySceneTimelineResetOwners{
             inputRouter,
             interaction,
-            &m_sceneController.Cameras(),
-            m_sceneController.Terrain().Get(),
+            &m_sceneController.Scene().Cameras(),
+            m_sceneController.Scene().Terrain().Get(),
             camera,
             NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
             attachedCamera.activeFollow,
@@ -664,7 +665,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
         runtimeTools.ClearEditorInteractionForTransition( false,
                                                           m_sceneController,
-                                                          m_sceneController.Physics(),
+                                                          m_sceneController.Scene().Physics(),
                                                           interaction );
         runtimeTools.ClearEditorHistory();
         interaction.ResetForScene( InteractionExitReason::LoadScene );
@@ -708,9 +709,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         SceneState().rngSeed = rngSeed;
         SceneState().rngState = rngSeed;
         const SkullbonezCore::Core::SbResult terrainResult =
-            UseDefaultTerrain( m_sceneController.Terrain(),
+            UseDefaultTerrain( m_sceneController.Scene().Terrain(),
                                assets,
-                               m_sceneController.World(),
+                               m_sceneController.Scene().Environment(),
                                config,
                                assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                "terrain.raw",
@@ -723,13 +724,17 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             LogSceneLoadFailure( terrainResult, scenePath );
             return m_lastSceneLoadResult;
         }
-        ApplyConfiguredWorldEnvironment( m_sceneController.World(), config, m_sceneController.Terrain().Get() );
-        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), launchOptions.noWater );
+        ApplyConfiguredWorldEnvironment( m_sceneController.Scene().Environment(),
+                                         config,
+                                         m_sceneController.Scene().Terrain().Get() );
+        ApplyNoWaterOverride( m_sceneController.Scene().Environment(),
+                              m_sceneController.Scene().Terrain().Get(),
+                              launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene JSON has loaded.
-            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.World(),
+            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.Scene().Environment(),
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
@@ -743,14 +748,15 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 
         SceneState().isSceneMode = false;
         SceneGeneratedSetup::SetUpCameras(
-            BuildSceneGeneratedCameraContext( m_sceneController.Cameras(), *m_sceneController.Terrain().Get() ) );
+            BuildSceneGeneratedCameraContext( m_sceneController.Scene().Cameras(),
+                                              *m_sceneController.Scene().Terrain().Get() ) );
         const SceneGeneratedSetupResult generatedSetup = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              config,
-                                             m_sceneController.World(),
-                                             m_sceneController.Terrain().Get(),
+                                             m_sceneController.Scene().Environment(),
+                                             m_sceneController.Scene().Terrain().Get(),
                                              m_sceneController,
-                                             m_sceneController.Physics(),
+                                             m_sceneController.Scene().Physics(),
                                              launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ sceneNavigation.overrides.modelCountOverride,
                                              sceneNavigation.overrides.solverBallCountOverride,
@@ -769,7 +775,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                               SceneState(),
                                                               sceneNavigation.browser,
                                                               m_sceneController,
-                                                              m_sceneController.Entities(),
+                                                              m_sceneController.Scene().Entities(),
                                                               assets,
                                                               ActiveSceneCinematicConfig( SceneState(), config ),
                                                               defaultCinematicRender } );
@@ -885,9 +891,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         if ( scene.HasFlatSlope() )
         {
             const SkullbonezCore::Core::SbResult terrainResult =
-                UseFlatSlopeTerrain( m_sceneController.Terrain(),
+                UseFlatSlopeTerrain( m_sceneController.Scene().Terrain(),
                                      assets,
-                                     m_sceneController.World(),
+                                     m_sceneController.Scene().Environment(),
                                      config,
                                      scene.GetFlatBaseY(),
                                      scene.GetFlatSlopeX(),
@@ -908,9 +914,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         else
         {
             const SkullbonezCore::Core::SbResult terrainResult =
-                UseDefaultTerrain( m_sceneController.Terrain(),
+                UseDefaultTerrain( m_sceneController.Scene().Terrain(),
                                    assets,
-                                   m_sceneController.World(),
+                                   m_sceneController.Scene().Environment(),
                                    config,
                                    assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                    "terrain.raw",
@@ -926,25 +932,30 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             SceneState().hasFlatSlope = false;
         }
 
-        ApplyConfiguredWorldEnvironment( m_sceneController.World(), config, m_sceneController.Terrain().Get() );
+        ApplyConfiguredWorldEnvironment( m_sceneController.Scene().Environment(),
+                                         config,
+                                         m_sceneController.Scene().Terrain().Get() );
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
-            m_sceneController.World() = WorldEnvironment( scene.GetWorldFluidHeight(),
-                                                          scene.GetWorldFluidDensity(),
-                                                          config.worldForces.gasDensity,
-                                                          scene.GetWorldGravity() );
-            m_sceneController.World().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
-            m_sceneController.World().BindRuntimeConfig( config );
-            UpdateWorldTerrainBounds( m_sceneController.World(), m_sceneController.Terrain().Get() );
+            m_sceneController.Scene().Environment() = WorldEnvironment( scene.GetWorldFluidHeight(),
+                                                                        scene.GetWorldFluidDensity(),
+                                                                        config.worldForces.gasDensity,
+                                                                        scene.GetWorldGravity() );
+            m_sceneController.Scene().Environment().SetMutualGravitySettings( scene.GetWorldMutualGravitySettings() );
+            m_sceneController.Scene().Environment().BindRuntimeConfig( config );
+            UpdateWorldTerrainBounds( m_sceneController.Scene().Environment(),
+                                      m_sceneController.Scene().Terrain().Get() );
         }
-        ApplyNoWaterOverride( m_sceneController.World(), m_sceneController.Terrain().Get(), launchOptions.noWater );
+        ApplyNoWaterOverride( m_sceneController.Scene().Environment(),
+                              m_sceneController.Scene().Terrain().Get(),
+                              launchOptions.noWater );
         if ( shouldPreserveRuntimeState )
         {
             // World sliders/keyboard water edits are part of the live scene controls.
             // Restore them after terrain/world JSON and --no-water have resolved,
             // so a plain reset keeps the operator's current environment.
-            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.World(),
+            const WorldOverrideChange change = ApplyUIWorldOverride( m_sceneController.Scene().Environment(),
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
@@ -956,17 +967,17 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                                                          change.fluidDensity ) );
         }
 
-        SceneAuthoredSetup::SetUpCameras(
-            BuildSceneAuthoredCameraContext( m_sceneController.Cameras(), *m_sceneController.Terrain().Get() ),
-            scene );
+        SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( m_sceneController.Scene().Cameras(),
+                                                                           *m_sceneController.Scene().Terrain().Get() ),
+                                          scene );
 
         const SceneGeneratedSetupResult generatedModels = SceneGeneratedSetup::TrySetUpRequestedModels(
             BuildSceneGeneratedModelContext( SceneState(),
                                              config,
-                                             m_sceneController.World(),
-                                             m_sceneController.Terrain().Get(),
+                                             m_sceneController.Scene().Environment(),
+                                             m_sceneController.Scene().Terrain().Get(),
                                              m_sceneController,
-                                             m_sceneController.Physics(),
+                                             m_sceneController.Scene().Physics(),
                                              launchOptions.generatedObjectTypeOverride ),
             SceneGeneratedPopulationRequest{ sceneNavigation.overrides.modelCountOverride,
                                              sceneNavigation.overrides.solverBallCountOverride,
@@ -985,11 +996,11 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         {
             const SkullbonezCore::Core::SbResult authoredSetup = SceneAuthoredSetup::SetUpSceneEntities(
                 BuildSceneAuthoredModelContext( SceneState(),
-                                                m_sceneController.World(),
-                                                m_sceneController.Terrain().Get(),
+                                                m_sceneController.Scene().Environment(),
+                                                m_sceneController.Scene().Terrain().Get(),
                                                 m_sceneController,
-                                                m_sceneController.Entities(),
-                                                m_sceneController.Physics(),
+                                                m_sceneController.Scene().Entities(),
+                                                m_sceneController.Scene().Physics(),
                                                 validationHarness.SceneGates() ),
                 scene );
             if ( !authoredSetup.ok )
@@ -1001,13 +1012,14 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         }
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
-        m_sceneController.Physics().SetPhysicsRegressionLogPath(
+        m_sceneController.Scene().Physics().SetPhysicsRegressionLogPath(
             diagnosticsRuntime.PerfLog().physicsRegressionLogOverride );
-        m_sceneController.Physics().SetPhysicsCollisionTimeLogPath(
+        m_sceneController.Scene().Physics().SetPhysicsCollisionTimeLogPath(
             diagnosticsRuntime.PerfLog().physicsCollisionTimeLogOverride );
         if ( diagnosticsRuntime.PhysicsDiagnostics().isEnabled )
         {
-            m_sceneController.Physics().SetPhysicsDiagnosticsPath( diagnosticsRuntime.PhysicsDiagnostics().path );
+            m_sceneController.Scene().Physics().SetPhysicsDiagnosticsPath(
+                diagnosticsRuntime.PhysicsDiagnostics().path );
         }
 #endif
 
@@ -1044,8 +1056,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             unbounded.m_xMax = 99999.9f;
             unbounded.m_zMin = -99999.9f;
             unbounded.m_zMax = 99999.9f;
-            uint32_t activeCam = m_sceneController.Cameras().GetSelectedCameraName();
-            m_sceneController.Cameras().SetCameraXZBounds( activeCam, unbounded );
+            uint32_t activeCam = m_sceneController.Scene().Cameras().GetSelectedCameraName();
+            m_sceneController.Scene().Cameras().SetCameraXZBounds( activeCam, unbounded );
             inputRouter.RequestCursorVisible( false );
             camera.input.xMove = 0;
             camera.input.yMove = 0;
@@ -1087,7 +1099,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         Physics::TornadoFieldConfig tornadoField;
         Physics::TornadoSystemConfig tornadoSystem;
         ApplyTornadoDefaultsForActiveScene( tornadoField,
-                                            m_sceneController.World(),
+                                            m_sceneController.Scene().Environment(),
                                             ActiveSceneCinematicConfig( SceneState(), config ) );
         if ( hasSceneTornadoSystem )
         {
@@ -1095,11 +1107,11 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             tornadoField.enabled = false;
             renderer.SetTornadoVisualEnabled( true );
         }
-        m_sceneController.Physics().SetTornadoFieldConfig( tornadoField );
-        m_sceneController.Physics().SetTornadoSystemConfig( tornadoSystem );
+        m_sceneController.Scene().Physics().SetTornadoFieldConfig( tornadoField );
+        m_sceneController.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
     }
-    Physics::TornadoFieldConfig tornadoField = m_sceneController.Physics().GetTornadoFieldConfig();
-    Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Physics().GetTornadoSystemConfig();
+    Physics::TornadoFieldConfig tornadoField = m_sceneController.Scene().Physics().GetTornadoFieldConfig();
+    Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Scene().Physics().GetTornadoSystemConfig();
     if ( launchOptions.hasTornadoOverride )
     {
         if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
@@ -1121,17 +1133,17 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         tornadoField.visualizeVelocityField = true;
         tornadoSystem.visualizeVelocityField = true;
     }
-    m_sceneController.Physics().SetTornadoFieldConfig( tornadoField );
-    m_sceneController.Physics().SetTornadoSystemConfig( tornadoSystem );
+    m_sceneController.Scene().Physics().SetTornadoFieldConfig( tornadoField );
+    m_sceneController.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
     if ( sceneMutualGravityEnabled )
     {
         // Why: n-body space scenes have no contacts to wake quiet bodies later;
         // authored mutual gravity owns sleep policy for the duration of setup.
-        m_sceneController.Physics().SetSleepEnabled( false );
+        m_sceneController.Scene().Physics().SetSleepEnabled( false );
     }
     else if ( !shouldPreserveRuntimeState )
     {
-        m_sceneController.Physics().SetSleepEnabled( retainedPhysicsSleepEnabled );
+        m_sceneController.Scene().Physics().SetSleepEnabled( retainedPhysicsSleepEnabled );
     }
     if ( launchOptions.frameCountOverride > 0 )
     {
@@ -1228,8 +1240,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         ReplaySceneTimelineResetOwners{
             inputRouter,
             interaction,
-            &m_sceneController.Cameras(),
-            m_sceneController.Terrain().Get(),
+            &m_sceneController.Scene().Cameras(),
+            m_sceneController.Scene().Terrain().Get(),
             camera,
             NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
             attachedCamera.activeFollow,
@@ -1265,10 +1277,10 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
         const SkullbonezCore::Core::SbResult saveResult =
             SaveCurrentEditableSceneSnapshot( *scenePath,
                                               State(),
-                                              Entities(),
+                                              Scene().Entities(),
                                               *this,
-                                              World(),
-                                              Cameras(),
+                                              Scene().Environment(),
+                                              Scene().Cameras(),
                                               view.debug.isWaterHidden,
                                               view.debug.isTerrainHidden );
         return saveResult;
@@ -1357,10 +1369,10 @@ SkullbonezCore::Core::SbResult SceneController::SaveCurrentDefaults( const Scene
     {
         playback.erase( "autoCycleInterval" );
     }
-    world["gravity"] = World().GetGravity();
-    world["fluidHeight"] = World().GetFluidSurfaceHeight();
-    world["fluidDensity"] = World().GetFluidDensity();
-    const MutualGravitySettings& mutualGravity = World().GetMutualGravitySettings();
+    world["gravity"] = Scene().Environment().GetGravity();
+    world["fluidHeight"] = Scene().Environment().GetFluidSurfaceHeight();
+    world["fluidDensity"] = Scene().Environment().GetFluidDensity();
+    const MutualGravitySettings& mutualGravity = Scene().Environment().GetMutualGravitySettings();
     if ( mutualGravity.enabled )
     {
         world["mutualGravity"] = {

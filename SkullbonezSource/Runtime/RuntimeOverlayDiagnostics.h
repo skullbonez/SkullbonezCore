@@ -51,7 +51,7 @@ class InGameUI;
 }
 namespace Runtime
 {
-class SceneController;
+class SceneWorld;
 class RuntimeValidationHarness;
 class RuntimeOverlayDiagnostics;
 class RuntimeRenderer;
@@ -104,7 +104,7 @@ class RuntimeOverlayDiagnostics
     void ApplyStartupPolicy( const RunStartupOverrides& overrides,
                              RunLaunchOptions& launchOptions,
                              UI::InGameUI& operatorUi );
-    void UpdatePostPhysics( SceneController& scene,
+    void UpdatePostPhysics( SceneWorld& scene,
                             RuntimeValidationHarness& validationHarness,
                             float contactEpsilon,
                             double secondsPerFrame );

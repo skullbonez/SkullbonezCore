@@ -132,7 +132,7 @@ static bool TryResolveEditorObjectPlacementPreflight( EditorObjectPlacementConte
     // Invariant: This preflight is the single capacity and asset-count gate
     // for both CanPlace and Place. Add new multi-part object families here
     // before adding their placement branch below.
-    const int modelCount = context.models.SceneEntityCount();
+    const int modelCount = context.models.Scene().SceneEntityCount();
     const int type = std::clamp( request.objectType, 0, UI::EditorTab::OBJECT_TYPE_COUNT - 1 );
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
@@ -182,7 +182,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         return false;
     }
 
-    const int modelCount = context.models.SceneEntityCount();
+    const int modelCount = context.models.Scene().SceneEntityCount();
     const EditorTreeDefinition* tree = EditorTreeDefinitionForType( type );
     const EditorHouseDefinition* house = EditorHouseDefinitionForType( type );
     const EditorBuildingDefinition* building = EditorBuildingDefinitionForType( type );
@@ -231,9 +231,10 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         {
             model.sceneObjectId = context.scene.AllocateSceneObjectId();
         }
-        const int index = context.models.SceneEntityCount();
-        const auto appendResult =
-            context.models.TryCreateSceneEntity( std::move( model ), std::move( bodyDesc ), std::move( colliderDesc ) );
+        const int index = context.models.Scene().SceneEntityCount();
+        const auto appendResult = context.models.Scene().TryCreateSceneEntity( std::move( model ),
+                                                                               std::move( bodyDesc ),
+                                                                               std::move( colliderDesc ) );
         if ( !appendResult.status.ok )
         {
             appendFailed = true;
@@ -759,7 +760,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
         return false;
     }
 
-    context.scene.modelCount = context.models.SceneEntityCount();
+    context.scene.modelCount = context.models.Scene().SceneEntityCount();
     const bool placed = context.scene.modelCount > modelCount;
     outResult.placed = placed;
     outResult.modelCountBefore = modelCount;
@@ -767,7 +768,7 @@ bool PlaceEditorObjectAtTerrainPoint( EditorObjectPlacementContext context,
     outResult.placedBody = lastPlacedBody;
     if ( placed && lastPlacedModelIndex >= 0 )
     {
-        outResult.placedCollider = context.models.Colliders().HandleForBodyHandle( lastPlacedBody );
+        outResult.placedCollider = context.models.Scene().Colliders().HandleForBodyHandle( lastPlacedBody );
     }
     outResult.objectType = type;
     outResult.fixedObject = fixedObject;

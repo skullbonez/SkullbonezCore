@@ -444,10 +444,10 @@ void HandleEditorSaveHotkey( EditorSaveHotkeyContext context, RuntimeInputAction
         {
             // Lifetime: the save view borrows cold owner arrays only for this
             // synchronous file write; editor input retains none of the rows.
-            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.models.Physics() );
+            const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( context.models.Scene().Physics() );
             const SceneSaveView saveView{ context.entities,
-                                          context.models.BodyStore(),
-                                          context.models.Colliders(),
+                                          context.models.Scene().BodyStore(),
+                                          context.models.Scene().Colliders(),
                                           joints.data(),
                                           static_cast<int>( joints.size() ),
                                           context.world.GetGravity(),

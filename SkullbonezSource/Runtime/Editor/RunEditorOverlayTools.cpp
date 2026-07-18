@@ -99,7 +99,7 @@ EditorInteractionPreviewResult UpdateEditorInteractionPreview( EditorInteraction
             collider->body == context.editor.selectedBody;
     }
 
-    if ( context.editor.selectedModelRow.value >= context.models.SceneEntityCount() ||
+    if ( context.editor.selectedModelRow.value >= context.models.Scene().SceneEntityCount() ||
          ( context.editor.selectedBody.IsValid() && !selectionHandlesValid ) )
     {
         // Invariant: Selection stores handles plus a model-row hint. If
@@ -162,7 +162,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         const bool gizmoScale = gizmoDragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Scale;
         const bool gizmoRotation = gizmoDragActive && input.gesture.gizmoKind == RuntimeGizmoDragKind::Rotate;
         const bool scaleMode = gizmoScale || input.scaleMode;
-        if ( selectedModelIndex >= 0 && selectedModelIndex < context.models.SceneEntityCount() &&
+        if ( selectedModelIndex >= 0 && selectedModelIndex < context.models.Scene().SceneEntityCount() &&
              TryTraceEditorSelectionOverlayFromStores( context.models,
                                                        context.bodyStore,
                                                        context.colliderStore,
@@ -191,7 +191,7 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
             context.colliderStore.HandleForBodyHandle( context.mousePickup.body );
         const ColliderRecord* collider = context.colliderStore.RecordForHandle( colliderHandle );
         const int modelIndex = context.bodyStore.ModelIndexForHandle( context.mousePickup.body );
-        if ( !body || !collider || modelIndex < 0 || modelIndex >= context.models.SceneEntityCount() ||
+        if ( !body || !collider || modelIndex < 0 || modelIndex >= context.models.Scene().SceneEntityCount() ||
              collider->body != context.mousePickup.body )
         {
             // Stale drag state can happen after editor deletion or scene reload.
@@ -220,7 +220,8 @@ void BuildEditorToolOverlayTrace( EditorToolOverlayTraceContext context, const E
         }
     }
 
-    if ( input.attachedCameraTargetIndex >= 0 && input.attachedCameraTargetIndex < context.models.SceneEntityCount() )
+    if ( input.attachedCameraTargetIndex >= 0 &&
+         input.attachedCameraTargetIndex < context.models.Scene().SceneEntityCount() )
     {
         const PhysicsBodyHandle bodyHandle = context.bodyStore.HandleForModelIndex( input.attachedCameraTargetIndex );
         const PhysicsBodyRecord* body = context.bodyStore.RecordForHandle( bodyHandle );

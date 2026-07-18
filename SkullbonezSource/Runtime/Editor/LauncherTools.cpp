@@ -131,8 +131,8 @@ bool RuntimeTools::PickLauncherReproTarget( SceneController& collection,
     // sphere around its current physics body position, then chooses the nearest
     // sphere pierced by the camera ray. The body record remains only the cold
     // identity table for the eventual snapshot row.
-    const ColliderStore& colliderStore = collection.Colliders();
-    const PhysicsBodyStore& bodyStore = collection.BodyStore();
+    const ColliderStore& colliderStore = collection.Scene().Colliders();
+    const PhysicsBodyStore& bodyStore = collection.Scene().BodyStore();
     const auto colliders = colliderStore.Records();
     const auto hotFields = bodyStore.HotFields();
     for ( const ColliderRecord& collider : colliders )
@@ -207,8 +207,8 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
         return LauncherReproSnapshotStatus::NoTarget;
     }
 
-    const ColliderStore& colliderStore = context.collection.Colliders();
-    const PhysicsBodyStore& bodyStore = context.collection.BodyStore();
+    const ColliderStore& colliderStore = context.collection.Scene().Colliders();
+    const PhysicsBodyStore& bodyStore = context.collection.Scene().BodyStore();
     const ColliderRecord* collider = LauncherReproColliderForModelIndex( bodyStore, colliderStore, targetIndex );
     if ( !collider )
     {
@@ -289,7 +289,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     int sleepInhibited = 0;
     int collisionVisualContact = 0;
     int sleepIslandVisualId = 0;
-    const Physics::PhysicsEngine& physics = context.collection.Physics();
+    const Physics::PhysicsEngine& physics = context.collection.Scene().Physics();
     const auto sleepStates = PhysicsEngine::ReadSleepStates( physics );
     if ( targetIndex < static_cast<int>( sleepStates.size() ) )
     {
@@ -369,7 +369,7 @@ RuntimeTools::WriteLauncherReproSnapshot( const LauncherReproSnapshotContext& co
     fprintf( f, "time_scale,%.6f\n", context.sceneState.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
-    fprintf( f, "model_count,%d\n", context.collection.SceneEntityCount() );
+    fprintf( f, "model_count,%d\n", context.collection.Scene().SceneEntityCount() );
     fprintf( f, "vsync_enabled,%d\n", context.vsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", context.pipelineSyncEnabled ? 1 : 0 );
     if ( context.sceneState.isSceneMode )

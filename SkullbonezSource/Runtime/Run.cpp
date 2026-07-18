@@ -128,7 +128,7 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.noSleep )
     {
         target.noSleep = true;
-        models.Physics().SetSleepEnabled( false );
+        models.Scene().Physics().SetSleepEnabled( false );
     }
     if ( launch.noContactAudio )
     {
@@ -139,9 +139,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Scene().Physics().GetTornadoFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
-        models.Physics().SetTornadoFieldConfig( tornadoField );
+        models.Scene().Physics().SetTornadoFieldConfig( tornadoField );
         if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
             renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
@@ -150,9 +150,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        TornadoFieldConfig tornadoField = models.Physics().GetTornadoFieldConfig();
+        TornadoFieldConfig tornadoField = models.Scene().Physics().GetTornadoFieldConfig();
         tornadoField.visualizeVelocityField = true;
-        models.Physics().SetTornadoFieldConfig( tornadoField );
+        models.Scene().Physics().SetTornadoFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -266,21 +266,21 @@ Run::Run( Window& window,
       m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
       m_renderer( m_renderBackendView,
                   RenderWorldView{ m_assets,
-                                   m_sceneController.Cameras(),
-                                   m_sceneController.Terrain(),
+                                   m_sceneController.Scene().Cameras(),
+                                   m_sceneController.Scene().Terrain(),
                                    window,
                                    m_config,
-                                   m_sceneController.World(),
+                                   m_sceneController.Scene().Environment(),
                                    m_overlayDiagnostics->RenderResources(),
                                    profiler },
                   RenderSceneView{ m_sceneController, m_operatorUi->SceneNavigation().browser } )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
     m_diagnosticsRuntime.BindProfiler( profiler );
-    m_sceneController.Physics().BindProfiler( profiler );
-    m_sceneController.Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
+    m_sceneController.Scene().Physics().BindProfiler( profiler );
+    m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
     RefreshSceneBrowserList( m_operatorUi->SceneNavigation().browser );
-    m_sceneController.ApplyRuntimeConfig( cfg );
+    m_sceneController.Scene().ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
     m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
@@ -300,9 +300,9 @@ Run::~Run()
     {
         m_diagnosticsRuntime.WriteMainMemoryDump(
             m_replayRuntime.CollectMemoryStats(),
-            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ m_sceneController.Entities(),
-                                                                 m_sceneController.Physics(),
-                                                                 m_sceneController.RenderInstances() } ),
+            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ m_sceneController.Scene().Entities(),
+                                                                 m_sceneController.Scene().Physics(),
+                                                                 m_sceneController.Scene().RenderInstances() } ),
             m_sceneController.State(),
             "shutdown",
             m_timers.simulationTimer.GetTotalTime() );
@@ -379,8 +379,8 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     if ( ConfigureStartupReplayRecording( overrides, m_replayRuntime, m_startup.gameModelCapacity ) )
     {
         m_replayRuntime.ExitInspectionCamera(
-            &m_sceneController.Cameras(),
-            m_sceneController.Terrain().Get(),
+            &m_sceneController.Scene().Cameras(),
+            m_sceneController.Scene().Terrain().Get(),
             m_camera,
             NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                         m_sceneController.State().isSceneMode,
@@ -494,15 +494,15 @@ void Run::Initialise()
         m_lastSceneLoadResult = startupTerrainResult;
         return;
     }
-    m_sceneController.Terrain().Replace( std::move( startupTerrain ), false );
+    m_sceneController.Scene().Terrain().Replace( std::move( startupTerrain ), false );
 
-    m_sceneController.World() = WorldEnvironment( cfg.worldForces.fluidHeight,
-                                                  cfg.worldForces.fluidDensity,
-                                                  cfg.worldForces.gasDensity,
-                                                  cfg.worldForces.gravity );
-    m_sceneController.World().BindRenderContexts( m_config, m_assets, renderResources );
-    XZBounds tb = m_sceneController.Terrain().Get()->GetXZBounds();
-    m_sceneController.World().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
+    m_sceneController.Scene().Environment() = WorldEnvironment( cfg.worldForces.fluidHeight,
+                                                                cfg.worldForces.fluidDensity,
+                                                                cfg.worldForces.gasDensity,
+                                                                cfg.worldForces.gravity );
+    m_sceneController.Scene().Environment().BindRenderContexts( m_config, m_assets, renderResources );
+    XZBounds tb = m_sceneController.Scene().Terrain().Get()->GetXZBounds();
+    m_sceneController.Scene().Environment().SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
@@ -567,8 +567,8 @@ void Run::Initialise()
     ReplaySceneTimelineResetOwners timelineOwners{
         m_inputRouter,
         m_interaction,
-        &m_sceneController.Cameras(),
-        m_sceneController.Terrain().Get(),
+        &m_sceneController.Scene().Cameras(),
+        m_sceneController.Scene().Terrain().Get(),
         m_camera,
         NormalizeRuntimeCameraMode( m_replayRuntime.BuildInputView().restoreCameraMode,
                                     m_sceneController.State().isSceneMode,
@@ -577,7 +577,7 @@ void Run::Initialise()
         m_camera.director.grabbed };
     const ReplayStartupLoadInput loadInput{
         m_timers.simulationTimer.GetTotalTime(),
-        &m_sceneController.Cameras(),
+        &m_sceneController.Scene().Cameras(),
         m_runtimeTools.MousePickup(),
         NormalizeRuntimeCameraMode( m_camera.mode,
                                     m_sceneController.State().isSceneMode,
@@ -585,7 +585,7 @@ void Run::Initialise()
         timelineOwners };
 #ifdef _DEBUG
     RuntimeOverlayPresentationEdit presentationEdit = m_overlayDiagnostics->EditPresentation();
-    ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Physics(),
+    ReplaySolverSampleRestoreContext probeSample{ m_sceneController.Scene().Physics(),
                                                   m_sceneController,
                                                   m_sceneController.State(),
                                                   m_renderer,
@@ -654,21 +654,21 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
     {
         // Lifetime: scene-load-only borrows owner arrays only until the
         // synchronous snapshot write completes.
-        const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( m_sceneController.Physics() );
-        const SceneSaveView saveView{ m_sceneController.Entities(),
-                                      m_sceneController.BodyStore(),
-                                      m_sceneController.Colliders(),
+        const auto& joints = Physics::PhysicsEngine::ReadPointJointConstraints( m_sceneController.Scene().Physics() );
+        const SceneSaveView saveView{ m_sceneController.Scene().Entities(),
+                                      m_sceneController.Scene().BodyStore(),
+                                      m_sceneController.Scene().Colliders(),
                                       joints.data(),
                                       static_cast<int>( joints.size() ),
-                                      m_sceneController.World().GetGravity(),
-                                      m_sceneController.World().GetFluidSurfaceHeight(),
-                                      m_sceneController.World().GetFluidDensity(),
-                                      m_sceneController.World().GetMutualGravitySettings() };
+                                      m_sceneController.Scene().Environment().GetGravity(),
+                                      m_sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                      m_sceneController.Scene().Environment().GetFluidDensity(),
+                                      m_sceneController.Scene().Environment().GetMutualGravitySettings() };
         const RunDebugState presentation = m_overlayDiagnostics->PresentationSnapshot();
         const SceneSaveRequest saveRequest{ snapshotOutPath,
-                                            m_sceneController.Cameras().GetCameraTranslation(),
-                                            m_sceneController.Cameras().GetCameraView(),
-                                            m_sceneController.Cameras().GetCameraUp(),
+                                            m_sceneController.Scene().Cameras().GetCameraTranslation(),
+                                            m_sceneController.Scene().Cameras().GetCameraView(),
+                                            m_sceneController.Scene().Cameras().GetCameraUp(),
                                             m_sceneController.State().isScenePhysics,
                                             m_sceneController.State().isSceneText,
                                             m_sceneController.State().isEditableScene,

@@ -63,7 +63,7 @@ SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneController& scen
             return flushResult;
         }
     }
-    scene.Clear();
+    scene.Scene().Clear();
     reset.tools.ClearRayCastTestLines();
     reset.simulation.Reset();
     scene.State().currentFrame = 0;
@@ -75,10 +75,10 @@ SceneGeneratedModelContext BuildGeneratedModelContext( SceneGeneratedControlPoli
 {
     return SceneGeneratedModelContext{ scene.State(),
                                        policy.config,
-                                       scene.World(),
-                                       scene.Terrain().Get(),
+                                       scene.Scene().Environment(),
+                                       scene.Scene().Terrain().Get(),
                                        scene,
-                                       scene.Physics(),
+                                       scene.Scene().Physics(),
                                        policy.objectTypeOverride };
 }
 
@@ -137,7 +137,7 @@ SceneRuntimeGeneratedControlAction ApplyUIModelCountOverride( SceneGeneratedCont
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
-        scene.State().modelCount = scene.SceneEntityCount();
+        scene.State().modelCount = scene.Scene().SceneEntityCount();
         presentation.camera.trackBallRow.value = scene.State().modelCount > 0 ? scene.State().modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }
@@ -191,7 +191,7 @@ SceneRuntimeGeneratedControlAction ApplyUISolverObjectCounts( SceneGeneratedCont
     if ( !setupResult.ok )
     {
         LogGeneratedControlFailure( setupResult );
-        scene.State().modelCount = scene.SceneEntityCount();
+        scene.State().modelCount = scene.Scene().SceneEntityCount();
         presentation.camera.trackBallRow.value = scene.State().modelCount > 0 ? scene.State().modelCount - 1 : -1;
         return RequestReplayAndProfileReset();
     }

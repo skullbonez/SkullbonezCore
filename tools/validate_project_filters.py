@@ -328,6 +328,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneCapacity",
     "SceneController",
     "SceneControllerState",
+    "SceneWorld",
     "SceneTerrain",
     "SceneAuthoredSetup",
     "SceneGeneratedSetup",

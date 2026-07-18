@@ -56,8 +56,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Update the active camera selection and any transition/tween state before
     // rendering asks for view matrices.
     m_camera.UpdateViewingOrientation( m_timers,
-                                       m_sceneController.Cameras(),
-                                       m_sceneController,
+                                       m_sceneController.Scene().Cameras(),
+                                       m_sceneController.Scene(),
                                        replayInput.inspectionCameraActive,
                                        m_sceneController.State().isSceneMode,
                                        m_attachedCamera.State().activeFollow,
@@ -67,7 +67,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
 
     // Selected camera state is copied into the camera collection so render code below
     // reads one coherent eye/view/up triple for this frame.
-    m_sceneController.Cameras().SetCamera();
+    m_sceneController.Scene().Cameras().SetCamera();
 
     const SkullbonezCore::Core::CinematicRenderConfig& activeCinematic =
         ActiveSceneCinematicConfig( m_sceneController.State(), m_config );
@@ -76,7 +76,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     int attachedTargetIndex = -1;
     if ( RunCameraModeIsAttached( m_camera.mode ) )
     {
-        (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController, attachedTargetIndex );
+        (void)m_attachedCamera.ResolveTargetIdentity( m_sceneController.Scene(), attachedTargetIndex );
     }
     const float rayLinger = (std::max)( 0.0f, debug.physicsDebugContactLinger );
     const bool editorOverlayWorkVisible =
@@ -109,7 +109,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // finish before replay substitutes read-only historical/future poses, and
     // every overlay producer must finish before the packet is published once.
     PROFILE_BEGIN( m_profiler, "Frame/Render/PrepareModels" );
-    m_sceneController.PrepareRenderInstances( presentationAlpha );
+    m_sceneController.Scene().PrepareRenderInstances( presentationAlpha );
     PROFILE_END( m_profiler, "Frame/Render/PrepareModels" );
 
     m_runtimeTools.PrepareOverlayTrace( m_sceneController,
@@ -123,10 +123,10 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     const uint64_t replayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
     const ReplayRenderFrameView replayFrame =
-        m_replayRuntime.PrepareRenderFrame( m_sceneController.MutableRenderInstances(),
-                                            m_sceneController.RenderPresentationRecords(),
-                                            m_sceneController.Physics(),
-                                            m_sceneController.Entities(),
+        m_replayRuntime.PrepareRenderFrame( m_sceneController.Scene().MutableRenderInstances(),
+                                            m_sceneController.Scene().RenderPresentationRecords(),
+                                            m_sceneController.Scene().Physics(),
+                                            m_sceneController.Scene().Entities(),
                                             m_runtimeTools,
                                             m_runtimeTools.EditorTracer(),
                                             renderModels.modelCount,
@@ -135,8 +135,8 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                             m_sceneController.State().currentFrame,
                                             debug.isCollisionVisualizer,
                                             debugTransparentBodyPass,
-                                            m_sceneController.Cameras().GetRenderCameraTranslation(),
-                                            m_sceneController.Cameras().GetRenderCameraUp(),
+                                            m_sceneController.Scene().Cameras().GetRenderCameraTranslation(),
+                                            m_sceneController.Scene().Cameras().GetRenderCameraUp(),
                                             replayGrowthEventCount );
     const RenderReplayOverlayView replayOverlay{ replayFrame };
     const bool replayPredictionEnabled = replayFrame.predictionEnabled;

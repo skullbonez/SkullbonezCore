@@ -155,15 +155,15 @@ struct EditorSelectionFingerprint
 EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtimeTools, SceneController& scene )
 {
     EditorSelectionFingerprint fingerprint;
-    const int modelIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.BodyStore() );
-    if ( modelIndex < 0 || modelIndex >= scene.SceneEntityCount() )
+    const int modelIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.Scene().BodyStore() );
+    if ( modelIndex < 0 || modelIndex >= scene.Scene().SceneEntityCount() )
     {
         return fingerprint;
     }
-    const SceneEntityRecord& entity = scene.Entities().At( modelIndex );
-    const Physics::PhysicsBodyRecord* body = scene.BodyStore().RecordForModelIndex( modelIndex );
-    const Physics::PhysicsColliderHandle colliderHandle = scene.Colliders().HandleForModelIndex( modelIndex );
-    const Physics::ColliderRecord* collider = scene.Colliders().RecordForHandle( colliderHandle );
+    const SceneEntityRecord& entity = scene.Scene().Entities().At( modelIndex );
+    const Physics::PhysicsBodyRecord* body = scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
+    const Physics::PhysicsColliderHandle colliderHandle = scene.Scene().Colliders().HandleForModelIndex( modelIndex );
+    const Physics::ColliderRecord* collider = scene.Scene().Colliders().RecordForHandle( colliderHandle );
     EditorPrimitiveShapeSnapshot shape;
     if ( !body || !collider || body->sceneObjectId.value != entity.sceneObjectId.value ||
          !TryCaptureEditorPrimitiveShape( collider->shape, shape ) )
@@ -171,7 +171,8 @@ EditorSelectionFingerprint BuildEditorSelectionFingerprint( RuntimeTools& runtim
         return fingerprint;
     }
     const Physics::PhysicsBodyHotState hotState =
-        Physics::LoadPhysicsBodyHotState( scene.BodyStore().HotFields(), static_cast<std::size_t>( modelIndex ) );
+        Physics::LoadPhysicsBodyHotState( scene.Scene().BodyStore().HotFields(),
+                                          static_cast<std::size_t>( modelIndex ) );
 
     uint64_t& hash = fingerprint.hash;
     HashPredictionScalar( hash, entity.sceneObjectId.value );
@@ -1803,8 +1804,9 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
     case RunInteractionAutomationAssertKind::SelectedObject:
     {
         evaluation.expected = action.text;
-        const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), sceneController.BodyStore() );
-        if ( selectedIndex >= 0 && selectedIndex < sceneController.SceneEntityCount() )
+        const int selectedIndex =
+            PeekSelectedEditorModelIndex( runtimeTools.Editor(), sceneController.Scene().BodyStore() );
+        if ( selectedIndex >= 0 && selectedIndex < sceneController.Scene().SceneEntityCount() )
         {
             evaluation.actual = entities.At( selectedIndex ).displayName;
         }
@@ -2183,7 +2185,7 @@ bool TryFindInteractionAutomationModel( const SceneController& scene, const char
         return false;
     }
 
-    outIndex = scene.Entities().FindByDisplayName( name );
+    outIndex = scene.Scene().Entities().FindByDisplayName( name );
     return outIndex >= 0;
 }
 
@@ -2212,12 +2214,13 @@ bool TryProjectInteractionAutomationModel( const SceneController& scene,
 
                 Vector3 rayOrigin;
                 Vector3 rayDirection;
-                if ( inputRouter.TryBuildWorldRayAt( candidate, scene.Cameras(), *window, rayOrigin, rayDirection ) )
+                if ( inputRouter
+                         .TryBuildWorldRayAt( candidate, scene.Scene().Cameras(), *window, rayOrigin, rayDirection ) )
                 {
                     RuntimePickRequest request;
                     request.purpose = RuntimePickPurpose::EditorSelection;
-                    request.bodyStore = &scene.BodyStore();
-                    request.colliderStore = &scene.Colliders();
+                    request.bodyStore = &scene.Scene().BodyStore();
+                    request.colliderStore = &scene.Scene().Colliders();
                     request.rayOrigin = rayOrigin;
                     request.rayDirection = rayDirection;
 
@@ -2376,7 +2379,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::DirectorRelease:
         case RunInteractionAutomationActionType::SetPhaseStyle:
         case RunInteractionAutomationActionType::SetCameraPose:
-            ApplyInteractionAutomationDirectorCameraAction( state, scene.Cameras(), camera, action, frame );
+            ApplyInteractionAutomationDirectorCameraAction( state, scene.Scene().Cameras(), camera, action, frame );
             action.processed = true;
             break;
         case RunInteractionAutomationActionType::ShowReplayScrubber:
@@ -2389,7 +2392,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                 timers,
                 result.replayIntent,
                 replayView,
-                scene.Physics(),
+                scene.Scene().Physics(),
                 action,
                 frame,
                 [&]( const char* name )
@@ -2399,7 +2402,8 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                     {
                         return false;
                     }
-                    const Physics::PhysicsBodyRecord* body = scene.BodyStore().RecordForModelIndex( modelIndex );
+                    const Physics::PhysicsBodyRecord* body =
+                        scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
                     if ( !body || body->replayBodyId == 0 )
                     {
                         return false;
@@ -2622,7 +2626,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
             inputRouter,
             camera,
             scene,
-            scene.Entities(),
+            scene.Scene().Entities(),
             ui,
             action,
             [&]()

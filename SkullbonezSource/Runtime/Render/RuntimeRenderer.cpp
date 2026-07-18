@@ -47,7 +47,7 @@ Related:
 #include "../Diagnostics/SceneMemoryDiagnostics.h"
 #include "../RuntimeOverlayDiagnostics.h"
 #include "../Window.h"
-#include "../Scene/SceneController.h"
+#include "../Scene/SceneWorld.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Debug/CollisionVisualizer.h"
 #include "../Scene/SceneTerrain.h"
@@ -55,11 +55,11 @@ Related:
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../Replay/ReplayOverlayRenderer.h"
 #include "../RuntimeTuning.h"
+#include "../Scene/SceneController.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/Profiler.h"
-#include "../Scene/SceneController.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
@@ -2246,11 +2246,11 @@ void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnos
 
 
 RuntimeRenderModelFrameView
-RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneController& scene,
-                                      PhysicsEngine& physics,
+RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene,
                                       Threading::WorkerPool& workerPool,
                                       const SkullbonezCore::Core::EngineConfig& config ) const
 {
+    PhysicsEngine& physics = scene.Physics();
     return RuntimeRenderModelFrameView{
         scene.MutableRenderInstances(),
         SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),

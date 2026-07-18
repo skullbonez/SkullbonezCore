@@ -534,8 +534,8 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
         tracer.Clear();
         const RunReplayPathVisualizerState& path = offlinePresentation.PathVisualizer();
         ReplayPredictionUpdateResult update;
-        offlinePrediction.PreparePresentation( scene.Entities(),
-                                               Physics::PhysicsEngine::ReadColliders( scene.Physics() ),
+        offlinePrediction.PreparePresentation( scene.Scene().Entities(),
+                                               Physics::PhysicsEngine::ReadColliders( scene.Scene().Physics() ),
                                                path.targetId,
                                                path.targetModelRow,
                                                path.hasTarget,
@@ -561,16 +561,16 @@ bool SkullbonezCore::Runtime::InteractionAutomationReportWriter::VerifyReplayVis
                     static_cast<Core::MainMemoryReplayRebuildCause>( causeIndex ) );
             }
         }
-        offlinePresentation.PreparePathDrawing( scene.BodyStore() );
+        offlinePresentation.PreparePathDrawing( scene.Scene().BodyStore() );
         const ReplayPredictionPresentationView prediction = offlinePrediction.PresentationView();
         offlinePresentation.RenderPathVisualizer( prediction,
                                                   latestSolverSample,
-                                                  scene.Physics(),
-                                                  scene.Entities(),
+                                                  scene.Scene().Physics(),
+                                                  scene.Scene().Entities(),
                                                   tracer );
         (void)offlinePresentation.BuildPredictionGhostDrawRequests( prediction,
-                                                                    scene.RenderPresentationRecords(),
-                                                                    scene.BodyStore() );
+                                                                    scene.Scene().RenderPresentationRecords(),
+                                                                    scene.Scene().BodyStore() );
         ReplayVisualPacket projected = tracer.BuildReplayVisualPacket( expected.cameraEye, expected.cameraUp );
         offlinePresentation.PublishVisualPacket( projected,
                                                  prediction,
@@ -1204,11 +1204,11 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
                                                   { "contactDerived", node.contactDerived } } );
     }
 
-    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.BodyStore() );
+    const int selectedIndex = PeekSelectedEditorModelIndex( runtimeTools.Editor(), scene.Scene().BodyStore() );
     const char* selectedName = "";
-    if ( selectedIndex >= 0 && selectedIndex < scene.SceneEntityCount() )
+    if ( selectedIndex >= 0 && selectedIndex < scene.Scene().SceneEntityCount() )
     {
-        selectedName = scene.Entities().At( selectedIndex ).displayName;
+        selectedName = scene.Scene().Entities().At( selectedIndex ).displayName;
     }
     const bool gizmoVisible =
         selectedIndex >= 0 &&
@@ -1285,9 +1285,9 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
             ( firstZ + secondZ ) * ( firstZ + secondZ ) + ( firstW + secondW ) * ( firstW + secondW );
         return (std::min)( directDelta, antipodalDelta );
     };
-    for ( int modelIndex = 0; modelIndex < scene.SceneEntityCount(); ++modelIndex )
+    for ( int modelIndex = 0; modelIndex < scene.Scene().SceneEntityCount(); ++modelIndex )
     {
-        const SceneEntityRecord& entity = scene.Entities().At( modelIndex );
+        const SceneEntityRecord& entity = scene.Scene().Entities().At( modelIndex );
         if ( strncmp( entity.displayName, "prediction_wall_brick_", 22u ) != 0 )
         {
             continue;
@@ -1305,8 +1305,9 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         const RunReplayPredictionBodySample* firstBody =
             findPredictionBodyByModelRow( predictionFirstFrame, modelIndex );
         const RunReplayPredictionBodySample* lastBody = findPredictionBodyByModelRow( predictionLastFrame, modelIndex );
-        const Physics::PhysicsColliderHandle colliderHandle = scene.Colliders().HandleForModelIndex( modelIndex );
-        const Physics::ColliderRecord* collider = scene.Colliders().RecordForHandle( colliderHandle );
+        const Physics::PhysicsColliderHandle colliderHandle =
+            scene.Scene().Colliders().HandleForModelIndex( modelIndex );
+        const Physics::ColliderRecord* collider = scene.Scene().Colliders().RecordForHandle( colliderHandle );
         const SkullbonezCore::Math::CollisionDetection::BoundingBox* wallBrickShape =
             collider ? std::get_if<SkullbonezCore::Math::CollisionDetection::BoundingBox>( &collider->shape ) : nullptr;
         const auto grounded = [&]( const RunReplayPredictionBodySample& body )
