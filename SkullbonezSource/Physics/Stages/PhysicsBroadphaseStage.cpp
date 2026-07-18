@@ -184,13 +184,12 @@ bool AppendFastSmallSweepPairs( std::vector<std::pair<int, int>>& candidatePairs
 
         for ( int targetIndex = 0; targetIndex < filterContext.modelCount; ++targetIndex )
         {
-            if ( movingIndex != targetIndex &&
-                 SweptSegmentTouchesExpandedBody( hotFields,
-                                                  colliderRecords,
-                                                  movingIndex,
-                                                  targetIndex,
-                                                  filterContext.dt,
-                                                  contactEpsilon ) )
+            if ( movingIndex != targetIndex && SweptSegmentTouchesExpandedBody( hotFields,
+                                                                                colliderRecords,
+                                                                                movingIndex,
+                                                                                targetIndex,
+                                                                                filterContext.dt,
+                                                                                contactEpsilon ) )
             {
                 AppendCandidatePairIfMissing( candidatePairs, filterContext, movingIndex, targetIndex );
             }
@@ -508,7 +507,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
             {
                 m_spatialGrid.GetCandidatePairs( m_candidatePairs, &broadphaseCandidateFilterContext );
                 m_spatialGrid.GetCandidatePairsLegacyForOracle( m_pairOracleShadowPairs,
-                                                                 &broadphaseCandidateFilterContext );
+                                                                &broadphaseCandidateFilterContext );
             }
             RequireSamePairMembership( m_candidatePairs,
                                        m_pairOracleShadowPairs,
@@ -548,11 +547,11 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
     if ( ( !m_pairOracleEnabled || !m_pairOracleLegacyDrives ) && fastSmallSweepAppendedPairs )
 #endif
 #if !defined( _DEBUG )
-    if ( fastSmallSweepAppendedPairs )
+        if ( fastSmallSweepAppendedPairs )
 #endif
-    {
-        CanonicalizeCandidatePairs( m_candidatePairs );
-    }
+        {
+            CanonicalizeCandidatePairs( m_candidatePairs );
+        }
 
     {
         PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/PruneFixedPairs" );
@@ -585,10 +584,9 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         if ( m_pairOracleEnabled )
         {
             m_pairOracleShadowPairs.erase(
-                std::remove_if(
-                    m_pairOracleShadowPairs.begin(),
-                    m_pairOracleShadowPairs.end(),
-                    PointJointCandidatePairPredicate{ context.bodyStore, context.pointJointConstraints } ),
+                std::remove_if( m_pairOracleShadowPairs.begin(),
+                                m_pairOracleShadowPairs.end(),
+                                PointJointCandidatePairPredicate{ context.bodyStore, context.pointJointConstraints } ),
                 m_pairOracleShadowPairs.end() );
         }
 #endif
@@ -721,8 +719,7 @@ uint64_t PhysicsBroadphaseStage::CollectDynamicMemoryBytes() const
 {
     uint64_t bytes = VectorCapacityBytes( m_candidatePairs ) + VectorCapacityBytes( m_collisionCellKeys );
 #if defined( _DEBUG )
-    bytes += VectorCapacityBytes( m_pairOracleShadowPairs ) +
-             VectorCapacityBytes( m_pairOracleNormalizedDriverPairs );
+    bytes += VectorCapacityBytes( m_pairOracleShadowPairs ) + VectorCapacityBytes( m_pairOracleNormalizedDriverPairs );
 #endif
     return bytes;
 }

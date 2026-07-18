@@ -440,10 +440,9 @@ void SpatialGrid::ResetCandidatePairDedup()
 }
 
 
-bool SpatialGrid::MarkCandidatePairFirstSeen(
-    int a,
-    int b,
-    const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
+                                              int b,
+                                              const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
 {
     // Triangular index: b*(b-1)/2 + a (requires the normalized a < b pair).
     assert( a >= 0 && a < b && b < objectCount && "candidate pair identity out of bounds" );

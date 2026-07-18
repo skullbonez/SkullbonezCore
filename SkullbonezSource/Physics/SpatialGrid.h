@@ -122,8 +122,8 @@ class SpatialGrid
 
     struct CandidatePairNode
     {
-        int maxIndex; // Larger normalized body index for one accepted pair.
-        int next;     // Next node with the same smaller body index; -1 ends the list.
+        int maxIndex;        // Larger normalized body index for one accepted pair.
+        int next;            // Next node with the same smaller body index; -1 ends the list.
     };
 
     float cellSize;
@@ -149,9 +149,7 @@ class SpatialGrid
     void InsertCell( int index, int ix, int iy, int iz );
     void InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
     void ResetCandidatePairDedup();
-    bool MarkCandidatePairFirstSeen( int a,
-                                     int b,
-                                     const Physics::BroadphaseCandidateFilterContext* filter );
+    bool MarkCandidatePairFirstSeen( int a, int b, const Physics::BroadphaseCandidateFilterContext* filter );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -187,9 +185,8 @@ class SpatialGrid
     // P1 transition oracle only: emits the pre-transition bucket-history order
     // from the same grid state so Debug runs can compare work membership without
     // evolving a second simulation.
-    void GetCandidatePairsLegacyForOracle(
-        std::vector<std::pair<int, int>>& outPairs,
-        const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
+    void GetCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
+                                           const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
 #endif
     float GetCellSize() const
     {
