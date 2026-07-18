@@ -59,6 +59,7 @@ Related:
 #include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Core/Config.h"
+#include "../Core/ByteView.h"
 #include "../Rendering/IRenderCaptureBackend.h"
 #include "../UI/UI.h"
 
@@ -115,10 +116,9 @@ void HashPredictionByte( uint64_t& hash, uint8_t value )
 
 template <typename T> void HashPredictionScalar( uint64_t& hash, T value )
 {
-    const uint8_t* bytes = reinterpret_cast<const uint8_t*>( &value );
-    for ( std::size_t i = 0; i < sizeof( T ); ++i )
+    for ( uint8_t byte : SkullbonezCore::Core::ObjectBytes( value ) )
     {
-        HashPredictionByte( hash, bytes[i] );
+        HashPredictionByte( hash, byte );
     }
 }
 

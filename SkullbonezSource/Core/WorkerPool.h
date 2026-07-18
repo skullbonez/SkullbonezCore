@@ -140,6 +140,10 @@ class WorkerPool
     }
 
   private:
+    // Why: the fixed-capacity worker queue accepts arbitrary caller-owned task
+    // types without allocation or runtime polymorphism. Each erased pointer is
+    // private, its typed trampoline is chosen at submission, and the submitting
+    // thread waits on the associated fence before stack state can expire.
     using TaskDispatcher = void ( * )( void* taskState );
     using ParallelTaskDispatcher = void ( * )( void* dispatchState, const WorkerChunkRange& chunk );
 

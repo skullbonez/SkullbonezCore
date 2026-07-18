@@ -112,24 +112,26 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
 
     UINT64 totalSize = m_hitGroupOffset + m_hitGroupSize;
 
-    void* rayGenId = props->GetShaderIdentifier( rayGenName );
+    // Why: DXR exposes opaque shader identifiers through a native void-pointer
+    // ABI. The SBT owner immediately narrows each borrowed 32-byte identifier.
+    const uint8_t* rayGenId = static_cast<const uint8_t*>( props->GetShaderIdentifier( rayGenName ) );
     if ( !rayGenId )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
                                                         "SBT: Missing ray-generation shader identifier" );
     }
-    void* missId = props->GetShaderIdentifier( missName );
+    const uint8_t* missId = static_cast<const uint8_t*>( props->GetShaderIdentifier( missName ) );
     if ( !missId )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "SBT: Missing miss shader identifier" );
     }
-    void* terrainHitId = props->GetShaderIdentifier( hitGroupTerrainName );
+    const uint8_t* terrainHitId = static_cast<const uint8_t*>( props->GetShaderIdentifier( hitGroupTerrainName ) );
     if ( !terrainHitId )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
                                                         "SBT: Missing terrain hit-group shader identifier" );
     }
-    void* sphereHitId = props->GetShaderIdentifier( hitGroupSphereName );
+    const uint8_t* sphereHitId = static_cast<const uint8_t*>( props->GetShaderIdentifier( hitGroupSphereName ) );
     if ( !sphereHitId )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12",
@@ -168,6 +170,8 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
     // shader in the RT pipeline state object. We write raygen, miss, and hit group IDs.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12stateobjectproperties-getshaderidentifier
+    // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
+    // immediately publishes typed SBT bytes to this cold initialization path.
     void* rawMapped = nullptr;
     const HRESULT mapResult = m_buffer->Map( 0, nullptr, &rawMapped );
     const Dx12MappedPointerResult mappedResult = ValidateDx12MappedPointer( mapResult, rawMapped, "SBT buffer Map" );
@@ -176,7 +180,7 @@ SkullbonezCore::Core::SbResult SBT::Build( ID3D12Device* device,
         Reset();
         return mappedResult.result;
     }
-    uint8_t* mapped = static_cast<uint8_t*>( mappedResult.pointer );
+    uint8_t* mapped = mappedResult.bytes;
     memset( mapped, 0, (size_t)totalSize );
 
     // Raygen record

@@ -1,7 +1,7 @@
 # Small Findings Hardening — Close The Round-7 Minor Red Flags
 
 Date: 2026-07-18
-Status: Active — 3/5 tasks
+Status: Active — 4/5 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at H0; never directly on `main`)
 Impact area: `Core/LockOrderValidator.*`, `Rendering/DX12/*` (PSO cache
 identity), targeted cast sites across `SkullbonezSource/`, JSON include
@@ -72,7 +72,7 @@ treatment as every other monolith.
   the pipeline owner, so root-signature recreation can never alias a stale
   PSO. Gate: `validate_dx12_renderer` + `tools\run_graphics_stress.bat 1`
   per MASTER rule 10, with recorded evidence.
-- [ ] H3 — Cast-site rulings applied. Execute the H0 dispositions:
+- [x] H3 — Cast-site rulings applied. Execute the H0 dispositions:
   replaceable sites get typed boundaries; required sites (Win32/D3D12 ABI,
   aligned-storage internals) get a nearby `Why:` comment naming the
   constraint. The inventory ends with zero unruled sites. Gate:
@@ -126,4 +126,10 @@ treatment as every other monolith.
   raw pointer identity, clean renderer validation, and the bounded one-minute
   stress proof. Comment audit:
   `Agentic/Reports/2026-07-18/small-findings-h2-comment-audit.md` (3/3 checked,
+  0 deferred).
+- H3: `Agentic/Reports/2026-07-18/small-findings-h3-cast-boundary-closure.md`
+  reconciles the 153-site census to 88 ruled retained/private sites, records
+  typed byte/resource/callback boundaries, and captures every cumulative gate.
+  Comment audit:
+  `Agentic/Reports/2026-07-18/small-findings-h3-comment-audit.md` (52/52 checked,
   0 deferred).

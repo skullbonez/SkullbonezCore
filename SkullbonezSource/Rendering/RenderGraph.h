@@ -35,8 +35,10 @@ Related:
 #include "../Core/FatalError.h"
 
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <cstddef>
+#include <memory>
 #include <string>
 
 namespace SkullbonezCore
@@ -163,8 +165,6 @@ struct RenderGraphPassContext
     bool dryRun = false;
 };
 
-using RenderGraphPassCallback = void ( * )( const RenderGraphPassContext& context, void* userData );
-
 // Resource access is the plain-English form of a future DX12 resource state.
 //
 // A resource is the actual image/buffer memory. Access describes what one pass
@@ -274,6 +274,30 @@ struct RenderGraphTextureBinding
     }
 };
 
+// Typed token for optional native resource identity. The graph compares and
+// transports the token but cannot dereference it or assume a graphics API.
+struct RenderGraphNativeResourceToken
+{
+    template <typename T> static RenderGraphNativeResourceToken From( T* resource ) noexcept
+    {
+        static_assert( sizeof( T* ) == sizeof( std::uintptr_t ) );
+        return { std::bit_cast<std::uintptr_t>( resource ) };
+    }
+
+    template <typename T> T* As() const noexcept
+    {
+        static_assert( sizeof( T* ) == sizeof( std::uintptr_t ) );
+        return std::bit_cast<T*>( value );
+    }
+
+    explicit operator bool() const
+    {
+        return value != 0;
+    }
+
+    std::uintptr_t value = 0;
+};
+
 // A named resource in the graph.
 //
 // For this first slice, resources are just names and "external" markers.
@@ -281,16 +305,15 @@ struct RenderGraphTextureBinding
 // back buffer or an existing backend texture. Later graph-declared transient
 // resources can use the same declaration shape but set external=false.
 //
-// Lifetime: nativeResource is optional diagnostic identity only. It is a
-// borrowed backend pointer used to match graph transitions against live DX12
-// barrier logs; the graph must never dereference, retain ownership of, or
-// release that object.
+// Lifetime: nativeResource is optional diagnostic identity only. It is a typed
+// non-owning token used to match graph transitions against live backend barrier
+// logs; the graph must never dereference or release the underlying object.
 struct RenderGraphResourceDesc
 {
     const char* name = "UnnamedResource";
     bool external = true;
     RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown;
-    const void* nativeResource = nullptr;
+    RenderGraphNativeResourceToken nativeResource;
     RenderGraphTransientResourceDesc transient;
 };
 
@@ -355,8 +378,6 @@ struct RenderGraphPassDesc
     RenderGraphQueueType queue = RenderGraphQueueType::Graphics;
     RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly;
     RenderGraphPassExecutionOwner executionOwner = RenderGraphPassExecutionOwner::DeclarationOnly;
-    RenderGraphPassCallback callback = nullptr;
-    void* callbackUserData = nullptr;
     bool callbackEnabled = true;
     RenderGraphResourceUseList reads;
     RenderGraphResourceUseList writes;
@@ -375,7 +396,7 @@ struct RenderGraphTransitionDesc
 {
     uint32_t passIndex = 0;
     RenderGraphResourceHandle resource;
-    const void* nativeResource = nullptr;
+    RenderGraphNativeResourceToken nativeResource;
     RenderGraphResourceAccess before = RenderGraphResourceAccess::Unknown;
     RenderGraphResourceAccess after = RenderGraphResourceAccess::Unknown;
     uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES;
@@ -570,13 +591,28 @@ struct RenderGraphCallbackExecutionResult
 
 class RenderGraph
 {
+  private:
+    // Lifetime: this is the graph's sole erased callback record. payload is a
+    // non-owning borrow of a concrete stack payload and is consumed synchronously
+    // before the registration scope ends; typed public trampolines recover it.
+    // Why: one private erased slot permits heterogeneous fixed-capacity passes
+    // without allocation; no caller can register or recover an untyped payload.
+    struct CallbackRecord
+    {
+        using Invoke = void ( * )( const RenderGraphPassContext&, const CallbackRecord& );
+        Invoke invoke = nullptr;
+        void* payload = nullptr;
+    };
+
+    void SetPassCallbackRecord( uint32_t passIndex, CallbackRecord record, bool enabled, const char* debugLabel );
+
   public:
     void Clear();
     void ReserveForRuntimePassGraph();
 
     RenderGraphResourceHandle AddExternalResource( const char* name,
                                                    RenderGraphResourceAccess initialAccess,
-                                                   const void* nativeResource = nullptr );
+                                                   RenderGraphNativeResourceToken nativeResource = {} );
     RenderGraphResourceHandle
     AddTransientResource( const char* name,
                           const RenderGraphTransientResourceDesc& desc,
@@ -593,11 +629,23 @@ class RenderGraph
                    RenderGraphResourceHandle resource,
                    RenderGraphResourceAccess access,
                    uint32_t subresource = RENDER_GRAPH_ALL_SUBRESOURCES );
-    void SetPassCallback( uint32_t passIndex,
-                          RenderGraphPassCallback callback,
-                          void* userData = nullptr,
-                          bool enabled = true,
-                          const char* debugLabel = nullptr );
+    template <auto Callback, typename Payload>
+    void SetPassCallback( uint32_t passIndex, Payload& payload, bool enabled = true, const char* debugLabel = nullptr )
+    {
+        CallbackRecord record;
+        record.invoke = []( const RenderGraphPassContext& context, const CallbackRecord& erased )
+        { Callback( context, *static_cast<Payload*>( erased.payload ) ); };
+        record.payload = std::addressof( payload );
+        SetPassCallbackRecord( passIndex, record, enabled, debugLabel );
+    }
+
+    template <auto Callback>
+    void SetPassCallback( uint32_t passIndex, bool enabled = true, const char* debugLabel = nullptr )
+    {
+        CallbackRecord record;
+        record.invoke = []( const RenderGraphPassContext& context, const CallbackRecord& ) { Callback( context ); };
+        SetPassCallbackRecord( passIndex, record, enabled, debugLabel );
+    }
 
     const RenderGraphFixedList<RenderGraphResourceDesc, RENDER_GRAPH_MAX_RESOURCES>& Resources() const
     {
@@ -621,6 +669,7 @@ class RenderGraph
 
     RenderGraphFixedList<RenderGraphResourceDesc, RENDER_GRAPH_MAX_RESOURCES> m_resources;
     RenderGraphFixedList<RenderGraphPassDesc, RENDER_GRAPH_MAX_PASSES> m_passes;
+    std::array<CallbackRecord, RENDER_GRAPH_MAX_PASSES> m_callbackRecords = {};
 };
 
 const char* ToString( RenderGraphQueueType queue );

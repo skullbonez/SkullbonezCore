@@ -295,10 +295,18 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
 
-    void* pBits = nullptr;
-    HBITMAP hBitmap = CreateDIBSection( memDC, &bmi, DIB_RGB_COLORS, &pBits, nullptr, 0 );
-    if ( !hBitmap )
+    // Why: CreateDIBSection and SelectObject are GDI ABIs that exchange generic
+    // storage/handles. Narrow the mapped DIB to DWORD pixels immediately and
+    // retain the previous typed handles only until they are restored below.
+    void* dibBits = nullptr;
+    HBITMAP hBitmap = CreateDIBSection( memDC, &bmi, DIB_RGB_COLORS, &dibBits, nullptr, 0 );
+    DWORD* pPixels = static_cast<DWORD*>( dibBits );
+    if ( !hBitmap || !pPixels )
     {
+        if ( hBitmap )
+        {
+            DeleteObject( hBitmap );
+        }
         DeleteDC( memDC );
         return false;
     }
@@ -367,7 +375,6 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // White-on-black rendering means R = G = B = luminance, so any channel works.
     const int hiTotalPx = ATLAS_W_HI * ATLAS_H_HI;
     std::unique_ptr<uint8_t[]> hiAtlas( new uint8_t[hiTotalPx] );
-    const DWORD* pPixels = reinterpret_cast<const DWORD*>( pBits );
     for ( int i = 0; i < hiTotalPx; ++i )
     {
         hiAtlas[i] = static_cast<uint8_t>( pPixels[i] & 0xFF );

@@ -481,7 +481,7 @@ void ShaderDX12::Use() const
 {
     if ( m_device.Device() )
     {
-        m_pipeline.SetActiveShader( const_cast<ShaderDX12*>( this ) );
+        m_pipeline.SetActiveShader( this );
     }
 #ifdef _DEBUG
     ResetContractActivation();
@@ -917,10 +917,10 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
 }
 
 
-bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const
+bool ShaderDX12::SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const
 {
     (void)debugName;
-    if ( !data || size == 0 || m_cbSize == 0 )
+    if ( bytes.empty() || m_cbSize == 0 )
     {
         return false;
     }
@@ -929,14 +929,14 @@ bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const ch
     // not a partial update API. Require the reflected byte size exactly so field
     // order, padding, and matrix packing cannot silently drift between C++ and
     // shader code.
-    if ( size != m_cbReflectedSize )
+    if ( bytes.size() != m_cbReflectedSize )
     {
 #ifdef _DEBUG
         SkullbonezCore::Core::Log().WriteEventf(
             "shader_typed_cbuffer_size_mismatch shader=%s block=%s bytes=%llu reflected_bytes=%u aligned_bytes=%u",
             m_contract ? m_contract->baseName : "<unmanifested>",
             debugName ? debugName : "<unnamed>",
-            static_cast<unsigned long long>( size ),
+            static_cast<unsigned long long>( bytes.size() ),
             m_cbReflectedSize,
             m_cbSize );
 #endif
@@ -944,7 +944,7 @@ bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const ch
     }
 
     std::fill( m_cbData.begin(), m_cbData.end(), static_cast<uint8_t>( 0 ) );
-    memcpy( m_cbData.data(), data, size );
+    memcpy( m_cbData.data(), bytes.data(), bytes.size() );
     m_cbDirty = true;
 
 #ifdef _DEBUG
@@ -998,9 +998,11 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
 }
 
 
-const void* ShaderDX12::GetVSBytecode() const
+const uint8_t* ShaderDX12::GetVSBytecode() const
 {
-    return m_vsBlob ? m_vsBlob->GetBufferPointer() : nullptr;
+    // Why: ID3DBlob exposes immutable bytecode through its COM void-pointer
+    // ABI. ShaderDX12 narrows it before publishing the borrowed bytes.
+    return m_vsBlob ? static_cast<const uint8_t*>( m_vsBlob->GetBufferPointer() ) : nullptr;
 }
 
 
@@ -1016,9 +1018,11 @@ size_t ShaderDX12::GetVSBytecodeHash() const
 }
 
 
-const void* ShaderDX12::GetPSBytecode() const
+const uint8_t* ShaderDX12::GetPSBytecode() const
 {
-    return m_psBlob ? m_psBlob->GetBufferPointer() : nullptr;
+    // Why: ID3DBlob exposes immutable bytecode through its COM void-pointer
+    // ABI. ShaderDX12 narrows it before publishing the borrowed bytes.
+    return m_psBlob ? static_cast<const uint8_t*>( m_psBlob->GetBufferPointer() ) : nullptr;
 }
 
 

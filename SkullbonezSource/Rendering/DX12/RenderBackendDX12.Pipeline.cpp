@@ -623,7 +623,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
 }
 
 
-void Dx12PipelineOwner::SetActiveShader( ShaderDX12* shader )
+void Dx12PipelineOwner::SetActiveShader( const ShaderDX12* shader )
 {
     m_activeShader = shader;
     m_psoDirty = true;
@@ -654,7 +654,7 @@ void Dx12PipelineOwner::RestoreShaderPipelinesAfterReload()
     m_lastPSOHash = 0;
     m_psoDirty = true;
     m_targetsDirty = true;
-    m_persistentPsoCache.Initialize( m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize );
+    m_persistentPsoCache.Initialize( { m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize } );
 }
 
 
@@ -674,7 +674,7 @@ void Dx12PipelineOwner::SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat
 }
 
 
-ShaderDX12* Dx12PipelineOwner::ActiveShader() const
+const ShaderDX12* Dx12PipelineOwner::ActiveShader() const
 {
     return m_activeShader;
 }

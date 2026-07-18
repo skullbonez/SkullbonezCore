@@ -190,6 +190,9 @@ void Window::ChangeToFullScreen( int xResolution, int yResolution )
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 {
     PAINTSTRUCT ps = { 0 }; // Assists with repainting the client area
+    // Why: Win32 stores the non-owning Window address in LONG_PTR user data and
+    // returns WM_CREATE payloads through LPARAM. Recover the typed owner only at
+    // this WndProc ABI seam; the window object retains lifetime authority.
     Window* m_cWindow = reinterpret_cast<Window*>( GetWindowLongPtr( hWnd, GWLP_USERDATA ) );
 
     // Window callbacks cannot propagate failures through Win32. Engine-owned
@@ -243,6 +246,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
         break;
 
     case WM_INPUT:
+        // Why: WM_INPUT carries an HRAWINPUT token in LPARAM by Win32 contract.
         Input::AccumulateRawMouseDelta( hWnd, reinterpret_cast<HRAWINPUT>( lParam ) );
         break;
 
@@ -311,6 +315,8 @@ SkullbonezCore::Core::SbResult Window::CreateAppWindow( HINSTANCE hInstance, boo
     wndclass.hInstance = hInstance;                    // Assign hInstance
     wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO ); // Default icon
     wndclass.hCursor = nullptr;                        // Engine/UI draws its own cursor when needed
+    // Why: GetStockObject returns a generic GDI handle; WNDCLASS requires the
+    // HBRUSH view for this borrowed stock brush and never deletes it.
     wndclass.hbrBackground = reinterpret_cast<HBRUSH>( GetStockObject( WHITE_BRUSH ) ); // White client background
     wndclass.lpszClassName = WINDOW_NAME;                                               // Assign class name
 

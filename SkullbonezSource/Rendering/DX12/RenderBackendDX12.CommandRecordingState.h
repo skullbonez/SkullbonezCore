@@ -491,13 +491,15 @@ class Dx12GpuDrainProgress
 struct Dx12MappedPointerResult
 {
     SkullbonezCore::Core::SbResult result = SkullbonezCore::Core::SbResult::Success();
-    void* pointer = nullptr;
+    uint8_t* bytes = nullptr;
 };
 
 
 inline Dx12MappedPointerResult
 ValidateDx12MappedPointer( HRESULT mapResult, void* mappedPointer, const char* operation )
 {
+    // Why: ID3D12Resource::Map is a native void-pointer ABI. Validate it at
+    // this immediate seam and publish only typed mapped bytes to owners.
     Dx12MappedPointerResult checked;
     if ( FAILED( mapResult ) )
     {
@@ -515,7 +517,7 @@ ValidateDx12MappedPointer( HRESULT mapResult, void* mappedPointer, const char* o
         return checked;
     }
 
-    checked.pointer = mappedPointer;
+    checked.bytes = static_cast<uint8_t*>( mappedPointer );
     return checked;
 }
 

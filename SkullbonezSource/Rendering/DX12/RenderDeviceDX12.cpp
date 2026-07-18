@@ -957,6 +957,8 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
         }
         NameDx12ObjectIndexed( m_resources[i], safeName, i );
 
+        // Why: ID3D12Resource::Map writes through the native void-pointer ABI;
+        // ValidateDx12MappedPointer immediately publishes typed upload bytes.
         void* mappedPointer = nullptr;
         const HRESULT mapResult = m_resources[i]->Map( 0, nullptr, &mappedPointer );
         const Dx12MappedPointerResult checkedMap =
@@ -966,7 +968,7 @@ bool Dx12FrameUploadSystem::Init( ID3D12Device* device,
             Shutdown();
             return false;
         }
-        m_mappedPtrs[i] = static_cast<uint8_t*>( checkedMap.pointer );
+        m_mappedPtrs[i] = checkedMap.bytes;
 
         // The arena owns byte-range accounting for this resource. The system
         // owns the COM resource and its persistent CPU Map() pointer.
@@ -1140,7 +1142,7 @@ void Dx12ReadbackBuffer::Reset()
 }
 
 
-void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
+const uint8_t* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
 {
     if ( !m_resource )
     {
@@ -1154,6 +1156,8 @@ void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
                   static_cast<unsigned long long>( m_sizeBytes ) );
     }
 
+    // Why: ID3D12Resource::Map writes through the native void-pointer ABI. The
+    // readback owner narrows it immediately and returns immutable bytes.
     void* mappedData = nullptr;
     D3D12_RANGE readRange = { 0, static_cast<SIZE_T>( sizeBytes ) };
     // Lane R: Map can fail after device removal or readback-memory pressure.
@@ -1162,7 +1166,7 @@ void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
     {
         return nullptr;
     }
-    return mappedData;
+    return static_cast<const uint8_t*>( mappedData );
 }
 
 

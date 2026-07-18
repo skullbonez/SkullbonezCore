@@ -439,6 +439,7 @@ RUNTIME_UI_PREFIXES = (
 
 CORE_PREFIXES = (
     "AmortizedTask",
+    "ByteView",
     "Common",
     "Config",
     "FatalError",

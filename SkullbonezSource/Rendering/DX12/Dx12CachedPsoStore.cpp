@@ -71,6 +71,8 @@ class Sha256Writer
         NTSTATUS status = BCryptOpenAlgorithmProvider( &m_algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 );
         if ( status >= 0 )
         {
+            // Why: BCryptGetProperty exposes arbitrary property storage as
+            // mutable bytes; the requested property is exactly one DWORD.
             status = BCryptGetProperty( m_algorithm,
                                         BCRYPT_OBJECT_LENGTH,
                                         reinterpret_cast<PUCHAR>( &m_objectBytes ),
@@ -92,31 +94,33 @@ class Sha256Writer
         return true;
     }
 
-    bool Write( const void* bytes, std::size_t size )
+    bool Write( SkullbonezCore::Core::ByteView bytes )
     {
-        if ( !m_hash || size > ULONG_MAX )
+        if ( !m_hash || bytes.size() > ULONG_MAX )
         {
             return false;
         }
-        if ( size == 0 )
+        if ( bytes.empty() )
         {
             return true;
         }
+        // Why: BCryptHashData's legacy ABI lacks const even though hashing does
+        // not mutate input. Remove const only at this synchronous API call.
         return BCryptHashData( m_hash,
-                               reinterpret_cast<PUCHAR>( const_cast<void*>( bytes ) ),
-                               static_cast<ULONG>( size ),
+                               const_cast<std::uint8_t*>( bytes.data() ),
+                               static_cast<ULONG>( bytes.size() ),
                                0 ) >= 0;
     }
 
     template <typename T> bool Value( const T& value )
     {
-        return Write( &value, sizeof( value ) );
+        return Write( SkullbonezCore::Core::ObjectBytes( value ) );
     }
 
     bool Text( const char* value )
     {
         const std::uint32_t length = value ? static_cast<std::uint32_t>( std::strlen( value ) ) : 0;
-        return Value( length ) && Write( value, length );
+        return Value( length ) && Write( SkullbonezCore::Core::ObjectBytes( std::span<const char>( value, length ) ) );
     }
 
     bool Finish( std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES>& digest )
@@ -153,12 +157,11 @@ class Sha256Writer
     std::array<std::uint8_t, 1024> m_object = {};
 };
 
-bool HashBytes( const void* bytes,
-                std::size_t size,
+bool HashBytes( SkullbonezCore::Core::ByteView bytes,
                 std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES>& digest )
 {
     Sha256Writer writer;
-    return writer.Open() && writer.Write( bytes, size ) && writer.Finish( digest );
+    return writer.Open() && writer.Write( bytes ) && writer.Finish( digest );
 }
 
 bool HashBoundedFile( const wchar_t* path,
@@ -180,10 +183,13 @@ bool HashBoundedFile( const wchar_t* path,
         return false;
     }
     HANDLE mapping = CreateFileMappingW( file, nullptr, PAGE_READONLY, 0, 0, nullptr );
-    const void* bytes = mapping ? MapViewOfFile( mapping, FILE_MAP_READ, 0, 0, 0 ) : nullptr;
+    // Why: MapViewOfFile is an untyped Win32 ABI. This cold owner immediately
+    // narrows the bounded read-only mapping to bytes and never publishes void.
+    const std::uint8_t* bytes =
+        mapping ? static_cast<const std::uint8_t*>( MapViewOfFile( mapping, FILE_MAP_READ, 0, 0, 0 ) ) : nullptr;
     // Allocation policy: cold identity hashing borrows a bounded read-only file
     // mapping; it never grows an owning container in runtime code.
-    const bool hashed = bytes && HashBytes( bytes, static_cast<std::size_t>( size.QuadPart ), digest );
+    const bool hashed = bytes && HashBytes( { bytes, static_cast<std::size_t>( size.QuadPart ) }, digest );
     if ( bytes )
     {
         UnmapViewOfFile( bytes );
@@ -225,11 +231,15 @@ template <typename T> bool HashValue( Sha256Writer& writer, const T& value )
 bool HashShaderBytecode( Sha256Writer& writer, const D3D12_SHADER_BYTECODE& bytecode )
 {
     std::array<std::uint8_t, Dx12CachedPsoStore::DIGEST_BYTES> digest = {};
-    if ( !HashBytes( bytecode.pShaderBytecode, bytecode.BytecodeLength, digest ) )
+    // Why: D3D12_SHADER_BYTECODE carries its immutable buffer through a native
+    // void pointer. Narrow it at this driver descriptor seam only.
+    const SkullbonezCore::Core::ByteView bytes = { static_cast<const std::uint8_t*>( bytecode.pShaderBytecode ),
+                                                   bytecode.BytecodeLength };
+    if ( !HashBytes( bytes, digest ) )
     {
         return false;
     }
-    return writer.Write( digest.data(), digest.size() );
+    return writer.Write( digest );
 }
 
 bool HashGraphicsDesc( Sha256Writer& writer, const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc )
@@ -399,14 +409,15 @@ bool EntryNameDigest( const wchar_t* name, std::array<std::uint8_t, Dx12CachedPs
     return true;
 }
 
-bool WriteAll( HANDLE file, const void* bytes, std::size_t size )
+bool WriteAll( HANDLE file, SkullbonezCore::Core::ByteView bytes )
 {
-    if ( size > MAXDWORD )
+    if ( bytes.size() > MAXDWORD )
     {
         return false;
     }
     DWORD written = 0;
-    return WriteFile( file, bytes, static_cast<DWORD>( size ), &written, nullptr ) && written == size;
+    return WriteFile( file, bytes.data(), static_cast<DWORD>( bytes.size() ), &written, nullptr ) &&
+           written == bytes.size();
 }
 } // namespace
 
@@ -418,9 +429,9 @@ bool Dx12CachedPsoStore::BuildEntryName( const D3D12_GRAPHICS_PIPELINE_STATE_DES
     Sha256Writer writer;
     std::array<std::uint8_t, DIGEST_BYTES> digest = {};
     const char schema[] = "skullbonez-pso-entry-v1";
-    if ( !writer.Open() || !writer.Write( schema, sizeof( schema ) - 1 ) ||
-         !writer.Write( manifestDigest.data(), manifestDigest.size() ) ||
-         !writer.Write( rootSignatureDigest.data(), rootSignatureDigest.size() ) || !HashGraphicsDesc( writer, desc ) ||
+    if ( !writer.Open() ||
+         !writer.Write( SkullbonezCore::Core::ObjectBytes( std::span<const char>( schema, sizeof( schema ) - 1 ) ) ) ||
+         !writer.Write( manifestDigest ) || !writer.Write( rootSignatureDigest ) || !HashGraphicsDesc( writer, desc ) ||
          !writer.Finish( digest ) )
     {
         return false;
@@ -439,11 +450,10 @@ bool Dx12CachedPsoStore::BuildPersistentEntryNameForTest(
     return BuildEntryName( desc, manifestDigest, rootSignatureDigest, outName );
 }
 
-bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t rootSignatureSize )
+bool Dx12CachedPsoStore::Initialize( SkullbonezCore::Core::ByteView rootSignatureBytes )
 {
     Shutdown();
-    if ( !ReadManifestDigest( m_manifestDigest ) ||
-         !HashBytes( rootSignatureBytes, rootSignatureSize, m_rootSignatureDigest ) )
+    if ( !ReadManifestDigest( m_manifestDigest ) || !HashBytes( rootSignatureBytes, m_rootSignatureDigest ) )
     {
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_pso_disk_cache_cold_start owner=Dx12PipelineOwner reason=identity_unavailable" );
@@ -497,7 +507,10 @@ bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t
     }
     m_mappedSize = static_cast<std::size_t>( fileSize.QuadPart );
     m_mapping = CreateFileMappingW( m_file, nullptr, PAGE_READONLY, 0, 0, nullptr );
-    m_mappedBytes = m_mapping ? MapViewOfFile( m_mapping, FILE_MAP_READ, 0, 0, 0 ) : nullptr;
+    // Why: MapViewOfFile is the Win32 ABI boundary. Persistent cache parsing
+    // immediately treats the bounded read-only mapping as immutable bytes.
+    m_mappedBytes =
+        m_mapping ? static_cast<const std::uint8_t*>( MapViewOfFile( m_mapping, FILE_MAP_READ, 0, 0, 0 ) ) : nullptr;
     CacheFileHeader header = {};
     if ( m_mappedBytes )
     {
@@ -507,9 +520,8 @@ bool Dx12CachedPsoStore::Initialize( const void* rootSignatureBytes, std::size_t
                  header.version == 1 && header.entryCount <= m_mappedEntries.size() &&
                  std::memcmp( header.manifestDigest, m_manifestDigest.data(), m_manifestDigest.size() ) == 0 &&
                  std::memcmp( header.rootDigest, m_rootSignatureDigest.data(), m_rootSignatureDigest.size() ) == 0;
-    const std::uint8_t* cursor =
-        valid ? static_cast<const std::uint8_t*>( m_mappedBytes ) + sizeof( CacheFileHeader ) : nullptr;
-    const std::uint8_t* end = valid ? static_cast<const std::uint8_t*>( m_mappedBytes ) + m_mappedSize : nullptr;
+    const std::uint8_t* cursor = valid ? m_mappedBytes + sizeof( CacheFileHeader ) : nullptr;
+    const std::uint8_t* end = valid ? m_mappedBytes + m_mappedSize : nullptr;
     for ( std::uint32_t index = 0; valid && index < header.entryCount; ++index )
     {
         valid = static_cast<std::size_t>( end - cursor ) >= sizeof( CacheEntryHeader );
@@ -669,7 +681,7 @@ void Dx12CachedPsoStore::Persist()
     header.entryCount = blobCount;
     std::memcpy( header.manifestDigest, m_manifestDigest.data(), m_manifestDigest.size() );
     std::memcpy( header.rootDigest, m_rootSignatureDigest.data(), m_rootSignatureDigest.size() );
-    bool wrote = file != INVALID_HANDLE_VALUE && WriteAll( file, &header, sizeof( header ) );
+    bool wrote = file != INVALID_HANDLE_VALUE && WriteAll( file, SkullbonezCore::Core::ObjectBytes( header ) );
     for ( std::size_t index = 0; wrote && index < m_liveEntryCount; ++index )
     {
         if ( !blobs[index] )
@@ -679,8 +691,12 @@ void Dx12CachedPsoStore::Persist()
         CacheEntryHeader entry = {};
         std::memcpy( entry.digest, m_liveEntries[index].digest.data(), m_liveEntries[index].digest.size() );
         entry.blobBytes = static_cast<std::uint32_t>( blobs[index]->GetBufferSize() );
-        wrote = WriteAll( file, &entry, sizeof( entry ) ) &&
-                WriteAll( file, blobs[index]->GetBufferPointer(), blobs[index]->GetBufferSize() );
+        // Why: ID3DBlob exposes cached driver bytes through its COM void-pointer
+        // ABI. Narrow the synchronous file write here and retain no raw pointer.
+        const SkullbonezCore::Core::ByteView blobBytes = {
+            static_cast<const std::uint8_t*>( blobs[index]->GetBufferPointer() ),
+            blobs[index]->GetBufferSize() };
+        wrote = WriteAll( file, SkullbonezCore::Core::ObjectBytes( entry ) ) && WriteAll( file, blobBytes );
     }
     wrote = wrote && FlushFileBuffers( file );
     if ( file != INVALID_HANDLE_VALUE )

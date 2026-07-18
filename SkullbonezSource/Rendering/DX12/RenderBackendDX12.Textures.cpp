@@ -941,7 +941,16 @@ const TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle ) const
 
 TextureEntryDX12* Dx12TextureOwner::ResolveEntry( uint32_t handle )
 {
-    return const_cast<TextureEntryDX12*>( static_cast<const Dx12TextureOwner*>( this )->ResolveEntry( handle ) );
+    TextureEntryDX12* entry = m_registry.Resolve( handle );
+    if ( !entry )
+    {
+        if ( handle != 0 )
+        {
+            ReportStaleHandle( handle );
+        }
+        return nullptr;
+    }
+    return entry;
 }
 
 

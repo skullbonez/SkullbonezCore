@@ -235,6 +235,7 @@ void RenderGraph::Clear()
     // GPU resources yet.
     m_resources.clear();
     m_passes.clear();
+    m_callbackRecords = {};
 }
 
 
@@ -247,7 +248,7 @@ void RenderGraph::ReserveForRuntimePassGraph()
 
 RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name,
                                                             RenderGraphResourceAccess initialAccess,
-                                                            const void* nativeResource )
+                                                            RenderGraphNativeResourceToken nativeResource )
 {
     // External resources are objects the current renderer already owns, such as
     // the swap-chain back buffer or an existing reflection target. The graph can
@@ -304,7 +305,7 @@ RenderGraphResourceHandle RenderGraph::AddTransientResource( const char* name,
     desc.name = ( name && name[0] != '\0' ) ? name : "UnnamedTransientResource";
     desc.external = false;
     desc.initialAccess = initialAccess;
-    desc.nativeResource = nullptr;
+    desc.nativeResource = {};
     desc.transient = transient;
 
     RenderGraphResourceHandle handle;
@@ -334,6 +335,7 @@ uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue, Ren
 
     const uint32_t index = static_cast<uint32_t>( m_passes.size() );
     m_passes.push_back( pass );
+    m_callbackRecords[index] = {};
     return index;
 }
 
@@ -370,27 +372,25 @@ void RenderGraph::AddWrite( uint32_t passIndex,
 }
 
 
-void RenderGraph::SetPassCallback( uint32_t passIndex,
-                                   RenderGraphPassCallback callback,
-                                   void* userData,
-                                   bool enabled,
-                                   const char* debugLabel )
+void RenderGraph::SetPassCallbackRecord( uint32_t passIndex,
+                                         CallbackRecord record,
+                                         bool enabled,
+                                         const char* debugLabel )
 {
     // Concept: callback ownership is a pass-order contract, not a closure
     // warehouse. A raw function pointer plus caller-owned userdata keeps the
     // graph from allocating or retaining broad runtime state just to execute one
     // pass body.
-    if ( callback == nullptr )
+    if ( record.invoke == nullptr )
     {
         SB_FATAL( "RenderGraph", "Callback pass requires a non-null callback." );
     }
 
     RenderGraphPassDesc& pass = CheckedPass( passIndex );
     pass.executionOwner = RenderGraphPassExecutionOwner::Callback;
-    pass.callback = callback;
-    pass.callbackUserData = userData;
     pass.callbackEnabled = enabled;
     pass.debugLabel = ( debugLabel && debugLabel[0] != '\0' ) ? debugLabel : pass.name;
+    m_callbackRecords[passIndex] = record;
 }
 
 
@@ -406,7 +406,7 @@ std::string RenderGraph::DumpText() const
     {
         const RenderGraphResourceDesc& resource = m_resources[i];
         out << "  [" << i << "] " << resource.name << " external=" << ( resource.external ? "true" : "false" )
-            << " initial=" << ToString( resource.initialAccess ) << " native=" << resource.nativeResource << "\n";
+            << " initial=" << ToString( resource.initialAccess ) << " native=" << resource.nativeResource.value << "\n";
         if ( !resource.external )
         {
             out << "      transient kind=" << ToString( resource.transient.kind )
@@ -814,7 +814,8 @@ RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCal
             ++result.disabledCallbackPassCount;
             continue;
         }
-        if ( pass.callback == nullptr )
+        const CallbackRecord& callback = m_callbackRecords[passIndex];
+        if ( callback.invoke == nullptr )
         {
             SB_FATAL( "RenderGraph", "Callback pass has no callback." );
         }
@@ -836,7 +837,7 @@ RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCal
             continue;
         }
 
-        pass.callback( context, pass.callbackUserData );
+        callback.invoke( context, callback );
         ++result.executedPassCount;
     }
     return result;

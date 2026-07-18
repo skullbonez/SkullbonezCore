@@ -135,7 +135,7 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
     }
 
     const UINT64 readbackBytes = static_cast<UINT64>( TIMER_HEAP_SIZE ) * sizeof( uint64_t );
-    const uint64_t* data = static_cast<const uint64_t*>( m_gpuTimers.readback.MapRead( readbackBytes ) );
+    const uint8_t* data = m_gpuTimers.readback.MapRead( readbackBytes );
     if ( !data )
     {
         SkullbonezCore::Core::Log().WriteEventf( "dx12_gpu_timer_map_failed" );
@@ -147,8 +147,10 @@ void Dx12Diagnostics::ConsumeGpuTimerReadback( Dx12DiagnosticsFrame& frame, bool
     std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
     for ( int markerIndex = 0; markerIndex < TIMER_HEAP_MARKERS; ++markerIndex )
     {
-        const uint64_t begin = data[markerIndex * 2];
-        const uint64_t end = data[markerIndex * 2 + 1];
+        uint64_t begin = 0;
+        uint64_t end = 0;
+        std::memcpy( &begin, data + markerIndex * 2 * sizeof( uint64_t ), sizeof( begin ) );
+        std::memcpy( &end, data + ( markerIndex * 2 + 1 ) * sizeof( uint64_t ), sizeof( end ) );
         if ( end > begin && m_gpuTimers.frequency > 0 )
         {
             m_gpuTimers.resultMilliseconds[markerIndex] = static_cast<float>(

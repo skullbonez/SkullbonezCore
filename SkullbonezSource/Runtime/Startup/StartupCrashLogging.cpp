@@ -140,6 +140,8 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
 
         const DWORD64 address = frame.AddrPC.Offset;
         char symbolStorage[sizeof( SYMBOL_INFO ) + MAX_SYM_NAME] = {};
+        // Why: DbgHelp's SYMBOL_INFO is a variable-tail ABI whose Name bytes
+        // occupy caller-provided aligned storage immediately after the header.
         PSYMBOL_INFO symbol = reinterpret_cast<PSYMBOL_INFO>( symbolStorage );
         symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
         symbol->MaxNameLen = MAX_SYM_NAME;
@@ -191,6 +193,8 @@ void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
 LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
 {
     DWORD exceptionCode = 0;
+    // Why: Windows reports the fault instruction as an opaque address and the
+    // variadic %p diagnostic requires the same ABI pointer representation.
     void* exceptionAddress = nullptr;
     if ( exceptionInfo && exceptionInfo->ExceptionRecord )
     {

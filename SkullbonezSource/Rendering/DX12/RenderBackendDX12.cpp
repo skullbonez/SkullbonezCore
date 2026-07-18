@@ -707,7 +707,10 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
     // Lane R: a persistent PSO cache is an optional cold-start accelerator.
     // Its owner logs and discards missing/corrupt/driver-incompatible bytes;
     // failure must never reject an otherwise valid renderer device.
-    m_persistentPsoCache.Initialize( signature->GetBufferPointer(), signature->GetBufferSize() );
+    // Why: ID3DBlob publishes serialized bytes through its COM void-pointer
+    // ABI. The cache owner receives an immutable typed view only.
+    m_persistentPsoCache.Initialize(
+        { static_cast<const std::uint8_t*>( signature->GetBufferPointer() ), signature->GetBufferSize() } );
 #ifdef _DEBUG
     SkullbonezCore::Core::Log().WriteEventf(
         "dx12_raster_binding_contract name=%s root_parameters=%u cbv=b%u texture_indices=b%u "

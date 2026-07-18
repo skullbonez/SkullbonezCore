@@ -58,7 +58,7 @@ bool ReadBytes( const std::string& path, std::string& bytes )
     return file.good() || file.eof();
 }
 
-bool Sha256Hex( const std::string& bytes, std::string& hex )
+bool Sha256Hex( std::string& bytes, std::string& hex )
 {
     BCRYPT_ALG_HANDLE algorithm = nullptr;
     BCRYPT_HASH_HANDLE hash = nullptr;
@@ -70,6 +70,8 @@ bool Sha256Hex( const std::string& bytes, std::string& hex )
     NTSTATUS status = BCryptOpenAlgorithmProvider( &algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0 );
     if ( status >= 0 )
     {
+        // Why: BCryptGetProperty exposes arbitrary property storage as
+        // mutable bytes; the requested property is exactly one DWORD.
         status = BCryptGetProperty( algorithm,
                                     BCRYPT_OBJECT_LENGTH,
                                     reinterpret_cast<PUCHAR>( &objectBytes ),
@@ -88,10 +90,10 @@ bool Sha256Hex( const std::string& bytes, std::string& hex )
     }
     if ( status >= 0 && !bytes.empty() )
     {
-        status = BCryptHashData( hash,
-                                 reinterpret_cast<PUCHAR>( const_cast<char*>( bytes.data() ) ),
-                                 static_cast<ULONG>( bytes.size() ),
-                                 0 );
+        // Why: BCryptHashData's ABI accepts mutable bytes. ReadBytes owns this
+        // writable string, and BCrypt borrows it synchronously without mutation.
+        status =
+            BCryptHashData( hash, reinterpret_cast<PUCHAR>( bytes.data() ), static_cast<ULONG>( bytes.size() ), 0 );
     }
     if ( status >= 0 )
     {
@@ -422,6 +424,8 @@ bool ReflectShaderBytecode( ID3DBlob* blob, ComPtr<ID3D12ShaderReflection>& outR
 
     // DXC container compatibility: D3DReflect is the final reflection route on
     // machines where the preferred container-reflection interface is absent.
+    // Why: D3DReflect is a COM ABI that publishes an interface through an
+    // untyped output pointer; ComPtr immediately owns the typed result.
     outResult = D3DReflect( blob->GetBufferPointer(),
                             blob->GetBufferSize(),
                             IID_ID3D12ShaderReflection,

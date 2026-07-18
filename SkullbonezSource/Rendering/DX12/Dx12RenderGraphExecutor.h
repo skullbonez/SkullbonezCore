@@ -57,7 +57,7 @@ struct Dx12RenderGraphBarrierRecord
     char source[64] = {};
     char passName[64] = {};
     char resourceName[64] = {};
-    const void* nativeResource = nullptr;
+    ID3D12Resource* nativeResource = nullptr;
     RenderGraphResourceAccess beforeAccess = RenderGraphResourceAccess::Unknown;
     RenderGraphResourceAccess afterAccess = RenderGraphResourceAccess::Unknown;
     D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_COMMON;
@@ -132,7 +132,7 @@ struct Dx12RenderGraphUavBarrierRecord
 {
     char source[64] = {};
     char resourceName[64] = {};
-    const void* nativeResource = nullptr;
+    ID3D12Resource* nativeResource = nullptr;
     bool hasNativeResource = false;
     bool missingCommandList = false;
     bool emitted = false;

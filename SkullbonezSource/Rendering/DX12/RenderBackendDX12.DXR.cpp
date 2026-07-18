@@ -516,6 +516,8 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
             return outcome;
         }
         NameDx12Object( m_constantBuffer, L"Skullbonez DX12 Raytracing Constants Upload Buffer" );
+        // Why: ID3D12Resource::Map is the native void-pointer ABI; validation
+        // immediately publishes typed constant-buffer bytes to the owner.
         void* rawMapped = nullptr;
         const HRESULT mapResult = m_constantBuffer->Map( 0, nullptr, &rawMapped );
         const Dx12MappedPointerResult checkedMap =
@@ -525,7 +527,7 @@ Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device
             outcome.result = checkedMap.result;
             return outcome;
         }
-        m_constantBufferMapped = static_cast<uint8_t*>( checkedMap.pointer );
+        m_constantBufferMapped = checkedMap.bytes;
     }
 
     // Build the static BLAS objects once. The terrain BLAS holds terrain

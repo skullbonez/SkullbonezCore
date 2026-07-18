@@ -772,7 +772,7 @@ class Dx12ReadbackBuffer
         return m_resource;
     }
 
-    void* MapRead( UINT64 sizeBytes ) const;
+    const uint8_t* MapRead( UINT64 sizeBytes ) const;
     void UnmapNoWrite() const;
     // Transfers the COM reference without releasing it. Use only when a failed
     // fence wait cannot prove that the GPU has stopped using the resource.

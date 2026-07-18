@@ -415,7 +415,8 @@ static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShade
     constants.objectStylePad = 0.0f;
     ApplyBatchLightConstants( constants, params.context, params.cinematic );
     FillShadowReceiverConstants( constants, params.context, params.shadow, params.receiveShadows, true );
-    return shader.SetConstantBufferBytes( &constants, sizeof( constants ), "PrimitiveBatchShaderConstants" );
+    return shader.SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                          "PrimitiveBatchShaderConstants" );
 }
 
 void PrimitiveBatchRenderer::SetClipPlane( float x, float y, float z, float w )
@@ -976,9 +977,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchBegin(
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    m_state.sphereBatchReady = m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                                                  sizeof( constants ),
-                                                                                  "InstancedShadowDepthConstants" );
+    m_state.sphereBatchReady =
+        m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                                           "InstancedShadowDepthConstants" );
     m_state.sphereInstanceData.clear();
 }
 
@@ -1136,9 +1137,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchBegin( const PrimitiveRender
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    m_state.boxBatchReady = m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                                               sizeof( constants ),
-                                                                               "InstancedShadowDepthConstants" );
+    m_state.boxBatchReady =
+        m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                                           "InstancedShadowDepthConstants" );
     m_state.boxInstanceData.clear();
 }
 
@@ -1237,8 +1238,7 @@ void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const PrimitiveRend
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    if ( m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                            sizeof( constants ),
+    if ( m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
                                                             "InstancedShadowDepthConstants" ) )
     {
         Commands( context ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
@@ -1364,9 +1364,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthPineBatchBegin( const PrimitiveRende
     constants.clipPlane[1] = m_state.clipPlane[1];
     constants.clipPlane[2] = m_state.clipPlane[2];
     constants.clipPlane[3] = m_state.clipPlane[3];
-    m_state.pineBatchReady = m_state.shadowDepthShader->SetConstantBufferBytes( &constants,
-                                                                                sizeof( constants ),
-                                                                                "InstancedShadowDepthConstants" );
+    m_state.pineBatchReady =
+        m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
+                                                           "InstancedShadowDepthConstants" );
     m_state.pineInstanceData.clear();
 }
 

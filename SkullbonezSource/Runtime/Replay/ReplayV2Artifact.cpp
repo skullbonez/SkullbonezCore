@@ -40,6 +40,7 @@ Related:
   - tools/replay_query.py
 */
 #include "ReplayV2Artifact.h"
+#include "../../Core/ByteView.h"
 
 #include "../RuntimeFileWriter.h"
 
@@ -157,8 +158,8 @@ template <typename T> void AppendPod( std::vector<uint8_t>& out, const T& value 
     // Hazard: v2 chunks intentionally write POD bytes directly. Only use this
     // for fixed-layout file records whose fields are mirrored by the reader.
     static_assert( std::is_trivially_copyable<T>::value, "Replay v2 payload values must be POD" );
-    const uint8_t* bytes = reinterpret_cast<const uint8_t*>( &value );
-    out.insert( out.end(), bytes, bytes + sizeof( T ) );
+    const SkullbonezCore::Core::ByteView bytes = SkullbonezCore::Core::ObjectBytes( value );
+    out.insert( out.end(), bytes.begin(), bytes.end() );
 }
 
 template <typename T> bool ReadPod( ByteCursor& cursor, T& out )
@@ -174,20 +175,27 @@ template <typename T> bool ReadPod( ByteCursor& cursor, T& out )
     return true;
 }
 
-void AppendBytes( std::vector<uint8_t>& out, const void* data, std::size_t size )
+void AppendBytes( std::vector<uint8_t>& out, SkullbonezCore::Core::ByteView bytes )
 {
-    const uint8_t* bytes = reinterpret_cast<const uint8_t*>( data );
-    out.insert( out.end(), bytes, bytes + size );
+    out.insert( out.end(), bytes.begin(), bytes.end() );
 }
 
-bool ReadBytes( ByteCursor& cursor, void* out, std::size_t size )
+template <typename T> void AppendBytes( std::vector<uint8_t>& out, const T& value )
 {
+    static_assert( !std::is_pointer_v<T>, "AppendBytes requires an object or array extent, not a pointer." );
+    AppendBytes( out, SkullbonezCore::Core::ObjectBytes( value ) );
+}
+
+template <typename T> bool ReadBytes( ByteCursor& cursor, T& out )
+{
+    static_assert( std::is_trivially_copyable_v<T>, "Replay byte fields must be trivially copyable." );
+    constexpr std::size_t size = sizeof( T );
     if ( cursor.offset > cursor.size || size > cursor.size - cursor.offset )
     {
         return false;
     }
 
-    std::memcpy( out, cursor.data + cursor.offset, size );
+    std::memcpy( std::addressof( out ), cursor.data + cursor.offset, size );
     cursor.offset += size;
     return true;
 }
@@ -203,9 +211,11 @@ bool SkipBytes( ByteCursor& cursor, std::size_t size )
     return true;
 }
 
-void AppendChunkId( std::vector<uint8_t>& out, const char id[4] )
+void AppendChunkId( std::vector<uint8_t>& out, const char ( &id )[4] )
 {
-    AppendBytes( out, id, 4 );
+    // Invariant: preserving the array extent writes the four-character chunk
+    // id itself; accepting a decayed pointer would serialize an address.
+    AppendBytes( out, id );
 }
 
 void AppendVec3( std::vector<uint8_t>& out, const Vector3& value )
@@ -334,9 +344,9 @@ void AppendBodyDictionary( std::vector<uint8_t>& out, const std::vector<BodyDict
         AppendPod( out, entry.bodyOrder );
         AppendPod( out, shapeKind );
         AppendPod( out, fixed );
-        AppendBytes( out, reserved, sizeof( reserved ) );
+        AppendBytes( out, reserved );
         AppendPod( out, entry.mass );
-        AppendBytes( out, entry.name, sizeof( entry.name ) );
+        AppendBytes( out, entry.name );
     }
 }
 
@@ -385,7 +395,7 @@ void AppendPresentationFrame( std::vector<uint8_t>& out,
         AppendVec3( out, body.linearVelocity );
         AppendVec3( out, body.angularVelocity );
         AppendPod( out, flags );
-        AppendBytes( out, reservedFlags, sizeof( reservedFlags ) );
+        AppendBytes( out, reservedFlags );
         AppendPod( out, static_cast<int32_t>( body.sleepIslandVisualId ) );
         AppendPod( out, body.contactCount );
         AppendPod( out, reservedContact );
@@ -429,7 +439,7 @@ void AppendTornadoConfig( std::vector<uint8_t>& out, const SkullbonezCore::Physi
     const uint8_t reserved[2] = {};
     AppendPod( out, enabled );
     AppendPod( out, visualizeVelocityField );
-    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendBytes( out, reserved );
     AppendVec3( out, config.center );
     AppendPod( out, config.radius );
     AppendPod( out, config.height );
@@ -452,7 +462,7 @@ void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore:
     const uint8_t reserved[2] = {};
     AppendPod( out, enabled );
     AppendPod( out, visualizeVelocityField );
-    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendBytes( out, reserved );
     AppendPod( out, CheckedU32( config.vortices.size() ) );
     for ( const SkullbonezCore::Physics::TornadoVortexConfig& vortex : config.vortices )
     {
@@ -512,7 +522,7 @@ void AppendPersistentContact( std::vector<uint8_t>& out, const ReplaySolverPersi
         contact.inhibitsSleep ? 1u : 0u,
     };
     const uint8_t reserved = 0;
-    AppendBytes( out, flags, sizeof( flags ) );
+    AppendBytes( out, flags );
     AppendPod( out, contact.manifoldPointCount );
     AppendPod( out, reserved );
     AppendVec3( out, contact.terrainNormal );
@@ -564,7 +574,7 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const ReplaySolverWorldSna
     AppendPod( out, static_cast<int32_t>( snapshot.nextSleepIslandVisualId ) );
     AppendPod( out, sleepEnabled );
     AppendPod( out, collisionVisualFrameActive );
-    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendBytes( out, reserved );
     AppendTornadoConfig( out, snapshot.tornadoConfig );
     if ( snapshot.version >= 2 )
     {
@@ -649,8 +659,8 @@ bool AppendSolverBodyRecord( std::vector<uint8_t>& out,
     AppendPod( out, body.inverseMass );
     AppendVec3( out, body.rotationalInertia );
     AppendVec3( out, body.inverseRotationalInertia );
-    AppendBytes( out, flags, sizeof( flags ) );
-    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendBytes( out, flags );
+    AppendBytes( out, reserved );
     AppendPod( out, static_cast<int32_t>( body.sleepIslandVisualId ) );
     AppendPod( out, body.contactCount );
     AppendPod( out, reserved16 );
@@ -668,7 +678,7 @@ void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisual
     AppendPod( out, static_cast<int32_t>( launcher.nextLaserShot ) );
     AppendPod( out, fireMode );
     AppendPod( out, visualizeRays );
-    AppendBytes( out, reserved, sizeof( reserved ) );
+    AppendBytes( out, reserved );
     AppendPod( out, launcher.impulseStrength );
     AppendPod( out, launcher.projectileSpeed );
 
@@ -683,7 +693,7 @@ void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisual
         AppendPod( out, line.ageSeconds );
         AppendPod( out, active );
         AppendPod( out, hit );
-        AppendBytes( out, lineReserved, sizeof( lineReserved ) );
+        AppendBytes( out, lineReserved );
     }
 
     AppendPod( out, CheckedU32( launcher.laserShots.size() ) );
@@ -700,7 +710,7 @@ void AppendLauncherVisual( std::vector<uint8_t>& out, const ReplayLauncherVisual
         AppendPod( out, shot.lifetimeSeconds );
         AppendPod( out, active );
         AppendPod( out, hit );
-        AppendBytes( out, shotReserved, sizeof( shotReserved ) );
+        AppendBytes( out, shotReserved );
     }
 }
 
@@ -758,6 +768,8 @@ bool LoadBinaryFile( const char* path, std::vector<uint8_t>& outBytes )
 
     outBytes.resize( static_cast<std::size_t>( fileSizeBytes ) );
     input.seekg( 0, std::ios::beg );
+    // Why: std::istream exposes binary storage through its char-based ABI;
+    // ownership and all subsequent parsing remain in the typed byte vector.
     input.read( reinterpret_cast<char*>( outBytes.data() ), static_cast<std::streamsize>( outBytes.size() ) );
     return static_cast<std::size_t>( input.gcount() ) == outBytes.size();
 }
@@ -785,9 +797,9 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
     uint32_t flags = 0;
     uint64_t chunkTableOffset = 0;
     uint64_t fileSize = 0;
-    if ( !ReadBytes( header, magic, sizeof( magic ) ) || !ReadPod( header, version ) ||
-         !ReadPod( header, headerBytes ) || !ReadPod( header, chunkCount ) || !ReadPod( header, flags ) ||
-         !ReadPod( header, chunkTableOffset ) || !ReadPod( header, fileSize ) )
+    if ( !ReadBytes( header, magic ) || !ReadPod( header, version ) || !ReadPod( header, headerBytes ) ||
+         !ReadPod( header, chunkCount ) || !ReadPod( header, flags ) || !ReadPod( header, chunkTableOffset ) ||
+         !ReadPod( header, fileSize ) )
     {
         return false;
     }
@@ -813,8 +825,8 @@ bool ReadChunkTable( const std::vector<uint8_t>& fileBytes,
     {
         ChunkTableEntry entry;
         uint32_t reserved = 0;
-        if ( !ReadBytes( table, entry.id, sizeof( entry.id ) ) || !ReadPod( table, entry.offset ) ||
-             !ReadPod( table, entry.size ) || !ReadPod( table, entry.recordCount ) || !ReadPod( table, reserved ) )
+        if ( !ReadBytes( table, entry.id ) || !ReadPod( table, entry.offset ) || !ReadPod( table, entry.size ) ||
+             !ReadPod( table, entry.recordCount ) || !ReadPod( table, reserved ) )
         {
             return false;
         }
@@ -882,7 +894,7 @@ bool ParseBodyDictionary( const std::vector<uint8_t>& fileBytes,
         {
             return false;
         }
-        if ( !ReadBytes( cursor, entry.name, sizeof( entry.name ) ) )
+        if ( !ReadBytes( cursor, entry.name ) )
         {
             return false;
         }
@@ -1049,7 +1061,7 @@ bool ParseEventRecords( const std::vector<uint8_t>& fileBytes,
              !ReadPod( cursor, event.value0 ) || !ReadPod( cursor, event.value1 ) || !ReadPod( cursor, event.value2 ) ||
              !ReadPod( cursor, event.value3 ) || !ReadPod( cursor, event.data0 ) ||
              !ReadPod( cursor, event.branch.sourceFrame ) || !ReadPod( cursor, event.branch.sourceSolverHash ) ||
-             !ReadBytes( cursor, event.text, sizeof( event.text ) ) || !ReadPod( cursor, reserved ) )
+             !ReadBytes( cursor, event.text ) || !ReadPod( cursor, reserved ) )
         {
             return false;
         }
@@ -1782,7 +1794,7 @@ bool ParseSolverHashRecords( const std::vector<uint8_t>& fileBytes,
              !ReadPod( cursor, sample.simulationSeconds ) || !ReadPod( cursor, sample.presentationHash ) ||
              !ReadPod( cursor, sample.solverHash ) || !ReadPod( cursor, sample.bodyCount ) ||
              !ReadPod( cursor, sample.contactCount ) || !ReadPod( cursor, sample.pipelineRecordCount ) ||
-             !ReadPod( cursor, checkpointBoundary ) || !ReadBytes( cursor, reserved, sizeof( reserved ) ) )
+             !ReadPod( cursor, checkpointBoundary ) || !ReadBytes( cursor, reserved ) )
         {
             return false;
         }
@@ -1883,7 +1895,7 @@ std::vector<uint8_t> BuildEventChunk( const std::vector<ReplayEventSample>& even
         AppendPod( bytes, event.data0 );
         AppendPod( bytes, event.branch.sourceFrame );
         AppendPod( bytes, event.branch.sourceSolverHash );
-        AppendBytes( bytes, event.text, sizeof( event.text ) );
+        AppendBytes( bytes, event.text );
         AppendPod( bytes, reserved );
     }
     return bytes;
@@ -2227,7 +2239,7 @@ std::vector<uint8_t> BuildHashChunk( const std::vector<ReplaySolverFrameSample>&
         AppendPod( bytes, sample.contactCount );
         AppendPod( bytes, sample.pipelineRecordCount );
         AppendPod( bytes, checkpointBoundary );
-        AppendBytes( bytes, reserved, sizeof( reserved ) );
+        AppendBytes( bytes, reserved );
     }
     return bytes;
 }
@@ -2431,7 +2443,7 @@ bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& out
 
     outBytes.clear();
     outBytes.reserve( static_cast<std::size_t>( fileSize ) );
-    AppendBytes( outBytes, REPLAY_V2_MAGIC, sizeof( REPLAY_V2_MAGIC ) );
+    AppendBytes( outBytes, REPLAY_V2_MAGIC );
     AppendPod( outBytes, REPLAY_CURRENT_VERSION );
     AppendPod( outBytes, REPLAY_V2_HEADER_BYTES );
     AppendPod( outBytes, chunkCount );
@@ -2451,7 +2463,7 @@ bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& out
 
     for ( const Chunk& chunk : chunks )
     {
-        AppendBytes( outBytes, chunk.bytes.data(), chunk.bytes.size() );
+        AppendBytes( outBytes, { chunk.bytes.data(), chunk.bytes.size() } );
     }
 
     return outBytes.size() == static_cast<std::size_t>( fileSize );
@@ -2495,6 +2507,8 @@ bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const c
         return false;
     }
 
+    // Why: std::ostream's binary write ABI is char-based; fileBytes remains the
+    // typed owner and the stream borrows it only for this synchronous call.
     output.write( reinterpret_cast<const char*>( fileBytes.data() ), static_cast<std::streamsize>( fileBytes.size() ) );
     if ( !output.good() )
     {
@@ -2576,6 +2590,8 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
         return false;
     }
 
+    // Why: std::ostream's binary write ABI is char-based; fileBytes remains the
+    // typed owner and the stream borrows it only for this synchronous call.
     output.write( reinterpret_cast<const char*>( fileBytes.data() ), static_cast<std::streamsize>( fileBytes.size() ) );
     if ( !output.good() )
     {

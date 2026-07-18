@@ -124,7 +124,7 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::Capture( Dx12CaptureFrame&
         return submit.result;
     }
 
-    const void* mappedData = readback.MapRead( totalBytes );
+    const uint8_t* mappedData = readback.MapRead( totalBytes );
     if ( !mappedData )
     {
         return SkullbonezCore::Core::SbResult::Failure( "Dx12BackbufferCapture", "Map readback buffer failed" );
@@ -134,7 +134,7 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::Capture( Dx12CaptureFrame&
     // capture interface and are not steady-frame storage.
     const int rowStride = ( width * 3 + 3 ) & ~3;
     std::vector<uint8_t> result( static_cast<size_t>( rowStride ) * static_cast<size_t>( height ) );
-    const uint8_t* sourcePixels = static_cast<const uint8_t*>( mappedData );
+    const uint8_t* sourcePixels = mappedData;
     for ( int y = 0; y < height; ++y )
     {
         const int flippedY = height - 1 - y;

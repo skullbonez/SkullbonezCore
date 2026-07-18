@@ -353,10 +353,10 @@ class Dx12PipelineOwner
                       bool instanced,
                       const InstancedMeshDX12* instancedMesh,
                       const DynamicVBDX12* dynamicVertexBuffer );
-    void SetActiveShader( ShaderDX12* shader );
+    void SetActiveShader( const ShaderDX12* shader );
     void ReleaseShaderPipelinesForReload();
     void RestoreShaderPipelinesAfterReload();
-    ShaderDX12* ActiveShader() const;
+    const ShaderDX12* ActiveShader() const;
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
     void SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor );
@@ -415,7 +415,7 @@ class Dx12PipelineOwner
     // clears the active identity but never rewinds the issuance sequence.
     std::uint64_t m_rootSignatureIdentity = 0;
     std::uint64_t m_nextRootSignatureIdentity = 1;
-    ShaderDX12* m_activeShader = nullptr;
+    const ShaderDX12* m_activeShader = nullptr;
     D3D12_VIEWPORT m_viewport = {};
     D3D12_RECT m_scissorRect = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};

@@ -147,7 +147,7 @@ class ShaderDX12 : public IShader
     void SetVec3( const char* name, const Math::Vector::Vector3& v ) const override;
     void SetVec4( const char* name, float x, float y, float z, float w ) const override;
     void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const override;
-    bool SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const override;
+    bool SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const override;
 
     // Flush the dirty constant-buffer bytes into the current frame upload arena and
     // return the GPU virtual address used by the root CBV binding.
@@ -157,10 +157,10 @@ class ShaderDX12 : public IShader
         return m_cbSize;
     }
 
-    const void* GetVSBytecode() const;
+    const uint8_t* GetVSBytecode() const;
     SIZE_T GetVSBytecodeSize() const;
     size_t GetVSBytecodeHash() const;
-    const void* GetPSBytecode() const;
+    const uint8_t* GetPSBytecode() const;
     SIZE_T GetPSBytecodeSize() const;
     size_t GetPSBytecodeHash() const;
     bool ValidateInputLayout( const D3D12_INPUT_ELEMENT_DESC* elements, UINT count, const char*& outError ) const;

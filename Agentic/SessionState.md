@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute small findings hardening H0-H4, then the physics body-count scale campaign P0-P7. |
-| Active/future progress | 3 / 13 live tasks; 23%. |
-| Last broad local gate | Naming N4 `validate_full` passed in 165.249s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation, zero-error DX12 captures, and byte-exact physics passed. |
-| Validation for current edits | Hardening H2 `validate_dx12_renderer` passed in 55.677s with zero InfoQueue errors and committed captures matched; bounded graphics stress passed in 61.661s through frame 13,478 and 370 scene loads. Comment audit is 3/3. |
+| Active/future progress | 4 / 13 live tasks; 31%. |
+| Last broad local gate | Hardening H3 `validate_full` passed in 133.253s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, and byte-exact physics passed. |
+| Validation for current edits | H3 passed fast, perf, physics, the sole replay visual-fidelity invocation, DX12 renderer, 60/60 DX12 architecture tests, bounded graphics stress, and full. Comment audit is 52/52. |
 
 ## Live Queue
 
@@ -82,6 +82,11 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
      root-signature identity and proved the final source with zero-error DX12
      validation plus bounded stress. Evidence:
      `Agentic/Reports/2026-07-18/small-findings-h2-stable-pso-identity.md`.
+     H3 reconciled the 153-site cast census to 88 ruled retained/private sites,
+     centralized object-byte and private callback erasure, and replaced all
+     ratified typed-boundary sites. Every cumulative mapped gate passed.
+     Evidence:
+     `Agentic/Reports/2026-07-18/small-findings-h3-cast-boundary-closure.md`.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -446,10 +451,9 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
 
 Round-7 scene decomposition, DX12 backend ownership decomposition, and naming
 N0-N4 are complete and have left the live ledger. Continue immediately with
-`small-findings-hardening` H3: reconcile the H0 cast census by symbol, replace
-the typed-boundary sites, and add local constraint comments to every retained
-ABI/aligned-storage cast. Run `validate_fast` plus every cumulative mapped gate
-for the files actually touched.
+`small-findings-hardening` H4: extend an existing checker to fence JSON to the
+ratified cold boundaries, split the profiler tab histogram owner seam, record
+the memory-tab cohesion ruling, and complete one independent closure review.
 The physics body-count campaign remains parallel-eligible. Preserve the seven
 excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines outside the two

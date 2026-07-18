@@ -53,6 +53,7 @@ Related:
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #include "PhysicsApi.h"
+#include "../Core/ByteView.h"
 
 #include <algorithm>
 #include <cmath>
@@ -115,12 +116,11 @@ constexpr uint64_t FNV_OFFSET_BASIS = 14695981039346656037ull;
 constexpr uint64_t FNV_PRIME = 1099511628211ull;
 constexpr uint32_t INVALID_ISLAND_ROW = ( std::numeric_limits<uint32_t>::max )();
 
-uint64_t HashBytes( uint64_t hash, const void* bytes, std::size_t byteCount )
+uint64_t HashBytes( uint64_t hash, SkullbonezCore::Core::ByteView bytes )
 {
-    const uint8_t* cursor = static_cast<const uint8_t*>( bytes );
-    for ( std::size_t i = 0; i < byteCount; ++i )
+    for ( uint8_t byte : bytes )
     {
-        hash ^= static_cast<uint64_t>( cursor[i] );
+        hash ^= static_cast<uint64_t>( byte );
         hash *= FNV_PRIME;
     }
     return hash;
@@ -128,12 +128,12 @@ uint64_t HashBytes( uint64_t hash, const void* bytes, std::size_t byteCount )
 
 uint64_t HashU32( uint64_t hash, uint32_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashU64( uint64_t hash, uint64_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashFloat( uint64_t hash, float value )

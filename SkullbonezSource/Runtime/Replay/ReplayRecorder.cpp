@@ -35,6 +35,7 @@ Related:
 #include "../Allocation/RuntimeAllocationTracker.h"
 #include "../Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"
+#include "../../Core/ByteView.h"
 #include "../../Core/FatalError.h"
 #include "../Scene/SceneEntityStore.h"
 #include "../../Physics/ColliderStore.h"
@@ -953,29 +954,28 @@ uint64_t HashByte( uint64_t hash, uint8_t value )
     return hash;
 }
 
-uint64_t HashBytes( uint64_t hash, const void* bytes, std::size_t byteCount )
+uint64_t HashBytes( uint64_t hash, SkullbonezCore::Core::ByteView bytes )
 {
-    const uint8_t* cursor = static_cast<const uint8_t*>( bytes );
-    for ( std::size_t i = 0; i < byteCount; ++i )
+    for ( uint8_t byte : bytes )
     {
-        hash = HashByte( hash, cursor[i] );
+        hash = HashByte( hash, byte );
     }
     return hash;
 }
 
 uint64_t HashUint32( uint64_t hash, uint32_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashUint64( uint64_t hash, uint64_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashInt64( uint64_t hash, int64_t value )
 {
-    return HashBytes( hash, &value, sizeof( value ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
 }
 
 uint64_t HashSize( uint64_t hash, std::size_t value )
@@ -986,7 +986,7 @@ uint64_t HashSize( uint64_t hash, std::size_t value )
 uint64_t HashInt( uint64_t hash, int value )
 {
     const int32_t packed = static_cast<int32_t>( value );
-    return HashBytes( hash, &packed, sizeof( packed ) );
+    return HashBytes( hash, SkullbonezCore::Core::ObjectBytes( packed ) );
 }
 
 uint64_t HashBool( uint64_t hash, bool value )
@@ -1045,7 +1045,7 @@ uint64_t HashUint16Vector( uint64_t hash, const std::vector<uint16_t>& values )
     hash = HashSize( hash, values.size() );
     for ( uint16_t value : values )
     {
-        hash = HashBytes( hash, &value, sizeof( value ) );
+        hash = HashBytes( hash, SkullbonezCore::Core::ObjectBytes( value ) );
     }
     return hash;
 }

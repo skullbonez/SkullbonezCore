@@ -82,6 +82,8 @@ constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
 [[noreturn]] void FatalInputWindowBridgeMissing( const char* functionName )
 {
+    // Why: printf-style %p requires a void pointer in this fatal diagnostic;
+    // the casts do not establish ownership or serve as runtime identity.
     SB_FATAL( "Input",
               "%s requires a bound input window bridge. inputWindow=%p callbackWindow=%p automation=%d",
               functionName,

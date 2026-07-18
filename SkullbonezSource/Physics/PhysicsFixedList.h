@@ -316,6 +316,9 @@ template <typename T, std::size_t Capacity> class PhysicsFixedList
 
     // Lifetime: placement construction uses the raw slot before T exists.
     // ValueAt is only for already-live entries, where std::launder is valid.
+    // Why: aligned_storage has no T object until placement construction; these
+    // private helpers are the one representation seam, and launder re-establishes
+    // the typed pointer after each slot lifetime begins.
     void* RawSlot( std::size_t index )
     {
         return static_cast<void*>( &m_values[index] );
