@@ -137,8 +137,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 0 | 18 | 0% |
-| **Active/future total** | **1** | **26** | **4%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 1 | 18 | 6% |
+| **Active/future total** | **2** | **26** | **8%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -196,8 +196,11 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's current allowed baseline classes. Neither artifact is committed and P1 is
 not checked complete without that authority.
 
-`imgui-tracy-editor-campaign` (E0-E17) is active at E0 under the owner's
-direction to note genuine blockers and continue. It adds a development-only ImGui docked editor and Tracy
+`imgui-tracy-editor-campaign` (E0-E17) is active at E1 under the owner's
+direction to note genuine blockers and continue. E0 completed the full legacy
+surface/command/frame-field/hotkey/owner inventory, captured seven current
+screenshots, and ratified the development/configuration and coexistence
+contract. The campaign adds a development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for Legacy / ImGui / Both
 comparison. The default is editor-heavy on the left, game viewport centered,
 Inspector/World/Rendering/Diagnostics plus compact Causality on the right, and
@@ -811,7 +814,7 @@ Both evaluation throughout this campaign. No legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0 | 0/18 | Inventory the complete legacy interaction surface under the owner's continue-on-blocker exception |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E1 | 1/18 | Pin reproducible Dear ImGui docking and Tracy revisions, licenses, acquisition/update path, project filters, and Release exclusion |
 
 ## Features
 

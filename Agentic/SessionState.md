@@ -12,10 +12,10 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E0 while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
-| Active/future progress | 1 / 26 live tasks; 4%. |
+| Current objective | Execute ImGui/Tracy E1 dependency pinning while retaining the validated P1 checkpoint and awaiting exact approval for its replay and query-golden transitions. |
+| Active/future progress | 2 / 26 live tasks; 8%. |
 | Last broad local gate | P1 final-source `validate_perf` and `validate_physics` passed; Debug/Profile/Automation builds reported zero warnings/errors, focused SpatialGrid tests passed 8/8, and every required 0/1/4-worker CSV was byte-identical. |
-| Validation for current edits | P1's 12-run same-state oracle passed raw/final membership at 360 ticks. The one-process replay gate has one owner-gated topology-golden mismatch (199 -> 200), and the deep lane requires an out-of-policy mechanically derived query golden. E0 is documentation-only. |
+| Validation for current edits | E0 is complete with a 100% legacy-control/command/frame-field/hotkey inventory and seven inspected screenshots; it is documentation-only, so no repository validation is required. P1 still has the owner-gated replay and query-golden transitions. |
 
 ## Live Queue
 
@@ -24,9 +24,12 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      matrix, focused tests, perf gate, core physics gate, and authorized physics
      baselines pass, but replay topology 199 -> 200 and the derived varied-query
      golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy is active at E0 (0/18) for the documentation-only
-     coexistence inventory. Evidence:
-     `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
+     direction, ImGui/Tracy is active at E1 (1/18). E0 froze the complete
+     coexistence inventory, seven current screenshots, 1280 x 720 minimum,
+     development configurations, exact Legacy/ImGui/Both selector, and
+     single-window rule. Evidence:
+     `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
+     `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7

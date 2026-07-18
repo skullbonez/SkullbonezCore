@@ -1,7 +1,8 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — E0 starts under the owner's continue-on-blocker direction
-while physics P1 awaits two explicit transition-artifact approvals
+Status: Active — 1/18 tasks (E0 complete; E1 next) under the owner's
+continue-on-blocker direction while physics P1 awaits two explicit
+transition-artifact approvals
 Owner direction: 2026-07-18
 Ledger: E0-E17 (0/18 complete)
 
@@ -134,7 +135,7 @@ It does **not** authorize removal from the legacy UI.
 
 ## Tasks
 
-- [ ] E0 — Freeze the coexistence inventory and interaction contract.
+- [x] E0 — Freeze the coexistence inventory and interaction contract.
   - Inventory every legacy tab/window, footer control, replay transport,
     causality interaction, hotkey, command, and frame-data field; record each
     as keep, regroup, Tracy-superseded-in-ImGui, or legacy-only-for-evaluation.
@@ -149,6 +150,15 @@ It does **not** authorize removal from the legacy UI.
   - Acceptance: a checked inventory maps 100% of current controls and names
     any intentionally deferred control; no source behavior changes.
   - Gate: documentation-only; no repository validation.
+  - Evidence:
+    `../../Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` maps all
+    12 tabs, chrome/overlays/footer, replay and causality interactions, static
+    hotkeys, typed commands, frame fields, and concrete owners. Seven current
+    screenshots freeze the important states. It ratifies 1280 x 720,
+    Debug/Profile/Automation development builds, `--dev-ui
+    legacy|imgui|both`, and single-window docking. No behavior or baseline
+    changed; the existing editor interaction harness's post-capture
+    fixed-coordinate failure is recorded as a follow-up risk.
 
 - [ ] E1 — Pin Dear ImGui and Tracy as reproducible development dependencies.
   - Choose a pinned Dear ImGui docking revision and pinned Tracy client/server
