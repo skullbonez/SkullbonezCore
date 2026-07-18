@@ -23,6 +23,9 @@ Invariants:
     not allocate while visualizing allocator activity.
   - Replay policy controls emit one-frame requests and never resize recorder
     storage from UI code.
+  - Cohesion ruling: overlay counters, replay-policy controls, samples, and
+    reserve-event rows all mutate one UIMemoryOverlayState and share one
+    scroll/layout transaction; there is no independent owner seam to extract.
 
 Related:
   - SkullbonezSource/UI/UITabMemory.h

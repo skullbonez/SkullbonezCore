@@ -9,10 +9,12 @@
 #   .vcxproj.filters file controls where those items appear in Solution
 #   Explorer. This check keeps source, headers, scenes, shaders, and style data
 #   in predictable semantic filters so project edits do not slowly drift or
-#   accumulate flat subsystem roots. The default production gate validates the
-#   app and any extracted production libraries as a set, because library
-#   layering deliberately moves files out of the app project without removing
-#   them from the solution build.
+#   accumulate flat subsystem roots. The same source-ownership pass computes
+#   transitive local includes and fences the heavy JSON parser to ratified cold
+#   translation units. The default production gate validates the app and any
+#   extracted production libraries as a set, because library layering
+#   deliberately moves files out of the app project without removing them from
+#   the solution build.
 #
 # Glossary:
 #   Filter: A Visual Studio virtual folder stored in .vcxproj.filters.
@@ -21,6 +23,8 @@
 #     together own SkullbonezSource build/header coverage.
 #   Semantic filter: A virtual folder named for responsibility rather than the
 #     source file's physical directory alone.
+#   JSON cold boundary: Startup, authored-data, automation, replay-artifact, or
+#     explicit tool IO translation unit allowed to reach the JSON parser.
 #
 # Invariants:
 #   - Every project item that belongs in Solution Explorer has one expected
@@ -31,6 +35,8 @@
 #   - Runtime and Physics items resolve to named semantic descendants instead
 #     of collecting directly under their subsystem roots.
 #   - Project paths use the exact casing of the file on disk.
+#   - The computed JSON-reachable translation-unit set exactly equals the
+#     ratified cold-boundary set.
 #
 # Related:
 #   - AGENTS.md
@@ -42,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -61,6 +68,35 @@ PROJECT_FILTER = "Project Files"
 RESOURCE_FILTER = "Resource Files"
 SHADER_FILTER = "Resource Files\\HLSL"
 SOURCE_PROJECT_ROOT = "SkullbonezSource"
+JSON_HEADER = "ThirdPtySource/nlohmann/json.hpp"
+# Invariant: JSON is a cold-boundary implementation detail. This allowlist is
+# qualitative architecture, not a spelling budget: the computed transitive
+# include graph must equal it so both new leaks and accidental boundary drift
+# fail the same gate.
+JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
+    {
+        "Rendering/DX12/ShaderBytecodeManifest.cpp",
+        "Runtime/Audio/ContactAudioService.cpp",
+        "Runtime/DemoDirector.cpp",
+        "Runtime/Editor/RunEditorObjectPlacement.cpp",
+        "Runtime/Editor/RunEditorPlacementAssets.cpp",
+        "Runtime/Editor/RunEditorTools.cpp",
+        "Runtime/Editor/RunEditorTracer.cpp",
+        "Runtime/InteractionAutomationController.cpp",
+        "Runtime/InteractionAutomationReportWriter.cpp",
+        "Runtime/Replay/ReplayV2Artifact.cpp",
+        "Runtime/Scene/RunScene.cpp",
+        "Runtime/Scene/SceneRuntimeCreate.cpp",
+        "Runtime/Startup/StartupLaunchResolution.cpp",
+        "Scene/AuthoredSceneParser.cpp",
+        "Scene/AuthoredSceneParserAssets.cpp",
+        "Scene/AuthoredSceneParserBodies.cpp",
+        "Scene/AuthoredSceneParserPresentation.cpp",
+        "Scene/AuthoredSceneParserRuntime.cpp",
+        "Scene/SceneSnapshotWriter.cpp",
+    }
+)
+LOCAL_INCLUDE_PATTERN = re.compile(r'^\s*#\s*include\s*["<]([^">]+)[">]', re.MULTILINE)
 # Invariant: the default production set excludes SKULLBONEZ_TESTS because tests
 # intentionally compile or reference focused engine slices for unit coverage.
 DEFAULT_PRODUCTION_PROJECTS = (
@@ -607,6 +643,79 @@ def read_source_files_on_disk(repo: Path) -> list[ProjectItem]:
     return items
 
 
+def resolve_local_include(repo: Path, including_file: Path, include: str) -> Path | None:
+    source_root = repo / SOURCE_PROJECT_ROOT
+    for candidate in (
+        including_file.parent / include,
+        source_root / include,
+        repo / "ThirdPtySource" / include,
+        repo / include,
+    ):
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def json_boundary_errors(repo: Path) -> tuple[list[str], dict[str, int]]:
+    source_root = (repo / SOURCE_PROJECT_ROOT).resolve()
+    json_header = (repo / JSON_HEADER).resolve()
+    source_files = sorted(
+        path.resolve()
+        for path in source_root.rglob("*")
+        if path.is_file() and path.suffix.lower() in {".cpp", ".h", ".hpp", ".inl"}
+    )
+    source_file_set = set(source_files)
+    adjacency: dict[Path, tuple[Path, ...]] = {}
+
+    for source_file in source_files:
+        text = source_file.read_text(encoding="utf-8", errors="ignore")
+        resolved_includes: list[Path] = []
+        for match in LOCAL_INCLUDE_PATTERN.finditer(text):
+            resolved = resolve_local_include(repo, source_file, match.group(1))
+            if resolved == json_header or resolved in source_file_set:
+                resolved_includes.append(resolved)
+        adjacency[source_file] = tuple(resolved_includes)
+
+    # Why: walking the graph backwards from json.hpp makes reachability
+    # cycle-safe. A forward DFS that memoizes while breaking an A -> B -> A
+    # cycle can incorrectly cache B as unreachable before discovering A's JSON
+    # edge, letting a later translation unit evade the fence.
+    reverse_adjacency: dict[Path, set[Path]] = {}
+    for source_file, includes in adjacency.items():
+        for include in includes:
+            reverse_adjacency.setdefault(include, set()).add(source_file)
+    json_reachable = {json_header}
+    pending = [json_header]
+    while pending:
+        included_file = pending.pop()
+        for including_file in reverse_adjacency.get(included_file, set()):
+            if including_file not in json_reachable:
+                json_reachable.add(including_file)
+                pending.append(including_file)
+
+    actual = {
+        path.relative_to(source_root).as_posix()
+        for path in source_files
+        if path.suffix.lower() == ".cpp" and path in json_reachable
+    }
+    unexpected = sorted(actual - JSON_COLD_BOUNDARY_TRANSLATION_UNITS)
+    missing = sorted(JSON_COLD_BOUNDARY_TRANSLATION_UNITS - actual)
+    errors = [
+        f"{SOURCE_PROJECT_ROOT}/{path}: JSON is transitively reachable outside the ratified cold boundary."
+        for path in unexpected
+    ]
+    errors.extend(
+        f"{SOURCE_PROJECT_ROOT}/{path}: ratified JSON cold boundary is no longer transitively reachable."
+        for path in missing
+    )
+    stats = {
+        "jsonReachableTranslationUnitCount": len(actual),
+        "jsonColdBoundaryAllowlistCount": len(JSON_COLD_BOUNDARY_TRANSLATION_UNITS),
+        "jsonBoundaryErrorCount": len(errors),
+    }
+    return errors, stats
+
+
 def default_production_project_specs(repo: Path) -> list[ProjectValidationSpec]:
     specs: list[ProjectValidationSpec] = []
     for project_name, filters_name in DEFAULT_PRODUCTION_PROJECTS:
@@ -994,6 +1103,10 @@ def main() -> int:
             filters_path,
             require_all_source_files=not args.partial_project,
         )
+        boundary_errors, boundary_stats = json_boundary_errors(repo)
+        errors.extend(boundary_errors)
+        stats.update(boundary_stats)
+        stats["errorCount"] = len(errors)
         summary = {
             "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
             "project": repo_relative(repo, project_path),
@@ -1005,6 +1118,10 @@ def main() -> int:
     else:
         project_specs = default_production_project_specs(repo)
         errors, stats, project_summaries = validate_production_project_filters(repo, project_specs)
+        boundary_errors, boundary_stats = json_boundary_errors(repo)
+        errors.extend(boundary_errors)
+        stats.update(boundary_stats)
+        stats["errorCount"] = len(errors)
         summary = {
             "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
             "projectSet": "production",

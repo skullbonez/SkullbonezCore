@@ -26,7 +26,7 @@ validation.
 | `validate_deep.bat` | Opt-in broad sweep: render, deep physics, and perf | ~depends |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
-| `validate_project_filters.bat` | Visual Studio `.vcxproj.filters` category and path-casing drift helper | ~depends |
+| `validate_project_filters.bat` | Visual Studio project/filter drift plus transitive JSON cold-boundary fence | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
@@ -166,7 +166,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_tests.bat` | Build `SKULLBONEZ_TESTS`, validate its project filters, and run the doctest console runner |
 | `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
-| `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, and declared filter names |
+| `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, declared filter names, and exact transitive JSON reachability for the ratified 19 cold-boundary translation units |
 | `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
 | `validate_automation.bat` | Pre-commit boundary check plus short replay/prediction interaction smoke in the diagnostics-only Automation build |
 | `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |

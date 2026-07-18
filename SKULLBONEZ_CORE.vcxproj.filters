@@ -751,6 +751,9 @@
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UITabProfilerHistogram.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>

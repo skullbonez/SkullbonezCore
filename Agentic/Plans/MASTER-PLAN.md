@@ -125,11 +125,14 @@ The active/future denominator returned from 18 → 13 when naming and identity
 debt closed N0-N4 and left the live ledger under rule 4. Closure evidence is in
 `../Reports/2026-07-18/naming-and-identity-debt-closure.md`.
 
+The active/future denominator returned from 13 → 8 when small-findings
+hardening closed H0-H4 and left the live ledger under rule 4. Closure evidence
+is in `../Reports/2026-07-18/small-findings-hardening-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [small-findings-hardening](TODO/small-findings-hardening.md) | 4 | 5 | 80% |
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **4** | **13** | **31%** |
+| **Active/future total** | **0** | **8** | **0%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -174,20 +177,15 @@ historical work per commit-contract rule 4.
 
 ## Current Execution Priority
 
-The 2026-07-18 adversarial-review round-7 lane is the active critical path.
-Scene-controller round 2, DX12 backend ownership, and naming/identity debt are
-closed. The remaining binding execution order is:
+The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
+round 2, DX12 backend ownership, naming/identity debt, and small-findings
+hardening have all left the live ledger with closure evidence.
 
-1. `small-findings-hardening` (H0-H4) — H4 fences JSON to cold boundaries,
-   applies the ratified UI-tab rulings, and performs the closure review
-
-`physics-body-count-scale-campaign` (P0-P7) is a parallel-eligible physics
-lane: it shares no files with the remaining round-7 plan and may run
-concurrently on its own branch. Its only cross-lane coordination point is
-`small-findings-hardening` H3 if cast rulings touch
-`Physics/PhysicsFixedList.h`. Its P1 and P6 determinism transitions are the
+`physics-body-count-scale-campaign` (P0-P7) is now the sole active plan. Begin
+with P0 instrumentation, the sleeping-heavy 5,000-body scene, the fixed before
+matrix, and owner ratification. Its P1 and P6 determinism transitions are the
 sole owner-approved baseline/golden exceptions in the live portfolio; every
-other task in every lane keeps the zero-refresh rule.
+other task keeps the zero-refresh rule.
 
 The three 2026-07-17 round-6 plans are closed: scene-controller ownership
 T0-T6, monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The
@@ -720,9 +718,9 @@ splits, forwarding facades, and context bags are closure failures; renames
 must leave `SkullbonezData/` and `TestOutput/baselines/` byte-identical;
 each plan ends with one independent review.
 
-| Plan | State | Verified phase count | Start condition / next action |
-|---|---|---:|---|
-| [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 4/5 | H4 JSON fence, UI-tab rulings, and closure review |
+Small-findings hardening completed H0-H4 and left the active inventory under
+rule 4. Closure evidence:
+`../Reports/2026-07-18/small-findings-hardening-closure.md`.
 
 ## Physics Body-Count Scale Campaign (2026-07-18)
 

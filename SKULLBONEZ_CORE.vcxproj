@@ -408,6 +408,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabProfilerHistogram.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabSound.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp" />

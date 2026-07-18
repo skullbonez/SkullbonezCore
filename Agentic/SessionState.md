@@ -11,16 +11,15 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-17th-july` |
-| Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
-| Current objective | Execute small findings hardening H0-H4, then the physics body-count scale campaign P0-P7. |
-| Active/future progress | 4 / 13 live tasks; 31%. |
-| Last broad local gate | Hardening H3 `validate_full` passed in 133.253s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, and byte-exact physics passed. |
-| Validation for current edits | H3 passed fast, perf, physics, the sole replay visual-fidelity invocation, DX12 renderer, 60/60 DX12 architecture tests, bounded graphics stress, and full. Comment audit is 52/52. |
+| Current baseline | Round 7 closed without baseline, golden, screenshot, authored-data, or coverage-floor refresh; physics P0 begins from this certified tip. |
+| Current objective | Execute the physics body-count scale campaign P0-P7. |
+| Active/future progress | 0 / 8 live tasks; 0%. |
+| Last broad local gate | Hardening H4 `validate_full` passed in 138.830s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, and byte-exact physics passed. |
+| Validation for current edits | H4 passed `validate_fast` in 56.089s, direct project/JSON filtering in 2.651s at exact 19/19 reachability, and full in 138.830s. Independent review is clear; comment audit is 4/4. |
 
 ## Live Queue
 
-NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
-     physics body-count scale campaign
+NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
      (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
      parallel-eligible physics lane (persistent broadphase, zero-cost
      sleepers, bandwidth diet, owner-gated graph-colored solver). Its next
@@ -30,9 +29,10 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
      owner-approved baseline/golden transition points; every other task in
      every lane keeps the zero-refresh rule.
 
-0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): one live plan,
-     5 tasks. Scene-controller round 2 is complete at 7/7 and left the live
-     ledger under rule 4. `SceneController` has 43 public declarations, its load
+0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
+     plans left the live ledger. Scene-controller round 2 is complete at 7/7
+     and left the live ledger under rule 4. `SceneController` has 43 public
+     declarations, its load
      surface has 18 concrete participants, and one `SceneWorld` owns the six
      cohesive scene-lifetime domains. The sixth independent review found zero
      material ownership issues; full and the sole replay mega gate passed with
@@ -70,9 +70,8 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
      filename moves, reconciled the 62/62 census, resolved the reviewer's audit
      finding, and passed full, replay, coverage, and project-filter gates.
      Naming is complete and has left the ledger. Closure evidence:
-     `Agentic/Reports/2026-07-18/naming-and-identity-debt-closure.md`. Remaining
-     binding order: small-findings H3-H4. H0 ratified the complete findings
-     census and implementation decisions in
+     `Agentic/Reports/2026-07-18/naming-and-identity-debt-closure.md`.
+     Small-findings H0 ratified the complete findings census and implementation decisions in
      `Agentic/Reports/2026-07-18/small-findings-h0-rulings-census.md`.
      H1 removed the last lock-validator singleton, made its Debug graph fixed
      storage owned by startup, and preserved the standard Profile/Release lock
@@ -87,6 +86,12 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
      ratified typed-boundary sites. Every cumulative mapped gate passed.
      Evidence:
      `Agentic/Reports/2026-07-18/small-findings-h3-cast-boundary-closure.md`.
+     H4 fenced JSON to the exact 19 cold-boundary TUs with a cycle-safe reverse
+     include graph, split the complete profiler histogram owner, retained the
+     cohesive memory tab, and cleared independent review plus fast/direct/full
+     gates. Small-findings hardening is complete and has left the ledger.
+     Closure evidence:
+     `Agentic/Reports/2026-07-18/small-findings-hardening-closure.md`.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -449,12 +454,12 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
 
 ## Next Handoff
 
-Round-7 scene decomposition, DX12 backend ownership decomposition, and naming
-N0-N4 are complete and have left the live ledger. Continue immediately with
-`small-findings-hardening` H4: extend an existing checker to fence JSON to the
-ratified cold boundaries, split the profiler tab histogram owner seam, record
-the memory-tab cohesion ruling, and complete one independent closure review.
-The physics body-count campaign remains parallel-eligible. Preserve the seven
+Round-7 scene decomposition, DX12 backend ownership, naming N0-N4, and
+small-findings H0-H4 are complete and have left the live ledger. Continue
+immediately with `physics-body-count-scale-campaign` P0: instrument awake/total,
+reinsertion, and hot-byte accounting; author the bounded sleeping-heavy
+5,000-body scene; capture the fixed before matrix; and record the required
+owner decisions. Preserve the seven
 excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines outside the two
 explicit physics determinism-transition tasks.
