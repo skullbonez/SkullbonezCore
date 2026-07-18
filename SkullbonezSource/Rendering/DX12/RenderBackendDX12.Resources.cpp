@@ -248,9 +248,7 @@ RenderBackendDX12::CreateFramebuffer( int width, int height, FramebufferColorFor
     auto fbo = std::make_unique<FramebufferDX12>( m_renderDevice,
                                                   m_pipelineOwner,
                                                   m_textureOwner,
-                                                  m_rtvDescriptors,
-                                                  m_dsvDescriptors,
-                                                  m_frameOwner.Descriptors(),
+                                                  m_descriptorHeaps,
                                                   m_frameOwner.DrawGate(),
                                                   m_frameOwner.ResourceRelease(),
                                                   colorFormat );

@@ -186,6 +186,7 @@ DX12_RENDERING_PREFIXES = (
     "BLASDX12",
     "Dx12CachedPsoStore",
     "Dx12DeferredReleaseOwner",
+    "Dx12DescriptorHeaps",
     "Dx12FrameOwner",
     "Dx12RenderGraphExecutor",
     "Dx12TextureRegistry",

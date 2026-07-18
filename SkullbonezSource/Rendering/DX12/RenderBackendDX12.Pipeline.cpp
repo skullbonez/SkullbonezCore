@@ -1023,33 +1023,11 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering,
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
 {
-    const Dx12CpuDescriptorAllocatorStats stats = m_rtvDescriptors.GetStats();
-    if ( stats.used >= stats.capacity )
-    {
-        // Invariant: RTV rows are fixed backend capacity and must be budgeted
-        // before render-target creation starts consuming them.
-        SB_FATAL( "RenderBackendDX12",
-                  "DX12 RTV heap exhausted. heap=%s used=%u capacity=%u",
-                  stats.heapName ? stats.heapName : "unknown",
-                  stats.used,
-                  stats.capacity );
-    }
-    return m_rtvDescriptors.Allocate().cpuHandle;
+    return m_descriptorHeaps.AllocateRtv().cpuHandle;
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
 {
-    const Dx12CpuDescriptorAllocatorStats stats = m_dsvDescriptors.GetStats();
-    if ( stats.used >= stats.capacity )
-    {
-        // Invariant: DSV rows are fixed backend capacity and must be budgeted
-        // before depth-target creation starts consuming them.
-        SB_FATAL( "RenderBackendDX12",
-                  "DX12 DSV heap exhausted. heap=%s used=%u capacity=%u",
-                  stats.heapName ? stats.heapName : "unknown",
-                  stats.used,
-                  stats.capacity );
-    }
-    return m_dsvDescriptors.Allocate().cpuHandle;
+    return m_descriptorHeaps.AllocateDsv().cpuHandle;
 }

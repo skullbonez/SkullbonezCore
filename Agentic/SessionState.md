@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 1 / 18 live tasks; 6%. |
+| Active/future progress | 2 / 18 live tasks; 11%. |
 | Last broad local gate | Scene round-2 S6 `validate_full` passed in 143.261s: 291/291 tests, 21,455/21,455 assertions, and every coverage floor passed; Automation replay/prediction smoke passed; DX12 reported zero validation errors with committed captures accepted; and physics matched byte-exact. |
-| Validation for current edits | DX12 D0 is documentation-only; no repository validation required. The preceding S6 full and sole replay visual-fidelity gates remain the last runtime evidence. |
+| Validation for current edits | DX12 D1 project filters passed at 730/730; `validate_fast` passed 291/291 tests and 21,455/21,455 assertions; `validate_dx12_renderer` passed in 52.978 s with zero InfoQueue errors and committed captures accepted; bounded graphics stress ran crash-free for 61.395 s. No baseline or golden changed. |
 
 ## Live Queue
 
@@ -28,9 +28,12 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
      no baseline or golden refresh. Closure evidence:
      `Agentic/Reports/2026-07-18/scene-controller-round-2-closure.md`. Remaining
      binding order: DX12 backend ownership D0-D7, naming/identity N0-N4, then
-     small-findings H0-H4. DX12 D0 ratified the complete private-state map,
-     retained top-level sequencing at the composition root, and named five
-     concrete owners. Next action: D1 `Dx12DescriptorHeaps` extraction.
+     small-findings H0-H4. DX12 D0 ratified the complete private-state map.
+     D1 moved all descriptor heaps, allocators, published output handles, and
+     typed row operations into `Dx12DescriptorHeaps`; the frame owner retains
+     only covering-fence authority, all mandatory gates passed, and no raw heap
+     or allocator accessor remains. Next action: D2 `Dx12BackbufferCapture`
+     extraction.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -393,9 +396,9 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): three live plans,
 
 ## Next Handoff
 
-Round-7 scene decomposition is complete at 7/7 and DX12 D0 is complete at 1/8.
-Continue immediately with D1 and extract `Dx12DescriptorHeaps` according to the
-ratified census. Preserve the seven excluded render consumer interfaces and
-`FRAME_COUNT = 2`. Every DX12 source change requires the mapped renderer gate
-and at least the standard bounded graphics-stress proof. Do not regenerate
+Round-7 scene decomposition is complete at 7/7 and DX12 D0-D1 are complete at
+2/8. Continue immediately with D2 and extract `Dx12BackbufferCapture` according
+to the ratified census. Preserve the seven excluded render consumer interfaces
+and `FRAME_COUNT = 2`. Every DX12 source change requires the mapped renderer
+gate and at least the standard bounded graphics-stress proof. Do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines.

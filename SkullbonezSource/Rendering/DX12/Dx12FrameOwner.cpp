@@ -39,9 +39,12 @@ Related:
 using namespace SkullbonezCore::Rendering;
 namespace Runtime = SkullbonezCore::Runtime;
 
-Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures )
-    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_drawGate( *this ),
-      m_uploadReservations( *this ), m_resourceRelease( *this )
+Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device,
+                                Dx12PipelineOwner& pipeline,
+                                Dx12TextureOwner& textures,
+                                Dx12DescriptorHeaps& descriptors )
+    : m_device( device ), m_pipeline( pipeline ), m_textures( textures ), m_descriptors( descriptors ),
+      m_drawGate( *this ), m_uploadReservations( *this ), m_resourceRelease( *this )
 {
 }
 
@@ -77,7 +80,6 @@ void Dx12FrameOwner::ResetAfterShutdown()
     }
     m_allocatorIndex = 0;
     m_frameIndex = 0;
-    m_srvHeap = nullptr;
     m_backBufferAccess = RenderGraphResourceAccess::Present;
     CancelPendingConstantUpload();
     m_uploadFlushCount = 0;
@@ -137,8 +139,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::EnsureOpen()
     {
         return result;
     }
-    ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
-    m_device.CommandList()->SetDescriptorHeaps( 1, heaps );
+    m_descriptors.Bind( m_device.CommandList() );
     m_device.CommandList()->SetGraphicsRootSignature( m_pipeline.RootSignature() );
     m_uploads.ResetFrame( m_allocatorIndex );
     m_descriptors.ResetFrame( m_allocatorIndex );
@@ -451,8 +452,7 @@ SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushUploadBuffer()
         RestoreProfilerAfterSubmit( profilerDepth );
         return result;
     }
-    ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
-    m_device.CommandList()->SetDescriptorHeaps( 1, heaps );
+    m_descriptors.Bind( m_device.CommandList() );
     m_device.CommandList()->SetGraphicsRootSignature( m_pipeline.RootSignature() );
     m_uploads.ResetFrame( m_allocatorIndex );
     m_descriptors.ResetFrame( m_allocatorIndex );
@@ -766,7 +766,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource, UINT descriptorIn
 
 void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
                                      UINT descriptorIndex,
-                                     Dx12CpuDescriptorAllocator& cpuAllocator,
+                                     Dx12CpuDescriptorKind cpuKind,
                                      UINT cpuDescriptorIndex )
 {
     if ( !resource )
@@ -777,7 +777,7 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
         }
         if ( cpuDescriptorIndex != UINT_MAX )
         {
-            cpuAllocator.Free( cpuDescriptorIndex );
+            m_descriptors.FreeCpu( cpuKind, cpuDescriptorIndex );
         }
         return;
     }
@@ -801,11 +801,11 @@ void Dx12FrameOwner::RetireResource( ID3D12Resource* resource,
         }
         if ( cpuDescriptorIndex != UINT_MAX )
         {
-            cpuAllocator.Free( cpuDescriptorIndex );
+            m_descriptors.FreeCpu( cpuKind, cpuDescriptorIndex );
         }
         return;
     }
-    m_retirement.Quarantine( resource, descriptorIndex, &cpuAllocator, cpuDescriptorIndex );
+    m_retirement.Quarantine( resource, descriptorIndex, cpuKind, cpuDescriptorIndex );
 }
 
 
@@ -928,10 +928,10 @@ void Dx12ResourceRelease::Retire( ID3D12Resource* resource, UINT descriptorIndex
 
 void Dx12ResourceRelease::Retire( ID3D12Resource* resource,
                                   UINT descriptorIndex,
-                                  Dx12CpuDescriptorAllocator& cpuAllocator,
+                                  Dx12CpuDescriptorKind cpuKind,
                                   UINT cpuDescriptorIndex )
 {
-    m_owner.RetireResource( resource, descriptorIndex, cpuAllocator, cpuDescriptorIndex );
+    m_owner.RetireResource( resource, descriptorIndex, cpuKind, cpuDescriptorIndex );
 }
 
 

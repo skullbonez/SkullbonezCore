@@ -1,7 +1,7 @@
 # DX12 Backend Ownership Decomposition — Retire The Last Laundered God Class
 
 Date: 2026-07-18
-Status: Active — 1/8 tasks
+Status: Active — 2/8 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Rendering/DX12/*`, `Rendering/I*.h` consumers,
 project filters
@@ -72,7 +72,7 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   per-cluster fence/lifetime invariants that must move with the state.
   Owner ratifies map and branch. Evidence: dated census under
   `Agentic/Reports/`. Gate: none (documentation).
-- [ ] D1 — Descriptor ownership owner. Move the RTV/DSV/SRV heaps, staging
+- [x] D1 — Descriptor ownership owner. Move the RTV/DSV/SRV heaps, staging
   heap, descriptor sizes, static/transient SRV allocation, and the
   CPU-descriptor allocators behind one concrete descriptor owner that
   enforces the fence-lifetime rule internally. Gate: renderer + stress.
@@ -131,6 +131,21 @@ rule 10, with command, measured runtime, and exit evidence recorded.
   invariant that moves with each cluster is recorded in
   `../../Reports/2026-07-18/dx12-backend-owner-census.md`. D0 is
   documentation-only, so no repository validation was required.
+- D1 evidence (2026-07-18): `Dx12DescriptorHeaps` now owns all four raw heaps,
+  fixed capacities, RTV/DSV/SRV row allocators, stable back-buffer RTVs, and
+  the main DSV. Callers use typed allocation, publication, binding, reset, and
+  retirement operations; no raw heap or allocator accessor remains. The frame
+  owner retains only the covering-fence proof and routes retired CPU rows back
+  by `Dx12CpuDescriptorKind`, while framebuffers borrow the single concrete
+  descriptor owner instead of three allocator aliases. The seven retained
+  consumer interfaces are byte-identical and `FRAME_COUNT` remains 2. Comment
+  audit: `../../Reports/2026-07-18/dx12-backend-d1-comment-audit.md`, 13/13
+  checked with none deferred. Final gates: project filters passed with 730/730
+  items; `validate_fast` passed formatting, Profile build, and 291/291 tests
+  with 21,455/21,455 assertions; `validate_dx12_renderer` passed in 52.978 s
+  with zero InfoQueue errors and all committed captures accepted; and
+  `run_graphics_stress.bat 1` ran crash-free for 61.395 s. No baseline,
+  golden, screenshot, or coverage-floor file changed.
 
 ## Acceptance
 

@@ -8,8 +8,9 @@ Summary:
   RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
   texture residency and binding state, Dx12PipelineOwner retains the ordinary
   raster recipe, Dx12GeometryOwner retains bounded geometry resources, and
-  Dx12RaytracingOwner retains the optional reflection path. The private frame
-  epoch and retirement owners live in Dx12FrameOwner.h.
+  Dx12RaytracingOwner retains the optional reflection path. Dx12DescriptorHeaps
+  owns every descriptor table and row allocator, while the private frame epoch
+  and retirement owners live in Dx12FrameOwner.h.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -76,6 +77,7 @@ Related:
 #include "RenderDeviceDX12.h"
 #include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
+#include "Dx12DescriptorHeaps.h"
 #include "Dx12FrameOwner.h"
 #include "BLASDX12.h"
 #include "TLASDX12.h"
@@ -562,7 +564,7 @@ class Dx12RaytracingOwner
 
     Dx12RaytracingSetupOutcome BeginSetup( ID3D12Device* device,
                                            ID3D12GraphicsCommandList* commandList,
-                                           Dx12DescriptorAllocator& descriptors,
+                                           Dx12DescriptorHeaps& descriptors,
                                            int renderWidth,
                                            int renderHeight,
                                            uint64_t terrainVBVA,
@@ -575,8 +577,7 @@ class Dx12RaytracingOwner
     void AbortSetup( const SkullbonezCore::Core::SbResult& failure );
     SkullbonezCore::Core::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
     Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device,
-                                                       ID3D12DescriptorHeap* shaderVisibleHeap,
-                                                       Dx12DescriptorAllocator& descriptors,
+                                                       Dx12DescriptorHeaps& descriptors,
                                                        const Dx12TextureOwner& textures,
                                                        const float* invViewProj,
                                                        const float* cameraPos,
@@ -593,7 +594,7 @@ class Dx12RaytracingOwner
     SkullbonezCore::Core::SbResult CreateRootSignature( ID3D12Device* device );
     SkullbonezCore::Core::SbResult CreatePipeline();
     SkullbonezCore::Core::SbResult
-    CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorAllocator& descriptors, int width, int height );
+    CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorHeaps& descriptors, int width, int height );
     bool m_supported = false;
     SkullbonezCore::Core::SbResult m_featureResult = SkullbonezCore::Core::SbResult::Success();
     ID3D12Device5* m_device5 = nullptr;
@@ -652,10 +653,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // upload arena, transient descriptors, and fence value so the CPU never
     // overwrites memory or descriptor rows still being read by the GPU.
     static constexpr int FRAME_COUNT = Dx12FrameOwner::FRAME_COUNT;
-    static const UINT MAX_RTV_DESCRIPTORS = 32;
-    static const UINT MAX_DSV_DESCRIPTORS = 16;
-    static const UINT MAX_STATIC_SRVS = 128;
-    static const UINT MAX_TRANSIENT_SRVS = 2048;                   // per frame allocator
     // Replay/debug geometry is owner-bounded before it reaches this arena. A
     // steady-phase overflow drops that draw; cold lifecycle/capture work may drain.
     // Capacity: 32 MiB per frame means two arenas reserve 64 MiB total. Raising
@@ -691,6 +688,9 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // resolves through that owner so partial initialization, shutdown, or a
     // future device recreation cannot leave backend-side aliases dangling.
     Dx12RenderDevice m_renderDevice;
+    // Lifetime: heaps and row allocators form one device epoch and outlive the
+    // frame owner that borrows them for fence-proven reuse.
+    Dx12DescriptorHeaps m_descriptorHeaps;
     Dx12FrameOwner m_frameOwner;
     ID3D12Device* Device() const
     {
@@ -706,38 +706,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     }
 
     uint64_t m_recreationGeneration = 0;                           // Advances only after complete resize publication.
-
-    // Descriptor heaps are descriptor tables, not texture arrays.
-    //
-    // Each heap stores one kind of "view" record:
-    //
-    // - RTV: Render Target View. The GPU can write color pixels through it.
-    // - DSV: Depth Stencil View. The GPU can read/write depth and stencil.
-    // - SRV: Shader Resource View. Shaders can read textures/buffers through it.
-    // - UAV: Unordered Access View. Compute/raytracing shaders can write through it.
-    //
-    // RTV and DSV heaps are CPU-only descriptor tables. Static SRV/UAV rows are
-    // mirrored at identical shader-visible indices for bindless raster access;
-    // the separate transient range still obeys per-frame fence lifetime for
-    // compute and raytracing descriptor tables. Output rows still
-    // need named row allocation so the renderer can report usage and fail with
-    // useful heap/capacity diagnostics instead of silently walking past the end
-    // of a descriptor table.
-    ID3D12DescriptorHeap* m_rtvHeap = nullptr;
-    ID3D12DescriptorHeap* m_dsvHeap = nullptr;
-    ID3D12DescriptorHeap* m_srvHeap = nullptr;                     // GPU-visible table shaders can read during draws/dispatches.
-    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr;              // CPU-only table holding persistent descriptor templates.
-    UINT m_rtvDescSize = 0;
-    UINT m_dsvDescSize = 0;
-    UINT m_srvDescSize = 0;
-    D3D12_CPU_DESCRIPTOR_HANDLE m_backBufferRTVs[FRAME_COUNT] = {};
-    D3D12_CPU_DESCRIPTOR_HANDLE m_mainDSV = {};
-
-    // RTV/DSV descriptor allocators reserve CPU-only table rows. They do not
-    // create the render target or depth texture; they reserve the row where
-    // CreateRenderTargetView/CreateDepthStencilView writes the binding record.
-    Dx12CpuDescriptorAllocator m_rtvDescriptors;
-    Dx12CpuDescriptorAllocator m_dsvDescriptors;
 
     // First DX12 shader-visible descriptor extraction point:
     //
@@ -813,12 +781,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void TryConsumeGpuTimerReadback( bool waitForFence );
     SkullbonezCore::Core::SbResult CreateDepthStencil( int w, int h );
     SkullbonezCore::Core::SbResult CreateDepthStencilResource( int w, int h, ID3D12Resource*& outResource );
-    void PublishDepthStencilView( ID3D12Resource* resource );
-    UINT AllocateTransientSRV();
-    UINT AllocateTransientSRVRange( UINT count );
-    D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
-    D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle( UINT index );
-    D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
     bool TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.

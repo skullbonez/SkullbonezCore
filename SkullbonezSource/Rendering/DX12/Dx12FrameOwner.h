@@ -6,8 +6,9 @@ Purpose:
 Summary:
   Dx12FrameOwner owns command recording, submission, allocator/upload reuse,
   back-buffer state, profiler suspension, and deferred release for one bounded
-  two-frame lifecycle. Restricted capability views expose only draw, upload,
-  or retirement operations to sibling renderer owners.
+  two-frame lifecycle. It borrows Dx12DescriptorHeaps so descriptor rows reset
+  and retire only when this owner proves their covering fence. Restricted
+  capability views expose only draw, upload, or retirement operations.
 
 Glossary:
   Recording epoch: One reusable command-list lifetime from successful Reset to Close.
@@ -17,7 +18,7 @@ Glossary:
 
 Invariants:
   - FRAME_COUNT remains two unless profiling explicitly justifies added queued latency.
-  - Allocators, upload bytes, resources, and descriptor rows are never reused before their covering fence.
+  - Allocators, upload bytes, resources, and borrowed descriptor rows are never reused before their covering fence.
   - The first recording/device failure is sticky until a new device lifecycle resets the owner.
   - Capability objects cannot reach unrelated backend state.
 
@@ -32,6 +33,7 @@ Related:
 #include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderBackendDX12.PipelineState.h"
 #include "RenderDeviceDX12.h"
+#include "Dx12DescriptorHeaps.h"
 #include "MeshDX12.h"
 #include "../RenderGraph.h"
 
@@ -55,8 +57,8 @@ struct InstancedMeshDX12;
 struct DeferredResourceReleaseDX12
 {
     ID3D12Resource* resource = nullptr;
-    UINT staticDescriptorIndex = UINT_MAX;                        // Optional persistent row released by the same covering fence.
-    Dx12CpuDescriptorAllocator* cpuDescriptorAllocator = nullptr; // Optional RTV/DSV allocator sharing the fence proof.
+    UINT staticDescriptorIndex = UINT_MAX;                                 // Optional persistent row released by the same covering fence.
+    Dx12CpuDescriptorKind cpuDescriptorKind = Dx12CpuDescriptorKind::None; // Typed route back to the descriptor owner.
     UINT cpuDescriptorIndex = UINT_MAX;
     UINT64 fenceValue = 0;
     bool fenceAssigned = false;
@@ -73,12 +75,12 @@ class Dx12DeferredReleaseOwner
     static constexpr size_t MAX_PENDING_RETIREMENTS = 512;
     void Quarantine( ID3D12Resource* resource,
                      UINT descriptorIndex = UINT_MAX,
-                     Dx12CpuDescriptorAllocator* cpuAllocator = nullptr,
+                     Dx12CpuDescriptorKind cpuKind = Dx12CpuDescriptorKind::None,
                      UINT cpuDescriptorIndex = UINT_MAX );
     void QuarantineStaticDescriptor( UINT descriptorIndex );
     void AssignFence( UINT64 fenceValue );
     void ReleaseCompleted( Dx12RenderDevice& device,
-                           Dx12DescriptorAllocator& descriptors,
+                           Dx12DescriptorHeaps& descriptors,
                            Dx12SubmittedWorkState& submittedWork,
                            bool releaseUnfenced );
     bool Empty() const;
@@ -146,10 +148,8 @@ class Dx12ResourceRelease
     }
     void Retire( ID3D12Resource* resource );
     void Retire( ID3D12Resource* resource, UINT descriptorIndex );
-    void Retire( ID3D12Resource* resource,
-                 UINT descriptorIndex,
-                 Dx12CpuDescriptorAllocator& cpuAllocator,
-                 UINT cpuDescriptorIndex );
+    void
+    Retire( ID3D12Resource* resource, UINT descriptorIndex, Dx12CpuDescriptorKind cpuKind, UINT cpuDescriptorIndex );
     void RetireStaticDescriptor( UINT descriptorIndex );
 
   private:
@@ -171,7 +171,10 @@ class Dx12FrameOwner
     static constexpr int FRAME_COUNT = 2;
     static constexpr int PROFILER_STACK_CAPACITY = 64;
 
-    Dx12FrameOwner( Dx12RenderDevice& device, Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures );
+    Dx12FrameOwner( Dx12RenderDevice& device,
+                    Dx12PipelineOwner& pipeline,
+                    Dx12TextureOwner& textures,
+                    Dx12DescriptorHeaps& descriptors );
 
     Dx12DrawGate& DrawGate()
     {
@@ -260,10 +263,6 @@ class Dx12FrameOwner
     }
     void ResetForDevice();
     void ResetAfterShutdown();
-    void PublishSrvHeap( ID3D12DescriptorHeap* heap )
-    {
-        m_srvHeap = heap;
-    }
     ID3D12Resource*& RenderTarget( UINT index )
     {
         return m_renderTargets[index];
@@ -298,11 +297,11 @@ class Dx12FrameOwner
     {
         m_backBufferAccess = access;
     }
-    Dx12DescriptorAllocator& Descriptors()
+    Dx12DescriptorHeaps& Descriptors()
     {
         return m_descriptors;
     }
-    const Dx12DescriptorAllocator& Descriptors() const
+    const Dx12DescriptorHeaps& Descriptors() const
     {
         return m_descriptors;
     }
@@ -318,7 +317,7 @@ class Dx12FrameOwner
     void RetireResource( ID3D12Resource* resource, UINT descriptorIndex );
     void RetireResource( ID3D12Resource* resource,
                          UINT descriptorIndex,
-                         Dx12CpuDescriptorAllocator& cpuAllocator,
+                         Dx12CpuDescriptorKind cpuKind,
                          UINT cpuDescriptorIndex );
     void RetireStaticDescriptor( UINT descriptorIndex );
     void AssignRetirementFence( UINT64 fenceValue )
@@ -366,18 +365,17 @@ class Dx12FrameOwner
     Dx12RenderDevice& m_device;
     Dx12PipelineOwner& m_pipeline;
     Dx12TextureOwner& m_textures;
+    Dx12DescriptorHeaps& m_descriptors;
     Dx12CommandRecordingState m_recording;
     Dx12SubmittedWorkState m_submittedWork;
     Dx12DeviceHealthState m_deviceHealth;
     Dx12FaultInjectionState m_faultInjection;
     Dx12PlatformProfilerGpuStackState m_profilerStackState;
     std::array<Dx12PlatformProfilerGpuScopeDX12, PROFILER_STACK_CAPACITY> m_profilerScopes = {};
-    Dx12DescriptorAllocator m_descriptors;
     Dx12FrameUploadSystem m_uploads;
     Dx12DeferredReleaseOwner m_retirement;
     ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
     UINT64 m_frameFenceValues[FRAME_COUNT] = {};
-    ID3D12DescriptorHeap* m_srvHeap = nullptr;
     UINT m_allocatorIndex = 0;
     UINT m_frameIndex = 0;
     RenderGraphResourceAccess m_backBufferAccess = RenderGraphResourceAccess::Present;

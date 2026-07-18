@@ -1,0 +1,99 @@
+/*
+File: SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.h
+Purpose:
+  Owns every DX12 descriptor heap, row allocator, and published output handle.
+
+Summary:
+  Descriptor storage is one device-epoch domain. This owner creates and names
+  the RTV, DSV, shader-visible, and staging heaps; allocates their rows; and
+  keeps per-frame transient reuse behind the covering-fence boundary.
+
+Glossary:
+  Static row: Persistent SRV/UAV identity copied from staging to the same
+    shader-visible index.
+  Transient row: Per-frame shader-visible row reusable only after that frame's
+    fence completes.
+  Output row: CPU-only RTV or DSV record used by the output-merger stage.
+
+Invariants:
+  - Heap publication is all-or-nothing for one device epoch.
+  - Static and CPU output rows return only after covering-fence retirement.
+  - Transient rows reset only for the allocator index whose fence completed.
+  - FRAME_COUNT remains owned by Dx12FrameOwner and is supplied at Init.
+
+Related:
+  - SkullbonezSource/Rendering/DX12/Dx12DescriptorHeaps.cpp
+  - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
+  - Agentic/Reports/2026-07-18/dx12-backend-owner-census.md
+*/
+#pragma once
+
+#include "RenderDeviceDX12.h"
+
+#include <array>
+#include <cstdint>
+
+namespace SkullbonezCore
+{
+namespace Rendering
+{
+enum class Dx12CpuDescriptorKind : uint8_t
+{
+    None,
+    Rtv,
+    Dsv
+};
+
+class Dx12DescriptorHeaps
+{
+  public:
+    static constexpr UINT MAX_RTV_DESCRIPTORS = 32;
+    static constexpr UINT MAX_DSV_DESCRIPTORS = 16;
+    static constexpr UINT MAX_STATIC_SRVS = 128;
+    static constexpr UINT MAX_TRANSIENT_SRVS = 2048;
+    static constexpr UINT MAX_FRAME_COUNT = 3;
+
+    SkullbonezCore::Core::SbResult Init( ID3D12Device* device, UINT frameCount );
+    void Shutdown();
+    void ResetFrame( UINT frameIndex );
+
+    UINT AllocateStatic();
+    UINT AllocateTransient();
+    UINT AllocateTransientRange( UINT count );
+    void FreeStatic( UINT index );
+    Dx12DescriptorAllocatorStats GetStats() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE StagingCpuHandle( UINT index ) const;
+    D3D12_CPU_DESCRIPTOR_HANDLE ShaderVisibleCpuHandle( UINT index ) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE ShaderVisibleGpuHandle( UINT index ) const;
+    void PublishStaticDescriptor( ID3D12Device* device, UINT index ) const;
+    void Bind( ID3D12GraphicsCommandList* commandList ) const;
+
+    Dx12CpuDescriptorAllocation AllocateRtv();
+    Dx12CpuDescriptorAllocation AllocateDsv();
+    void FreeCpu( Dx12CpuDescriptorKind kind, UINT index );
+    Dx12CpuDescriptorAllocatorStats RtvStats() const;
+    Dx12CpuDescriptorAllocatorStats DsvStats() const;
+
+    void PublishBackBufferRtv( ID3D12Device* device, UINT frameIndex, ID3D12Resource* resource );
+    void RepublishBackBufferRtv( ID3D12Device* device, UINT frameIndex, ID3D12Resource* resource ) const;
+    D3D12_CPU_DESCRIPTOR_HANDLE BackBufferRtv( UINT frameIndex ) const;
+    void PublishMainDsv( ID3D12Device* device, ID3D12Resource* resource );
+    D3D12_CPU_DESCRIPTOR_HANDLE MainDsv() const
+    {
+        return m_mainDsv;
+    }
+
+  private:
+    ID3D12DescriptorHeap* m_rtvHeap = nullptr;
+    ID3D12DescriptorHeap* m_dsvHeap = nullptr;
+    ID3D12DescriptorHeap* m_srvHeap = nullptr;
+    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr;
+    Dx12CpuDescriptorAllocator m_rtvRows;
+    Dx12CpuDescriptorAllocator m_dsvRows;
+    Dx12DescriptorAllocator m_srvRows;
+    std::array<D3D12_CPU_DESCRIPTOR_HANDLE, MAX_FRAME_COUNT> m_backBufferRtvs = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_mainDsv = {};
+    UINT m_frameCount = 0;
+};
+} // namespace Rendering
+} // namespace SkullbonezCore

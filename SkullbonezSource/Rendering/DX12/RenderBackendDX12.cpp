@@ -182,7 +182,8 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
 // --- Backend Setup Entry Point ---
 
 
-RenderBackendDX12::RenderBackendDX12() : m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner )
+RenderBackendDX12::RenderBackendDX12()
+    : m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps )
 {
 }
 
@@ -202,9 +203,9 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
         return stats;
     }
 
-    const Dx12CpuDescriptorAllocatorStats rtvStats = m_rtvDescriptors.GetStats();
-    const Dx12CpuDescriptorAllocatorStats dsvStats = m_dsvDescriptors.GetStats();
-    const Dx12DescriptorAllocatorStats srvStats = m_frameOwner.Descriptors().GetStats();
+    const Dx12CpuDescriptorAllocatorStats rtvStats = m_descriptorHeaps.RtvStats();
+    const Dx12CpuDescriptorAllocatorStats dsvStats = m_descriptorHeaps.DsvStats();
+    const Dx12DescriptorAllocatorStats srvStats = m_descriptorHeaps.GetStats();
     stats.rtvDescriptorsUsed = rtvStats.used;
     stats.rtvDescriptorsCapacity = rtvStats.capacity;
     stats.dsvDescriptorsUsed = dsvStats.used;
@@ -470,9 +471,9 @@ bool RenderBackendDX12::ExecuteGraphUavBarrier( const char* passName,
 
 void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
 {
-    const Dx12CpuDescriptorAllocatorStats rtvStats = m_rtvDescriptors.GetStats();
-    const Dx12CpuDescriptorAllocatorStats dsvStats = m_dsvDescriptors.GetStats();
-    const Dx12DescriptorAllocatorStats descriptorStats = m_frameOwner.Descriptors().GetStats();
+    const Dx12CpuDescriptorAllocatorStats rtvStats = m_descriptorHeaps.RtvStats();
+    const Dx12CpuDescriptorAllocatorStats dsvStats = m_descriptorHeaps.DsvStats();
+    const Dx12DescriptorAllocatorStats descriptorStats = m_descriptorHeaps.GetStats();
     UINT64 uploadPeakBytes = 0;
     UINT64 uploadCapacityBytes = 0;
     UINT64 uploadCategoryPeakBytes[RENDER_UPLOAD_CATEGORY_COUNT] = {};
@@ -742,7 +743,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                 Device()->CreateShaderResourceView( slot->resource,
                                                     &srvDesc,
                                                     GetSRVStagingCpuHandle( slot->srvIndex ) );
-                m_frameOwner.Descriptors().PublishStaticDescriptor( Device(), slot->srvIndex );
+                m_descriptorHeaps.PublishStaticDescriptor( Device(), slot->srvIndex );
             }
             if ( desc.descriptors.unorderedAccess )
             {
@@ -754,7 +755,7 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
                                                      nullptr,
                                                      &uavDesc,
                                                      GetSRVStagingCpuHandle( slot->uavIndex ) );
-                m_frameOwner.Descriptors().PublishStaticDescriptor( Device(), slot->uavIndex );
+                m_descriptorHeaps.PublishStaticDescriptor( Device(), slot->uavIndex );
             }
             ++m_graphTransientStats.createdThisCompile;
         }
@@ -1033,43 +1034,13 @@ uint8_t* RenderBackendDX12::GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr )
 
 UINT RenderBackendDX12::AllocateStaticSRV()
 {
-    return m_frameOwner.Descriptors().AllocateStatic();
-}
-
-
-UINT RenderBackendDX12::AllocateTransientSRV()
-{
-    return m_frameOwner.Descriptors().AllocateTransient();
-}
-
-
-UINT RenderBackendDX12::AllocateTransientSRVRange( UINT count )
-{
-    return m_frameOwner.Descriptors().AllocateTransientRange( count );
+    return m_descriptorHeaps.AllocateStatic();
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetSRVStagingCpuHandle( UINT index )
 {
-    return m_frameOwner.Descriptors().StagingCpuHandle( index );
-}
-
-
-D3D12_GPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetSRVGpuHandle( UINT index )
-{
-    return m_frameOwner.Descriptors().ShaderVisibleGpuHandle( index );
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetRTVHandle( UINT index )
-{
-    return m_rtvDescriptors.CpuHandle( index );
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetDSVHandle( UINT index )
-{
-    return m_dsvDescriptors.CpuHandle( index );
+    return m_descriptorHeaps.StagingCpuHandle( index );
 }
 
 
@@ -1148,101 +1119,15 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // long-lived static rows separate from short-lived per-frame rows so the CPU
     // does not overwrite a row while an in-flight command list still points at it.
 
-    // Concept: create the three descriptor tables used by this backend.
-    //
-    // A descriptor heap is storage for descriptor rows. The row describes a
-    // resource; it does not own the resource. RTV and DSV rows are CPU-only
-    // because the output-merger stage receives CPU descriptor handles directly.
-    // SRV/CBV/UAV rows need a shader-visible heap because shaders follow GPU
-    // descriptor handles at draw/dispatch time.
-    //
-    // This first heap holds RTV rows: swap-chain back buffers and FBO color
-    // targets that the GPU can write color pixels into.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
+    // Concept: the composition root starts one all-or-nothing descriptor epoch;
+    // heap creation, capacities, row allocators, and published handles stay in
+    // the concrete owner rather than being republished as backend fields.
+    const SkullbonezCore::Core::SbResult descriptorResult = m_descriptorHeaps.Init( Device(), FRAME_COUNT );
+    if ( !descriptorResult.ok )
     {
-        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.NumDescriptors = MAX_RTV_DESCRIPTORS;
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-        const SkullbonezCore::Core::SbResult rtvHeapResult =
-            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ),
-                                   "CreateDescriptorHeap (RTV) failed" );
-        if ( !rtvHeapResult.ok )
-        {
-            return rtvHeapResult;
-        }
-        NameDx12Object( m_rtvHeap, L"Skullbonez DX12 RTV Heap" );
-        m_rtvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
-        m_rtvDescriptors.Init( m_rtvHeap, m_rtvDescSize, MAX_RTV_DESCRIPTORS, "RTV" );
+        return descriptorResult;
     }
-    // DSV rows describe depth/stencil targets: the main window depth buffer and
-    // any off-screen depth buffers used by framebuffer passes.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
-    {
-        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.NumDescriptors = MAX_DSV_DESCRIPTORS;
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        const SkullbonezCore::Core::SbResult dsvHeapResult =
-            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ),
-                                   "CreateDescriptorHeap (DSV) failed" );
-        if ( !dsvHeapResult.ok )
-        {
-            return dsvHeapResult;
-        }
-        NameDx12Object( m_dsvHeap, L"Skullbonez DX12 DSV Heap" );
-        m_dsvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
-        m_dsvDescriptors.Init( m_dsvHeap, m_dsvDescSize, MAX_DSV_DESCRIPTORS, "DSV" );
-    }
-    // SRV/CBV/UAV rows are shader-visible. "Shader-visible" means the GPU can
-    // index these rows directly when a shader samples a texture, reads a
-    // constant buffer, or writes a UAV. Transient rows are partitioned per
-    // in-flight frame allocator to avoid rewriting descriptor slots that queued
-    // command lists may still reference.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
-    {
-        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.NumDescriptors = MAX_STATIC_SRVS + ( MAX_TRANSIENT_SRVS * FRAME_COUNT );
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        const SkullbonezCore::Core::SbResult srvHeapResult =
-            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ),
-                                   "CreateDescriptorHeap (SRV) failed" );
-        if ( !srvHeapResult.ok )
-        {
-            return srvHeapResult;
-        }
-        NameDx12Object( m_srvHeap, L"Skullbonez DX12 Shader Visible SRV Heap" );
-        m_srvDescSize = Device()->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-    }
-    {
-        // CPU-only staging heap — used as a persistent "source of truth" for descriptor copies.
-        // We create SRVs here once (at texture load), then copy them to the shader-visible heap
-        // each frame as needed. This avoids descriptor management issues with multi-frame flight.
-        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
-        D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.NumDescriptors = MAX_STATIC_SRVS;
-        desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // CPU-only, can be read for copies
-        const SkullbonezCore::Core::SbResult srvStagingHeapResult =
-            Dx12BackendInitResult( Device()->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ),
-                                   "CreateDescriptorHeap (staging) failed" );
-        if ( !srvStagingHeapResult.ok )
-        {
-            return srvStagingHeapResult;
-        }
-        NameDx12Object( m_srvStagingHeap, L"Skullbonez DX12 SRV Staging Heap" );
-    }
-    // The descriptor allocator receives both heaps:
-    //
-    // - m_srvStagingHeap is CPU-only storage for persistent descriptor templates.
-    // - m_srvHeap is shader-visible storage the GPU can read at draw time.
-    //
-    // Static descriptors occupy the first MAX_STATIC_SRVS rows. Temporary rows
-    // come after that, split into one range per frame allocator so the CPU never
-    // rewrites descriptors still referenced by an in-flight frame.
-    m_frameOwner.Descriptors()
-        .Init( m_srvHeap, m_srvStagingHeap, m_srvDescSize, MAX_STATIC_SRVS, MAX_TRANSIENT_SRVS, FRAME_COUNT );
-    m_frameOwner.PublishSrvHeap( m_srvHeap );
-    m_frameOwner.Descriptors().ResetFrame( m_frameOwner.AllocatorIndex() );
+    m_descriptorHeaps.ResetFrame( m_frameOwner.AllocatorIndex() );
 
     // Cleared ordinary-raster texture slots still need a real descriptor table.
     // BindTexture(0) maps to this typed null SRV so shaders that sample an
@@ -1258,7 +1143,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     nullTextureSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     nullTextureSrv.Texture2D.MipLevels = 1;
     Device()->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( nullTextureSrvIndex ) );
-    m_frameOwner.Descriptors().PublishStaticDescriptor( Device(), nullTextureSrvIndex );
+    m_descriptorHeaps.PublishStaticDescriptor( Device(), nullTextureSrvIndex );
 
     // Lifetime: swap-chain images are replaced on resize, but the engine keeps
     // one stable RTV descriptor row per back buffer index. ResizeBuffers swaps
@@ -1280,10 +1165,9 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
         // Reserve one stable RTV row for each swap-chain buffer. ResizeBuffers
         // replaces the back-buffer resources later, but the descriptor rows stay
         // the same and are simply overwritten with new view records.
-        m_backBufferRTVs[i] = m_rtvDescriptors.Allocate().cpuHandle;
-        Device()->CreateRenderTargetView( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ),
-                                          nullptr,
-                                          m_backBufferRTVs[i] );
+        m_descriptorHeaps.PublishBackBufferRtv( Device(),
+                                                static_cast<UINT>( i ),
+                                                m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) );
     }
 
     // Depth stencil
@@ -1400,7 +1284,8 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
 
     m_pipelineOwner.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
                                  { 0, 0, (LONG)width, (LONG)height } );
-    m_pipelineOwner.SetCurrentTargets( m_backBufferRTVs[m_frameOwner.FrameIndex()], m_mainDSV );
+    m_pipelineOwner.SetCurrentTargets( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ),
+                                       m_descriptorHeaps.MainDsv() );
     // Publication boundary: callers observe dimensions only after every
     // required device, upload, pipeline, and framebuffer resource is ready.
     m_width = width;
@@ -1582,7 +1467,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::CreateDepthStencil( int w, int
 
     ID3D12Resource* oldDepth = m_depthStencil;
     m_depthStencil = candidate;
-    PublishDepthStencilView( m_depthStencil );
+    m_descriptorHeaps.PublishMainDsv( Device(), m_depthStencil );
     if ( oldDepth )
     {
         oldDepth->Release();
@@ -1628,29 +1513,6 @@ RenderBackendDX12::CreateDepthStencilResource( int w, int h, ID3D12Resource*& ou
     }
     NameDx12Object( outResource, L"Skullbonez DX12 Main Depth Stencil" );
     return SkullbonezCore::Core::SbResult::Success();
-}
-
-
-void RenderBackendDX12::PublishDepthStencilView( ID3D12Resource* resource )
-{
-    if ( !resource )
-    {
-        SB_FATAL( "RenderBackendDX12", "Cannot publish a null main depth-stencil resource." );
-    }
-
-    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
-    dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-    if ( m_mainDSV.ptr == 0 )
-    {
-        // The main depth buffer is recreated on resize, but it is always the
-        // same engine concept: "the window depth target." Allocate its DSV row
-        // once, then overwrite that row with the new resource view whenever the
-        // texture is recreated.
-        m_mainDSV = m_dsvDescriptors.Allocate().cpuHandle;
-    }
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
-    Device()->CreateDepthStencilView( resource, &dsvDesc, m_mainDSV );
 }
 
 
@@ -1874,32 +1736,7 @@ void RenderBackendDX12::Shutdown()
             m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) = nullptr;
         }
     }
-    if ( m_srvHeap )
-    {
-        m_srvHeap->Release();
-    }
-    if ( m_srvStagingHeap )
-    {
-        m_srvStagingHeap->Release();
-    }
-    m_frameOwner.Descriptors().Reset();
-    if ( m_dsvHeap )
-    {
-        m_dsvHeap->Release();
-        m_dsvHeap = nullptr;
-    }
-    m_dsvDescriptors.Reset();
-    m_mainDSV = {};
-    if ( m_rtvHeap )
-    {
-        m_rtvHeap->Release();
-        m_rtvHeap = nullptr;
-    }
-    m_rtvDescriptors.Reset();
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        m_backBufferRTVs[i] = {};
-    }
+    m_descriptorHeaps.Shutdown();
     m_renderDevice.Shutdown();
     m_frameOwner.ResetAfterShutdown();
     m_allowTearing = false;
@@ -2029,7 +1866,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
 
     // Advance to next frame's allocator and swap chain buffer.
     m_frameOwner.AdvanceFrameIndices();
-    m_pipelineOwner.SetCurrentColorTarget( m_backBufferRTVs[m_frameOwner.FrameIndex()] );
+    m_pipelineOwner.SetCurrentColorTarget( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ) );
 
     // Charge allocator/upload/descriptor pacing to Present/VsyncWait instead of
     // letting the first render command of the next frame hit this wait mid-frame.
@@ -2305,9 +2142,9 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
                 m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) = restored[i];
                 Device()->CreateRenderTargetView( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ),
                                                   nullptr,
-                                                  m_backBufferRTVs[i] );
+                                                  m_descriptorHeaps.BackBufferRtv( static_cast<UINT>( i ) ) );
             }
-            m_pipelineOwner.SetCurrentColorTarget( m_backBufferRTVs[m_frameOwner.FrameIndex()] );
+            m_pipelineOwner.SetCurrentColorTarget( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ) );
             return transaction.Fail( resizeFailure );
         }
         for ( ID3D12Resource* resource : restored )
@@ -2367,13 +2204,13 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
         NameDx12ObjectIndexed( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ),
                                L"Skullbonez DX12 Swapchain Backbuffer",
                                static_cast<UINT>( i ) );
-        Device()->CreateRenderTargetView( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ),
-                                          nullptr,
-                                          m_backBufferRTVs[i] );
+        m_descriptorHeaps.RepublishBackBufferRtv( Device(),
+                                                  static_cast<UINT>( i ),
+                                                  m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) );
     }
     ID3D12Resource* oldDepth = m_depthStencil;
     m_depthStencil = candidateDepth;
-    PublishDepthStencilView( m_depthStencil );
+    m_descriptorHeaps.PublishMainDsv( Device(), m_depthStencil );
     if ( oldDepth )
     {
         oldDepth->Release();
@@ -2383,7 +2220,8 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
     m_height = height;
     m_pipelineOwner.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
                                  { 0, 0, (LONG)width, (LONG)height } );
-    m_pipelineOwner.SetCurrentTargets( m_backBufferRTVs[m_frameOwner.FrameIndex()], m_mainDSV );
+    m_pipelineOwner.SetCurrentTargets( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ),
+                                       m_descriptorHeaps.MainDsv() );
     ++m_recreationGeneration;
     if ( !transaction.CommitPublished( m_recreationGeneration ) ||
          transaction.PublishedGeneration() != m_recreationGeneration )

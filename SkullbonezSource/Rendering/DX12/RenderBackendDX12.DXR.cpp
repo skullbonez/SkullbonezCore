@@ -348,7 +348,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreatePipeline()
 
 
 SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3D12Device* device,
-                                                                             Dx12DescriptorAllocator& descriptors,
+                                                                             Dx12DescriptorHeaps& descriptors,
                                                                              int width,
                                                                              int height )
 {
@@ -432,7 +432,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3
 
 Dx12RaytracingSetupOutcome Dx12RaytracingOwner::BeginSetup( ID3D12Device* device,
                                                             ID3D12GraphicsCommandList* commandList,
-                                                            Dx12DescriptorAllocator& descriptors,
+                                                            Dx12DescriptorHeaps& descriptors,
                                                             int renderWidth,
                                                             int renderHeight,
                                                             uint64_t terrainVBVA,
@@ -624,7 +624,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
 
     const Dx12RaytracingSetupOutcome setup = m_raytracingOwner.BeginSetup( Device(),
                                                                            CommandList(),
-                                                                           m_frameOwner.Descriptors(),
+                                                                           m_descriptorHeaps,
                                                                            m_width,
                                                                            m_height,
                                                                            terrainVBVA,
@@ -778,8 +778,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::BuildScene( const float* ins
 
 
 Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12Device* device,
-                                                                        ID3D12DescriptorHeap* shaderVisibleHeap,
-                                                                        Dx12DescriptorAllocator& descriptors,
+                                                                        Dx12DescriptorHeaps& descriptors,
                                                                         const Dx12TextureOwner& textures,
                                                                         const float* invViewProj,
                                                                         const float* cameraPos,
@@ -863,8 +862,7 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
     // Bind the shader-visible descriptor heap for DXR (same heap as raster, re-bound after compute).
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setdescriptorheaps
-    ID3D12DescriptorHeap* heaps[] = { shaderVisibleHeap };
-    m_commandList4->SetDescriptorHeaps( 1, heaps );
+    descriptors.Bind( m_commandList4 );
 
     // Bind the root parameters declared in CreateRTRootSignature():
     // [0] TLAS SRV, [1] output UAV table, [2] constants CBV,
@@ -987,8 +985,7 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
                                          skyFrontHandle,
                                          skyBackHandle };
     const Dx12RaytracingDispatchOutcome dispatch = m_raytracingOwner.DispatchReflections( Device(),
-                                                                                          m_srvHeap,
-                                                                                          m_frameOwner.Descriptors(),
+                                                                                          m_descriptorHeaps,
                                                                                           m_textureOwner,
                                                                                           invViewProj,
                                                                                           cameraPos,

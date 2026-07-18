@@ -29,10 +29,10 @@ using namespace SkullbonezCore::Rendering;
 
 void Dx12DeferredReleaseOwner::Quarantine( ID3D12Resource* resource,
                                            UINT descriptorIndex,
-                                           Dx12CpuDescriptorAllocator* cpuAllocator,
+                                           Dx12CpuDescriptorKind cpuKind,
                                            UINT cpuDescriptorIndex )
 {
-    if ( resource || descriptorIndex != UINT_MAX )
+    if ( resource || descriptorIndex != UINT_MAX || cpuKind != Dx12CpuDescriptorKind::None )
     {
         if ( m_pendingCount >= MAX_PENDING_RETIREMENTS )
         {
@@ -44,7 +44,7 @@ void Dx12DeferredReleaseOwner::Quarantine( ID3D12Resource* resource,
         DeferredResourceReleaseDX12 retired;
         retired.resource = resource;
         retired.staticDescriptorIndex = descriptorIndex;
-        retired.cpuDescriptorAllocator = cpuAllocator;
+        retired.cpuDescriptorKind = cpuKind;
         retired.cpuDescriptorIndex = cpuDescriptorIndex;
         m_pending[m_pendingCount++] = retired;
     }
@@ -70,7 +70,8 @@ void Dx12DeferredReleaseOwner::AssignFence( UINT64 fenceValue )
     for ( size_t index = 0; index < m_pendingCount; ++index )
     {
         DeferredResourceReleaseDX12& retired = m_pending[index];
-        if ( ( retired.resource || retired.staticDescriptorIndex != UINT_MAX || retired.cpuDescriptorAllocator ) &&
+        if ( ( retired.resource || retired.staticDescriptorIndex != UINT_MAX ||
+               retired.cpuDescriptorKind != Dx12CpuDescriptorKind::None ) &&
              !retired.fenceAssigned )
         {
             retired.fenceValue = fenceValue;
@@ -81,7 +82,7 @@ void Dx12DeferredReleaseOwner::AssignFence( UINT64 fenceValue )
 
 
 void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
-                                                 Dx12DescriptorAllocator& descriptors,
+                                                 Dx12DescriptorHeaps& descriptors,
                                                  Dx12SubmittedWorkState& submittedWork,
                                                  bool releaseUnfenced )
 {
@@ -102,7 +103,7 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
     {
         DeferredResourceReleaseDX12& retired = m_pending[readIndex];
         const bool empty = retired.resource == nullptr && retired.staticDescriptorIndex == UINT_MAX &&
-                           retired.cpuDescriptorAllocator == nullptr;
+                           retired.cpuDescriptorKind == Dx12CpuDescriptorKind::None;
         const bool canRelease = empty || canReleaseUnfenced ||
                                 ( retired.fenceAssigned && fenceReady && retired.fenceValue <= completedFence );
         if ( canRelease )
@@ -117,10 +118,10 @@ void Dx12DeferredReleaseOwner::ReleaseCompleted( Dx12RenderDevice& device,
                 descriptors.FreeStatic( retired.staticDescriptorIndex );
                 retired.staticDescriptorIndex = UINT_MAX;
             }
-            if ( retired.cpuDescriptorAllocator && retired.cpuDescriptorIndex != UINT_MAX )
+            if ( retired.cpuDescriptorKind != Dx12CpuDescriptorKind::None && retired.cpuDescriptorIndex != UINT_MAX )
             {
-                retired.cpuDescriptorAllocator->Free( retired.cpuDescriptorIndex );
-                retired.cpuDescriptorAllocator = nullptr;
+                descriptors.FreeCpu( retired.cpuDescriptorKind, retired.cpuDescriptorIndex );
+                retired.cpuDescriptorKind = Dx12CpuDescriptorKind::None;
                 retired.cpuDescriptorIndex = UINT_MAX;
             }
             continue;
