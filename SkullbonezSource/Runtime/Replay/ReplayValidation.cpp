@@ -16,12 +16,15 @@ Glossary:
     checkpoint and replays saved timeline events to a target frame.
   Event cursor: Monotonic sequence marker stored on checkpoints so restore can
     resume timeline events without replaying old side effects.
+  Contact presentation output: Bounded solver event rows applied to the render
+    store after each restored physics step.
 
 Invariants:
   - Restore failures report Lane R results or bounded reason strings; they do
     not throw. A rollback failure is a fatal replay invariant.
   - Replay restore uses PhysicsBodyStore and ColliderStore rows as authority.
   - Target restore must keep solver hashes byte-exact against saved v2 hashes.
+  - Target stepping consumes post-step presentation outputs in live-frame order.
 
 Related:
   - SkullbonezSource/Runtime/RunFrame.cpp
@@ -1181,7 +1184,19 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
         context.models.BeginCollisionVisualFrame();
 
         const auto physicsWorldForces = context.world.GetPhysicsWorldForces();
-        context.sceneController.StepPhysics( PHYSICS_FIXED_DT, context.config, physicsWorldForces, context.workerPool );
+        SkullbonezCore::Rendering::RenderInstanceStore& contactPresentation =
+            context.sceneController.MutableRenderInstances();
+        contactPresentation.TickContactFeedback( context.sceneController.SceneEntityCount(), PHYSICS_FIXED_DT );
+        const ScenePhysicsPostStepOutput postStep = context.sceneController.StepPhysics( PHYSICS_FIXED_DT,
+                                                                                         context.config,
+                                                                                         physicsWorldForces,
+                                                                                         context.workerPool );
+        // Replay target stepping consumes the same bounded presentation events
+        // as the live frame so presentation hashes cannot drift by call path.
+        for ( int modelIndex : postStep.fixedContactModelIndices )
+        {
+            contactPresentation.NotifyFixedContact( modelIndex, 0.5f );
+        }
         result.currentFrame = nextFrame;
 
         const ReplayV2SolverHashSample* expectedHash =

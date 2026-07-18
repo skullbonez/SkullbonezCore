@@ -291,6 +291,7 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
                                   RunSceneState& scene,
                                   const Vector3& listenerPosition,
                                   SkullbonezCore::Runtime::SceneController& models,
+                                  SkullbonezCore::Rendering::RenderInstanceStore& contactPresentation,
                                   SkullbonezCore::Core::Profiler* profiler )
 {
 #ifndef _DEBUG
@@ -403,8 +404,8 @@ void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioSe
                 continue;
             }
 
-            models.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
-            models.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
+            contactPresentation.NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
+            contactPresentation.NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
         }
     }
     if ( contactAudio.DebugCountersEnabled() )
@@ -901,7 +902,17 @@ float Run::TickPhysics( double secondsPerFrame,
                                                             m_interaction );
             }
 
-            m_sceneController.StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
+            SkullbonezCore::Rendering::RenderInstanceStore& contactPresentation =
+                m_sceneController.MutableRenderInstances();
+            contactPresentation.TickContactFeedback( m_sceneController.SceneEntityCount(), PHYSICS_FIXED_DT );
+            const ScenePhysicsPostStepOutput postStep =
+                m_sceneController.StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
+            // The physics owner publishes a bounded span; the presentation owner
+            // consumes it before the next step can replace those dense-row facts.
+            for ( int modelIndex : postStep.fixedContactModelIndices )
+            {
+                contactPresentation.NotifyFixedContact( modelIndex, 0.5f );
+            }
             {
                 PROFILE_SCOPED( m_profiler, "Frame/Physics/Step/PresentationCaptureComplete" );
                 m_sceneController.CompletePhysicsStepPresentationCapture();
@@ -981,6 +992,7 @@ void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
                                      m_sceneController.State(),
                                      listenerPosition,
                                      m_sceneController,
+                                     m_sceneController.MutableRenderInstances(),
                                      m_profiler );
     }
     const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
@@ -1324,7 +1336,6 @@ void Run::UpdateLogic( float simulationDt, float cameraDt, float presentationAlp
         (void)m_replayRuntime.ApplyFrameIntent( intent );
     }
 
-    m_sceneController.ApplyWaterHeightControl( m_inputRouter.RuntimeSnapshot().pageDown,
-                                               m_inputRouter.RuntimeSnapshot().pageUp,
-                                               simulationDt );
+    m_sceneController.World().ApplyFluidSurfaceAdjustment( m_inputRouter.RuntimeSnapshot().fluidSurfaceAdjustment,
+                                                           simulationDt );
 }

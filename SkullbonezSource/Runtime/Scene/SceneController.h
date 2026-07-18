@@ -7,9 +7,9 @@ Purpose:
 Summary:
   SceneController owns scene queue, load transactions, frame completion policy,
   camera slots, replaceable terrain, world settings, physics topology, fixed
-  entity records, value-only browser navigation decisions, and the ordered
-  request batch. InGameUI owns browser/override state; the process shell supplies
-  explicit cold-operation owners and sequences returned results.
+  entity records, and the ordered request batch. InGameUI owns browser/override
+  policy; the process shell supplies explicit cold-operation owners and consumes
+  bounded physics outputs at the presentation boundary.
 
 Glossary:
   Scene runtime: Current scene state plus queue navigation data.
@@ -26,6 +26,7 @@ Glossary:
     construction and any required GPU drain succeed.
   Presentation capture: Allocation-free previous/current solver endpoints
     maintained in RenderInstanceStore across fixed physics steps.
+  Post-step output: Bounded solver facts borrowed synchronously by presentation.
 
 Invariants:
   - SceneController owns queue/index bookkeeping, camera/terrain state, world
@@ -37,6 +38,7 @@ Invariants:
   - Queue index lookups must normalize path separators before matching.
   - Scene entity, physics body/collider, and render rows retain the same dense
     count after every successful creation or deletion.
+  - Post-step dense rows never escape the synchronous frame/replay consumer.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntime.h
@@ -131,6 +133,13 @@ struct SceneFrameAdvanceResult
     bool restartSimulationTimerAfterLoad = false;
     // Value request only; validation retains diagnostic rows and printing.
     bool reportMissingRequirements = false;
+};
+struct ScenePhysicsPostStepOutput
+{
+    // Lifetime: the span borrows the physics owner's fixed-capacity event rows
+    // until the next physics step. Dense model rows are valid only for this
+    // synchronous presentation handoff and are never durable scene identity.
+    std::span<const int> fixedContactModelIndices;
 };
 struct SceneDefaultsSaveView
 {
@@ -268,9 +277,6 @@ class SceneController
     }
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
     double GetSceneKineticEnergy();
-    void NotifyFixedContact( int modelIndex, float highlightSeconds );
-    void TickContactHighlights( int modelCount, float deltaSeconds );
-    void NotifyAudioContact( int modelIndex, float highlightSeconds );
     // Runtime-tool edge: ray tools release authored fixed tree props through
     // PhysicsBodyStore; presentation reads the store/render snapshot instead of
     // forcing a per-release model-side body projection.
@@ -297,11 +303,10 @@ class SceneController
     // Executes one deterministic live-scene physics step against the
     // controller-owned model and physics stores. Replay restore may call this
     // same boundary so its hash proof cannot drift from ordinary frame steps.
-    void StepPhysics( float fixedDt,
-                      const SkullbonezCore::Core::EngineConfig& config,
-                      const Physics::PhysicsWorldForces& worldForces,
-                      Threading::WorkerPool& workerPool );
-    void ApplyWaterHeightControl( bool pageDown, bool pageUp, float dt );
+    ScenePhysicsPostStepOutput StepPhysics( float fixedDt,
+                                            const SkullbonezCore::Core::EngineConfig& config,
+                                            const Physics::PhysicsWorldForces& worldForces,
+                                            Threading::WorkerPool& workerPool );
     void EnterInteractiveRun();
     bool CanAutomationQuit() const;
     void MarkInteractiveRunComplete();

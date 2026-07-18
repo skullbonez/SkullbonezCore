@@ -1,22 +1,24 @@
 /*
 File: SkullbonezSource/Runtime/Scene/SceneController.cpp
 Purpose:
-  Implements scene state, physics ownership, navigation, and deferred requests.
+  Implements scene state, physics ownership, lifecycle, and deferred requests.
 
 Summary:
-  Scene state, physics, navigation, completion gates, and deferred intent live
-  behind one controller. Cold load implementation is split into RunScene.cpp,
-  but remains a SceneController transaction with explicit synchronous borrows.
+  Scene state, physics sequencing, completion gates, and deferred intent live
+  behind one controller. A physics step returns bounded post-step facts for
+  presentation consumers instead of mutating render feedback through relays.
 
 Glossary:
   Scene runtime: Mutable per-scene queue, completion, and automation state.
   Scene queue: Ordered list of authored scenes or demo entries to run.
   Request batch: Ordered fixed-capacity copy consumed at one frame checkpoint.
+  Post-step output: Borrowed bounded physics facts consumed before the next step.
 
 Invariants:
   - Controller accessors must preserve the existing SceneRuntime semantics.
   - Interactive scene requests cannot bypass the controller-owned ring.
   - Frame completion returns value-only load/quit/hold intent to the process shell.
+  - Physics post-step spans borrow fixed-capacity rows only until the next step.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneController.h
@@ -46,7 +48,6 @@ namespace Runtime
 namespace
 {
 constexpr double SCENE_PERF_PASS_SECONDS = 2.0;
-constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f; // World meters per second.
 } // namespace
 
 SceneController::SceneController()
@@ -55,17 +56,15 @@ SceneController::SceneController()
 }
 
 
-void SceneController::StepPhysics( float fixedDt,
-                                   const SkullbonezCore::Core::EngineConfig& config,
-                                   const Physics::PhysicsWorldForces& worldForces,
-                                   Threading::WorkerPool& workerPool )
+ScenePhysicsPostStepOutput SceneController::StepPhysics( float fixedDt,
+                                                         const SkullbonezCore::Core::EngineConfig& config,
+                                                         const Physics::PhysicsWorldForces& worldForces,
+                                                         Threading::WorkerPool& workerPool )
 {
-    const int modelCount = SceneEntityCount();
     // Invariant: PhysicsBodyStore is the per-tick body authority. Descriptor
     // sidecars are imported only when topology changes; same-count editor or
     // replay mutations must commit explicitly before this step reads rows.
     RepairPhysicsBodyAndColliderTopology();
-    TickContactHighlights( modelCount, fixedDt );
 
     const char* const* diagnosticNames = nullptr;
     int diagnosticNameCount = 0;
@@ -85,23 +84,7 @@ void SceneController::StepPhysics( float fixedDt,
     m_physics
         .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
 
-    // Why: fixed-contact highlights are presentation feedback, not solver
-    // state. Keeping this edge beside the scene stores makes that split visible.
-    for ( int index : Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) )
-    {
-        NotifyFixedContact( index, 0.5f );
-    }
-}
-
-
-void SceneController::ApplyWaterHeightControl( bool pageDown, bool pageUp, float dt )
-{
-    if ( pageDown == pageUp )
-    {
-        return;
-    }
-    const float direction = pageUp ? 1.0f : -1.0f;
-    m_world.SetFluidSurfaceHeight( m_world.GetFluidSurfaceHeight() + direction * WATER_HEIGHT_CONTROL_SPEED * dt );
+    return ScenePhysicsPostStepOutput{ Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) };
 }
 
 

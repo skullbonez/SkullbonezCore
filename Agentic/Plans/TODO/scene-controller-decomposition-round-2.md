@@ -1,7 +1,7 @@
 # Scene Controller Decomposition Round 2 — Split The Ratified Aggregate
 
 Date: 2026-07-18
-Status: Active — 2/7 tasks
+Status: Active — 3/7 tasks
 Branch: `nightrunner-17th-july`
 Impact area: `SkullbonezSource/Runtime/Scene/*`, `Runtime/RunFrame.cpp`,
 `Runtime/RunInput.cpp`, `Runtime/InputFrame.cpp`, UI navigation consumers,
@@ -80,7 +80,7 @@ owners genuinely participate, not because bags merge.
   `LoadSceneFromBrowserIndex`, and `LoadDemoSceneFromUI` decision logic to
   the UI-owned `SceneNavigationModel`, leaving the scene owner a value-only
   `SceneLoadRequest` submission boundary. Gate: `validate_full`.
-- [ ] S2 — Move the input and audio edges. `ApplyWaterHeightControl`
+- [x] S2 — Move the input and audio edges. `ApplyWaterHeightControl`
   becomes a typed world-settings command issued by the interaction owner
   (no key-name parameters below the input boundary); `NotifyAudioContact` /
   `NotifyFixedContact` become bounded post-step event outputs consumed by
@@ -130,6 +130,24 @@ owners genuinely participate, not because bags merge.
   161.165s: every CPU lane, Automation/replay smoke, DX12 validation and captures,
   and byte-exact physics passed. No baseline or golden was refreshed. Log:
   `TestOutput/validation/agent_logs/scene_round2_s1_validate_full_final_stdout.log`.
+- S2 evidence (2026-07-18): `InputRouter` now emits a typed
+  `FluidSurfaceAdjustment` in world meters per second; `WorldEnvironment`
+  applies it without seeing Page Up/Page Down vocabulary. `StepPhysics` returns
+  the physics owner's fixed-capacity fixed-contact span, while the bounded
+  `ContactAudioService` decisions and solver output are consumed directly by
+  `RenderInstanceStore` in live and replay target order. All three
+  `SceneController` contact relays are deleted. The focused command case passed
+  4/4 assertions, the allocation scan passed with `allowlist_errors=0`, and the
+  touched-file comment audit inspected 12/12 source-bearing files with zero
+  deferred. Final `tools\validate_full.bat` passed in 165.228s (287/287 tests,
+  all coverage floors, Automation/replay smoke, zero DX12 validation errors and
+  accepted captures, byte-exact physics). The single
+  `tools\validate_replay_visual_fidelity.bat` invocation passed in 433.672s with
+  2,401 ticks, 200 moved wall bricks, 187 toppled bricks, one presented cascade,
+  durable saved/loaded proof, and all false-pass controls. No baseline or golden
+  was refreshed. Logs:
+  `TestOutput/validation/agent_logs/scene_round2_s2_validate_full.log` and
+  `TestOutput/validation/agent_logs/scene_round2_s2_replay_visual_fidelity.log`.
 - Round-6 closure evidence
   (`Agentic/Reports/2026-07-17/scene-controller-ownership-closure.md`) is
   the baseline census; contradicting it requires the fresh S0 measurements.

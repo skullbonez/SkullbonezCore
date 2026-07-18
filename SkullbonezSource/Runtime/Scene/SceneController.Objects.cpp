@@ -931,44 +931,6 @@ void SceneController::RefreshRenderInstances( float presentationAlpha )
 }
 
 
-void SceneController::NotifyFixedContact( int modelIndex, float highlightSeconds )
-{
-    if ( modelIndex < 0 || modelIndex >= SceneEntityCount() )
-    {
-        return;
-    }
-
-    // Why: fixed-contact events come from the solver. The presentation timer
-    // should trust the same dense body row instead of reopening legacy
-    // model-side physics state to decide whether a body is fixed.
-    const PhysicsBodyStore& bodyStore = BodyStore();
-    const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
-    if ( body && bodyStore.HotFields().fixed[static_cast<std::size_t>( modelIndex )] != 0u )
-    {
-        m_renderInstanceStore.NotifyFixedContact( modelIndex, highlightSeconds );
-    }
-}
-
-
-void SceneController::TickContactHighlights( int modelCount, float deltaSeconds )
-{
-    // Why: physics owns when contact events happen, while the render store owns
-    // the short feedback timers sampled by later render/debug/audio views.
-    m_renderInstanceStore.TickContactFeedback( modelCount, deltaSeconds );
-}
-
-
-void SceneController::NotifyAudioContact( int modelIndex, float highlightSeconds )
-{
-    if ( modelIndex < 0 || modelIndex >= SceneEntityCount() )
-    {
-        return;
-    }
-
-    m_renderInstanceStore.NotifyAudioContact( modelIndex, highlightSeconds );
-}
-
-
 bool SceneController::ReleaseAttachedFixedTreeParts( int sourceIndex,
                                                      float releaseImpulseStrength,
                                                      const Vector3& seedLinearVelocity,

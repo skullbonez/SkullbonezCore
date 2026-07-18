@@ -1133,6 +1133,9 @@
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h">
       <Filter>Header Files\World</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\World\FluidSurfaceAdjustment.h">
+      <Filter>Header Files\World</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\TestScene.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>

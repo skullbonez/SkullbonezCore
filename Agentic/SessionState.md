@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute the four round-7 plans in the MASTER-PLAN binding order: scene-controller round 2, DX12 backend ownership decomposition, naming/identity debt, small findings hardening. |
-| Active/future progress | 2 / 25 live tasks; 8%. |
-| Last broad local gate | Scene round-2 S1 `validate_full` passed in 161.165s: every CPU lane and coverage floor passed, Automation/replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
-| Validation for current edits | S1 focused navigation cases passed 16/16 assertions; allocation-policy self-test/repository scan and project-filter validation passed; final `validate_full` passed without a baseline or golden refresh. |
+| Active/future progress | 3 / 25 live tasks; 12%. |
+| Last broad local gate | Scene round-2 S2 `validate_full` passed in 165.228s: 287/287 tests and every coverage floor passed, Automation/replay smoke passed, DX12 reported zero validation errors with committed captures accepted, and the 44,401-line physics CSV matched byte-exact. |
+| Validation for current edits | S2 focused command coverage passed 4/4 assertions; allocation and project-filter scans passed; the single replay visual-fidelity invocation passed in 433.672s with all positive and false-pass controls. No baseline or golden refresh. |
 
 ## Live Queue
 
@@ -29,7 +29,9 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
      placed grouping/name queries on `SceneEntityStore`, and selected a const-view
      diagnostics boundary for aggregate memory stats. S1 moved browser, demo,
      and cinematic policy to UI-owned `SceneNavigationModel`; `SceneController`
-     now receives value load requests. Next action: scene S2.
+     now receives value load requests. S2 replaced raw water keys with a typed
+     world-unit command and moved bounded solver/audio contact output consumption
+     directly to `RenderInstanceStore`. Next action: scene S3.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -392,9 +394,10 @@ NOW. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): four plans, 25
 
 ## Next Handoff
 
-Round-7 scene decomposition is active at 2/7. S1 moved browser, demo, and
-cinematic decision logic to UI-owned `SceneNavigationModel`; focused tests and
-the final broad gate passed. Continue S2 by replacing raw water-control key
-semantics with a typed world-settings command and moving contact notifications
-to bounded post-step outputs consumed outside the scene lifecycle owner. Do not
-regenerate behavioral, physics, replay, visual, or screenshot baselines.
+Round-7 scene decomposition is active at 3/7. S2 moved raw water-control keys to
+a typed `FluidSurfaceAdjustment` value and made presentation consume bounded
+physics/audio post-step outputs directly; the broad and one-invocation replay
+visual-fidelity gates passed. Continue S3 by moving grouping/ragdoll queries to
+`SceneEntityStore`, deleting controller relays, and placing aggregate memory
+accounting at the ratified const-view diagnostics boundary. Do not regenerate
+behavioral, physics, replay, visual, or screenshot baselines.

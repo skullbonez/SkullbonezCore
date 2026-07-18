@@ -244,6 +244,7 @@ SCENE_PREFIXES = (
 )
 
 WORLD_PREFIXES = (
+    "FluidSurfaceAdjustment",
     "SkyBox",
     "Terrain",
     "TerrainSupportClassifier",

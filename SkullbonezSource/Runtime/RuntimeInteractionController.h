@@ -14,6 +14,8 @@ Glossary:
   Owner: The tool or subsystem currently allowed to consume world input.
   Gesture: Active pointer operation that owns capture until it ends.
   Physics advance: Per-frame policy that decides whether the physics step runs.
+  World-settings command: Input-owned value in domain units consumed by the
+    concrete world owner after routing completes.
 
 Invariants:
   - RuntimeInteractionTransition is a diff record; callers must compare previous
@@ -23,6 +25,7 @@ Invariants:
     owner that consumes the gesture.
   - Active drag kind, axis, and angular/scale mode exist only in the typed
     gesture; replay and editor payload owners must not mirror them in booleans.
+  - Published world commands contain no physical key names or device handles.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
@@ -31,6 +34,8 @@ Related:
   - Agentic/Reports/2026-07-11/interaction-state-machine-closure-review.md
 */
 #pragma once
+
+#include "../World/FluidSurfaceAdjustment.h"
 
 #include "RuntimeCameraMode.h"
 #include "../Physics/PhysicsHandles.h"
@@ -206,12 +211,13 @@ struct RuntimeInputSnapshot
 {
     RuntimePointerEvent pointer;
     RuntimeInteractionFrameInput frameInput;
+    // Value command issued by the input owner; later frame phases never reopen
+    // Page Up/Page Down key state to decide world behavior.
+    Environment::FluidSurfaceAdjustment fluidSurfaceAdjustment;
     bool appFocused = true;
     bool uiBlocksKeyboard = false;
     bool uiBlocksMouse = false;
     bool enterDown = false; // Replay restore level sampled with this frame.
-    bool pageDown = false;  // Water-height decrease level.
-    bool pageUp = false;    // Water-height increase level.
 };
 
 struct RuntimeInteractionFramePolicy
