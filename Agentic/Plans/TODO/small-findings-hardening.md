@@ -1,7 +1,7 @@
 # Small Findings Hardening — Close The Round-7 Minor Red Flags
 
 Date: 2026-07-18
-Status: Active — 2/5 tasks
+Status: Active — 3/5 tasks
 Branch: `nightrunner-17th-july` (owner-ratified at H0; never directly on `main`)
 Impact area: `Core/LockOrderValidator.*`, `Rendering/DX12/*` (PSO cache
 identity), targeted cast sites across `SkullbonezSource/`, JSON include
@@ -67,7 +67,7 @@ treatment as every other monolith.
   `Instance()` is deleted, not wrapped. Debug/Profile-only behavior and
   zero-cost Release posture are preserved and stated. Gate:
   `validate_fast` plus `validate_perf` (lock-path adjacency).
-- [ ] H2 — Stable PSO cache identity. Replace the `const void*`
+- [x] H2 — Stable PSO cache identity. Replace the `const void*`
   root-signature key field with the H0-ratified stable identity issued by
   the pipeline owner, so root-signature recreation can never alias a stale
   PSO. Gate: `validate_dx12_renderer` + `tools\run_graphics_stress.bat 1`
@@ -121,3 +121,9 @@ treatment as every other monolith.
   the obsolete allocation exception, and clean final fast/perf gates. Comment
   audit: `Agentic/Reports/2026-07-18/small-findings-h1-comment-audit.md`
   (10/10 checked, 0 deferred).
+- H2: `Agentic/Reports/2026-07-18/small-findings-h2-stable-pso-identity.md`
+  records owner-issued monotonic identity, PSO-before-signature teardown, zero
+  raw pointer identity, clean renderer validation, and the bounded one-minute
+  stress proof. Comment audit:
+  `Agentic/Reports/2026-07-18/small-findings-h2-comment-audit.md` (3/3 checked,
+  0 deferred).

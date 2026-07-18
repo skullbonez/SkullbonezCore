@@ -151,10 +151,11 @@ struct InstancedMeshDX12
 // compatible PSOs instead of compiling a new one for every draw.
 struct PSOKey12
 {
-    // Borrowed identity only. The root signature owns the shader binding
-    // contract; bytecode hashes keep recompiled identical shaders from
-    // exploding the cache during scene reload stress.
-    const void* rootSignature;
+    // Stable owner-issued identity only. A COM address may be recycled after
+    // root-signature recreation, so it cannot prove PSO recipe compatibility.
+    // Bytecode hashes keep recompiled identical shaders from exploding the
+    // cache during scene reload stress.
+    std::uint64_t rootSignatureIdentity;
     size_t shaderVSHash;
     size_t shaderPSHash;
     VertexFormat12 format;
@@ -409,6 +410,11 @@ class Dx12PipelineOwner
     std::array<std::uint8_t, ROOT_SIGNATURE_SERIALIZED_CAPACITY> m_rootSignatureSerialized = {};
     size_t m_rootSignatureSerializedSize = 0;
     ID3D12RootSignature* m_rootSignature = nullptr;
+    // Invariant: zero means no published signature. Successful creations take
+    // one monotonically increasing identity from this concrete owner; Shutdown
+    // clears the active identity but never rewinds the issuance sequence.
+    std::uint64_t m_rootSignatureIdentity = 0;
+    std::uint64_t m_nextRootSignatureIdentity = 1;
     ShaderDX12* m_activeShader = nullptr;
     D3D12_VIEWPORT m_viewport = {};
     D3D12_RECT m_scissorRect = {};

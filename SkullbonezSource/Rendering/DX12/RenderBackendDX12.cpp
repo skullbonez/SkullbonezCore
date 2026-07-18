@@ -696,6 +696,14 @@ SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* devi
         return SkullbonezCore::Core::SbResult::Failure( "Rendering/DX12", "CreateRootSignature failed" );
     }
     NameDx12Object( m_rootSignature, L"Skullbonez DX12 UnifiedRaster Root Signature" );
+    // Lane F: exhausting a 64-bit sequence requires more successful root-
+    // signature creations than this owner can perform in any valid lifetime.
+    // Publishing zero or reusing an old identity could alias incompatible PSOs.
+    if ( m_nextRootSignatureIdentity == 0 )
+    {
+        SB_FATAL( "Dx12PipelineOwner", "Root-signature identity sequence exhausted." );
+    }
+    m_rootSignatureIdentity = m_nextRootSignatureIdentity++;
     // Lane R: a persistent PSO cache is an optional cold-start accelerator.
     // Its owner logs and discards missing/corrupt/driver-incompatible bytes;
     // failure must never reject an otherwise valid renderer device.

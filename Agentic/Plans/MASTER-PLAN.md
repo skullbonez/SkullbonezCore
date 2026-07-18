@@ -127,9 +127,9 @@ debt closed N0-N4 and left the live ledger under rule 4. Closure evidence is in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [small-findings-hardening](TODO/small-findings-hardening.md) | 2 | 5 | 40% |
+| [small-findings-hardening](TODO/small-findings-hardening.md) | 3 | 5 | 60% |
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 0 | 8 | 0% |
-| **Active/future total** | **2** | **13** | **15%** |
+| **Active/future total** | **3** | **13** | **23%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -178,8 +178,8 @@ The 2026-07-18 adversarial-review round-7 lane is the active critical path.
 Scene-controller round 2, DX12 backend ownership, and naming/identity debt are
 closed. The remaining binding execution order is:
 
-1. `small-findings-hardening` (H0-H4) — its DX12 dependency is satisfied and
-   H2 now targets the finalized pipeline-owner surface
+1. `small-findings-hardening` (H0-H4) — H3 now applies the ratified cast-site
+   dispositions, with cumulative mapped gates for every touched subsystem
 
 `physics-body-count-scale-campaign` (P0-P7) is a parallel-eligible physics
 lane: it shares no files with the remaining round-7 plan and may run
@@ -722,7 +722,7 @@ each plan ends with one independent review.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 2/5 | H2 owner-issued stable PSO identity |
+| [small-findings-hardening](TODO/small-findings-hardening.md) | Active | 3/5 | H3 apply all ratified cast-site dispositions |
 
 ## Physics Body-Count Scale Campaign (2026-07-18)
 

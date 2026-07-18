@@ -106,7 +106,7 @@ size_t Dx12PipelineOwner::HashPSOKey( const PSOKey12& key )
         memcpy( &bits, &value, sizeof( bits ) );
         return static_cast<size_t>( bits );
     };
-    hashCombine( h, (size_t)key.rootSignature );
+    hashCombine( h, static_cast<size_t>( key.rootSignatureIdentity ) );
     hashCombine( h, key.shaderVSHash );
     hashCombine( h, key.shaderPSHash );
     hashCombine( h, (size_t)key.format );
@@ -426,11 +426,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // hashes, blend/depth/cull state, polygon offset, instancing mode, and
     // render-target format all participate in the Pipeline State Object. If any
     // of those values changes, the cached PSO may no longer describe the draw correctly.
-    // Include the root signature too: today raster draws share UnifiedRaster,
-    // but future graph-local resource signatures must not accidentally reuse an
-    // incompatible cached PSO.
+    // Include the root-signature identity too: today raster draws share
+    // UnifiedRaster, but future graph-local signatures must not accidentally
+    // reuse an incompatible cached PSO. The owner-issued epoch survives COM
+    // address recycling and therefore represents recipe identity, not storage.
     PSOKey12 key = {};
-    key.rootSignature = m_rootSignature;
+    key.rootSignatureIdentity = m_rootSignatureIdentity;
     key.shaderVSHash = m_activeShader->GetVSBytecodeHash();
     key.shaderPSHash = m_activeShader->GetPSBytecodeHash();
     key.format = format;
@@ -510,12 +511,12 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
             // render-target format drift, or state toggles happening in hot
             // loops.
             SkullbonezCore::Core::Log().WriteEventf(
-                "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs_hash=%llu "
+                "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature_identity=%llu vs_hash=%llu "
                 "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
                 "rtv_format=%u",
                 static_cast<unsigned long long>( psoHash ),
                 static_cast<unsigned long long>( m_psoCacheCount ),
-                key.rootSignature,
+                static_cast<unsigned long long>( key.rootSignatureIdentity ),
                 static_cast<unsigned long long>( key.shaderVSHash ),
                 static_cast<unsigned long long>( key.shaderPSHash ),
                 static_cast<unsigned int>( key.format ),
@@ -807,6 +808,9 @@ void Dx12PipelineOwner::Shutdown()
         m_rootSignature->Release();
         m_rootSignature = nullptr;
     }
+    // Lifetime: every dependent PSO is gone before the active signature epoch
+    // is invalidated. Keep the next value monotonic across owner reuse.
+    m_rootSignatureIdentity = 0;
     m_activeShader = nullptr;
     m_rootSignatureSerialized = {};
     m_rootSignatureSerializedSize = 0;

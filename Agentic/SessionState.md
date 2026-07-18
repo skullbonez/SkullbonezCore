@@ -13,9 +13,9 @@ plan inventory.
 | Branch | `nightrunner-17th-july` |
 | Current baseline | Round-6 closed without baseline, golden, screenshot, or coverage-floor refresh. The 2026-07-18 hostile review at tip 06a17ff31 opened round 7. |
 | Current objective | Execute small findings hardening H0-H4, then the physics body-count scale campaign P0-P7. |
-| Active/future progress | 2 / 13 live tasks; 15%. |
+| Active/future progress | 3 / 13 live tasks; 23%. |
 | Last broad local gate | Naming N4 `validate_full` passed in 165.249s: 291/291 tests, 21,455/21,455 assertions, every coverage/CPU lane, Automation, zero-error DX12 captures, and byte-exact physics passed. |
-| Validation for current edits | Hardening H1 final `validate_fast` passed in 72.137s and `validate_perf` completed in 99.113s; 291/291 tests and 21,455 assertions passed, allocation policy is clean, gameplay allocations are zero, and DX12/physics perf comparisons pass. Comment audit is 10/10. |
+| Validation for current edits | Hardening H2 `validate_dx12_renderer` passed in 55.677s with zero InfoQueue errors and committed captures matched; bounded graphics stress passed in 61.661s through frame 13,478 and 370 scene loads. Comment audit is 3/3. |
 
 ## Live Queue
 
@@ -71,13 +71,17 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
      finding, and passed full, replay, coverage, and project-filter gates.
      Naming is complete and has left the ledger. Closure evidence:
      `Agentic/Reports/2026-07-18/naming-and-identity-debt-closure.md`. Remaining
-     binding order: small-findings H2-H4. H0 ratified the complete findings
+     binding order: small-findings H3-H4. H0 ratified the complete findings
      census and implementation decisions in
      `Agentic/Reports/2026-07-18/small-findings-h0-rulings-census.md`.
      H1 removed the last lock-validator singleton, made its Debug graph fixed
      storage owned by startup, and preserved the standard Profile/Release lock
      primitives. Evidence:
      `Agentic/Reports/2026-07-18/small-findings-h1-lock-validator-ownership.md`.
+     H2 replaced the PSO key's raw COM address with an owner-issued monotonic
+     root-signature identity and proved the final source with zero-error DX12
+     validation plus bounded stress. Evidence:
+     `Agentic/Reports/2026-07-18/small-findings-h2-stable-pso-identity.md`.
 
 00. Round-6 C0-C6 closed after a repeat independent review, direct
     `Profile-WPO` oracle/performance proof, the broad gate, and bounded DX12
@@ -442,9 +446,10 @@ NOW. Two live plans, 13 tasks: one round-7 plan plus the 2026-07-18
 
 Round-7 scene decomposition, DX12 backend ownership decomposition, and naming
 N0-N4 are complete and have left the live ledger. Continue immediately with
-`small-findings-hardening` H2: replace pointer identity in `PSOKey12` with the
-pipeline-owner-issued monotonic `uint64_t` identity ratified at H0. Required
-gates: `validate_dx12_renderer` and `tools\run_graphics_stress.bat 1`.
+`small-findings-hardening` H3: reconcile the H0 cast census by symbol, replace
+the typed-boundary sites, and add local constraint comments to every retained
+ABI/aligned-storage cast. Run `validate_fast` plus every cumulative mapped gate
+for the files actually touched.
 The physics body-count campaign remains parallel-eligible. Preserve the seven
 excluded render consumer interfaces and `FRAME_COUNT = 2`; do not regenerate
 behavioral, physics, replay, visual, or screenshot baselines outside the two
