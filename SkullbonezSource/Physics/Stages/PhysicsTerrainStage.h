@@ -7,17 +7,21 @@ Summary:
   PhysicsTerrainStage detects one candidate per body and converts tested hits
   into terrain manifolds. A typed two-phase commit lets PhysicsWorld preserve
   the exact diagnostics and visual-emission point while the stage owns terrain
-  storage and writes borrowed sleep-support outputs.
+  storage and writes borrowed sleep-support outputs. Detection dispatch borrows
+  the sleep owner's ascending awake index list.
 
 Glossary:
   Detection candidate: Per-body swept terrain result produced independently.
   Prepared commit: Stack value containing the manifold and diagnostic record
     computed before sequencer-owned side effects are emitted.
   Rest-applied row: Solver scratch preventing duplicate terrain rest response.
+  Awake index list: Ascending dynamic rows eligible for terrain detection.
 
 Invariants:
   - Detection workers write only the candidate slot matching their body index.
   - Candidate commit remains serial in ascending model order.
+  - Detection worker slots map to ascending awake indices and retain per-body
+    candidate identity regardless of worker scheduling.
   - Manifold and candidate vectors are construction-reserved to scene capacity.
 
 Related:
@@ -119,8 +123,9 @@ class PhysicsTerrainStage
     {
         PhysicsTerrainStage& stage;
         const TerrainDetectionStageContext& context;
+        std::span<const int> bodyIndices;
 
-        void operator()( int bodyIndex ) const;
+        void operator()( int bodySlot ) const;
     };
 
     void DetectTerrainAt( const TerrainDetectionStageContext& context, int bodyIndex );
@@ -132,6 +137,7 @@ class PhysicsTerrainStage
     void BeginFrame();
     void Detect( const TerrainDetectionStageContext& context,
                  int modelCount,
+                 std::span<const int> awakeBodyIndices,
                  const Core::PhysicsExecutionConfig& execution,
                  Threading::WorkerPool& workerPool );
     PreparedTerrainCandidateCommit PrepareCandidateCommit( const TerrainCandidateCommitContext& context,

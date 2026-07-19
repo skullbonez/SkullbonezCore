@@ -20,6 +20,8 @@
 //   - Support propagates to a fixed point through model-order edges.
 //   - A stretched point joint publishes the sleep-block reason without
 //     advancing its island counter; a relaxed joint remains eligible.
+//   - Awake indices remain sorted across sleep, parallel-wake flush, and cold
+//     topology rebuild boundaries.
 //   - Parallel narrowphase scheduling cannot reorder pair-slot results.
 //
 // Related:
@@ -129,6 +131,58 @@ TEST_CASE( "Physics sleep support: fixed anchor propagates through a chained isl
     CHECK( supported[0] == 1u );
     CHECK( supported[1] == 1u );
     CHECK( supported[2] == 1u );
+}
+
+TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve ascending dense order" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = UnitSphere();
+    for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = bodyIndex == 0 ? 0.0f : 1.0f;
+        body.hot.fixed = bodyIndex == 0;
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.shape = sphere;
+        collider.boundingRadius = 1.0f;
+        colliders.CreateColliderRecord( collider );
+    }
+
+    PhysicsSleepController controller;
+    controller.MirrorFlagsFrom( bodies, 3 );
+    CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
+           std::vector<int>{ 1, 2 } );
+
+    controller.SeedModelAsleep( bodies, 1 );
+    REQUIRE( controller.GetAwakeBodyIndices().size() == 1u );
+    CHECK( controller.GetAwakeBodyIndices()[0] == 2 );
+
+    PhysicsWorldForces worldForces;
+    std::array<float, 3> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f, 1.0f / 120.0f };
+    const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies,
+                                                                    colliders,
+                                                                    worldForces,
+                                                                    bodies.MutableRecords(),
+                                                                    timeRemaining,
+                                                                    3,
+                                                                    1.0f / 120.0f );
+    wakeAccess.WakeBody( 1 );
+    CHECK( controller.GetAwakeBodyIndices().size() == 1u );
+    controller.FlushPendingAwakeBodyIndices();
+    CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
+           std::vector<int>{ 1, 2 } );
+
+    // A cold fixed/dynamic edit can change list membership without changing
+    // body count; invalidation makes the next owner mirror rebuild it.
+    bodies.MutableHotFields().fixed[1] = 1u;
+    controller.InvalidateBodyTopology();
+    controller.MirrorFlagsFrom( bodies, 3 );
+    REQUIRE( controller.GetAwakeBodyIndices().size() == 1u );
+    CHECK( controller.GetAwakeBodyIndices()[0] == 2 );
 }
 
 TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and disabling sleep clears it" )

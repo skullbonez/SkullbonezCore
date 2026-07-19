@@ -22,6 +22,7 @@
 //   - Output pair vectors must reserve capacity before GetCandidatePairs().
 //   - Candidate pairs are normalized and emitted in ascending canonical order.
 //   - BeginFrame removes retired dense rows and expires only swept occupancy.
+//   - Pair-source stamps restrict work without evicting sleeping membership.
 //   - Clear() is a cold scene/config/replay reset, not the per-step path.
 //
 // Related:
@@ -161,6 +162,32 @@ TEST_CASE( "SpatialGrid: unchanged integer ranges perform zero cell maintenance"
     CHECK( stats.persistentCellsRemoved == 0 );
     REQUIRE( pairs.size() == 1u );
     CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+}
+
+
+TEST_CASE( "SpatialGrid: pair-source stamps skip retained cells with no awake body" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.BeginFrame( 4 );
+    grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 2, Vector3( 25.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 3, Vector3( 26.0f, 5.0f, 5.0f ), 1.0f );
+    grid.MarkPairSourceCells( 0 );
+    std::vector<std::pair<int, int>> pairs;
+    pairs.reserve( 4u );
+
+    grid.GetCandidatePairs( pairs, nullptr, nullptr, true );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+
+    // Membership persists into the next frame; changing only the stamp selects
+    // the other occupied cell without reinsertion.
+    grid.BeginFrame( 4 );
+    grid.MarkPairSourceCells( 2 );
+    grid.GetCandidatePairs( pairs, nullptr, nullptr, true );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 2, 3 ) );
 }
 
 
@@ -306,8 +333,16 @@ TEST_CASE( "SpatialGrid: crowded-cell output is canonical regardless of insertio
 
     const auto pairs = CandidatePairs( grid );
     const std::vector<std::pair<int, int>> expected = {
-        { 0, 1 }, { 0, 2 }, { 0, 3 }, { 0, 4 }, { 1, 2 },
-        { 1, 3 }, { 1, 4 }, { 2, 3 }, { 2, 4 }, { 3, 4 },
+        { 0, 1 },
+        { 0, 2 },
+        { 0, 3 },
+        { 0, 4 },
+        { 1, 2 },
+        { 1, 3 },
+        { 1, 4 },
+        { 2, 3 },
+        { 2, 4 },
+        { 3, 4 },
     };
 
     // Invariant: solver work order is a function of normalized body identity,
@@ -330,10 +365,7 @@ TEST_CASE( "SpatialGrid: one fixed table retains all 8192 cells and existing-key
     // cell remains persistent and the following 4,095 cells are transient.
     const int sweptBody = kPersistentCells;
     const Vector3 sweepStart( static_cast<float>( kPersistentCells ) + 0.25f, 0.25f, 0.25f );
-    grid.InsertSwept( sweptBody,
-                      sweepStart,
-                      Vector3( static_cast<float>( kPersistentCells - 1 ), 0.0f, 0.0f ),
-                      0.0f );
+    grid.InsertSwept( sweptBody, sweepStart, Vector3( static_cast<float>( kPersistentCells - 1 ), 0.0f, 0.0f ), 0.0f );
 
     // Inserting another body into the final occupied key must succeed even when
     // no unused table row remains.

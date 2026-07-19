@@ -4,20 +4,22 @@ Purpose:
   Implements deterministic swept-terrain detection and manifold commit.
 
 Summary:
-  Detection preserves the original per-body worker dispatch and thresholds.
-  Prepared commits preserve the original float expressions and model order,
-  while a narrow sequencer gap retains diagnostics and visual side effects at
-  their certified positions.
+  Detection maps worker slots through the ascending awake-body list while
+  preserving the original thresholds. Prepared commits preserve the original
+  float expressions and body-index order, while a narrow sequencer gap retains
+  diagnostics and visual side effects at their certified positions.
 
 Glossary:
   Terrain sweep: Continuous collision query over one body's remaining substep.
   Manifold commit: Append of solver-ready terrain contact points and sleep policy.
   Sequencer gap: Typed boundary where cross-domain diagnostics are emitted.
+  Awake slot: Dispatch position mapped to one ascending dynamic body index.
 
 Invariants:
   - Worker scheduling never changes candidate slot identity.
   - Body integration and manifold construction occur before diagnostics.
   - Manifold/sleep writes occur after diagnostics and before clock completion.
+  - Dormant and fixed bodies never enter terrain-detection dispatch.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h
@@ -119,22 +121,24 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
     candidate.tested = 1;
 }
 
-void PhysicsTerrainStage::TerrainDetectionStage::operator()( int bodyIndex ) const
+void PhysicsTerrainStage::TerrainDetectionStage::operator()( int bodySlot ) const
 {
-    stage.DetectTerrainAt( context, bodyIndex );
+    stage.DetectTerrainAt( context, bodyIndices[static_cast<std::size_t>( bodySlot )] );
 }
 
 void PhysicsTerrainStage::Detect( const TerrainDetectionStageContext& context,
                                   int modelCount,
+                                  std::span<const int> awakeBodyIndices,
                                   const Core::PhysicsExecutionConfig& execution,
                                   Threading::WorkerPool& workerPool )
 {
     m_detectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
-    TerrainDetectionStage detectionStage{ *this, context };
+    TerrainDetectionStage detectionStage{ *this, context, awakeBodyIndices };
+    const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelTerrainDetect )
     {
         workerPool.ParallelForNoAlloc( 0,
-                                       modelCount,
+                                       awakeBodyCount,
                                        detectionStage,
                                        PHYSICS_PARALLEL_MIN_BODIES,
                                        "Frame/Physics/Terrain/Detect/WorkerBodies",
@@ -142,9 +146,9 @@ void PhysicsTerrainStage::Detect( const TerrainDetectionStageContext& context,
     }
     else
     {
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
-            detectionStage( x );
+            detectionStage( awakeSlot );
         }
     }
 }

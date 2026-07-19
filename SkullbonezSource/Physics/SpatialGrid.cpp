@@ -23,6 +23,8 @@ Glossary:
   Intrusive back-link: Index stored in pooled rows so removal can unlink both
     the cell chain and body chain without searching global storage.
   Lane F: Fatal invariant lane for should-never-happen engine state.
+  Pair-source stamp: Frame generation marking a cell reached by an awake body
+    without changing persistent membership stored in that cell.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -31,6 +33,8 @@ Invariants:
     cannot recover while preserving the frame's broadphase contract.
   - Persistent membership is a pure function of current integer ranges; only
     storage order carries history, and canonical pair emission removes it.
+  - Production may skip unstamped sleep-only cells, while Debug can walk all
+    retained cells to preserve bounded SleepPrunedPair evidence.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.h
@@ -116,9 +120,10 @@ int64_t SpatialCellKey( int ix, int iy, int iz )
 
 
 SpatialGrid::SpatialGrid( float fCellSize )
-    : cellSize( 1.0f ), inverseCellSize( 1.0f ), overlayGeneration( 1 ), freeBucketHead( -1 ), freeEntryHead( -1 ),
-      persistentEntryCount( 0 ), persistentEntryHighWater( 0 ), objectCount( 0 ), activeBucketCount( 0 ),
-      overlayEntryCount( 0 ), overlayActiveBucketCount( 0 ), cellObjectGeneration( 0 )
+    : cellSize( 1.0f ), inverseCellSize( 1.0f ), overlayGeneration( 1 ), pairSourceGeneration( 1 ),
+      freeBucketHead( -1 ), freeEntryHead( -1 ), persistentEntryCount( 0 ), persistentEntryHighWater( 0 ),
+      objectCount( 0 ), activeBucketCount( 0 ), overlayEntryCount( 0 ), overlayActiveBucketCount( 0 ),
+      cellObjectGeneration( 0 )
 {
     Clear();
     SetCellSize( fCellSize );
@@ -174,6 +179,7 @@ void SpatialGrid::Clear()
     }
 
     overlayGeneration = 1;
+    pairSourceGeneration = 1;
     freeBucketHead = 0;
     freeEntryHead = 0;
     persistentEntryCount = 0;
@@ -199,6 +205,15 @@ void SpatialGrid::BeginFrame( int currentObjectCount )
 
     maintenanceStats = MaintenanceStats{};
     ResetSweptOverlay();
+    ++pairSourceGeneration;
+    if ( pairSourceGeneration == 0u )
+    {
+        pairSourceGeneration = 1u;
+        for ( Bucket& bucket : buckets )
+        {
+            bucket.pairSourceGeneration = 0u;
+        }
+    }
     for ( int index = currentObjectCount; index < objectCount; ++index )
     {
         RemoveBody( index );
@@ -674,6 +689,7 @@ void SpatialGrid::InsertOverlayCell( int index, int ix, int iy, int iz )
                                                 ClampVisualizationCell( iy ),
                                                 ClampVisualizationCell( iz ) );
     Bucket& bucket = buckets[bucketIndex];
+    bucket.pairSourceGeneration = pairSourceGeneration;
     if ( bucket.overlayGeneration != overlayGeneration )
     {
         bucket.overlayGeneration = overlayGeneration;
@@ -907,6 +923,23 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 }
 
 
+void SpatialGrid::MarkPairSourceCells( int index )
+{
+    if ( index < 0 || index >= objectCount )
+    {
+        SB_FATAL( "Physics/SpatialGrid",
+                  "SpatialGrid pair-source body index out of bounds: index=%d count=%d.",
+                  index,
+                  objectCount );
+    }
+    for ( int entryIndex = bodyMemberships[index].entryHead; entryIndex != -1;
+          entryIndex = entries[entryIndex].nextForObject )
+    {
+        buckets[entries[entryIndex].bucketIndex].pairSourceGeneration = pairSourceGeneration;
+    }
+}
+
+
 void SpatialGrid::ResetCandidatePairDedup()
 {
     // Dedup bits are frame-local; stale bits would hide candidate pairs.
@@ -928,7 +961,8 @@ void SpatialGrid::ResetCandidatePairDedup()
 
 bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
                                               int b,
-                                              const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+                                              const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter,
+                                              std::vector<std::pair<int, int>>* sleepPrunedPairs )
 {
     // Triangular index: b*(b-1)/2 + a (requires the normalized a < b pair).
     assert( a >= 0 && a < b && b < objectCount && "candidate pair identity out of bounds" );
@@ -950,7 +984,27 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
     }
 
     pairSeen[word] |= bit;
-    return !filter || SkullbonezCore::Physics::BroadphaseCandidateCanTouch( filter, a, b );
+    if ( SkullbonezCore::Physics::BroadphaseCandidateBothSleeping( filter, a, b ) )
+    {
+        // Preserve the old diagnostic boundary: SleepPrunedPair described a
+        // geometrically admitted candidate, not every dormant co-cell pair.
+        if ( !SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( filter, a, b ) )
+        {
+            return false;
+        }
+        if ( sleepPrunedPairs )
+        {
+            if ( sleepPrunedPairs->size() >= sleepPrunedPairs->capacity() )
+            {
+                SB_FATAL( "Physics/SpatialGrid",
+                          "Sleep-pruned diagnostic reserve exhausted: capacity=%zu phase=diagnostic.",
+                          sleepPrunedPairs->capacity() );
+            }
+            sleepPrunedPairs->emplace_back( a, b );
+        }
+        return false;
+    }
+    return SkullbonezCore::Physics::BroadphaseCandidateGeometryCanTouch( filter, a, b );
 }
 
 
@@ -962,9 +1016,15 @@ bool SpatialGrid::MarkCandidatePairFirstSeen( int a,
 // emitted. The result is the history-free (minIndex,maxIndex) order that P1
 // makes the byte-exact baseline for later broadphase work.
 void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                                     const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter )
+                                     const SkullbonezCore::Physics::BroadphaseCandidateFilterContext* filter,
+                                     std::vector<std::pair<int, int>>* sleepPrunedPairs,
+                                     bool restrictToPairSourceCells )
 {
     outPairs.clear();
+    if ( sleepPrunedPairs )
+    {
+        sleepPrunedPairs->clear();
+    }
     ResetCandidatePairDedup();
     std::fill_n( candidatePairHeads, objectCount, -1 );
     int candidatePairNodeCount = 0;
@@ -979,6 +1039,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
         }
         Bucket& b = buckets[bi];
         if ( !b.occupied )
+        {
+            continue;
+        }
+        if ( restrictToPairSourceCells && b.pairSourceGeneration != pairSourceGeneration )
         {
             continue;
         }
@@ -1021,7 +1085,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
                     bIdx = tmp;
                 }
 
-                if ( !MarkCandidatePairFirstSeen( a, bIdx, filter ) )
+                if ( !MarkCandidatePairFirstSeen( a, bIdx, filter, sleepPrunedPairs ) )
                 {
                     continue;
                 }
@@ -1144,7 +1208,7 @@ void SpatialGrid::GetCandidatePairsLegacyForOracle(
                 {
                     std::swap( a, b );
                 }
-                if ( !MarkCandidatePairFirstSeen( a, b, filter ) )
+                if ( !MarkCandidatePairFirstSeen( a, b, filter, nullptr ) )
                 {
                     continue;
                 }

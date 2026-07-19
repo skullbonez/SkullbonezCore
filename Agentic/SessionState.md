@@ -11,26 +11,28 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-18th-july` |
-| Current baseline | Physics P2 is complete: persistent integer-range membership and its stamped swept overlay reproduce every transitioned P1 artifact byte-for-byte at 0/1/4 workers. |
-| Current objective | Implement Physics P3 zero-cost sleepers while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
-| Active/future progress | 20 / 26 live tasks; 77%. |
-| Last broad local gate | P2 `validate_full` passed 318 cases/30,352 assertions, all coverage floors, Automation/replay, zero-error DX12 comparisons, and the byte-exact 44,401-line physics oracle. |
-| Validation for current edits | Final P2 `validate_perf`, `validate_physics`, and `validate_full` pass; the 18-run six-scene 0/1/4 matrix matches the retained P1 witnesses exactly in 1,479.979 seconds. |
+| Current baseline | Physics P3 is complete: an ascending awake list and awake-source broadphase traversal remove dormant-body steady work while every transitioned P1 artifact remains byte-exact at 0/1/4 workers. |
+| Current objective | Implement Physics P4 hot-state compaction/pass fusion while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
+| Active/future progress | 21 / 26 live tasks; 81%. |
+| Last broad local gate | P3 `validate_tests`, `validate_physics`, `validate_physics_deep`, and `validate_perf` pass with 321 cases/30,365 assertions, byte-exact physics/query artifacts, and zero steady-gameplay allocation violations. |
+| Validation for current edits | The final 18-run six-scene 0/1/4 matrix matches all retained P1 witnesses exactly in 1,473.56 seconds; the bounded platform-profiler marker launch exits 0. |
 
 ## Live Queue
 
-NOW. Two live plans, 26 tasks. Physics body-count scale is 3/8 with P2 complete
-     and P3 next. Persistent integer ranges, fixed bucket/entry free lists,
-     removal back-links, six delta slabs, dense-row retirement, and the stamped
-     swept overlay reproduce all six retained P1 witnesses exactly across the
-     18-run 0/1/4 matrix. Final perf/physics/full gates pass, with moved-body
-     reinsertion counters and a measured P4 cache/bandwidth follow-up. ImGui/Tracy
+NOW. Two live plans, 26 tasks. Physics body-count scale is 4/8 with P3 complete
+     and P4 next. An ascending dense awake list drives force, integration,
+     terrain, and persistent-grid maintenance; sleepers retain membership for
+     awake collisions, while awake-source cells omit sleep/sleep candidate work.
+     The old prune pass is deleted and Debug preserves the exact historical
+     diagnostic stream without changing Profile/Release work. All six retained
+     P1 witnesses match across the 18-run 0/1/4 matrix; final tests, physics,
+     deep/query, perf/allocation, and marker gates pass. ImGui/Tracy
      is 17/18: E14-E15 are reconciled against that accepted golden, E16 is
      complete, and E17 remains unchecked only for extended hands-on owner
      acceptance. E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
-     development configurations, exact Legacy/ImGui/Both selector, and
-     single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
+     development configurations, mutually exclusive Legacy/ImGui selection,
+     atomic hot swap, and a single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
      licenses, bootstrap/update documentation, development-only project inputs,
      and Release exclusion. E2 established the shared development capability,
      separate bounded ImGui/Tracy allocation rows, exact calling-thread scope,
@@ -43,7 +45,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 3/8 with P2 complete
      approved perf memory budget by leaving Tracy off unless standard/heavy is
      requested. E5 added one engine-owned ImGui context/lifecycle, typed scalar
      frame and command values, deterministic DPI-aware font fallback,
-     versioned layout, exact Legacy/ImGui/Both selection, and clean repeated
+     versioned layout, exclusive Legacy/ImGui selection, and clean repeated
      lifecycle/resize/allocation proof.
      E6 added the concrete DX12 renderer owner, separate fixed development
      heap, synchronous font retirement, two-frame resource rule, explicit
@@ -51,7 +53,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 3/8 with P2 complete
      clean Release exclusion. Evidence:
      E7 added the pinned Win32 backend boundary, class-specific capture,
      viewport authority seam, held-input resynchronization, shared native
-     capture/cursor reconciliation, the Legacy/ImGui/Both matrix, and a final
+     capture/cursor reconciliation, the mutually exclusive Legacy/ImGui matrix, and a final
      15-message native probe. UI, stress, fast, allocation, full, and Release
      gates passed without oracle changes. Evidence:
      E8 added one domain-grouped frame view, fixed typed surface queues,
@@ -556,7 +558,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 3/8 with P2 complete
 
 ## Next Handoff
 
-Continue Physics P3-P7 in order. P1-P2 evidence is recorded in
+Continue Physics P4-P7 in order. P1-P3 evidence is recorded in
 `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`; future ordinary
 tasks are byte-exact against the transitioned artifacts and receive no refresh
 allowance.

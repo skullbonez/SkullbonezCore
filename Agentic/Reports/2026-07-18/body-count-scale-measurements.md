@@ -395,3 +395,123 @@ every coverage floor, interaction/parser/DX12 architecture suites, Automation
 replay/prediction smoke, three zero-error DX12 baseline comparisons, and exact
 physics determinism. P2's touched-source comment audit covers 7/7 files with
 zero deferred; see `../2026-07-19/physics-body-count-p2-comment-audit.md`.
+
+## P3 Zero-Cost Sleepers
+
+P3 gives `PhysicsSleepController` ownership of a fixed-capacity ascending dense
+awake list plus reverse positions. Transition sites update it incrementally;
+topology, replay, configuration, and same-count authored replacement are cold
+rebuild boundaries. Parallel tornado/narrowphase wakes atomically select one
+winner, publish its body index into fixed storage, and let the frame sequencer
+flush publications after worker barriers. This preserves the original same-step
+force behavior without exposing list mutation to worker scheduling.
+
+Force, integration, terrain, and broadphase maintenance now consume the awake
+span. Sleepers remain in persistent grid membership, so awake movers still
+discover and wake them. Per-frame pair-source cell stamps restrict production
+candidate traversal to awake-reachable cells. Sleep/sleep pairs are rejected at
+emission and the old `PruneSleepPairs` pass and marker are deleted. Debug retains
+a geometry-only admission predicate and canonically merges solver-visible plus
+sleep-pruned pairs when recording `BroadphaseCandidate`; therefore its observable
+pre-P3 diagnostic stream remains exact while Profile/Release do no restored work.
+
+The first deep-gate attempt exposed the diagnostic relocation as a SkullScope
+query-packet mismatch. A baseline refresh was not authorized, so the generated
+candidate was discarded, the Debug diagnostic contract was restored in source,
+and the original committed query baseline subsequently matched exactly. A
+separate harness-only issue occurred when `Start-Process -WindowStyle Hidden`
+created a DX12 window at 0 x 0; the PID-scoped matrix was rerun in visible
+consoles and completed. Neither issue is a remaining product blocker.
+
+### P3 Worker-Count Determinism
+
+The final Debug source reproduced every retained P1 witness byte-for-byte at
+worker counts 0, 1, and 4 across all six scenes: 18/18 processes in 1,473.56
+seconds. Scale scenes used 600 frames and `physics_bench_varied` used 1,200.
+
+| Scene | Bytes | SHA-256 |
+|---|---:|---|
+| scale_200 | 33,831,818 | `3DAD84BE52C8C7A9BCA029B11543E841E54B2F14DFE24E7FCF14D0CBE5BF522A` |
+| scale_520 | 88,116,798 | `9B8F705074EE7158E7F8B6A8483D49E69632EA857613F83FC551A4FEA8499B5E` |
+| scale_1000 | 169,580,528 | `F277D16226591F5B258C0D4C0F8BE54EAD52A9CE679EF49C03970305B4F8DE8C` |
+| scale_2000 | 340,410,150 | `AA9D3BFD770ABB838D2EDBF836F33C110E4FBE730437C16739E7F7D847CD36DC` |
+| sleepy_5000 | 912,830,920 | `67FDBC3D7A6FBDDD6FC15E0393A9DF137AA3777193EE8E9F564090C7B7174C76` |
+| regression_varied | 12,660,434 | `8E9092CB7F28EAFC0D9F167E90CF9D5292D022485D6AE93D591FB758CAEA6387` |
+
+### P3 Measurement Matrix
+
+Profile P50 values are milliseconds from the final performance captures.
+Sleepy-5,000 physics improves 6.0% from P2 (1.9813 to 1.8628 ms), but remains
+above scale-1,000 because P4 still owns measured full-row and cache/bandwidth
+work. The deleted prune pass records zero rather than hiding time elsewhere.
+
+| Marker / counter | scale_200 | scale_520 | scale_1000 | scale_2000 | sleepy_5000 |
+|---|---:|---:|---:|---:|---:|
+| `Frame` | 0.4337 | 1.4449 | 2.0030 | 3.3085 | 4.0181 |
+| `Frame/Physics` | 0.1094 | 0.8126 | 1.1484 | 2.0171 | 1.8628 |
+| `Frame/Physics/Broadphase` | 0.0246 | 0.1583 | 0.3710 | 0.8555 | 0.3795 |
+| `Frame/Physics/Broadphase/GridSetup` | 0.0002 | 0.0006 | 0.0008 | 0.0010 | 0.0006 |
+| `Frame/Physics/Broadphase/GridMaintain` | 0.0179 | 0.1307 | 0.2914 | 0.5928 | 0.1746 |
+| `Frame/Physics/Broadphase/CandidatePairs` | 0.0029 | 0.0123 | 0.0404 | 0.1515 | 0.1815 |
+| `Frame/Physics/Broadphase/PruneSleepPairs` | deleted / 0 | deleted / 0 | deleted / 0 | deleted / 0 | deleted / 0 |
+| `Frame/Physics/ApplyForces` | 0.0260 | 0.1746 | 0.1802 | 0.1905 | 0.1973 |
+| `Frame/Physics/Terrain/Detect` | 0.0176 | 0.1987 | 0.2229 | 0.2738 | 0.2340 |
+| `Frame/Physics/Integrate` | 0.0215 | 0.1956 | 0.2090 | 0.2388 | 0.2438 |
+| `Frame/Physics/Narrowphase` | 0.0003 | 0.0032 | 0.0075 | 0.0236 | 0.0011 |
+| Inclusive solver owner (`PersistentContacts`) | 0.0066 | 0.0304 | 0.0568 | 0.1347 | 0.0027 |
+| Awake / total bodies | 200 / 200 | 520 / 520 | 1,000 / 1,000 | 2,000 / 2,000 | 1,000 / 5,000 |
+| Bodies reinserted this step | 24 | 63 | 121 | 233 | 142 |
+| Estimated hot bytes/body/step | 245.0 | 245.0 | 245.0 | 245.0 | 95.4 |
+
+Final `tools\validate_tests.bat` passed 321/321 cases and 30,365/30,365
+assertions, including the Legacy-default and single-active-UI startup contract.
+Final `tools\validate_physics.bat`, `tools\validate_physics_deep.bat`, and
+`tools\validate_perf.bat` passed with zero-warning Profile/Debug builds, the
+44,401-line byte-exact oracle, the unchanged query packet, zero steady-gameplay
+allocations/reserve violations, and passing scale budgets. The final one-frame
+`--platform-profiler-markers` launch exited 0 in 3.573 seconds. P3's
+touched-source comment audit covers 20/20 files with zero deferred; see
+`../2026-07-19/physics-body-count-p3-comment-audit.md`.
+
+### P3 SkullScope Cost Accounting
+
+Trace command:
+
+```text
+Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-diag C:\SkullbonezCore\Debug\physics_query_varied.physicsdiag.ndjson
+```
+
+The trace artifact is 103,785,259 bytes and its SQLite cache is 50,823,168
+bytes. Each query used this command prefix:
+
+```text
+C:\Users\sesch\AppData\Local\Programs\Python\Python312\python.exe C:\SkullbonezCore\tools\physics_query.py C:\SkullbonezCore\Debug\physics_query_varied.physicsdiag.ndjson
+```
+
+| # | Query arguments | Output bytes/chars |
+|---:|---|---:|
+| 1 | `summary --limit 8` | 8,894 |
+| 2 | `events --limit 20` | 21,806 |
+| 3 | `contact-audio-summary --limit 8` | 9,400 |
+| 4 | `contact-audio-events --limit 8` | 4,597 |
+| 5 | `contact-audio-rejections --reason propagated_impulse --limit 8` | 393 |
+| 6 | `contact-audio-body --body roll_a --limit 8` | 5,588 |
+| 7 | `contact-audio-timeline --limit 8` | 2,047 |
+| 8 | `frame 600 --limit 8` | 8,624 |
+| 9 | `body roll_a --frames 0:1200 --limit 12` | 8,433 |
+| 10 | `energy --frames 0:1200 --limit 12` | 6,420 |
+| 11 | `events --type penetration_sustained,penetration_growing --limit 20` | 310 |
+| 12 | `contacts --top penetration --limit 12` | 5,948 |
+| 13 | `island 1 --frame 1199 --limit 12` | 715 |
+| 14 | `stacks --frames 0:1200 --limit 12` | 3,803 |
+| 15 | `rolling --frames 0:1200 --limit 12` | 7,442 |
+| 16 | `broadphase --frames 0:1200 --limit 12` | 3,036 |
+| 17 | `solver --frames 0:1200 --limit 12` | 3,531 |
+| 18 | `pipeline --frames 0:1200 --limit 12` | 5,276 |
+| 19 | `questions penetration_spikes` | 1,454 |
+| 20 | `questions stack_health` | 1,354 |
+| 21 | `compare C:\SkullbonezCore\Debug\physics_query_varied.physicsdiag.ndjson --limit 8` | 943 |
+
+Total bounded query output was 110,014 UTF-8 bytes/characters. The harness
+captured raw query JSON without exposing it to the model, so GPT-read raw query
+output was 0 bytes; only the bounded size accounting above was inspected.

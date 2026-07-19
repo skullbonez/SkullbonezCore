@@ -20,6 +20,8 @@
 //   - Flat-slope height must match `baseY + slopeX*x + slopeZ*z`.
 //   - Bounds exclude the exact upper edge so quad lookup never selects a
 //     non-existent terrain cell.
+//   - Terrain-stage detection touches only body indices supplied by the awake
+//     list, leaving fixed and sleeping candidate slots untested.
 //
 // Related:
 //   - SkullbonezSource/World/Terrain.cpp
@@ -122,8 +124,8 @@ TEST_CASE( "Terrain: collapsed height-map posts publish world-up render normals"
     SkullbonezTests::NullRenderResourceFactory resources;
     std::unique_ptr<Terrain> terrain;
 
-    const auto result = Terrain::TryCreateFromHeightMap(
-        kHeightMapPath, kMapSize, 1, 1, config, assets, resources, terrain );
+    const auto result =
+        Terrain::TryCreateFromHeightMap( kHeightMapPath, kMapSize, 1, 1, config, assets, resources, terrain );
     std::remove( kHeightMapPath );
 
     REQUIRE( result.ok );
@@ -174,8 +176,9 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     LockOrderValidator lockOrderValidator;
     WorkerPool inlinePool( lockOrderValidator );
     PhysicsTerrainStage stage;
+    const std::array<int, 1> awakeBodyIndices = { 0 };
 
-    stage.Detect( context, 3, execution, inlinePool );
+    stage.Detect( context, 3, awakeBodyIndices, execution, inlinePool );
 
     const auto candidates = stage.GetDetectionCandidates();
     REQUIRE( candidates.size() == 3u );

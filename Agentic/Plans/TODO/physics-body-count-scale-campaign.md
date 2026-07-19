@@ -1,7 +1,7 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 3/8 tasks (P0-P2 complete; P3 zero-cost sleepers next)
+Status: Active — 4/8 tasks (P0-P3 complete; P4 bandwidth diet next)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -370,7 +370,7 @@ explained or the task is not done.
     screenshots, and byte-exact physics output. The touched-source comment audit
     covers 7/7 files with zero deferred.
 
-- [ ] P3 — Zero-cost sleepers.
+- [x] P3 — Zero-cost sleepers.
   - Implementation: the sleep controller maintains a dense **awake index
     list** in ascending body-index order (updated at sleep/wake
     transitions — cold events — never rebuilt per step). Force,
@@ -389,12 +389,35 @@ explained or the task is not done.
     deterministic sleep state; ascending order preserves canonical
     iteration. Solver-visible pair set and all arithmetic are unchanged →
     byte-exact vs P1 baselines.
-  - [ ] Byte-exact on all six scenes; 0/1/4 workers. The sleepy_5000 scene
+  - [x] Byte-exact on all six scenes; 0/1/4 workers. The sleepy_5000 scene
     is the key witness: identical CSV, step cost now tracking awake count.
-  - [ ] Measurement matrix recorded. Expected shape: sleepy_5000 step
+  - [x] Measurement matrix recorded. Expected shape: sleepy_5000 step
     approaches scale_1000 step; `PruneSleepPairs` row records 0/deleted.
   - Gates: `validate_physics` + `validate_physics_deep` (sleep-adjacent
     behavior per the mapping's spirit) + `validate_perf`.
+  - 2026-07-19 closure: `PhysicsSleepController` owns an ascending dense awake
+    list and reverse positions. Sleep/wake transitions update it incrementally;
+    cold topology, replay, and authored-mutation boundaries rebuild it. Parallel
+    wake sites publish one winning transition into a fixed queue and the frame
+    sequencer folds those indices after worker barriers, preserving the same-step
+    force contract without schedule-dependent list mutation.
+  - Force, integration, terrain, and persistent broadphase maintenance now walk
+    the borrowed awake span. Sleeping bodies retain their grid membership so an
+    awake mover still discovers and wakes them. Pair-source cell stamps restrict
+    production traversal to awake-reachable cells, sleep/sleep pairs are rejected
+    before final emission, and the old `PruneSleepPairs` pass is deleted. Debug
+    merges geometrically admitted sleep-pruned pairs back into its diagnostic
+    stream in canonical order, so the committed 21-query SkullScope packet
+    remains exact without a baseline refresh; Profile/Release retain only the
+    optimized solver-visible work.
+  - All six retained P1 witnesses are byte-identical at 0/1/4 workers (18/18
+    processes, 1,473.56 s). Final `validate_tests` passes 321 cases and 30,365
+    assertions; `validate_physics`, `validate_physics_deep`, and `validate_perf`
+    pass with zero-warning builds, byte-exact physics/query artifacts, and zero
+    steady-gameplay allocation violations. The final marker smoke exits 0.
+    Sleepy-5,000 `Frame/Physics` P50 falls from P2's 1.9813 ms to 1.8628 ms;
+    the remaining gap to scale-1,000 is P4's measured full-row/bandwidth work.
+    The touched-source comment audit covers 20/20 files with zero deferred.
 
 - [ ] P4 — Hot-state compaction and pass fusion (bandwidth diet).
   - Implementation, driven by the P0 bytes/body/step accounting, candidate

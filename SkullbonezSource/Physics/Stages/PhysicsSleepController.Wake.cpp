@@ -6,17 +6,22 @@ Purpose:
 Summary:
   Wake propagation is a cohesive part of PhysicsSleepController but has enough
   bounded graph traversal and policy to merit a focused implementation unit.
-  All rows remain owned by the same concrete sleep controller.
+  All rows remain owned by the same concrete sleep controller; parallel wake
+  producers publish bounded indices for sequencer-side ordered insertion.
 
 Glossary:
   Wake fan-out: Expansion through visual, point-joint, and resting-contact islands.
   Underwater lock: Dormancy guard that prevents buoyancy jitter from waking a ball.
   Seed sleep: Explicitly establish an eligible body as dormant before island analysis.
+  Pending awake queue: Fixed rows claimed once by atomic sleep-state transition
+    and folded into the ascending awake list after workers finish.
 
 Invariants:
   - Fixed and underwater-locked bodies reject ordinary wake fan-out.
   - Synchronous narrowphase wake reapplies forces within the same fixed step.
   - Wake scratch uses construction-reserved storage and never grows in steady play.
+  - Only the successful sleeping-to-awake compare/exchange owns wake side
+    effects, so parallel pairs cannot enqueue or apply forces twice.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
@@ -150,6 +155,10 @@ bool PhysicsSleepController::WakeDynamicBodyState( const PhysicsSleepWakeContext
         (void)context.bodyStore->ApplyForces( *context.worldForces, *context.colliderStore, index, dt );
     }
     context.contactCache.ForgetBody( index );
+    if ( wasSleeping )
+    {
+        AddAwakeBodyIndex( index );
+    }
     return wasSleeping || hadCounter || hadSleepVisual || wasUnderwaterLocked;
 }
 
@@ -382,12 +391,15 @@ PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsBodyStore& bo
                                                             std::span<uint8_t> sleepCounter,
                                                             std::span<int> sleepIslandVisualId,
                                                             std::span<const uint8_t> underwaterSleepLocked,
+                                                            std::span<int> pendingAwakeIndices,
+                                                            int& pendingAwakeCount,
                                                             int modelCount,
                                                             float dt )
     : m_bodyStore( bodyStore ), m_colliderStore( colliderStore ), m_worldForces( worldForces ),
       m_bodyRecords( bodyRecords ), m_hotFields( hotFields ), m_timeRemaining( timeRemaining ),
       m_sleepState( sleepState ), m_sleepCounter( sleepCounter ), m_sleepIslandVisualId( sleepIslandVisualId ),
-      m_underwaterSleepLocked( underwaterSleepLocked ), m_modelCount( modelCount ), m_dt( dt )
+      m_underwaterSleepLocked( underwaterSleepLocked ), m_pendingAwakeIndices( pendingAwakeIndices ),
+      m_pendingAwakeCount( pendingAwakeCount ), m_modelCount( modelCount ), m_dt( dt )
 {
 }
 
@@ -396,13 +408,31 @@ void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
     // Why: narrowphase and tornado wakeups must re-enter the body into this
     // tick synchronously; deferring this mutation changes later pair reads.
     if ( sleepingIndex < 0 || sleepingIndex >= m_modelCount ||
-         IsSolverBodyFixed( ConstPhysicsBodyHotFields( m_hotFields ), sleepingIndex ) || !m_sleepState[sleepingIndex] ||
+         IsSolverBodyFixed( ConstPhysicsBodyHotFields( m_hotFields ), sleepingIndex ) ||
          ( sleepingIndex < static_cast<int>( m_underwaterSleepLocked.size() ) &&
            m_underwaterSleepLocked[sleepingIndex] ) )
     {
         return;
     }
-    m_sleepState[sleepingIndex] = 0;
+    // Parallel pairs can target the same sleeper. One atomic state transition
+    // owns the wake side effects and one bounded queue row; the sequencer later
+    // folds queued indices into deterministic ascending order.
+    std::atomic_ref<uint8_t> sleepState( m_sleepState[static_cast<std::size_t>( sleepingIndex )] );
+    uint8_t expectedSleeping = 1u;
+    if ( !sleepState.compare_exchange_strong( expectedSleeping, 0u, std::memory_order_acq_rel ) )
+    {
+        return;
+    }
+    std::atomic_ref<int> pendingAwakeCount( m_pendingAwakeCount );
+    const int pendingIndex = pendingAwakeCount.fetch_add( 1, std::memory_order_acq_rel );
+    if ( pendingIndex < 0 || pendingIndex >= static_cast<int>( m_pendingAwakeIndices.size() ) )
+    {
+        SB_FATAL( "Physics/PhysicsSleepController",
+                  "Pending awake queue capacity exceeded: slot=%d capacity=%zu phase=steady_gameplay.",
+                  pendingIndex,
+                  m_pendingAwakeIndices.size() );
+    }
+    m_pendingAwakeIndices[static_cast<std::size_t>( pendingIndex )] = sleepingIndex;
     m_sleepCounter[sleepingIndex] = 0;
     m_sleepIslandVisualId[sleepingIndex] = 0;
     m_timeRemaining[sleepingIndex] = m_dt;
@@ -429,6 +459,8 @@ PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore
                                          m_sleepCounter,
                                          m_sleepIslandVisualId,
                                          m_underwaterSleepLocked,
+                                         m_pendingAwakeIndices,
+                                         m_pendingAwakeCount,
                                          modelCount,
                                          dt );
 }
@@ -458,6 +490,7 @@ void PhysicsSleepController::SeedModelAsleep( const PhysicsBodyStore& bodyStore,
     EnsureVisualIdSize( modelCount );
     EnsureUnderwaterSleepLockBuffer( modelCount );
     m_sleepState[index] = 1;
+    RemoveAwakeBodyIndex( index );
     m_sleepCounter[index] = m_seedSleepFrameCount;
     m_underwaterSleepLocked[index] = 0;
     m_sleepIslandVisualId[index] = m_nextSleepIslandVisualId++;
@@ -479,6 +512,7 @@ void PhysicsSleepController::SetPhysicsSleepEnabled( bool enabled )
     std::fill( m_underwaterSleepLocked.begin(), m_underwaterSleepLocked.end(), static_cast<uint8_t>( 0 ) );
     std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
     std::fill( m_sleepIslandAssignedVisualId.begin(), m_sleepIslandAssignedVisualId.end(), 0 );
+    m_awakeListNeedsRebuild = true;
 }
 
 bool PhysicsSleepController::IsPhysicsSleepEnabled() const

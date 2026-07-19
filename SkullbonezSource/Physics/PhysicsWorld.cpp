@@ -32,6 +32,8 @@ Glossary:
   Lane F: Fatal invariant lane for should-never-happen engine state.
   Mutual-gravity pair scratch: Triangular array with one force value for every
     `(i,j)` body pair, populated in parallel and replayed in serial model order.
+  Awake index list: Ascending dense body rows owned by the sleep controller and
+    borrowed by work-producing stages for one sequenced fixed-step interval.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -41,6 +43,8 @@ Invariants:
     allocate on a hot path or silently drop deterministic side effects.
   - Mutual-gravity chunk scheduling may vary, but pair slots and the final
     triangular replay order never depend on worker count.
+  - Parallel wake producers are flushed before the next awake-list consumer;
+    worker scheduling never changes the ascending stage iteration order.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.h
@@ -151,21 +155,6 @@ double EstimatePhysicsHotBytesPerBodyStep( int totalBodies, int forceAwakeBodies
     return static_cast<double>( logicalBytes ) / static_cast<double>( totalIterations );
 }
 
-int CountDynamicAwakeBodiesForProfile( const PhysicsBodyHotFieldsConstView& hotFields,
-                                       std::span<const uint8_t> sleepStates,
-                                       int modelCount )
-{
-    int awakeBodyCount = 0;
-    const int count = (std::min)( { modelCount,
-                                    static_cast<int>( hotFields.fixed.size() ),
-                                    static_cast<int>( sleepStates.size() ) } );
-    for ( int bodyIndex = 0; bodyIndex < count; ++bodyIndex )
-    {
-        const std::size_t index = static_cast<std::size_t>( bodyIndex );
-        awakeBodyCount += hotFields.fixed[index] == 0u && sleepStates[index] == 0u ? 1 : 0;
-    }
-    return awakeBodyCount;
-}
 #endif
 
 template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values )
@@ -376,6 +365,16 @@ void PhysicsWorld::Clear()
     m_terrain.Clear();
     m_narrowphase.Clear();
     m_pointJointConstraints.clear();
+}
+
+
+void PhysicsWorld::InvalidateBodyTopology()
+{
+    // Cold boundary: a same-count destroy/create sequence can replace dense
+    // rows without exposing a count delta to the next fixed step. Rebuild both
+    // derived awake indices and persistent grid membership from owner stores.
+    m_sleepController.InvalidateBodyTopology();
+    m_broadphase.InvalidateBodyTopology();
 }
 
 
@@ -728,6 +727,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                          static_cast<int>( bodyRecords.size() ),
                                          static_cast<int>( colliderRecords.size() ) } );
     const std::span<const uint8_t> sleepStates = m_sleepController.GetSleepStates();
+    std::span<const int> awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Sleep owns threshold interpretation and returns the exact squared-speed
     // and counter values consumed by narrowphase and island transitions. The
@@ -765,13 +765,16 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         m_profiler,
     };
 #ifdef SKULLBONEZ_PROFILE_ENABLED
-    const int forceAwakeBodyCount = m_sleepController.GetAwakeBodyCount();
+    const int forceAwakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
 #endif
-    m_forceStage.ApplyForces( applyForcesStage, modelCount, workerPool, config.physicsExecution );
+    m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, config.physicsExecution );
 
     ApplyTornadoGameplay( bodyStore, colliderStore, worldForces, dt, config, workerPool );
+    m_sleepController.FlushPendingAwakeBodyIndices();
+    awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
-    // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
+    // Broadphase: sleeping membership remains resident, while awake rows update
+    // their ranges and source awake-to-sleep wake-detection pairs.
     const float contactSkin = (std::max)( 0.0f, config.bodySimulation.contactEpsilon );
     const PhysicsBroadphaseStageContext broadphaseContext{ bodyStore,
                                                            bodyRecords,
@@ -780,6 +783,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                            config,
                                                            m_pointJointConstraints,
                                                            sleepStates,
+                                                           awakeBodyIndices,
                                                            m_stepDiagnostics.MutablePipelineTrace(),
                                                            modelCount,
                                                            dt,
@@ -848,6 +852,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         }
     }
     PROFILE_END( m_profiler, "Frame/Physics/Narrowphase" );
+    m_sleepController.FlushPendingAwakeBodyIndices();
+    awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Terrain phase ownership:
     //   1. Keep swept terrain detection here so fast bodies still stop at the
@@ -874,10 +880,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                  m_sleepController.MutableSupportedStatesForTerrain(),
                                                                  m_sleepController.MutableInhibitedStatesForTerrain(),
                                                                  m_profiler };
-    m_terrain.Detect( terrainDetectionContext, modelCount, config.physicsExecution, workerPool );
+    m_terrain.Detect( terrainDetectionContext, modelCount, awakeBodyIndices, config.physicsExecution, workerPool );
 
     const std::span<const TerrainDetectionCandidate> terrainCandidates = m_terrain.GetDetectionCandidates();
-    for ( int x = 0; x < modelCount; ++x )
+    for ( int x : awakeBodyIndices )
     {
         const TerrainDetectionCandidate& candidate = terrainCandidates[static_cast<size_t>( x )];
         if ( candidate.tested )
@@ -943,6 +949,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // Object contacts are converted into stack support only after terrain
     // response has had a chance to seed true support for this frame.
     m_sleepController.PropagateSupport( bodyStore );
+    awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Integrate remaining time for awake models.
     PROFILE_BEGIN( m_profiler, "Frame/Physics/Integrate" );
@@ -954,13 +961,10 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                             m_timeRemaining,
                                                             m_profiler };
 
-    // Why: wake access runs on parallel tornado/narrowphase workers and cannot
-    // mutate a shared counter. This Profile-only scan runs after synchronous
-    // wakes and also sees fixed-to-dynamic releases before integration.
 #ifdef SKULLBONEZ_PROFILE_ENABLED
-    const int integrateAwakeBodyCount = CountDynamicAwakeBodiesForProfile( hotFields, sleepStates, modelCount );
+    const int integrateAwakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
 #endif
-    m_forceStage.IntegrateRemaining( integrateRemainingStage, modelCount, workerPool, config.physicsExecution );
+    m_forceStage.IntegrateRemaining( integrateRemainingStage, awakeBodyIndices, workerPool, config.physicsExecution );
 
     const PhysicsSleepIslandStageContext sleepIslandContext{ bodyStore,
                                                              colliderStore,

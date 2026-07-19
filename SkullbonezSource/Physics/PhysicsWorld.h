@@ -24,12 +24,16 @@ Glossary:
     so buoyancy jitter does not repeatedly wake them.
   Mutual-gravity pair scratch: Preallocated triangular force table whose unique
     slots let workers compute pairs without racing or regrouping additions.
+  Awake index list: Sleep-owned ascending dense rows borrowed synchronously by
+    fixed-step stages that can ignore dormant bodies.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - Body and pair force scratch capacity is established during scene load and
     may not grow while fixed ticks are running.
+  - Authored topology edits invalidate derived awake/grid state before the next
+    fixed step, including same-count destroy/create sequences.
 
 Related:
   - SkullbonezSource/Physics/PhysicsWorld.cpp
@@ -195,6 +199,9 @@ class PhysicsWorld
     bool IsPhysicsSleepEnabled() const;
     void BeginCollisionVisualFrame( int modelCount );
     void EndCollisionVisualFrame();
+    // Cold authored mutation boundary: dense-row identity or fixed/sleep
+    // classification may have changed before the next fixed step.
+    void InvalidateBodyTopology();
     void ClearPointJointConstraints();
     // Deletion pre-pass: no constraint may retain a body handle after retirement.
     void DestroyPointJointsForBody( PhysicsBodyHandle body );

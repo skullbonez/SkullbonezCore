@@ -22,7 +22,9 @@ Glossary:
   Canonical pair order: Ascending normalized `(minIndex, maxIndex)` order,
   independent of cell-bucket discovery history.
   Persistent membership: Cell occupancy retained across fixed steps until a
-  body's integer cell range changes.
+    body's integer cell range changes.
+  Pair-source stamp: Frame generation marking a cell reached by an awake body;
+    production candidate collection skips unstamped sleep-only cells.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
@@ -34,6 +36,8 @@ Invariants:
     hide a collision.
   - Candidate discovery may follow bucket/list order, but solver-visible output
     is canonical and uses fixed-capacity staging owned by this grid.
+  - Pair-source stamps restrict this frame's work only; they never remove or
+    mutate a sleeper's persistent membership.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -128,14 +132,14 @@ class SpatialGrid
 
     struct Entry
     {
-        int objectIndex;            // Scene/model slot stored in one occupied grid cell.
-        int bucketIndex;            // Owning buckets[] row for direct unlink.
-        int nextInBucket;           // Next persistent member of the same cell.
-        int previousInBucket;       // Previous member; -1 means bucket head.
-        int nextForObject;          // Next cell entry owned by this body.
-        int previousForObject;      // Previous entry; -1 means body head.
-        int nextFree;               // Reusable-slot chain when this entry is inactive.
-        int ix, iy, iz;             // Exact cell coordinate; hash collisions share a bucket conservatively.
+        int objectIndex;       // Scene/model slot stored in one occupied grid cell.
+        int bucketIndex;       // Owning buckets[] row for direct unlink.
+        int nextInBucket;      // Next persistent member of the same cell.
+        int previousInBucket;  // Previous member; -1 means bucket head.
+        int nextForObject;     // Next cell entry owned by this body.
+        int previousForObject; // Previous entry; -1 means body head.
+        int nextFree;          // Reusable-slot chain when this entry is inactive.
+        int ix, iy, iz;        // Exact cell coordinate; hash collisions share a bucket conservatively.
     };
 
     struct SweptOverlayEntry
@@ -147,18 +151,19 @@ class SpatialGrid
 
     struct Bucket
     {
-        int64_t key;                // Existing hashed cell identity; collisions remain conservative false positives.
-        bool occupied;              // Live hash-chain row; false rows belong to the bucket free list.
-        int nextHash;               // Next row sharing this table home slot.
-        int previousHash;           // Back-link for O(1) removal from the hash chain.
-        int nextFree;               // Reusable bucket-slot chain while unoccupied.
-        int head;                   // Persistent entries[] chain head.
-        int count;                  // Persistent object count.
-        uint32_t overlayGeneration; // Current-frame stamp for swept-only occupancy.
-        int overlayHead;            // SweptOverlayEntry chain head for overlayGeneration.
-        int overlayCount;           // Current swept-only object count.
-        int activeIndex;            // Back-link into activeBuckets[] for swap removal.
-        int16_t ix, iy, iz;         // Cell grid coordinates (stored for visualization).
+        int64_t key;                   // Existing hashed cell identity; collisions remain conservative false positives.
+        bool occupied;                 // Live hash-chain row; false rows belong to the bucket free list.
+        int nextHash;                  // Next row sharing this table home slot.
+        int previousHash;              // Back-link for O(1) removal from the hash chain.
+        int nextFree;                  // Reusable bucket-slot chain while unoccupied.
+        int head;                      // Persistent entries[] chain head.
+        int count;                     // Persistent object count.
+        uint32_t pairSourceGeneration; // Current-frame stamp when an awake body reaches this cell.
+        uint32_t overlayGeneration;    // Current-frame stamp for swept-only occupancy.
+        int overlayHead;               // SweptOverlayEntry chain head for overlayGeneration.
+        int overlayCount;              // Current swept-only object count.
+        int activeIndex;               // Back-link into activeBuckets[] for swap removal.
+        int16_t ix, iy, iz;            // Cell grid coordinates (stored for visualization).
     };
 
     struct BodyMembership
@@ -170,13 +175,14 @@ class SpatialGrid
 
     struct CandidatePairNode
     {
-        int maxIndex;               // Larger normalized body index for one accepted pair.
-        int next;                   // Next node with the same smaller body index; -1 ends the list.
+        int maxIndex; // Larger normalized body index for one accepted pair.
+        int next;     // Next node with the same smaller body index; -1 ends the list.
     };
 
     float cellSize;
     float inverseCellSize;
     uint32_t overlayGeneration;
+    uint32_t pairSourceGeneration;
     int freeBucketHead;
     int freeEntryHead;
     int persistentEntryCount;
@@ -224,7 +230,10 @@ class SpatialGrid
     void ResetSweptOverlay();
     int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
     void ResetCandidatePairDedup();
-    bool MarkCandidatePairFirstSeen( int a, int b, const Physics::BroadphaseCandidateFilterContext* filter );
+    bool MarkCandidatePairFirstSeen( int a,
+                                     int b,
+                                     const Physics::BroadphaseCandidateFilterContext* filter,
+                                     std::vector<std::pair<int, int>>* sleepPrunedPairs );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -256,11 +265,19 @@ class SpatialGrid
     // Maintains the body's ordinary current-position cells, then adds only the
     // velocity-dependent sweep to the current frame's stamped overlay.
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
+    // Marks every persistent cell currently reachable from one awake body as a
+    // candidate source for this frame. Swept insertions stamp overlay cells as
+    // they are created.
+    void MarkPairSourceCells( int index );
     // Emits deduplicated cell-sharing pairs in ascending normalized body-index
     // order. A filter can reject a known-safe false positive before it is
-    // staged, but narrowphase still owns contacts.
+    // staged, but narrowphase still owns contacts. Debug may retain geometric
+    // sleep-only admissions in a bounded diagnostic vector; production may
+    // restrict traversal to current pair-source cells.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                            const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
+                            const Physics::BroadphaseCandidateFilterContext* filter = nullptr,
+                            std::vector<std::pair<int, int>>* sleepPrunedPairs = nullptr,
+                            bool restrictToPairSourceCells = false );
 #if defined( _DEBUG )
     // P1 transition oracle only: emits the pre-transition bucket-history order
     // from the same grid state so Debug runs can compare work membership without
