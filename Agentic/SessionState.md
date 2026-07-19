@@ -12,21 +12,20 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-18th-july` |
 | Current baseline | Physics P1 is complete: canonical pair emission, varied/known-issue physics artifacts, the coupled one-process 200-box replay golden, and `physics_query_varied.json` are the new exact baseline after a complete bounded-divergence assessment. |
-| Current objective | Reconcile ImGui/Tracy E14-E15 against the accepted P1 golden, then implement Physics P2; Legacy remains the exclusive default. |
-| Active/future progress | 17 / 26 live tasks; 65%. |
+| Current objective | Implement Physics P2 persistent incremental grid while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
+| Active/future progress | 19 / 26 live tasks; 73%. |
 | Last broad local gate | E17 `validate_full` passed 311 cases/21,874 assertions, coverage floors, Automation/replay, zero-error DX12 comparisons, and the byte-exact physics oracle; UI, UI stress, DX12, bounded graphics stress, unchanged-retry perf, allocation, Release exclusion, and independent review also passed. |
 | Validation for current edits | P1 final `validate_physics`, `validate_physics_deep`, `validate_perf`, and offline replay equality/control suite pass against the transitioned artifacts; the existing replay capture remains the sole process/generation used for approval. |
 
 ## Live Queue
 
 NOW. Two live plans, 26 tasks. Physics body-count scale is 2/8 with P1 complete
-     and P2 next after the immediate UI ledger reconciliation. The canonical
-     emitter passed the 12-run same-state oracle and 18-run worker matrix; the
-     complete replay/query delta was bounded, the coupled one-process golden and
-     derived SkullScope packet were transitioned, and final physics/deep/perf
-     plus offline replay controls pass. ImGui/Tracy remains 15/18 at the E17
-     automatable checkpoint; E14-E15 now have the accepted P1 golden needed for
-     reconciliation, and E17 remains unchecked only for extended hands-on owner
+     and P2 next. The canonical emitter passed the 12-run same-state oracle and
+     18-run worker matrix; the complete replay/query delta was bounded, the
+     coupled one-process golden and derived SkullScope packet were transitioned,
+     and final physics/deep/perf plus offline replay controls pass. ImGui/Tracy
+     is 17/18: E14-E15 are reconciled against that accepted golden, E16 is
+     complete, and E17 remains unchecked only for extended hands-on owner
      acceptance. E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
@@ -94,14 +93,16 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 2/8 with P1 complete
      allocation, Release exclusion, and the 7/7 comment audit passed with no
      authored-data or golden change. Its single replay-fidelity invocation
      passed launcher/control proof and reached only the owner-gated topology
-     `199 -> 200`, so E14 remains unchecked pending the binding post-E17 P1
-     reconciliation. Evidence:
+     `199 -> 200`. P1's accepted one-process golden now passes exact equality
+     and all offline controls without another engine process, so E14 is
+     complete. Evidence:
      E15 completed the full replay-owned bottom transport, recording/prediction/
      scrub/cause workflows, minimum-width priority collapse, Legacy-default
      selection, and atomic `Ctrl+0` hot swaps. Five focused cases/91 assertions,
      native workflow/swap captures, UI/full/allocation/Release, and the 27/27
      comment audit passed; its single replay gate reached only the same authorized
-     topology transition, so E15 remains a retained checkpoint. Evidence:
+     topology transition. P1's accepted one-process golden now passes exactly,
+     so E15 is complete. Evidence:
      E16 added versioned benign preferences, deterministic stale-layout recovery,
      DPI-safe styling, fixed stable-ID automation, explicit inactive-Legacy
      scene/replay fences, and the final 180-frame matrix. The matrix passed 36
@@ -554,8 +555,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 2/8 with P1 complete
 
 ## Next Handoff
 
-Reconcile ImGui E14-E15 against P1's accepted one-process golden, then continue
-Physics P2-P7 in order. P1's complete assessment is recorded in
+Continue Physics P2-P7 in order. P1's complete assessment is recorded in
 `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`; future ordinary
 tasks are byte-exact against the transitioned artifacts and receive no refresh
 allowance.

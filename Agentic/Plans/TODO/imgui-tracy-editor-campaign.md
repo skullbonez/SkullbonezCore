@@ -1,11 +1,10 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 15/18 tasks (E0-E13 and E16 complete; E14-E15 acceptance is
-retained until the authorized P1 replay-topology reconciliation; E17 automatable
+Status: Active — 17/18 tasks (E0-E16 complete; E17 automatable
 evaluation/review/gates are complete but hands-on owner acceptance is retained)
 under the binding finish-UI-first direction
 Owner direction: 2026-07-18
-Ledger: E0-E17 (15/18 complete)
+Ledger: E0-E17 (17/18 complete)
 
 Owner amendment, 2026-07-18: Legacy and ImGui are mutually exclusive process
 modes because parallel surfaces compete for window focus and input. Legacy
@@ -476,7 +475,7 @@ It does **not** authorize removal from the legacy UI.
     data, baseline, or golden changed; E13 touched no backend/shader source, so
     its conditional bounded graphics-stress gate did not apply.
 
-- [ ] E14 — Reduce Causality to a useful contextual right-side tool.
+- [x] E14 — Reduce Causality to a useful contextual right-side tool.
   - Default compact view shows selected object, current replay tick, immediate
     cause/effect summary, prediction state, and a bounded list of the most
     relevant causal links.
@@ -500,10 +499,13 @@ It does **not** authorize removal from the legacy UI.
     authored-data or golden change. The single replay-fidelity invocation
     passed its launcher and 16 control cases/72 assertions, then reached only
     Physics P1's `causal.topologyCount: 199 -> 200` transition. The binding
-    2026-07-19 directive now authorizes that transition after E17. E14 therefore
-    remains unchecked while the UI campaign proceeds.
+    2026-07-19 directive authorized that transition after E17. P1's complete
+    bounded-divergence assessment accepted the coupled one-process golden, and
+    the retained report now passes exact 2,401-tick equality plus every offline
+    replay control. E14 requires no second engine process or UI-owned refresh
+    and is complete.
 
-- [ ] E15 — Anchor the complete replay workflow across the bottom.
+- [x] E15 — Anchor the complete replay workflow across the bottom.
   - Provide record/stop, jump start/end, play/pause, step backward/forward,
     speed, tick/frame display, scrubber, range/marker feedback, prediction
     request/state, selected cause, and recoverable replay errors.
@@ -532,8 +534,10 @@ It does **not** authorize removal from the legacy UI.
     The single replay-fidelity invocation passed launcher and 16 control
     cases/72 assertions, then reached only the authorized Physics P1
     `causal.topologyCount: 199 -> 200` transition. No authored data, baseline,
-    or golden changed. E15 therefore remains unchecked while E16 proceeds;
-    acceptance is reconciled after the binding post-E17 P1 loopback.
+    or golden changed in E15. P1's later complete bounded-divergence assessment
+    accepted the coupled one-process golden, and the retained report now passes
+    exact 2,401-tick equality plus every offline replay control. E15 requires no
+    second engine process or UI-owned refresh and is complete.
 
 - [x] E16 — Harden persistence, styling, scaling, automation, and long-session use.
   - Persist panel visibility, dock layout version, sizes, filters, and benign
@@ -592,10 +596,11 @@ It does **not** authorize removal from the legacy UI.
     real rpmalloc, LZ4, and late Legacy replay-presentation defects. Final
     full/UI/UI-stress/DX12/stress/perf/allocation/platform-marker/Release gates
     passed. The one mandated replay-fidelity invocation passed launcher and
-    control proofs, then reached only the binding P1
-    `causal.topologyCount: 199 -> 200` transition. No baseline or golden changed.
-    E17 remains unchecked solely for extended hands-on owner acceptance; that
-    retained checkpoint does not block the authorized Physics P1 loopback.
+    control proofs, then reached the binding P1 transition. P1's later complete
+    assessment reconciled the coupled golden from that same report, which now
+    passes exact 2,401-tick equality and all offline controls without a second
+    replay process. E17 remains unchecked solely for extended hands-on owner
+    acceptance; that retained checkpoint does not block Physics P2-P7.
 
 ## Final Acceptance
 

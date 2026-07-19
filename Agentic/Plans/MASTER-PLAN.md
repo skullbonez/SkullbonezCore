@@ -217,8 +217,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 2 | 8 | 25% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 15 | 18 | 83% |
-| **Active/future total** | **17** | **26** | **65%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
+| **Active/future total** | **19** | **26** | **73%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -273,13 +273,12 @@ worker matrix, focused tests, and final physics/deep/performance gates pass.
 The complete coupled one-process replay visual/causal delta and mechanically
 derived 21-query SkullScope packet were assessed under the binding directive,
 accepted as bounded consequences of canonical solve order, and transitioned.
-Those artifacts are exact again for P2 onward. P2 persistent incremental-grid
-work follows the immediate ImGui E14-E15 ledger reconciliation.
+Those artifacts are exact again for P2 onward. The ImGui E14-E15 ledger
+reconciliation is complete, so P2 persistent incremental-grid work is next.
 
-`imgui-tracy-editor-campaign` (E0-E17) is 15/18: E14-E15 implementation
-and independent validation are complete, but their single replay-fidelity
-gates are retained until the authorized P1 `causal.topologyCount: 199 -> 200`
-transition is reconciled after E17. E16 is complete and E17's automatable
+`imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
+the accepted P1 one-process golden and their retained replay gates now pass
+exactly without another engine process. E16 is complete and E17's automatable
 evaluation, review, and gates are complete; its checkbox is retained only for
 extended hands-on owner acceptance. The 2026-07-18 owner amendment
 keeps Legacy as the development default and makes ImGui an explicit
@@ -368,9 +367,9 @@ separate virtualized dockable detail window. Native compact/detail captures,
 1 focused case/16 assertions, a 7/7 comment audit, UI/full/allocation/Release
 proof, and the replay interaction path passed without authored-data or golden
 changes. Its mandatory single replay-fidelity invocation passed launcher and
-control proofs, then stopped only at the topology `199 -> 200`, now authorized
-for the binding post-E17 P1 loopback; E14 remains unchecked while UI work
-proceeds.
+control proofs, then stopped only at the topology `199 -> 200`. P1's complete
+bounded assessment accepted the coupled one-process golden, which now passes
+exactly without another engine process; E14 is complete.
 E15's validated checkpoint adds the complete replay-owned bottom transport,
 recording control, prediction/scrub/cause workflows, recoverable typed command
 path, minimum-width priority collapse, and mutually exclusive Legacy/ImGui
@@ -381,7 +380,8 @@ and two-direction swap captures, 5 focused cases/91 assertions, a 27/27 comment
 audit, and final UI/full/allocation/Release proof passed without authored-data,
 baseline, or golden changes. Its single replay-fidelity invocation passed the
 launcher and 16 control cases/72 assertions before the same authorized topology
-transition; E15 remains unchecked pending the post-E17 P1 reconciliation.
+transition. P1's accepted one-process golden now passes exactly with all offline
+controls, so E15 is complete.
 E16 closes persistence and stress hardening with one versioned benign
 preference record, deterministic stale-layout recovery, a coherent DPI-safe
 editor palette, fixed stable-ID automation commands/assertions, and explicit
@@ -401,8 +401,8 @@ authority defects, then found no remaining blocker. Full, UI, UI-stress, DX12,
 bounded graphics-stress, unchanged-retry performance, allocation-policy,
 platform-marker, and Release gates passed. The mandated single replay-fidelity
 invocation reached only the already authorized topology `199 -> 200` transition;
-no baseline or golden changed. Extended hands-on feedback remains the sole E17
-hold and does not block the Physics P1 loopback.
+P1 later reconciled that same one-process report. Extended hands-on feedback
+remains the sole E17 hold and does not block Physics P2-P7.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for separate Legacy and
@@ -991,7 +991,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 complete; P2 queued after UI reconciliation | 2/8 | Reconcile ImGui E14-E15, then implement the persistent incremental grid with byte-exact P1 artifacts |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 complete; P2 next | 2/8 | Implement the persistent incremental grid with byte-exact P1 artifacts |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 
@@ -1019,7 +1019,7 @@ forbidden; no legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E14-E15 retained for post-P1 gate reconciliation; E17 automatable checkpoint complete and hands-on acceptance retained | 15/18 | Loop back after P1 to reconcile replay gates; retain Legacy as the default and await extended owner playtest feedback |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default and await extended owner playtest feedback while Physics P2-P7 continue |
 
 ## Features
 
