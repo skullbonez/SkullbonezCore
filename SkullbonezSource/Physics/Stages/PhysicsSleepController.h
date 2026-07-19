@@ -142,6 +142,7 @@ struct PhysicsSleepIslandStageContext
     std::span<float> timeRemaining;
     std::span<const PersistentContact> persistentContacts;
     std::span<const uint16_t> persistentRestingContactCounts;
+    std::span<const int> awakeBodyIndices;
     const std::vector<PointJointConstraint>& pointJointConstraints;
     std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
     int modelCount = 0;
@@ -220,7 +221,10 @@ class PhysicsSleepController
     void Clear();
     void ApplyRuntimeConfig( const Core::EngineConfig& config );
     PhysicsSleepStepPolicy ResolveStepPolicy( const Core::PhysicsSleepConfig& config ) const;
-    void MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount );
+    // Returns true when a cold topology/replay/config boundary rebuilt the
+    // derived awake index. Ordinary fixed steps preserve the controller-owned
+    // sleep rows without rescanning the body-store flag array.
+    bool MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount );
     void InvalidateBodyTopology();
     void FlushPendingAwakeBodyIndices();
     void EnsureVisualIdSize( int modelCount );

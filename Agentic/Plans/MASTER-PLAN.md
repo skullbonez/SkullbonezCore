@@ -216,9 +216,9 @@ for side-by-side owner evaluation.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 4 | 8 | 50% |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 5 | 8 | 63% |
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| **Active/future total** | **21** | **26** | **81%** |
+| **Active/future total** | **22** | **26** | **85%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -267,19 +267,18 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is 4/8 with P3 complete. The
-persistent grid retains sleepers while an ascending dense awake list drives
-force, integration, terrain, and grid maintenance. Pair-source cell stamps keep
-production candidate traversal awake-reachable, sleep/sleep pairs are rejected
-before final emission, and the redundant `PruneSleepPairs` pass is deleted.
-Parallel wakes publish into fixed storage and are folded by the sequencer after
-worker barriers. Debug reconstructs the pre-P3 canonical diagnostic stream, so
-the committed 21-query SkullScope packet remains exact without a refresh while
-Profile/Release omit dormant work. All six retained P1 witnesses match
-byte-for-byte at 0/1/4 workers (18/18); tests, physics, deep/query, performance,
-allocation, and marker gates pass. Sleepy-5,000 physics P50 improves from
-1.9813 ms to 1.8628 ms; P4 now owns the measured remaining full-row and
-cache/bandwidth work.
+`physics-body-count-scale-campaign` (P0-P7) is 5/8 with P4 complete. The
+sleep-owned ascending awake set now drives steady sleep mirroring, same-
+timestep CCD-clock reset, eligibility/counter/transition work, and ordinary
+underwater-lock decisions. Full dormant censuses occur only at cold rebuild,
+explicit seed, or exact fluid-surface-height change boundaries. The logical
+estimate remains 245.0 bytes/body/step for all-awake scenes and falls from 95.4
+to 82.6 for sleepy-5,000. Its `Frame/Physics` P50 falls from 1.8628 ms to
+1.3331 ms. Force/integration and mutual-gravity fusion candidates were rejected
+because they would cross state-changing stages or violate exact-sum order. All
+six retained P1 witnesses match byte-for-byte at 0/1/4 workers (18/18), and
+focused tests plus physics, performance, full, allocation, and marker gates
+pass. P5 next owns the automatic Tier-2 evidence checkpoint.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
 the accepted P1 one-process golden and their retained replay gates now pass
@@ -996,7 +995,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P3 complete; P4 next | 4/8 | Compact hot state, fuse only order-preserving adjacent work, and eliminate the remaining measured full-row bounds/diagnostic passes |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P4 complete; P5 next | 5/8 | Consolidate P0-P4 attribution and apply the automatic Tier-2 evidence gate from two repeated P4-tip captures |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 

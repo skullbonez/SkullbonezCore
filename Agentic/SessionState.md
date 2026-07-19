@@ -11,22 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-18th-july` |
-| Current baseline | Physics P3 is complete: an ascending awake list and awake-source broadphase traversal remove dormant-body steady work while every transitioned P1 artifact remains byte-exact at 0/1/4 workers. |
-| Current objective | Implement Physics P4 hot-state compaction/pass fusion while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
-| Active/future progress | 21 / 26 live tasks; 81%. |
-| Last broad local gate | P3 `validate_tests`, `validate_physics`, `validate_physics_deep`, and `validate_perf` pass with 321 cases/30,365 assertions, byte-exact physics/query artifacts, and zero steady-gameplay allocation violations. |
-| Validation for current edits | The final 18-run six-scene 0/1/4 matrix matches all retained P1 witnesses exactly in 1,473.56 seconds; the bounded platform-profiler marker launch exits 0. |
+| Current baseline | Physics P4 is complete: awake-set/cold-boundary bookkeeping reduces sleepy-5,000 from 95.4 to 82.6 estimated bytes/body/step while every transitioned P1 artifact remains byte-exact at 0/1/4 workers. |
+| Current objective | Execute Physics P5's measurement checkpoint and automatic Tier-2 evidence gate while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
+| Active/future progress | 22 / 26 live tasks; 85%. |
+| Last broad local gate | P4 `validate_physics`, `validate_perf`, and `validate_full` pass with 322 cases/30,378 assertions, all coverage floors, zero DX12 validation errors, byte-exact physics, and zero steady-gameplay allocation violations. |
+| Validation for current edits | The final 18-run six-scene 0/1/4 matrix matches all retained P1 witnesses exactly in about 30m52s; the bounded platform-profiler marker launch exits 0 in 1.388 seconds. |
 
 ## Live Queue
 
-NOW. Two live plans, 26 tasks. Physics body-count scale is 4/8 with P3 complete
-     and P4 next. An ascending dense awake list drives force, integration,
-     terrain, and persistent-grid maintenance; sleepers retain membership for
-     awake collisions, while awake-source cells omit sleep/sleep candidate work.
-     The old prune pass is deleted and Debug preserves the exact historical
-     diagnostic stream without changing Profile/Release work. All six retained
-     P1 witnesses match across the 18-run 0/1/4 matrix; final tests, physics,
-     deep/query, perf/allocation, and marker gates pass. ImGui/Tracy
+NOW. Two live plans, 26 tasks. Physics body-count scale is 5/8 with P4 complete
+     and P5 next. Steady same-timestep CCD-clock reset, sleep mirroring,
+     eligibility/counter/transition guards, and underwater-lock decisions now
+     follow the ascending awake set or explicit cold boundaries. All-awake
+     scenes remain 245.0 estimated bytes/body/step; sleepy-5,000 falls from 95.4
+     to 82.6 and its physics P50 falls from 1.8628 ms to 1.3331 ms. All six
+     retained P1 witnesses match across the 18-run 0/1/4 matrix; focused tests,
+     physics, perf/allocation, full, and marker gates pass. ImGui/Tracy
      is 17/18: E14-E15 are reconciled against that accepted golden, E16 is
      complete, and E17 remains unchecked only for extended hands-on owner
      acceptance. E0 froze the complete
@@ -558,7 +558,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 4/8 with P3 complete
 
 ## Next Handoff
 
-Continue Physics P4-P7 in order. P1-P3 evidence is recorded in
+Continue Physics P5-P7 in order. P1-P4 evidence is recorded in
 `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`; future ordinary
 tasks are byte-exact against the transitioned artifacts and receive no refresh
 allowance.

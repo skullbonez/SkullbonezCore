@@ -515,3 +515,126 @@ C:\Users\sesch\AppData\Local\Programs\Python\Python312\python.exe C:\SkullbonezC
 Total bounded query output was 110,014 UTF-8 bytes/characters. The harness
 captured raw query JSON without exposing it to the model, so GPT-read raw query
 output was 0 bytes; only the bounded size accounting above was inspected.
+
+## P4 Hot-State Bandwidth Diet
+
+P4 moved steady bookkeeping from the total body count to the sleep owner's
+ascending awake set without changing simulation arithmetic or persisted state.
+The accepted changes are:
+
+- Same-timestep `m_timeRemaining` reset writes awake rows only. Topology/count
+  or exact timestep changes retain the former all-row initialization as a cold
+  replay/diagnostic boundary.
+- `PhysicsSleepController` imports and exports body-store sleep flags only when
+  topology, replay, or configuration invalidates its derived awake index.
+  Ordinary fixed steps retain the controller-owned sleep rows directly.
+- Sleep eligibility, quiet-counter advancement, can-sleep checks, and final
+  transitions walk the ascending awake set. The final transition cursor remains
+  on a compacted slot so consecutive sleepers cannot be skipped.
+- Dormant underwater sleepers are scanned only after a cold awake-list rebuild,
+  an explicit sleep seed, or an exact fluid-surface-height change. An ordinary
+  sleep transition probes and locks its exact body immediately.
+
+The production mutation audit found every external sleep change already crosses
+an explicit synchronization boundary: scene wake/velocity/seed commands mirror
+the store immediately, sleep enablement mirrors immediately, and topology,
+editor, and replay mutation invalidate the derived index. No parallel worker
+mutates the sorted list.
+
+Three candidate moves were rejected:
+
+- Force accumulation and final integration are not adjacent. Tornado,
+  broadphase, narrowphase, terrain, persistent-contact, joint, and support work
+  intervene and may change wake, velocity, or remaining-time state. Fusing
+  across them would change operation order.
+- Mutual gravity keeps its triangular pair scratch and canonical serial
+  reduction because regrouping additions would violate the exact-sum contract.
+- No cold-store split was accepted without a measured cold-only replacement.
+  Moving a field while retaining the same hot-loop read is relocation, not a
+  bandwidth reduction.
+
+### P4 Logical Byte Accounting
+
+P3 charged `58 all + 81 force-awake + 106 integrate-awake` logical bytes. P4
+moves 16 bytes of sleep/CCD guard traffic from every row to the awake set, so
+the model becomes `42 all + 16 awake-bookkeeping + 81 + 106`.
+
+| Fixture | P3 bytes/body/step | P4 bytes/body/step | Delta |
+|---|---:|---:|---:|
+| All awake | 245.0 | 245.0 | 0.0 (the 16 bytes move from all-row to awake-row) |
+| 1,000 awake / 5,000 total | 95.4 | 82.6 | -12.8 (-13.42%) |
+
+No pass fusion was accepted, so there is no fusion-specific byte delta to
+report. The accepted compaction group is exactly the 16-byte accounting move
+above.
+
+### P4 Measurement Matrix
+
+Profile P50 values are milliseconds from the final `validate_perf` capture.
+Sleepy-5,000 `Frame/Physics` falls from P3's 1.8628 ms to 1.3331 ms
+(-28.44%), and total `Frame` falls from 4.0181 ms to 3.4816 ms (-13.35%).
+All-awake physics deltas range from +4.84% at scale-200 to -2.60% at
+scale-2,000 while their logical byte count remains exactly 245.0; those small
+mixed movements are treated as capture noise, not an arithmetic optimization
+claim.
+
+| Marker / counter | scale_200 | scale_520 | scale_1000 | scale_2000 | sleepy_5000 |
+|---|---:|---:|---:|---:|---:|
+| `Frame` | 0.4545 | 1.4850 | 2.0373 | 3.2728 | 3.4816 |
+| `Frame/Physics` | 0.1147 | 0.8379 | 1.1629 | 1.9646 | 1.3331 |
+| `Frame/Physics/Broadphase` | 0.0279 | 0.1669 | 0.3691 | 0.8367 | 0.3490 |
+| `Frame/Physics/Broadphase/GridSetup` | 0.0002 | 0.0007 | 0.0008 | 0.0011 | 0.0007 |
+| `Frame/Physics/Broadphase/GridMaintain` | 0.0217 | 0.1382 | 0.2893 | 0.5618 | 0.1802 |
+| `Frame/Physics/Broadphase/CandidatePairs` | 0.0029 | 0.0123 | 0.0402 | 0.1467 | 0.1682 |
+| `Frame/Physics/Broadphase/PruneSleepPairs` | deleted / 0 | deleted / 0 | deleted / 0 | deleted / 0 | deleted / 0 |
+| `Frame/Physics/ApplyForces` | 0.0268 | 0.1801 | 0.1886 | 0.1961 | 0.1856 |
+| `Frame/Physics/Terrain/Detect` | 0.0185 | 0.2035 | 0.2264 | 0.2777 | 0.2331 |
+| `Frame/Physics/Integrate` | 0.0217 | 0.1990 | 0.2130 | 0.2355 | 0.2311 |
+| `Frame/Physics/Narrowphase` | 0.0004 | 0.0032 | 0.0079 | 0.0238 | 0.0010 |
+| Inclusive solver owner (`PersistentContacts`) | 0.0075 | 0.0306 | 0.0566 | 0.1361 | 0.0026 |
+| Awake / total bodies | 200 / 200 | 520 / 520 | 1,000 / 1,000 | 2,000 / 2,000 | 1,000 / 5,000 |
+| Bodies reinserted this step | 24 | 63 | 121 | 233 | 142 |
+| Estimated hot bytes/body/step | 245.0 | 245.0 | 245.0 | 245.0 | 82.6 |
+
+### P4 Worker-Count Determinism
+
+The final Debug source reproduced every retained P1/P3 witness byte-for-byte at
+worker counts 0, 1, and 4 across all six scenes: 18/18 processes in about
+1,852 seconds (30m52s). Scale scenes used 600 frames and
+`physics_bench_varied` used 1,200. Native byte comparison and SHA-256 matched
+before each duplicate was deleted; retained witnesses were not modified.
+
+| Scene | Bytes | SHA-256 |
+|---|---:|---|
+| scale_200 | 33,831,818 | `3DAD84BE52C8C7A9BCA029B11543E841E54B2F14DFE24E7FCF14D0CBE5BF522A` |
+| scale_520 | 88,116,798 | `9B8F705074EE7158E7F8B6A8483D49E69632EA857613F83FC551A4FEA8499B5E` |
+| scale_1000 | 169,580,528 | `F277D16226591F5B258C0D4C0F8BE54EAD52A9CE679EF49C03970305B4F8DE8C` |
+| scale_2000 | 340,410,150 | `AA9D3BFD770ABB838D2EDBF836F33C110E4FBE730437C16739E7F7D847CD36DC` |
+| sleepy_5000 | 912,830,920 | `67FDBC3D7A6FBDDD6FC15E0393A9DF137AA3777193EE8E9F564090C7B7174C76` |
+| regression_varied | 12,660,434 | `8E9092CB7F28EAFC0D9F167E90CF9D5292D022485D6AE93D591FB758CAEA6387` |
+
+### P4 Validation And Resolved Blockers
+
+- Focused sleep tests pass 6/6 cases and 47/47 assertions. The first run exposed
+  a fixture that seeded only controller state; the production cold-mirror
+  contract correctly treats body-store authored state as authoritative. The
+  fixture now seeds both production owners and the rerun is clean.
+- `tools\validate_physics.bat` passes in about 91 seconds: standalone/runtime
+  handle smokes pass, the 44,401-line varied CSV is byte-exact, and Profile plus
+  Debug build with zero warnings/errors.
+- `tools\validate_perf.bat` completes with passing absolute budgets, analyzer
+  and structural checks, zero steady-gameplay allocation violations, and the
+  five scale captures above.
+- The first `tools\validate_full.bat` attempt stopped at format preflight on
+  inherited P3 inline-comment alignment in `SpatialGrid.h`. Ten formatting-only
+  lines were aligned; `validate_format` then passed all 276 headers. The full
+  rerun passes 322 doctest cases/30,378 assertions, every coverage floor,
+  interaction/parser/DX12 architecture tests, Automation replay/prediction,
+  three zero-error DX12 baseline comparisons, and exact physics validation.
+- The one-frame `--platform-profiler-markers` smoke exits 0 in 1.388 seconds.
+  Legacy remains the default; the inactive ImGui context records zero frames
+  and zero draws, and no UI source is changed.
+
+No baseline, golden, scene, config, authored-data, or UI artifact changed. P4's
+touched-source comment audit covers 6/6 files with zero deferred; see
+`../2026-07-19/physics-body-count-p4-comment-audit.md`.

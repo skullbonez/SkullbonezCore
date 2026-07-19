@@ -116,13 +116,15 @@ constexpr uint64_t LogicalStreamBytes( std::size_t elementBytes, uint64_t elemen
 }
 
 // Concept: this is a logical dense-stream census, not a hardware bandwidth
-// counter. The all-row term counts the P0 guard/bookkeeping streams as 26 byte-
-// flag operations (fixed, awake, sleep and sleep-policy rows), six float
-// operations (time-remaining/bounds rows), and two int operations (sleep-island
-// rows). Each operation is one array-element read or write in one pass.
-constexpr uint64_t PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP = LogicalStreamBytes( sizeof( uint8_t ), 26u ) +
-                                                             LogicalStreamBytes( sizeof( float ), 6u ) +
+// counter. P4 moved sixteen bytes of guard/bookkeeping work from every scene
+// row to the ascending awake set: steady sleep mirroring, CCD-clock reset,
+// underwater census, and sleep transition guards. The remaining all-row term
+// counts unavoidable island construction/support streams. Each operation is
+// one array-element read or write in one pass.
+constexpr uint64_t PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP = LogicalStreamBytes( sizeof( uint8_t ), 22u ) +
+                                                             LogicalStreamBytes( sizeof( float ), 3u ) +
                                                              LogicalStreamBytes( sizeof( int ), 2u );
+constexpr uint64_t PHYSICS_AWAKE_BOOKKEEPING_LOGICAL_BYTES = 16u;
 // ApplyForces loads fourteen hot floats plus fixed, then stores six velocity
 // floats: (14 + 6) * 4 + 1 = 81 logical bytes for each dynamic awake row.
 constexpr uint64_t PHYSICS_FORCE_AWAKE_LOGICAL_BYTES =
@@ -131,7 +133,8 @@ constexpr uint64_t PHYSICS_FORCE_AWAKE_LOGICAL_BYTES =
 // (13 + 13) * 4 + 2 = 106 logical bytes for each dynamic awake row.
 constexpr uint64_t PHYSICS_INTEGRATE_AWAKE_LOGICAL_BYTES =
     LogicalStreamBytes( sizeof( float ), 26u ) + LogicalStreamBytes( sizeof( uint8_t ), 2u );
-static_assert( PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP == 58u );
+static_assert( PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP == 42u );
+static_assert( PHYSICS_AWAKE_BOOKKEEPING_LOGICAL_BYTES == 16u );
 static_assert( PHYSICS_FORCE_AWAKE_LOGICAL_BYTES == 81u );
 static_assert( PHYSICS_INTEGRATE_AWAKE_LOGICAL_BYTES == 106u );
 
@@ -150,6 +153,7 @@ double EstimatePhysicsHotBytesPerBodyStep( int totalBodies, int forceAwakeBodies
     const uint64_t integrateAwakeIterations =
         static_cast<uint64_t>( (std::clamp)( integrateAwakeBodies, 0, totalBodies ) );
     const uint64_t logicalBytes = totalIterations * PHYSICS_ALL_BODY_LOGICAL_BYTES_PER_STEP +
+                                  integrateAwakeIterations * PHYSICS_AWAKE_BOOKKEEPING_LOGICAL_BYTES +
                                   forceAwakeIterations * PHYSICS_FORCE_AWAKE_LOGICAL_BYTES +
                                   integrateAwakeIterations * PHYSICS_INTEGRATE_AWAKE_LOGICAL_BYTES;
     return static_cast<double>( logicalBytes ) / static_cast<double>( totalIterations );
@@ -356,6 +360,11 @@ void PhysicsWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig&
 void PhysicsWorld::Clear()
 {
     m_timeRemaining.clear();
+    m_lastTimeRemainingStep = 0.0f;
+    m_lastTimeRemainingStepValid = false;
+    m_underwaterSleepProbeNeeded = true;
+    m_lastUnderwaterProbeFluidSurfaceHeight = 0.0f;
+    m_lastUnderwaterProbeFluidSurfaceHeightValid = false;
     m_forceStage.Clear();
     m_broadphase.Clear();
     m_sleepController.Clear();
@@ -543,13 +552,39 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // baselines even when the final scene "looks" similar.
     const int modelCount = bodyStore.Count();
     const auto bodyRecords = bodyStore.Records();
-    m_timeRemaining.assign( modelCount, fChangeInTime );
+    const bool timeStepChanged = !m_lastTimeRemainingStepValid || fChangeInTime != m_lastTimeRemainingStep;
+    if ( static_cast<int>( m_timeRemaining.size() ) != modelCount || timeStepChanged )
+    {
+        // Cold topology/timestep boundary: preserve the old all-row value
+        // contract for replay/diagnostics. Capacity is reserved before play;
+        // ordinary same-dt steps below write only bodies that can consume it.
+        m_timeRemaining.assign( static_cast<std::size_t>( modelCount ), fChangeInTime );
+    }
+    m_lastTimeRemainingStep = fChangeInTime;
+    m_lastTimeRemainingStepValid = true;
     m_stepDiagnostics.BeginStep( modelCount );
     m_terrain.BeginFrame();
-    m_sleepController.MirrorFlagsFrom( bodyStore, modelCount );
+    const bool rebuiltAwakeList = m_sleepController.MirrorFlagsFrom( bodyStore, modelCount );
+    const std::span<const int> awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
+    for ( int bodyIndex : awakeBodyIndices )
+    {
+        m_timeRemaining[static_cast<std::size_t>( bodyIndex )] = fChangeInTime;
+    }
 
-    RunSolverPhysics( bodyStore, colliderStore, fChangeInTime, config, worldForces, workerPool );
-    bodyStore.CopySleepStatesFrom( m_sleepController.GetSleepStates() );
+    const bool fluidSurfaceHeightChanged = !m_lastUnderwaterProbeFluidSurfaceHeightValid ||
+                                           worldForces.fluidSurfaceHeight != m_lastUnderwaterProbeFluidSurfaceHeight;
+    m_lastUnderwaterProbeFluidSurfaceHeight = worldForces.fluidSurfaceHeight;
+    m_lastUnderwaterProbeFluidSurfaceHeightValid = true;
+    const bool probeDormantUnderwaterLocks =
+        rebuiltAwakeList || m_underwaterSleepProbeNeeded || fluidSurfaceHeightChanged;
+    m_underwaterSleepProbeNeeded = false;
+    RunSolverPhysics( bodyStore,
+                      colliderStore,
+                      fChangeInTime,
+                      config,
+                      worldForces,
+                      workerPool,
+                      probeDormantUnderwaterLocks );
 }
 
 
@@ -591,6 +626,10 @@ void PhysicsWorld::WakeModel( PhysicsBodyStore& bodyStore,
 void PhysicsWorld::SeedModelAsleep( const PhysicsBodyStore& bodyStore, int index )
 {
     m_sleepController.SeedModelAsleep( bodyStore, index );
+    // Seed commands do not borrow world forces/colliders. The next fixed step
+    // performs the one cold underwater-lock probe that transition-driven sleep
+    // performs immediately in ApplyTransitions.
+    m_underwaterSleepProbeNeeded = true;
 }
 
 
@@ -717,7 +756,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      float dt,
                                      const SkullbonezCore::Core::EngineConfig& config,
                                      const PhysicsWorldForces& worldForces,
-                                     Threading::WorkerPool& workerPool )
+                                     Threading::WorkerPool& workerPool,
+                                     bool probeDormantUnderwaterLocks )
 {
     const auto bodyRecords = bodyStore.MutableRecords();
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
@@ -734,11 +774,20 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // facade only sequences that typed policy across the two consumers.
     const PhysicsSleepStepPolicy sleepPolicy = m_sleepController.ResolveStepPolicy( config.physicsSleep );
 
-    for ( int x = 0; x < modelCount; ++x )
+    if ( probeDormantUnderwaterLocks )
     {
-        if ( sleepStates[x] )
+        // Cold/explicit-seed boundary only. Ordinary island transitions probe
+        // the exact body as it sleeps, so dormant rows have zero steady cost.
+        for ( int x = 0; x < modelCount; ++x )
         {
-            m_sleepController.LockUnderwaterSleeperIfReady( worldForces, bodyStore, colliderStore, m_timeRemaining, x );
+            if ( sleepStates[x] )
+            {
+                m_sleepController.LockUnderwaterSleeperIfReady( worldForces,
+                                                                bodyStore,
+                                                                colliderStore,
+                                                                m_timeRemaining,
+                                                                x );
+            }
         }
     }
 
@@ -974,6 +1023,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                              m_timeRemaining,
                                                              m_contactSolverStage.GetPersistentContacts(),
                                                              m_contactSolverStage.GetPersistentRestingContactCounts(),
+                                                             awakeBodyIndices,
                                                              m_pointJointConstraints,
                                                              m_stepDiagnostics.MutablePipelineTrace(),
                                                              modelCount,

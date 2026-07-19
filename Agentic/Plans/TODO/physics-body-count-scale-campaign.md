@@ -1,7 +1,7 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 4/8 tasks (P0-P3 complete; P4 bandwidth diet next)
+Status: Active — 5/8 tasks (P0-P4 complete; P5 checkpoint next)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -419,7 +419,7 @@ explained or the task is not done.
     the remaining gap to scale-1,000 is P4's measured full-row/bandwidth work.
     The touched-source comment audit covers 20/20 files with zero deferred.
 
-- [ ] P4 — Hot-state compaction and pass fusion (bandwidth diet).
+- [x] P4 — Hot-state compaction and pass fusion (bandwidth diet).
   - Implementation, driven by the P0 bytes/body/step accounting, candidate
     moves in evidence order: fuse force-accumulate → integrate passes
     where they touch the same spans back-to-back; move any cold/rarely
@@ -433,12 +433,38 @@ explained or the task is not done.
   - Determinism: same operations, same per-body order → byte-exact vs P1
     baselines. Any candidate move that cannot preserve exact order is
     rejected in the task notes, not negotiated.
-  - [ ] Byte-exact on all six scenes; 0/1/4 workers.
-  - [ ] Measurement matrix recorded, including the bytes/body/step
+  - [x] Byte-exact on all six scenes; 0/1/4 workers.
+  - [x] Measurement matrix recorded, including the bytes/body/step
     estimate before/after per accepted move; each accepted fusion names
     its measured delta in the commit body.
   - Gates: `validate_physics` + `validate_perf`; `validate_full` at task
     end.
+  - 2026-07-19 closure: steady same-timestep CCD-clock reset, controller/body-
+    store sleep mirroring, sleep eligibility/counter/transition guards, and the
+    dormant underwater census now follow the ascending awake set or an explicit
+    cold invalidation boundary. A changed fluid-surface height schedules one
+    exact sleeper census; ordinary sleep transitions probe their exact body
+    immediately. In-place awake-list compaction retains ascending model order
+    and revisits the compacted slot, so no adjacent transition is skipped.
+  - The logical estimator moves 16 bytes from every body row to each awake row:
+    P3's `58 all + 81 force-awake + 106 integrate-awake` becomes
+    `42 all + 16 awake-bookkeeping + 81 + 106`. All-awake scenes therefore
+    remain exactly 245.0 bytes/body/step, while sleepy-5,000 falls from 95.4 to
+    82.6 (-12.8 bytes, -13.42%). Sleepy-5,000 `Frame/Physics` P50 falls from
+    1.8628 ms to 1.3331 ms (-28.44%); its frame P50 falls 13.35%.
+  - Force/integration fusion was rejected because tornado, broadphase,
+    narrowphase, terrain, persistent-contact, joint, and support work intervene
+    and can change wake, velocity, and remaining-time state. Mutual-gravity
+    compaction/fusion was rejected because its triangular pair scratch and
+    canonical reduction are the exact-sum contract. No cold-store split was
+    accepted without a measured cold-only replacement; relocating a field
+    without removing a read is not a bandwidth win.
+  - Final-source validation passes `validate_physics`, `validate_perf`, and
+    `validate_full`; focused sleep tests pass 6/6 cases and 47/47 assertions.
+    All six retained P1 witnesses are byte-identical at 0/1/4 workers (18/18),
+    and the bounded marker smoke exits 0. No baseline, golden, UI, or authored-
+    data artifact changed. The touched-source comment audit covers 6/6 files
+    with zero deferred.
 
 - [ ] P5 — Mid-campaign checkpoint and automatic Tier-2 evidence gate.
   - [ ] Consolidated matrix across P0-P4 with a written attribution

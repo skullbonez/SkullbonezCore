@@ -132,14 +132,14 @@ class SpatialGrid
 
     struct Entry
     {
-        int objectIndex;       // Scene/model slot stored in one occupied grid cell.
-        int bucketIndex;       // Owning buckets[] row for direct unlink.
-        int nextInBucket;      // Next persistent member of the same cell.
-        int previousInBucket;  // Previous member; -1 means bucket head.
-        int nextForObject;     // Next cell entry owned by this body.
-        int previousForObject; // Previous entry; -1 means body head.
-        int nextFree;          // Reusable-slot chain when this entry is inactive.
-        int ix, iy, iz;        // Exact cell coordinate; hash collisions share a bucket conservatively.
+        int objectIndex;               // Scene/model slot stored in one occupied grid cell.
+        int bucketIndex;               // Owning buckets[] row for direct unlink.
+        int nextInBucket;              // Next persistent member of the same cell.
+        int previousInBucket;          // Previous member; -1 means bucket head.
+        int nextForObject;             // Next cell entry owned by this body.
+        int previousForObject;         // Previous entry; -1 means body head.
+        int nextFree;                  // Reusable-slot chain when this entry is inactive.
+        int ix, iy, iz;                // Exact cell coordinate; hash collisions share a bucket conservatively.
     };
 
     struct SweptOverlayEntry
@@ -175,8 +175,8 @@ class SpatialGrid
 
     struct CandidatePairNode
     {
-        int maxIndex; // Larger normalized body index for one accepted pair.
-        int next;     // Next node with the same smaller body index; -1 ends the list.
+        int maxIndex;                  // Larger normalized body index for one accepted pair.
+        int next;                      // Next node with the same smaller body index; -1 ends the list.
     };
 
     float cellSize;

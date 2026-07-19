@@ -271,7 +271,7 @@ void PhysicsSleepController::FlushPendingAwakeBodyIndices()
     }
 }
 
-void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount )
+bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount )
 {
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
     const bool rebuildAwakeList =
@@ -284,7 +284,13 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
     }
-    bodyStore.CopySleepStatesTo( m_sleepState );
+    if ( rebuildAwakeList )
+    {
+        // Cold boundary: authored topology/body commands own the body-store
+        // flag. Steady steps retain m_sleepState directly and avoid two full
+        // mirror passes over sleepers that cannot have changed state.
+        bodyStore.CopySleepStatesTo( m_sleepState );
+    }
     EnsureUnderwaterSleepLockBuffer( modelCount );
     // Hazard: the first fixed step can arrive before any island rebuild has
     // sized the diagnostics mirror. Keep it row-aligned before indexing below;
@@ -317,6 +323,10 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
     if ( rebuildAwakeList )
     {
         RebuildAwakeBodyIndices( hotFields, modelCount );
+        // Sleep-disable and replay/topology repair can change the controller
+        // row while rebuilding. Publish that cold result before hot kernels
+        // consult the body-store awake flag.
+        bodyStore.CopySleepStatesFrom( m_sleepState );
     }
 #if defined( _DEBUG )
     else
@@ -334,6 +344,7 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
     }
 #endif
     m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
+    return rebuildAwakeList;
 }
 
 
@@ -566,12 +577,14 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         }
     }
 
-    for ( int x = 0; x < modelCount; ++x )
+    // P4 invariant: the awake list is ascending dense order, so this walk
+    // performs the same per-body arithmetic in the same order while skipping
+    // fixed and sleeping guard reads entirely.
+    for ( int x : context.awakeBodyIndices )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
-        {
-            continue;
-        }
+#if defined( _DEBUG )
+        assert( !IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) && !m_sleepState[x] );
+#endif
         const int root = sleepIslands.Find( x );
         m_sleepIslandHasAwake[root] = 1;
         const Vector3 vel =
@@ -645,16 +658,8 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
     // Invariant: RunIslandStage has already populated eligibility and support;
     // this pass only advances counters and applies whole-island transitions.
     const int modelCount = context.modelCount;
-    for ( int x = 0; x < modelCount; ++x )
+    for ( int x : context.awakeBodyIndices )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) )
-        {
-            continue;
-        }
-        if ( m_sleepState[x] )
-        {
-            continue;
-        }
         const int root = sleepIslands.Find( x );
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
         {
@@ -668,12 +673,8 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
             m_sleepCounter[x] = 0;
         }
     }
-    for ( int x = 0; x < modelCount; ++x )
+    for ( int x : context.awakeBodyIndices )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
-        {
-            continue;
-        }
         const int root = sleepIslands.Find( x );
         if ( m_sleepCounter[x] < context.sleepFrames )
         {
@@ -695,12 +696,13 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
             m_sleepIslandAssignedVisualId[root] = m_sleepIslandVisualId[x];
         }
     }
-    for ( int x = 0; x < modelCount; ++x )
+    // Removing a sleeping row compacts m_awakeBodyIndices. Keep the cursor on
+    // that slot after a transition so the next higher dense index is not
+    // skipped; non-transition rows advance normally. This retains ascending
+    // model order without copying or allocating a second list.
+    for ( std::size_t awakeSlot = 0; awakeSlot < m_awakeBodyIndices.size(); )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
-        {
-            continue;
-        }
+        const int x = m_awakeBodyIndices[awakeSlot];
         const int root = sleepIslands.Find( x );
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] && m_sleepIslandCanSleep[root] )
         {
@@ -738,7 +740,9 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
                                           context.colliderStore,
                                           context.timeRemaining,
                                           x );
+            continue;
         }
+        ++awakeSlot;
     }
     m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
 }

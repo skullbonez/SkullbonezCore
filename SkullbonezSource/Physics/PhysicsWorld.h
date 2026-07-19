@@ -121,6 +121,13 @@ class PhysicsWorld
     // Invariant: narrowphase, terrain, and final integration all write this
     // cross-stage CCD clock, so it deliberately remains on the sequencer.
     std::vector<float> m_timeRemaining;
+    float m_lastTimeRemainingStep = 0.0f;
+    bool m_lastTimeRemainingStepValid = false;
+    // Cold/explicit sleep seeds need one underwater-lock census. Ordinary
+    // island transitions probe the new sleeper immediately and leave this off.
+    bool m_underwaterSleepProbeNeeded = true;
+    float m_lastUnderwaterProbeFluidSurfaceHeight = 0.0f;
+    bool m_lastUnderwaterProbeFluidSurfaceHeightValid = false;
 
     // Sleep state, wake propagation, and island transitions have one concrete
     // owner. PhysicsWorld only sequences its typed fixed-step operations.
@@ -149,7 +156,8 @@ class PhysicsWorld
                            float dt,
                            const SkullbonezCore::Core::EngineConfig& config,
                            const PhysicsWorldForces& worldForces,
-                           Threading::WorkerPool& workerPool );
+                           Threading::WorkerPool& workerPool,
+                           bool probeDormantUnderwaterLocks );
     void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                           const ColliderStore& colliderStore,
                                           const PhysicsWorldForces& worldForces );
