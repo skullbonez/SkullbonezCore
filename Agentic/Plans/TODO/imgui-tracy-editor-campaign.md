@@ -535,7 +535,7 @@ It does **not** authorize removal from the legacy UI.
     or golden changed. E15 therefore remains unchecked while E16 proceeds;
     acceptance is reconciled after the binding post-E17 P1 loopback.
 
-- [ ] E16 — Harden persistence, styling, scaling, automation, and long-session use.
+- [x] E16 — Harden persistence, styling, scaling, automation, and long-session use.
   - Persist panel visibility, dock layout version, sizes, filters, and benign
     preferences separately from authored scenes and replays. Reset/migration
     must recover from stale panel IDs.
@@ -551,6 +551,15 @@ It does **not** authorize removal from the legacy UI.
     separate Legacy launch reviewed against the dock contract and mode rule.
   - Gates: `tools\validate_ui.bat`, `tools\validate_ui_stress.bat`,
     `tools\validate_perf.bat`, allocation scan, DX12+stress when applicable.
+  - Closure evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e16-hardening.md` records the
+    versioned benign preference boundary, coherent DPI-safe palette, fixed
+    automation commands/assertions, exclusive scene/replay stress fixes,
+    36-action/23-assertion matrix, five reviewed native captures, two real
+    Tracy attachments, bounded 263-load long session, 16/16 comment audit, and
+    final fast/UI/UI-stress/perf/allocation/full/Release proof. Legacy remains
+    the default, both surfaces never become active together, and no authored
+    scene/config, baseline, or golden changed.
 
 - [ ] E17 — Separate-mode owner evaluation, independent review, and campaign closure.
   - Produce a control-disposition report proving every legacy control is kept,

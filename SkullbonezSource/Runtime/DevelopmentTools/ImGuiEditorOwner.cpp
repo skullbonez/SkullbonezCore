@@ -21,6 +21,8 @@ Glossary:
     by one typed owner command when the item deactivates after an edit.
   Causality detail: Dockable, virtualized view of replay-owned immutable rows;
     local table selection never mutates replay focus or serialized state.
+  Benign preference: Panel visibility or text filter stored in a bounded
+    development-only file, never in authored scene or replay data.
 
 Invariants:
   - All vendor allocation and deallocation callbacks retain DearImGui owner
@@ -28,13 +30,15 @@ Invariants:
   - The context is current only for synchronous calls made by this owner.
   - A hidden or zero-sized editor performs no ImGui frame work.
   - Shutdown balances an active frame before destroying the context.
+  - Preference migration resets stale layout/panel identity while preserving
+    only bounded text filters.
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/RunFrame.cpp
   - ThirdPtySource/imgui/imgui.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E14)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E14-E16)
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
@@ -69,6 +73,7 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 namespace
 {
 constexpr const char* IMGUI_LAYOUT_PATH = "imgui_editor_layout_v2.ini";
+constexpr const char* IMGUI_PREFERENCES_PATH = "imgui_editor_preferences_v1.cfg";
 constexpr const char* OPTIONAL_EDITOR_FONT_PATH = "SkullbonezData/fonts/SkoreEditor-Regular.ttf";
 constexpr float EDITOR_FONT_SIZE_PIXELS = 16.0f;
 constexpr float MIN_DPI_SCALE = 0.75f;
@@ -376,6 +381,8 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
     m_platformBackendInitialized = true;
     m_window = window;
 
+    m_layoutTopologyFingerprint = FingerprintImGuiEditorDefaultTopology();
+    LoadPreferences();
     ApplyDpiStyle( 1.0f );
     const SkullbonezCore::Core::SbResult rendererResult = renderer->BindContext( *m_context );
     if ( !rendererResult.ok )
@@ -383,7 +390,6 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
         return rendererResult;
     }
     m_renderer = renderer;
-    m_layoutTopologyFingerprint = FingerprintImGuiEditorDefaultTopology();
     m_tracyViewerAvailable = ResolveTracyViewerPath( m_tracyViewerPath, sizeof( m_tracyViewerPath ) );
     snprintf(
         m_tracyLaunchFeedback,
@@ -412,6 +418,14 @@ void ImGuiEditorOwner::Shutdown() noexcept
         ImGui::EndFrame();
         m_frameActive = false;
     }
+    // Lifetime: layout and benign preferences are cold development-tool IO.
+    // Flush them while their context and presentation values still exist.
+    ImGuiIO& io = ImGui::GetIO();
+    if ( io.IniFilename )
+    {
+        ImGui::SaveIniSettingsToDisk( io.IniFilename );
+    }
+    SavePreferences();
     if ( m_renderer )
     {
         // Lifetime: Run explicitly calls Shutdown only after its renderer
@@ -439,6 +453,8 @@ void ImGuiEditorOwner::Shutdown() noexcept
     m_nativePointerStateTouched = false;
     m_lastPlatformMouseCursor = -2;
     m_appliedDpiScale = 0.0f;
+    m_automationDpiScale = 0.0f;
+    m_pendingFocusPanel = ImGuiEditorPanelId::Count;
     m_frameInput = {};
     m_fontSource = ImGuiEditorFontSource::None;
     printf( "[imgui] Context shutdown completed_frames=%llu messages=%llu suppressed_mouse=%llu "
@@ -517,6 +533,42 @@ DevelopmentUiMode ImGuiEditorOwner::SelectedSurface() const noexcept
 bool ImGuiEditorOwner::HasActivatedSurfaceSelection() const noexcept
 {
     return m_surfaceSelectionActivated;
+}
+
+SkullbonezCore::Core::SbResult
+ImGuiEditorOwner::ApplyAutomationCommand( const ImGuiEditorAutomationCommand& command ) noexcept
+{
+    switch ( command.type )
+    {
+    case ImGuiEditorAutomationCommandType::SetPanelVisible:
+        if ( !SetPanelVisibility( command.panel, command.visible ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
+                                                            "Unknown panel identity" );
+        }
+        return SkullbonezCore::Core::SbResult::Success();
+    case ImGuiEditorAutomationCommandType::ResetLayout:
+        m_layoutResetRequested = true;
+        return SkullbonezCore::Core::SbResult::Success();
+    case ImGuiEditorAutomationCommandType::FocusPanel:
+        if ( command.panel == ImGuiEditorPanelId::Count || !SetPanelVisibility( command.panel, true ) )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
+                                                            "Cannot focus an unknown panel" );
+        }
+        m_pendingFocusPanel = command.panel;
+        return SkullbonezCore::Core::SbResult::Success();
+    case ImGuiEditorAutomationCommandType::SetDpiScale:
+        if ( !std::isfinite( command.dpiScale ) || command.dpiScale < MIN_DPI_SCALE ||
+             command.dpiScale > MAX_DPI_SCALE )
+        {
+            return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
+                                                            "DPI scale must be finite and within 0.75..4.0" );
+        }
+        m_automationDpiScale = command.dpiScale;
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+    return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation", "Unknown automation command" );
 }
 
 UI::OperatorEditorCommandQueues ImGuiEditorOwner::ConsumeOperatorEditorCommands() noexcept
@@ -652,7 +704,8 @@ bool ImGuiEditorOwner::BeginFrame( const ImGuiEditorFrameInput& input )
     }
 
     ImGui::SetCurrentContext( m_context );
-    const float dpiScale = std::clamp( input.dpiScale, MIN_DPI_SCALE, MAX_DPI_SCALE );
+    const float requestedDpiScale = m_automationDpiScale > 0.0f ? m_automationDpiScale : input.dpiScale;
+    const float dpiScale = std::clamp( requestedDpiScale, MIN_DPI_SCALE, MAX_DPI_SCALE );
     if ( std::fabs( dpiScale - m_appliedDpiScale ) > 0.01f )
     {
         ApplyDpiStyle( dpiScale );
@@ -699,6 +752,144 @@ void ImGuiEditorOwner::ResetDefaultPanelVisibility() noexcept
     m_showCausalityDetail = false;
     m_showReplay = true;
     m_showStatus = true;
+}
+
+uint32_t ImGuiEditorOwner::CopyPanelVisibilityMask() const noexcept
+{
+    uint32_t mask = 0u;
+    const auto add = [&]( ImGuiEditorPanelId panel, bool visible )
+    {
+        if ( visible )
+        {
+            mask |= ImGuiEditorPanelBit( panel );
+        }
+    };
+    add( ImGuiEditorPanelId::SceneAndModes, m_showSceneAndModes );
+    add( ImGuiEditorPanelId::Hierarchy, m_showHierarchy );
+    add( ImGuiEditorPanelId::AssetsCreate, m_showAssetsCreate );
+    add( ImGuiEditorPanelId::GameViewport, m_showGameViewport );
+    add( ImGuiEditorPanelId::Inspector, m_showInspector );
+    add( ImGuiEditorPanelId::WorldSimulation, m_showWorldSimulation );
+    add( ImGuiEditorPanelId::RenderingAudio, m_showRenderingAudio );
+    add( ImGuiEditorPanelId::Diagnostics, m_showDiagnostics );
+    add( ImGuiEditorPanelId::Causality, m_showCausality );
+    add( ImGuiEditorPanelId::CausalityDetail, m_showCausalityDetail );
+    add( ImGuiEditorPanelId::Replay, m_showReplay );
+    add( ImGuiEditorPanelId::Status, m_showStatus );
+    return mask;
+}
+
+bool ImGuiEditorOwner::SetPanelVisibility( ImGuiEditorPanelId panel, bool visible ) noexcept
+{
+    switch ( panel )
+    {
+    case ImGuiEditorPanelId::SceneAndModes:
+        m_showSceneAndModes = visible;
+        break;
+    case ImGuiEditorPanelId::Hierarchy:
+        m_showHierarchy = visible;
+        break;
+    case ImGuiEditorPanelId::AssetsCreate:
+        m_showAssetsCreate = visible;
+        break;
+    case ImGuiEditorPanelId::GameViewport:
+        m_showGameViewport = visible;
+        break;
+    case ImGuiEditorPanelId::Inspector:
+        m_showInspector = visible;
+        break;
+    case ImGuiEditorPanelId::WorldSimulation:
+        m_showWorldSimulation = visible;
+        break;
+    case ImGuiEditorPanelId::RenderingAudio:
+        m_showRenderingAudio = visible;
+        break;
+    case ImGuiEditorPanelId::Diagnostics:
+        m_showDiagnostics = visible;
+        break;
+    case ImGuiEditorPanelId::Causality:
+        m_showCausality = visible;
+        break;
+    case ImGuiEditorPanelId::CausalityDetail:
+        m_showCausalityDetail = visible;
+        break;
+    case ImGuiEditorPanelId::Replay:
+        m_showReplay = visible;
+        break;
+    case ImGuiEditorPanelId::Status:
+        m_showStatus = visible;
+        break;
+    case ImGuiEditorPanelId::Count:
+    default:
+        return false;
+    }
+    return true;
+}
+
+void ImGuiEditorOwner::ApplyPanelVisibilityMask( uint32_t mask ) noexcept
+{
+    for ( uint32_t index = 0u; index < static_cast<uint32_t>( ImGuiEditorPanelId::Count ); ++index )
+    {
+        const ImGuiEditorPanelId panel = static_cast<ImGuiEditorPanelId>( index );
+        SetPanelVisibility( panel, ( mask & ImGuiEditorPanelBit( panel ) ) != 0u );
+    }
+}
+
+void ImGuiEditorOwner::LoadPreferences() noexcept
+{
+    FILE* file = nullptr;
+    if ( fopen_s( &file, IMGUI_PREFERENCES_PATH, "rb" ) != 0 || !file )
+    {
+        ApplyPanelVisibilityMask( IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+        return;
+    }
+    char text[IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY] = {};
+    const std::size_t bytes = fread( text, 1u, sizeof( text ) - 1u, file );
+    const bool complete = feof( file ) != 0;
+    fclose( file );
+    if ( !complete )
+    {
+        ApplyPanelVisibilityMask( IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+        m_layoutResetRequested = true;
+        m_preferencesRecovered = true;
+        return;
+    }
+
+    const ImGuiEditorPreferenceParseResult parsed = ParseImGuiEditorPreferences( text, bytes );
+    m_preferencesLoaded = parsed.valid;
+    m_preferencesRecovered = parsed.recoveredDefaults;
+    m_layoutResetRequested = m_layoutResetRequested || parsed.layoutResetRequired;
+    ApplyPanelVisibilityMask( parsed.preferences.panelVisibilityMask );
+    strcpy_s( m_sceneFilter, parsed.preferences.sceneFilter );
+    strcpy_s( m_hierarchyFilter, parsed.preferences.hierarchyFilter );
+    strcpy_s( m_assetFilter, parsed.preferences.assetFilter );
+    printf( "[imgui-preferences] mode=%s layout_reset=%d panels=%u.\n",
+            parsed.valid ? ( parsed.recoveredDefaults ? "migrated" : "loaded" ) : "recovered",
+            parsed.layoutResetRequired ? 1 : 0,
+            parsed.preferences.panelVisibilityMask );
+}
+
+void ImGuiEditorOwner::SavePreferences() noexcept
+{
+    ImGuiEditorPreferences preferences;
+    preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
+    preferences.panelVisibilityMask = CopyPanelVisibilityMask();
+    strcpy_s( preferences.sceneFilter, m_sceneFilter );
+    strcpy_s( preferences.hierarchyFilter, m_hierarchyFilter );
+    strcpy_s( preferences.assetFilter, m_assetFilter );
+    char text[IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY] = {};
+    const std::size_t bytes = SerializeImGuiEditorPreferences( preferences, text, sizeof( text ) );
+    FILE* file = nullptr;
+    m_preferencesSaveSucceeded = bytes > 0u && fopen_s( &file, IMGUI_PREFERENCES_PATH, "wb" ) == 0 && file;
+    if ( m_preferencesSaveSucceeded )
+    {
+        m_preferencesSaveSucceeded = fwrite( text, 1u, bytes, file ) == bytes && fflush( file ) == 0;
+        fclose( file );
+    }
+    if ( !m_preferencesSaveSucceeded )
+    {
+        std::fprintf( stderr, "[imgui-preferences] failed to save %s.\n", IMGUI_PREFERENCES_PATH );
+    }
 }
 
 void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width, float height, bool requestedReset )
@@ -1178,6 +1369,21 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     }
     ImGui::DockSpace( rootDockId, dockSize );
     ImGui::End();
+
+    if ( m_pendingFocusPanel != ImGuiEditorPanelId::Count )
+    {
+        const ImGuiEditorPanelId panel = m_pendingFocusPanel;
+        m_pendingFocusPanel = ImGuiEditorPanelId::Count;
+        const char* panelName = ImGuiEditorPanelName( panel );
+        if ( panelName && ( CopyPanelVisibilityMask() & ImGuiEditorPanelBit( panel ) ) != 0u )
+        {
+            // Automation focuses by stable panel identity after the dock host
+            // exists; it never synthesizes brittle title-bar coordinates.
+            ImGui::SetWindowFocus( panelName );
+            m_lastFocusedPanel = panel;
+            ++m_automationFocusCount;
+        }
+    }
 
     if ( m_showSceneAndModes )
     {
@@ -3009,6 +3215,13 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
     status.layoutTopologyFingerprint = m_layoutTopologyFingerprint;
     status.layoutBuildCount = m_layoutBuildCount;
     status.layoutResetCount = m_layoutResetCount;
+    status.panelVisibilityMask = CopyPanelVisibilityMask();
+    status.appliedDpiScale = m_appliedDpiScale;
+    status.automationFocusCount = m_automationFocusCount;
+    status.lastFocusedPanel = m_lastFocusedPanel;
+    status.preferencesLoaded = m_preferencesLoaded;
+    status.preferencesRecovered = m_preferencesRecovered;
+    status.preferencesSaveSucceeded = m_preferencesSaveSucceeded;
     status.fontSource = m_fontSource;
     if ( m_renderer )
     {
@@ -3041,6 +3254,45 @@ void ImGuiEditorOwner::ApplyDpiStyle( float dpiScale )
     ImGuiStyle& style = ImGui::GetStyle();
     style = ImGuiStyle();
     ImGui::StyleColorsDark( &style );
+    // Concept: one restrained editor palette distinguishes content, selected
+    // state, warnings, and interactive controls without domain-specific skins.
+    style.WindowPadding = ImVec2( 8.0f, 8.0f );
+    style.FramePadding = ImVec2( 7.0f, 4.0f );
+    style.ItemSpacing = ImVec2( 7.0f, 5.0f );
+    style.ItemInnerSpacing = ImVec2( 5.0f, 4.0f );
+    style.IndentSpacing = 18.0f;
+    style.ScrollbarSize = 14.0f;
+    style.WindowRounding = 3.0f;
+    style.ChildRounding = 3.0f;
+    style.FrameRounding = 3.0f;
+    style.PopupRounding = 3.0f;
+    style.TabRounding = 3.0f;
+    style.GrabRounding = 2.0f;
+    style.DisabledAlpha = 0.48f;
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_WindowBg] = ImVec4( 0.055f, 0.064f, 0.080f, 1.0f );
+    colors[ImGuiCol_ChildBg] = ImVec4( 0.065f, 0.075f, 0.092f, 1.0f );
+    colors[ImGuiCol_PopupBg] = ImVec4( 0.075f, 0.086f, 0.105f, 0.98f );
+    colors[ImGuiCol_Border] = ImVec4( 0.22f, 0.25f, 0.30f, 0.75f );
+    colors[ImGuiCol_FrameBg] = ImVec4( 0.105f, 0.12f, 0.15f, 1.0f );
+    colors[ImGuiCol_FrameBgHovered] = ImVec4( 0.16f, 0.22f, 0.29f, 1.0f );
+    colors[ImGuiCol_FrameBgActive] = ImVec4( 0.18f, 0.29f, 0.40f, 1.0f );
+    colors[ImGuiCol_TitleBg] = ImVec4( 0.075f, 0.088f, 0.11f, 1.0f );
+    colors[ImGuiCol_TitleBgActive] = ImVec4( 0.11f, 0.17f, 0.23f, 1.0f );
+    colors[ImGuiCol_Button] = ImVec4( 0.12f, 0.20f, 0.28f, 1.0f );
+    colors[ImGuiCol_ButtonHovered] = ImVec4( 0.16f, 0.34f, 0.48f, 1.0f );
+    colors[ImGuiCol_ButtonActive] = ImVec4( 0.11f, 0.43f, 0.61f, 1.0f );
+    colors[ImGuiCol_Header] = ImVec4( 0.11f, 0.25f, 0.36f, 1.0f );
+    colors[ImGuiCol_HeaderHovered] = ImVec4( 0.15f, 0.38f, 0.52f, 1.0f );
+    colors[ImGuiCol_HeaderActive] = ImVec4( 0.10f, 0.48f, 0.66f, 1.0f );
+    colors[ImGuiCol_CheckMark] = ImVec4( 0.25f, 0.76f, 0.96f, 1.0f );
+    colors[ImGuiCol_SliderGrab] = ImVec4( 0.20f, 0.64f, 0.86f, 1.0f );
+    colors[ImGuiCol_SliderGrabActive] = ImVec4( 0.32f, 0.82f, 1.0f, 1.0f );
+    colors[ImGuiCol_Tab] = ImVec4( 0.09f, 0.13f, 0.17f, 1.0f );
+    colors[ImGuiCol_TabHovered] = ImVec4( 0.15f, 0.37f, 0.51f, 1.0f );
+    colors[ImGuiCol_TabSelected] = ImVec4( 0.12f, 0.28f, 0.39f, 1.0f );
+    colors[ImGuiCol_DockingPreview] = ImVec4( 0.20f, 0.66f, 0.92f, 0.70f );
+    colors[ImGuiCol_NavCursor] = ImVec4( 0.42f, 0.84f, 1.0f, 1.0f );
     style.ScaleAllSizes( dpiScale );
     style.FontSizeBase = EDITOR_FONT_SIZE_PIXELS;
     style.FontScaleDpi = dpiScale;

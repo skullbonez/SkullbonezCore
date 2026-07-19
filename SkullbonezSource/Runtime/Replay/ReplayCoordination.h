@@ -84,6 +84,9 @@ struct ReplayWorkspaceFrameInput
 {
     HWND window = nullptr;
     bool uiBlocksMouse = false;
+    // Invariant: Legacy pointer tools must not sample or reset replay state
+    // while the mutually exclusive ImGui development surface owns input.
+    bool legacyPointerSurfaceActive = true;
     int wheelDelta = 0;
     ReplayPathPickInput pointerRay;
     RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;

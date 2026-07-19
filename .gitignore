@@ -84,6 +84,7 @@ dx12_validation.txt
 /Screenshots/
 /replays/
 /imgui_editor_layout_v*.ini
+/imgui_editor_preferences_v*.cfg
 
 # Root-level snapshot files saved before Scenes/ folder existed
 /snapshot_*.scene

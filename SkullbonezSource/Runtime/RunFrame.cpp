@@ -1054,6 +1054,91 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                       frameInteraction,
                                                       frameScene,
                                                       automationReplayView );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            for ( std::size_t commandIndex = 0u; commandIndex < automationBeforeInput.developmentUiCommandCount;
+                  ++commandIndex )
+            {
+                const InteractionAutomationDevelopmentUiCommand& command =
+                    automationBeforeInput.developmentUiCommands[commandIndex];
+                SkullbonezCore::Core::SbResult commandStatus = SkullbonezCore::Core::SbResult::Success();
+                switch ( command.type )
+                {
+                case InteractionAutomationDevelopmentUiCommandType::SelectSurface:
+                    SelectDevelopmentUiSurface( std::strcmp( command.target, "imgui" ) == 0
+                                                    ? DevelopmentUiMode::ImGui
+                                                    : DevelopmentUiMode::Legacy );
+                    break;
+                case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
+                case InteractionAutomationDevelopmentUiCommandType::FocusPanel:
+                {
+                    DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
+                    if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
+                    {
+                        commandStatus = SkullbonezCore::Core::SbResult::Failure(
+                            "DevelopmentTools/ImGuiAutomation",
+                            "Interaction script names an unknown ImGui panel: %s",
+                            command.target );
+                        break;
+                    }
+                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+                    editorCommand.type = command.type == InteractionAutomationDevelopmentUiCommandType::SetPanelVisible
+                                             ? DevelopmentTools::ImGuiEditorAutomationCommandType::SetPanelVisible
+                                             : DevelopmentTools::ImGuiEditorAutomationCommandType::FocusPanel;
+                    editorCommand.panel = panel;
+                    editorCommand.visible = command.boolValue;
+                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
+                    break;
+                }
+                case InteractionAutomationDevelopmentUiCommandType::ResetLayout:
+                {
+                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+                    editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::ResetLayout;
+                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
+                    break;
+                }
+                case InteractionAutomationDevelopmentUiCommandType::SetDpiScale:
+                {
+                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+                    editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::SetDpiScale;
+                    editorCommand.dpiScale = command.numberValue;
+                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
+                    break;
+                }
+                case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
+                {
+                    // Why: scripts describe client pixels because those are the
+                    // editor's layout coordinates. Win32 resizes the outer frame,
+                    // so include the current style and monitor DPI exactly once.
+                    RECT outer{ 0, 0, command.width, command.height };
+                    const HWND window = m_window.NativeWindowHandle();
+                    const DWORD style = static_cast<DWORD>( GetWindowLongPtr( window, GWL_STYLE ) );
+                    const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( window, GWL_EXSTYLE ) );
+                    const UINT dpi = GetDpiForWindow( window );
+                    if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
+                         !SetWindowPos( window,
+                                        nullptr,
+                                        0,
+                                        0,
+                                        outer.right - outer.left,
+                                        outer.bottom - outer.top,
+                                        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
+                    {
+                        commandStatus = SkullbonezCore::Core::SbResult::Failure(
+                            "DevelopmentTools/ImGuiAutomation",
+                            "Failed to resize the automation client area to %dx%d",
+                            command.width,
+                            command.height );
+                    }
+                    break;
+                }
+                }
+                if ( !commandStatus.ok )
+                {
+                    m_applicationExit.RequestOwnedFailure( commandStatus );
+                    break;
+                }
+            }
+#endif
             if ( automationBeforeInput.applyCameraMode )
             {
                 m_inputRouter.ApplyCameraMode( automationBeforeInput.cameraMode,
@@ -1111,6 +1196,18 @@ SkullbonezCore::Core::SbResult Run::Execute()
             developmentUiCapture.gameViewportSourceWidth = imguiInput.gameViewport.sourceWidth;
             developmentUiCapture.gameViewportSourceHeight = imguiInput.gameViewport.sourceHeight;
             developmentEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+            if ( automationBeforeInput.hasOperatorEditorReplayCommand )
+            {
+                const SkullbonezCore::Core::SbResult submitStatus =
+                    UI::SubmitOperatorEditorCommand( developmentEditorCommands.replay,
+                                                     automationBeforeInput.operatorEditorReplayCommand );
+                if ( !submitStatus.ok )
+                {
+                    m_applicationExit.RequestOwnedFailure( submitStatus );
+                }
+            }
+#endif
             legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
 #endif
             ProcessInputFrame( frameHost,
@@ -1122,6 +1219,13 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                developmentEditorCommands,
                                legacyDevelopmentUiActive );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            if ( m_launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
+            {
+                // Invariant: a scene load may apply scene-authored Legacy window
+                // defaults during the input checkpoint. Reassert an explicit
+                // process selection before either surface can begin its frame.
+                SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
+            }
             bool legacySurfaceSwapRequested = false;
             if ( m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy &&
                  m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) )
@@ -1213,7 +1317,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                              frameScene,
                                                              framePresentation,
                                                              m_replayRuntime,
-                                                             frameRenderDiagnostics );
+                                                             frameRenderDiagnostics,
+                                                             legacyDevelopmentUiActive );
             const float presentationAlpha =
                 ResolvePresentationAlpha( m_config, capturePresentationPinned, simulationPresentationAlpha );
 
@@ -1345,11 +1450,27 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
             PROFILE_BEGIN( m_profiler, "Frame/PostDraw/InteractionAutomation" );
+            InteractionAutomationDevelopmentUiView automationDevelopmentUiView;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            const DevelopmentTools::ImGuiEditorStatus imguiAutomationStatus = m_imguiEditor.CopyStatus();
+            automationDevelopmentUiView.available = imguiAutomationStatus.initialized;
+            automationDevelopmentUiView.selectedImGui = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::ImGui;
+            automationDevelopmentUiView.legacyVisible = m_operatorUi->IsVisible();
+            automationDevelopmentUiView.imguiVisible = imguiAutomationStatus.visible;
+            automationDevelopmentUiView.panelVisibilityMask = imguiAutomationStatus.panelVisibilityMask;
+            automationDevelopmentUiView.layoutResetCount = imguiAutomationStatus.layoutResetCount;
+            automationDevelopmentUiView.automationFocusCount = imguiAutomationStatus.automationFocusCount;
+            automationDevelopmentUiView.appliedDpiScale = imguiAutomationStatus.appliedDpiScale;
+            automationDevelopmentUiView.rendererDescriptorHighWater = imguiAutomationStatus.rendererDescriptorHighWater;
+            automationDevelopmentUiView.gameViewportRecreations = imguiAutomationStatus.gameViewportRecreations;
+            automationDevelopmentUiView.preferencesRecovered = imguiAutomationStatus.preferencesRecovered;
+#endif
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
                                                       frameInteraction,
                                                       frameScene,
                                                       m_replayRuntime.BuildAutomationView(),
+                                                      automationDevelopmentUiView,
                                                       m_diagnosticsRuntime.Capture(),
                                                       m_renderBackendView.RequireCaptureBackend() );
             if ( !automationAfterRender.status.ok )

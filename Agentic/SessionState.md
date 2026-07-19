@@ -11,22 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-18th-july` |
-| Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; P1 remains unchecked while two transition artifacts await approval. |
-| Current objective | Execute ImGui/Tracy E15 bottom replay transport while retaining E14's validated implementation checkpoint and the P1 source checkpoint; both P1 and E14 await exact replay-topology approval. |
-| Active/future progress | 15 / 26 live tasks; 58%. |
-| Last broad local gate | E14 checkpoint `validate_full` passed 310 cases/21,828 assertions, all coverage floors, Automation/replay, zero-error DX12 comparison, and the byte-exact 44,401-line physics oracle; UI, allocation, Release exclusion, native Causality, focused projection, and the 7/7 comment audit also passed. The single replay-fidelity gate is blocked only on owner-gated topology 199 -> 200. |
-| Validation for current edits | E15 is replay-facing and requires UI, replay interaction tests, exactly one replay visual-fidelity invocation, and full with zero golden refresh. E14 remains unchecked until the shared topology approval resolves its sole gate mismatch. |
+| Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; the binding owner directive authorizes the post-E17 bounded assessment and transition of replay topology 199 -> 200 plus the derived varied-query artifact. |
+| Current objective | Execute ImGui/Tracy E17 separate-mode evidence, measured overhead, independent review, final gates, and owner playtest handoff while retaining the validated E14-E15 checkpoints. |
+| Active/future progress | 16 / 26 live tasks; 62%. |
+| Last broad local gate | E16 `validate_full` passed 311 cases/21,874 assertions, all coverage floors, Automation/replay, zero-error DX12 comparisons, and the byte-exact 44,401-line physics oracle; fast, UI, UI-stress, perf, allocation, Release exclusion, two Tracy attachments, the 36-action/23-assertion editor matrix, and the 16/16 comment audit also passed. |
+| Validation for current edits | E17 requires the final full/UI/UI-stress/DX12/one-minute-stress/perf/allocation/platform-marker matrix plus exactly one replay visual-fidelity invocation from final source and an independent ownership review. |
 
 ## Live Queue
 
-NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
-     remains 1/8: its canonical source, 12-run same-state oracle, 18-run worker
-     matrix, focused tests, perf gate, core physics gate, and authorized physics
-     baselines pass, but replay topology 199 -> 200 and the derived varied-query
-     golden require exact owner authority. Under the owner's continue-on-blocker
-     direction, ImGui/Tracy remains 14/18: E14 implementation and independent
-     validation are complete but acceptance is blocked on the same topology
-     approval; E15 is active. E0 froze the complete
+NOW. Two live plans, 26 tasks. Physics body-count scale remains 1/8 at P1: its
+     canonical source, 12-run same-state oracle, 18-run worker matrix, focused
+     tests, perf gate, core physics gate, and authorized physics baselines pass.
+     The binding 2026-07-19 directive authorizes the complete post-E17 bounded-
+     divergence assessment and transition of replay topology 199 -> 200 plus
+     the derived varied-query artifact. ImGui/Tracy is 15/18: E14-E15 remain
+     validated checkpoints for that later reconciliation, E16 is complete, and
+     E17 is active. E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -93,7 +93,22 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      allocation, Release exclusion, and the 7/7 comment audit passed with no
      authored-data or golden change. Its single replay-fidelity invocation
      passed launcher/control proof and reached only the owner-gated topology
-     `199 -> 200`, so E14 remains unchecked while E15 proceeds. Evidence:
+     `199 -> 200`, so E14 remains unchecked pending the binding post-E17 P1
+     reconciliation. Evidence:
+     E15 completed the full replay-owned bottom transport, recording/prediction/
+     scrub/cause workflows, minimum-width priority collapse, Legacy-default
+     selection, and atomic `Ctrl+0` hot swaps. Five focused cases/91 assertions,
+     native workflow/swap captures, UI/full/allocation/Release, and the 27/27
+     comment audit passed; its single replay gate reached only the same authorized
+     topology transition, so E15 remains a retained checkpoint. Evidence:
+     E16 added versioned benign preferences, deterministic stale-layout recovery,
+     DPI-safe styling, fixed stable-ID automation, explicit inactive-Legacy
+     scene/replay fences, and the final 180-frame matrix. The matrix passed 36
+     actions/23 assertions, five reviewed captures, eight additional hot swaps,
+     and bounded descriptor/recreation counters. Two real Tracy attachments, a
+     263-load long session, fast/UI/UI-stress/perf/allocation/full/Release, and
+     the 16/16 comment audit passed with no authored scene/config, baseline, or
+     golden change. Evidence:
      `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
      `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
@@ -110,6 +125,8 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is blocked at P1 and
      `Agentic/Reports/2026-07-19/imgui-tracy-e12-inspector-world.md`.
      `Agentic/Reports/2026-07-19/imgui-tracy-e13-render-audio-diagnostics.md`.
      `Agentic/Reports/2026-07-19/imgui-tracy-e14-causality.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e15-replay-workflow.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e16-hardening.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7

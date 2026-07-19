@@ -27,6 +27,8 @@ Invariants:
   - Hit testing must resolve through the scrubber surface; domain handlers may
     not recreate per-button rectangles or fall-through exclusions.
   - Transport dispatch borrows host owners synchronously and retains none.
+  - The inactive Legacy pointer surface cannot reset durable replay state after
+    a typed command has arrived from the selected ImGui surface.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
@@ -563,6 +565,15 @@ void ReplayRuntime::TickWorkspace( const ReplayWorkspaceFrameInput& input,
                                    ReplayWorkspaceOutput& output )
 {
     output = ReplayWorkspaceOutput{};
+
+    if ( !input.legacyPointerSurfaceActive )
+    {
+        // Why: semantic commands from ImGui have already reached ReplayRuntime.
+        // The inactive Legacy pointer surface must neither compete for capture
+        // nor interpret its hidden window as a reason to reset durable replay state.
+        ReplayInteractionOperations::CancelToolDragState( interaction, inputRouter );
+        return;
+    }
 
     bool enterInteractive = false;
     const bool scrubberOwnsMouse = TickScrubberInput( input.window,

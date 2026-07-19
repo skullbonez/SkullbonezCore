@@ -208,8 +208,8 @@ for side-by-side owner evaluation.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 14 | 18 | 78% |
-| **Active/future total** | **15** | **26** | **58%** |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 15 | 18 | 83% |
+| **Active/future total** | **16** | **26** | **62%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -269,10 +269,10 @@ and the mechanically derived `physics_query_varied.json` update that is outside
 P1's earlier allowed baseline classes. Neither artifact is committed at the
 UI checkpoint; P1 closes only after the post-E17 assessment and mapped gates.
 
-`imgui-tracy-editor-campaign` (E0-E17) remains 14/18: E14-E15 implementation
+`imgui-tracy-editor-campaign` (E0-E17) is 15/18: E14-E15 implementation
 and independent validation are complete, but their single replay-fidelity
 gates are retained until the authorized P1 `causal.topologyCount: 199 -> 200`
-transition is reconciled after E17. E16 is the active implementation task
+transition is reconciled after E17. E16 is complete and E17 is active
 under the binding finish-UI-first direction. The 2026-07-18 owner amendment
 keeps Legacy as the development default and makes ImGui an explicit
 `--dev-ui imgui` mode;
@@ -373,7 +373,19 @@ and two-direction swap captures, 5 focused cases/91 assertions, a 27/27 comment
 audit, and final UI/full/allocation/Release proof passed without authored-data,
 baseline, or golden changes. Its single replay-fidelity invocation passed the
 launcher and 16 control cases/72 assertions before the same authorized topology
-transition; E15 remains unchecked and E16 proceeds.
+transition; E15 remains unchecked pending the post-E17 P1 reconciliation.
+E16 closes persistence and stress hardening with one versioned benign
+preference record, deterministic stale-layout recovery, a coherent DPI-safe
+editor palette, fixed stable-ID automation commands/assertions, and explicit
+inactive-Legacy fences for scene stress and replay pointer input. The final
+180-frame matrix passed 36 actions/23 assertions across minimum/default/
+ultrawide sizes, exact 200-body scene transition, historical replay scrub,
+panel churn, and eight additional atomic hot swaps. Five native captures, two
+real Tracy attachments, a bounded 263-load long session, the 16/16 comment
+audit, and fast/UI/UI-stress/perf/allocation/full/Release gates passed with
+Legacy still the default, zero simultaneous activation, zero DX12 errors, and
+no authored scene/config, baseline, or golden change. E17 now owns separate-
+mode evaluation, measured overhead, independent review, and final gates.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for separate Legacy and
@@ -990,7 +1002,7 @@ forbidden; no legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E16; E14-E15 retained for post-P1 gate reconciliation | 14/18 | Harden persistence, styling, scaling, automation, and long-session use while retaining both validated checkpoints |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E17; E14-E15 retained for post-P1 gate reconciliation | 15/18 | Produce separate-mode evidence, control disposition, measured overhead, independent review, final gates, and owner playtest handoff |
 
 ## Features
 

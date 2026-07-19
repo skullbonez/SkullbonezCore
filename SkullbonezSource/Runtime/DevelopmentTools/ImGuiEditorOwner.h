@@ -26,6 +26,8 @@ Glossary:
     release commits one typed command to the established runtime owner path.
   Causality publication: Immutable replay rows borrowed for one frame; the
     compact and detail panels may retain only local row indices and visibility.
+  Automation command: Fixed presentation-only request used by validation to
+    reproduce panel, layout, focus, and DPI states without pixel coordinates.
 
 Invariants:
   - This source is compiled only with SKULLBONEZ_DEVELOPMENT_TOOLS.
@@ -34,12 +36,13 @@ Invariants:
   - BeginFrame and EndFrame are balanced on the same thread.
   - ImGui allocations use the dedicated DearImGui development-tool owner.
   - ImGui is visible only while it is the selected development UI surface.
+  - Benign preferences never enter authored scene or replay serialization.
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
   - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
-  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E15)
+  - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E16)
 */
 #pragma once
 
@@ -71,6 +74,22 @@ enum class ImGuiEditorFontSource : uint8_t
     None = 0,
     Asset,
     EmbeddedVectorFallback
+};
+
+enum class ImGuiEditorAutomationCommandType : uint8_t
+{
+    SetPanelVisible,
+    ResetLayout,
+    FocusPanel,
+    SetDpiScale
+};
+
+struct ImGuiEditorAutomationCommand
+{
+    ImGuiEditorAutomationCommandType type = ImGuiEditorAutomationCommandType::ResetLayout;
+    ImGuiEditorPanelId panel = ImGuiEditorPanelId::Count;
+    bool visible = false;
+    float dpiScale = 0.0f;
 };
 
 struct ImGuiEditorFrameInput
@@ -123,6 +142,13 @@ struct ImGuiEditorStatus
     uint64_t layoutTopologyFingerprint = 0u;
     uint32_t layoutBuildCount = 0u;
     uint32_t layoutResetCount = 0u;
+    uint32_t panelVisibilityMask = 0u;
+    float appliedDpiScale = 0.0f;
+    uint32_t automationFocusCount = 0u;
+    ImGuiEditorPanelId lastFocusedPanel = ImGuiEditorPanelId::Count;
+    bool preferencesLoaded = false;
+    bool preferencesRecovered = false;
+    bool preferencesSaveSucceeded = false;
     bool rendererBound = false;
     uint32_t rendererDescriptorUsed = 0u;
     uint32_t rendererDescriptorCapacity = 0u;
@@ -181,6 +207,9 @@ class ImGuiEditorOwner
     void SelectSurface( DevelopmentUiMode surface ) noexcept;
     DevelopmentUiMode SelectedSurface() const noexcept;
     bool HasActivatedSurfaceSelection() const noexcept;
+    // Applies one bounded presentation-only validation command. The caller
+    // remains responsible for surface selection and native-window authority.
+    SkullbonezCore::Core::SbResult ApplyAutomationCommand( const ImGuiEditorAutomationCommand& command ) noexcept;
     UI::OperatorEditorCommandQueues ConsumeOperatorEditorCommands() noexcept;
     SkullbonezCore::Core::SbResult CaptureGameViewport();
 
@@ -200,6 +229,11 @@ class ImGuiEditorOwner
     void ApplyDpiStyle( float dpiScale );
     void BuildDefaultDockLayout( uint32_t rootDockId, float width, float height, bool requestedReset );
     void ResetDefaultPanelVisibility() noexcept;
+    uint32_t CopyPanelVisibilityMask() const noexcept;
+    bool SetPanelVisibility( ImGuiEditorPanelId panel, bool visible ) noexcept;
+    void ApplyPanelVisibilityMask( uint32_t mask ) noexcept;
+    void LoadPreferences() noexcept;
+    void SavePreferences() noexcept;
 
     ImGuiContext* m_context = nullptr;
     Rendering::Dx12ImGuiRendererOwner* m_renderer = nullptr;
@@ -223,6 +257,13 @@ class ImGuiEditorOwner
     uint32_t m_layoutBuildCount = 0u;
     uint32_t m_layoutResetCount = 0u;
     bool m_layoutResetRequested = false;
+    float m_automationDpiScale = 0.0f;
+    ImGuiEditorPanelId m_pendingFocusPanel = ImGuiEditorPanelId::Count;
+    ImGuiEditorPanelId m_lastFocusedPanel = ImGuiEditorPanelId::Count;
+    uint32_t m_automationFocusCount = 0u;
+    bool m_preferencesLoaded = false;
+    bool m_preferencesRecovered = false;
+    bool m_preferencesSaveSucceeded = false;
     bool m_showSceneAndModes = true;
     bool m_showHierarchy = true;
     bool m_showAssetsCreate = true;

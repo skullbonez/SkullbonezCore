@@ -18,11 +18,14 @@ Glossary:
     so world tools do not reinterpret UI-owned input.
   Semantic action: Fixed ordered input event derived from sampled key edges,
     independent of the platform's live hardware state.
+  Selected development surface: The one Legacy or ImGui implementation allowed
+    to own development-tool input and visibility for the current frame.
 
 Invariants:
   - Device input is captured once; later phases consume router-owned values.
   - UI hit testing completes before pointer ownership is finalized.
   - Every concrete owner is borrowed synchronously for this call only.
+  - An inactive Legacy surface cannot reactivate itself through stress actions.
 
 Related:
   - InputFrame.cpp implements shared value and UI-command policy.
@@ -151,6 +154,13 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     };
     const auto RunUIStressActions = [&]()
     {
+        // Invariant: the scene-authored stress harness mutates Legacy UI state.
+        // Once ImGui owns the development surface, allowing that harness to
+        // re-show Legacy would violate the exclusive focus/visibility contract.
+        if ( !legacyDevelopmentUiActive )
+        {
+            return SkullbonezCore::Core::SbResult::Success();
+        }
         presentationEdit.Commit();
         const SkullbonezCore::Core::SbResult result = SkullbonezCore::Runtime::RunUIStressActions(
             host,
@@ -871,7 +881,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         UIBlocksKeyboardBeforeInput,
         SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
         externalUiCapture,
-        externalEditorCommands };
+        externalEditorCommands,
+        legacyDevelopmentUiActive };
     RuntimeUIFrameResult uiFrameResult =
         BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, m_replayRuntime, replayPointerRay, uiSamplingFacts );
     if ( uiFrameResult.frameActive )
@@ -903,7 +914,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         uiFrameResult.suppressWorldActionThisFrame,
         SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
         externalUiCapture,
-        externalEditorCommands };
+        externalEditorCommands,
+        legacyDevelopmentUiActive };
     presentationEdit.Commit();
     uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
                                                  keyboardToggleEditorMode,

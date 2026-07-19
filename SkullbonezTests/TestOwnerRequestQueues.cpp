@@ -17,6 +17,8 @@ Glossary:
     established narrow runtime-owner command packet.
   Layout envelope: Responsive pixel allocation that drives stable ImGui dock
     splits without requiring a vendor context in this test executable.
+  Preference record: Fixed benign editor state that round-trips independently
+    of authored scenes and resets stale layout/panel identity during migration.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -28,6 +30,8 @@ Invariants:
   - The versioned editor topology is identical at minimum, 16:9, and ultrawide sizes.
   - Compact causality reads only a bounded neighborhood of replay-owned rows and
     reports empty, stale, truncated, and capacity-limited states separately.
+  - Preference migration may retain bounded filters but restores the current
+    panel mask and topology fingerprint.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
@@ -1237,6 +1241,57 @@ TEST_CASE( "Editor dock envelope preserves viewport across supported aspect rati
     CHECK( std::strcmp( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR,
                         "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
                         "right:inspector,world,render-audio,diagnostics,causality" ) == 0 );
+}
+
+TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+
+    ImGuiEditorPreferences preferences;
+    preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
+    preferences.panelVisibilityMask =
+        IMGUI_EDITOR_DEFAULT_PANEL_MASK & ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
+    strcpy_s( preferences.sceneFilter, "stack" );
+    strcpy_s( preferences.hierarchyFilter, "crate" );
+    strcpy_s( preferences.assetFilter, "terrain" );
+
+    char serialized[IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY] = {};
+    const std::size_t bytes = SerializeImGuiEditorPreferences( preferences, serialized, sizeof( serialized ) );
+    REQUIRE( bytes > 0u );
+    const ImGuiEditorPreferenceParseResult roundTrip = ParseImGuiEditorPreferences( serialized, bytes );
+    REQUIRE( roundTrip.valid );
+    CHECK_FALSE( roundTrip.layoutResetRequired );
+    CHECK_FALSE( roundTrip.recoveredDefaults );
+    CHECK( roundTrip.preferences.panelVisibilityMask == preferences.panelVisibilityMask );
+    CHECK( std::strcmp( roundTrip.preferences.sceneFilter, "stack" ) == 0 );
+    CHECK( std::strcmp( roundTrip.preferences.hierarchyFilter, "crate" ) == 0 );
+    CHECK( std::strcmp( roundTrip.preferences.assetFilter, "terrain" ) == 0 );
+
+    constexpr const char* stale =
+        "schema=1\nlayout=1\ntopology=17\npanels=0\nscene_filter=keep\nhierarchy_filter=bounded\nasset_filter=text\n";
+    const ImGuiEditorPreferenceParseResult migrated = ParseImGuiEditorPreferences( stale, std::strlen( stale ) );
+    REQUIRE( migrated.valid );
+    CHECK( migrated.layoutResetRequired );
+    CHECK( migrated.recoveredDefaults );
+    CHECK( migrated.preferences.layoutVersion == IMGUI_EDITOR_LAYOUT_VERSION );
+    CHECK( migrated.preferences.topologyFingerprint == FingerprintImGuiEditorDefaultTopology() );
+    CHECK( migrated.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+    CHECK( std::strcmp( migrated.preferences.sceneFilter, "keep" ) == 0 );
+
+    constexpr const char* malformed = "schema=1\nlayout=2\ntopology=not-a-number\npanels=4294967295\n";
+    const ImGuiEditorPreferenceParseResult recovered =
+        ParseImGuiEditorPreferences( malformed, std::strlen( malformed ) );
+    CHECK_FALSE( recovered.valid );
+    CHECK( recovered.layoutResetRequired );
+    CHECK( recovered.recoveredDefaults );
+    CHECK( recovered.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+
+    ImGuiEditorPanelId panel = ImGuiEditorPanelId::Count;
+    CHECK( TryParseImGuiEditorPanel( "Replay", panel ) );
+    CHECK( panel == ImGuiEditorPanelId::Replay );
+    CHECK( TryParseImGuiEditorPanel( "Diag###SkoreDiagnostics", panel ) );
+    CHECK( panel == ImGuiEditorPanelId::Diagnostics );
+    CHECK_FALSE( TryParseImGuiEditorPanel( "Stale Panel", panel ) );
 }
 
 TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )

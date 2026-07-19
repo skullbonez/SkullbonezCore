@@ -113,6 +113,9 @@ struct RuntimeInputFrameFacts
     // Previous completed secondary-surface frame. This value queue is consumed
     // synchronously and never retained by input orchestration.
     UI::OperatorEditorCommandQueues externalEditorCommands;
+    // Invariant: only the selected Legacy surface may sample its pointer tools
+    // or scene-authored stress actions during this input turn.
+    bool legacyDevelopmentUiActive = true;
 };
 
 // Shared value-policy helpers used by the stateless coordinator and the

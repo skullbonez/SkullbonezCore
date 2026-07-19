@@ -563,6 +563,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput{}, result.suppressWorldActionThisFrame );
     replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput{ windowHandle,
                                                             ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
+                                                            facts.legacyDevelopmentUiActive,
                                                             result.editorUnhandledWheelDelta,
                                                             replayPointerRay,
                                                             facts.replayCurrentCameraMode,
