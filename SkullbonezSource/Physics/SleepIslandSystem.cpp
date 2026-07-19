@@ -17,12 +17,16 @@ Glossary:
   Manifold: Set of contact points and normals describing one colliding pair.
   Hot body fields: Physics-owned arrays holding fixed/sleep/velocity state for
     the current tick.
+  Support edge budget: Fixed four-edges-per-body storage ceiling shared by
+    contact and point-joint producers.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - Support propagation reads fixed-body state from hot arrays, not directly
     from legacy model storage.
+  - Support-edge producers fail before the construction-reserved vector can
+    grow during steady gameplay.
 
 Related:
   - SkullbonezSource/Physics/SleepIslandSystem.h
@@ -35,7 +39,6 @@ Related:
 #include "PhysicsWorld.h"
 
 using namespace SkullbonezCore::Physics;
-
 
 void SleepIslandSystem::PropagateSupport( SleepSupportPropagationContext& context,
                                           const PhysicsBodyHotFieldsConstView& hotFields )

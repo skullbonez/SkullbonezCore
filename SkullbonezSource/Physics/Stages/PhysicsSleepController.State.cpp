@@ -66,6 +66,12 @@ void PhysicsSleepController::RestoreReplayState( const Runtime::ReplaySolverWorl
     m_underwaterSleepLocked = snapshot.underwaterSleepLocked;
     m_sleepIslandVisualId = snapshot.sleepIslandVisualId;
     m_sleepIslandAssignedVisualId = snapshot.sleepIslandAssignedVisualId;
+    // Invariant: replay restore is a cold copy, but it still may not enlarge a
+    // hot owner beyond the same construction-reserved support-edge ceiling.
+    ValidateSleepSupportEdgeCount( snapshot.sleepSupportEdges.size(),
+                                   m_sleepSupportEdges.capacity(),
+                                   m_sleepSupportEdges.size(),
+                                   "replay_restore" );
     m_sleepSupportEdges = snapshot.sleepSupportEdges;
     m_sleepIslandParent = snapshot.sleepIslandParent;
     m_sleepIslandRank = snapshot.sleepIslandRank;

@@ -50,6 +50,7 @@ Related:
 #include "ColliderStore.h"
 #include "ObjectContactManifold.h"
 #include "PhysicsBodyStore.h"
+#include "SleepIslandSystem.h"
 #include "Stages/PhysicsContactSolverStage.h"
 #include "../Core/Profiler.h"
 
@@ -389,7 +390,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         // mid-air object-object impacts from becoming false "grounded" evidence.
         if ( normal.y > supportNormalY )
         {
-            m_sleepSupportEdges.emplace_back( aIndex, bIndex );
+            AppendSleepSupportEdge( m_sleepSupportEdges, aIndex, bIndex );
             if ( CanRecordPhysicsPipelineStage() )
             {
                 Physics::PhysicsPipelineRecord record;
@@ -406,7 +407,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         }
         else if ( normal.y < -supportNormalY )
         {
-            m_sleepSupportEdges.emplace_back( bIndex, aIndex );
+            AppendSleepSupportEdge( m_sleepSupportEdges, bIndex, aIndex );
             if ( CanRecordPhysicsPipelineStage() )
             {
                 Physics::PhysicsPipelineRecord record;

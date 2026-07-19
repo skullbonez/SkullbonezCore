@@ -27,6 +27,7 @@
 //   - SkullbonezSource/Core/Log.h
 //   - SkullbonezSource/Core/AmortizedTask.h
 //   - SkullbonezSource/Physics/SpatialGrid.h
+//   - SkullbonezSource/Physics/SleepIslandSystem.h
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
@@ -37,6 +38,7 @@
 #include "../SkullbonezSource/Core/SbResult.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
+#include "../SkullbonezSource/Physics/SleepIslandSystem.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h"
 #include "TestFatalCases.h"
 
@@ -57,6 +59,8 @@ using SkullbonezCore::Core::EngineLog;
 using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::AppendSleepSupportEdge;
+using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Threading::AmortizedTask;
 using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::LockOrderValidator;
@@ -283,6 +287,17 @@ bool RunRuntimeFatalCase( const char* caseName )
                      0.0f );
         return true;
     }
+    if ( std::strcmp( caseName, "sleep-support-edge-capacity" ) == 0 )
+    {
+        static std::vector<std::pair<int, int>> edges;
+        edges.clear();
+        edges.reserve( MAX_SLEEP_SUPPORT_EDGES );
+        for ( std::size_t edgeIndex = 0; edgeIndex <= MAX_SLEEP_SUPPORT_EDGES; ++edgeIndex )
+        {
+            AppendSleepSupportEdge( edges, 0, 1 );
+        }
+        return true;
+    }
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )
     {
         LockOrderValidator lockOrderValidator;
@@ -492,6 +507,9 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "spatial-grid-bucket-capacity",
                      { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded", "capacity=8192", "active=8192",
                        "phase=steady_gameplay" } );
+    ExpectFatalCase( "sleep-support-edge-capacity",
+                     { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded",
+                       "requested=32769", "capacity=32768", "high_water=32768", "phase=steady_gameplay" } );
     ExpectFatalCase( "amortized-task-in-flight-destroy",
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
     ExpectFatalCase( "worker-fatal-log",

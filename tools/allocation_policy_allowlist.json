@@ -346,7 +346,6 @@
       "path": "SkullbonezSource/Physics/PersistentContactSolver.cpp",
       "patterns": [
         ".assign(",
-        ".emplace_back(",
         ".push_back(",
         ".reserve("
       ],

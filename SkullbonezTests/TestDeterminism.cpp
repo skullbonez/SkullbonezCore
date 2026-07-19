@@ -26,8 +26,11 @@
 //     an explicit wake path receives motion again.
 //   Terrain manifold: Contact-point report between a body and the flat test
 //     terrain, sampled here as diagnostics rather than as the byte oracle.
-//   Parallel gravity field: Forty-body fixture above the worker threshold whose
-//     exact kinematics are compared at 0, 1, and 4 worker threads.
+//   Parallel gravity field: Forty-body fixture above the mutual-gravity worker
+//     threshold whose exact kinematics are compared at 0, 1, and 4 workers.
+//   Parallel contact field: 520-body fixture above the ordinary physics worker
+//     threshold whose contact, terrain, integration, and sleep state is compared
+//     at 0, 1, and 4 workers.
 //   Large gravity field: 520-body fixture above the pair-scratch threshold that
 //     proves the exact serial fallback ignores worker availability.
 //
@@ -38,7 +41,7 @@
 //   - Invariant checks use explicit tolerances because they assert physical
 //     policy, not serialized replay bytes.
 //   - Terrain queries are real flat-plane queries; render resources must stay unused.
-//   - Mutual-gravity worker scheduling must not change any kinematic byte.
+//   - Worker scheduling must not change any kinematic or sleep-state byte.
 //
 // Related:
 //   - SkullbonezSource/Physics/PhysicsEngine.h
@@ -64,6 +67,7 @@
 #include "../SkullbonezSource/World/Terrain.h"
 #include "TestRenderResourceDoubles.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -100,6 +104,7 @@ namespace
 {
 constexpr int kMicroBodyCount = 3;
 constexpr int kParallelMutualGravityBodyCount = 40;
+constexpr int kParallelContactBodyCount = 520;
 constexpr int kLargeMutualGravityBodyCount = 520;
 constexpr int kSnapshotFrame = 120;
 constexpr int kReplayWindowTicks = 60;
@@ -264,6 +269,39 @@ void SeedSupportedSleepWorld( PhysicsEngine& engine, const SkullbonezCore::Core:
     AddSupportedSleepBody( engine, 401u, Vector3( 0.0f, 1.0f, 0.0f ) );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == 1 );
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == 1 );
+}
+
+void SeedParallelContactSleepWorld( PhysicsEngine& engine, const SkullbonezCore::Core::EngineConfig& config )
+{
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( true );
+    engine.ReserveAuthoredBodyCapacity( kParallelContactBodyCount );
+
+    // Concept: the first 256 pairs are independent contact islands, exactly
+    // crossing the parallel narrowphase threshold without sharing bodies. The
+    // final eight bodies stay separated so the fixture also proves a real sleep
+    // transition. All 520 bodies cross the force, terrain, and integration
+    // worker thresholds before the awake list shrinks.
+    for ( int bodyIndex = 0; bodyIndex < kParallelContactBodyCount; ++bodyIndex )
+    {
+        const int pairIndex = bodyIndex / 2;
+        const int pairColumn = pairIndex % 20;
+        const int pairRow = pairIndex / 20;
+        // Leave the final four pairs separated so quiet terrain-supported
+        // bodies must enter sleep even if the resolving contact pairs have not
+        // settled within this bounded test window.
+        const float pairHalfSeparation = pairIndex < 256 ? 0.9f : 2.5f;
+        const float pairOffset = ( bodyIndex & 1 ) == 0 ? -pairHalfSeparation : pairHalfSeparation;
+        AddSupportedSleepBody( engine,
+                               static_cast<uint32_t>( 1000 + bodyIndex ),
+                               Vector3( static_cast<float>( pairColumn * 8 - 76 ) + pairOffset,
+                                        1.0f,
+                                        static_cast<float>( pairRow * 8 - 48 ) ) );
+    }
+
+    REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() == kParallelContactBodyCount );
+    REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == kParallelContactBodyCount );
 }
 
 TEST_CASE( "Physics collision-time diagnostics cover every bounded fixed-step event" )
@@ -853,6 +891,32 @@ void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& 
         CheckVectorBytesEqual( leftHot.angularVelocity, rightHot.angularVelocity );
     }
 }
+
+void CheckEngineWorkerDeterministicStateEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs )
+{
+    CheckEngineKinematicsEqual( lhs, rhs );
+
+    const auto checkRowsEqual = []( const auto& left, const auto& right )
+    {
+        REQUIRE( left.size() == right.size() );
+        for ( std::size_t index = 0; index < left.size(); ++index )
+        {
+            CHECK( left[index] == right[index] );
+        }
+    };
+
+    // Invariant: multithreaded determinism includes cold sleep ownership and
+    // diagnostics, not only visible poses. A schedule-dependent transition can
+    // leave kinematics equal for one tick while changing future awake work.
+    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( lhs ),
+                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( rhs ) );
+    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( lhs ),
+                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( rhs ) );
+    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( lhs ),
+                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( rhs ) );
+    checkRowsEqual( SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( lhs ),
+                    SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( rhs ) );
+}
 } // namespace
 
 
@@ -871,6 +935,52 @@ TEST_CASE( "PhysicsEngine determinism: micro-world matches at fixed tick interva
         StepMicroWorld( second, 60 );
         CheckEngineKinematicsEqual( first, second );
     }
+}
+
+
+TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline is exact across worker counts" )
+{
+    // Lifetime: PhysicsEngine owns large fixed-capacity stores, so these cold
+    // test fixtures live on the heap while all three worker variants coexist.
+    auto serial = std::make_unique<PhysicsEngine>();
+    auto oneWorker = std::make_unique<PhysicsEngine>();
+    auto fourWorkers = std::make_unique<PhysicsEngine>();
+
+    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
+    config.physicsExecution.parallel = true;
+    config.physicsExecution.parallelApplyForces = true;
+    config.physicsExecution.parallelNarrowphase = true;
+    config.physicsExecution.parallelTerrainDetect = true;
+    config.physicsExecution.parallelIntegrate = true;
+    config.broadphase.cellSize = 4.0f;
+    config.physicsSleep.frames = 3;
+    config.physicsSleep.linearSpeed = 0.25f;
+    config.physicsSleep.angularSpeed = 0.25f;
+
+    SeedParallelContactSleepWorld( *serial, config );
+    SeedParallelContactSleepWorld( *oneWorker, config );
+    SeedParallelContactSleepWorld( *fourWorkers, config );
+    const PhysicsWorldForces forces = DeterministicForces();
+
+    StepMicroWorldWith( *serial, 1, config, forces, 0 );
+    StepMicroWorldWith( *oneWorker, 1, config, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, 1, config, forces, 4 );
+    // Invariant: the fixture must keep the parallel-narrowphase threshold
+    // active. A geometry/filter drift to 255 pairs would otherwise let every
+    // worker-count comparison pass through the serial fallback.
+    CHECK( oneWorker->GetDiagnosticsView().candidatePairs.size() == 256u );
+    CHECK( fourWorkers->GetDiagnosticsView().candidatePairs.size() == 256u );
+    CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
+    CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
+
+    StepMicroWorldWith( *serial, 30, config, forces, 0 );
+    StepMicroWorldWith( *oneWorker, 30, config, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, 30, config, forces, 4 );
+    CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
+    CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
+
+    const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( *serial );
+    CHECK( std::any_of( sleepStates.begin(), sleepStates.end(), []( uint8_t sleeping ) { return sleeping != 0; } ) );
 }
 
 

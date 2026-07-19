@@ -48,6 +48,7 @@
 #include "../SkullbonezSource/Physics/PersistentContactSolver.h"
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsWorld.h"
+#include "../SkullbonezSource/Physics/SleepIslandSystem.h"
 #include "../SkullbonezSource/Physics/TerrainContactManifold.h"
 
 #include <array>
@@ -75,6 +76,7 @@ using SkullbonezCore::Physics::PhysicsBodyPosition;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsDebugContact;
 using SkullbonezCore::Physics::PhysicsWorld;
+using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Physics::SolverBodyState;
 using SkullbonezCore::Physics::TerrainContactManifold;
 
@@ -123,6 +125,10 @@ struct SolverFixture
 
     SolverFixture() : bodyStore( TestBodyStore() ), colliderRecords( TestColliderRecords() )
     {
+        // Runtime support edges are construction-reserved to their fixed cap;
+        // mirror that owner precondition so focused solver tests cannot hide a
+        // growth path behind their smaller fixture vector.
+        sleepSupportEdges.reserve( MAX_SLEEP_SUPPORT_EDGES );
         config.physicsExecution.parallel = false;
         config.worldForces.gravity = -30.0f;
         config.physicsMaterial.frictionCoeff = 0.2f;

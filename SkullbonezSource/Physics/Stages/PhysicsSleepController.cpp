@@ -83,6 +83,37 @@ void RecordPipelineStage( std::vector<PhysicsPipelineRecord>& trace, const Physi
 }
 } // namespace
 
+void SkullbonezCore::Physics::ValidateSleepSupportEdgeCount( std::size_t requested,
+                                                             std::size_t reservedCapacity,
+                                                             std::size_t highWater,
+                                                             const char* phase )
+{
+    if ( requested <= MAX_SLEEP_SUPPORT_EDGES && requested <= reservedCapacity )
+    {
+        return;
+    }
+
+    SB_FATAL( "Physics/SleepSupportEdges",
+              "Sleep support edge capacity exceeded: requested=%zu capacity=%zu reserved_capacity=%zu "
+              "high_water=%zu phase=%s.",
+              requested,
+              MAX_SLEEP_SUPPORT_EDGES,
+              reservedCapacity,
+              highWater,
+              phase );
+}
+
+void SkullbonezCore::Physics::AppendSleepSupportEdge( std::vector<std::pair<int, int>>& edges,
+                                                       int supporter,
+                                                       int supported )
+{
+    // Hazard: checking the semantic cap alone would still let an incorrectly
+    // initialized vector grow below that cap. The actual construction reserve
+    // is part of the fail-before-grow contract too.
+    ValidateSleepSupportEdgeCount( edges.size() + 1u, edges.capacity(), edges.size(), "steady_gameplay" );
+    edges.emplace_back( supporter, supported );
+}
+
 PhysicsSleepController::PhysicsSleepController()
 {
     const std::size_t bodyCapacity = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS;
@@ -93,7 +124,7 @@ PhysicsSleepController::PhysicsSleepController()
     m_underwaterSleepLocked.reserve( bodyCapacity );
     m_sleepIslandVisualId.reserve( bodyCapacity );
     m_sleepIslandAssignedVisualId.reserve( bodyCapacity );
-    m_sleepSupportEdges.reserve( bodyCapacity * 4 );
+    m_sleepSupportEdges.reserve( MAX_SLEEP_SUPPORT_EDGES );
     m_sleepIslandParent.reserve( bodyCapacity );
     m_sleepIslandRank.reserve( bodyCapacity );
     m_sleepIslandHasAwake.reserve( bodyCapacity );
@@ -367,8 +398,8 @@ void PhysicsSleepController::AppendPointJointSupportEdges(
         {
             continue;
         }
-        m_sleepSupportEdges.emplace_back( a, b );
-        m_sleepSupportEdges.emplace_back( b, a );
+        AppendSleepSupportEdge( m_sleepSupportEdges, a, b );
+        AppendSleepSupportEdge( m_sleepSupportEdges, b, a );
     }
 }
 
