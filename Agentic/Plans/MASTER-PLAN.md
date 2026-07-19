@@ -216,9 +216,9 @@ for side-by-side owner evaluation.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 6 | 8 | 75% |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 7 | 8 | 88% |
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| **Active/future total** | **23** | **26** | **88%** |
+| **Active/future total** | **24** | **26** | **92%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -267,7 +267,8 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is 6/8 with P5 complete. The
+`physics-body-count-scale-campaign` (P0-P7) is 7/8 with P6 evidence-deferred
+and P7 next. The
 sleep-owned ascending awake set now drives steady sleep mirroring, same-
 timestep CCD-clock reset, eligibility/counter/transition work, and ordinary
 underwater-lock decisions. Full dormant censuses occur only at cold rebuild,
@@ -283,8 +284,21 @@ the deterministic 200-brick-wall witness. `PersistentContacts` is only 7.1051%
 and 6.5597% of `Frame/Physics` P50 in the scale repeats, but is 74.2799% and
 74.3648% in the wall repeats. The wall therefore clears the standing 15%
 trigger twice, automatically authorizing P6 as the next task. The temporary
-wall perf-log directive restored to its exact original blob; no runtime,
-authored-data, baseline, golden, coverage-floor, or UI behavior changed.
+wall perf-log directive restored to its exact original blob. P6 then built a
+fixed-capacity canonical contact-coloring prototype and Debug same-state oracle
+before any artifact move. The focused oracle fixture passed 7/7 assertions,
+but the complete one-worker wall measured 2.2096 ms `PersistentContacts` and
+2.6911 ms `Frame/Physics`, already missing both benefit limits; four and eight
+Profile workers crashed with `0xC0000005`. Stability, 0/1/4/8 invariance, the
+10% solver benefit floor, and 2% whole-physics ceiling therefore all rejected
+retention. The fallback reversed every P6 implementation/test/scene/artifact
+edit and restored exact P5 behavior. No runtime, authored-data, baseline,
+golden, coverage-floor, or UI behavior changed. A future retry requires a later
+upstream physics change and fresh two-repeat witnesses that again clear the 15%
+trigger. Restored-P5 physics, deep-physics, perf, replay-fidelity, and full
+validation all pass; replay retained its existing golden and the broad gate
+retained 322/322 cases, 30,378/30,378 assertions, every coverage floor, zero
+DX12 validation errors, and byte-exact physics.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
 the accepted P1 one-process golden and their retained replay gates now pass
@@ -1001,7 +1015,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P5 complete; P6 automatically authorized | 6/8 | Implement deterministic graph-colored solver parallelism, then require the same-state oracle, 0/1/4/8 determinism, mapped gates, and measured wall benefit before retention |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P5 complete; P6 evidence-deferred | 7/8 | Execute P7 final matrix, comment audit, independent review, final gates, and closure |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 

@@ -6,7 +6,7 @@ Campaign: `physics-body-count-scale-campaign`
 
 Branch: `nightrunner-18th-july`
 
-Task boundary: P0-P5 complete; P6 is automatically authorized by the P5 evidence gate
+Task boundary: P0-P6 complete; P6 is evidence-deferred and P7 is next
 
 ## P0 Owner Rulings
 
@@ -751,3 +751,74 @@ fresh two-repeat exact-tip capture of both witnesses; at least one witness must
 again meet the 15% trigger before graph coloring is reconsidered. P5 itself is
 documentation plus targeted evidence only, so no repository validation suite
 is required.
+
+## P6 Deterministic Solver-Coloring Decision (Evidence-Deferred)
+
+P6 followed the transition protocol before any artifact move. The prototype
+construction-reserved fixed scratch for at most 32,768 contact rows and 8,192
+bodies, assigned the smallest available color in canonical row order, retained
+canonical manifold construction, sorted-cache lookup, warm-start application,
+delta reduction, early-out, trace emission, cache store, correction, and
+writeback, and dispatched only conflict-free iterative row batches through
+`WorkerPool::ParallelForNoAlloc`. A Debug same-state oracle checked canonical
+row membership, exactly-once coverage, body conflict freedom, per-color
+canonical order, and ascending color offsets. Its history-free focused fixture
+passed 7/7 assertions. No baseline or replay artifact was changed.
+
+The autonomous benefit/stability decision then rejected the prototype before
+the separate point-joint graph was implemented. Each wall launch used this
+shape with `<workers>` set to 1, 4, then 8:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --shadows off --no-contact-audio --workers <workers> --frames 600 --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+```
+
+| Workers | Completion | Samples | `Frame/Physics` P50 | `PersistentContacts` P50 | Decision evidence |
+|---:|---|---:|---:|---:|---|
+| 1 | 600 frames, exit 0 | 1,140 | 2.6911 ms | 2.2096 ms | Complete colored-serial witness; already slower than P5 |
+| 4 | Access violation `0xC0000005` at frame 264 | 234 | 4.3563 ms* | 3.8058 ms* | Stability/invariance failure |
+| 8 | Access violation `0xC0000005` at frame 188 | 158 | N/A | N/A | Crashed before the active-wall interval |
+
+`*` The four-worker values are the 65 available active-wall samples at frames
+200-264, not a complete-run median. They are recorded only as rejection
+evidence. The complete one-worker result alone misses the required benefit by a
+wide margin: 2.2096 ms is 64.8% above the slower 1.3405 ms P5 serial reference,
+where acceptance required at least 10% below that reference. Its 2.6911 ms
+physics P50 is 49.3% above the slower 1.8026 ms P5 wall reference, where the
+allowed regression ceiling was 2%.
+
+The ignored raw probes remain local under `TestOutput/p6_coloring_probe/`:
+
+| Capture | Bytes | SHA-256 |
+|---|---:|---|
+| workers 1 | 897,253 | `113C8F4932ADCC45FBCE2ABAB80E98DFBDBF23A01C3DFDBAF2C896D36C36999C` |
+| workers 4 partial | 192,758 | `34D22CD3EAE311007FC8F1506A1E9434D6D41743FA37D36C8C3D75C5543D93A5` |
+| workers 8 partial | 135,337 | `367A8C876F99C7EAE1B68FF6AA7DA43445E3616092CE21668763ED123CA23CC0` |
+
+Per the binding fallback, every P6 source, focused-test, scene-logging, and
+artifact edit was reversed without stash/reset/checkout. The tracked runtime
+tree and wall scene are byte-identical to P5; the wall scene Git blob is again
+`407b718bff13ff0eab1a466e62aa5851f4d556ef`. No physics/deep CSV, replay
+golden, authored scene/config/schema, coverage floor, screenshot, UI default,
+or UI coexistence behavior moved. Because no source remains touched, there is
+no P6 retained-source comment-audit inventory. The final P5-behavior mapped
+gates all passed from the restored tip:
+
+| Gate | Approximate wall time | Restored-P5 result |
+|---|---:|---|
+| `tools\\validate_physics.bat` | 80 s | PASS; standalone/handle smokes and the 44,401-line varied baseline matched byte-exactly |
+| `tools\\validate_physics_deep.bat` | 128 s | PASS; varied, bullet sweep, shooting, known-signature, and SkullScope query baselines matched exactly |
+| `tools\\validate_perf.bat` | 109 s | PASS; allocation guard, selected-object path, DX12/physics perf, and scale matrix completed |
+| `tools\\validate_replay_visual_fidelity.bat` | 275 s | PASS without refresh; 2,401 ticks, 200 moved bricks, 175 toppled bricks, one presented cascade, and every false-pass control behaved as expected |
+| `tools\\validate_full.bat` | 170 s | PASS; 322/322 cases, 30,378/30,378 assertions, every coverage floor, zero DX12 validation errors, three passing image comparisons, and byte-exact physics |
+
+The deep gate generated its established deterministic SkullScope trace and ran
+the committed bounded query packet internally. The packet matched exactly; no
+raw NDJSON, SQLite cache, or query text was exposed to the model during P6, so
+P6 model-ingested SkullScope data is 0 bytes. The prototype's local perf logs
+listed above were the only raw P6 artifacts inspected.
+
+Future retry remains conditional: a later upstream physics change must be
+followed by two fresh exact-tip captures of scale-2,000 and the deterministic
+wall, and at least one witness must again put `PersistentContacts` at 15% or
+more of `Frame/Physics` before graph coloring is reconsidered.

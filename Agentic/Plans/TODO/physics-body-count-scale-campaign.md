@@ -1,7 +1,7 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 6/8 tasks (P0-P5 complete; P6 automatically authorized)
+Status: Active — 7/8 tasks (P0-P5 complete; P6 evidence-deferred; P7 next)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -493,7 +493,7 @@ explained or the task is not done.
     `407b718bff13ff0eab1a466e62aa5851f4d556ef`; no runtime, scene, config,
     baseline, golden, coverage-floor, or UI artifact changed.
 
-- [ ] P6 — (Condition satisfied by P5; automatically authorized)
+- [x] P6 — Evidence-deferred after the automatically authorized prototype
   deterministic graph-colored
   solver parallelism.
   - Implementation: greedy-color the contact/joint constraint graph in
@@ -513,9 +513,12 @@ explained or the task is not done.
     Transition Protocol (same-state constraint-membership/color-validity
     probe, physics CSV regeneration, owner-approved golden regeneration, one
     process).
-  - [ ] Same-state oracle + transition artifacts + gates per protocol.
-  - [ ] Thread-count invariance 0/1/4/8 workers, byte-identical.
-  - [ ] Measurement matrix recorded, including a one-big-island stress
+  - [x] Same-state oracle and focused fixture were implemented before any
+    artifact move; the failed prototype was then removed under the fallback.
+  - [x] Thread-count decision recorded at 0/1/4/8: the 0-worker focused path
+    and 1-worker wall completed, while 4/8 Profile workers crashed and therefore
+    rejected retention before any byte-identity claim.
+  - [x] Measurement decision recorded, including a one-big-island stress
     witness (the 200-brick wall class of scene) at 1/4/8 workers.
   - Autonomous fallback: if the same-state oracle, allocation/capacity rules,
     0/1/4/8 determinism, or mapped gates cannot pass—or if replay-golden drift
@@ -530,6 +533,28 @@ explained or the task is not done.
   - Gates: `validate_physics`, `validate_physics_deep`, `validate_perf`,
     `validate_replay_visual_fidelity.bat` (owner-approved refresh),
     `validate_full`.
+  - 2026-07-19 closure: the bounded smallest-greedy contact-row prototype and
+    Debug same-state oracle passed its focused 7/7-assertion fixture; canonical
+    manifold/cache/warm-start work and canonical reduction/trace emission
+    remained serial. On the 200-brick wall, the complete one-worker colored
+    run measured `PersistentContacts` P50 2.2096 ms and `Frame/Physics` P50
+    2.6911 ms, already far above the P5 serial references (1.3230/1.3405 ms and
+    1.7811/1.8026 ms). Four and eight workers both crashed in Profile with
+    access violation `0xC0000005`; the four-worker partial active-wall window
+    had `PersistentContacts` P50 3.8058 ms and `Frame/Physics` P50 4.3563 ms.
+    This fails stability, 0/1/4/8 invariance, the 10% benefit floor, and the 2%
+    whole-physics ceiling. The point-joint extension, artifacts, and mapped
+    prototype gates were therefore not pursued. Every P6 source, test, scene,
+    and artifact edit was reversed with the tracked tree byte-identical to P5;
+    no baseline, golden, UI, authored-data, config, or coverage artifact moved.
+    Restored-P5 proof then passed `validate_physics`,
+    `validate_physics_deep`, `validate_perf`,
+    `validate_replay_visual_fidelity.bat` without a refresh, and
+    `validate_full`; the broad gate retained 322/322 cases and 30,378/30,378
+    assertions, every coverage floor, zero DX12 validation errors, all three
+    DX12 image baselines, and the byte-exact 44,401-line physics baseline.
+    The future retry condition remains a later upstream physics change plus a
+    fresh two-repeat P5-style evidence gate that again clears 15%.
 
 - [ ] P7 — Final matrix, comment audit, independent review, closure.
   - [ ] Full Measurement Ledger recorded at final tip, including the

@@ -11,16 +11,16 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-18th-july` |
-| Current baseline | Physics P5 is complete: two exact-P4-tip repeats put `PersistentContacts` at 6.56-7.11% of scale-2,000 physics but 74.28-74.36% of the deterministic 200-brick-wall physics P50, automatically authorizing P6. |
-| Current objective | Execute Physics P6's deterministic graph-colored solver with its oracle/determinism/gate/benefit fallback while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
-| Active/future progress | 23 / 26 live tasks; 88%. |
-| Last broad local gate | P4 `validate_physics`, `validate_perf`, and `validate_full` pass with 322 cases/30,378 assertions, all coverage floors, zero DX12 validation errors, byte-exact physics, and zero steady-gameplay allocation violations. |
-| Validation for current edits | P5's four targeted Profile captures each contain 1,140 post-warmup samples at commit `f758a15b4`; the wall scene restored exactly to its original Git blob and documentation diff checks are the only remaining P5 gate. |
+| Current baseline | Physics P6 is evidence-deferred: its oracle fixture passed, but the colored wall was slower at one worker and crashed at 4/8 workers; every P6 runtime/artifact edit was reversed to exact P5 behavior. |
+| Current objective | Execute Physics P7 final matrix, comment audit, independent review, gates, and closure while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
+| Active/future progress | 24 / 26 live tasks; 92%. |
+| Last broad local gate | P6 restored-P5 `validate_full` passes with 322/322 cases, 30,378/30,378 assertions, every coverage floor, zero DX12 validation errors, all three image baselines, Automation replay smoke, and byte-exact physics. |
+| Validation for current edits | P6 final docs retain no source or artifact edit; restored-P5 `validate_physics`, `validate_physics_deep`, `validate_perf`, `validate_replay_visual_fidelity.bat` without refresh, and `validate_full` all pass. |
 
 ## Live Queue
 
-NOW. Two live plans, 26 tasks. Physics body-count scale is 6/8 with P5 complete
-     and P6 automatically authorized by both 200-brick-wall repeats. Steady
+NOW. Two live plans, 26 tasks. Physics body-count scale is 7/8 with P6
+     evidence-deferred and P7 next. Steady
      same-timestep CCD-clock reset, sleep mirroring,
      eligibility/counter/transition guards, and underwater-lock decisions now
      follow the ascending awake set or explicit cold boundaries. All-awake
@@ -29,8 +29,12 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 6/8 with P5 complete
      retained P1 witnesses match across the 18-run 0/1/4 matrix; focused tests,
      physics, perf/allocation, full, and marker gates pass. P5's scale-2,000
      solver share is 7.1051%/6.5597%, while the wall share is
-     74.2799%/74.3648%, clearing the standing 15% trigger twice without any
-     authored or runtime change. ImGui/Tracy
+     74.2799%/74.3648%, clearing the standing 15% trigger twice. The authorized
+     P6 contact-coloring oracle fixture passed, but the one-worker colored wall
+     regressed to 2.2096 ms `PersistentContacts` and 2.6911 ms physics; four and
+     eight workers crashed with `0xC0000005`. The fallback reversed all P6
+     implementation, focused-test, logging, and artifact edits to exact P5
+     behavior. ImGui/Tracy
      is 17/18: E14-E15 are reconciled against that accepted golden, E16 is
      complete, and E17 remains unchecked only for extended hands-on owner
      acceptance. E0 froze the complete
@@ -562,7 +566,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 6/8 with P5 complete
 
 ## Next Handoff
 
-Continue Physics P6-P7 in order. P1-P5 evidence is recorded in
+Continue Physics P7. P1-P6 evidence is recorded in
 `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`; future ordinary
 tasks are byte-exact against the transitioned artifacts and receive no refresh
 allowance.
