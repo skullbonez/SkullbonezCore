@@ -216,9 +216,9 @@ for side-by-side owner evaluation.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 5 | 8 | 63% |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 6 | 8 | 75% |
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| **Active/future total** | **22** | **26** | **85%** |
+| **Active/future total** | **23** | **26** | **88%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -267,7 +267,7 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is 5/8 with P4 complete. The
+`physics-body-count-scale-campaign` (P0-P7) is 6/8 with P5 complete. The
 sleep-owned ascending awake set now drives steady sleep mirroring, same-
 timestep CCD-clock reset, eligibility/counter/transition work, and ordinary
 underwater-lock decisions. Full dormant censuses occur only at cold rebuild,
@@ -278,7 +278,13 @@ to 82.6 for sleepy-5,000. Its `Frame/Physics` P50 falls from 1.8628 ms to
 because they would cross state-changing stages or violate exact-sum order. All
 six retained P1 witnesses match byte-for-byte at 0/1/4 workers (18/18), and
 focused tests plus physics, performance, full, allocation, and marker gates
-pass. P5 next owns the automatic Tier-2 evidence checkpoint.
+pass. P5 rebuilt and captured the exact P4 tip twice for both scale-2,000 and
+the deterministic 200-brick-wall witness. `PersistentContacts` is only 7.1051%
+and 6.5597% of `Frame/Physics` P50 in the scale repeats, but is 74.2799% and
+74.3648% in the wall repeats. The wall therefore clears the standing 15%
+trigger twice, automatically authorizing P6 as the next task. The temporary
+wall perf-log directive restored to its exact original blob; no runtime,
+authored-data, baseline, golden, coverage-floor, or UI behavior changed.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
 the accepted P1 one-process golden and their retained replay gates now pass
@@ -995,7 +1001,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P4 complete; P5 next | 5/8 | Consolidate P0-P4 attribution and apply the automatic Tier-2 evidence gate from two repeated P4-tip captures |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P5 complete; P6 automatically authorized | 6/8 | Implement deterministic graph-colored solver parallelism, then require the same-state oracle, 0/1/4/8 determinism, mapped gates, and measured wall benefit before retention |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 

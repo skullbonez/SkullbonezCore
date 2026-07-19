@@ -1,7 +1,7 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 5/8 tasks (P0-P4 complete; P5 checkpoint next)
+Status: Active — 6/8 tasks (P0-P5 complete; P6 automatically authorized)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -466,25 +466,34 @@ explained or the task is not done.
     data artifact changed. The touched-source comment audit covers 6/6 files
     with zero deferred.
 
-- [ ] P5 — Mid-campaign checkpoint and automatic Tier-2 evidence gate.
-  - [ ] Consolidated matrix across P0-P4 with a written attribution
+- [x] P5 — Mid-campaign checkpoint and automatic Tier-2 evidence gate.
+  - [x] Consolidated matrix across P0-P4 with a written attribution
     narrative (which milliseconds moved, where, and why), committed to the
     campaign report.
-  - [ ] Record two repeated Profile captures at the P4 tip for
+  - [x] Record two repeated Profile captures at the P4 tip for
     `physics_scale_2000` and the deterministic one-big-island 200-brick-wall
     witness. P6 is automatically authorized when `PersistentContacts` is at
     least 15% of `Frame/Physics` median in either witness; otherwise it is
     deferred. This numeric result is the owner's standing P6 decision; do not
     pause for another response or substitute a subjective bottleneck ruling.
-  - [ ] If the trigger is false, close the P6 slot as **deferred by evidence**,
-    record the measurements and future retry condition in the campaign report,
-    make no runtime/artifact change, and continue directly to P7. The plan
-    remains P0-P7 at eight tasks; a deferred conditional slot counts as a
-    completed decision outcome and does not change the MASTER denominator.
+  - [x] Resolve the evidence branch without another owner pause. A false
+    trigger closes P6 as **deferred by evidence** and continues directly to P7;
+    a true trigger authorizes P6. Record measurements and the future retry
+    condition in either outcome. The plan remains P0-P7 at eight tasks; a
+    deferred conditional slot counts as a completed decision outcome and does
+    not change the MASTER denominator.
   - Gate: none beyond the two targeted Profile captures (documentation +
     automatic evidence decision).
+  - 2026-07-19 closure: both 1,140-sample `physics_scale_2000` repeats put
+    `PersistentContacts` at 7.1051% and 6.5597% of `Frame/Physics` P50. The
+    deterministic `prediction_ragdoll_wall_200` witness puts it at 74.2799%
+    and 74.3648%. Either wall repeat independently clears the standing 15%
+    trigger, so P6 is automatically authorized and is the next task. The
+    temporary perf-log directive restored exactly to Git blob
+    `407b718bff13ff0eab1a466e62aa5851f4d556ef`; no runtime, scene, config,
+    baseline, golden, coverage-floor, or UI artifact changed.
 
-- [ ] P6 — (Conditional, pre-authorized by the P5 evidence gate)
+- [ ] P6 — (Condition satisfied by P5; automatically authorized)
   deterministic graph-colored
   solver parallelism.
   - Implementation: greedy-color the contact/joint constraint graph in

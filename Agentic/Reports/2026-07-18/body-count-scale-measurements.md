@@ -6,7 +6,7 @@ Campaign: `physics-body-count-scale-campaign`
 
 Branch: `nightrunner-18th-july`
 
-Task boundary: P0-P4 complete; P5 automatic evidence checkpoint is next
+Task boundary: P0-P5 complete; P6 is automatically authorized by the P5 evidence gate
 
 ## P0 Owner Rulings
 
@@ -638,3 +638,116 @@ before each duplicate was deleted; retained witnesses were not modified.
 No baseline, golden, scene, config, authored-data, or UI artifact changed. P4's
 touched-source comment audit covers 6/6 files with zero deferred; see
 `../2026-07-19/physics-body-count-p4-comment-audit.md`.
+
+## P5 Automatic Solver-Tier Evidence Gate
+
+P5 changes no runtime behavior. It consolidates the accepted P0-P4 attribution
+and measures the two prescribed P4-tip witnesses twice before making the
+standing numeric decision about P6.
+
+### Consolidated P0-P4 Attribution
+
+The table below keeps one accounting convention throughout: each value is that
+task tip's standard Profile `Frame/Physics` P50 in milliseconds, and each delta
+is relative to the immediately preceding task. Small all-awake movements are
+capture-to-capture noise unless a changed child marker and implementation
+boundary support attribution.
+
+| Task tip | scale_200 | scale_520 | scale_1000 | scale_2000 | sleepy_5000 |
+|---|---:|---:|---:|---:|---:|
+| P0 | 0.1106 | 0.8486 | 1.0688 | 1.7852 | 2.1479 |
+| P1 | 0.1066 (-0.0040) | 0.8405 (-0.0081) | 1.0828 (+0.0140) | 1.7407 (-0.0445) | 2.0722 (-0.0757) |
+| P2 | 0.1050 (-0.0016) | 0.7722 (-0.0683) | 1.0299 (-0.0529) | 1.8161 (+0.0754) | 1.9813 (-0.0909) |
+| P3 | 0.1094 (+0.0044) | 0.8126 (+0.0404) | 1.1484 (+0.1185) | 2.0171 (+0.2010) | 1.8628 (-0.1185) |
+| P4 | 0.1147 (+0.0053) | 0.8379 (+0.0253) | 1.1629 (+0.0145) | 1.9646 (-0.0525) | 1.3331 (-0.5297) |
+| P0 to P4 | +0.0041 | -0.0107 | +0.0941 | +0.1794 | -0.8148 |
+
+- P1 established canonical pair order and its same-state oracle. It was a
+  determinism transition, not a performance optimization; the small mixed
+  deltas therefore establish the transitioned reference rather than a claimed
+  speedup.
+- P2 replaced full grid rebuilds with persistent incremental membership. On the
+  sleepy witness `GridInsert`/`GridMaintain` moved from 0.5121 to 0.2130 ms and
+  inclusive Broadphase moved from 0.7299 to 0.4930 ms. Scale-2,000's step P50
+  rose 0.0754 ms despite its grid-maintenance reduction, so that whole-step
+  movement was not attributed to the grid optimization.
+- P3 kept sleepers resident but omitted their steady force, integration,
+  terrain, and production pair work. Sleepy Broadphase moved from 0.4930 to
+  0.3795 ms and the step moved down 0.1185 ms. The all-awake increases are
+  recorded honestly and were not presented as sleeper-path gains.
+- P4 moved sleep mirroring, CCD-clock reset, eligibility, counters,
+  transitions, and ordinary underwater decisions onto the awake set. It made
+  the largest measured sleepy-scene move: -0.5297 ms, alongside the logical
+  byte estimate falling from 95.4 to 82.6 bytes/body/step. No unsafe fusion or
+  unmeasured cold-store split was accepted.
+
+Across P0-P4, sleepy-5,000 improves by 0.8148 ms (37.93%) while scale-2,000 is
+0.1794 ms (10.05%) above its P0 capture. The campaign has therefore removed
+substantial dormant-body work but has not hidden the remaining all-awake
+solver opportunity that P5 measures directly.
+
+### Exact P4-Tip Captures
+
+`tools\validate_build.bat Profile` rebuilt the P4 tip in 12.52 seconds with
+zero warnings and zero errors. Every analyzed CSV identifies commit
+`f758a15b4`; the resulting Profile executable is 4,134,400 bytes with SHA-256
+`35EC724AF36C0B038ECBB6E05F995CDBD0A161C4FF94B7167EE6CD5848D3B790`.
+
+The scale command was executed twice, taking 8.462 and 7.122 seconds:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --shadows off --no-contact-audio --frames 600 --scene SkullbonezData\scenes\physics_scale_2000.scene.json
+```
+
+The deterministic 200-brick-wall command was executed twice, taking 5.134 and
+5.127 seconds:
+
+```text
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --fixed-step --shadows off --no-contact-audio --frames 600 --scene SkullbonezData\scenes\prediction_ragdoll_wall_200.scene.json
+```
+
+Each process produced 1,140 post-warmup samples. P50 values are milliseconds;
+the trigger share is
+`PersistentContacts P50 / Frame/Physics P50 * 100`.
+
+| Witness repeat | `Frame/Physics` | `Narrowphase` | `PersistentContacts` | Solver share |
+|---|---:|---:|---:|---:|
+| scale-2,000 repeat 1 | 1.9507 | 0.0251 | 0.1386 | 7.1051% |
+| scale-2,000 repeat 2 | 2.0626 | 0.0241 | 0.1353 | 6.5597% |
+| wall-200 repeat 1 | 1.7811 | 0.1249 | 1.3230 | 74.2799% |
+| wall-200 repeat 2 | 1.8026 | 0.1245 | 1.3405 | 74.3648% |
+
+The ignored raw CSV witnesses are retained locally under
+`TestOutput/p5_tier_gate/`. Their SHA-256 values are:
+
+| Capture | Bytes | SHA-256 |
+|---|---:|---|
+| scale-2,000 repeat 1 | 762,283 | `82BD075E2EBF34FBAACEBC1A9CB6184D4BD35C17A9A4A754068471292DD20B9E` |
+| scale-2,000 repeat 2 | 762,283 | `325FB162EA8C79A98298B54AD78CFE563B839F9E262F57E7B7D4FEF0080BC800` |
+| wall-200 repeat 1 | 883,347 | `7CD5B919F569E1FC10480824498BD40FA7AFC8EC9EC024AC93C96B6F0C3C5064` |
+| wall-200 repeat 2 | 883,347 | `D07B26055B3291D5DBB3AB99B933F5A68FD6531657CEF408C1942A2A44CA2ED1` |
+
+The wall scene needed only a temporary `logging.perfLog` directive. Its Git
+blob before and after capture is exactly
+`407b718bff13ff0eab1a466e62aa5851f4d556ef` (SHA-256
+`41EC952BA22FAE36E462B750D894909DD0EE58975554D696AEA16220C0F2C934`),
+and the tracked diff is empty. No authored simulation value, baseline, golden,
+config, coverage floor, or UI selection changed. Legacy remains the default and
+the two UI surfaces remain mutually exclusive.
+
+### Automatic Decision
+
+P6 is automatically authorized. Both wall repeats independently exceed the
+standing 15% threshold by a wide margin; no subjective bottleneck ruling or
+additional owner response is needed. P6 must still satisfy its same-state
+oracle, allocation/capacity, 0/1/4/8 determinism, artifact-authority, mapped
+gate, and benefit requirements. In particular, its accepted four-worker result
+must reduce wall `PersistentContacts` P50 by at least 10% from this P5 serial
+reference without regressing `Frame/Physics` by more than 2% on either witness.
+
+If P6 is reversed and closed as evidence-deferred under those fallback rules,
+the future retry condition is a later upstream physics change followed by a
+fresh two-repeat exact-tip capture of both witnesses; at least one witness must
+again meet the 15% trigger before graph coloring is reconsidered. P5 itself is
+documentation plus targeted evidence only, so no repository validation suite
+is required.
