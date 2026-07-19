@@ -516,6 +516,51 @@ bool RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( RuntimeReserv
     return owner.allowDevelopmentToolAllocations && owner.hardCapacity > 0 &&
            activeBytes <= static_cast<uint64_t>( owner.hardCapacity );
 }
+
+bool RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle ownerHandle,
+                                                                         int phaseIndex,
+                                                                         uint64_t bytes ) noexcept
+{
+    const RuntimeReserveOwnerHandle ownerIndex = NormalizeOwnerHandle( ownerHandle );
+    if ( ownerIndex == UNREGISTERED_OWNER || bytes == 0u )
+    {
+        return false;
+    }
+
+    OwnerRecord& owner = OwnerForHandle( ownerIndex );
+    if ( !owner.allowDevelopmentToolAllocations || owner.hardCapacity <= 0 )
+    {
+        return false;
+    }
+
+    const uint64_t hardBytes = static_cast<uint64_t>( owner.hardCapacity );
+    uint64_t activeBefore = owner.counters.activeBytes.load( std::memory_order_relaxed );
+    for ( ;; )
+    {
+        if ( activeBefore > hardBytes || bytes > hardBytes - activeBefore )
+        {
+            // Lane F precursor: the caller reports the named vendor and map
+            // request before terminating. Count the rejected request here so
+            // allocation-policy summaries cannot present the cap as healthy.
+            owner.counters.failedGrowths.fetch_add( 1u, std::memory_order_relaxed );
+            s_policyViolations.fetch_add( 1u, std::memory_order_relaxed );
+            return false;
+        }
+        if ( owner.counters.activeBytes.compare_exchange_weak( activeBefore,
+                                                               activeBefore + bytes,
+                                                               std::memory_order_relaxed,
+                                                               std::memory_order_relaxed ) )
+        {
+            break;
+        }
+    }
+
+    owner.counters.allocations.fetch_add( 1u, std::memory_order_relaxed );
+    owner.counters.allocatedBytes.fetch_add( bytes, std::memory_order_relaxed );
+    owner.counters.lastPhaseIndex.store( phaseIndex, std::memory_order_relaxed );
+    UpdateHighWaterU64( owner.counters.highWaterBytes, activeBefore + bytes );
+    return true;
+}
 #endif
 
 void RuntimeReserveAllocator::RecordAllocation( RuntimeReserveOwnerHandle ownerHandle,

@@ -626,6 +626,8 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "developmentUiSurface";
     case RunInteractionAutomationAssertKind::ImGuiVisible:
         return "imguiVisible";
+    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
+        return "legacyReplayPresentationActive";
     case RunInteractionAutomationAssertKind::ImGuiPanelMask:
         return "imguiPanelMask";
     case RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin:
@@ -1697,7 +1699,7 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             name == "cursorVisibleRequested" || name == "uiBlocksMouse" || name == "launcherRayActive" ||
             name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
             name == "editorSelectionExists" || name == "editorSelectionHasTerrain" || name == "imguiVisible" ||
-            name == "imguiPreferencesRecovered";
+            name == "legacyReplayPresentationActive" || name == "imguiPreferencesRecovered";
         if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
              ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) )
         {
@@ -1929,6 +1931,11 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         else if ( name == "imguiVisible" )
         {
             outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiVisible;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "legacyReplayPresentationActive" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::LegacyReplayPresentationActive;
             outAction.boolValue = ReadBool( member.value() );
         }
         else if ( name == "imguiPanelMask" )
@@ -2349,6 +2356,11 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.expected = BoolString( action.boolValue );
         evaluation.actual = BoolString( developmentUi.imguiVisible );
         evaluation.passed = developmentUi.available && developmentUi.imguiVisible == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( developmentUi.legacyReplayPresentationActive );
+        evaluation.passed = developmentUi.available && developmentUi.legacyReplayPresentationActive == action.boolValue;
         break;
     case RunInteractionAutomationAssertKind::ImGuiPanelMask:
     {

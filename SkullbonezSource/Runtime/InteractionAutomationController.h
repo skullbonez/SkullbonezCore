@@ -161,6 +161,7 @@ enum class RunInteractionAutomationAssertKind
     EditorSelectionMatchesCapture,
     DevelopmentUiSurface,
     ImGuiVisible,
+    LegacyReplayPresentationActive,
     ImGuiPanelMask,
     ImGuiLayoutResetCountMin,
     ImGuiFocusCountMin,
@@ -198,6 +199,9 @@ struct InteractionAutomationDevelopmentUiView
     bool selectedImGui = false;
     bool legacyVisible = false;
     bool imguiVisible = false;
+    // Exact authority consumed by the completed late replay-render pass. This
+    // may differ from next-frame selection during an ImGui-to-Legacy swap.
+    bool legacyReplayPresentationActive = false;
     uint32_t panelVisibilityMask = 0u;
     uint32_t layoutResetCount = 0u;
     uint32_t automationFocusCount = 0u;

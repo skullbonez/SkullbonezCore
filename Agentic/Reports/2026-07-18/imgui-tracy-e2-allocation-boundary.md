@@ -4,6 +4,16 @@ Date: 2026-07-18
 
 Branch: `nightrunner-18th-july`
 
+> E17 correction, 2026-07-19: the final independent review proved that Tracy's
+> private rpmalloc backing maps bypassed the scoped global-new ledger described
+> below. E17 reopened the boundary and routes every real rpmalloc backing map
+> through an atomic named-owner reservation before `VirtualAlloc`; Tracy's
+> embedded LZ4 stream also uses the named-owner allocation wrappers instead of
+> raw CRT allocation. Measured standard captures require a truthful 512 MiB hard
+> ceiling rather than the nominal 256 MiB row recorded here. The E17 evaluation
+> report and final gates supersede the original Tracy accounting claim; the
+> ImGui boundary and Release exclusion remain valid.
+
 Task: E2 — development capability and allocation-policy boundary
 
 ## Shared Development Capability
@@ -17,9 +27,11 @@ partly enabled configuration.
 
 Release and Profile-WPO do not import the development property sheet, compile
 the development allocation owner, or compile any of the seven vendor source
-files. A final Release build and binary/object inspection found no ImGui,
-Tracy, development-tool allocation, capability, owner-name, or capability-token
-match in the Release executable, PDB, or object inventory.
+files. The final E17 Release rebuild reconfirmed no ImGui/Tracy development
+payload in the production compile/link inputs, root object inventory, or
+shipping executable. The PDB retains a generic `tracy` source-symbol spelling
+from zero-cost profiler fields, so it is not described as token-free; that debug
+name is not linked vendor or development-owner functionality.
 
 ## Allocation Boundary
 
@@ -34,7 +46,7 @@ The fixed allocator registry keeps the owners separate:
 | Owner | Phase metadata | Active-byte cap | Growth | Reason / deletion condition |
 |---|---|---:|---|---|
 | `DevelopmentTools/DearImGui` | `BackendInit` | 64 MiB | none | Permanent development-only ImGui process storage; absent from shipping configurations |
-| `DevelopmentTools/Tracy` | `BackendInit` | 256 MiB | none | Permanent development-only Tracy client buffers; absent from shipping configurations |
+| `DevelopmentTools/Tracy` | `BackendInit` | 512 MiB | none | Permanent development-only Tracy client buffers plus engine-accounted rpmalloc/LZ4 backing; absent from shipping configurations |
 
 Both rows expose allocation count, active bytes, high-water bytes, and hard cap
 through a fixed-copy API. No static allocation-policy allowlist row was added:
@@ -73,9 +85,10 @@ calling-thread scoped rather than a global development bypass.
 - `tools\validate_build.bat Release` — pass with 0 warnings and 0 errors in
   43.76 seconds. The compile and link inputs excluded the development owner and
   all ImGui/Tracy vendor sources.
-- Targeted Release inspection — pass: no matching tool/capability/owner token
-  in `Release\SKULLBONEZ_CORE.exe` or its PDB, and no matching object in the
-  Release directory.
+- Targeted Release inspection — pass: no matching tool/capability/owner payload
+  in `Release\SKULLBONEZ_CORE.exe`, the production compile/link inputs, or the
+  root Release object inventory. The E17 final inspection supersedes the older
+  PDB-token wording as described above.
 - `tools\validate_full.bat` — pass from final E2 source: mandatory CPU and
   coverage lanes, Automation boundary and replay/prediction smoke, DX12 with
   zero validation errors and passing screenshots, and byte-exact physics.

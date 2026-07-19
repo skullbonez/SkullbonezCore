@@ -258,8 +258,9 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) remains 1/8 at P1 and is queued
-immediately after ImGui/Tracy E17 by the binding 2026-07-19 directive.
+`physics-body-count-scale-campaign` (P0-P7) remains 1/8 at P1 and is now the
+active next implementation under the binding 2026-07-19 directive because the
+ImGui/Tracy E17 automatable checkpoint is complete.
 The canonical emitter, Debug-only same-state dual-driver raw/final oracle,
 0/1/4 worker matrix, focused tests, `validate_perf`, and `validate_physics` all
 pass from final source. The directive authorizes the complete bounded-
@@ -272,8 +273,9 @@ UI checkpoint; P1 closes only after the post-E17 assessment and mapped gates.
 `imgui-tracy-editor-campaign` (E0-E17) is 15/18: E14-E15 implementation
 and independent validation are complete, but their single replay-fidelity
 gates are retained until the authorized P1 `causal.topologyCount: 199 -> 200`
-transition is reconciled after E17. E16 is complete and E17 is active
-under the binding finish-UI-first direction. The 2026-07-18 owner amendment
+transition is reconciled after E17. E16 is complete and E17's automatable
+evaluation, review, and gates are complete; its checkbox is retained only for
+extended hands-on owner acceptance. The 2026-07-18 owner amendment
 keeps Legacy as the development default and makes ImGui an explicit
 `--dev-ui imgui` mode;
 parallel/Both activation is forbidden because it creates competing focus and
@@ -384,8 +386,17 @@ panel churn, and eight additional atomic hot swaps. Five native captures, two
 real Tracy attachments, a bounded 263-load long session, the 16/16 comment
 audit, and fast/UI/UI-stress/perf/allocation/full/Release gates passed with
 Legacy still the default, zero simultaneous activation, zero DX12 errors, and
-no authored scene/config, baseline, or golden change. E17 now owns separate-
-mode evaluation, measured overhead, independent review, and final gates.
+no authored scene/config, baseline, or golden change. E17's retained checkpoint
+records the complete Legacy disposition, six original-resolution captures, a
+production same-frame `Ctrl+0` exclusivity assertion, three sequential overhead
+lanes, and a 95/95 source comment audit. Independent review reopened and closed
+Tracy rpmalloc backing, embedded LZ4 allocation, and late Legacy replay-render
+authority defects, then found no remaining blocker. Full, UI, UI-stress, DX12,
+bounded graphics-stress, unchanged-retry performance, allocation-policy,
+platform-marker, and Release gates passed. The mandated single replay-fidelity
+invocation reached only the already authorized topology `199 -> 200` transition;
+no baseline or golden changed. Extended hands-on feedback remains the sole E17
+hold and does not block the Physics P1 loopback.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for separate Legacy and
@@ -974,7 +985,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 transition authorized, queued after E17 | 1/8 | Finish UI E16-E17, then perform the binding bounded-divergence assessment, reconcile replay topology 199 -> 200 and `physics_query_varied.json`, and run P1 gates |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 transition authorized and next | 1/8 | Perform the binding bounded-divergence assessment, reconcile replay topology 199 -> 200 and `physics_query_varied.json`, and run P1 gates |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 
@@ -1002,7 +1013,7 @@ forbidden; no legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E17; E14-E15 retained for post-P1 gate reconciliation | 15/18 | Produce separate-mode evidence, control disposition, measured overhead, independent review, final gates, and owner playtest handoff |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E14-E15 retained for post-P1 gate reconciliation; E17 automatable checkpoint complete and hands-on acceptance retained | 15/18 | Loop back after P1 to reconcile replay gates; retain Legacy as the default and await extended owner playtest feedback |
 
 ## Features
 

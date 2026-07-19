@@ -7,7 +7,7 @@
   -->
   <PropertyGroup>
     <SkoreThirdPartyRoot>$(MSBuildThisFileDirectory)ThirdPtySource\</SkoreThirdPartyRoot>
-    <SkoreTracyClientDefinitions Condition="'$(SkoreBuildTracyClient)'=='true'">TRACY_ENABLE;TRACY_DELAYED_INIT;TRACY_MANUAL_LIFETIME;TRACY_ON_DEMAND;</SkoreTracyClientDefinitions>
+    <SkoreTracyClientDefinitions Condition="'$(SkoreBuildTracyClient)'=='true'">TRACY_ENABLE;TRACY_DELAYED_INIT;TRACY_MANUAL_LIFETIME;TRACY_ON_DEMAND;LZ4_USER_MEMORY_FUNCTIONS;</SkoreTracyClientDefinitions>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>

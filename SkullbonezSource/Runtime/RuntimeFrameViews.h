@@ -203,6 +203,7 @@ struct RuntimeUiTextFrameFacts
     float presentationAlpha = 0.0f;
     bool presentationPinned = false;
     double secondsPerFrame = 0.0;
+    bool legacyDevelopmentUiActive = true;
     // Output value populated from concrete owners before either presentation
     // surface consumes it. The caller owns the storage for this frame.
     UI::OperatorEditorFrameView& operatorEditorView;
@@ -215,12 +216,13 @@ struct RuntimeUiTextFrameFacts
                              float presentationAlphaValue,
                              bool presentationPinnedValue,
                              double secondsPerFrameValue,
+                             bool legacyDevelopmentUiActiveValue,
                              UI::OperatorEditorFrameView& operatorEditorViewValue )
         : cameraModeEnabledMask( cameraModeEnabledMaskValue ), cameraModeLabel( cameraModeLabelValue ),
           launcherFireModeLabel( launcherFireModeLabelValue ), isLauncherCameraMode( isLauncherCameraModeValue ),
           interactionGesture( interactionGestureValue ), presentationAlpha( presentationAlphaValue ),
           presentationPinned( presentationPinnedValue ), secondsPerFrame( secondsPerFrameValue ),
-          operatorEditorView( operatorEditorViewValue )
+          legacyDevelopmentUiActive( legacyDevelopmentUiActiveValue ), operatorEditorView( operatorEditorViewValue )
     {
     }
     RuntimeUiTextFrameFacts( const RuntimeUiTextFrameFacts& ) = delete;

@@ -65,6 +65,11 @@ class DevelopmentToolAllocationScope
 
 bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
                                          DevelopmentToolAllocationStats& outStats ) noexcept;
+// Vendor page allocators reserve/release their real backing ranges through
+// this ledger seam. A failed reservation means the named hard cap was reached;
+// callers must not fall back to an untracked mapping.
+bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept;
+void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept;
 // Vendor allocator callbacks use these wrappers so their internal heap calls
 // always enter the named, hard-capped development owner.
 void* AllocateDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept;

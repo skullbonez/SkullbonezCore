@@ -553,23 +553,21 @@ NOW. Two live plans, 26 tasks. Physics body-count scale remains 1/8 at P1: its
 
 ## Next Handoff
 
-Continue with ImGui/Tracy E15. Keep the replay transport permanently docked
-below the viewport and route record/stop, start/end, play/pause, step,
-scrubbing, speed, prediction, selected-cause, and return-to-live workflows
-through existing Replay owners. Preserve core transport and the scrubber at
-1280 x 720 by collapsing labels and secondary popovers first. Make recording,
-pending prediction, missing artifact, clamped scrub, world/selection changes,
-and recoverable errors explicit. Run `tools\validate_ui.bat`, replay
-interaction tests, exactly one `tools\validate_replay_visual_fidelity.bat`, and
-`tools\validate_full.bat` with zero golden refresh.
+Continue immediately with Physics P1 under the binding 2026-07-19 MASTER-PLAN
+directive. The ImGui/Tracy E17 automatable checkpoint is complete: Legacy
+remains the default, Legacy and ImGui are mutually exclusive with atomic
+`Ctrl+0` hot swap, six native captures are clean, independent review is clear
+after allocation and replay-render repairs, and all final gates passed except
+the expected retained replay topology transition. E17 stays unchecked only for
+extended hands-on owner acceptance.
 
-E14's implementation checkpoint is retained and validated, but its checkbox
-remains open because its single replay-fidelity invocation reached the same
-owner-gated `causal.topologyCount: 199 -> 200` transition as P1. Do not refresh
-that golden; E15 continues under the owner's blocker policy.
+For P1, perform the complete bounded-divergence assessment before changing any
+artifact. Transition only the already authorized one-process replay
+`causal.topologyCount: 199 -> 200` golden field and the mechanically derived
+`physics_query_varied.json` update when every directive condition is proven.
+Run the plan-mapped gates and record the old/new values and derivation. Do not
+refresh any other baseline, golden field, physics CSV, or screenshot.
 
-Physics P1 remains blocked only on exact owner authority for the one-process
-replay `causal.topologyCount: 199 -> 200` golden transition and the mechanically
-derived `physics_query_varied.json` update. The canonical source and authorized
-physics baselines remain validated; do not change either pending artifact while
-continuing the ImGui/Tracy campaign.
+After P1 closes, reconcile E14-E15 and their held replay gates, then continue
+Physics P2-P7 in order. The E17 hands-on checkpoint does not block that work and
+there is no Legacy retirement or default switch authorization.

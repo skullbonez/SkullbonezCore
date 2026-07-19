@@ -20,6 +20,9 @@ Invariants:
   - Replay state reaches the context only through the published overlay view.
   - Published references and sample pointers remain valid for one frame only.
   - Overlay functions must not store references from the context.
+  - Legacy scrubber and cause-tree pixels draw only while the Legacy
+    development surface owns presentation; ImGui consumes the same values in
+    its own exclusive surface.
 
 Related:
   - SkullbonezSource/Runtime/UiTextPass.cpp
@@ -113,6 +116,7 @@ struct ReplayOverlayRenderContext
     float solverPresentTrackPosition = 1.0f;
     bool loadedPresentation = false;
     bool predictionTimelineAvailable = false;
+    bool legacyReplaySurfaceActive = true;
     bool shouldRenderScrubber = false;
     bool editorModeEnabled = false;
     bool uiVisible = false;

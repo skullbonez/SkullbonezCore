@@ -18,6 +18,10 @@ Glossary:
     it does not probe the network, launch a process, or allocate.
   Capture configuration: Tracy is off unless SKORE_TRACY_MODE selects
     `standard` or `heavy`; standard is the comparable low-overhead mode.
+  Backing map: Page-aligned virtual-memory range from which Tracy's private
+    rpmalloc instance serves its transport queues and other client storage.
+  LZ4 owner hooks: Compile-time allocator callbacks used by Tracy's embedded
+    compression stream instead of its default direct CRT allocation path.
 
 Invariants:
   - Startup and shutdown are idempotent at the engine boundary.
@@ -27,6 +31,9 @@ Invariants:
     process-owned client.
   - Heavy allocation frees are emitted only to the connection that observed
     the matching allocation.
+  - Every rpmalloc backing map reserves bytes in the named Tracy owner before
+    VirtualAlloc, and every LZ4 stream allocation enters that same owner; there
+    is no untracked system- or CRT-allocation fallback.
   - Main/render/replay/prediction/IO share one lane in the current topology;
     the main thread name states that fact rather than inventing fake threads.
 
@@ -39,17 +46,51 @@ Related:
 #include "TracyClientOwner.h"
 
 #include "../Allocation/DevelopmentToolAllocation.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/PlatformWin32.h"
 
+#include <client/tracy_rpmalloc.hpp>
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyC.h>
 
 #include <atomic>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <mutex>
 
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+
+#if defined( LZ4_USER_MEMORY_FUNCTIONS )
+// Why: Tracy compiles its private LZ4 implementation into TracyClient.cpp. The
+// vendor's opt-in hooks keep that compression stream inside the same named,
+// capped owner as its rpmalloc maps without modifying the pinned vendor source.
+void* LZ4_malloc( std::size_t size )
+{
+    return RuntimeAllocation::AllocateDevelopmentToolMemory( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                             size );
+}
+
+void* LZ4_calloc( std::size_t count, std::size_t size )
+{
+    if ( count != 0u && size > std::numeric_limits<std::size_t>::max() / count )
+    {
+        return nullptr;
+    }
+    const std::size_t byteCount = count * size;
+    void* memory = LZ4_malloc( byteCount );
+    if ( memory )
+    {
+        std::memset( memory, 0, byteCount );
+    }
+    return memory;
+}
+
+void LZ4_free( void* pointer )
+{
+    RuntimeAllocation::FreeDevelopmentToolMemory( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy, pointer );
+}
+#endif
 
 namespace
 {
@@ -61,6 +102,7 @@ constexpr const char* CAPTURE_MODE_ENVIRONMENT = "SKORE_TRACY_MODE";
 constexpr const char* STANDARD_MODE_VALUE = "standard";
 constexpr const char* HEAVY_MODE_VALUE = "heavy";
 constexpr const char* RUNTIME_HEAP_NAME = "Skore Runtime C++ Heap";
+constexpr std::size_t TRACY_BACKING_ALIGNMENT = 64u * 1024u;
 
 enum class RequestedCaptureMode
 {
@@ -110,6 +152,100 @@ bool IsHeavyCaptureConnected() noexcept
 {
     return IsInitialized() && g_tracyHeavyMode.load( std::memory_order_acquire ) && TracyIsConnected;
 }
+
+void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
+{
+    if ( offset )
+    {
+        *offset = 0u;
+    }
+    if ( !RuntimeAllocation::TryAccountDevelopmentToolBackingMemory(
+             RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+             size ) )
+    {
+        RuntimeAllocation::DevelopmentToolAllocationStats stats;
+        RuntimeAllocation::CopyDevelopmentToolAllocationStats( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                               stats );
+        // Lane F: continuing would either exceed the owner-approved cap or
+        // tempt the vendor allocator to fall back outside engine accounting.
+        SB_FATAL( "DevelopmentTools/Tracy",
+                  "rpmalloc backing cap exhausted: request=%llu active=%llu high_water=%llu cap=%d",
+                  static_cast<unsigned long long>( size ),
+                  static_cast<unsigned long long>( stats.activeBytes ),
+                  static_cast<unsigned long long>( stats.highWaterBytes ),
+                  stats.hardCapBytes );
+    }
+
+    void* address = VirtualAlloc( nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
+    if ( !address )
+    {
+        RuntimeAllocation::ReleaseDevelopmentToolBackingMemory(
+            RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+            size );
+        SB_FATAL( "DevelopmentTools/Tracy",
+                  "VirtualAlloc failed for rpmalloc backing: request=%llu error=%lu",
+                  static_cast<unsigned long long>( size ),
+                  static_cast<unsigned long>( GetLastError() ) );
+    }
+    if ( ( reinterpret_cast<std::uintptr_t>( address ) & ( TRACY_BACKING_ALIGNMENT - 1u ) ) != 0u )
+    {
+        VirtualFree( address, 0u, MEM_RELEASE );
+        RuntimeAllocation::ReleaseDevelopmentToolBackingMemory(
+            RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+            size );
+        SB_FATAL( "DevelopmentTools/Tracy", "VirtualAlloc returned a non-64-KiB-aligned rpmalloc range." );
+    }
+    return address;
+}
+
+void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offset, std::size_t release )
+{
+    // Why: rpmalloc uses release==0 as an optional decommit hint. Retaining the
+    // committed pages keeps reuse valid and conservatively charges the complete
+    // live backing range until its one matching full release.
+    if ( release == 0u )
+    {
+        return;
+    }
+    if ( !address || offset != 0u || release < size )
+    {
+        SB_FATAL( "DevelopmentTools/Tracy",
+                  "Invalid rpmalloc backing release: address=%p size=%llu offset=%llu release=%llu",
+                  address,
+                  static_cast<unsigned long long>( size ),
+                  static_cast<unsigned long long>( offset ),
+                  static_cast<unsigned long long>( release ) );
+    }
+    if ( !VirtualFree( address, 0u, MEM_RELEASE ) )
+    {
+        SB_FATAL( "DevelopmentTools/Tracy",
+                  "VirtualFree failed for rpmalloc backing: release=%llu error=%lu",
+                  static_cast<unsigned long long>( release ),
+                  static_cast<unsigned long>( GetLastError() ) );
+    }
+    RuntimeAllocation::ReleaseDevelopmentToolBackingMemory( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                            release );
+}
+
+void ConfigureTracyBackingAllocator()
+{
+    tracy::rpmalloc_config_t config = {};
+    config.memory_map = MapTracyBackingMemory;
+    config.memory_unmap = UnmapTracyBackingMemory;
+    config.span_size = TRACY_BACKING_ALIGNMENT;
+    if ( tracy::rpmalloc_initialize_config( &config ) != 0 )
+    {
+        SB_FATAL( "DevelopmentTools/Tracy", "Failed to initialize the engine-accounted rpmalloc configuration." );
+    }
+    const tracy::rpmalloc_config_t* activeConfig = tracy::rpmalloc_config();
+    if ( !activeConfig || activeConfig->memory_map != MapTracyBackingMemory ||
+         activeConfig->memory_unmap != UnmapTracyBackingMemory )
+    {
+        // Hazard: this means Tracy touched rpmalloc before the engine owner and
+        // installed its direct OS mapper, recreating the untracked allocation path.
+        SB_FATAL( "DevelopmentTools/Tracy", "rpmalloc initialized before the engine backing-map owner." );
+    }
+}
 } // namespace
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
@@ -138,6 +274,7 @@ void TracyClientOwner::Start()
         return;
     }
 
+    ConfigureTracyBackingAllocator();
     RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
         RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
     tracy::StartupProfiler();
@@ -155,11 +292,18 @@ void TracyClientOwner::Start()
     // that ownership visible without pretending those roles have private lanes.
     tracy::SetThreadName( "Skore Main + Render + Replay + IO" );
     TracySetProgramName( "SkullbonezCore" );
+    RuntimeAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
+    RuntimeAllocation::CopyDevelopmentToolAllocationStats( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                           tracyAllocationStats );
     fprintf( stdout,
-             "[tracy] Manual on-demand client started. viewer=waiting capture=%s callstacks=%s allocations=%s\n",
+             "[tracy] Manual on-demand client started. viewer=waiting capture=%s callstacks=%s allocations=%s "
+             "owner_active=%llu owner_high_water=%llu owner_cap=%d\n",
              heavyMode ? "heavy" : "standard",
              heavyMode ? "depth-16" : "off",
-             heavyMode ? "global-cpp-heap" : "off" );
+             heavyMode ? "global-cpp-heap" : "off",
+             static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
+             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
+             tracyAllocationStats.hardCapBytes );
     fflush( stdout );
 }
 
@@ -178,7 +322,15 @@ void TracyClientOwner::Shutdown() noexcept
     g_tracyHeavyMode.store( false, std::memory_order_release );
     tracy::ShutdownProfiler();
     m_started = false;
-    fprintf( stdout, "[tracy] Client stopped after engine worker shutdown.\n" );
+    RuntimeAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
+    RuntimeAllocation::CopyDevelopmentToolAllocationStats( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                           tracyAllocationStats );
+    fprintf( stdout,
+             "[tracy] Client stopped after engine worker shutdown. owner_active=%llu owner_high_water=%llu "
+             "owner_cap=%d\n",
+             static_cast<unsigned long long>( tracyAllocationStats.activeBytes ),
+             static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
+             tracyAllocationStats.hardCapBytes );
     fflush( stdout );
 }
 

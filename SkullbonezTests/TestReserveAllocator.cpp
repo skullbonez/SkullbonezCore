@@ -81,6 +81,8 @@ using SkullbonezCore::Runtime::Allocation::CopyDevelopmentToolAllocationStats;
 using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationOwner;
 using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationScope;
 using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationStats;
+using SkullbonezCore::Runtime::Allocation::ReleaseDevelopmentToolBackingMemory;
+using SkullbonezCore::Runtime::Allocation::TryAccountDevelopmentToolBackingMemory;
 #endif
 
 namespace
@@ -257,6 +259,8 @@ TEST_CASE( "Development tool allocation scopes remain separate without masking g
         void* tracyBlock = ::operator new( 48u );
         ::operator delete( tracyBlock );
     }
+    const bool tracyBackingReserved =
+        TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 64u * 1024u );
 
     const uint64_t toolScopeViolations = RuntimeAllocationGuardViolationCount();
     DevelopmentToolAllocationStats imguiStats;
@@ -264,6 +268,10 @@ TEST_CASE( "Development tool allocation scopes remain separate without masking g
     const bool copiedImGui =
         CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::DearImGui, imguiStats );
     const bool copiedTracy = CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner::Tracy, tracyStats );
+    if ( tracyBackingReserved )
+    {
+        ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner::Tracy, 64u * 1024u );
+    }
 
     // Acceptance probe: this unscoped allocation uses the same Render phase as
     // the tool calls. It must still fail the gameplay guard.
@@ -276,12 +284,14 @@ TEST_CASE( "Development tool allocation scopes remain separate without masking g
     CHECK( toolScopeViolations == 0u );
     CHECK( copiedImGui );
     CHECK( copiedTracy );
+    CHECK( tracyBackingReserved );
     CHECK( imguiStats.allocations == 1u );
-    CHECK( tracyStats.allocations == 1u );
+    CHECK( tracyStats.allocations == 2u );
     CHECK( imguiStats.highWaterBytes >= 32u );
-    CHECK( tracyStats.highWaterBytes >= 48u );
+    CHECK( tracyStats.activeBytes >= 64u * 1024u );
+    CHECK( tracyStats.highWaterBytes >= 64u * 1024u );
     CHECK( imguiStats.hardCapBytes == 64 * 1024 * 1024 );
-    CHECK( tracyStats.hardCapBytes == 256 * 1024 * 1024 );
+    CHECK( tracyStats.hardCapBytes == 512 * 1024 * 1024 );
     CHECK( finalViolations >= 1u );
     CHECK( guardFailed );
 }

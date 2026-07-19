@@ -716,6 +716,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                                               replayOverlay.solverPresentTrackPosition,
                                                                               replayOverlay.loadedPresentation,
                                                                               replayOverlay.predictionTimelineAvailable,
+                                                                              facts.legacyDevelopmentUiActive,
                                                                               replayOverlay.shouldRenderScrubber,
                                                                               runtimeTools.Editor().editorModeEnabled,
                                                                               ui.IsVisible(),
@@ -1249,6 +1250,11 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 // begins a frame, so focus ownership never overlaps.
                 SelectDevelopmentUiSurface( DevelopmentUiMode::ImGui );
             }
+            // Invariant: ProcessInputFrame may consume Ctrl+0 after the first
+            // input snapshot. Resample the selected presentation only after
+            // every pre-render swap so this frame cannot draw Legacy replay
+            // underneath a newly active ImGui frame.
+            legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
 #endif
             m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
@@ -1385,6 +1391,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 presentationAlpha,
                 capturePresentationPinned,
                 secondsPerFrame,
+                legacyDevelopmentUiActive,
                 operatorEditorView };
             // Lifetime: replay publishes one immutable cause/scrubber view for
             // both the legacy late pass and the development editor. E14 reads
@@ -1457,6 +1464,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             automationDevelopmentUiView.selectedImGui = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::ImGui;
             automationDevelopmentUiView.legacyVisible = m_operatorUi->IsVisible();
             automationDevelopmentUiView.imguiVisible = imguiAutomationStatus.visible;
+            automationDevelopmentUiView.legacyReplayPresentationActive = uiTextFacts.legacyDevelopmentUiActive;
             automationDevelopmentUiView.panelVisibilityMask = imguiAutomationStatus.panelVisibilityMask;
             automationDevelopmentUiView.layoutResetCount = imguiAutomationStatus.layoutResetCount;
             automationDevelopmentUiView.automationFocusCount = imguiAutomationStatus.automationFocusCount;

@@ -6,8 +6,8 @@ Purpose:
 Summary:
   ImGui and Tracy receive distinct fixed-registry owner rows. Their scopes only
   change thread-local attribution, so concurrent gameplay allocations remain
-  visible to the process-wide phase guard. The caps are diagnostic policy, not
-  permission to grow gameplay storage.
+  visible to the process-wide phase guard. Vendor page allocators also reserve
+  their real backing ranges in the same ledger before mapping them.
 
 Glossary:
   Permanent-development exception: An allocation permission that remains valid
@@ -16,7 +16,7 @@ Glossary:
 Invariants:
   - Owner names and reasons have static lifetime because the registry borrows
     their pointers for the process lifetime.
-  - ImGui is capped at 64 MiB active bytes and Tracy at 256 MiB active bytes.
+  - ImGui is capped at 64 MiB active bytes and Tracy at 512 MiB active bytes.
   - Neither owner is eligible for replay reserve growth.
 
 Related:
@@ -38,7 +38,10 @@ using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
 
 constexpr int MEBIBYTE_BYTES = 1024 * 1024;
 constexpr int IMGUI_ACTIVE_BYTE_CAP = 64 * MEBIBYTE_BYTES;
-constexpr int TRACY_ACTIVE_BYTE_CAP = 256 * MEBIBYTE_BYTES;
+// Measured E17 standard captures peak near 400 MiB of Tracy-owned process
+// backing. A 512 MiB ceiling leaves bounded headroom without misrepresenting
+// the earlier nominal 256 MiB row as an enforceable production value.
+constexpr int TRACY_ACTIVE_BYTE_CAP = 512 * MEBIBYTE_BYTES;
 
 RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner ) noexcept
 {
@@ -65,7 +68,7 @@ RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner 
           TRACY_ACTIVE_BYTE_CAP,
           0,
           false,
-          "Tracy client buffers are a permanent development-only exception capped at 256 MiB active bytes",
+          "Tracy client buffers are a permanent development-only exception capped at 512 MiB active bytes",
           true } );
     return tracyOwner;
 }
@@ -97,6 +100,19 @@ bool CopyDevelopmentToolAllocationStats( DevelopmentToolAllocationOwner owner,
     outStats.highWaterBytes = ownerStats.highWaterBytes;
     outStats.hardCapBytes = ownerStats.hardCapacity;
     return true;
+}
+
+bool TryAccountDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept
+{
+    return RuntimeReserveAllocator::TryRecordDevelopmentToolBackingAllocation(
+        ToolOwnerHandle( owner ),
+        static_cast<int>( GetRuntimeAllocationPhase() ),
+        static_cast<uint64_t>( size ) );
+}
+
+void ReleaseDevelopmentToolBackingMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept
+{
+    RuntimeReserveAllocator::RecordFree( ToolOwnerHandle( owner ), static_cast<uint64_t>( size ) );
 }
 
 void* AllocateDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, std::size_t size ) noexcept

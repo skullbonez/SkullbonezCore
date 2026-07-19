@@ -1,11 +1,11 @@
 # ImGui + Tracy Development Editor Campaign
 
-Status: Active — 14/18 tasks (E0-E13 complete; E14-E15 implementation and
-independent gates complete but acceptance retained until the authorized P1
-replay-topology reconciliation; E16 next) under the binding finish-UI-first
-direction
+Status: Active — 15/18 tasks (E0-E13 and E16 complete; E14-E15 acceptance is
+retained until the authorized P1 replay-topology reconciliation; E17 automatable
+evaluation/review/gates are complete but hands-on owner acceptance is retained)
+under the binding finish-UI-first direction
 Owner direction: 2026-07-18
-Ledger: E0-E17 (14/18 complete)
+Ledger: E0-E17 (15/18 complete)
 
 Owner amendment, 2026-07-18: Legacy and ImGui are mutually exclusive process
 modes because parallel surfaces compete for window focus and input. Legacy
@@ -584,6 +584,18 @@ It does **not** authorize removal from the legacy UI.
   - Closure condition: owner accepts the new editor as ready for extended
     hands-on use. **The legacy UI still exists and remains selectable at
     closure.** Any retirement/deletion proposal is a separate future plan.
+  - Automatable checkpoint evidence:
+    `../../Reports/2026-07-19/imgui-tracy-e17-evaluation.md` records the complete
+    control disposition, six reviewed native captures, same-frame production
+    `Ctrl+0` exclusivity assertion, three-lane overhead measurements, 95/95
+    comment audit, and final independent review. The review reopened and closed
+    real rpmalloc, LZ4, and late Legacy replay-presentation defects. Final
+    full/UI/UI-stress/DX12/stress/perf/allocation/platform-marker/Release gates
+    passed. The one mandated replay-fidelity invocation passed launcher and
+    control proofs, then reached only the binding P1
+    `causal.topologyCount: 199 -> 200` transition. No baseline or golden changed.
+    E17 remains unchecked solely for extended hands-on owner acceptance; that
+    retained checkpoint does not block the authorized Physics P1 loopback.
 
 ## Final Acceptance
 

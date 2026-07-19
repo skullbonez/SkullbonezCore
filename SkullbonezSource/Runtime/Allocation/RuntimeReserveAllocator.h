@@ -194,6 +194,12 @@ class RuntimeReserveAllocator
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     static bool IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
+    // Reserves one vendor-owned backing range before an allocator maps it.
+    // Unlike RecordAllocation(), this can reject the request without first
+    // crossing the registered live-byte cap.
+    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner,
+                                                           int phaseIndex,
+                                                           uint64_t bytes ) noexcept;
 #endif
 
     static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
