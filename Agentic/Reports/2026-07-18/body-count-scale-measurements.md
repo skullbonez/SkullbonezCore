@@ -6,8 +6,7 @@ Campaign: `physics-body-count-scale-campaign`
 
 Branch: `nightrunner-18th-july`
 
-Task boundary: P0 complete; P1 implementation and deterministic evidence
-complete, artifact closure owner-gated
+Task boundary: P0-P1 complete; P2 persistent-grid work is next
 
 ## P0 Owner Rulings
 
@@ -193,17 +192,82 @@ The refreshed stacking witness is 3,081,060 bytes / 22,501 lines with SHA-256
 at-rest is 7,662,543 bytes / 54,001 lines with SHA-256
 `2D0D2BEA6E682A54D27D698D7D0D798FF2BF8CADCCFD6C78B0CC01E6CC6D8280`.
 
-Two gate-owned artifacts remain explicitly owner-gated and are not modified:
+The binding 2026-07-19 MASTER directive authorized the complete bounded-
+divergence assessment and transition without another owner response. The
+assessment reused the existing 4,200-frame Automation report produced by one
+engine process and one prediction generation; no second replay generation was
+launched for approval or reconciliation.
 
-- the one-process 200-box replay run passed its report (`ok=1`) but the golden
-  comparison changed only `causal.topologyCount` from 199 to 200; and
-- the varied SkullScope query result changed as a mechanical consequence of the
-  transitioned varied CSV (including `supported_rows` 617 to 621), but P1's
-  current policy says “no other baseline class.”
+The complete replay causal delta is bounded and structurally local:
 
-P1 cannot close until the owner explicitly approves the replay-golden instance
-and authorizes the varied query artifact as part of this transition (or gives a
-different plan-compliant resolution). No unauthorized artifact was refreshed.
+- all 199 old topology IDs remain, body 11 is the sole addition, and no node is
+  removed;
+- every retained node keeps its parent, depth, and contact-derived
+  classification;
+- 123/199 retained nodes keep the same first frame; the other 76 have signed
+  drift from -176 to +246 frames, absolute median 0 across all retained nodes,
+  linear p95 approximately 97, and maximum 246 over the 2,401-tick horizon;
+- the added node is `{id:11,parentId:1,firstFrame:301,depth:1,
+  contactDerived:false}`; and
+- target ID, fixed-step mode, horizon, tick count, ghost requests, horizon
+  markers, authored scene/config/script/shader hashes, and schema stay fixed.
+
+After the causal packet matched, the checker exposed the coupled visual packet
+delta from the same 200-box replay-golden class. It is also a direct consequence
+of the canonical solve order: authored/moved/settled bricks remain 200/200/200,
+generation count remains one, affected/future nodes move 199 to 200, trajectory
+records move 797 to 801, and points move 957,601 to 962,401. Toppled and
+sustained-toppled bricks move together from 187 to 175. Camera, branch, target,
+source frame, reveal-frame sequence, publication state, ordinary-line geometry,
+and all provenance inputs are unchanged. The generated-geometry hashes and
+counts change consistently with those four extra trajectory records; there is
+no unrelated screenshot, shader, scene, config, or schema change.
+
+| Reconciled artifact | Old SHA-256 | New SHA-256 |
+|---|---|---|
+| `replay_visual_fidelity_200_box.json` | `77F2044158694097E55A92D348AD2529D982E8730878EA89C767786CF7FE56DF` | `ECD0B5937DB203ACF00B9138346915539C9BDA5ED0DEC16F3D960A5E0AC3FE47` |
+| `replay_visual_fidelity_200_box_causal.json` | `7988F296ACA6B8C3E01A8EA99CECE0E4C072107BBBCDC56A604B957D559D5022` | `FC854376FF2922B628FBAC174694FDEF932BCDE24B7E98E82FF3B85D32B90489` |
+| `physics_query_varied.json` | `1212BEF02C96E58DAA02956EA3BD689AEE962E1CB8800DAC32AED7D9E6599303` | `5D5035064141B039F95ECAB17AAD3B3BDA0C7B2D3F610B3AB402155960AA0284` |
+
+The complete 21-query SkullScope packet keeps identical query names and list
+shapes, contains no non-finite value, and remains self-identical (`eventDiff=[]`,
+`firstDifferentFrame=null`). `supported_rows` moves 617 to 621. Peak energy
+moves only 142,247.666238 to 142,443.995165 (+0.14%), peak speed moves
+43.451390 to 43.385919 (-0.15%), and peak penetration moves 0.271794 to
+0.244428 (-10.1%); no sustained/growing-penetration event exists. This rules
+out hidden work loss, NaN propagation, or explosive energy.
+
+The final trace command used by the committed query generator was:
+
+```bat
+Debug\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --scene SkullbonezData/scenes/physics_bench_varied.scene.json --physics-diag C:\SkullbonezCore\Debug\physics_query_varied.physicsdiag.ndjson
+```
+
+The final trace is 103,785,259 bytes and its SQLite cache is 50,823,168 bytes.
+Bounded model-facing queries were:
+
+| Query | Output characters / UTF-8 bytes |
+|---|---:|
+| `tools\physics_query.bat Debug\physics_query_varied.physicsdiag.ndjson summary --limit 8` | 8,894 / 8,894 |
+| `tools\physics_query.bat Debug\physics_query_varied.physicsdiag.ndjson events --limit 20` | 21,806 / 21,806 |
+| `tools\physics_query.bat Debug\physics_query_varied.physicsdiag.ndjson questions penetration_spikes` | 1,454 / 1,454 |
+| `tools\physics_query.bat Debug\physics_query_varied.physicsdiag.ndjson events --type penetration_sustained,penetration_growing --limit 50` | 310 / 310 |
+| `tools\physics_query.bat Debug\physics_query_varied.physicsdiag.ndjson contacts --top penetration --limit 20` | 9,730 / 9,730 |
+
+Total GPT-read query output was 42,194 characters / 42,194 UTF-8 bytes; no
+query output was truncated. Raw NDJSON and SQLite contents were never ingested.
+
+The existing replay report passes exact equality against both reconciled
+packets for all 2,401 ticks. Negative, incomplete-horizon, causal activation,
+causal topology, causal segment, semantic-packet, artifact-byte, prediction-
+artifact, ten determinism-mutation, and launcher-shape controls all pass. Final
+mapped gates also pass from the final source and artifacts:
+`tools\validate_physics.bat` in 55.917 seconds,
+`tools\validate_physics_deep.bat` in 136.931 seconds, and
+`tools\validate_perf.bat` in 107.318 seconds. The builds report zero warnings
+and errors, the varied/deep/query artifacts match exactly, performance reports
+no regressions, and the allocation guard records zero steady-gameplay
+violations.
 
 ### P1 Worker-Count Determinism
 

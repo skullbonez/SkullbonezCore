@@ -69,6 +69,15 @@ without another owner response when the rules above hold. Use the existing
 one-process/one-generation artifact for assessment and offline reconciliation;
 do not launch a second replay generation merely to approve it.
 
+P1 closed on 2026-07-19 under that authority. The complete coupled visual,
+causal, and 21-query delta was inspected from the existing one-process,
+one-generation report; it retained the bounded causal shape above, preserved
+all scene/config/schema/render provenance, and showed no body loss, non-finite
+state, explosive energy, allocation violation, or unrelated refresh. The
+transitioned replay/query artifacts pass exact offline controls plus final
+physics, deep-physics, and performance gates. They are the exact baseline for
+P2 onward.
+
 After an accepted transition, the new committed artifacts become exact again:
 P2-P5, P7, and ordinary ImGui/replay work do not receive a general divergence or
 golden-refresh allowance. P6 receives the same bounded-transition authority only
@@ -207,9 +216,9 @@ for side-by-side owner evaluation.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 2 | 8 | 25% |
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 15 | 18 | 83% |
-| **Active/future total** | **16** | **26** | **62%** |
+| **Active/future total** | **17** | **26** | **65%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -258,17 +267,14 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) remains 1/8 at P1 and is now the
-active next implementation under the binding 2026-07-19 directive because the
-ImGui/Tracy E17 automatable checkpoint is complete.
-The canonical emitter, Debug-only same-state dual-driver raw/final oracle,
-0/1/4 worker matrix, focused tests, `validate_perf`, and `validate_physics` all
-pass from final source. The directive authorizes the complete bounded-
-divergence assessment and transition of two artifacts: the
-one-process replay run's sole `causal.topologyCount: 199 -> 200` golden change,
-and the mechanically derived `physics_query_varied.json` update that is outside
-P1's earlier allowed baseline classes. Neither artifact is committed at the
-UI checkpoint; P1 closes only after the post-E17 assessment and mapped gates.
+`physics-body-count-scale-campaign` (P0-P7) is 2/8 with P1 complete. The
+canonical emitter, Debug-only same-state dual-driver raw/final oracle, 0/1/4
+worker matrix, focused tests, and final physics/deep/performance gates pass.
+The complete coupled one-process replay visual/causal delta and mechanically
+derived 21-query SkullScope packet were assessed under the binding directive,
+accepted as bounded consequences of canonical solve order, and transitioned.
+Those artifacts are exact again for P2 onward. P2 persistent incremental-grid
+work follows the immediate ImGui E14-E15 ledger reconciliation.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 15/18: E14-E15 implementation
 and independent validation are complete, but their single replay-fidelity
@@ -985,7 +991,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 transition authorized and next | 1/8 | Perform the binding bounded-divergence assessment, reconcile replay topology 199 -> 200 and `physics_query_varied.json`, and run P1 gates |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 complete; P2 queued after UI reconciliation | 2/8 | Reconcile ImGui E14-E15, then implement the persistent incremental grid with byte-exact P1 artifacts |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 

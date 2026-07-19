@@ -11,22 +11,23 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-18th-july` |
-| Current baseline | P1 canonical pair emission and its authorized varied/known-issue physics baselines are validated; the binding owner directive authorizes the post-E17 bounded assessment and transition of replay topology 199 -> 200 plus the derived varied-query artifact. |
-| Current objective | Execute ImGui/Tracy E17 separate-mode evidence, measured overhead, independent review, final gates, and owner playtest handoff while retaining the validated E14-E15 checkpoints. |
-| Active/future progress | 16 / 26 live tasks; 62%. |
-| Last broad local gate | E16 `validate_full` passed 311 cases/21,874 assertions, all coverage floors, Automation/replay, zero-error DX12 comparisons, and the byte-exact 44,401-line physics oracle; fast, UI, UI-stress, perf, allocation, Release exclusion, two Tracy attachments, the 36-action/23-assertion editor matrix, and the 16/16 comment audit also passed. |
-| Validation for current edits | E17 requires the final full/UI/UI-stress/DX12/one-minute-stress/perf/allocation/platform-marker matrix plus exactly one replay visual-fidelity invocation from final source and an independent ownership review. |
+| Current baseline | Physics P1 is complete: canonical pair emission, varied/known-issue physics artifacts, the coupled one-process 200-box replay golden, and `physics_query_varied.json` are the new exact baseline after a complete bounded-divergence assessment. |
+| Current objective | Reconcile ImGui/Tracy E14-E15 against the accepted P1 golden, then implement Physics P2; Legacy remains the exclusive default. |
+| Active/future progress | 17 / 26 live tasks; 65%. |
+| Last broad local gate | E17 `validate_full` passed 311 cases/21,874 assertions, coverage floors, Automation/replay, zero-error DX12 comparisons, and the byte-exact physics oracle; UI, UI stress, DX12, bounded graphics stress, unchanged-retry perf, allocation, Release exclusion, and independent review also passed. |
+| Validation for current edits | P1 final `validate_physics`, `validate_physics_deep`, `validate_perf`, and offline replay equality/control suite pass against the transitioned artifacts; the existing replay capture remains the sole process/generation used for approval. |
 
 ## Live Queue
 
-NOW. Two live plans, 26 tasks. Physics body-count scale remains 1/8 at P1: its
-     canonical source, 12-run same-state oracle, 18-run worker matrix, focused
-     tests, perf gate, core physics gate, and authorized physics baselines pass.
-     The binding 2026-07-19 directive authorizes the complete post-E17 bounded-
-     divergence assessment and transition of replay topology 199 -> 200 plus
-     the derived varied-query artifact. ImGui/Tracy is 15/18: E14-E15 remain
-     validated checkpoints for that later reconciliation, E16 is complete, and
-     E17 is active. E0 froze the complete
+NOW. Two live plans, 26 tasks. Physics body-count scale is 2/8 with P1 complete
+     and P2 next after the immediate UI ledger reconciliation. The canonical
+     emitter passed the 12-run same-state oracle and 18-run worker matrix; the
+     complete replay/query delta was bounded, the coupled one-process golden and
+     derived SkullScope packet were transitioned, and final physics/deep/perf
+     plus offline replay controls pass. ImGui/Tracy remains 15/18 at the E17
+     automatable checkpoint; E14-E15 now have the accepted P1 golden needed for
+     reconciliation, and E17 remains unchecked only for extended hands-on owner
+     acceptance. E0 froze the complete
      coexistence inventory, seven current screenshots, 1280 x 720 minimum,
      development configurations, exact Legacy/ImGui/Both selector, and
      single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
@@ -553,21 +554,13 @@ NOW. Two live plans, 26 tasks. Physics body-count scale remains 1/8 at P1: its
 
 ## Next Handoff
 
-Continue immediately with Physics P1 under the binding 2026-07-19 MASTER-PLAN
-directive. The ImGui/Tracy E17 automatable checkpoint is complete: Legacy
-remains the default, Legacy and ImGui are mutually exclusive with atomic
-`Ctrl+0` hot swap, six native captures are clean, independent review is clear
-after allocation and replay-render repairs, and all final gates passed except
-the expected retained replay topology transition. E17 stays unchecked only for
-extended hands-on owner acceptance.
+Reconcile ImGui E14-E15 against P1's accepted one-process golden, then continue
+Physics P2-P7 in order. P1's complete assessment is recorded in
+`Agentic/Reports/2026-07-18/body-count-scale-measurements.md`; future ordinary
+tasks are byte-exact against the transitioned artifacts and receive no refresh
+allowance.
 
-For P1, perform the complete bounded-divergence assessment before changing any
-artifact. Transition only the already authorized one-process replay
-`causal.topologyCount: 199 -> 200` golden field and the mechanically derived
-`physics_query_varied.json` update when every directive condition is proven.
-Run the plan-mapped gates and record the old/new values and derivation. Do not
-refresh any other baseline, golden field, physics CSV, or screenshot.
-
-After P1 closes, reconcile E14-E15 and their held replay gates, then continue
-Physics P2-P7 in order. The E17 hands-on checkpoint does not block that work and
-there is no Legacy retirement or default switch authorization.
+E17's automatable checkpoint is complete and remains unchecked only for extended
+hands-on owner acceptance. Legacy remains the default, Legacy and ImGui are
+mutually exclusive with atomic `Ctrl+0` hot swap, and there is no Legacy
+retirement or default-switch authorization.

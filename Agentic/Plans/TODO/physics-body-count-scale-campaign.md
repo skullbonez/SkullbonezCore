@@ -1,8 +1,7 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Blocked — 1/8 tasks (P0 complete; P1 implementation and required core
-evidence pass, but two exact transition artifacts await owner approval)
+Status: Active — 2/8 tasks (P0-P1 complete; P2 persistent incremental grid next)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -255,7 +254,7 @@ explained or the task is not done.
     On 2026-07-18 the owner replaced that future manual decision with the
     automatic P5 evidence gate below so unattended execution cannot block.
 
-- [ ] P1 — Canonical pair-order transition (the first behavior-visible flip).
+- [x] P1 — Canonical pair-order transition (the first behavior-visible flip).
   - Implementation: `GetCandidatePairs` emission becomes history-free —
     bucket emitted pairs by min-index into per-body fixed lists during cell
     walk (O(n+k), allocation-free), then emit in ascending (minIdx, maxIdx)
@@ -266,16 +265,16 @@ explained or the task is not done.
     diagnostics-only and absent from the deterministic CSV; if any baseline
     artifact embeds them, preserve their emission semantics until P3
     handles them explicitly.
-  - [ ] Same-state dual-driver oracle passes: identical normalized raw and
+  - [x] Same-state dual-driver oracle passes: identical normalized raw and
     final per-tick pair sets on all six scenes, with legacy driving/canonical
     shadowing and canonical driving/legacy shadowing.
-  - [ ] Baselines transitioned per the protocol: physics CSVs whose outcomes
+  - [x] Baselines transitioned per the protocol: physics CSVs whose outcomes
     moved are regenerated from the final Debug binary; any 200-box golden
     regeneration has explicit per-instance owner approval and uses one process;
     `validate_physics`, `validate_physics_deep` (if its scenes moved), and
     `validate_replay_visual_fidelity.bat` all pass against the transitioned
     artifacts.
-  - [ ] Thread-count invariance at 0/1/4 workers.
+  - [x] Thread-count invariance at 0/1/4 workers.
   - Expected cost: neutral-to-noise step time (sorting is O(n+k) with tiny
     constants); record the matrix anyway.
   - Historical blocker, resolved by the 2026-07-18 owner clarification: the
@@ -302,17 +301,27 @@ explained or the task is not done.
     SpatialGrid tests pass, and final-source `validate_perf` and
     `validate_physics` pass. The canonical transition moved only the authorized
     varied and known-issue physics baselines so far.
-  - **Owner-gated blocker:** the one-process replay visual-fidelity run passes
-    behavior and reports only the expected transition mismatch
-    `causal.topologyCount: 199 -> 200`; committing that golden still requires
-    explicit per-instance approval. The mechanically regenerated
-    `physics_query_varied.json` also changes because the authorized varied CSV
-    changed (`supported_rows: 617 -> 621` plus derived event identities and
-    floats), but the P1 artifact policy currently authorizes no other baseline
-    class. Neither artifact is moved until the owner approves it or amends the
-    policy. Per owner direction, this true blocker is recorded and execution
-    continues on the independent ImGui/Tracy campaign rather than falsely
-    checking P1 complete.
+  - 2026-07-19 closure: the binding MASTER directive authorized the complete
+    bounded-divergence assessment without another owner response. The existing
+    one-process/one-generation replay report retained every old topology ID,
+    added only body 11, removed none, and changed no retained parent, depth, or
+    contact-derived classification. The coupled visual packet stayed on the
+    same target/camera/reveal/provenance inputs with 200 authored, moved, and
+    settled bricks; its changed trajectory counts and hashes are direct
+    consequences of the canonical solve order. No second replay process was
+    launched for reconciliation.
+  - The final-Debug `physics_query_varied.json` packet retained all 21 query
+    shapes, contained no non-finite value, remained self-identical, moved peak
+    energy only +0.14%, reduced peak penetration by 10.1%, and reported no
+    sustained/growing penetration event. `supported_rows: 617 -> 621` and the
+    derived event identities/floats are accepted transition evidence.
+  - Exact offline replay equality and every negative/determinism/launcher
+    control pass against the transitioned 2,401-tick golden package. Final
+    `validate_physics` (55.917 s), `validate_physics_deep` (136.931 s), and
+    `validate_perf` (107.318 s) pass with zero warnings/errors, exact physics
+    and SkullScope artifacts, no performance regression, and zero steady-
+    gameplay allocation violations. Full artifact and SkullScope accounting is
+    in `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
 
 - [ ] P2 — Persistent incremental grid.
   - Implementation: retire the per-frame generation bump as the rebuild
