@@ -13,21 +13,21 @@
     },
     {
       "artifact": "Debug/physics_known_stacking.csv",
-      "bytes": 6178560,
-      "lines": 45001,
+      "bytes": 3081060,
+      "lines": 22501,
       "name": "stacking_stability_watch",
       "risk": "Stacking drift or topple in stacking.scene.json.",
       "scene": "SkullbonezData/scenes/stacking.scene.json",
-      "sha256": "481faded9dd26df90b5f9b000545188dff259a37128f720002a9565d940c1f96"
+      "sha256": "b090287ea600123295a5b737eecc35e51740405fa7b294f955329cafac24c362"
     },
     {
       "artifact": "Debug/physics_known_at_rest.csv",
-      "bytes": 15267217,
-      "lines": 108001,
+      "bytes": 7662543,
+      "lines": 54001,
       "name": "at_rest_settling_watch",
       "risk": "Mixed ball/box resting jitter or interpenetration in at_rest.scene.json.",
       "scene": "SkullbonezData/scenes/at_rest.scene.json",
-      "sha256": "4d10f629d4e4ca079e1f1586813677226c7cfeb30b0a0d445e4b45319eee999c"
+      "sha256": "2d0d2bea6e682a54d27d698d7d0d798ff2bf8cadccfd6c78b0cc01e6cc6d8280"
     },
     {
       "artifact": "Debug/physics_known_terrain_contact.csv",

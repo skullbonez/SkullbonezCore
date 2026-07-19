@@ -136,6 +136,8 @@ class EditorCommandHistory
     const EditorCommandEntry* PendingRedo() const;
     bool CommitUndo();
     bool CommitRedo();
+    void MarkClean();
+    bool IsDirty() const;
     std::size_t UndoDepth() const;
     std::size_t RedoDepth() const;
     std::size_t StoredCount() const;
@@ -144,6 +146,9 @@ class EditorCommandHistory
     std::array<EditorCommandEntry, EDITOR_COMMAND_HISTORY_CAPACITY> m_entries = {};
     std::size_t m_count = 0;
     std::size_t m_cursor = 0;
+    // A value past the fixed capacity means the saved state was invalidated or
+    // evicted and can no longer be reached by moving the history cursor.
+    std::size_t m_cleanCursor = 0;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

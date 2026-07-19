@@ -28,6 +28,8 @@ Related:
 */
 #pragma once
 
+#include "UIRenderAuthoringCatalog.h"
+
 #include "UI.h"
 #include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
@@ -180,48 +182,6 @@ constexpr float UI_TARGETS_META_Y = 86.0f;
 constexpr float UI_TARGETS_PREVIEW_Y = 132.0f;
 constexpr float UI_TARGETS_PREVIEW_H = 260.0f;
 constexpr float UI_TARGETS_CONTENT_H = 430.0f;
-
-struct RenderSliderSpec
-{
-    const char* section;
-    const char* label;
-    UIRenderParam param;
-    float minValue;
-    float maxValue;
-    float step;
-    const char* valueFormat;
-};
-
-constexpr RenderSliderSpec kRenderSliderSpecs[] = {
-    { "Light", "Sun intensity", UIRenderParam::SunIntensity, 0.00f, 4.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun R", UIRenderParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun G", UIRenderParam::SunGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Sun B", UIRenderParam::SunBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Ambient", UIRenderParam::AmbientStrength, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Sky Ambient", "Sky R", UIRenderParam::SkyRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Sky G", UIRenderParam::SkyGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Sky B", UIRenderParam::SkyBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Ground Ambient", "Ground R", UIRenderParam::GroundRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Ground G", UIRenderParam::GroundGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Ground B", UIRenderParam::GroundBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { "Shadows", "Strength", UIRenderParam::ShadowStrength, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Softness", UIRenderParam::ShadowSoftness, 0.25f, 4.00f, 0.01f, "%.2f" },
-    { nullptr, "Depth bias", UIRenderParam::ShadowDepthBias, 0.00000f, 0.00500f, 0.00001f, "%.5f" },
-    { nullptr, "Slope bias", UIRenderParam::ShadowSlopeBias, 0.00000f, 0.00500f, 0.00001f, "%.5f" },
-    { "Water", "Water R", UIRenderParam::WaterRed, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Water G", UIRenderParam::WaterGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Water B", UIRenderParam::WaterBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
-    { nullptr, "Alpha", UIRenderParam::WaterAlpha, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Reflection", UIRenderParam::WaterReflection, 0.00f, 1.00f, 0.01f, "%.2f" },
-    { nullptr, "Fresnel F0", UIRenderParam::WaterFresnel, 0.000f, 0.120f, 0.001f, "%.3f" },
-    { "Materials", "Ball roughness", UIRenderParam::BallRoughness, 0.25f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Ball specular", UIRenderParam::BallSpecular, 0.00f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Box roughness", UIRenderParam::BoxRoughness, 0.25f, 2.00f, 0.01f, "%.2f" },
-    { nullptr, "Box specular", UIRenderParam::BoxSpecular, 0.00f, 2.00f, 0.01f, "%.2f" },
-};
-static_assert( sizeof( kRenderSliderSpecs ) / sizeof( kRenderSliderSpecs[0] ) ==
-                   static_cast<int>( UIRenderParam::Count ),
-               "Render slider specs must match UIRenderParam." );
 
 constexpr int EDITOR_MINI_TREE_TYPE_NONE = -1;
 constexpr int EDITOR_MINI_TREE_TYPE_SMALL = 0;

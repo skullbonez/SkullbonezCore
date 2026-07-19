@@ -14,6 +14,10 @@ Glossary:
   Reentrancy guard: Thread-local flag that prevents tracker internals from
     recursively recording their own emergency work.
   Active bytes: Tracked bytes allocated but not freed at the time of reporting.
+  Development tool owner: A thread-local, hard-capped ImGui or Tracy scope that
+    is permitted only when the shared development capability is compiled.
+  Trace connection generation: Monotonic Tracy viewer-session id stored beside
+    a heavy-mode allocation so its free cannot leak into a later capture.
 
 Invariants:
   - Allocation/deallocation hooks must not allocate, throw during delete, or use
@@ -22,14 +26,19 @@ Invariants:
     user pointer.
   - Direct malloc/free in engine code is controlled by the static checker; this
     hook measures C++ allocation paths such as STL growth.
+  - Tool permission is checked from the calling thread's owner, so concurrent
+    gameplay allocations retain ordinary violation accounting.
+  - Heavy-mode allocation/free events pair only within one viewer connection.
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
   - tools/check_allocation_policy.py
+  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
 */
 #include "RuntimeAllocationTracker.h"
 
 #include "RuntimeReserveAllocator.h"
+#include "../DevelopmentTools/TracyClientOwner.h"
 
 #include <atomic>
 #include <cstddef>
@@ -72,6 +81,9 @@ struct AllocationHeader
     uint16_t owner;
     uint16_t reserved;
     uint32_t magic;
+#if defined( TRACY_ENABLE )
+    uint64_t tracyConnectionId;
+#endif
 };
 
 struct CallsiteCounters
@@ -260,8 +272,15 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     }
 #endif
     const bool approvedReplayGrowth = RuntimeReserveAllocator::IsApprovedReplayGrowthAllocation( owner, phaseIndex );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    const bool approvedDevelopmentToolAllocation =
+        RuntimeReserveAllocator::IsApprovedDevelopmentToolAllocation( owner, phaseIndex );
+#else
+    constexpr bool approvedDevelopmentToolAllocation = false;
+#endif
     const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay &&
-                                   IsGameplayViolationPhase( phase ) && !approvedReplayGrowth;
+                                   IsGameplayViolationPhase( phase ) && !approvedReplayGrowth &&
+                                   !approvedDevelopmentToolAllocation;
     const uintptr_t parent = stackFrames[1] != 0u ? stackFrames[1] : stackFrames[0];
     RecordCallsite( phase, owner, callsite, parent, gameplayViolation, size );
 
@@ -324,6 +343,9 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
     header->owner = static_cast<uint16_t>( owner );
     header->reserved = 0u;
     header->magic = ALLOCATION_HEADER_MAGIC;
+#if defined( TRACY_ENABLE )
+    header->tracyConnectionId = 0u;
+#endif
 
     // Hazard: recording must never allocate through this same hook. The
     // thread-local guard keeps emergency CRT/STL paths from recursively counting
@@ -338,6 +360,12 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
         {
             header->flags |= ALLOCATION_HEADER_RECORDED;
         }
+#if defined( TRACY_ENABLE )
+        // Heavy Tracy capture is independent of allocation-guard mode. The
+        // connection id pairs this allocation with a free only inside the same
+        // viewer session, avoiding stale frees after disconnect/reconnect.
+        header->tracyConnectionId = SKORE_TRACY_RECORD_ALLOCATION( reinterpret_cast<void*>( userAddress ), size );
+#endif
         s_insideAllocationHook = false;
     }
 
@@ -369,6 +397,9 @@ void FreeTrackedMemory( void* pointer ) noexcept
     if ( !s_insideAllocationHook )
     {
         s_insideAllocationHook = true;
+#if defined( TRACY_ENABLE )
+        SKORE_TRACY_RECORD_FREE( pointer, header->tracyConnectionId );
+#endif
         RecordFree( *header );
         s_insideAllocationHook = false;
     }

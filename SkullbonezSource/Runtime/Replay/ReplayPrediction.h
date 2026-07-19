@@ -371,6 +371,7 @@ class ReplayPrediction
         view.trajectoryChildFrameCount = m_state.trajectoryBuild.childFrameCount;
         view.buildMode = m_state.build.buildMode;
         view.horizonSeconds = m_state.simulation.horizonSeconds;
+        view.revealSecondsPerSecond = m_state.revealClock.secondsPerSecond;
         view.measuredTicksPerMs = m_state.simulation.measuredTicksPerMs.load( std::memory_order_acquire );
         view.lastBuildWallMs = m_state.build.lastBuildWallMs;
         view.enabled = m_state.enabled;

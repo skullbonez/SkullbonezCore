@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 5, "resetImGuiLayout": true },
+    { "frame": 7, "assert": { "developmentUiSurface": "imgui" } },
+    { "frame": 7, "assert": { "imguiVisible": true } },
+    { "frame": 7, "assert": { "imguiPanelMask": 3583 } },
+    { "frame": 10, "screenshot": "TestOutput/interaction/imgui_e16_default.bmp" },
+
+    { "frame": 18, "resizeWindow": [1024, 720] },
+    { "frame": 22, "setImGuiDpiScale": 1.5 },
+    { "frame": 24, "focusImGuiPanel": "Replay" },
+    { "frame": 28, "assert": { "imguiDpiScale": 1.5 } },
+    { "frame": 28, "assert": { "imguiFocusCountMin": 1 } },
+    { "frame": 30, "screenshot": "TestOutput/interaction/imgui_e16_minimum.bmp" },
+
+    { "frame": 38, "setImGuiPanelVisible": { "panel": "Diag###SkoreDiagnostics", "visible": false } },
+    { "frame": 40, "assert": { "imguiPanelMask": 3455 } },
+    { "frame": 42, "focusImGuiPanel": "Diag###SkoreDiagnostics" },
+    { "frame": 45, "assert": { "imguiPanelMask": 3583 } },
+    { "frame": 45, "assert": { "imguiFocusCountMin": 2 } },
+
+    { "frame": 50, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 52, "assert": { "developmentUiSurface": "legacy" } },
+    { "frame": 52, "assert": { "imguiVisible": false } },
+    { "frame": 54, "screenshot": "TestOutput/interaction/imgui_e16_legacy.bmp" },
+    { "frame": 58, "setDevelopmentUiSurface": "imgui" },
+    { "frame": 60, "assert": { "developmentUiSurface": "imgui" } },
+
+    { "frame": 66, "resizeWindow": [2560, 1080] },
+    { "frame": 70, "setImGuiDpiScale": 1.0 },
+    { "frame": 74, "screenshot": "TestOutput/interaction/imgui_e16_ultrawide.bmp" },
+
+    { "frame": 76, "loadScene": "SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json" },
+    { "frame": 78, "assert": { "developmentUiSurface": "imgui" } },
+    { "frame": 78, "assert": { "imguiVisible": true } },
+
+    { "frame": 80, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 82, "setDevelopmentUiSurface": "imgui" },
+    { "frame": 84, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 86, "setDevelopmentUiSurface": "imgui" },
+    { "frame": 88, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 90, "setDevelopmentUiSurface": "imgui" },
+    { "frame": 92, "setDevelopmentUiSurface": "legacy" },
+    { "frame": 94, "setDevelopmentUiSurface": "imgui" },
+
+    { "frame": 96, "showReplayScrubber": true },
+    { "frame": 100, "scrubEditorReplayTrack": 0.0 },
+    { "frame": 104, "assert": { "replayActiveTrack": "Solver" } },
+    { "frame": 104, "assert": { "replayHistoricalSamplePaused": true } },
+
+    { "frame": 112, "setImGuiPanelVisible": { "panel": "Hierarchy", "visible": false } },
+    { "frame": 114, "setImGuiPanelVisible": { "panel": "Hierarchy", "visible": true } },
+    { "frame": 116, "setImGuiPanelVisible": { "panel": "Inspector", "visible": false } },
+    { "frame": 118, "setImGuiPanelVisible": { "panel": "Inspector", "visible": true } },
+    { "frame": 120, "setImGuiPanelVisible": { "panel": "Render###SkoreRenderAudio", "visible": false } },
+    { "frame": 122, "setImGuiPanelVisible": { "panel": "Render###SkoreRenderAudio", "visible": true } },
+    { "frame": 124, "setImGuiPanelVisible": { "panel": "Cause###SkoreCausality", "visible": false } },
+    { "frame": 126, "setImGuiPanelVisible": { "panel": "Cause###SkoreCausality", "visible": true } },
+    { "frame": 128, "focusImGuiPanel": "Game Viewport" },
+    { "frame": 132, "resetImGuiLayout": true },
+
+    { "frame": 140, "assert": { "developmentUiSurface": "imgui" } },
+    { "frame": 140, "assert": { "imguiVisible": true } },
+    { "frame": 140, "assert": { "imguiPanelMask": 3583 } },
+    { "frame": 140, "assert": { "imguiLayoutResetCountMin": 2 } },
+    { "frame": 140, "assert": { "imguiFocusCountMin": 3 } },
+    { "frame": 140, "assert": { "imguiDpiScale": 1.0 } },
+    { "frame": 140, "assert": { "imguiDescriptorHighWaterMax": 2 } },
+    { "frame": 140, "assert": { "imguiViewportRecreationsMin": 2 } },
+    { "frame": 142, "screenshot": "TestOutput/interaction/imgui_e16_final.bmp" }
+  ]
+}

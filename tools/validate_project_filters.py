@@ -221,6 +221,7 @@ DX12_RENDERING_PREFIXES = (
     "Dx12Diagnostics",
     "Dx12ShaderDevelopment",
     "Dx12FrameOwner",
+    "Dx12ImGuiRendererOwner",
     "Dx12RenderGraphExecutor",
     "Dx12TextureRegistry",
     "FramebufferDX12",
@@ -386,6 +387,8 @@ RUNTIME_AUDIO_PREFIXES = (
 )
 
 RUNTIME_ALLOCATION_PREFIXES = (
+    "DevelopmentToolAllocation",
+    "DevelopmentToolsCapability",
     "RuntimeAllocationTracker",
     "RuntimeReserveAllocator",
 )
@@ -441,6 +444,8 @@ RUNTIME_EDITOR_PREFIXES = (
     "EditorTools",
     "EditorOverlayTools",
     "EditorHullAssets",
+    "ImGuiEditorCausalityProjection",
+    "ImGuiEditorLayoutPolicy",
     "LauncherLaser",
     "LauncherTools",
     "RunEditorGizmoTools",
@@ -461,8 +466,11 @@ RUNTIME_TOOLS_PREFIXES = (
 RUNTIME_DIAGNOSTICS_PREFIXES = (
     "DiagnosticsController",
     "DiagnosticsRuntime",
+    "ImGuiEditorInputPolicy",
+    "ImGuiEditorOwner",
     "RuntimeDiagnostics",
     "SceneMemoryDiagnostics",
+    "TracyClientOwner",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution

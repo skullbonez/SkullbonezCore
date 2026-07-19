@@ -4,19 +4,23 @@ Purpose:
   Implements deterministic sleep mirroring, wake propagation, and islands.
 
 Summary:
-  This file mechanically re-homes the former PhysicsWorld sleep algorithms.
-  All ordering, thresholds, packed contact traversal, and transition expressions
-  remain unchanged while state and mutation authority become cohesive.
+  This file implements the serial sleep-island algorithms plus the ascending
+  dense awake index list updated at sleep/wake transitions. Thresholds, packed
+  contact traversal, and transition expressions remain unchanged.
 
 Glossary:
   Wake fan-out: Expansion through visual, point-joint, and resting-contact islands.
   Credible support: Terrain, fixed, or previously proven sleeping island anchor.
   Quiet-frame counter: Consecutive eligible ticks required before deactivation.
+  Awake list position: Reverse map from dense body row to its slot in the
+    ascending awake list, or -1 when fixed/dormant.
 
 Invariants:
   - Fixed bodies never enter dynamic sleep state.
   - Underwater-locked bodies reject ordinary wake fan-out.
   - Pipeline records retain their former call positions and bounded cap.
+  - Ordinary fixed steps update awake indices only at explicit transitions;
+    full rebuilds are limited to topology/replay/config cold boundaries.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
@@ -27,6 +31,7 @@ Related:
 
 #include "PhysicsContactSolverStage.h"
 #include "../../Core/Config.h"
+#include "../../Core/FatalError.h"
 #include "../../Runtime/Scene/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../DisjointSet.h"
@@ -121,6 +126,10 @@ void PhysicsSleepController::Clear()
     m_sleepVisualIslandIds.clear();
     m_sleepVisualIslandBodies.clear();
     m_restingWakeQueueScratch.clear();
+    m_awakeBodyIndices.clear();
+    m_awakeListPositions.clear();
+    m_pendingAwakeCount = 0;
+    m_awakeListNeedsRebuild = true;
     m_nextSleepIslandVisualId = 1;
     m_awakeBodyCount = 0;
 }
@@ -165,9 +174,108 @@ void PhysicsSleepController::EnsureVisualIdSize( int modelCount )
     }
 }
 
-void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount )
+void PhysicsSleepController::RebuildAwakeBodyIndices( const PhysicsBodyHotFieldsConstView& hotFields, int modelCount )
+{
+    // Cold boundary: topology changes and replay restores can reassign dense
+    // model indices. Ordinary fixed steps update this list only at wake/sleep
+    // transitions and never rebuild it from the full body set.
+    m_awakeBodyIndices.clear();
+    m_awakeListPositions.assign( static_cast<std::size_t>( modelCount ), -1 );
+    for ( int index = 0; index < modelCount; ++index )
+    {
+        if ( hotFields.fixed[static_cast<std::size_t>( index )] == 0u && m_sleepState[index] == 0u )
+        {
+            m_awakeListPositions[static_cast<std::size_t>( index )] = static_cast<int>( m_awakeBodyIndices.size() );
+            m_awakeBodyIndices.push_back( index );
+        }
+    }
+    m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
+    m_awakeListNeedsRebuild = false;
+}
+
+void PhysicsSleepController::AddAwakeBodyIndex( int index )
+{
+    if ( index < 0 || index >= static_cast<int>( m_awakeListPositions.size() ) || m_awakeListNeedsRebuild )
+    {
+        m_awakeListNeedsRebuild = true;
+        return;
+    }
+    if ( m_awakeListPositions[static_cast<std::size_t>( index )] >= 0 )
+    {
+        return;
+    }
+
+    std::size_t insertAt = 0u;
+    while ( insertAt < m_awakeBodyIndices.size() && m_awakeBodyIndices[insertAt] < index )
+    {
+        ++insertAt;
+    }
+    m_awakeBodyIndices.push_back( index );
+    for ( std::size_t position = m_awakeBodyIndices.size() - 1u; position > insertAt; --position )
+    {
+        const int shifted = m_awakeBodyIndices[position - 1u];
+        m_awakeBodyIndices[position] = shifted;
+        m_awakeListPositions[static_cast<std::size_t>( shifted )] = static_cast<int>( position );
+    }
+    m_awakeBodyIndices[insertAt] = index;
+    m_awakeListPositions[static_cast<std::size_t>( index )] = static_cast<int>( insertAt );
+    m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
+}
+
+void PhysicsSleepController::RemoveAwakeBodyIndex( int index )
+{
+    if ( index < 0 || index >= static_cast<int>( m_awakeListPositions.size() ) || m_awakeListNeedsRebuild )
+    {
+        m_awakeListNeedsRebuild = true;
+        return;
+    }
+    const int removeAt = m_awakeListPositions[static_cast<std::size_t>( index )];
+    if ( removeAt < 0 )
+    {
+        return;
+    }
+    for ( std::size_t position = static_cast<std::size_t>( removeAt ); position + 1u < m_awakeBodyIndices.size();
+          ++position )
+    {
+        const int shifted = m_awakeBodyIndices[position + 1u];
+        m_awakeBodyIndices[position] = shifted;
+        m_awakeListPositions[static_cast<std::size_t>( shifted )] = static_cast<int>( position );
+    }
+    m_awakeBodyIndices.pop_back();
+    m_awakeListPositions[static_cast<std::size_t>( index )] = -1;
+    m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
+}
+
+void PhysicsSleepController::InvalidateBodyTopology()
+{
+    m_awakeListNeedsRebuild = true;
+}
+
+void PhysicsSleepController::FlushPendingAwakeBodyIndices()
+{
+    // Parallel wake workers publish only bounded body indices. The sequencer
+    // folds them into the sorted owner list after WorkerPool completion, so
+    // worker scheduling cannot affect later force/integration order.
+    std::atomic_ref<int> pendingAwakeCount( m_pendingAwakeCount );
+    const int pendingCount = pendingAwakeCount.exchange( 0, std::memory_order_acquire );
+    if ( pendingCount < 0 || pendingCount > Scene::Capacity::MAX_SCENE_OBJECTS )
+    {
+        SB_FATAL( "Physics/PhysicsSleepController",
+                  "Pending awake queue count invalid: count=%d capacity=%d.",
+                  pendingCount,
+                  Scene::Capacity::MAX_SCENE_OBJECTS );
+    }
+    for ( int pendingIndex = 0; pendingIndex < pendingCount; ++pendingIndex )
+    {
+        AddAwakeBodyIndex( m_pendingAwakeIndices[pendingIndex] );
+    }
+}
+
+bool PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount )
 {
     const PhysicsBodyHotFieldsConstView hotFields = bodyStore.HotFields();
+    const bool rebuildAwakeList =
+        m_awakeListNeedsRebuild || static_cast<int>( m_awakeListPositions.size() ) != modelCount;
     m_sleepSupportedThisFrame.assign( modelCount, 0 );
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
     m_sleepSupportEdges.clear();
@@ -176,7 +284,13 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
     }
-    bodyStore.CopySleepStatesTo( m_sleepState );
+    if ( rebuildAwakeList )
+    {
+        // Cold boundary: authored topology/body commands own the body-store
+        // flag. Steady steps retain m_sleepState directly and avoid two full
+        // mirror passes over sleepers that cannot have changed state.
+        bodyStore.CopySleepStatesTo( m_sleepState );
+    }
     EnsureUnderwaterSleepLockBuffer( modelCount );
     // Hazard: the first fixed step can arrive before any island rebuild has
     // sized the diagnostics mirror. Keep it row-aligned before indexing below;
@@ -189,7 +303,6 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
         std::fill( m_underwaterSleepLocked.begin(), m_underwaterSleepLocked.end(), static_cast<uint8_t>( 0 ) );
         std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
     }
-    m_awakeBodyCount = 0;
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( i < static_cast<int>( hotFields.fixed.size() ) && hotFields.fixed[static_cast<std::size_t>( i )] != 0u )
@@ -205,9 +318,33 @@ void PhysicsSleepController::MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int m
         {
             m_underwaterSleepLocked[i] = 0;
             m_sleepIslandVisualId[i] = 0;
-            ++m_awakeBodyCount;
         }
     }
+    if ( rebuildAwakeList )
+    {
+        RebuildAwakeBodyIndices( hotFields, modelCount );
+        // Sleep-disable and replay/topology repair can change the controller
+        // row while rebuilding. Publish that cold result before hot kernels
+        // consult the body-store awake flag.
+        bodyStore.CopySleepStatesFrom( m_sleepState );
+    }
+#if defined( _DEBUG )
+    else
+    {
+        // Invariant: every non-topology wake/sleep path updates the list at the
+        // transition. A mismatch here exposes a bypass before it can reorder a
+        // worker stage or strand a body outside broadphase maintenance.
+        for ( int index = 0; index < modelCount; ++index )
+        {
+            const bool expectedAwake =
+                hotFields.fixed[static_cast<std::size_t>( index )] == 0u && m_sleepState[index] == 0u;
+            const bool listedAwake = m_awakeListPositions[static_cast<std::size_t>( index )] >= 0;
+            assert( expectedAwake == listedAwake && "awake index list drift" );
+        }
+    }
+#endif
+    m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
+    return rebuildAwakeList;
 }
 
 
@@ -440,14 +577,14 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         }
     }
 
-    int dynamicAwakeAtIslandStage = 0;
-    for ( int x = 0; x < modelCount; ++x )
+    // P4 invariant: the awake list is ascending dense order, so this walk
+    // performs the same per-body arithmetic in the same order while skipping
+    // fixed and sleeping guard reads entirely.
+    for ( int x : context.awakeBodyIndices )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
-        {
-            continue;
-        }
-        ++dynamicAwakeAtIslandStage;
+#if defined( _DEBUG )
+        assert( !IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) && !m_sleepState[x] );
+#endif
         const int root = sleepIslands.Find( x );
         m_sleepIslandHasAwake[root] = 1;
         const Vector3 vel =
@@ -509,7 +646,7 @@ void PhysicsSleepController::RunIslandStage( const PhysicsSleepIslandStageContex
         std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
         m_sleepIslandCanSleep.assign( modelCount, 0 );
         m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
-        m_awakeBodyCount = dynamicAwakeAtIslandStage;
+        m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
         return;
     }
     ApplyTransitions( context, sleepIslands );
@@ -521,17 +658,8 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
     // Invariant: RunIslandStage has already populated eligibility and support;
     // this pass only advances counters and applies whole-island transitions.
     const int modelCount = context.modelCount;
-    m_awakeBodyCount = 0;
-    for ( int x = 0; x < modelCount; ++x )
+    for ( int x : context.awakeBodyIndices )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) )
-        {
-            continue;
-        }
-        if ( m_sleepState[x] )
-        {
-            continue;
-        }
         const int root = sleepIslands.Find( x );
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
         {
@@ -545,12 +673,8 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
             m_sleepCounter[x] = 0;
         }
     }
-    for ( int x = 0; x < modelCount; ++x )
+    for ( int x : context.awakeBodyIndices )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
-        {
-            continue;
-        }
         const int root = sleepIslands.Find( x );
         if ( m_sleepCounter[x] < context.sleepFrames )
         {
@@ -572,12 +696,13 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
             m_sleepIslandAssignedVisualId[root] = m_sleepIslandVisualId[x];
         }
     }
-    for ( int x = 0; x < modelCount; ++x )
+    // Removing a sleeping row compacts m_awakeBodyIndices. Keep the cursor on
+    // that slot after a transition so the next higher dense index is not
+    // skipped; non-transition rows advance normally. This retains ascending
+    // model order without copying or allocating a second list.
+    for ( std::size_t awakeSlot = 0; awakeSlot < m_awakeBodyIndices.size(); )
     {
-        if ( IsSolverBodyFixed( ConstPhysicsBodyHotFields( context.hotFields ), x ) || m_sleepState[x] )
-        {
-            continue;
-        }
+        const int x = m_awakeBodyIndices[awakeSlot];
         const int root = sleepIslands.Find( x );
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] && m_sleepIslandCanSleep[root] )
         {
@@ -590,6 +715,7 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
                 }
             }
             m_sleepState[x] = 1;
+            RemoveAwakeBodyIndex( x );
             m_sleepIslandVisualId[x] = m_sleepIslandAssignedVisualId[root];
             PhysicsPipelineRecord record;
             record.stage = PhysicsPipelineStage::SleepIslandDecision;
@@ -614,12 +740,11 @@ void PhysicsSleepController::ApplyTransitions( const PhysicsSleepIslandStageCont
                                           context.colliderStore,
                                           context.timeRemaining,
                                           x );
+            continue;
         }
-        if ( !m_sleepState[x] )
-        {
-            ++m_awakeBodyCount;
-        }
+        ++awakeSlot;
     }
+    m_awakeBodyCount = static_cast<int>( m_awakeBodyIndices.size() );
 }
 
 bool PhysicsSleepController::IsPointJointPair( const PhysicsBodyStore& bodyStore,

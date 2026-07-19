@@ -19,14 +19,25 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Canonical pair order: Ascending normalized `(minIndex, maxIndex)` order,
+  independent of cell-bucket discovery history.
+  Persistent membership: Cell occupancy retained across fixed steps until a
+    body's integer cell range changes.
+  Pair-source stamp: Frame generation marking a cell reached by an awake body;
+    production candidate collection skips unstamped sleep-only cells.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - Inserted bounds stay finite and within MAX_WORLD_COORDINATE before any
     float-to-cell conversion.
-  - One 8,192-row table owns every live cell; the next unique cell is a Lane F
-    failure because dropping it could hide a collision.
+  - One 8,192-row table owns every live persistent or current swept-overlay
+    cell; the next unique cell is a Lane F failure because dropping it could
+    hide a collision.
+  - Candidate discovery may follow bucket/list order, but solver-visible output
+    is canonical and uses fixed-capacity staging owned by this grid.
+  - Pair-source stamps restrict this frame's work only; they never remove or
+    mutate a sleeper's persistent membership.
 
 Related:
   - SkullbonezSource/Physics/SpatialGrid.cpp
@@ -59,9 +70,10 @@ namespace CollisionDetection
 /* -- Spatial Grid
 ------------------------------------------------------------------------------------------------------------------------------------------
 
-    Zero-allocation uniform spatial grid for broadphase collision detection.  Uses open-addressing hash table with
-    generation stamping (no per-frame clearing) and a flat index pool with linked lists per cell.  Pair deduplication
-    via triangular bit array.  Complexity: O(n + k) where n = objects and k = candidate pairs.
+    Zero-allocation uniform spatial grid for broadphase collision detection. Persistent body membership uses a
+    fixed hash-chain table, per-body cell ranges, intrusive back-links, and reusable bucket/entry pools. Swept CCD
+    occupancy uses a separate per-frame stamped overlay. Pair deduplication uses a triangular bit array; fixed radix
+    staging emits ascending normalized pairs independent of discovery order. Unchanged integer ranges touch no cells.
     No heap allocations after construction.
 
     Layman version:
@@ -72,6 +84,18 @@ namespace CollisionDetection
 -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SpatialGrid
 {
+
+  public:
+    struct MaintenanceStats
+    {
+        int insertedBodies = 0;
+        int movedBodies = 0;
+        int unchangedBodies = 0;
+        int removedBodies = 0;
+        int persistentCellsAdded = 0;
+        int persistentCellsRemoved = 0;
+        int sweptOverlayCellsAdded = 0;
+    };
 
   private:
     // --- Capacity derivation ---
@@ -94,41 +118,122 @@ class SpatialGrid
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
     static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
     static constexpr int MAX_SWEPT_TRAVERSED_CELLS = MAX_SWEPT_CELL_ENTRIES;
+    static constexpr int MAX_CANDIDATE_PAIRS = SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 4;
     static constexpr int PAIR_WORDS = ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS *
                                             ( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS - 1 ) / 2 +
                                         63 ) /
                                       64;
 
+    struct CellRange
+    {
+        int minX, minY, minZ;
+        int maxX, maxY, maxZ;
+    };
+
     struct Entry
     {
-        int objectIndex;     // Scene/model slot stored in one occupied grid cell.
-        int next;            // Linked-list index into entries[], -1 = end of list.
+        int objectIndex;               // Scene/model slot stored in one occupied grid cell.
+        int bucketIndex;               // Owning buckets[] row for direct unlink.
+        int nextInBucket;              // Next persistent member of the same cell.
+        int previousInBucket;          // Previous member; -1 means bucket head.
+        int nextForObject;             // Next cell entry owned by this body.
+        int previousForObject;         // Previous entry; -1 means body head.
+        int nextFree;                  // Reusable-slot chain when this entry is inactive.
+        int ix, iy, iz;                // Exact cell coordinate; hash collisions share a bucket conservatively.
+    };
+
+    struct SweptOverlayEntry
+    {
+        int objectIndex;
+        int next;
+        int ix, iy, iz;
     };
 
     struct Bucket
     {
-        int64_t key;         // Packed/hashable grid coordinate identity.
-        uint32_t generation; // Frame stamp; mismatched stamps make stale buckets behave as empty.
-        int head;            // Linked-list head in entries[], -1 = empty.
-        int count;           // Number of object entries in this cell.
-        int16_t ix, iy, iz;  // Cell grid coordinates (stored for visualization)
+        int64_t key;                   // Existing hashed cell identity; collisions remain conservative false positives.
+        bool occupied;                 // Live hash-chain row; false rows belong to the bucket free list.
+        int nextHash;                  // Next row sharing this table home slot.
+        int previousHash;              // Back-link for O(1) removal from the hash chain.
+        int nextFree;                  // Reusable bucket-slot chain while unoccupied.
+        int head;                      // Persistent entries[] chain head.
+        int count;                     // Persistent object count.
+        uint32_t pairSourceGeneration; // Current-frame stamp when an awake body reaches this cell.
+        uint32_t overlayGeneration;    // Current-frame stamp for swept-only occupancy.
+        int overlayHead;               // SweptOverlayEntry chain head for overlayGeneration.
+        int overlayCount;              // Current swept-only object count.
+        int activeIndex;               // Back-link into activeBuckets[] for swap removal.
+        int16_t ix, iy, iz;            // Cell grid coordinates (stored for visualization).
+    };
+
+    struct BodyMembership
+    {
+        CellRange range{};
+        int entryHead = -1;
+        bool active = false;
+    };
+
+    struct CandidatePairNode
+    {
+        int maxIndex;                  // Larger normalized body index for one accepted pair.
+        int next;                      // Next node with the same smaller body index; -1 ends the list.
     };
 
     float cellSize;
     float inverseCellSize;
-    uint32_t generation;
-    int entryPoolUsed;
+    uint32_t overlayGeneration;
+    uint32_t pairSourceGeneration;
+    int freeBucketHead;
+    int freeEntryHead;
+    int persistentEntryCount;
+    int persistentEntryHighWater;
     int objectCount;
     int activeBucketCount;
+    int overlayEntryCount;
+    int overlayActiveBucketCount;
 
     Bucket buckets[TABLE_SIZE];
+    int bucketHashHeads[TABLE_SIZE];
     int activeBuckets[TABLE_SIZE];
+    int overlayActiveBuckets[TABLE_SIZE];
     Entry entries[MAX_CELL_ENTRIES];
+    SweptOverlayEntry overlayEntries[MAX_SWEPT_CELL_ENTRIES];
+    BodyMembership bodyMemberships[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
     uint64_t pairSeen[PAIR_WORDS];
+    // Canonical pair staging is fixed storage owned by the grid. Cell traversal
+    // may discover pairs in any bucket/list order, but emission is always sorted
+    // by normalized body identity before narrowphase sees it.
+    int candidatePairHeads[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+    CandidatePairNode candidatePairNodes[MAX_CANDIDATE_PAIRS];
+    int candidatePairSortKeys[MAX_CANDIDATE_PAIRS];
+    int candidatePairSortScratch[MAX_CANDIDATE_PAIRS];
+    uint32_t cellObjectGeneration;
+    uint32_t cellObjectSeen[SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS];
+    MaintenanceStats maintenanceStats;
 
-    int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
-    void InsertCell( int index, int ix, int iy, int iz );
-    void InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
+    int FindBucket( int64_t key ) const;
+    int FindOrCreateBucket( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    void RetireBucketIfEmpty( int bucketIndex );
+    int AllocatePersistentEntry();
+    void ReleasePersistentEntry( int entryIndex );
+    void InsertPersistentCell( int index, int ix, int iy, int iz );
+    void RemovePersistentCell( int index, int ix, int iy, int iz );
+    void RemovePersistentEntry( int entryIndex );
+    void RemoveBody( int index );
+    void InsertRangeDifference( int index, const CellRange& range, const CellRange* excludedRange );
+    void RemoveRangeDifference( int index, const CellRange& range, const CellRange* retainedRange );
+    void InsertOverlayCell( int index, int ix, int iy, int iz );
+    void InsertOverlayBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
+    CellRange
+    RangeForBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds, int capacity ) const;
+    void MaintainBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
+    void ResetSweptOverlay();
+    int CollectBucketObjects( const Bucket& bucket, int* outIndices, int capacity );
+    void ResetCandidatePairDedup();
+    bool MarkCandidatePairFirstSeen( int a,
+                                     int b,
+                                     const Physics::BroadphaseCandidateFilterContext* filter,
+                                     std::vector<std::pair<int, int>>* sleepPrunedPairs );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -148,17 +253,38 @@ class SpatialGrid
     };
 
     SpatialGrid( float fCellSize );
+    // Cold reset for scene load, replay restore, and cell-size changes.
     void Clear();
-    // Sets the cell diameter used by the next broadphase rebuild. Callers must
-    // rebuild the grid after changing it; existing bucket entries keep their
-    // old integer cell coordinates until Clear/Insert repopulates the table.
+    // Begins one fixed-step maintenance pass. Persistent memberships remain;
+    // removed dense rows and the prior tick's velocity-dependent overlay do not.
+    void BeginFrame( int currentObjectCount );
+    // A changed cell size invalidates every cached integer range and performs a
+    // cold clear. Reapplying the same value is intentionally maintenance-free.
     void SetCellSize( float fCellSize );
     void Insert( int index, const Vector::Vector3& position, float radius );
+    // Maintains the body's ordinary current-position cells, then adds only the
+    // velocity-dependent sweep to the current frame's stamped overlay.
     void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
-    // Emits deduplicated cell-sharing pairs. A filter can reject a known-safe
-    // false positive before it is appended, but narrowphase still owns contacts.
+    // Marks every persistent cell currently reachable from one awake body as a
+    // candidate source for this frame. Swept insertions stamp overlay cells as
+    // they are created.
+    void MarkPairSourceCells( int index );
+    // Emits deduplicated cell-sharing pairs in ascending normalized body-index
+    // order. A filter can reject a known-safe false positive before it is
+    // staged, but narrowphase still owns contacts. Debug may retain geometric
+    // sleep-only admissions in a bounded diagnostic vector; production may
+    // restrict traversal to current pair-source cells.
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs,
-                            const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
+                            const Physics::BroadphaseCandidateFilterContext* filter = nullptr,
+                            std::vector<std::pair<int, int>>* sleepPrunedPairs = nullptr,
+                            bool restrictToPairSourceCells = false );
+#if defined( _DEBUG )
+    // P1 transition oracle only: emits the pre-transition bucket-history order
+    // from the same grid state so Debug runs can compare work membership without
+    // evolving a second simulation.
+    void GetCandidatePairsLegacyForOracle( std::vector<std::pair<int, int>>& outPairs,
+                                           const Physics::BroadphaseCandidateFilterContext* filter = nullptr );
+#endif
     float GetCellSize() const
     {
         return cellSize;
@@ -166,6 +292,10 @@ class SpatialGrid
     int GetActiveCellCount() const
     {
         return activeBucketCount;
+    }
+    const MaintenanceStats& GetMaintenanceStats() const
+    {
+        return maintenanceStats;
     }
     void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
 };

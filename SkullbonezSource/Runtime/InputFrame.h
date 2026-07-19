@@ -7,13 +7,16 @@ Summary:
   Run owns top-level frame order and calls ProcessInputFrame once. The function
   receives non-copyable frame views for that turn, while InputRouter alone
   retains device, semantic-action, focus, and pointer-presentation state between
-  frames.
+  frames. The selected operator surface and optional automation/probe queues
+  converge in this turn before established domain-owner commands are applied.
 
 Glossary:
   Input turn: Ordered frame interval that samples hardware, offers actions to
     UI/tools/replay, and commits accepted capture/default/scene requests.
   Composition boundary: Stateless sequencing code that connects domain owners
     without taking ownership of their state or decisions.
+  Editor arbitration: Deterministic merge that keeps the canonical legacy lane
+    first, coalesces exact duplicate injected intent, and rejects conflicts.
 
 Invariants:
   - No frame view or referenced owner is retained after ProcessInputFrame returns.
@@ -93,6 +96,7 @@ struct RuntimeUIFrameResult
     bool suppressWorldActionThisFrame = false;
     bool frameActive = false;
     bool enterInteractiveScene = false;
+    bool requestSceneStep = false; // One accepted paused-scene step for the later runtime-input snapshot.
     int editorUnhandledWheelDelta = 0;
 };
 
@@ -105,6 +109,13 @@ struct RuntimeInputFrameFacts
     uint32_t cameraModeEnabledMask = 0u;
     bool suppressWorldActionThisFrame = false;
     int sceneObjectCapacity = 0;
+    UiInputCaptureIntent externalUiCapture;
+    // Previous completed secondary-surface frame. This value queue is consumed
+    // synchronously and never retained by input orchestration.
+    UI::OperatorEditorCommandQueues externalEditorCommands;
+    // Invariant: only the selected Legacy surface may sample its pointer tools
+    // or scene-authored stress actions during this input turn.
+    bool legacyDevelopmentUiActive = true;
 };
 
 // Shared value-policy helpers used by the stateless coordinator and the
@@ -178,6 +189,9 @@ void ProcessInputFrame( RuntimeFrameHostView& host,
                         RuntimeFrameInteractionView& interactionOwners,
                         RuntimeFrameSceneView& sceneOwners,
                         RuntimeFramePresentationView& presentationOwners,
-                        ReplayRuntime& replayRuntime );
+                        ReplayRuntime& replayRuntime,
+                        UiInputCaptureIntent externalUiCapture,
+                        UI::OperatorEditorCommandQueues externalEditorCommands = {},
+                        bool legacyDevelopmentUiActive = true );
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -12,6 +12,8 @@ Glossary:
   Workspace tick: One input-frame pass through replay scrub, authoring, and path tools.
   Timeline reset: Scene-boundary command that restarts retained replay history.
   Startup workflow: Cold command-line replay load or validation operation.
+  Transport command: Presentation-independent record, scrub, prediction, or
+    artifact intent translated by ReplayRuntime into existing replay owners.
   Published view: Read-only, frame-scoped evidence that exposes no mutation
     path back into a replay owner.
 
@@ -19,6 +21,7 @@ Invariants:
   - Borrowed owner references remain valid only for the consuming call.
   - Values publish cross-owner effects; they do not provide callbacks into Run.
   - Automation and input views contain no mutable replay owner reference.
+  - Transport host values are synchronous borrows and retain no Run authority.
   - Scene reset facts contain no mutable scene or physics authority.
 
 Related:
@@ -81,6 +84,9 @@ struct ReplayWorkspaceFrameInput
 {
     HWND window = nullptr;
     bool uiBlocksMouse = false;
+    // Invariant: Legacy pointer tools must not sample or reset replay state
+    // while the mutually exclusive ImGui development surface owns input.
+    bool legacyPointerSurfaceActive = true;
     int wheelDelta = 0;
     ReplayPathPickInput pointerRay;
     RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
@@ -101,6 +107,46 @@ struct ReplayWorkspaceOutput
     ReplayLiveRestoreRequest restoreRequest;
     bool consumesMouse = false;
     bool enterInteractive = false;
+};
+
+// Semantic transport actions are independent of the legacy overlay and the
+// ImGui presentation. ReplayRuntime translates these value commands into the
+// existing timeline, scrubber, prediction, authoring, and cold-I/O owners.
+enum class ReplayTransportAction : uint8_t
+{
+    SetRecordingEnabled,
+    JumpToStart,
+    JumpToEnd,
+    TogglePlayPause,
+    StepBackward,
+    StepForward,
+    SetRevealSpeed,
+    Scrub,
+    TogglePrediction,
+    SetPredictionHorizon,
+    RestoreBranch,
+    Save,
+    Load,
+    ReturnToLive,
+    SelectCauseRow
+};
+
+struct ReplayTransportCommand
+{
+    ReplayTransportAction action = ReplayTransportAction::JumpToEnd;
+    float value = 0.0f;
+    int rowIndex = -1;
+    bool enabled = false;
+};
+
+struct ReplayTransportHostContext
+{
+    HWND window = nullptr;
+    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
+    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
+    bool attachedFollow = false;
+    bool directorGrabbed = false;
+    double now = 0.0;
 };
 
 // Concept: generic input routing consumes one immutable replay publication.

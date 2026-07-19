@@ -803,6 +803,12 @@ bool InputRouter::DispatchAfterUiDismiss( InputActions& actions,
         {
             return true;
         }
+        else if ( !input.legacyUiActive )
+        {
+            // ImGui owns Escape/focus policy in this process. Remember the tap
+            // for the existing quick-exit gesture without activating Legacy.
+            RecordTap( event.action, nowSeconds );
+        }
         else
         {
             sceneController.State().isInteractiveRun = true;

@@ -49,6 +49,13 @@ class IRenderDeviceLifecycle;
 }
 namespace Runtime
 {
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+namespace DevelopmentTools
+{
+class ImGuiEditorOwner;
+struct ImGuiEditorNativeMessageRoute;
+} // namespace DevelopmentTools
+#endif
 /* -- Skullbonez Window
 ------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -68,6 +75,10 @@ class Window
     int m_startupWindowWidth = 1800;                                      // Configured initial window width supplied by startup.
     int m_startupWindowHeight = 1000;                                     // Configured initial window height supplied by startup.
     Rendering::IRenderDeviceLifecycle* m_resizeRenderLifecycle = nullptr; // Borrowed resize-only renderer lifecycle.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    DevelopmentTools::ImGuiEditorOwner* m_developmentUiInput =
+        nullptr;                                                          // Borrowed native-message target bound for Run lifetime.
+#endif
 
   public:
     Window();                                                             // Startup constructs the single runtime window owner.
@@ -107,6 +118,12 @@ class Window
     void SetStartupWindowSize( int width, int height );                   // Stores config-owned initial window/fullscreen dimensions.
     void SetResizeRenderLifecycle(
         Rendering::IRenderDeviceLifecycle* deviceLifecycle );             // Borrows or clears the resize lifecycle callback target.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    void BindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner );
+    void UnbindDevelopmentUiInput( DevelopmentTools::ImGuiEditorOwner& owner );
+    DevelopmentTools::ImGuiEditorNativeMessageRoute
+    RouteDevelopmentUiMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam );
+#endif
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;

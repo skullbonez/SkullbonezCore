@@ -15,6 +15,8 @@ Glossary:
     facade.
   Warmup frame: Completed frame intentionally excluded from profiler stats and
     perf CSV rows while a scene/pass settles.
+  External owner zone: Tracy interval that mirrors an established engine
+    profiler path and nesting edge.
   Lane F: Fatal invariant path for should-never-happen engine state.
 
 Invariants:
@@ -31,6 +33,7 @@ Related:
 #include "Profiler.h"
 #include "FatalError.h"
 #include "../Rendering/IRenderDiagnostics.h"
+#include "../Runtime/DevelopmentTools/TracyClientOwner.h"
 #include "WorkerPool.h"
 
 #include <cstring>
@@ -105,6 +108,9 @@ Profiler::Profiler()
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
     std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
     std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
+    std::memset( m_tracyZoneIds, 0, sizeof( m_tracyZoneIds ) );
+    std::memset( m_tracyZoneActive, 0, sizeof( m_tracyZoneActive ) );
+    std::memset( m_tracyZoneConnectionIds, 0, sizeof( m_tracyZoneConnectionIds ) );
 }
 
 
@@ -191,6 +197,10 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.name = fullPath;
     m.leafName = FindLeafName( fullPath );
     m.hash = hash;
+    // Concept: the established engine marker is the source of truth. Tracy
+    // receives the exact same owner path and therefore remains comparable to
+    // platform-profiler and perf-CSV evidence.
+    m.tracySourceLocationHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( fullPath, hash );
     m.depth = CountSlashes( fullPath );
     m.colorIndex = m_nextColorIndex;
     m_nextColorIndex = ( m_nextColorIndex + 1 ) % BAR_PALETTE_SIZE;
@@ -363,7 +373,8 @@ void Profiler::RecordCounter( const char* fullPath, uint32_t hash, double value 
 WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPath, uint32_t hash )
     : m_profiler( profiler ), m_fullPath( fullPath ), m_hash( hash ),
       m_workerIndex( SkullbonezCore::Threading::WorkerPool::CurrentWorkerIndex() ), m_startTicks( 0 ),
-      m_platformProfilerOpen( false )
+      m_platformProfilerOpen( false ), m_tracySourceLocationHandle( 0u ), m_tracyZoneId( 0u ), m_tracyZoneActive( 0 ),
+      m_tracyZoneConnectionId( 0u )
 {
     if ( m_workerIndex < 0 )
     {
@@ -372,6 +383,13 @@ WorkerProfilerScope::WorkerProfilerScope( Profiler* profiler, const char* fullPa
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     m_startTicks = t.QuadPart;
+#if defined( TRACY_ENABLE )
+    m_tracySourceLocationHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( fullPath, hash );
+    const auto tracyToken = SKORE_TRACY_BEGIN_OWNER_ZONE( m_tracySourceLocationHandle );
+    m_tracyZoneId = tracyToken.id;
+    m_tracyZoneActive = tracyToken.active;
+    m_tracyZoneConnectionId = tracyToken.connectionId;
+#endif
     if ( PlatformProfiler::AreDetailedRangesEnabled() )
     {
         char markerName[PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
@@ -391,6 +409,15 @@ WorkerProfilerScope::~WorkerProfilerScope()
     }
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
+#if defined( TRACY_ENABLE )
+    const SkullbonezCore::Runtime::DevelopmentTools::TracyZoneToken tracyToken{ m_tracyZoneId,
+                                                                                m_tracyZoneActive,
+                                                                                m_tracyZoneConnectionId };
+    SKORE_TRACY_END_OWNER_ZONE( tracyToken );
+    m_tracyZoneId = 0u;
+    m_tracyZoneActive = 0;
+    m_tracyZoneConnectionId = 0u;
+#endif
     if ( m_platformProfilerOpen )
     {
         PlatformProfiler::CpuEnd();
@@ -438,6 +465,15 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
     m_platformProfilerCpuOpen[stackSlot] = false;
     m_platformProfilerGpuRecordOpen[stackSlot] = false;
     m_platformProfilerGpuEventOpen[stackSlot] = false;
+    m_tracyZoneIds[stackSlot] = 0u;
+    m_tracyZoneActive[stackSlot] = 0;
+    m_tracyZoneConnectionIds[stackSlot] = 0u;
+#if defined( TRACY_ENABLE )
+    const auto tracyToken = SKORE_TRACY_BEGIN_OWNER_ZONE( m.tracySourceLocationHandle );
+    m_tracyZoneIds[stackSlot] = tracyToken.id;
+    m_tracyZoneActive[stackSlot] = tracyToken.active;
+    m_tracyZoneConnectionIds[stackSlot] = tracyToken.connectionId;
+#endif
     if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
     {
         PlatformProfiler::CpuBegin( fullPath, hash );
@@ -458,6 +494,14 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
     Marker& top = m_markers[topIdx];
     const bool cpuPlatformOpen = m_platformProfilerCpuOpen[stackSlot];
     m_platformProfilerCpuOpen[stackSlot] = false;
+#if defined( TRACY_ENABLE )
+    const uint32_t tracyZoneId = m_tracyZoneIds[stackSlot];
+    const int32_t tracyZoneActive = m_tracyZoneActive[stackSlot];
+    const uint64_t tracyZoneConnectionId = m_tracyZoneConnectionIds[stackSlot];
+    m_tracyZoneIds[stackSlot] = 0u;
+    m_tracyZoneActive[stackSlot] = 0;
+    m_tracyZoneConnectionIds[stackSlot] = 0u;
+#endif
 
     if ( top.hash != hash )
     {
@@ -476,6 +520,12 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
         static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
     top.openCount = 0;
     --m_stackTop;
+#if defined( TRACY_ENABLE )
+    const SkullbonezCore::Runtime::DevelopmentTools::TracyZoneToken tracyToken{ tracyZoneId,
+                                                                                tracyZoneActive,
+                                                                                tracyZoneConnectionId };
+    SKORE_TRACY_END_OWNER_ZONE( tracyToken );
+#endif
     if ( emitCpuPlatformProfiler && cpuPlatformOpen )
     {
         PlatformProfiler::CpuEnd();
@@ -933,6 +983,60 @@ void Profiler::FrameEnd()
                 worker.spanWrittenThisFrame ? static_cast<float>( worker.lastEndSecondsThisFrame * 1000.0 ) : 0.0f;
         }
     }
+
+#if defined( TRACY_ENABLE )
+    if ( SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
+    {
+        // Why: fixed snapshots already computed for the legacy profiler are
+        // the cheapest trustworthy capacity facts. No-viewer runs skip these
+        // copies, including the renderer memory snapshot.
+        double workerCoreMs = 0.0;
+        int workerJobs = 0;
+        for ( int index = 0; index < m_workerCoreSampleCount; ++index )
+        {
+            workerCoreMs += (std::max)( 0.0f, m_workerCoreSamples[index].coreMs );
+            workerJobs += (std::max)( 0, m_workerCoreSamples[index].jobCount );
+        }
+        double frameMs = 0.0;
+        for ( int index = 0; index < m_markerCount; ++index )
+        {
+            if ( m_markers[index].hash == kFrameHash )
+            {
+                frameMs = m_markers[index].lastFrameMs;
+                break;
+            }
+        }
+        const double workerUtilization =
+            frameMs > 0.0 && m_workerCoreSampleCount > 0
+                ? (std::min)( 100.0, workerCoreMs * 100.0 / ( frameMs * m_workerCoreSampleCount ) )
+                : 0.0;
+        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/ActiveWorkers", m_workerCoreSampleCount );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/Jobs", workerJobs );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/CoreMilliseconds", workerCoreMs );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Workers/UtilizationPercent", workerUtilization );
+        for ( int index = 0; index < m_counterCount; ++index )
+        {
+            SKORE_TRACY_PLOT_VALUE( m_counters[index].name, m_counters[index].lastFrameValue );
+        }
+        if ( m_renderDiagnostics )
+        {
+            const RenderMemoryStats memory = m_renderDiagnostics->GetRenderMemoryStats();
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/DrawCalls", m_renderDiagnostics->GetFrameDrawCallCount() );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadUsedBytes", memory.uploadUsedBytes );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadPeakBytes", memory.uploadPeakBytes );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/RTVDescriptorsUsed", memory.rtvDescriptorsUsed );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/DSVDescriptorsUsed", memory.dsvDescriptorsUsed );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsUsed", memory.srvStaticDescriptorsUsed );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsHighWater",
+                                    memory.srvStaticDescriptorsHighWater );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsUsed",
+                                    memory.srvTransientDescriptorsUsedThisFrame );
+            SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak",
+                                    memory.srvTransientDescriptorsPeakThisRun );
+        }
+        SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
+    }
+#endif
 
     if ( refreshAverages )
     {

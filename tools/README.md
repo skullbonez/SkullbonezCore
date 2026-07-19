@@ -28,7 +28,7 @@ validation.
 | `validate_shaders.bat` | Shader stage, cbuffer uniform, and resource-slot contract drift helper | ~depends |
 | `validate_project_filters.bat` | Visual Studio project/filter drift plus transitive JSON cold-boundary fence | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
-| `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
+| `validate_ui_stress.bat` | Deterministic Legacy plus ImGui editor stress matrix with exclusive hot swaps, scene/replay churn, resize/DPI captures, and DX12 checks | ~depends |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
 | `run_graphics_stress.bat` | General DX12 graphics stress fuzzer with scene/settings churn and memory telemetry | bounded or overnight |
 | `validate_physics.bat` | Standalone physics API smoke plus core physics, collision, solver, and rigid body baseline | 2 exe launches |
@@ -173,7 +173,7 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
-| `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
+| `validate_ui_stress.bat` | Run the Legacy UI backdrop sweep, then an ImGui editor matrix covering exclusive hot swaps, exact scene transition, typed replay scrub, panel/layout churn, minimum/default/ultrawide captures, descriptor bounds, logs, and DX12 validation |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
 | `run_graphics_stress.bat [minutes\|overnight] [seed] [actions] [sceneInterval] [memoryInterval]` | General DX12 graphics stress runner; writes stdout, stderr, CSV, and JSON memory artifacts under `TestOutput\graphics_stress` |
 | `validate_dx12_renderer.bat` | Build or reuse Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |

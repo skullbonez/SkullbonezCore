@@ -63,6 +63,7 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <Import Project="SkoreDevelopmentThirdParty.props" Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Profile'" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>16.0.31025.104</_ProjectFileVersion>
@@ -252,6 +253,9 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
@@ -263,6 +267,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\CaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Editor\EditorCommandHistory.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RenderDefaultsStore.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntime.cpp" />

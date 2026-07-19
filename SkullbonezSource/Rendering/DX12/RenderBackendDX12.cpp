@@ -117,6 +117,7 @@ Related:
 #include "Dx12RenderGraphExecutor.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
+#include "../../Runtime/DevelopmentTools/TracyClientOwner.h"
 #include "../../Core/FatalError.h"
 #include <cstdio>
 #include <algorithm>
@@ -186,6 +187,9 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
 RenderBackendDX12::RenderBackendDX12()
     : m_shaderDevelopment( m_pipelineOwner, m_textureOwner, m_geometryOwner ),
       m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+      m_imguiRenderer( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_pipelineOwner, m_textureOwner ),
+#endif
       m_graphTransientPool( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner )
 {
 }
@@ -918,6 +922,16 @@ void RenderBackendDX12::Shutdown()
     // Lifetime: the concrete owners release their registries and compiled
     // pipelines only after the terminal GPU drain above proves no command list
     // can still reference them.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    if ( m_imguiRenderer.IsInitialized() )
+    {
+        // Lane F: only the ImGui context owner can safely invoke the vendor
+        // shutdown API. Reaching device teardown still bound would release
+        // descriptor/device storage before its context-owned resources.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 shutdown reached descriptor teardown with the ImGui renderer still bound." );
+    }
+#endif
     m_geometryOwner.Shutdown();
     m_shaderDevelopment.ResetAfterShutdown();
     m_textureOwner.Shutdown();
@@ -942,6 +956,7 @@ void RenderBackendDX12::Shutdown()
 
 SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
 {
+    SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/Present", ::HashStr( "Frame/DX12/Present" ) );
     SkullbonezCore::Core::SbResult stateResult = m_frameOwner.EnsureOpen();
     if ( !stateResult.ok )
     {
@@ -966,7 +981,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // submitted to the GPU. No more commands can be recorded until Reset is called.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-close
     m_frameOwner.AssertProfilerClosed( "Present" );
-    stateResult = m_frameOwner.CommitClose( CommandList()->Close(), "Present command list Close" );
+    {
+        SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/CommandRecording/Close",
+                                       ::HashStr( "Frame/DX12/CommandRecording/Close" ) );
+        stateResult = m_frameOwner.CommitClose( CommandList()->Close(), "Present command list Close" );
+    }
     if ( !stateResult.ok )
     {
         return stateResult;
@@ -987,7 +1006,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     const UINT syncInterval = m_renderDevice.VsyncEnabled() ? 1u : 0u;
     const UINT presentFlags =
         ( !m_renderDevice.VsyncEnabled() && m_renderDevice.AllowTearing() ) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
-    const HRESULT presentResult = SwapChain()->Present( syncInterval, presentFlags );
+    HRESULT presentResult = S_OK;
+    {
+        SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/SwapChainPresent", ::HashStr( "Frame/DX12/SwapChainPresent" ) );
+        presentResult = SwapChain()->Present( syncInterval, presentFlags );
+    }
     if ( IsDx12DeviceLostResult( presentResult ) )
     {
         m_renderDevice.ReportDeviceLost( "Present", presentResult );

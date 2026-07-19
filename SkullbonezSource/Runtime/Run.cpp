@@ -177,6 +177,10 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.frameCountOverride = (std::max)( 1, launch.frameCountOverride );
     }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    target.developmentUiMode = launch.developmentUiMode;
+    target.developmentUiModeExplicit = launch.developmentUiModeExplicit;
+#endif
 }
 
 
@@ -276,6 +280,21 @@ Run::Run( Window& window,
                   m_sceneController.State() )
 {
     const SkullbonezCore::Core::EngineConfig& cfg = m_config;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    const SkullbonezCore::Core::SbResult imguiStartResult =
+        m_imguiEditor.Start( m_window.NativeWindowHandle(), m_renderBackendView.developmentUiRenderer );
+    if ( !imguiStartResult.ok )
+    {
+        m_applicationExit.RequestOwnedFailure( imguiStartResult );
+    }
+    else
+    {
+        // Lifetime: Window forwards only native messages and retains no ImGui
+        // context/resource authority. Run removes this direct borrow before
+        // destroying the editor owner below.
+        m_window.BindDevelopmentUiInput( m_imguiEditor );
+    }
+#endif
     m_diagnosticsRuntime.BindProfiler( profiler );
     m_sceneController.Scene().Physics().BindProfiler( profiler );
     m_sceneController.Scene().Cameras().ApplyMovementSettings( BuildCameraMovementSettings( cfg ) );
@@ -352,6 +371,13 @@ Run::~Run()
                   releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
                   releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
     }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Lifetime: the preceding release path proved all submitted frames complete.
+    // Destroy vendor GPU objects and return its descriptor rows while both the
+    // ImGui context and concrete DX12 owners still exist.
+    m_window.UnbindDevelopmentUiInput( m_imguiEditor );
+    m_imguiEditor.Shutdown();
+#endif
 }
 
 
@@ -369,6 +395,9 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
                               m_renderer,
                               m_sceneController.Scene().Physics(),
                               m_contactAudio );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    ApplyDevelopmentUiMode();
+#endif
     if ( m_validationHarness->ConfigureStartup( overrides, m_launchOptions ) )
     {
         m_launchOptions.interactiveSceneRun = true;
@@ -629,7 +658,52 @@ void Run::Initialise()
         return;
     }
     m_skipExecute = replayStartup.skipExecute;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Scene-authored legacy window defaults run during load. Reapply the
+    // selected surface so an inactive implementation cannot become a second input owner.
+    ApplyDevelopmentUiMode();
+#endif
 }
+
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+void Run::ApplyDevelopmentUiMode()
+{
+    // Initialize once from CLI, then preserve an explicit hot swap across
+    // scene/replay loads rather than treating scene defaults as UI authority.
+    m_imguiEditor.InitializeSurfaceSelection( m_launchOptions.developmentUiMode );
+    if ( !m_launchOptions.developmentUiModeExplicit && !m_imguiEditor.HasActivatedSurfaceSelection() )
+    {
+        // Invariant: an omitted selector chooses the Legacy implementation but
+        // preserves the scene-authored Legacy visibility default. This keeps
+        // ordinary launches and capture baselines stable while ImGui stays dormant.
+        m_imguiEditor.SetVisible( false );
+        return;
+    }
+    SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
+}
+
+void Run::SelectDevelopmentUiSurface( DevelopmentUiMode surface )
+{
+    // Invariant: deactivate the source before activating the target. The two
+    // implementations coexist in the build but never own focus in one instant.
+    if ( DevelopmentUiModeShowsLegacy( surface ) )
+    {
+        m_imguiEditor.SelectSurface( DevelopmentUiMode::Legacy );
+        if ( !m_operatorUi->IsVisible() )
+        {
+            m_operatorUi->SetVisible( true, 0.0 );
+        }
+        return;
+    }
+
+    if ( m_operatorUi->IsVisible() )
+    {
+        m_operatorUi->SetVisible( false, 0.0 );
+    }
+    m_imguiEditor.SelectSurface( DevelopmentUiMode::ImGui );
+}
+#endif
 
 
 const SkullbonezCore::Core::SbResult& Run::LastSceneLoadResult() const

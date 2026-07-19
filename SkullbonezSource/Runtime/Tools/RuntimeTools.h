@@ -3,6 +3,10 @@ File: SkullbonezSource/Runtime/Tools/RuntimeTools.h
 Purpose:
   Owns transient runtime tool state while tool behavior moves out of Run.
 
+Summary:
+  RuntimeTools groups bounded editor, launcher, pickup, replay, and overlay
+  tool state and applies their commands through explicitly borrowed owners.
+
 Mental model:
   RuntimeTools owns tool payload and render feedback instead of storing those
   values directly on Run. RuntimeInteractionController alone owns which
@@ -787,6 +791,7 @@ class RuntimeTools
     void RecordEditorPlacementHistory( SceneWorld& world, int modelCountBefore, int modelCountAfter );
     bool UndoEditorCommand( SceneWorld& world, RunSceneState& scene );
     bool RedoEditorCommand( SceneWorld& world, RunSceneState& scene );
+    bool DuplicateEditorSelection( SceneWorld& world, RunSceneState& scene );
     bool DeleteEditorSelection( SceneWorld& world, RunSceneState& scene );
     void ClearEditorHistory();
     bool PrepareEditorGizmoGesture( bool inspectGizmoActive,

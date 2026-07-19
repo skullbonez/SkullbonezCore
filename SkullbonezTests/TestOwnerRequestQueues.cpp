@@ -1,17 +1,24 @@
 /*
 File: TestOwnerRequestQueues.cpp
 Purpose:
-  Verifies fixed scene, capture, and render-default owner request contracts.
+  Verifies fixed scene, capture, render-default, and operator-editor request contracts.
 
 Summary:
   Each owner accepts only its domain intent, keeps FIFO order, and exposes a
-  fixed capacity. Invalid bounded text is rejected before it consumes storage.
+  fixed capacity. Invalid bounded text or editor payloads are rejected before
+  they consume storage, and duplicate frontend intent projects only once.
 
 Glossary:
   FIFO (First In, First Out): Requests drain in submission order.
   Wire code: Explicit serialized replay value independent of C++ enum ordinals.
   Readback result: Recoverable capture owner/message returned by the renderer
     after it attempts to copy the backbuffer into CPU-visible bytes.
+  Editor projection: Conversion of an arbitrated common action into the
+    established narrow runtime-owner command packet.
+  Layout envelope: Responsive pixel allocation that drives stable ImGui dock
+    splits without requiring a vendor context in this test executable.
+  Preference record: Fixed benign editor state that round-trips independently
+    of authored scenes and resets stale layout/panel identity during migration.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -19,16 +26,26 @@ Invariants:
   - Replay owner codes are compatibility values and must not be renumbered.
   - Render-default saves reject config versions newer than the engine-owned
     schema before rewriting any bytes.
+  - Shared editor views fingerprint semantic fields rather than object padding.
+  - The versioned editor topology is identical at minimum, 16:9, and ultrawide sizes.
+  - Compact causality reads only a bounded neighborhood of replay-owned rows and
+    reports empty, stale, truncated, and capacity-limited states separately.
+  - Preference migration may retain bounded filters but restores the current
+    panel mask and topology fingerprint.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
   - SkullbonezSource/Runtime/Scene/SceneRequestQueue.h
   - SkullbonezSource/Runtime/RenderDefaultsStore.h
+  - SkullbonezSource/UI/OperatorEditorExchange.h
+  - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/CaptureController.h"
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRequestQueue.h"
@@ -36,12 +53,17 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
 #include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
+#include "../SkullbonezSource/Physics/PhysicsDebugData.h"
+#include "../SkullbonezSource/UI/UICommands.h"
 
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <string>
+#include <type_traits>
 
 using namespace SkullbonezCore::Runtime;
 
@@ -595,4 +617,795 @@ TEST_CASE( "Replay owner event codes are explicit compatibility values" )
     CHECK( static_cast<int32_t>( ReplayOwnerEventCode::CaptureScreenshot ) == 2001 );
     CHECK( static_cast<int32_t>( ReplayOwnerEventCode::RenderSaveOrdinaryDefaults ) == 3001 );
     CHECK( static_cast<int32_t>( ReplayOwnerEventCode::RenderSaveCinematicDefaults ) == 3002 );
+}
+
+TEST_CASE( "Operator editor queues coalesce identical frontend intent before projection" )
+{
+    using namespace SkullbonezCore::UI;
+    static_assert( std::is_trivially_copyable_v<OperatorEditorCommandQueues> );
+    static_assert( OperatorEditorSceneCommandQueue::capacity == 8u );
+    static_assert( OperatorEditorPropertyCommandQueue::capacity == 24u );
+    static_assert( OperatorEditorRenderingCommandQueue::capacity == 8u );
+    static_assert( OperatorEditorAudioCommandQueue::capacity == 4u );
+    static_assert( OperatorEditorDiagnosticsCommandQueue::capacity == 8u );
+    static_assert( OperatorEditorReplayCommandQueue::capacity == 8u );
+    static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
+
+    InGameUICommands legacy;
+    legacy.scene.resetScene = true;
+    legacy.sceneOptions.requestedTimeScale = 0.5f;
+    legacy.renderer.toggleVsync = true;
+    legacy.replayMemory.requestPolicy = true;
+    legacy.replayMemory.requestedPresetIndex = 2;
+    legacy.replayMemory.requestedRetentionSeconds = 45;
+    legacy.replayMemory.requestedBudgetMiB = 96;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK_FALSE( legacy.scene.resetScene );
+    CHECK( legacy.sceneOptions.requestedTimeScale < 0.0f );
+    CHECK_FALSE( legacy.renderer.toggleVsync );
+    CHECK_FALSE( legacy.replayMemory.requestPolicy );
+
+    OperatorEditorCommandQueues secondary;
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.scene, { OperatorEditorSceneCommandType::ResetCurrentScene, -1 } ).ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.property, { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+            .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.rendering, { OperatorEditorRenderingCommandType::ToggleVsync } ).ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.replay, { OperatorEditorReplayCommandType::SetMemoryPolicy, 2, 45, 96 } )
+            .ok );
+
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
+    REQUIRE( merged.status.ok );
+    CHECK( merged.acceptedLegacyCommands == 4u );
+    CHECK( merged.acceptedSecondaryCommands == 0u );
+    CHECK( merged.coalescedDuplicateCommands == 4u );
+
+    REQUIRE( ProjectOperatorEditorCommands( merged.commands, legacy ).ok );
+    CHECK( legacy.scene.resetScene );
+    CHECK( legacy.sceneOptions.requestedTimeScale == doctest::Approx( 0.5f ) );
+    CHECK( legacy.renderer.toggleVsync );
+    CHECK( legacy.replayMemory.requestPolicy );
+    CHECK( legacy.replayMemory.requestedPresetIndex == 2 );
+    CHECK( legacy.replayMemory.requestedRetentionSeconds == 45 );
+    CHECK( legacy.replayMemory.requestedBudgetMiB == 96 );
+}
+
+TEST_CASE( "Operator editor queue rejects conflict and malformed surface values" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues legacy;
+    OperatorEditorCommandQueues secondary;
+    REQUIRE(
+        SubmitOperatorEditorCommand( legacy.property, { OperatorEditorPropertyCommandType::SetTimeScale, 1.0f } ).ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.property, { OperatorEditorPropertyCommandType::SetTimeScale, 0.5f } )
+            .ok );
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( legacy, secondary ).status.ok );
+
+    OperatorEditorPropertyCommandQueue invalidProperty;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     invalidProperty,
+                     { OperatorEditorPropertyCommandType::SetTimeScale, std::numeric_limits<float>::quiet_NaN() } )
+                     .ok );
+    CHECK( invalidProperty.count == 0u );
+
+    OperatorEditorReplayCommandQueue invalidReplay;
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalidReplay, { OperatorEditorReplayCommandType::SetMemoryPolicy, 0, 0, 64 } )
+            .ok );
+    CHECK( invalidReplay.count == 0u );
+
+    OperatorEditorCommandQueues corruptCount;
+    corruptCount.scene.count = OperatorEditorSceneCommandQueue::capacity + 1u;
+    InGameUICommands projected;
+    CHECK_FALSE( ProjectOperatorEditorCommands( corruptCount, projected ).ok );
+    CHECK_FALSE( projected.scene.resetScene );
+}
+
+TEST_CASE( "Operator editor replay transport validates values and arbitrates one owner action" )
+{
+    using namespace SkullbonezCore::UI;
+    const auto replayCommand =
+        []( OperatorEditorReplayCommandType type, float value = 0.0f, int rowIndex = -1, bool enabled = false )
+    {
+        OperatorEditorReplayCommand command;
+        command.type = type;
+        command.value = value;
+        command.rowIndex = rowIndex;
+        command.enabled = enabled;
+        return command;
+    };
+
+    OperatorEditorReplayCommandQueue valid;
+    CHECK( SubmitOperatorEditorCommand(
+               valid,
+               replayCommand( OperatorEditorReplayCommandType::SetRecordingEnabled, 0.0f, -1, true ) )
+               .ok );
+    CHECK( SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.5f ) ).ok );
+    CHECK( SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 2.0f ) )
+               .ok );
+    CHECK( SubmitOperatorEditorCommand( valid,
+                                        replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 3.0f ) )
+               .ok );
+    CHECK(
+        SubmitOperatorEditorCommand( valid, replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, 4 ) )
+            .ok );
+    CHECK( valid.count == 5u );
+
+    OperatorEditorReplayCommandQueue invalid;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     invalid,
+                     replayCommand( OperatorEditorReplayCommandType::Scrub, std::numeric_limits<float>::quiet_NaN() ) )
+                     .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalid, replayCommand( OperatorEditorReplayCommandType::SetRevealSpeed, 10.0f ) )
+            .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalid,
+                                     replayCommand( OperatorEditorReplayCommandType::SetPredictionHorizon, 0.0f ) )
+            .ok );
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( invalid,
+                                     replayCommand( OperatorEditorReplayCommandType::SelectCauseRow, 0.0f, -1 ) )
+            .ok );
+    CHECK( invalid.count == 0u );
+
+    OperatorEditorCommandQueues legacy;
+    OperatorEditorCommandQueues secondary;
+    REQUIRE(
+        SubmitOperatorEditorCommand( legacy.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
+            .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.25f ) )
+            .ok );
+    const OperatorEditorArbitrationResult duplicate = ArbitrateOperatorEditorCommands( legacy, secondary );
+    REQUIRE( duplicate.status.ok );
+    CHECK( duplicate.coalescedDuplicateCommands == 1u );
+
+    secondary = {};
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.replay, replayCommand( OperatorEditorReplayCommandType::Scrub, 0.75f ) )
+            .ok );
+    CHECK_FALSE( ArbitrateOperatorEditorCommands( legacy, secondary ).status.ok );
+}
+
+TEST_CASE( "Operator editor world previews stay local and commits project to established owners" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues preview;
+    REQUIRE( SubmitOperatorEditorCommand(
+                 preview.property,
+                 { OperatorEditorPropertyCommandType::SetWorldGravity, -4.5f, 0, OperatorEditorEditPhase::Preview } )
+                 .ok );
+    InGameUICommands projectedPreview;
+    REQUIRE( ProjectOperatorEditorCommands( preview, projectedPreview ).ok );
+    CHECK_FALSE( projectedPreview.water.requestWorldGravity );
+
+    OperatorEditorCommandQueues commits;
+    for ( const OperatorEditorPropertyCommand& command :
+          { OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTimeScale, 0.75f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::ToggleFixedStep },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetModelCount, 0.0f, 120 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSeed, 0.0f, 42 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSolverBallCount, 0.0f, 70 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSolverBoxCount, 0.0f, 50 },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldGravity, -12.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldFluidHeight, 8.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetWorldFluidDensity, 1.2f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::TogglePhysicsSleepPolicy },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTerrainFriction, 0.8f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetObjectFriction, 0.6f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetRollingFriction, 0.04f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::ToggleTornado },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoRadius, 140.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoHeight, 180.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoInward, 90.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoSwirl, 130.0f },
+            OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetTornadoLift, 65.0f } } )
+    {
+        REQUIRE( SubmitOperatorEditorCommand( commits.property, command ).ok );
+    }
+    REQUIRE( commits.property.count == 19u );
+    REQUIRE(
+        SubmitOperatorEditorCommand( commits.scene,
+                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::RequestDemoScene } )
+            .ok );
+
+    InGameUICommands projected;
+    REQUIRE( ProjectOperatorEditorCommands( commits, projected ).ok );
+    CHECK( projected.scene.requestDemoScene );
+    CHECK( projected.sceneOptions.requestedTimeScale == doctest::Approx( 0.75f ) );
+    CHECK( projected.sceneOptions.toggleFixedStep );
+    CHECK( projected.sceneOptions.requestedModelCount == 120 );
+    CHECK( projected.run.requestedSeed == 42 );
+    CHECK( projected.run.requestedSolverBallCount == 70 );
+    CHECK( projected.run.requestedSolverBoxCount == 50 );
+    CHECK( projected.water.requestWorldGravity );
+    CHECK( projected.water.requestedWorldGravity == doctest::Approx( -12.0f ) );
+    CHECK( projected.water.requestWorldFluidHeight );
+    CHECK( projected.water.requestedWorldFluidHeight == doctest::Approx( 8.0f ) );
+    CHECK( projected.water.requestWorldFluidDensity );
+    CHECK( projected.water.requestedWorldFluidDensity == doctest::Approx( 1.2f ) );
+    CHECK( projected.physics.togglePhysicsSleepPolicy );
+    CHECK( projected.physics.requestTerrainFrictionCoeff );
+    CHECK( projected.physics.requestedTerrainFrictionCoeff == doctest::Approx( 0.8f ) );
+    CHECK( projected.physics.requestObjectFrictionCoeff );
+    CHECK( projected.physics.requestedObjectFrictionCoeff == doctest::Approx( 0.6f ) );
+    CHECK( projected.physics.requestRollingFrictionCoeff );
+    CHECK( projected.physics.requestedRollingFrictionCoeff == doctest::Approx( 0.04f ) );
+    CHECK( projected.physics.toggleTornado );
+    CHECK( projected.physics.requestTornadoRadius );
+    CHECK( projected.physics.requestTornadoHeight );
+    CHECK( projected.physics.requestTornadoInward );
+    CHECK( projected.physics.requestTornadoSwirl );
+    CHECK( projected.physics.requestTornadoLift );
+
+    InGameUICommands legacy;
+    legacy.scene.requestDemoScene = true;
+    legacy.sceneOptions.requestedTimeScale = 0.75f;
+    legacy.sceneOptions.toggleFixedStep = true;
+    legacy.sceneOptions.requestedModelCount = 120;
+    legacy.run.requestedSeed = 42;
+    legacy.run.requestedSolverBallCount = 70;
+    legacy.run.requestedSolverBoxCount = 50;
+    legacy.water.requestWorldGravity = true;
+    legacy.water.requestedWorldGravity = -12.0f;
+    legacy.water.requestWorldFluidHeight = true;
+    legacy.water.requestedWorldFluidHeight = 8.0f;
+    legacy.water.requestWorldFluidDensity = true;
+    legacy.water.requestedWorldFluidDensity = 1.2f;
+    legacy.physics.togglePhysicsSleepPolicy = true;
+    legacy.physics.requestTerrainFrictionCoeff = true;
+    legacy.physics.requestedTerrainFrictionCoeff = 0.8f;
+    legacy.physics.requestObjectFrictionCoeff = true;
+    legacy.physics.requestedObjectFrictionCoeff = 0.6f;
+    legacy.physics.requestRollingFrictionCoeff = true;
+    legacy.physics.requestedRollingFrictionCoeff = 0.04f;
+    legacy.physics.toggleTornado = true;
+    legacy.physics.requestTornadoRadius = true;
+    legacy.physics.requestedTornadoRadius = 140.0f;
+    legacy.physics.requestTornadoHeight = true;
+    legacy.physics.requestedTornadoHeight = 180.0f;
+    legacy.physics.requestTornadoInward = true;
+    legacy.physics.requestedTornadoInward = 90.0f;
+    legacy.physics.requestTornadoSwirl = true;
+    legacy.physics.requestedTornadoSwirl = 130.0f;
+    legacy.physics.requestTornadoLift = true;
+    legacy.physics.requestedTornadoLift = 65.0f;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK_FALSE( legacy.scene.requestDemoScene );
+    CHECK_FALSE( legacy.sceneOptions.toggleFixedStep );
+    CHECK( legacy.sceneOptions.requestedModelCount == -1 );
+    CHECK( legacy.run.requestedSeed == -1 );
+    CHECK_FALSE( legacy.water.requestWorldFluidHeight );
+    CHECK_FALSE( legacy.physics.toggleTornado );
+    CHECK( legacy.operatorEditor.property.count == 19u );
+    const OperatorEditorArbitrationResult arbitration =
+        ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
+    REQUIRE( arbitration.status.ok );
+    CHECK( arbitration.acceptedLegacyCommands == 20u );
+    CHECK( arbitration.acceptedSecondaryCommands == 0u );
+    CHECK( arbitration.coalescedDuplicateCommands == 20u );
+
+    OperatorEditorPropertyCommandQueue invalid;
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     invalid,
+                     OperatorEditorPropertyCommand{ OperatorEditorPropertyCommandType::SetSeed, 0.0f, 0 } )
+                     .ok );
+}
+
+TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorFrameView first;
+    const char* sceneOptions[] = { "varied", "terrain" };
+    first.scene.sceneName = "SkullbonezData/scenes/varied.scene.json";
+    first.scene.sceneOptions = sceneOptions;
+    first.scene.currentSceneIndex = 0;
+    first.scene.sceneCount = 2;
+    first.scene.currentFrame = 42;
+    first.scene.modelCount = 200;
+    first.scene.timeScale = 0.75f;
+    first.scene.canSaveCurrentScene = true;
+    first.scene.dirty = true;
+    first.property = { -9.81f, 4.0f, 998.0f };
+    first.rendering.vsyncEnabled = true;
+    first.rendering.shadowsEnabled = true;
+    first.rendering.presentationInterpolation = true;
+    first.rendering.presentationAlpha = 0.5f;
+    first.viewport = { "Inspect", "translate", false };
+    first.replay = { 1, 30, 64, 30, 20, false, true };
+    first.surfaces = { true, true };
+    first.tools = { true, true, false, true, false, true, 3, 2 };
+    first.hierarchy.rowCount = 1u;
+    first.hierarchy.totalRowCount = 1u;
+    first.hierarchy.selectedSceneObjectId = 91u;
+    first.hierarchy.rows[0] = { "Crate", 91u, 91u, 0, true, true, false, true };
+    first.assets = { 2, 37, true };
+    const OperatorEditorFrameView same = first;
+    CHECK( FingerprintOperatorEditorFrameView( first ) == FingerprintOperatorEditorFrameView( same ) );
+
+    OperatorEditorFrameView changed = first;
+    changed.replay.solverRetentionSeconds = 21;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.hierarchy.rows[0].locked = true;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.viewport.gizmoModeLabel = "rotate";
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.world.tornadoRadius = 151.0f;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.inspector.selectionState = OperatorEditorInspectorSelectionState::Single;
+    changed.inspector.sceneObjectId = 91u;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.rendering.cinematicParameters[static_cast<int>( UICinematicParam::Exposure )] = 1.25f;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.audio.globalParameters[static_cast<int>( UISoundParam::MasterGain )] = 0.75f;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+
+    changed = first;
+    changed.diagnostics.audioEventsSeen = 9u;
+    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
+}
+
+TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical owner projection" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues preview;
+    REQUIRE( SubmitOperatorEditorCommand( preview.rendering,
+                                          { OperatorEditorRenderingCommandType::SetCinematicParameter,
+                                            static_cast<int>( UICinematicParam::Exposure ),
+                                            1.4f,
+                                            OperatorEditorEditPhase::Preview } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( preview.audio,
+                                          { OperatorEditorAudioCommandType::SetGlobalParameter,
+                                            static_cast<int>( UISoundParam::MasterGain ),
+                                            -1,
+                                            -1,
+                                            -1,
+                                            0.8f,
+                                            OperatorEditorEditPhase::Preview } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( preview.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::SetPhysicsDebugAlpha,
+                                            0u,
+                                            0,
+                                            0.5f,
+                                            OperatorEditorEditPhase::Preview } )
+                 .ok );
+    InGameUICommands previewPacket;
+    REQUIRE( ProjectOperatorEditorCommands( preview, previewPacket ).ok );
+    CHECK( previewPacket.cinematic.requestedParam == UICinematicParam::None );
+    CHECK( previewPacket.sound.requestedParam == UISoundParam::None );
+    CHECK( previewPacket.physics.requestedPhysicsDebugAlpha < 0.0f );
+
+    OperatorEditorCommandQueues recipeCommit;
+    REQUIRE( SubmitOperatorEditorCommand( recipeCommit.audio,
+                                          { OperatorEditorAudioCommandType::SetRecipeParameter,
+                                            static_cast<int>( UISoundParam::SetBaseGain ),
+                                            2,
+                                            -1,
+                                            -1,
+                                            1.25f } )
+                 .ok );
+    InGameUICommands recipePacket;
+    REQUIRE( ProjectOperatorEditorCommands( recipeCommit, recipePacket ).ok );
+    CHECK( recipePacket.sound.requestedParam == UISoundParam::SetBaseGain );
+    CHECK( recipePacket.sound.requestedSetIndex == 2 );
+    CHECK( recipePacket.sound.requestedValue == doctest::Approx( 1.25f ) );
+
+    OperatorEditorCommandQueues commits;
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                          { OperatorEditorRenderingCommandType::SetOrdinaryParameter,
+                                            static_cast<int>( UIRenderParam::WaterFresnel ),
+                                            0.04f } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                          { OperatorEditorRenderingCommandType::SetCinematicParameter,
+                                            static_cast<int>( UICinematicParam::BloomStrength ),
+                                            0.6f } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
+                                          { OperatorEditorRenderingCommandType::ToggleCinematicFeature,
+                                            static_cast<int>( UICinematicFeature::Bloom ) } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.rendering, { OperatorEditorRenderingCommandType::ToggleWaterFreeze } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.audio,
+                                          { OperatorEditorAudioCommandType::SetBandParameter,
+                                            static_cast<int>( UISoundBandParam::PitchMax ),
+                                            2,
+                                            1,
+                                            -1,
+                                            1.1f } )
+                 .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( commits.audio, { OperatorEditorAudioCommandType::PreviewSample, -1, -1, -1, 7 } )
+            .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
+                                            SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
+                                          { OperatorEditorDiagnosticsCommandType::SetWorkerThreads, 0u, 4 } )
+                 .ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 commits.diagnostics,
+                 { OperatorEditorDiagnosticsCommandType::SetRayCastImpulseStrength, 0u, 0, 125.0f } )
+                 .ok );
+
+    InGameUICommands projected;
+    REQUIRE( ProjectOperatorEditorCommands( commits, projected ).ok );
+    CHECK( projected.renderTuning.requestedParam == UIRenderParam::WaterFresnel );
+    CHECK( projected.renderTuning.requestedValue == doctest::Approx( 0.04f ) );
+    CHECK( projected.cinematic.requestedParam == UICinematicParam::BloomStrength );
+    CHECK( projected.cinematic.requestedValue == doctest::Approx( 0.6f ) );
+    CHECK( projected.cinematic.requestedFeature == UICinematicFeature::Bloom );
+    CHECK( projected.sceneOptions.toggleWaterFreeze );
+    CHECK( projected.sound.requestedBandParam == UISoundBandParam::PitchMax );
+    CHECK( projected.sound.requestedBandIndex == 1 );
+    CHECK( projected.sound.previewSampleIndex == 7 );
+    CHECK( projected.physics.togglePhysicsDebugFlags == SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS );
+    CHECK( projected.profiler.requestedWorkerThreads == 4 );
+    CHECK( projected.physics.requestRayCastImpulseStrength );
+    CHECK( projected.physics.requestedRayCastImpulseStrength == doctest::Approx( 125.0f ) );
+
+    InGameUICommands legacy;
+    legacy.renderTuning.requestedParam = UIRenderParam::WaterFresnel;
+    legacy.renderTuning.requestedValue = 0.04f;
+    legacy.cinematic.requestedParam = UICinematicParam::BloomStrength;
+    legacy.cinematic.requestedValue = 0.6f;
+    legacy.cinematic.requestedFeature = UICinematicFeature::Bloom;
+    legacy.sceneOptions.toggleWaterFreeze = true;
+    legacy.sound.requestedSetIndex = 2;
+    legacy.sound.requestedBandIndex = 1;
+    legacy.sound.requestedBandParam = UISoundBandParam::PitchMax;
+    legacy.sound.requestedValue = 1.1f;
+    legacy.sound.previewSampleIndex = 7;
+    legacy.physics.togglePhysicsDebugFlags = SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
+    legacy.profiler.requestedWorkerThreads = 4;
+    legacy.physics.requestRayCastImpulseStrength = true;
+    legacy.physics.requestedRayCastImpulseStrength = 125.0f;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK( legacy.renderTuning.requestedParam == UIRenderParam::None );
+    CHECK( legacy.cinematic.requestedParam == UICinematicParam::None );
+    CHECK( legacy.sound.requestedBandParam == UISoundBandParam::None );
+    CHECK( legacy.physics.togglePhysicsDebugFlags == 0u );
+    CHECK( legacy.profiler.requestedWorkerThreads == -2 );
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
+    REQUIRE( merged.status.ok );
+    CHECK( merged.acceptedSecondaryCommands == 0u );
+    CHECK( merged.coalescedDuplicateCommands == 9u );
+
+    OperatorEditorAudioCommandQueue malformedAudio;
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( malformedAudio, { OperatorEditorAudioCommandType::SetBandParameter, 99, 0, 0 } )
+            .ok );
+    OperatorEditorDiagnosticsCommandQueue malformedDiagnostics;
+    CHECK_FALSE( SubmitOperatorEditorCommand( malformedDiagnostics,
+                                              { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 0u } )
+                     .ok );
+}
+
+TEST_CASE( "Operator editor scene hierarchy and asset intents project through typed owner packets" )
+{
+    using namespace SkullbonezCore::UI;
+    OperatorEditorCommandQueues secondary;
+
+    OperatorEditorSceneCommand create;
+    create.type = OperatorEditorSceneCommandType::CreateScene;
+    strcpy_s( create.sceneName, "typed-editor-scene" );
+    REQUIRE( SubmitOperatorEditorCommand( secondary.scene, create ).ok );
+    REQUIRE( SubmitOperatorEditorCommand(
+                 secondary.scene,
+                 OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SetCurrentSceneIndex, 4 } )
+                 .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.scene,
+                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::SaveCurrentScene } )
+            .ok );
+    REQUIRE(
+        SubmitOperatorEditorCommand( secondary.scene,
+                                     OperatorEditorSceneCommand{ OperatorEditorSceneCommandType::ResetSceneDefaults } )
+            .ok );
+
+    for ( const OperatorEditorToolCommand& command :
+          { OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 91u },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityVisible, 91u, 0, false },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetEntityLocked, 91u, 0, true },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 30 },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlaceStatic, 0u, 0, true },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::ToggleTerrainAlign },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::DuplicateSelection },
+            OperatorEditorToolCommand{ OperatorEditorToolCommandType::DeleteSelection } } )
+    {
+        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, command ).ok );
+    }
+
+    InGameUICommands projected;
+    REQUIRE( ProjectOperatorEditorCommands( secondary, projected ).ok );
+    CHECK( projected.scene.createScene );
+    CHECK( std::strcmp( projected.scene.requestedSceneName, "typed-editor-scene" ) == 0 );
+    CHECK( projected.scene.requestedSceneIndex == 4 );
+    CHECK( projected.scene.saveSceneDefaults );
+    CHECK( projected.scene.resetSceneDefaults );
+    CHECK( projected.editor.requestSelectSceneObject );
+    CHECK( projected.editor.requestedSceneObjectId == 91u );
+    CHECK( projected.editor.requestSetEntityVisible );
+    CHECK_FALSE( projected.editor.requestedEntityVisible );
+    CHECK( projected.editor.visibilitySceneObjectId == 91u );
+    CHECK( projected.editor.requestSetEntityLocked );
+    CHECK( projected.editor.requestedEntityLocked );
+    CHECK( projected.editor.lockSceneObjectId == 91u );
+    CHECK( projected.editor.requestedObjectType == 30 );
+    CHECK( projected.editor.enterPlacementMode );
+    CHECK( projected.editor.requestPlaceStatic );
+    CHECK( projected.editor.requestedPlaceStatic );
+    CHECK( projected.editor.toggleTerrainAlign );
+    CHECK( projected.editor.requestDuplicateSelection );
+    CHECK( projected.editor.requestDeleteSelection );
+
+    OperatorEditorToolCommandQueue malformed;
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( malformed,
+                                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SelectSceneObject, 0u } )
+            .ok );
+    CHECK_FALSE( SubmitOperatorEditorCommand(
+                     malformed,
+                     OperatorEditorToolCommand{ OperatorEditorToolCommandType::SetPlacementObjectType, 0u, 37 } )
+                     .ok );
+}
+
+TEST_CASE( "Operator editor tool commands coalesce and project into established owner packets" )
+{
+    using namespace SkullbonezCore::UI;
+    InGameUICommands legacy;
+    legacy.editor.toggleEditorMode = true;
+    legacy.editor.togglePlacementMode = true;
+    legacy.editor.requestUndo = true;
+    legacy.editor.requestRedo = true;
+    legacy.scene.toggleCrossScenePause = true;
+    legacy.scene.requestSingleStep = true;
+    REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
+    CHECK( legacy.operatorEditor.tools.count == 6u );
+
+    OperatorEditorCommandQueues secondary;
+    for ( const OperatorEditorToolCommandType type : { OperatorEditorToolCommandType::ToggleEditorMode,
+                                                       OperatorEditorToolCommandType::TogglePlacementMode,
+                                                       OperatorEditorToolCommandType::Undo,
+                                                       OperatorEditorToolCommandType::Redo,
+                                                       OperatorEditorToolCommandType::ToggleCrossScenePause,
+                                                       OperatorEditorToolCommandType::StepPausedScene } )
+    {
+        REQUIRE( SubmitOperatorEditorCommand( secondary.tools, OperatorEditorToolCommand{ type } ).ok );
+    }
+
+    const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, secondary );
+    REQUIRE( merged.status.ok );
+    CHECK( merged.acceptedLegacyCommands == 6u );
+    CHECK( merged.acceptedSecondaryCommands == 0u );
+    CHECK( merged.coalescedDuplicateCommands == 6u );
+    REQUIRE( ProjectOperatorEditorCommands( merged.commands, legacy ).ok );
+    CHECK( legacy.editor.toggleEditorMode );
+    CHECK( legacy.editor.togglePlacementMode );
+    CHECK( legacy.editor.requestUndo );
+    CHECK( legacy.editor.requestRedo );
+    CHECK( legacy.scene.toggleCrossScenePause );
+    CHECK( legacy.scene.requestSingleStep );
+
+    OperatorEditorToolCommandQueue malformed;
+    CHECK_FALSE(
+        SubmitOperatorEditorCommand( malformed,
+                                     OperatorEditorToolCommand{ static_cast<OperatorEditorToolCommandType>( 255 ) } )
+            .ok );
+    CHECK( malformed.count == 0u );
+}
+
+TEST_CASE( "Editor dock envelope preserves viewport across supported aspect ratios" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+    const ImGuiEditorLayoutEnvelope minimum = ResolveImGuiEditorLayoutEnvelope( 1280, 640 );
+    const ImGuiEditorLayoutEnvelope widescreen = ResolveImGuiEditorLayoutEnvelope( 1920, 1000 );
+    const ImGuiEditorLayoutEnvelope ultrawide = ResolveImGuiEditorLayoutEnvelope( 3440, 1360 );
+
+    for ( const ImGuiEditorLayoutEnvelope& envelope : { minimum, widescreen, ultrawide } )
+    {
+        CHECK( envelope.editorLeftWidth + envelope.viewportWidth + envelope.utilityRightWidth ==
+               envelope.contentWidth );
+        CHECK( envelope.upperHeight + envelope.replayHeight + envelope.statusHeight == envelope.contentHeight );
+        CHECK( envelope.preservesCentralViewport );
+        CHECK( envelope.statusHeight >= 48 );
+        CHECK( envelope.replayHeight >= 112 );
+    }
+    CHECK( minimum.compactToolbarLabels );
+    CHECK_FALSE( widescreen.compactToolbarLabels );
+    CHECK( ultrawide.viewportWidth > widescreen.viewportWidth );
+    CHECK( ultrawide.editorLeftWidth == 420 );
+    CHECK( ultrawide.utilityRightWidth == 460 );
+    CHECK( FingerprintImGuiEditorDefaultTopology() == 9482475421528666861ull );
+    CHECK( std::strcmp( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR,
+                        "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
+                        "right:inspector,world,render-audio,diagnostics,causality" ) == 0 );
+}
+
+TEST_CASE( "Editor preferences round trip and recover stale layout identity" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+
+    ImGuiEditorPreferences preferences;
+    preferences.topologyFingerprint = FingerprintImGuiEditorDefaultTopology();
+    preferences.panelVisibilityMask =
+        IMGUI_EDITOR_DEFAULT_PANEL_MASK & ~ImGuiEditorPanelBit( ImGuiEditorPanelId::Diagnostics );
+    strcpy_s( preferences.sceneFilter, "stack" );
+    strcpy_s( preferences.hierarchyFilter, "crate" );
+    strcpy_s( preferences.assetFilter, "terrain" );
+
+    char serialized[IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY] = {};
+    const std::size_t bytes = SerializeImGuiEditorPreferences( preferences, serialized, sizeof( serialized ) );
+    REQUIRE( bytes > 0u );
+    const ImGuiEditorPreferenceParseResult roundTrip = ParseImGuiEditorPreferences( serialized, bytes );
+    REQUIRE( roundTrip.valid );
+    CHECK_FALSE( roundTrip.layoutResetRequired );
+    CHECK_FALSE( roundTrip.recoveredDefaults );
+    CHECK( roundTrip.preferences.panelVisibilityMask == preferences.panelVisibilityMask );
+    CHECK( std::strcmp( roundTrip.preferences.sceneFilter, "stack" ) == 0 );
+    CHECK( std::strcmp( roundTrip.preferences.hierarchyFilter, "crate" ) == 0 );
+    CHECK( std::strcmp( roundTrip.preferences.assetFilter, "terrain" ) == 0 );
+
+    constexpr const char* stale =
+        "schema=1\nlayout=1\ntopology=17\npanels=0\nscene_filter=keep\nhierarchy_filter=bounded\nasset_filter=text\n";
+    const ImGuiEditorPreferenceParseResult migrated = ParseImGuiEditorPreferences( stale, std::strlen( stale ) );
+    REQUIRE( migrated.valid );
+    CHECK( migrated.layoutResetRequired );
+    CHECK( migrated.recoveredDefaults );
+    CHECK( migrated.preferences.layoutVersion == IMGUI_EDITOR_LAYOUT_VERSION );
+    CHECK( migrated.preferences.topologyFingerprint == FingerprintImGuiEditorDefaultTopology() );
+    CHECK( migrated.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+    CHECK( std::strcmp( migrated.preferences.sceneFilter, "keep" ) == 0 );
+
+    constexpr const char* malformed = "schema=1\nlayout=2\ntopology=not-a-number\npanels=4294967295\n";
+    const ImGuiEditorPreferenceParseResult recovered =
+        ParseImGuiEditorPreferences( malformed, std::strlen( malformed ) );
+    CHECK_FALSE( recovered.valid );
+    CHECK( recovered.layoutResetRequired );
+    CHECK( recovered.recoveredDefaults );
+    CHECK( recovered.preferences.panelVisibilityMask == IMGUI_EDITOR_DEFAULT_PANEL_MASK );
+
+    ImGuiEditorPanelId panel = ImGuiEditorPanelId::Count;
+    CHECK( TryParseImGuiEditorPanel( "Replay", panel ) );
+    CHECK( panel == ImGuiEditorPanelId::Replay );
+    CHECK( TryParseImGuiEditorPanel( "Diag###SkoreDiagnostics", panel ) );
+    CHECK( panel == ImGuiEditorPanelId::Diagnostics );
+    CHECK_FALSE( TryParseImGuiEditorPanel( "Stale Panel", panel ) );
+}
+
+TEST_CASE( "Compact causality projection is bounded and exposes explicit edge states" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+    using namespace SkullbonezCore::Runtime::ReplayOverlay;
+
+    ReplayScrubberView scrubber;
+    ReplayPredictionPresentationView prediction;
+    RunReplayPathVisualizerState path;
+    RunReplayVelocityEditState velocity;
+    RunReplayCauseTreeState tree;
+    ReplayRecorderStats solverStats;
+    ReplayOverlayStateView replay{ scrubber, prediction, path, velocity, tree, solverStats };
+
+    ImGuiEditorCausalityContext context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::Empty );
+    CHECK( context.relevantLinkCount == 0u );
+
+    path.hasTarget = true;
+    path.targetId.value = 17u;
+    context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::CapacityLimited );
+
+    tree.rows.reserve( 32u );
+    tree.focusedId.value = 17u;
+    context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::Stale );
+
+    RunReplayCauseTreeRow root;
+    root.id.value = 7u;
+    strcpy_s( root.name, "Root crate" );
+    strcpy_s( root.detail, "retained root state" );
+    tree.rows.push_back( root );
+
+    RunReplayCauseTreeRow child;
+    child.id.value = 17u;
+    child.parentId.value = 7u;
+    child.firstFrame = 41u;
+    child.depth = 1;
+    strcpy_s( child.name, "Affected sphere" );
+    strcpy_s( child.detail, "first affected frame 41" );
+    tree.rows.push_back( child );
+    tree.selectedRow = 1;
+
+    ReplaySolverFrameSample selectedSolver;
+    selectedSolver.frameIndex = 42u;
+    replay.selectedSolver = &selectedSolver;
+    replay.prediction.enabled = true;
+    replay.prediction.building = true;
+    replay.prediction.targetId.value = 17u;
+
+    context = BuildImGuiEditorCausalityContext( replay );
+    REQUIRE( context.selectedObjectRow != nullptr );
+    REQUIRE( context.immediateCauseRow != nullptr );
+    CHECK( context.state == ImGuiEditorCausalityState::Ready );
+    CHECK( context.selectedObjectRow->id.value == 17u );
+    CHECK( context.immediateCauseRow->id.value == 7u );
+    CHECK( context.hasReplayTick );
+    CHECK( context.replayTick == 42u );
+    CHECK( context.predictionState == ImGuiEditorPredictionState::Building );
+
+    for ( int index = 0; index < 12; ++index )
+    {
+        RunReplayCauseTreeRow detail;
+        detail.kind = RunReplayCauseTreeRowKind::SolverRow;
+        detail.id.value = 17u;
+        detail.parentId.value = 7u;
+        detail.depth = 2;
+        sprintf_s( detail.name, "Solver row %d", index );
+        tree.rows.push_back( detail );
+    }
+    context = BuildImGuiEditorCausalityContext( replay );
+    CHECK( context.state == ImGuiEditorCausalityState::Truncated );
+    CHECK( context.relevantLinkCount == IMGUI_CAUSALITY_RELEVANT_LINK_CAPACITY );
+    CHECK( context.compactScanTruncated );
+    CHECK( context.totalRowCount == 14u );
+}
+
+TEST_CASE( "Game viewport policy letterboxes and maps physical client pixels" )
+{
+    using namespace SkullbonezCore::Runtime::DevelopmentTools;
+    const ImGuiGameViewportRect widePane =
+        ResolveImGuiGameViewportRect( 100.0f, 50.0f, 1000.0f, 500.0f, 800, 600, 1.5f );
+    REQUIRE( widePane.valid );
+    CHECK( widePane.letterboxed );
+    CHECK( widePane.imageMinX == doctest::Approx( 266.6667f ) );
+    CHECK( widePane.imageMinY == doctest::Approx( 50.0f ) );
+    CHECK( widePane.imageWidth == doctest::Approx( 666.6667f ) );
+    CHECK( widePane.imageHeight == doctest::Approx( 500.0f ) );
+    CHECK( widePane.dpiScale == doctest::Approx( 1.5f ) );
+
+    int sourceX = -1;
+    int sourceY = -1;
+    CHECK( MapImGuiGameViewportPoint( widePane, 600.0f, 300.0f, sourceX, sourceY ) );
+    CHECK( sourceX == 400 );
+    CHECK( sourceY == 300 );
+    CHECK_FALSE( MapImGuiGameViewportPoint( widePane, 120.0f, 300.0f, sourceX, sourceY ) );
+    CHECK( sourceX == 0 );
+    CHECK( sourceY == 0 );
+
+    const ImGuiGameViewportRect tallPane =
+        ResolveImGuiGameViewportRect( 10.0f, 20.0f, 500.0f, 900.0f, 1920, 1080, 2.0f );
+    REQUIRE( tallPane.valid );
+    CHECK( tallPane.letterboxed );
+    CHECK( tallPane.imageMinX == doctest::Approx( 10.0f ) );
+    CHECK( tallPane.imageMinY == doctest::Approx( 329.375f ) );
+    CHECK( tallPane.imageWidth == doctest::Approx( 500.0f ) );
+    CHECK( tallPane.imageHeight == doctest::Approx( 281.25f ) );
+    CHECK( MapImGuiGameViewportPoint( tallPane, 509.9f, 610.5f, sourceX, sourceY ) );
+    CHECK( sourceX == 1919 );
+    CHECK( sourceY == 1079 );
+
+    const ImGuiGameViewportRect invalid = ResolveImGuiGameViewportRect( 0.0f, 0.0f, 0.0f, 100.0f, 800, 600, 0.0f );
+    CHECK_FALSE( invalid.valid );
+    CHECK( invalid.dpiScale == doctest::Approx( 1.0f ) );
 }

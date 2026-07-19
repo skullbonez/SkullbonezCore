@@ -7,18 +7,21 @@ Summary:
   Scenes through 512 bodies may build pair forces on bounded worker chunks,
   then always reduce those values in the original serial order. Larger scenes
   bypass pair storage and execute the original exact nested-loop accumulation.
-  The same owner dispatches ordinary force application without retaining any
-  store, sleep, or remaining-time reference.
+  The same owner dispatches ordinary force application and integration over the
+  sleep owner's ascending awake list without retaining any borrowed reference.
 
 Glossary:
   Pair-build worker: Worker that computes disjoint pair slots without reducing.
   Reduction: Model-order addition/subtraction of retained pair forces.
   Receive predicate: Dynamic, positive-inverse-mass, awake body eligibility.
+  Awake slot: Work index mapped through the borrowed ascending body-index list.
 
 Invariants:
   - Float expressions and loop order are unchanged from the P2 implementation.
   - The pair table never represents more than 512 bodies (130,816 rows).
   - Apply-forces worker dispatch uses the same threshold, label, and hash.
+  - Worker slots map deterministically to ascending awake body indices; dormant
+    bodies do not enter ordinary force or integration dispatch.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.h
@@ -393,49 +396,55 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
 }
 
 void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
-                                     int modelCount,
+                                     std::span<const int> awakeBodyIndices,
                                      Threading::WorkerPool& workerPool,
                                      const Core::PhysicsExecutionConfig& execution ) const
 {
     PROFILE_BEGIN( context.profiler, "Frame/Physics/ApplyForces" );
+    const auto applyAwakeBody = [&]( int awakeSlot )
+    { context( awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] ); };
+    const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelApplyForces )
     {
         workerPool.ParallelForNoAlloc( 0,
-                                       modelCount,
-                                       context,
+                                       awakeBodyCount,
+                                       applyAwakeBody,
                                        PHYSICS_PARALLEL_MIN_BODIES,
                                        "Frame/Physics/ApplyForces/WorkerBodies",
                                        PHYSICS_APPLY_FORCES_WORKER_HASH );
     }
     else
     {
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
-            context( x );
+            applyAwakeBody( awakeSlot );
         }
     }
     PROFILE_END( context.profiler, "Frame/Physics/ApplyForces" );
 }
 
 void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext& context,
-                                            int modelCount,
+                                            std::span<const int> awakeBodyIndices,
                                             Threading::WorkerPool& workerPool,
                                             const Core::PhysicsExecutionConfig& execution ) const
 {
+    const auto integrateAwakeBody = [&]( int awakeSlot )
+    { context( awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] ); };
+    const int awakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
     if ( execution.parallel && execution.parallelIntegrate )
     {
         workerPool.ParallelForNoAlloc( 0,
-                                       modelCount,
-                                       context,
+                                       awakeBodyCount,
+                                       integrateAwakeBody,
                                        PHYSICS_PARALLEL_MIN_BODIES,
                                        "Frame/Physics/Integrate/WorkerBodies",
                                        PHYSICS_INTEGRATE_WORKER_HASH );
     }
     else
     {
-        for ( int x = 0; x < modelCount; ++x )
+        for ( int awakeSlot = 0; awakeSlot < awakeBodyCount; ++awakeSlot )
         {
-            context( x );
+            integrateAwakeBody( awakeSlot );
         }
     }
 }

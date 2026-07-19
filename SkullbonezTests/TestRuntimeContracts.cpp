@@ -2,7 +2,7 @@
 // File: SkullbonezTests/TestRuntimeContracts.cpp
 // Purpose:
 //   Exercises result values, logger concurrency, worker-task lifetime, and
-//   Lane F probes.
+//   Lane F probes, including disabled development-profiler compile contracts.
 //
 // Summary:
 //   Ordinary contracts run in doctest. Contracts that must abort launch this
@@ -14,11 +14,14 @@
 //   Lane F: Fatal-invariant error path that records diagnostics and terminates.
 //   Lane R: Recoverable result path that returns an owned error instead of
 //     terminating the engine.
+//   Disabled marker seam: Development-profiler macro that must discard its
+//     argument tokens when the vendor client is absent from the test build.
 //
 // Invariants:
 //   - Fatal child cases return normally only when the case name is unknown.
 //   - Blocking task tests release the worker before local state is destroyed.
 //   - Every threaded worker test shuts its pool down before local task state expires.
+//   - Disabled development-profiler macros never evaluate caller expressions.
 //
 // Related:
 //   - SkullbonezSource/Core/Log.h
@@ -34,6 +37,7 @@
 #include "../SkullbonezSource/Core/SbResult.h"
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h"
 #include "TestFatalCases.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -58,6 +62,26 @@ using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::LockOrderValidator;
 using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
+
+TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
+{
+    int evaluatedArguments = 0;
+    SKORE_TRACY_NAME_WORKER_THREAD( ++evaluatedArguments );
+    SKORE_TRACY_MARK_SUBMITTED_FRAME();
+    SKORE_TRACY_SCOPED_OWNER_ZONE( "Disabled", ++evaluatedArguments );
+    const uint32_t sourceHandle = SKORE_TRACY_REGISTER_OWNER_ZONE( "Disabled", ++evaluatedArguments );
+    const uint32_t zoneToken = SKORE_TRACY_BEGIN_OWNER_ZONE( ++evaluatedArguments );
+    SKORE_TRACY_END_OWNER_ZONE( ++evaluatedArguments );
+    SKORE_TRACY_PLOT_VALUE( "Disabled", ++evaluatedArguments );
+    const uint64_t allocationConnection =
+        SKORE_TRACY_RECORD_ALLOCATION( &evaluatedArguments, ++evaluatedArguments );
+    SKORE_TRACY_RECORD_FREE( &evaluatedArguments, ++evaluatedArguments );
+
+    CHECK( evaluatedArguments == 0 );
+    CHECK( sourceHandle == 0u );
+    CHECK( zoneToken == 0u );
+    CHECK( allocationConnection == 0u );
+}
 
 namespace
 {
@@ -241,10 +265,22 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         static SpatialGrid grid( 1.0f );
         grid.Clear();
-        for ( int cell = 0; cell <= SpatialGrid::MAX_BUCKETS; ++cell )
+        constexpr int persistentCells = SpatialGrid::MAX_BUCKETS / 2;
+        for ( int cell = 0; cell < persistentCells; ++cell )
         {
-            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+            grid.Insert( cell, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
         }
+        // Hazard: repeated Insert calls now move one persistent body. Fill the
+        // remaining legal cells through the bounded swept-overlay path, then
+        // request one genuinely new cell to exercise the Lane F table limit.
+        const Vector3 sweepStart( static_cast<float>( persistentCells ) + 0.25f, 0.25f, 0.25f );
+        grid.InsertSwept( persistentCells,
+                          sweepStart,
+                          Vector3( static_cast<float>( persistentCells - 1 ), 0.0f, 0.0f ),
+                          0.0f );
+        grid.Insert( persistentCells + 1,
+                     Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ),
+                     0.0f );
         return true;
     }
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )

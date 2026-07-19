@@ -13,6 +13,8 @@ Glossary:
   Fork-join: Pattern where the main thread splits work, workers run chunks, and
   the main thread waits before merging results.
   Fence: Synchronization primitive used to wait for all queued chunks.
+  Profiler thread label: Stable indexed worker name copied into development
+    profiling metadata once when a worker enters its loop.
   Lane F: Fatal invariant path used when bounded worker contracts cannot be
   preserved.
 
@@ -21,6 +23,8 @@ Invariants:
     validation can compare threaded and non-threaded behavior.
   - Worker callbacks obey the engine-wide no-exceptions policy; a returned
     callback completed normally, while invariant failures terminate in Lane F.
+  - Every persistent worker receives its stable profiler label before it waits
+    for the first job, so captures never depend on which task runs first.
 
 Related:
   - SkullbonezSource/Core/WorkerPool.h
@@ -30,6 +34,7 @@ Related:
 #include "WorkerPool.h"
 #include "FatalError.h"
 #include "Profiler.h"
+#include "../Runtime/DevelopmentTools/TracyClientOwner.h"
 
 #include <algorithm>
 #include <atomic>
@@ -332,6 +337,7 @@ void WorkerPool::WorkerLoop( int workerIndex )
 {
     g_isWorkerThread = true;
     g_workerThreadIndex = workerIndex;
+    SKORE_TRACY_NAME_WORKER_THREAD( workerIndex );
 
     while ( true )
     {

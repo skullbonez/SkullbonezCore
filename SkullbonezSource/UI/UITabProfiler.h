@@ -13,11 +13,15 @@ Glossary:
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
-  widget.
+    widget.
+  Profiler frame snapshot: Fixed per-frame values consumed by the profiler tab;
+    it never borrows live runtime or development-tool owners.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
-  constants.
+    constants.
+  - Development-only Tracy fields disappear from builds that do not compile
+    Tracy, preserving the existing release snapshot shape.
 
 Related:
   - SkullbonezSource/UI/UITabProfiler.cpp
@@ -109,6 +113,11 @@ struct FrameSnapshot
     WorkerCoreSampleSnapshot workerCoreSamples[MAX_WORKER_CORE_SAMPLES] = {};
     int workerCoreSampleCount = 0;
     DrawTraceSnapshot drawTrace;
+#if defined( TRACY_ENABLE )
+    bool tracyBuildEnabled = false;
+    bool tracyInitialized = false;
+    bool tracyViewerConnected = false;
+#endif
 };
 
 struct TimelineSegment

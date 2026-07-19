@@ -5,8 +5,9 @@ Purpose:
 
 Summary:
   PhysicsSleepController is the single owner of model-order sleep rows and all
-  algorithms that mutate them. It borrows body, contact, constraint, clock, and
-  diagnostics values only for synchronous fixed-step operations.
+  algorithms that mutate them, including the ascending dense awake index list.
+  It borrows body, contact, constraint, clock, and diagnostics values only for
+  synchronous fixed-step operations.
 
 Glossary:
   Sleep island: Connected contact/joint component deactivated as one unit.
@@ -15,6 +16,8 @@ Glossary:
   Visual island id: Persisted debug id shared by bodies that slept together.
   Scratch flags: Transient per-row bits reused by point-joint and explicit-wake
     traversals; they are neither replay state nor cross-stage authority.
+  Pending awake queue: Fixed-capacity worker publication rows folded into the
+    sorted owner list at sequencer barriers.
 
 Invariants:
   - All model-order rows are construction-reserved to scene capacity.
@@ -24,6 +27,8 @@ Invariants:
     may update a different bit in the same row concurrently.
   - No callback, host pointer, PhysicsWorld reference, or concrete sibling
     owner crosses this boundary.
+  - Parallel wake producers claim a body once through atomic sleep-state
+    transition; only the sequencer mutates the sorted awake list.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.cpp
@@ -32,12 +37,14 @@ Related:
 */
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <span>
 #include <utility>
 #include <vector>
 
 #include "../PhysicsDebugData.h"
+#include "../PhysicsFixedList.h"
 #include "../Ragdoll.h"
 #include "../SleepIslandSystem.h"
 #include "../PhysicsBodyStore.h"
@@ -77,6 +84,8 @@ class PhysicsNarrowphaseWakeAccess
     std::span<uint8_t> m_sleepCounter;
     std::span<int> m_sleepIslandVisualId;
     std::span<const uint8_t> m_underwaterSleepLocked;
+    std::span<int> m_pendingAwakeIndices;
+    int& m_pendingAwakeCount;
     int m_modelCount = 0;
     float m_dt = 0.0f;
 
@@ -90,6 +99,8 @@ class PhysicsNarrowphaseWakeAccess
                                   std::span<uint8_t> sleepCounter,
                                   std::span<int> sleepIslandVisualId,
                                   std::span<const uint8_t> underwaterSleepLocked,
+                                  std::span<int> pendingAwakeIndices,
+                                  int& pendingAwakeCount,
                                   int modelCount,
                                   float dt );
     friend class PhysicsSleepController;
@@ -131,6 +142,7 @@ struct PhysicsSleepIslandStageContext
     std::span<float> timeRemaining;
     std::span<const PersistentContact> persistentContacts;
     std::span<const uint16_t> persistentRestingContactCounts;
+    std::span<const int> awakeBodyIndices;
     const std::vector<PointJointConstraint>& pointJointConstraints;
     std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
     int modelCount = 0;
@@ -167,6 +179,15 @@ class PhysicsSleepController
     std::vector<int> m_sleepIslandAssignedVisualId;
     int m_nextSleepIslandVisualId = 1;
     int m_awakeBodyCount = 0; // Dynamic awake rows at the last mirror or completed sleep-island transition.
+    PhysicsFixedList<int, Scene::Capacity::MAX_SCENE_OBJECTS> m_awakeBodyIndices{
+        "PhysicsSleepController.awakeBodyIndices" };
+    PhysicsFixedList<int, Scene::Capacity::MAX_SCENE_OBJECTS> m_awakeListPositions{
+        "PhysicsSleepController.awakeListPositions" };
+    int m_pendingAwakeIndices[Scene::Capacity::MAX_SCENE_OBJECTS] = {};
+    // Parallel producers access this aligned scalar only through atomic_ref;
+    // plain storage preserves PhysicsWorld's cold prediction-copy semantics.
+    int m_pendingAwakeCount = 0;
+    bool m_awakeListNeedsRebuild = true;
     bool m_sleepEnabled = true;
     uint8_t m_seedSleepFrameCount = 30;
     std::vector<std::pair<int, int>> m_sleepSupportEdges;
@@ -190,6 +211,9 @@ class PhysicsSleepController
     void WakePointJointIsland( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );
     void WakeRestingContactIsland( const PhysicsSleepWakeContext& context, int index, float dt, bool applyForces );
     void ApplyTransitions( const PhysicsSleepIslandStageContext& context, class DisjointSet& sleepIslands );
+    void RebuildAwakeBodyIndices( const PhysicsBodyHotFieldsConstView& hotFields, int modelCount );
+    void AddAwakeBodyIndex( int index );
+    void RemoveAwakeBodyIndex( int index );
 
   public:
     PhysicsSleepController();
@@ -197,7 +221,12 @@ class PhysicsSleepController
     void Clear();
     void ApplyRuntimeConfig( const Core::EngineConfig& config );
     PhysicsSleepStepPolicy ResolveStepPolicy( const Core::PhysicsSleepConfig& config ) const;
-    void MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount );
+    // Returns true when a cold topology/replay/config boundary rebuilt the
+    // derived awake index. Ordinary fixed steps preserve the controller-owned
+    // sleep rows without rescanning the body-store flag array.
+    bool MirrorFlagsFrom( PhysicsBodyStore& bodyStore, int modelCount );
+    void InvalidateBodyTopology();
+    void FlushPendingAwakeBodyIndices();
     void EnsureVisualIdSize( int modelCount );
     void WakeModel( const PhysicsSleepWakeContext& context, int index );
     PhysicsNarrowphaseWakeAccess CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore,
@@ -237,6 +266,7 @@ class PhysicsSleepController
     void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
 
     std::span<const uint8_t> GetSleepStates() const;
+    std::span<const int> GetAwakeBodyIndices() const;
     int GetAwakeBodyCount() const;
     std::span<const uint8_t> GetUnderwaterSleepLocks() const;
     std::span<const int> GetSleepIslandVisualIds() const;

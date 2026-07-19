@@ -18,6 +18,8 @@ Glossary:
     parallel pair-table limit.
   Remaining-time integration: Final model-order advance after all CCD lanes
     have consumed their portion of the shared tick clock.
+  Awake index list: Ascending sleep-owner rows that select force/integration
+    work without rebuilding or scanning the full body store.
 
 Invariants:
   - Worker chunks write disjoint pair-table slots and never reduce forces.
@@ -27,6 +29,7 @@ Invariants:
     enclosing fixed step; the force pointer expires on the next prepare/clear.
   - Integration borrows the facade-owned CCD clock and mutates no retained
     stage state.
+  - Awake spans are synchronous borrows and preserve model-order arithmetic.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsForceStage.cpp
@@ -101,11 +104,11 @@ class PhysicsForceStage
                                            workerPool );
     }
     void ApplyForces( const ApplyForcesStageContext& context,
-                      int modelCount,
+                      std::span<const int> awakeBodyIndices,
                       Threading::WorkerPool& workerPool,
                       const Core::PhysicsExecutionConfig& execution ) const;
     void IntegrateRemaining( const IntegrateRemainingStageContext& context,
-                             int modelCount,
+                             std::span<const int> awakeBodyIndices,
                              Threading::WorkerPool& workerPool,
                              const Core::PhysicsExecutionConfig& execution ) const;
 

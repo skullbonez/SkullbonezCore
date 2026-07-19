@@ -56,6 +56,9 @@ Related:
 #include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderer.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorOwner.h"
+#endif
 #include "RunLaunchOptions.h"
 #include "RunCameraState.h"
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
@@ -137,6 +140,11 @@ class Run
     ReplayRuntime m_replayRuntime;                                 // Constructs and sequences the concrete replay domain owners.
     Runtime::Audio::ContactAudioService m_contactAudio;            // Presentation-only material impact playback sink.
     RuntimeTools m_runtimeTools;                                   // Launcher, editor, manipulator state, and transient render feedback.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Lifetime: the development editor owns only its ImGui CPU context and
+    // presentation lifecycle; it receives no subsystem owner references.
+    DevelopmentTools::ImGuiEditorOwner m_imguiEditor;
+#endif
     // Lifetime: renderer and frame helpers borrow this cohesive UI owner; the
     // opaque allocation keeps UI.h out of the composition-root header.
     std::unique_ptr<UI::InGameUI> m_operatorUi;
@@ -164,6 +172,11 @@ class Run
     bool TickScreenshots();                                        // Screenshot triggers; returns true when frame should restart (continue)
     void TickAutoCycle();                                          // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     bool TickSceneAdvance();                                       // Frame count, exit/hold on completion, restarts; returns true to continue
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    void ApplyDevelopmentUiMode();                                 // Reapplies the process-lifetime surface selection.
+    void SelectDevelopmentUiSurface(
+        DevelopmentUiMode surface );                               // Atomically hides the source before showing the target surface.
+#endif
 
   public:
     Run( Window& window,

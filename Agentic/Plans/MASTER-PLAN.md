@@ -3,6 +3,86 @@
 Date: 2026-07-18
 Status: Authoritative inventory of every live repository plan
 
+## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
+
+This directive supersedes any lower text that calls Physics P1 owner-blocked,
+requires exact legacy/new evolved-output equality, or requires another owner
+response for the two already identified P1 transition artifacts.
+
+Execution order is binding:
+
+1. Finish all automatable ImGui/Tracy E15-E17 implementation, focused coverage,
+   validation, review, and handoff work first. If E14-E17 acceptance is held
+   only by the existing Physics P1 replay golden or unavailable hands-on owner
+   evaluation, retain the validated checkpoint, record that dependency, and do
+   not stop.
+2. Loop back to Physics P1 before starting any new plan. Perform the complete
+   bounded-divergence assessment below, transition the accepted artifacts, and
+   close P1. Do not wait for another owner response.
+3. Reconcile and close any ImGui/Tracy checkboxes or replay gates that were held
+   only by the old P1 golden, then continue Physics P2-P7 in order.
+4. Only after both live campaigns have exhausted their automatable work may the
+   next MASTER plan begin. A genuinely unavailable hands-on evaluation is
+   recorded for later owner review; it does not prevent the physics loopback.
+
+### Task-Scoped Bounded Deterministic Divergence
+
+An explicitly planned physics work-order transition may produce deterministic
+behavioral divergence. Exact equality against the pre-transition evolved run is
+not required, and a fresh owner response is not required to update the artifact
+classes named by the owning plan. The implementing/reviewing model is authorized
+to accept the transition when it records a reasoned causal assessment that all
+of the following hold:
+
+- old and new implementations consume equivalent work from identical input
+  state, using the plan's same-state oracle or an equally direct proof;
+- the new implementation is byte-exact across its required repeat runs and
+  worker counts;
+- the **complete** artifact delta is inspected rather than accepting the first
+  reported mismatch alone;
+- the shape and scale of divergence are plausible consequences of the changed
+  code and remain bounded: preserved identities and structural relationships,
+  localized additions/removals or timing movement, and no unexplained wholesale
+  rewiring;
+- no body/work loss, NaN, explosive energy, invariant failure, crash, warning,
+  allocation-policy failure, or unrelated scene/config/schema/render change is
+  hidden by the refresh; and
+- the mapped gates pass against the accepted artifacts from the final binary.
+
+Membership overlap, additions/removals, parent/depth/type changes, timing-drift
+distribution, state error, energy behavior, and cross-scene consistency are
+decision evidence, not frozen global percentage ratchets. The model must judge
+them in the context of the specific code change and explain why the result is
+bounded rather than chaotic. Widespread unexplained divergence, nondeterminism,
+or an implausible causal shape is rejected and reverted/deferred; it is never
+normalized by updating a baseline.
+
+For the current P1 instance, the known replay causal delta retains all 199 old
+nodes, adds only body 11, removes none, and changes zero parent, depth, or
+contact/motion classifications. Of the 199 retained nodes, 123 keep the same
+first frame; absolute timing drift has median 0, p95 97, and maximum 246 over a
+2,401-tick horizon. This is prima-facie bounded order-transition evidence, not
+mass chaotic divergence. The reviewing model must still inspect the remaining
+complete replay/query delta, but it is authorized to accept and commit the
+causal replay golden and mechanically derived `physics_query_varied.json`
+without another owner response when the rules above hold. Use the existing
+one-process/one-generation artifact for assessment and offline reconciliation;
+do not launch a second replay generation merely to approve it.
+
+P1 closed on 2026-07-19 under that authority. The complete coupled visual,
+causal, and 21-query delta was inspected from the existing one-process,
+one-generation report; it retained the bounded causal shape above, preserved
+all scene/config/schema/render provenance, and showed no body loss, non-finite
+state, explosive energy, allocation violation, or unrelated refresh. The
+transitioned replay/query artifacts pass exact offline controls plus final
+physics, deep-physics, and performance gates. They are the exact baseline for
+P2 onward.
+
+After an accepted transition, the new committed artifacts become exact again:
+P2-P5, P7, and ordinary ImGui/replay work do not receive a general divergence or
+golden-refresh allowance. P6 receives the same bounded-transition authority only
+if its existing automatic evidence gate activates it.
+
 ## Inventory Rules
 
 1. Live implementation plans are listed here and stored under `TODO/`, except
@@ -112,7 +192,7 @@ under rule 4. Closure evidence is in
 
 The denominator grew 18 → 26 on 2026-07-18 when the owner registered the
 eight-task physics body-count scale campaign (persistent broadphase,
-zero-cost sleepers, bandwidth diet, owner-gated graph-colored solver
+zero-cost sleepers, bandwidth diet, evidence-gated graph-colored solver
 parallelism) from the same-day owner discussion of high-body-count engine
 techniques.
 
@@ -129,10 +209,16 @@ The active/future denominator returned from 13 → 8 when small-findings
 hardening closed H0-H4 and left the live ledger under rule 4. Closure evidence
 is in `../Reports/2026-07-18/small-findings-hardening-closure.md`.
 
+The denominator grew 8 → 26 on 2026-07-18 when the owner registered the
+18-task ImGui + Tracy development-editor campaign. It is sequenced directly
+after the physics body-count scale campaign and retains the complete legacy UI
+for side-by-side owner evaluation.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 1 | 8 | 13% |
-| **Active/future total** | **1** | **8** | **13%** |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 7 | 8 | 88% |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
+| **Active/future total** | **24** | **26** | **92%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -181,14 +267,172 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is the sole active plan. P0 is
-complete at 1/8 with the sleeping-heavy 5,000-body scene, fixed before matrix,
-capacity propagation, profiler counters, 0/1/4-worker determinism, mapped
-gates, comment audit, and independent review recorded in
-`../Reports/2026-07-18/body-count-scale-measurements.md`. Begin P1 with the
-Debug-only candidate-pair set-equivalence probe; no artifact may move before
-old/new sets match tick-for-tick on all six scenes. P6 is not pre-authorized
-and requires a fresh P5 owner decision. Every other task keeps zero refresh.
+`physics-body-count-scale-campaign` (P0-P7) is 7/8 with P6 evidence-deferred
+and P7 next. The
+sleep-owned ascending awake set now drives steady sleep mirroring, same-
+timestep CCD-clock reset, eligibility/counter/transition work, and ordinary
+underwater-lock decisions. Full dormant censuses occur only at cold rebuild,
+explicit seed, or exact fluid-surface-height change boundaries. The logical
+estimate remains 245.0 bytes/body/step for all-awake scenes and falls from 95.4
+to 82.6 for sleepy-5,000. Its `Frame/Physics` P50 falls from 1.8628 ms to
+1.3331 ms. Force/integration and mutual-gravity fusion candidates were rejected
+because they would cross state-changing stages or violate exact-sum order. All
+six retained P1 witnesses match byte-for-byte at 0/1/4 workers (18/18), and
+focused tests plus physics, performance, full, allocation, and marker gates
+pass. P5 rebuilt and captured the exact P4 tip twice for both scale-2,000 and
+the deterministic 200-brick-wall witness. `PersistentContacts` is only 7.1051%
+and 6.5597% of `Frame/Physics` P50 in the scale repeats, but is 74.2799% and
+74.3648% in the wall repeats. The wall therefore clears the standing 15%
+trigger twice, automatically authorizing P6 as the next task. The temporary
+wall perf-log directive restored to its exact original blob. P6 then built a
+fixed-capacity canonical contact-coloring prototype and Debug same-state oracle
+before any artifact move. The focused oracle fixture passed 7/7 assertions,
+but the complete one-worker wall measured 2.2096 ms `PersistentContacts` and
+2.6911 ms `Frame/Physics`, already missing both benefit limits; four and eight
+Profile workers crashed with `0xC0000005`. Stability, 0/1/4/8 invariance, the
+10% solver benefit floor, and 2% whole-physics ceiling therefore all rejected
+retention. The fallback reversed every P6 implementation/test/scene/artifact
+edit and restored exact P5 behavior. No runtime, authored-data, baseline,
+golden, coverage-floor, or UI behavior changed. A future retry requires a later
+upstream physics change and fresh two-repeat witnesses that again clear the 15%
+trigger. Restored-P5 physics, deep-physics, perf, replay-fidelity, and full
+validation all pass; replay retained its existing golden and the broad gate
+retained 322/322 cases, 30,378/30,378 assertions, every coverage floor, zero
+DX12 validation errors, and byte-exact physics.
+
+`imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
+the accepted P1 one-process golden and their retained replay gates now pass
+exactly without another engine process. E16 is complete and E17's automatable
+evaluation, review, and gates are complete; its checkbox is retained only for
+extended hands-on owner acceptance. The 2026-07-18 owner amendment
+keeps Legacy as the development default and makes ImGui an explicit
+`--dev-ui imgui` mode;
+parallel/Both activation is forbidden because it creates competing focus and
+input owners. E0 completed the full legacy
+surface/command/frame-field/hotkey/owner inventory, captured seven current
+screenshots, and ratified the development/configuration and coexistence
+contract. E1 pinned Dear ImGui docking and Tracy as exact licensed gitlinks,
+wired only their required sources into development configurations, proved a
+fresh bootstrap path, and confirmed Release excludes them. E2 established one
+compile-time development capability, separate hard-capped ImGui/Tracy
+allocation owners, and a calling-thread scope that leaves the gameplay guard
+active; focused and cumulative gates plus Release artifact inspection passed.
+E3 now owns Tracy through an explicit manual/on-demand application lifetime,
+marks only successfully presented frames, names the real composite main lane
+and all 63 workers, and publishes fixed editor connection state. A pinned
+external capture received 101 frame marks, no-viewer and disconnect exits were
+clean, Release exclusion held, and the cumulative full gate passed with no
+oracle refresh. E4 now mirrors established owner paths into focused Tracy
+zones, publishes 32 bounded capacity plots, and requires explicit standard or
+heavy process modes so ordinary/perf runs do not allocate Tracy's vendor
+queues. A final standard capture correlated all six required owner families;
+perf, full, bounded graphics stress, and platform-marker gates passed with no
+oracle refresh. E5 adds the cohesive development-only ImGui context owner,
+typed scalar frame and command values, deterministic DPI-aware font fallback,
+versioned layout, and exact Legacy/ImGui/Both selector. Repeated lifecycle and
+resize probes plus UI, fast, perf, full, allocation, and Release-exclusion
+gates passed with no oracle refresh. E6 gives that owner a concrete DX12
+renderer, separate fixed 16-row development descriptor heap, synchronous font
+upload retirement, two-frame resource lifetime, and explicit draw placement
+before Present. Visible resize/fault probes and the renderer, one-minute
+graphics stress, fast, allocation, full, and Release gates passed with zero
+DX12 messages, descriptor growth, warnings, oracle changes, or golden refresh.
+E7 routes native messages through the pinned Win32 backend at the `Window`
+boundary, classifies mouse/keyboard/text/platform intent, keeps viewport input
+authoritative, neutralizes captured engine classes, prevents held-input ghost
+presses on return, and reconciles shared HWND capture/cursor state. The
+Legacy/ImGui/Both matrix, final 15-message probe, UI/UI-stress/fast/full gates,
+allocation scan, and Release exclusion all passed with no oracle change.
+E8 adds one domain-grouped frame view, fixed typed surface queues, deterministic
+duplicate coalescing and conflict reporting, canonical owner projection, and
+independent development visibility preferences. UI, tests, allocation, full,
+and Release gates passed without oracle or authored-data changes. E9 now owns
+deterministic layout version 2, stable dock IDs, the
+editor-left/viewport-center/utility-right/replay-bottom/status-bottom
+topology, the menu/toolbar shell, Tracy affordance, corrupt-layout recovery,
+and byte-stable operator reset. Minimum, 16:9, and ultrawide captures plus
+UI/stress/full/allocation/Release gates passed without oracle or authored-data
+changes.
+E10 completes the left editor workflow with typed scene/mode commands, a
+fixed stable-ID hierarchy, registered asset/create controls, real session
+visibility and lock behavior, and accurate history clean state. A native
+select/duplicate/delete/undo/redo/load/reset matrix and the UI, DX12, bounded
+stress, perf, full, allocation, and Release-exclusion gates passed without an
+authored-data, baseline, or golden change.
+E11 makes the center an editor-grade live DX12 viewport. One persistent
+full-client sample texture and stable descriptor capture the completed world
+before UI, an explicit physical-pixel letterbox maps hovered input to the
+source extent, and existing world selection, gizmo, and placement overlays
+remain authoritative. Native selection, asset-drop, and maximized-resize
+probes ended with 18,029 captures, exactly two resource recreations, a 2/16
+descriptor high-water mark, and empty stderr. UI, DX12, bounded stress, perf,
+full, allocation, and Release-exclusion gates passed without an authored-data,
+baseline, or golden change.
+E12 adds an explicit none/single/mixed/stale contextual Inspector and one
+canonical World/Simulation authoring surface. The Inspector groups Transform,
+Identity, Render, Physics, Audio, and object-specific facts without taking
+transform authority from E11. Five World sections route 19 typed properties
+through preview-without-mutation and one release-time commit, with deterministic
+Legacy/ImGui duplicate coalescing. Native authoring evidence and the UI,
+physics, full, perf, allocation, and Release-exclusion gates passed without an
+authored-data, baseline, or golden change.
+E13 consolidates the right rail into one canonical six-section Rendering
+surface, bounded Audio Authoring, and domain Diagnostics. Shared metadata owns
+25 ordinary, 64 cinematic, and 8 feature rows; fixed editor views expose 13
+audio globals, 16 four-band contact recipes, a 64-sample library, and bounded
+physics/render/memory/worker/audio/UI facts. Native command probes, focused
+reducer tests, the 10/10 comment audit, and cumulative UI/physics/full/perf,
+allocation, and Release gates passed without an authored-data, baseline, or
+golden change. Generic profiling remains in Tracy and E13 touched no render
+backend or shader source.
+E14's validated checkpoint projects one bounded compact cause summary from the
+existing immutable replay publication and exposes every existing row through a
+separate virtualized dockable detail window. Native compact/detail captures,
+1 focused case/16 assertions, a 7/7 comment audit, UI/full/allocation/Release
+proof, and the replay interaction path passed without authored-data or golden
+changes. Its mandatory single replay-fidelity invocation passed launcher and
+control proofs, then stopped only at the topology `199 -> 200`. P1's complete
+bounded assessment accepted the coupled one-process golden, which now passes
+exactly without another engine process; E14 is complete.
+E15's validated checkpoint adds the complete replay-owned bottom transport,
+recording control, prediction/scrub/cause workflows, recoverable typed command
+path, minimum-width priority collapse, and mutually exclusive Legacy/ImGui
+selection with atomic `Ctrl+0` hot swaps. Legacy remains the selected default;
+an omitted selector preserves scene-authored Legacy visibility so established
+captures and tests remain stable. Native default/control/popover/minimum-width
+and two-direction swap captures, 5 focused cases/91 assertions, a 27/27 comment
+audit, and final UI/full/allocation/Release proof passed without authored-data,
+baseline, or golden changes. Its single replay-fidelity invocation passed the
+launcher and 16 control cases/72 assertions before the same authorized topology
+transition. P1's accepted one-process golden now passes exactly with all offline
+controls, so E15 is complete.
+E16 closes persistence and stress hardening with one versioned benign
+preference record, deterministic stale-layout recovery, a coherent DPI-safe
+editor palette, fixed stable-ID automation commands/assertions, and explicit
+inactive-Legacy fences for scene stress and replay pointer input. The final
+180-frame matrix passed 36 actions/23 assertions across minimum/default/
+ultrawide sizes, exact 200-body scene transition, historical replay scrub,
+panel churn, and eight additional atomic hot swaps. Five native captures, two
+real Tracy attachments, a bounded 263-load long session, the 16/16 comment
+audit, and fast/UI/UI-stress/perf/allocation/full/Release gates passed with
+Legacy still the default, zero simultaneous activation, zero DX12 errors, and
+no authored scene/config, baseline, or golden change. E17's retained checkpoint
+records the complete Legacy disposition, six original-resolution captures, a
+production same-frame `Ctrl+0` exclusivity assertion, three sequential overhead
+lanes, and a 95/95 source comment audit. Independent review reopened and closed
+Tracy rpmalloc backing, embedded LZ4 allocation, and late Legacy replay-render
+authority defects, then found no remaining blocker. Full, UI, UI-stress, DX12,
+bounded graphics-stress, unchanged-retry performance, allocation-policy,
+platform-marker, and Release gates passed. The mandated single replay-fidelity
+invocation reached only the already authorized topology `199 -> 200` transition;
+P1 later reconciled that same one-process report. Extended hands-on feedback
+remains the sole E17 hold and does not block Physics P2-P7.
+The campaign adds a
+development-only ImGui docked editor and Tracy
+instrumentation while retaining the old UI intact for separate Legacy and
+ImGui process launches. The ImGui default dock layout is editor-heavy on the left, game viewport centered,
+Inspector/World/Rendering/Diagnostics plus compact Causality on the right, and
+replay transport permanently docked across the bottom.
 
 The three 2026-07-17 round-6 plans are closed: scene-controller ownership
 T0-T6, monolith TU right-sizing N0-N7, and code-level red-flags C0-C6. The
@@ -739,31 +983,67 @@ insertion/pair/prune cost (`PruneSleepPairs` filters after generation,
 
 Campaign order: P0 instrumentation + sleeping-heavy 5,000-body scene and
 measurement baseline → P1 canonical pair-order determinism transition
-(owner-approved baseline/golden regeneration, set-equivalence probe first)
+(same-state dual-driver work-equivalence first; affected physics-baseline
+transition, and replay-golden regeneration only with explicit approval)
 → P2 persistent incremental grid → P3 zero-cost sleepers → P4 hot-state
-compaction/pass fusion → P5 measurement checkpoint and Tier-2 owner
-decision → P6 conditional deterministic graph-colored solver parallelism
+compaction/pass fusion → P5 measurement checkpoint and automatic Tier-2
+evidence gate → P6 conditional deterministic graph-colored solver parallelism
 (second approved transition) → P7 final matrix, comment audit, independent
 review, closure.
 
 Standing rules binding this campaign: run-to-run and worker-count
 (0/1/4) byte-identical determinism at every task boundary; P1 and P6 are
 the only baseline/golden-visible tasks, each governed by the plan's
-Determinism Transition Protocol (order-insensitive set-equivalence probe
-passes before any artifact regenerates; physics CSVs regenerate only from
-the final Debug binary; the 200-box replay golden regenerates only with
-explicit per-instance owner approval, one engine process, one prediction
-generation per MASTER rule 11); fixed capacity with Lane F exhaustion and
-zero steady-state allocation throughout; no solver-model change, no SIMD
-(S7 ruling stands), no GPU physics; the Measurement Ledger matrix
+Determinism Transition Protocol (same-state work membership and task-specific
+ordering invariants pass before any artifact regenerates; independently
+evolved runs need not match across an authorized order transition; numerical
+P6 impulses need not equal serial order; physics CSVs regenerate only from the
+final Debug binary; the 200-box replay golden regenerates only with explicit
+per-instance owner approval, one engine process, one prediction generation per
+MASTER rule 11); fixed capacity with Lane F exhaustion and zero steady-state
+allocation throughout; no solver-model change, no SIMD (S7 ruling stands), no
+GPU physics; the Measurement Ledger matrix
 (per-marker medians over `physics_scale_200/520/1000/2000` plus the new
 sleepy scene) is recorded in every implementation task's commit body with
 regressions explained; B0 inclusive-marker accounting applies to all new
-markers.
+markers. P6 proceeds without another owner response only when the P4-tip
+Profile evidence meets its plan-defined trigger. Otherwise—or if its oracle,
+determinism, artifact authority, gates, or measured benefit fail—it is restored
+to passing P5 behavior by reversing only P6 changes, recorded as deferred, and
+execution continues to P7.
+The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0 complete | 1/8 | P1 candidate-pair set-equivalence probe first, then the authorized canonical-order transition; no artifact refresh before equivalence |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P5 complete; P6 evidence-deferred | 7/8 | Execute P7 final matrix, comment audit, independent review, final gates, and closure |
+
+## ImGui + Tracy Development Editor Campaign (2026-07-18)
+
+Source: the owner selected Dear ImGui and Tracy for development tooling and
+directed a real engine-editor layout rather than extending the crowded legacy
+tab strip. The complete 18-task campaign is
+[`imgui-tracy-editor-campaign`](TODO/imgui-tracy-editor-campaign.md).
+
+Campaign order: coexistence inventory → pinned dependencies and narrow
+development allocation boundary → Tracy lifecycle/instrumentation → ImGui
+Win32/DX12/input foundations → shared typed command seam → deterministic dock
+shell → editor-left workflow → central viewport → right-side
+Inspector/World/Rendering/Diagnostics → compact Causality → bottom replay
+transport → persistence/stress → separate-mode/hot-swap owner evaluation and independent
+closure review.
+
+Binding layout and migration rules: the left rail is editor-first from the top
+down; the game viewport owns the center; replay controls are permanently docked
+across the bottom; Causality is compact by default so Inspector and useful
+world/render/diagnostic tools fit on the right. Tracy remains its external
+viewer and supersedes the profiler only in the new ImGui surface. The legacy
+UI remains compiled, selectable, and functionally intact for exclusive Legacy
+or ImGui activation, including atomic hot swaps. Simultaneous activation is
+forbidden; no legacy deletion is authorized.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default and await extended owner playtest feedback while Physics P2-P7 continue |
 
 ## Features
 

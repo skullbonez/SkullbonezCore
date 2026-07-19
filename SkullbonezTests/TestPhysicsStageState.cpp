@@ -20,6 +20,8 @@
 //   - Support propagates to a fixed point through model-order edges.
 //   - A stretched point joint publishes the sleep-block reason without
 //     advancing its island counter; a relaxed joint remains eligible.
+//   - Awake indices remain sorted across sleep, parallel-wake flush, and cold
+//     topology rebuild boundaries.
 //   - Parallel narrowphase scheduling cannot reorder pair-slot results.
 //
 // Related:
@@ -39,6 +41,7 @@
 #include "../SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsSleepController.h"
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <utility>
@@ -116,7 +119,7 @@ TEST_CASE( "Physics sleep support: fixed anchor propagates through a chained isl
         (void)bodies.CreateBodyRecord( body );
     }
     PhysicsSleepController controller;
-    controller.MirrorFlagsFrom( bodies, 3 );
+    CHECK( controller.MirrorFlagsFrom( bodies, 3 ) );
     CHECK( controller.GetAwakeBodyCount() == 2 );
     auto& edges = controller.MutableSupportEdgesForContactSolver();
     edges.emplace_back( 0, 1 );
@@ -129,6 +132,59 @@ TEST_CASE( "Physics sleep support: fixed anchor propagates through a chained isl
     CHECK( supported[0] == 1u );
     CHECK( supported[1] == 1u );
     CHECK( supported[2] == 1u );
+}
+
+TEST_CASE( "Physics sleep awake list: transitions and queued wakes preserve ascending dense order" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = UnitSphere();
+    for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = bodyIndex == 0 ? 0.0f : 1.0f;
+        body.hot.fixed = bodyIndex == 0;
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.shape = sphere;
+        collider.boundingRadius = 1.0f;
+        colliders.CreateColliderRecord( collider );
+    }
+
+    PhysicsSleepController controller;
+    CHECK( controller.MirrorFlagsFrom( bodies, 3 ) );
+    CHECK_FALSE( controller.MirrorFlagsFrom( bodies, 3 ) );
+    CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
+           std::vector<int>{ 1, 2 } );
+
+    controller.SeedModelAsleep( bodies, 1 );
+    REQUIRE( controller.GetAwakeBodyIndices().size() == 1u );
+    CHECK( controller.GetAwakeBodyIndices()[0] == 2 );
+
+    PhysicsWorldForces worldForces;
+    std::array<float, 3> timeRemaining = { 1.0f / 120.0f, 1.0f / 120.0f, 1.0f / 120.0f };
+    const auto wakeAccess = controller.CreateNarrowphaseWakeAccess( bodies,
+                                                                    colliders,
+                                                                    worldForces,
+                                                                    bodies.MutableRecords(),
+                                                                    timeRemaining,
+                                                                    3,
+                                                                    1.0f / 120.0f );
+    wakeAccess.WakeBody( 1 );
+    CHECK( controller.GetAwakeBodyIndices().size() == 1u );
+    controller.FlushPendingAwakeBodyIndices();
+    CHECK( std::vector<int>( controller.GetAwakeBodyIndices().begin(), controller.GetAwakeBodyIndices().end() ) ==
+           std::vector<int>{ 1, 2 } );
+
+    // A cold fixed/dynamic edit can change list membership without changing
+    // body count; invalidation makes the next owner mirror rebuild it.
+    bodies.MutableHotFields().fixed[1] = 1u;
+    controller.InvalidateBodyTopology();
+    CHECK( controller.MirrorFlagsFrom( bodies, 3 ) );
+    REQUIRE( controller.GetAwakeBodyIndices().size() == 1u );
+    CHECK( controller.GetAwakeBodyIndices()[0] == 2 );
 }
 
 TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and disabling sleep clears it" )
@@ -157,7 +213,12 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     colliders.CreateColliderRecord( collider );
     PhysicsSleepController controller;
     controller.MirrorFlagsFrom( bodies, 1 );
+    REQUIRE( bodies.SeedBodyAsleep( handle ) );
     controller.SeedModelAsleep( bodies, 0 );
+    // A cold same-count topology boundary must retain the authored sleeper and
+    // schedule it for the owning world's one-shot submerged census.
+    controller.InvalidateBodyTopology();
+    CHECK( controller.MirrorFlagsFrom( bodies, 1 ) );
     PhysicsWorldForces worldForces;
     worldForces.fluidSurfaceHeight = 10.0f;
     worldForces.fluidDensity = 1000.0f;
@@ -172,6 +233,61 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     controller.SetPhysicsSleepEnabled( false );
     CHECK( controller.GetUnderwaterSleepLocks()[0] == 0u );
     CHECK( controller.GetSleepStates()[0] == 0u );
+}
+
+TEST_CASE( "Physics sleep awake list: one-frame transitions visit every row while compacting the list" )
+{
+    PhysicsBodyStore& bodies = StageBodyStore();
+    ColliderStore& colliders = StageColliderStore();
+    const CollisionShape sphere = UnitSphere();
+    for ( int bodyIndex = 0; bodyIndex < 4; ++bodyIndex )
+    {
+        PhysicsBodyCreateRecord body;
+        body.cold.mass = 1.0f;
+        body.hot.inverseMass = 1.0f;
+        const auto handle = bodies.CreateBodyRecord( body );
+        ColliderRecord collider;
+        collider.body = handle;
+        collider.shape = sphere;
+        collider.boundingRadius = 1.0f;
+        colliders.CreateColliderRecord( collider );
+    }
+
+    PhysicsSleepController controller;
+    REQUIRE( controller.MirrorFlagsFrom( bodies, 4 ) );
+    std::fill( controller.MutableSupportedStatesForTerrain().begin(),
+               controller.MutableSupportedStatesForTerrain().end(),
+               static_cast<uint8_t>( 1u ) );
+    std::array<float, 4> timeRemaining = { 1.0f, 1.0f, 1.0f, 1.0f };
+    const std::vector<SkullbonezCore::Physics::PersistentContact> contacts;
+    const std::array<uint16_t, 4> restingCounts = { 0u, 0u, 0u, 0u };
+    const std::vector<SkullbonezCore::Physics::PointJointConstraint> joints;
+    std::vector<SkullbonezCore::Physics::PhysicsPipelineRecord> pipeline;
+    PhysicsWorldForces worldForces;
+    const SkullbonezCore::Physics::PhysicsSleepIslandStageContext context{ bodies,
+                                                                           colliders,
+                                                                           worldForces,
+                                                                           bodies.MutableRecords(),
+                                                                           bodies.MutableHotFields(),
+                                                                           timeRemaining,
+                                                                           contacts,
+                                                                           restingCounts,
+                                                                           controller.GetAwakeBodyIndices(),
+                                                                           joints,
+                                                                           pipeline,
+                                                                           4,
+                                                                           0.01f,
+                                                                           0.01f,
+                                                                           1u };
+
+    controller.RunIslandStage( context );
+
+    CHECK( controller.GetAwakeBodyIndices().empty() );
+    REQUIRE( controller.GetSleepStates().size() == 4u );
+    for ( uint8_t sleepState : controller.GetSleepStates() )
+    {
+        CHECK( sleepState == 1u );
+    }
 }
 
 TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation while slack anchors remain eligible" )
@@ -208,6 +324,7 @@ TEST_CASE( "Physics sleep point-joint island: stretched anchors block relaxation
                                                                                timeRemaining,
                                                                                contacts,
                                                                                restingCounts,
+                                                                               controller.GetAwakeBodyIndices(),
                                                                                joints,
                                                                                pipeline,
                                                                                2,

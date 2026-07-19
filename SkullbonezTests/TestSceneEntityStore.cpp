@@ -11,6 +11,7 @@ Glossary:
   Stable identity: Nonzero PhysicsSceneObjectId independent of dense row order.
   Asset affiliation: Durable library/asset/instance/part provenance.
   Behavior group: Ragdoll/tree membership keyed by stable root id and part order.
+  Editor metadata: Transient visibility and mutation-lock state keyed by stable identity.
 
 Invariants:
   - Duplicate ids and capacity exhaustion are recoverable preflight failures.
@@ -48,6 +49,8 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
     entity.SetRenderTint( 0.2f, 0.4f, 0.6f, 1.0f );
     entity.SetAssetAffiliation( PhysicsSceneObjectId{ 900u }, "structures", "tower", "tower_a", "wall", 3u );
     entity.SetBehaviorGroup( SceneBehaviorGroupKind::ReleasableTree, PhysicsSceneObjectId{ 42u }, 0 );
+    entity.editorVisible = false;
+    entity.editorLocked = true;
     REQUIRE( store.PreflightAppend( entity ).ok );
 
     PhysicsBodyHandle body;
@@ -71,6 +74,8 @@ TEST_CASE( "SceneEntityStore: preflight and commit preserve durable owner metada
     CHECK( record.behaviorGroup.kind == SceneBehaviorGroupKind::ReleasableTree );
     CHECK( record.behaviorGroup.rootObjectId.value == 42u );
     CHECK( record.behaviorGroup.partIndex == 0 );
+    CHECK_FALSE( record.editorVisible );
+    CHECK( record.editorLocked );
     CHECK( store.FindByDisplayName( "tower_part" ) == 0 );
     CHECK( store.FindBySceneObjectId( PhysicsSceneObjectId{ 42u } ) == 0 );
 
@@ -171,6 +176,7 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     RenderInstancePresentationRecord presentation;
     presentation.material.baseColor[0] = 0.25f;
     presentation.shadowCasterStream = ShadowCasterStream::Pine;
+    presentation.editorVisible = false;
     strcpy_s( presentation.displayName, "transaction_entity" );
 
     PhysicsBodyRecord body;
@@ -198,6 +204,12 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK( renderStore.Records()[0].replayBodyId == 77u );
     CHECK( renderStore.Records()[0].material.baseColor[0] == doctest::Approx( 0.25f ) );
     CHECK( renderStore.Records()[0].shadowCasterStream == ShadowCasterStream::Pine );
+    CHECK_FALSE( renderStore.PresentationRecords()[0].editorVisible );
+    CHECK_FALSE( renderStore.Records()[0].editorVisible );
+    REQUIRE( renderStore.SetEditorVisible( 0, true ) );
+    CHECK( renderStore.PresentationRecords()[0].editorVisible );
+    CHECK( renderStore.Records()[0].editorVisible );
+    CHECK_FALSE( renderStore.SetEditorVisible( 1, false ) );
     CHECK_FALSE( renderStore.CanAppendCreationRow( 0 ) );
 }
 

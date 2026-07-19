@@ -132,13 +132,14 @@ struct EditorPointerRouteInput
     Math::Vector::Vector3 rayDirection = Math::Vector::ZERO_VECTOR;
 };
 
-// Operation-specific facts for the after-UI escape pass. Keeping the two
-// scalars together lets the router borrow only the three capability slices it
-// needs without manufacturing a broader frame context.
+// Operation-specific facts for the after-UI escape pass. The frame-selected
+// surface bit prevents Escape from opening the dormant Legacy UI while ImGui
+// owns window focus.
 struct RuntimeAfterUiDismissInput
 {
     bool uiUserInteracted = false;
     double nowSeconds = 0.0;
+    bool legacyUiActive = true;
 };
 
 struct EditorPointerRouteResult
@@ -229,6 +230,29 @@ struct DeviceInputFrame
     bool leftDown = false;
     bool rightDown = false;
     bool middleDown = false;
+};
+
+
+struct UiInputCaptureIntent
+{
+    // Value-only arbitration from an external tool UI. InputRouter filters the
+    // corresponding device class and resynchronizes held levels when ownership
+    // returns so a tool keystroke cannot become a gameplay press.
+    bool mouse = false;
+    bool keyboard = false;
+    bool text = false;
+    bool nativePointerStateTouched = false;
+    // Value-only fitted image rectangle from an external editor. Input
+    // composition maps the one captured client point through it before any
+    // world pick, placement, camera, or gizmo owner sees coordinates.
+    bool gameViewportMappingActive = false;
+    float gameViewportMinX = 0.0f;
+    float gameViewportMinY = 0.0f;
+    float gameViewportWidth = 0.0f;
+    float gameViewportHeight = 0.0f;
+    float gameViewportDpiScale = 1.0f;
+    int gameViewportSourceWidth = 0;
+    int gameViewportSourceHeight = 0;
 };
 
 
@@ -341,7 +365,10 @@ class InputRouter
     // Captures button edges, advances every binding's key memory, and handles
     // focus transitions. The output is reset here so subsequent RoutePhase
     // calls append one ordered frame result.
-    void BeginFrame( const DeviceInputFrame& frame, RuntimeInputKeyBindingView bindings, InputActions& output );
+    void BeginFrame( const DeviceInputFrame& frame,
+                     RuntimeInputKeyBindingView bindings,
+                     InputActions& output,
+                     UiInputCaptureIntent capture = {} );
 
     // Emits the selected phase in binding-table order. activeContexts contains
     // current mode/UI facts; AfterUi/Capture phase bits are supplied by the
@@ -446,6 +473,9 @@ class InputRouter
     void ReleaseNativeCapture();
     void RequestCursorVisible( bool visible );
     void CancelPointerPresentation();
+    // An external Win32 UI temporarily owns native capture/cursor calls. Force
+    // the next engine-owned frame to republish its desired hardware state.
+    void DeferPointerPresentationCommit();
     // Returns true only when the hardware-facing state changed since the last
     // consume. Callers apply the returned value atomically at the frame edge.
     bool ConsumePointerPresentationChange( PointerPresentationState& state );
@@ -494,6 +524,8 @@ class InputRouter
     bool m_hasFrame = false;
     bool m_appFocused = false;
     bool m_frameFocused = false;
+    bool m_keyboardCaptured = false;
+    bool m_mouseCaptured = false;
     bool m_leftWasDown = false;
     bool m_rightWasDown = false;
 };

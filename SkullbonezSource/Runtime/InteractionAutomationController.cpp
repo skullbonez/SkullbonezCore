@@ -19,6 +19,8 @@ Glossary:
   observed without mutating validation baselines directly.
   Probe failure: CLI validation failure persisted as report `ok=false` and
     returned to the process boundary after the frame loop exits.
+  Development UI command: Fixed-capacity presentation or native-window request
+    returned to the composition root; the sequencer retains no editor owner.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -27,6 +29,7 @@ Invariants:
     named owner commands and never a mutable prediction/recorder reference.
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
+  - Surface selection accepts Legacy or ImGui only; no action can request both.
 
 Related:
   - SkullbonezSource/Runtime/RuntimePickService.h
@@ -499,6 +502,8 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "clickReplayControl";
     case RunInteractionAutomationActionType::ScrubReplaySolverTrack:
         return "scrubReplaySolverTrack";
+    case RunInteractionAutomationActionType::ScrubEditorReplayTrack:
+        return "scrubEditorReplayTrack";
     case RunInteractionAutomationActionType::SetReplayPredictionEnabled:
         return "setReplayPredictionEnabled";
     case RunInteractionAutomationActionType::SetReplayPredictionHorizonSeconds:
@@ -515,6 +520,20 @@ const char* ActionTypeName( RunInteractionAutomationActionType type )
         return "pressKey";
     case RunInteractionAutomationActionType::CaptureEditorSelectionState:
         return "captureEditorSelectionState";
+    case RunInteractionAutomationActionType::LoadScene:
+        return "loadScene";
+    case RunInteractionAutomationActionType::SetDevelopmentUiSurface:
+        return "setDevelopmentUiSurface";
+    case RunInteractionAutomationActionType::SetImGuiPanelVisible:
+        return "setImGuiPanelVisible";
+    case RunInteractionAutomationActionType::ResetImGuiLayout:
+        return "resetImGuiLayout";
+    case RunInteractionAutomationActionType::FocusImGuiPanel:
+        return "focusImGuiPanel";
+    case RunInteractionAutomationActionType::SetImGuiDpiScale:
+        return "setImGuiDpiScale";
+    case RunInteractionAutomationActionType::ResizeWindow:
+        return "resizeWindow";
     case RunInteractionAutomationActionType::AssertState:
         return "assert";
     case RunInteractionAutomationActionType::Screenshot:
@@ -603,6 +622,26 @@ const char* AssertName( RunInteractionAutomationAssertKind kind )
         return "editorSelectionHasTerrain";
     case RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture:
         return "editorSelectionMatchesCapture";
+    case RunInteractionAutomationAssertKind::DevelopmentUiSurface:
+        return "developmentUiSurface";
+    case RunInteractionAutomationAssertKind::ImGuiVisible:
+        return "imguiVisible";
+    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
+        return "legacyReplayPresentationActive";
+    case RunInteractionAutomationAssertKind::ImGuiPanelMask:
+        return "imguiPanelMask";
+    case RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin:
+        return "imguiLayoutResetCountMin";
+    case RunInteractionAutomationAssertKind::ImGuiFocusCountMin:
+        return "imguiFocusCountMin";
+    case RunInteractionAutomationAssertKind::ImGuiDpiScale:
+        return "imguiDpiScale";
+    case RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax:
+        return "imguiDescriptorHighWaterMax";
+    case RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin:
+        return "imguiViewportRecreationsMin";
+    case RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered:
+        return "imguiPreferencesRecovered";
     }
     return "unknown";
 }
@@ -1383,6 +1422,18 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "scrubEditorReplayTrack" ) )
+    {
+        if ( !entry["scrubEditorReplayTrack"].is_number() )
+        {
+            outError = "scrubEditorReplayTrack must be a normalized number";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::ScrubEditorReplayTrack;
+        outAction.numberValue = std::clamp( entry["scrubEditorReplayTrack"].get<float>(), 0.0f, 1.0f );
+        return true;
+    }
+
     if ( entry.contains( "setReplayPredictionEnabled" ) )
     {
         if ( !IsBoolValue( entry["setReplayPredictionEnabled"] ) )
@@ -1493,6 +1544,112 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         return true;
     }
 
+    if ( entry.contains( "loadScene" ) )
+    {
+        if ( !entry["loadScene"].is_string() )
+        {
+            outError = "loadScene must be a scene-browser path";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::LoadScene;
+        CopyText( outAction.path, sizeof( outAction.path ), entry["loadScene"].get<std::string>() );
+        return true;
+    }
+
+    if ( entry.contains( "setDevelopmentUiSurface" ) )
+    {
+        if ( !entry["setDevelopmentUiSurface"].is_string() )
+        {
+            outError = "setDevelopmentUiSurface must be legacy or imgui";
+            return false;
+        }
+        const std::string surface = entry["setDevelopmentUiSurface"].get<std::string>();
+        if ( surface != "legacy" && surface != "imgui" )
+        {
+            outError = "setDevelopmentUiSurface must be legacy or imgui";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::SetDevelopmentUiSurface;
+        CopyText( outAction.text, sizeof( outAction.text ), surface );
+        return true;
+    }
+
+    if ( entry.contains( "setImGuiPanelVisible" ) )
+    {
+        const Json& panel = entry["setImGuiPanelVisible"];
+        if ( !panel.is_object() || !panel.contains( "panel" ) || !panel["panel"].is_string() ||
+             !panel.contains( "visible" ) || !IsBoolValue( panel["visible"] ) )
+        {
+            outError = "setImGuiPanelVisible requires string panel and boolean visible";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::SetImGuiPanelVisible;
+        CopyText( outAction.text, sizeof( outAction.text ), panel["panel"].get<std::string>() );
+        outAction.boolValue = ReadBool( panel["visible"] );
+        return true;
+    }
+
+    if ( entry.contains( "resetImGuiLayout" ) )
+    {
+        if ( !IsBoolValue( entry["resetImGuiLayout"] ) || !ReadBool( entry["resetImGuiLayout"] ) )
+        {
+            outError = "resetImGuiLayout must be true";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::ResetImGuiLayout;
+        return true;
+    }
+
+    if ( entry.contains( "focusImGuiPanel" ) )
+    {
+        if ( !entry["focusImGuiPanel"].is_string() )
+        {
+            outError = "focusImGuiPanel must be a string panel name";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::FocusImGuiPanel;
+        CopyText( outAction.text, sizeof( outAction.text ), entry["focusImGuiPanel"].get<std::string>() );
+        return true;
+    }
+
+    if ( entry.contains( "setImGuiDpiScale" ) )
+    {
+        if ( !entry["setImGuiDpiScale"].is_number() )
+        {
+            outError = "setImGuiDpiScale must be a number";
+            return false;
+        }
+        const float dpiScale = entry["setImGuiDpiScale"].get<float>();
+        if ( !std::isfinite( dpiScale ) || dpiScale < 0.75f || dpiScale > 4.0f )
+        {
+            outError = "setImGuiDpiScale must be within 0.75..4.0";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::SetImGuiDpiScale;
+        outAction.numberValue = dpiScale;
+        return true;
+    }
+
+    if ( entry.contains( "resizeWindow" ) )
+    {
+        const Json& size = entry["resizeWindow"];
+        if ( !size.is_array() || size.size() != 2 || !size[0].is_number_integer() || !size[1].is_number_integer() )
+        {
+            outError = "resizeWindow must be a 2-integer client-size array";
+            return false;
+        }
+        const int width = size[0].get<int>();
+        const int height = size[1].get<int>();
+        if ( width < 1024 || width > 7680 || height < 640 || height > 4320 )
+        {
+            outError = "resizeWindow client size must be within 1024x640..7680x4320";
+            return false;
+        }
+        outAction.type = RunInteractionAutomationActionType::ResizeWindow;
+        outAction.mouse = { width, height };
+        return true;
+    }
+
     if ( entry.contains( "screenshot" ) )
     {
         if ( !entry["screenshot"].is_string() )
@@ -1519,17 +1676,20 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
         const Json& expected = member.value();
         // Invariant: JSON_NOEXCEPTION turns a mismatched get<T>() into an
         // abort, so the assertion vocabulary is classified before dispatch.
-        const bool expectsString = name == "selectedObject" || name == "owner" || name == "cameraMode" ||
-                                   name == "directorPhaseName" || name == "directorPhaseStylePath" ||
-                                   name == "replayPathTarget" || name == "predictionBuildMode" ||
-                                   name == "pointerCapture" || name == "replayActiveTrack";
+        const bool expectsString =
+            name == "selectedObject" || name == "owner" || name == "cameraMode" || name == "directorPhaseName" ||
+            name == "directorPhaseStylePath" || name == "replayPathTarget" || name == "predictionBuildMode" ||
+            name == "pointerCapture" || name == "replayActiveTrack" || name == "developmentUiSurface";
         const bool expectsInteger = name == "directorPhaseIndex" || name == "editorUndoDepth" ||
-                                    name == "editorRedoDepth" || name == "editorSelectionMatchesCapture";
+                                    name == "editorRedoDepth" || name == "editorSelectionMatchesCapture" ||
+                                    name == "imguiPanelMask";
         const bool expectsNumber = name == "replayPastTrajectoryFullRebuildCountMax" ||
                                    name == "replayPastTrajectoryIncrementalTrimCountMin" ||
                                    name == "replayPastTrajectoryPublishedPointCountMin" ||
                                    name == "predictionSupersededRestartCountMin" || name == "predictionDivergenceMin" ||
-                                   name == "predictionTargetDisplacementMin";
+                                   name == "predictionTargetDisplacementMin" || name == "imguiLayoutResetCountMin" ||
+                                   name == "imguiFocusCountMin" || name == "imguiDpiScale" ||
+                                   name == "imguiDescriptorHighWaterMax" || name == "imguiViewportRecreationsMin";
         const bool expectsBool =
             name == "directorGrabbed" || name == "replayPredictionEnabled" || name == "predictionPathVisible" ||
             name == "predictionFullHorizonComplete" || name == "predictionBaselineVisible" ||
@@ -1538,7 +1698,8 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             name == "gizmoVisible" || name == "mousePickupActive" || name == "nativeCaptureRequested" ||
             name == "cursorVisibleRequested" || name == "uiBlocksMouse" || name == "launcherRayActive" ||
             name == "replayHistoricalSamplePaused" || name == "memoryOverlayEnabled" ||
-            name == "editorSelectionExists" || name == "editorSelectionHasTerrain";
+            name == "editorSelectionExists" || name == "editorSelectionHasTerrain" || name == "imguiVisible" ||
+            name == "legacyReplayPresentationActive" || name == "imguiPreferencesRecovered";
         if ( ( expectsString && !expected.is_string() ) || ( expectsInteger && !expected.is_number_integer() ) ||
              ( expectsNumber && !expected.is_number() ) || ( expectsBool && !IsBoolValue( expected ) ) )
         {
@@ -1756,6 +1917,68 @@ bool ParseAction( const Json& entry, RunInteractionAutomationAction& outAction, 
             outAction.assertKind = RunInteractionAutomationAssertKind::EditorSelectionMatchesCapture;
             outAction.numberValue = static_cast<float>( slot );
         }
+        else if ( name == "developmentUiSurface" )
+        {
+            const std::string surface = member.value().get<std::string>();
+            if ( surface != "legacy" && surface != "imgui" )
+            {
+                outError = "developmentUiSurface must be legacy or imgui";
+                return false;
+            }
+            outAction.assertKind = RunInteractionAutomationAssertKind::DevelopmentUiSurface;
+            CopyText( outAction.text, sizeof( outAction.text ), surface );
+        }
+        else if ( name == "imguiVisible" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiVisible;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "legacyReplayPresentationActive" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::LegacyReplayPresentationActive;
+            outAction.boolValue = ReadBool( member.value() );
+        }
+        else if ( name == "imguiPanelMask" )
+        {
+            const int mask = member.value().get<int>();
+            if ( mask < 0 || mask > 4095 )
+            {
+                outError = "imguiPanelMask must be within 0..4095";
+                return false;
+            }
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPanelMask;
+            outAction.numberValue = static_cast<float>( mask );
+        }
+        else if ( name == "imguiLayoutResetCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "imguiFocusCountMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiFocusCountMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "imguiDpiScale" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDpiScale;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "imguiDescriptorHighWaterMax" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "imguiViewportRecreationsMin" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin;
+            outAction.numberValue = member.value().get<float>();
+        }
+        else if ( name == "imguiPreferencesRecovered" )
+        {
+            outAction.assertKind = RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered;
+            outAction.boolValue = ReadBool( member.value() );
+        }
         else
         {
             outError = "unknown assertion field: " + name;
@@ -1790,6 +2013,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
                                         RunCameraState& camera,
                                         const SceneWorld& world,
                                         SkullbonezCore::UI::InGameUI& ui,
+                                        const InteractionAutomationDevelopmentUiView& developmentUi,
                                         const RunInteractionAutomationAction& action,
                                         InspectGizmoInteractionActive inspectGizmoInteractionActive )
 {
@@ -2121,6 +2345,80 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
         evaluation.passed = captureValid && fingerprint.valid && fingerprint.hash == capturedFingerprint;
         break;
     }
+    case RunInteractionAutomationAssertKind::DevelopmentUiSurface:
+        evaluation.expected = action.text;
+        evaluation.actual =
+            developmentUi.available ? ( developmentUi.selectedImGui ? "imgui" : "legacy" ) : "unavailable";
+        evaluation.passed = developmentUi.available && evaluation.actual == evaluation.expected &&
+                            !( developmentUi.legacyVisible && developmentUi.imguiVisible );
+        break;
+    case RunInteractionAutomationAssertKind::ImGuiVisible:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( developmentUi.imguiVisible );
+        evaluation.passed = developmentUi.available && developmentUi.imguiVisible == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::LegacyReplayPresentationActive:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( developmentUi.legacyReplayPresentationActive );
+        evaluation.passed = developmentUi.available && developmentUi.legacyReplayPresentationActive == action.boolValue;
+        break;
+    case RunInteractionAutomationAssertKind::ImGuiPanelMask:
+    {
+        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
+        evaluation.expected = std::to_string( expected );
+        evaluation.actual = std::to_string( developmentUi.panelVisibilityMask );
+        evaluation.passed = developmentUi.available && developmentUi.panelVisibilityMask == expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ImGuiLayoutResetCountMin:
+    {
+        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
+        evaluation.expected = ">=" + std::to_string( expected );
+        evaluation.actual = std::to_string( developmentUi.layoutResetCount );
+        evaluation.passed = developmentUi.available && developmentUi.layoutResetCount >= expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ImGuiFocusCountMin:
+    {
+        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
+        evaluation.expected = ">=" + std::to_string( expected );
+        evaluation.actual = std::to_string( developmentUi.automationFocusCount );
+        evaluation.passed = developmentUi.available && developmentUi.automationFocusCount >= expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ImGuiDpiScale:
+    {
+        std::ostringstream expected;
+        expected << action.numberValue;
+        std::ostringstream actual;
+        actual << developmentUi.appliedDpiScale;
+        evaluation.expected = expected.str();
+        evaluation.actual = actual.str();
+        evaluation.passed =
+            developmentUi.available && std::fabs( developmentUi.appliedDpiScale - action.numberValue ) <= 0.01f;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ImGuiDescriptorHighWaterMax:
+    {
+        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
+        evaluation.expected = "<=" + std::to_string( expected );
+        evaluation.actual = std::to_string( developmentUi.rendererDescriptorHighWater );
+        evaluation.passed = developmentUi.available && developmentUi.rendererDescriptorHighWater <= expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ImGuiViewportRecreationsMin:
+    {
+        const uint32_t expected = static_cast<uint32_t>( action.numberValue );
+        evaluation.expected = ">=" + std::to_string( expected );
+        evaluation.actual = std::to_string( developmentUi.gameViewportRecreations );
+        evaluation.passed = developmentUi.available && developmentUi.gameViewportRecreations >= expected;
+        break;
+    }
+    case RunInteractionAutomationAssertKind::ImGuiPreferencesRecovered:
+        evaluation.expected = BoolString( action.boolValue );
+        evaluation.actual = BoolString( developmentUi.preferencesRecovered );
+        evaluation.passed = developmentUi.available && developmentUi.preferencesRecovered == action.boolValue;
+        break;
     }
     return evaluation;
 }
@@ -2471,6 +2769,95 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
             action.processed = true;
             break;
         }
+        case RunInteractionAutomationActionType::LoadScene:
+        {
+            const std::vector<std::string>& browserPaths = ui.SceneNavigation().browser.paths;
+            int browserIndex = -1;
+            for ( int index = 0; index < static_cast<int>( browserPaths.size() ); ++index )
+            {
+                if ( browserPaths[static_cast<std::size_t>( index )] == action.path )
+                {
+                    browserIndex = index;
+                    break;
+                }
+            }
+            const bool found = browserIndex >= 0;
+            if ( found )
+            {
+                // Why: automation submits the same fixed scene-owner request as
+                // the browser. The load executes at the normal post-input
+                // checkpoint and cannot retain this cold script action.
+                scene.SubmitLoadBrowserIndex( browserIndex );
+            }
+            else
+            {
+                FailAutomation( state, "automated scene path was not found in the scene browser" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.path,
+                                nullptr,
+                                found,
+                                found ? "scene load submitted" : "scene path not found" );
+            action.processed = true;
+            break;
+        }
+        case RunInteractionAutomationActionType::SetDevelopmentUiSurface:
+        case RunInteractionAutomationActionType::SetImGuiPanelVisible:
+        case RunInteractionAutomationActionType::ResetImGuiLayout:
+        case RunInteractionAutomationActionType::FocusImGuiPanel:
+        case RunInteractionAutomationActionType::SetImGuiDpiScale:
+        case RunInteractionAutomationActionType::ResizeWindow:
+        {
+            const bool hasCapacity = result.developmentUiCommandCount < result.developmentUiCommands.size();
+            if ( hasCapacity )
+            {
+                InteractionAutomationDevelopmentUiCommand& command =
+                    result.developmentUiCommands[result.developmentUiCommandCount++];
+                command.boolValue = action.boolValue;
+                command.numberValue = action.numberValue;
+                strcpy_s( command.target, action.text );
+                switch ( action.type )
+                {
+                case RunInteractionAutomationActionType::SetDevelopmentUiSurface:
+                    command.type = InteractionAutomationDevelopmentUiCommandType::SelectSurface;
+                    break;
+                case RunInteractionAutomationActionType::SetImGuiPanelVisible:
+                    command.type = InteractionAutomationDevelopmentUiCommandType::SetPanelVisible;
+                    break;
+                case RunInteractionAutomationActionType::ResetImGuiLayout:
+                    command.type = InteractionAutomationDevelopmentUiCommandType::ResetLayout;
+                    break;
+                case RunInteractionAutomationActionType::FocusImGuiPanel:
+                    command.type = InteractionAutomationDevelopmentUiCommandType::FocusPanel;
+                    break;
+                case RunInteractionAutomationActionType::SetImGuiDpiScale:
+                    command.type = InteractionAutomationDevelopmentUiCommandType::SetDpiScale;
+                    break;
+                case RunInteractionAutomationActionType::ResizeWindow:
+                    command.type = InteractionAutomationDevelopmentUiCommandType::ResizeWindow;
+                    command.width = static_cast<int>( action.mouse.x );
+                    command.height = static_cast<int>( action.mouse.y );
+                    break;
+                default:
+                    break;
+                }
+            }
+            else
+            {
+                FailAutomation( state, "development UI automation command capacity exceeded" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                action.text,
+                                nullptr,
+                                hasCapacity,
+                                hasCapacity ? "development UI command published" : "command capacity exceeded" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::MoveMouse:
             state.inputDriver.MoveMouse( action.mouse );
             AppendReportAction( state, frame, action.type, nullptr, &action.mouse, true, "mouse move injected" );
@@ -2499,6 +2886,31 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                                         frame );
             action.processed = true;
             break;
+        case RunInteractionAutomationActionType::ScrubEditorReplayTrack:
+        {
+            const bool available = replayView.solverStats.enabled && replayView.solverStats.sampleCount >= 2;
+            if ( available && !result.hasOperatorEditorReplayCommand )
+            {
+                result.hasOperatorEditorReplayCommand = true;
+                result.operatorEditorReplayCommand.type = UI::OperatorEditorReplayCommandType::Scrub;
+                result.operatorEditorReplayCommand.value = action.numberValue;
+            }
+            else
+            {
+                FailAutomation( state,
+                                available ? "editor replay automation command capacity exceeded"
+                                          : "editor replay scrub track unavailable" );
+            }
+            AppendReportAction( state,
+                                frame,
+                                action.type,
+                                "shared replay queue",
+                                nullptr,
+                                available && result.hasOperatorEditorReplayCommand,
+                                available ? "typed editor replay scrub published" : "editor replay track unavailable" );
+            action.processed = true;
+            break;
+        }
         case RunInteractionAutomationActionType::ClickObject:
         {
             POINT mouse = {};
@@ -2550,13 +2962,14 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
     return result;
 }
 
-InteractionAutomationFrameResult
-SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutomationController& state,
-                                                               RuntimeFrameInteractionView& interactionOwners,
-                                                               RuntimeFrameSceneView& sceneOwners,
-                                                               const ReplayAutomationView& replayView,
-                                                               CaptureController& capture,
-                                                               Rendering::IRenderCaptureBackend& captureBackend )
+InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender(
+    InteractionAutomationController& state,
+    RuntimeFrameInteractionView& interactionOwners,
+    RuntimeFrameSceneView& sceneOwners,
+    const ReplayAutomationView& replayView,
+    const InteractionAutomationDevelopmentUiView& developmentUiView,
+    CaptureController& capture,
+    Rendering::IRenderCaptureBackend& captureBackend )
 {
     SceneController& scene = sceneOwners.sceneController;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
@@ -2626,6 +3039,7 @@ SkullbonezCore::Runtime::TickInteractionAutomationAfterRender( InteractionAutoma
             camera,
             scene.Scene(),
             ui,
+            developmentUiView,
             action,
             [&]()
             { return runtimeTools.InspectGizmoInteractionActive( camera.mode, replayView.input.inspectionActive ); } );

@@ -18,11 +18,14 @@ Glossary:
     so world tools do not reinterpret UI-owned input.
   Semantic action: Fixed ordered input event derived from sampled key edges,
     independent of the platform's live hardware state.
+  Selected development surface: The one Legacy or ImGui implementation allowed
+    to own development-tool input and visibility for the current frame.
 
 Invariants:
   - Device input is captured once; later phases consume router-owned values.
   - UI hit testing completes before pointer ownership is finalized.
   - Every concrete owner is borrowed synchronously for this call only.
+  - An inactive Legacy surface cannot reactivate itself through stress actions.
 
 Related:
   - InputFrame.cpp implements shared value and UI-command policy.
@@ -31,6 +34,9 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "InputFrame.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorLayoutPolicy.h"
+#endif
 #include "RuntimeOverlayDiagnostics.h"
 #include "RuntimeValidationHarness.h"
 #include "RuntimeStressController.h"
@@ -97,7 +103,10 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  RuntimeFrameInteractionView& interactionOwners,
                                                  RuntimeFrameSceneView& sceneOwners,
                                                  RuntimeFramePresentationView& presentationOwners,
-                                                 ReplayRuntime& replayRuntime )
+                                                 ReplayRuntime& replayRuntime,
+                                                 UiInputCaptureIntent externalUiCapture,
+                                                 UI::OperatorEditorCommandQueues externalEditorCommands,
+                                                 bool legacyDevelopmentUiActive )
 {
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
@@ -145,6 +154,13 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     };
     const auto RunUIStressActions = [&]()
     {
+        // Invariant: the scene-authored stress harness mutates Legacy UI state.
+        // Once ImGui owns the development surface, allowing that harness to
+        // re-show Legacy would violate the exclusive focus/visibility contract.
+        if ( !legacyDevelopmentUiActive )
+        {
+            return SkullbonezCore::Core::SbResult::Success();
+        }
         presentationEdit.Commit();
         const SkullbonezCore::Core::SbResult result = SkullbonezCore::Runtime::RunUIStressActions(
             host,
@@ -233,8 +249,38 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         PostQuitMessage( 1 );
         return;
     }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Concept: the last completed UI frame publishes the fitted image value.
+    // Mapping immediately after the sole device sample gives every existing
+    // world interaction owner one coherent source-space point this frame.
+    if ( deviceFrame.hasClientPosition && externalUiCapture.gameViewportMappingActive )
+    {
+        DevelopmentTools::ImGuiGameViewportRect viewport;
+        viewport.imageMinX = externalUiCapture.gameViewportMinX;
+        viewport.imageMinY = externalUiCapture.gameViewportMinY;
+        viewport.imageWidth = externalUiCapture.gameViewportWidth;
+        viewport.imageHeight = externalUiCapture.gameViewportHeight;
+        viewport.dpiScale = externalUiCapture.gameViewportDpiScale;
+        viewport.sourceWidth = externalUiCapture.gameViewportSourceWidth;
+        viewport.sourceHeight = externalUiCapture.gameViewportSourceHeight;
+        viewport.valid = true;
+        int mappedX = 0;
+        int mappedY = 0;
+        if ( DevelopmentTools::MapImGuiGameViewportPoint( viewport,
+                                                          static_cast<float>( deviceFrame.clientX ),
+                                                          static_cast<float>( deviceFrame.clientY ),
+                                                          mappedX,
+                                                          mappedY ) )
+        {
+            // Invariant: every downstream pointer consumer sees the same mapped
+            // source pixel; no tool resamples Win32 coordinates independently.
+            deviceFrame.clientX = mappedX;
+            deviceFrame.clientY = mappedY;
+        }
+    }
+#endif
     const RuntimeInputKeyBindingView keyboardBindings = TakeInputKeyboardBindings();
-    m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions );
+    m_inputRouter.BeginFrame( deviceFrame, keyboardBindings, m_inputActions, externalUiCapture );
     UiInputHitSnapshot preUiPointer;
     preUiPointer.mouse = m_inputActions.mouse;
     preUiPointer.clientX = deviceFrame.clientX;
@@ -244,6 +290,14 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     m_inputRouter.PublishUiSnapshot( preUiPointer );
     auto commitPointerPresentation = [&]()
     {
+        if ( externalUiCapture.mouse )
+        {
+            // Hazard: imgui_impl_win32 owns the same HWND capture while a tool
+            // drag is active. Do not let the engine release it at a frame edge;
+            // DeferPointerPresentationCommit below forces a complete reapply
+            // when mouse intent returns to the engine.
+            return;
+        }
         PointerPresentationState presentation;
         if ( !m_inputRouter.ConsumePointerPresentationChange( presentation ) )
         {
@@ -261,6 +315,19 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             PostQuitMessage( 1 );
         }
     };
+    if ( externalUiCapture.nativePointerStateTouched )
+    {
+        // The vendor backend may have changed shared HWND capture/cursor state
+        // while translating a mouse message. Reassert the input owner's full
+        // native policy even when its desired value is otherwise unchanged.
+        m_inputRouter.DeferPointerPresentationCommit();
+    }
+    if ( externalUiCapture.mouse )
+    {
+        m_inputRouter.ReleaseNativeCapture();
+        m_inputRouter.RequestCursorVisible( true );
+        m_inputRouter.DeferPointerPresentationCommit();
+    }
     if ( m_inputRouter.HandleUnfocusedFrame( interactionOwners, sceneOwners, m_replayRuntime, m_runtimeInput ) )
     {
         const SkullbonezCore::Core::SbResult stressResult = RunUIStressActions();
@@ -276,7 +343,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         commitPointerPresentation();
         return;
     }
-    const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    const bool UIBlocksKeyboardBeforeInput =
+        m_UI.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text;
     m_inputRouter.ApplyPointerPresentation( EvaluateRuntimePointerPresentation( m_inputRouter,
                                                                                 m_runtimeTools.Editor(),
                                                                                 m_replayRuntime.BuildInputView() ) );
@@ -288,7 +356,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                              m_camera.director.grabbed ),
                                  true,
                                  UIBlocksKeyboardBeforeInput,
-                                 m_UI.BlocksCameraMouse() );
+                                 m_UI.BlocksCameraMouse() || externalUiCapture.mouse );
     bool keyboardToggleEditorMode = false;
     RunInternal::EditorKeyboardShortcutResult keyboardEditorToolShortcut;
     auto completeEditorPlacementModeTransition =
@@ -673,6 +741,12 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         case RuntimeInputAction::TogglePerformanceHistogram:
         case RuntimeInputAction::ToggleMemoryOverlay:
         {
+            if ( event.action == RuntimeInputAction::ToggleUIVisibility && !legacyDevelopmentUiActive )
+            {
+                // Invariant: the legacy visibility shortcut is inert while the
+                // active ImGui surface owns focus and input.
+                break;
+            }
             const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
                 DiagnosticsUIKeyboardShortcutContext{ m_UI,
                                                       m_debug,
@@ -805,7 +879,10 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
         CameraModeEnabledMask(),
         UIBlocksKeyboardBeforeInput,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
+        externalUiCapture,
+        externalEditorCommands,
+        legacyDevelopmentUiActive };
     RuntimeUIFrameResult uiFrameResult =
         BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, m_replayRuntime, replayPointerRay, uiSamplingFacts );
     if ( uiFrameResult.frameActive )
@@ -816,13 +893,14 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             uiFrameResult.enterInteractiveScene = false;
         }
         presentationEdit.Commit();
-        const bool quitRequested = m_inputRouter.DispatchAfterUiDismiss(
-            m_inputActions,
-            { uiFrameResult.commands.ui.userInteracted, m_timers.simulationTimer.GetTotalTime() },
-            host,
-            interactionOwners,
-            sceneOwners,
-            m_replayRuntime.BuildInputView() );
+        const bool quitRequested = m_inputRouter.DispatchAfterUiDismiss( m_inputActions,
+                                                                         { uiFrameResult.commands.ui.userInteracted,
+                                                                           m_timers.simulationTimer.GetTotalTime(),
+                                                                           legacyDevelopmentUiActive },
+                                                                         host,
+                                                                         interactionOwners,
+                                                                         sceneOwners,
+                                                                         m_replayRuntime.BuildInputView() );
         presentationEdit.Refresh();
         if ( quitRequested )
         {
@@ -834,7 +912,10 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ),
         CameraModeEnabledMask(),
         uiFrameResult.suppressWorldActionThisFrame,
-        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ) };
+        SkullbonezCore::Core::ActiveSceneObjectCapacity( m_config ),
+        externalUiCapture,
+        externalEditorCommands,
+        legacyDevelopmentUiActive };
     presentationEdit.Commit();
     uiFrameResult = ApplyRuntimeUIFrameCommands( uiFrameResult,
                                                  keyboardToggleEditorMode,
@@ -916,17 +997,17 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const DeviceInputFrame& routedDeviceFrame = m_inputRouter.DeviceFrame();
     const UiInputHitSnapshot& routedUiSnapshot = m_inputRouter.UiSnapshot();
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
-    const RuntimeInteractionFrameInput frameInput{ SceneState().isScenePhysics,
-                                                   routedDeviceFrame.keys.IsDown( VK_SPACE ),
-                                                   replayInput.scrubPaused,
-                                                   replayInput.liveAdvanceHeld,
-                                                   mouseEdges.rightDown,
-                                                   m_runtimeTools.Editor().viewportLookActive,
-                                                   replayInput.inspectionActive && routedDeviceFrame.rightDown &&
-                                                       !routedUiSnapshot.wantsNativeCursor &&
-                                                       !routedUiSnapshot.blocksCameraMouse,
-                                                   false,
-                                                   SceneState().timeScale };
+    const RuntimeInteractionFrameInput frameInput{
+        SceneState().isScenePhysics,
+        routedDeviceFrame.keys.IsDown( VK_SPACE ) || uiFrameResult.requestSceneStep,
+        replayInput.scrubPaused,
+        replayInput.liveAdvanceHeld,
+        mouseEdges.rightDown,
+        m_runtimeTools.Editor().viewportLookActive,
+        replayInput.inspectionActive && routedDeviceFrame.rightDown && !routedUiSnapshot.wantsNativeCursor &&
+            !routedUiSnapshot.blocksCameraMouse,
+        false,
+        SceneState().timeScale };
     const RuntimeInputSnapshot& inputSnapshot =
         m_inputRouter.PublishRuntimeSnapshot( frameInput, suppressWorldActionThisFrame );
     const DeviceInputFrame& pointerDevice = m_inputRouter.DeviceFrame();
@@ -975,7 +1056,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                         RuntimeInputActionSource::Mouse );
     }
 
-    if ( m_UI.BlocksKeyboard() )
+    if ( m_UI.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text )
     {
         m_interaction.CancelCameraLookGesture();
         InputController::ResetMouseLook( m_camera );
@@ -1022,47 +1103,47 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                     m_runtimeTools.Editor(),
                                                     m_replayRuntime.BuildInputView() ) );
         }
+    }
 
-        // Invariant: persistence samples final UI-mutated values before a
-        // same-frame scene reset can replace config. Capture keeps its
-        // historical pre-render input checkpoint; automation remains post-render.
-        const bool processedDefaults = DrainRenderDefaultRequests();
-        const bool processedCapture = DrainCaptureRequests();
-        presentationEdit.Commit();
-        const SceneLoadPolicyInputs sceneLoadPolicy{ m_config,
-                                                     m_launchOptions,
-                                                     m_renderDefaults.CinematicBaseline(),
-                                                     m_startup,
-                                                     m_assets,
-                                                     m_workerPool };
-        const SceneLoadHostParticipants sceneLoadHost{ m_timers, m_diagnosticsRuntime, m_simulation };
-        const SceneLoadInteractionParticipants sceneLoadInteraction{
-            m_inputRouter,
-            m_interaction,
-            m_camera,
-            m_attachedCamera.State(),
-            m_runtimeTools,
-            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
-        const SceneLoadPresentationParticipants sceneLoadPresentation{ m_replayRuntime,
-                                                                       sceneOwners.overlays,
-                                                                       m_renderBackendView,
-                                                                       m_renderer };
-        SceneLoadConsumerOutputs sceneLoadOutputs;
-        const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
-                                                                      sceneLoadHost,
-                                                                      sceneLoadInteraction,
-                                                                      sceneLoadPresentation,
-                                                                      sceneLoadOutputs );
-        ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
-                                       m_window,
-                                       interactionOwners.operatorUi,
-                                       m_contactAudio,
-                                       m_validationHarness,
-                                       m_launchOptions );
-        presentationEdit.Refresh();
-        if ( processedCapture || processedDefaults || processedScene )
-        {
-        }
+    // Invariant: UI capture gates world/camera controls, not deferred owner
+    // commands. Persistence samples final UI-mutated values before a same-frame
+    // scene reset can replace config, even while an ImGui text field owns keys.
+    const bool processedDefaults = DrainRenderDefaultRequests();
+    const bool processedCapture = DrainCaptureRequests();
+    presentationEdit.Commit();
+    const SceneLoadPolicyInputs sceneLoadPolicy{ m_config,
+                                                 m_launchOptions,
+                                                 m_renderDefaults.CinematicBaseline(),
+                                                 m_startup,
+                                                 m_assets,
+                                                 m_workerPool };
+    const SceneLoadHostParticipants sceneLoadHost{ m_timers, m_diagnosticsRuntime, m_simulation };
+    const SceneLoadInteractionParticipants sceneLoadInteraction{
+        m_inputRouter,
+        m_interaction,
+        m_camera,
+        m_attachedCamera.State(),
+        m_runtimeTools,
+        CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
+    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_replayRuntime,
+                                                                   sceneOwners.overlays,
+                                                                   m_renderBackendView,
+                                                                   m_renderer };
+    SceneLoadConsumerOutputs sceneLoadOutputs;
+    const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
+                                                                  sceneLoadHost,
+                                                                  sceneLoadInteraction,
+                                                                  sceneLoadPresentation,
+                                                                  sceneLoadOutputs );
+    ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                   m_window,
+                                   interactionOwners.operatorUi,
+                                   m_contactAudio,
+                                   m_validationHarness,
+                                   m_launchOptions );
+    presentationEdit.Refresh();
+    if ( processedCapture || processedDefaults || processedScene )
+    {
     }
     commitPointerPresentation();
 }

@@ -17,12 +17,18 @@ Glossary:
   Text-only mode: Validation mode that skips world rendering and renders glyphs
     on a solid background to isolate text output.
   UI frame data: Borrowed per-frame snapshot passed to the immediate-mode UI.
+  Shared editor view: Domain-grouped values copied once and consumed by both
+    operator front ends during the same presentation frame.
+  Profiler connection snapshot: Three fixed booleans copied from the Tracy
+    owner without a process scan, socket probe, string construction, or growth.
 
 Invariants:
   - Font resources are created once through EnsureGpuResources and released
     before backend teardown.
   - Render flushes Text2d before returning, so callers do not inherit queued UI
     glyphs into later frame work.
+  - Development-tool status is copied into the UI snapshot; draw code never
+    reaches back into the live Tracy owner.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
@@ -34,6 +40,7 @@ Related:
 #include "RuntimeViewModel.h"
 #include "Scene/SceneRuntime.h"
 #include "Allocation/RuntimeReserveAllocator.h"
+#include "DevelopmentTools/TracyClientOwner.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayPresentation.h"
@@ -632,6 +639,14 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             }
         }
 #endif
+#if defined( TRACY_ENABLE )
+        {
+            const DevelopmentTools::TracyClientStatus tracyStatus = DevelopmentTools::TracyClientOwner::CopyStatus();
+            UIData.profiler.tracyBuildEnabled = tracyStatus.buildEnabled;
+            UIData.profiler.tracyInitialized = tracyStatus.initialized;
+            UIData.profiler.tracyViewerConnected = tracyStatus.viewerConnected;
+        }
+#endif
         {
             // Concept: marker enumeration stays in the runtime pass that owns
             // profiler access. The UI receives a bounded frame snapshot so
@@ -953,6 +968,29 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.cinematicRendering = inputs.cinematicRendering;
         UIData.ordinaryRender = liveConfig.ordinaryRender;
         UIData.cinematic = inputs.cinematic;
+        // Invariant: representative legacy controls display the same immutable
+        // values supplied to the secondary editor for this frame.
+        UIData.operatorEditor = state.operatorEditorView;
+        UIData.sceneName = UIData.operatorEditor.scene.sceneName;
+        UIData.modelCount = UIData.operatorEditor.scene.modelCount;
+        UIData.currentFrame = UIData.operatorEditor.scene.currentFrame;
+        UIData.currentSceneIndex = UIData.operatorEditor.scene.currentSceneIndex;
+        UIData.sceneCount = UIData.operatorEditor.scene.sceneCount;
+        UIData.timeScale = UIData.operatorEditor.scene.timeScale;
+        UIData.worldGravity = UIData.operatorEditor.property.worldGravity;
+        UIData.worldFluidHeight = UIData.operatorEditor.property.worldFluidHeight;
+        UIData.worldFluidDensity = UIData.operatorEditor.property.worldFluidDensity;
+        UIData.vsyncEnabled = UIData.operatorEditor.rendering.vsyncEnabled;
+        UIData.presentationInterpolation = UIData.operatorEditor.rendering.presentationInterpolation;
+        UIData.presentationAlpha = UIData.operatorEditor.rendering.presentationAlpha;
+        UIData.cinematicRendering = UIData.operatorEditor.rendering.cinematicRendering;
+        UIData.replayMemoryPreset = UIData.operatorEditor.replay.memoryPreset;
+        UIData.replayMemoryRequestedRetentionSeconds = UIData.operatorEditor.replay.requestedRetentionSeconds;
+        UIData.replayMemoryRequestedBudgetMiB = UIData.operatorEditor.replay.requestedBudgetMiB;
+        UIData.replayMemoryPresentationRetentionSeconds = UIData.operatorEditor.replay.presentationRetentionSeconds;
+        UIData.replayMemorySolverRetentionSeconds = UIData.operatorEditor.replay.solverRetentionSeconds;
+        UIData.replayMemoryBudgetClamped = UIData.operatorEditor.replay.memoryBudgetClamped;
+        UIData.replayMemorySolverWindowReduced = UIData.operatorEditor.replay.solverWindowReduced;
         {
             auto addPreview = [&]( const char* label,
                                    uint32_t textureHandle,

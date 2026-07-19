@@ -1019,7 +1019,8 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                                            RuntimeFrameSceneView& sceneOwners,
                                                            RuntimeFramePresentationView& presentationOwners,
                                                            ReplayRuntime& replayRuntime,
-                                                           const Rendering::IRenderDiagnostics& renderDiagnostics )
+                                                           const Rendering::IRenderDiagnostics& renderDiagnostics,
+                                                           bool legacyDevelopmentUiActive )
 {
     GraphicsStressController& stress = m_graphicsStress;
     Window* window = &host.window;
@@ -1087,6 +1088,14 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                                        renderer },
                     sceneLoadOutputs )
                 .ok;
+        if ( !legacyDevelopmentUiActive )
+        {
+            // Invariant: scene churn may update diagnostics and runtime state,
+            // but it cannot reactivate the mutually exclusive Legacy surface.
+            sceneLoadOutputs.uiActivation.preserveUIState = true;
+            sceneLoadOutputs.uiActivation.forceVisible = false;
+            sceneLoadOutputs.uiActivation.forceUnminimized = false;
+        }
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        *window,
                                        ui,
@@ -1202,8 +1211,11 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         }
     }
 
-    ui.SetVisible( true, timers.simulationTimer.GetTotalTime() );
-    ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
+    if ( legacyDevelopmentUiActive )
+    {
+        ui.SetVisible( true, timers.simulationTimer.GetTotalTime() );
+        ui.SetMinimized( false, timers.simulationTimer.GetTotalTime() );
+    }
     sceneController.EnterInteractiveRun();
 
     const int actionCount = stress.InDescriptorChurnQuietWindow() ? 0 : stress.ActionCount();

@@ -196,6 +196,29 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ThirdPtySource\imgui\imgui.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\imgui_draw.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\imgui_tables.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\imgui_widgets.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_dx12.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdPtySource\tracy\public\TracyClient.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
       <Filter>Source Files\Assets</Filter>
     </ClCompile>
@@ -637,6 +660,21 @@
     <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
       <Filter>Source Files\Runtime\Allocation</Filter>
     </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+        <Filter>Source Files\Runtime\Allocation</Filter>
+      </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
+        <Filter>Source Files\Runtime\Diagnostics</Filter>
+      </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
+        <Filter>Source Files\Runtime\Diagnostics</Filter>
+      </ClCompile>
+      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.cpp">
+        <Filter>Source Files\Runtime\Editor</Filter>
+      </ClCompile>
+      <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.cpp">
+        <Filter>Source Files\Rendering\DX12</Filter>
+      </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\CaptureController.cpp">
       <Filter>Source Files\Runtime\Capture</Filter>
     </ClCompile>
@@ -677,6 +715,9 @@
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIFrameComposition.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\OperatorEditorExchange.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIEditorMiniPalette.cpp">
@@ -1301,6 +1342,30 @@
     <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h">
       <Filter>Header Files\Runtime\Allocation</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h">
+      <Filter>Header Files\Runtime\Allocation</Filter>
+    </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h">
+        <Filter>Header Files\Runtime\Allocation</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h">
+        <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h">
+        <Filter>Header Files\Runtime\Editor</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h">
+        <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h">
+        <Filter>Header Files\Runtime\Diagnostics</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorLayoutPolicy.h">
+        <Filter>Header Files\Runtime\Editor</Filter>
+      </ClInclude>
+      <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ImGuiRendererOwner.h">
+        <Filter>Header Files\Rendering\DX12</Filter>
+      </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\AttachedCameraController.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
@@ -1340,6 +1405,9 @@
     <ClInclude Include="SkullbonezSource\UI\UIFrameComposition.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIRenderAuthoringCatalog.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
@@ -1356,6 +1424,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UICommands.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\OperatorEditorExchange.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h">

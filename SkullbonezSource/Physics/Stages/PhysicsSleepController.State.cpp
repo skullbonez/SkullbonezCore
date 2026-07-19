@@ -6,7 +6,8 @@ Purpose:
 Summary:
   This physical unit keeps the cohesive PhysicsSleepController owner below the
   stage-size review target without creating a second owner. Replay operations
-  copy complete value state; view methods expose only synchronous bounded rows.
+  copy complete value state and invalidate derived awake indices for a cold
+  rebuild; view methods expose only synchronous bounded rows.
 
 Glossary:
   Replay transfer: Deterministic copy between owned sleep rows and the solver snapshot.
@@ -17,6 +18,7 @@ Invariants:
   - Replay capture and restore preserve every sleep-owned row in matching order.
   - Mutable views never transfer capacity or lifetime ownership to consumers.
   - Memory accounting includes every construction-reserved sleep vector.
+  - Replay restore never trusts a pre-restore dense awake index mapping.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
@@ -73,11 +75,18 @@ void PhysicsSleepController::RestoreReplayState( const Runtime::ReplaySolverWorl
     m_sleepIslandCanSleep = snapshot.sleepIslandCanSleep;
     m_nextSleepIslandVisualId = snapshot.nextSleepIslandVisualId;
     m_sleepEnabled = snapshot.sleepEnabled;
+    m_pendingAwakeCount = 0;
+    m_awakeListNeedsRebuild = true;
 }
 
 std::span<const uint8_t> PhysicsSleepController::GetSleepStates() const
 {
     return m_sleepState;
+}
+
+std::span<const int> PhysicsSleepController::GetAwakeBodyIndices() const
+{
+    return std::span<const int>( m_awakeBodyIndices.data(), m_awakeBodyIndices.size() );
 }
 
 int PhysicsSleepController::GetAwakeBodyCount() const

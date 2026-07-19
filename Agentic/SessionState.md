@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-18
+Date: 2026-07-19
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -10,25 +10,136 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-17th-july` |
-| Current baseline | Physics scale P0 is complete with zero baseline, golden, screenshot, authored-format, or coverage-floor refresh. |
-| Current objective | Execute `physics-body-count-scale-campaign` P1 next under the equivalence protocol, then continue the campaign in order. |
-| Active/future progress | 1 / 8 live tasks; 13%. |
-| Last broad local gate | P0 `validate_full` passed in approximately 132s: 292/292 tests, 21,458 assertions, every coverage/CPU lane, Automation/replay smoke, zero-error DX12 captures, screenshots, and byte-exact physics passed. |
-| Validation for current edits | P0 `validate_perf` and `validate_full` passed from final reviewed source; platform-marker smoke and the six-scene 0/1/4-worker determinism matrix passed. Independent review is clear; comment audit is 16/16 with zero deferred. |
+| Branch | `nightrunner-18th-july` |
+| Current baseline | Physics P6 is evidence-deferred: its oracle fixture passed, but the colored wall was slower at one worker and crashed at 4/8 workers; every P6 runtime/artifact edit was reversed to exact P5 behavior. |
+| Current objective | Execute Physics P7 final matrix, comment audit, independent review, gates, and closure while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
+| Active/future progress | 24 / 26 live tasks; 92%. |
+| Last broad local gate | P6 restored-P5 `validate_full` passes with 322/322 cases, 30,378/30,378 assertions, every coverage floor, zero DX12 validation errors, all three image baselines, Automation replay smoke, and byte-exact physics. |
+| Validation for current edits | P6 final docs retain no source or artifact edit; restored-P5 `validate_physics`, `validate_physics_deep`, `validate_perf`, `validate_replay_visual_fidelity.bat` without refresh, and `validate_full` all pass. |
 
 ## Live Queue
 
-NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
-     (`Agentic/Plans/TODO/physics-body-count-scale-campaign.md`), a
-     parallel-eligible physics lane (persistent broadphase, zero-cost
-     sleepers, bandwidth diet, owner-gated graph-colored solver). P0 is
-     complete at 1/8. The next action is P1: build the Debug-only candidate-pair
-     set-equivalence probe, capture old-code evidence, then perform the
-     authorized canonical-order transition only after all six old/new scene
-     sets match tick-for-tick. P6 is not pre-authorized and returns to an owner
-     decision at P5. Every other task keeps the zero-refresh rule. P0 evidence:
-     `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
+NOW. Two live plans, 26 tasks. Physics body-count scale is 7/8 with P6
+     evidence-deferred and P7 next. Steady
+     same-timestep CCD-clock reset, sleep mirroring,
+     eligibility/counter/transition guards, and underwater-lock decisions now
+     follow the ascending awake set or explicit cold boundaries. All-awake
+     scenes remain 245.0 estimated bytes/body/step; sleepy-5,000 falls from 95.4
+     to 82.6 and its physics P50 falls from 1.8628 ms to 1.3331 ms. All six
+     retained P1 witnesses match across the 18-run 0/1/4 matrix; focused tests,
+     physics, perf/allocation, full, and marker gates pass. P5's scale-2,000
+     solver share is 7.1051%/6.5597%, while the wall share is
+     74.2799%/74.3648%, clearing the standing 15% trigger twice. The authorized
+     P6 contact-coloring oracle fixture passed, but the one-worker colored wall
+     regressed to 2.2096 ms `PersistentContacts` and 2.6911 ms physics; four and
+     eight workers crashed with `0xC0000005`. The fallback reversed all P6
+     implementation, focused-test, logging, and artifact edits to exact P5
+     behavior. ImGui/Tracy
+     is 17/18: E14-E15 are reconciled against that accepted golden, E16 is
+     complete, and E17 remains unchecked only for extended hands-on owner
+     acceptance. E0 froze the complete
+     coexistence inventory, seven current screenshots, 1280 x 720 minimum,
+     development configurations, mutually exclusive Legacy/ImGui selection,
+     atomic hot swap, and a single-window rule. E1 pinned exact Dear ImGui docking and Tracy gitlinks,
+     licenses, bootstrap/update documentation, development-only project inputs,
+     and Release exclusion. E2 established the shared development capability,
+     separate bounded ImGui/Tracy allocation rows, exact calling-thread scope,
+     gameplay-guard acceptance probe, and Release artifact exclusion. E3 added
+     the manual/on-demand Tracy lifetime, post-Present frame mark, one composite
+     main plus 63 unique worker labels, fixed editor connection state, and
+     external-viewer/no-viewer/Release/full-gate proof. E4 mirrored existing
+     profiler paths into fixed focused zones, added 32 capacity plots, kept
+     call stacks/allocation events in explicit heavy mode, and restored the
+     approved perf memory budget by leaving Tracy off unless standard/heavy is
+     requested. E5 added one engine-owned ImGui context/lifecycle, typed scalar
+     frame and command values, deterministic DPI-aware font fallback,
+     versioned layout, exclusive Legacy/ImGui selection, and clean repeated
+     lifecycle/resize/allocation proof.
+     E6 added the concrete DX12 renderer owner, separate fixed development
+     heap, synchronous font retirement, two-frame resource rule, explicit
+     pre-Present draw path, separable statistics, resize/fault proof, and
+     clean Release exclusion. Evidence:
+     E7 added the pinned Win32 backend boundary, class-specific capture,
+     viewport authority seam, held-input resynchronization, shared native
+     capture/cursor reconciliation, the mutually exclusive Legacy/ImGui matrix, and a final
+     15-message native probe. UI, stress, fast, allocation, full, and Release
+     gates passed without oracle changes. Evidence:
+     E8 added one domain-grouped frame view, fixed typed surface queues,
+     deterministic duplicate coalescing and conflict reporting, canonical
+     owner projection, independent development visibility preferences, and
+     32 focused assertions. UI, tests, allocation, full, and Release gates
+     passed without oracle or authored-data changes. Evidence:
+     E9 added deterministic layout version 2, stable dock IDs, responsive
+     editor-left/viewport-center/utility-right/replay-bottom/status-bottom
+     topology, the menus/toolbar shell, Tracy state, corrupt-layout recovery,
+     and byte-stable operator reset. Three responsive captures and UI/stress,
+     tests, full, allocation, and Release gates passed without oracle or
+     authored-data changes. Evidence:
+     E10 added typed scene/mode commands, a fixed stable-ID hierarchy,
+     registered asset/create controls, real session visibility and lock
+     behavior, and accurate clean/dirty history. The native editor matrix and
+     UI, DX12, bounded stress, perf, full, allocation, and Release-exclusion
+     gates passed without oracle or authored-data changes. Evidence:
+     E11 added one persistent live DX12 viewport sample, a stable bounded
+     descriptor, physical-pixel letterbox/input mapping, compact viewport
+     facts, and existing-owner selection/placement/gizmo behavior. Native
+     select, asset-drop, and maximized-resize probes plus UI, DX12, bounded
+     stress, perf, full, allocation, and Release-exclusion gates passed with
+     18,029 captures, exactly two resource recreations, empty stderr, and no
+     authored-data or oracle change. Evidence:
+     E12 added explicit none/single/mixed/stale Inspector states, six contextual
+     groups, one five-section World/Simulation authoring surface, and 19 typed
+     preview/commit property commands. A native release-to-commit probe plus UI,
+     physics, full, perf, allocation, and Release-exclusion gates passed with a
+     6/6 comment audit and no authored-data or oracle change. Evidence:
+     E13 added one six-section Rendering surface backed by shared 25 ordinary,
+     64 cinematic, and 8 feature rows; bounded Audio Authoring; and bounded
+     Physics/Renderer/Memory/Workers/Audio/UI Diagnostics. Native typed-command
+     probes plus UI, physics, full, perf, allocation, Release, focused reducer,
+     and 10/10 comment-audit gates passed with no authored-data, baseline, or
+     golden change. Evidence:
+     E14 added one bounded compact Causality projection over the shared replay
+     publication plus a separately dockable, virtualized full-detail table.
+     Native compact/detail captures, 1 focused case/16 assertions, UI/full,
+     allocation, Release exclusion, and the 7/7 comment audit passed with no
+     authored-data or golden change. Its single replay-fidelity invocation
+     passed launcher/control proof and reached only the owner-gated topology
+     `199 -> 200`. P1's accepted one-process golden now passes exact equality
+     and all offline controls without another engine process, so E14 is
+     complete. Evidence:
+     E15 completed the full replay-owned bottom transport, recording/prediction/
+     scrub/cause workflows, minimum-width priority collapse, Legacy-default
+     selection, and atomic `Ctrl+0` hot swaps. Five focused cases/91 assertions,
+     native workflow/swap captures, UI/full/allocation/Release, and the 27/27
+     comment audit passed; its single replay gate reached only the same authorized
+     topology transition. P1's accepted one-process golden now passes exactly,
+     so E15 is complete. Evidence:
+     E16 added versioned benign preferences, deterministic stale-layout recovery,
+     DPI-safe styling, fixed stable-ID automation, explicit inactive-Legacy
+     scene/replay fences, and the final 180-frame matrix. The matrix passed 36
+     actions/23 assertions, five reviewed captures, eight additional hot swaps,
+     and bounded descriptor/recreation counters. Two real Tracy attachments, a
+     263-load long session, fast/UI/UI-stress/perf/allocation/full/Release, and
+     the 16/16 comment audit passed with no authored scene/config, baseline, or
+     golden change. Evidence:
+     `Agentic/Reports/2026-07-18/body-count-scale-measurements.md` and
+     `Agentic/Reports/2026-07-18/imgui-tracy-e0-coexistence-inventory.md` and
+     `Agentic/Reports/2026-07-18/imgui-tracy-e1-dependencies.md` and
+     `Agentic/Reports/2026-07-18/imgui-tracy-e2-allocation-boundary.md` and
+     `Agentic/Reports/2026-07-18/imgui-tracy-e3-lifecycle.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e4-owner-boundary-instrumentation.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e5-context-lifecycle.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e6-dx12-frame.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e7-win32-input.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e8-editor-exchange.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e9-dock-shell.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e10-left-editor-workflow.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e11-game-viewport.md` and
+     `Agentic/Reports/2026-07-19/imgui-tracy-e12-inspector-world.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e13-render-audio-diagnostics.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e14-causality.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e15-replay-workflow.md`.
+     `Agentic/Reports/2026-07-19/imgui-tracy-e16-hardening.md`.
 
 0. Adversarial-review round 7 (2026-07-18, tip 06a17ff31): complete. All four
      plans left the live ledger. Scene-controller round 2 is complete at 7/7
@@ -455,12 +566,12 @@ NOW. One live plan, 8 tasks: the 2026-07-18 physics body-count scale campaign
 
 ## Next Handoff
 
-Round-7 scene decomposition, DX12 backend ownership, naming N0-N4, and
-small-findings H0-H4 are complete and have left the live ledger. Continue
-immediately with `physics-body-count-scale-campaign` P1. P0 is committed at
-1/8 with its matrix and rulings in
-`Agentic/Reports/2026-07-18/body-count-scale-measurements.md`. Build and capture
-the old-code Debug candidate-pair set-equivalence probe before editing pair
-emission order. Do not regenerate behavioral, physics, replay, visual, or
-screenshot artifacts until all six old/new sets match tick-for-tick. P6 still
-requires a fresh owner decision at P5.
+Continue Physics P7. P1-P6 evidence is recorded in
+`Agentic/Reports/2026-07-18/body-count-scale-measurements.md`; future ordinary
+tasks are byte-exact against the transitioned artifacts and receive no refresh
+allowance.
+
+E17's automatable checkpoint is complete and remains unchecked only for extended
+hands-on owner acceptance. Legacy remains the default, Legacy and ImGui are
+mutually exclusive with atomic `Ctrl+0` hot swap, and there is no Legacy
+retirement or default-switch authorization.

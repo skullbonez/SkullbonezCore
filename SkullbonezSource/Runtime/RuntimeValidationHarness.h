@@ -126,7 +126,10 @@ class RuntimeValidationHarness
                                      RuntimeFrameSceneView& sceneOwners,
                                      RuntimeFramePresentationView& presentationOwners,
                                      ReplayRuntime& replayRuntime,
-                                     const Rendering::IRenderDiagnostics& renderDiagnostics );
+                                     const Rendering::IRenderDiagnostics& renderDiagnostics,
+                                     // Prevents scene churn from reactivating the
+                                     // dormant Legacy surface during ImGui stress.
+                                     bool legacyDevelopmentUiActive );
     SceneAutomationGateTracker& SceneGates();
     const SceneAutomationGateTracker& SceneGates() const;
 

@@ -88,6 +88,12 @@ ShadowCasterStream ResolveShadowCasterStream( const RenderInstanceRecord& instan
                                               const ConvexHullShape*& outHull )
 {
     outHull = nullptr;
+    // Invariant: one editor visibility bit suppresses every raster path. A
+    // hidden main-pass object must not remain as a detached shadow or bound.
+    if ( !instance.editorVisible )
+    {
+        return ShadowCasterStream::None;
+    }
     if ( instance.shadowCasterStream != ShadowCasterStream::ConvexHull )
     {
         return instance.shadowCasterStream;
@@ -369,6 +375,10 @@ void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primiti
         for ( int index = 0; index < modelCount; ++index )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( index )];
+            if ( !instance.editorVisible )
+            {
+                continue;
+            }
             const Vector3 center( instance.modelMatrix.m[12], instance.modelMatrix.m[13], instance.modelMatrix.m[14] );
             const bool insideFrustum = frustum.IntersectsSphere( center, instance.boundingRadius );
             const bool aboveReflectionPlane =
@@ -384,7 +394,10 @@ void RenderInstanceRenderer::RenderModels( const PrimitiveRenderContext& primiti
     {
         for ( int index = 0; index < modelCount; ++index )
         {
-            visibleIndices[visibleCount++] = index;
+            if ( instances[static_cast<std::size_t>( index )].editorVisible )
+            {
+                visibleIndices[visibleCount++] = index;
+            }
         }
     }
 
@@ -767,6 +780,10 @@ bool RenderInstanceRenderer::GetObjectShadowBounds( SkullbonezCore::Core::Profil
         for ( int i = begin; i < end; ++i )
         {
             const RenderInstanceRecord& instance = instances[static_cast<std::size_t>( i )];
+            if ( !instance.editorVisible )
+            {
+                continue;
+            }
             const Matrix4& model = instance.modelMatrix;
             const Vector3 pos( model.m[12], model.m[13], model.m[14] );
             const float radius = instance.boundingRadius;

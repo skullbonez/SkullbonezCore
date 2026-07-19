@@ -4,10 +4,11 @@ Purpose:
   Owns fixed-step spatial broadphase storage and deterministic candidate output.
 
 Summary:
-  PhysicsBroadphaseStage rebuilds the spatial grid for one fixed tick, augments
-  conservative fast sweeps, prunes pairs that cannot produce work, and exposes
-  its retained candidate span to later stages. Collision-cell keys share this
-  owner because they are indexed in the same broadphase coordinate system.
+  PhysicsBroadphaseStage incrementally maintains persistent spatial membership
+  for one fixed tick, overlays conservative fast sweeps, visits only cells
+  reached by awake bodies in production, and exposes its retained candidate span
+  to later stages. Collision-cell keys share this owner because they use the
+  same coordinates.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth precise tests.
@@ -15,13 +16,24 @@ Glossary:
   Fast-sweep augmentation: Conservative segment check that protects tiny,
     high-speed bodies from depending only on grid-cell overlap.
   Collision-cell key: Deterministic diagnostic hash of a contact midpoint cell.
+  Same-state oracle: Debug-only comparison that runs legacy and canonical pair
+    construction from one broadphase input state before either can evolve it.
+  Grid maintenance: Adds or removes only cells whose integer body range changed;
+    settled bodies retain their entries without per-step reinsertion.
+  Pair-source cell: Current-generation cell reached by an awake body; dormant
+    membership remains resident even when the cell is not visited this step.
 
 Invariants:
-  - Candidate order, pruning order, profiler markers, and trace emission order
-    match the certified P0 PhysicsWorld implementation.
+  - Solver-visible candidates use the P1 canonical `(minIndex, maxIndex)`
+    order; rare fast-sweep additions are re-canonicalized before pruning.
+  - Pruning predicates and pipeline-trace side effects keep their established
+    per-pair order after that explicit canonical transition.
   - Returned spans remain valid only until the next Run or Clear call.
   - Candidate and collision-key vectors are reserved at construction and never
     grow beyond their fixed runtime capacities.
+  - Swept occupancy expires every step and never changes persistent membership.
+  - Debug full-cell traversal preserves bounded SleepPrunedPair diagnostics;
+    Profile/Release never generate sleep-only candidate work.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp
@@ -66,6 +78,7 @@ struct PhysicsBroadphaseStageContext
     const SkullbonezCore::Core::EngineConfig& config;
     const std::vector<PointJointConstraint>& pointJointConstraints;
     std::span<const uint8_t> sleepState;
+    std::span<const int> awakeBodyIndices;
     std::vector<PhysicsPipelineRecord>& physicsPipelineTrace;
     int modelCount = 0;
     float dt = 0.0f;
@@ -79,12 +92,29 @@ class PhysicsBroadphaseStage
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
     std::vector<std::pair<int, int>> m_candidatePairs;
     std::vector<int64_t> m_collisionCellKeys;
+    bool m_gridMembershipSeeded = false;
+    int m_gridMembershipBodyCount = 0;
+    float m_largestBroadphaseRadius = 0.0f;
+    bool m_largestBroadphaseRadiusValid = false;
+#if defined( _DEBUG )
+    // Debug-only bounded evidence for pairs now suppressed at grid emission.
+    std::vector<std::pair<int, int>> m_sleepPrunedPairs;
+    // P1 same-state transition oracle. These buffers are construction-reserved,
+    // included in Debug memory accounting, and absent from Release's canonical
+    // production path.
+    std::vector<std::pair<int, int>> m_pairOracleShadowPairs;
+    std::vector<std::pair<int, int>> m_pairOracleNormalizedDriverPairs;
+    bool m_pairOracleEnabled = false;
+    bool m_pairOracleLegacyDrives = false;
+    uint64_t m_pairOracleTickCount = 0;
+#endif
 
   public:
     PhysicsBroadphaseStage();
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
     void Clear();
+    void InvalidateBodyTopology();
     void ResetTransientAfterReplayRestore();
     std::span<const std::pair<int, int>> Run( const PhysicsBroadphaseStageContext& context );
 

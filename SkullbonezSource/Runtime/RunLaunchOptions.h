@@ -16,12 +16,15 @@ Glossary:
   steady gameplay begins.
   Generated object type override: Debug/validation selector that forces
   generated demo scenes to all balls or all boxes.
+  Development UI mode: Process-lifetime selection between the Legacy and ImGui
+    operator surfaces; omitted command-line input selects Legacy.
 
 Invariants:
   - These values are policy inputs; subsystems own the live state they modify.
   - Zero or false generally means "not provided" so scene defaults keep working.
   - Physics debug overrides affect visualization only and must not change solver
     ordering or deterministic physics state.
+  - Development UI modes are exclusive; there is no simultaneous Both state.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
@@ -42,6 +45,24 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+enum class DevelopmentUiMode : uint8_t
+{
+    Legacy = 0,
+    ImGui
+};
+
+constexpr bool DevelopmentUiModeShowsLegacy( DevelopmentUiMode mode ) noexcept
+{
+    return mode == DevelopmentUiMode::Legacy;
+}
+
+constexpr bool DevelopmentUiModeShowsImGui( DevelopmentUiMode mode ) noexcept
+{
+    return mode == DevelopmentUiMode::ImGui;
+}
+#endif
+
 struct RunLaunchOptions
 {
     float timeScaleOverride = 0.0f;                           // CLI --time-scale override applied after each scene load (0 = not set)
@@ -81,6 +102,13 @@ struct RunLaunchOptions
     float physicsDebugAlphaOverride = 0.28f;
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // CLI --dev-ui imgui opts into the docked editor; omitted remains Legacy.
+    // Invariant: exactly one development UI owns window focus and input for a
+    // process and there is no parallel/Both mode.
+    DevelopmentUiMode developmentUiMode = DevelopmentUiMode::Legacy;
+    bool developmentUiModeExplicit = false;
+#endif
 };
 
 struct RunStartupOverrides

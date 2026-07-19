@@ -827,7 +827,8 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         {
             const RenderSliderSpec& spec = kRenderSliderSpecs[i];
             const float sliderY = RenderSliderY( i, baseY );
-            if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 18.0f ) )
+            if ( RenderSliderStartsSection( i ) &&
+                 IsRowVisible( contentY, contentH, sliderY - UI_RENDER_SECTION_H + 4.0f, 18.0f ) )
             {
                 DrawSectionTitle( draw,
                                   contentX,
@@ -835,7 +836,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                                   contentH,
                                   sliderY - UI_RENDER_SECTION_H + 4.0f,
                                   12.0f,
-                                  spec.section );
+                                  UIRenderAuthoringSectionName( spec.section ) );
             }
             const float value =
                 std::clamp( RenderValueForParam( data.ordinaryRender, spec.param ), spec.minValue, spec.maxValue );

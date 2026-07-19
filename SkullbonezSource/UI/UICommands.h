@@ -1,13 +1,12 @@
 /*
 File: SkullbonezSource/UI/UICommands.h
 Purpose:
-  Implements UI Commands widgets, layout, drawing, or UI state for the in-engine controls.
+  Defines one-frame request packets emitted by in-engine operator controls.
 
 Summary:
-  UICommands.h implements UI Commands widgets, layout, drawing, or UI state
-  for the in-engine controls. As a public header, keep edits anchored on UI
-  request, layout, hit-test, and draw-command flow and on the
-  glossary/invariants below.
+  Domain command structs keep presentation intent separate from concrete owner
+  mutation. The shared editor exchange is normalized and arbitrated before its
+  representative actions are projected back into this established packet.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -26,15 +25,21 @@ Glossary:
     rejected, or hidden contact-audio body flashes.
   Simple mode request: One-frame Sound-tab command to use linear velocity energy
     instead of solver contact rows for impact audio.
+  Shared editor exchange: Fixed-capacity domain queues through which both
+    operator front ends request the same existing owner operations.
 
 Invariants:
   - Draw geometry and hit testing must be derived from the same layout
   constants.
+  - Command packets are values; they contain no callback, owner pointer, or
+    authority to mutate runtime state directly.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include "OperatorEditorExchange.h"
 
 #include <cstdint>
 
@@ -225,6 +230,8 @@ struct UISceneCommands
     bool createScene = false;              // Create a new starter scene from requestedSceneName.
     char requestedSceneName[64] = {};
     int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
+    bool toggleCrossScenePause = false;    // Toggle the scene-flow owner's pause lock across scene transitions.
+    bool requestSingleStep = false;        // Advance one paused scene turn; never retained beyond this input frame.
 };
 
 struct UIPhysicsCommands
@@ -275,6 +282,18 @@ struct UIEditorCommands
     bool requestPlaceStatic = false;
     bool requestedPlaceStatic = false;
     int requestedObjectType = -1;
+    bool requestUndo = false;              // Ask the editor history owner to undo one committed command.
+    bool requestRedo = false;              // Ask the editor history owner to redo one committed command.
+    bool requestSelectSceneObject = false; // Resolve stable scene identity at the editor-owner boundary.
+    uint32_t requestedSceneObjectId = 0u;
+    bool requestDeleteSelection = false;
+    bool requestDuplicateSelection = false;
+    bool requestSetEntityVisible = false;
+    bool requestedEntityVisible = true;
+    uint32_t visibilitySceneObjectId = 0u;
+    bool requestSetEntityLocked = false;
+    bool requestedEntityLocked = false;
+    uint32_t lockSceneObjectId = 0u;
 };
 
 struct UISceneOptionCommands
@@ -366,6 +385,7 @@ struct UIReplayMemoryCommands
 
 struct InGameUICommands
 {
+    OperatorEditorCommandQueues operatorEditor;
     UIOnlyCommands ui;
     UIRendererCommands renderer;
     UISceneCommands scene;

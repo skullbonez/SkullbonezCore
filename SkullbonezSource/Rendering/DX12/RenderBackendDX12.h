@@ -90,6 +90,9 @@ Related:
 #include "Dx12Diagnostics.h"
 #include "Dx12ShaderDevelopment.h"
 #include "Dx12FrameOwner.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "Dx12ImGuiRendererOwner.h"
+#endif
 #include "BLASDX12.h"
 #include "TLASDX12.h"
 #include "SBTDX12.h"
@@ -669,6 +672,11 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // frame owner that borrows them for fence-proven reuse.
     Dx12DescriptorHeaps m_descriptorHeaps;
     Dx12FrameOwner m_frameOwner;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Lifetime: this development renderer borrows the preceding concrete
+    // device/descriptor/frame owners and is unbound before their shutdown.
+    Dx12ImGuiRendererOwner m_imguiRenderer;
+#endif
     // Lifetime: uncertain screenshot resources remain inside this owner until
     // shutdown proves both command-queue and present-queue completion.
     Dx12BackbufferCapture m_backbufferCapture;
@@ -705,6 +713,12 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     SkullbonezCore::Core::SbResult FlushGPU() override;
     SkullbonezCore::Core::SbResult DrainForResourceRelease() override;
     SkullbonezCore::Core::SbResult Resize( int width, int height ) override;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    Dx12ImGuiRendererOwner& DevelopmentUiRenderer() noexcept
+    {
+        return m_imguiRenderer;
+    }
+#endif
     bool ShaderHotReloadEnabled() const override;
     SkullbonezCore::Core::SbResult ReloadShadersFromSource() override;
 

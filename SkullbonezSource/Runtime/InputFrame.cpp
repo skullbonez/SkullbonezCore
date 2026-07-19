@@ -503,7 +503,7 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     SceneController& sceneController = sceneOwners.sceneController;
     Window& window = host.window;
     RuntimeUIFrameResult result;
-    result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame;
+    result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
 
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
@@ -538,6 +538,11 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     }
     result.editorUnhandledWheelDelta = UIResult.unhandledWheelDelta;
     result.commands = UIResult.commands;
+    result.status = NormalizeLegacyOperatorEditorCommands( result.commands );
+    if ( !result.status.ok )
+    {
+        return result;
+    }
     const DeviceInputFrame& deviceFrame = inputRouter.DeviceFrame();
     UiInputHitSnapshot uiSnapshot;
     uiSnapshot.mouse = inputRouter.UiSnapshot().mouse;
@@ -546,8 +551,8 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     uiSnapshot.hasClientPosition = deviceFrame.hasClientPosition;
     uiSnapshot.unhandledWheelDelta = UIResult.unhandledWheelDelta;
     uiSnapshot.userInteracted = result.commands.ui.userInteracted;
-    uiSnapshot.blocksKeyboard = ui.BlocksKeyboard();
-    uiSnapshot.blocksCameraMouse = ui.BlocksCameraMouse();
+    uiSnapshot.blocksKeyboard = ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text;
+    uiSnapshot.blocksCameraMouse = ui.BlocksCameraMouse() || facts.externalUiCapture.mouse;
     uiSnapshot.wantsNativeCursor = ui.WantsNativeMouseCursor();
     inputRouter.PublishUiSnapshot( uiSnapshot );
     result.enterInteractiveScene = result.commands.ui.userInteracted;
@@ -557,7 +562,8 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     // and key facts now; ProcessInputFrame republishes the final policy facts below.
     inputRouter.PublishRuntimeSnapshot( RuntimeInteractionFrameInput{}, result.suppressWorldActionThisFrame );
     replayRuntime.TickWorkspace( ReplayWorkspaceFrameInput{ windowHandle,
-                                                            ui.BlocksCameraMouse(),
+                                                            ui.BlocksCameraMouse() || facts.externalUiCapture.mouse,
+                                                            facts.legacyDevelopmentUiActive,
                                                             result.editorUnhandledWheelDelta,
                                                             replayPointerRay,
                                                             facts.replayCurrentCameraMode,
@@ -583,9 +589,10 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
                                  result.replayWorkspace );
     result.enterInteractiveScene = result.enterInteractiveScene || result.replayWorkspace.enterInteractive;
     result.suppressWorldActionThisFrame = result.suppressWorldActionThisFrame || result.replayWorkspace.consumesMouse;
-    runtimeInput.BeginFrame( true,
-                             ui.BlocksKeyboard(),
-                             ui.BlocksCameraMouse() || result.replayWorkspace.consumesMouse );
+    runtimeInput.BeginFrame(
+        true,
+        ui.BlocksKeyboard() || facts.externalUiCapture.keyboard || facts.externalUiCapture.text,
+        ui.BlocksCameraMouse() || facts.externalUiCapture.mouse || result.replayWorkspace.consumesMouse );
     return result;
 }
 
@@ -620,11 +627,120 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RenderDefaultsStore& renderDefaults = presentationOwners.renderDefaults;
     RuntimeRenderer& renderer = presentationOwners.renderer;
-    if ( !result.frameActive )
+    if ( !result.frameActive || !result.status.ok )
+    {
+        return result;
+    }
+    // Invariant: the active surface and optional automation/probe intent
+    // converge here exactly once. Runtime selection keeps the human surfaces
+    // exclusive; arbitration still coalesces exact duplicate injected intent
+    // and rejects conflicting payloads through Lane R.
+    const SkullbonezCore::UI::OperatorEditorArbitrationResult editorCommands =
+        SkullbonezCore::UI::ArbitrateOperatorEditorCommands( result.commands.operatorEditor,
+                                                             facts.externalEditorCommands );
+    if ( !editorCommands.status.ok )
+    {
+        result.status = editorCommands.status;
+        return result;
+    }
+    result.commands.operatorEditor = editorCommands.commands;
+    result.status = SkullbonezCore::UI::ProjectOperatorEditorCommands( editorCommands.commands, result.commands );
+    if ( !result.status.ok )
     {
         return result;
     }
     const InGameUICommands& uiCommands = result.commands;
+
+    // Concept: operator transport values are normalized with every other
+    // editor command, then translated once into replay-domain vocabulary.
+    // ReplayRuntime coordinates concrete owners and publishes recoverable
+    // feedback; this input boundary retains no timeline or restore authority.
+    for ( uint32_t index = 0u; index < editorCommands.commands.replay.count; ++index )
+    {
+        const SkullbonezCore::UI::OperatorEditorReplayCommand& source = editorCommands.commands.replay.commands[index];
+        if ( source.type == SkullbonezCore::UI::OperatorEditorReplayCommandType::SetMemoryPolicy )
+        {
+            continue;
+        }
+
+        ReplayTransportCommand command;
+        command.value = source.value;
+        command.rowIndex = source.rowIndex;
+        command.enabled = source.enabled;
+        switch ( source.type )
+        {
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetRecordingEnabled:
+            command.action = ReplayTransportAction::SetRecordingEnabled;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::JumpToStart:
+            command.action = ReplayTransportAction::JumpToStart;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::JumpToEnd:
+            command.action = ReplayTransportAction::JumpToEnd;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::TogglePlayPause:
+            command.action = ReplayTransportAction::TogglePlayPause;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::StepBackward:
+            command.action = ReplayTransportAction::StepBackward;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::StepForward:
+            command.action = ReplayTransportAction::StepForward;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetRevealSpeed:
+            command.action = ReplayTransportAction::SetRevealSpeed;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::Scrub:
+            command.action = ReplayTransportAction::Scrub;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::TogglePrediction:
+            command.action = ReplayTransportAction::TogglePrediction;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetPredictionHorizon:
+            command.action = ReplayTransportAction::SetPredictionHorizon;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::RestoreBranch:
+            command.action = ReplayTransportAction::RestoreBranch;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::Save:
+            command.action = ReplayTransportAction::Save;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::Load:
+            command.action = ReplayTransportAction::Load;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::ReturnToLive:
+            command.action = ReplayTransportAction::ReturnToLive;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SelectCauseRow:
+            command.action = ReplayTransportAction::SelectCauseRow;
+            break;
+        case SkullbonezCore::UI::OperatorEditorReplayCommandType::SetMemoryPolicy:
+        default:
+            continue;
+        }
+
+        ReplayWorkspaceOutput transportOutput;
+        replayRuntime.ApplyTransportCommand( command,
+                                             ReplayTransportHostContext{ host.window.NativeWindowHandle(),
+                                                                         facts.replayCurrentCameraMode,
+                                                                         facts.replayRestoreCameraMode,
+                                                                         attachedCamera.State().activeFollow,
+                                                                         camera.director.grabbed,
+                                                                         timers.simulationTimer.GetTotalTime() },
+                                             inputRouter,
+                                             interaction,
+                                             &sceneController.Scene().Cameras(),
+                                             sceneController.Scene().Terrain().Get(),
+                                             camera,
+                                             runtimeTools.MousePickup(),
+                                             transportOutput );
+        result.enterInteractiveScene = result.enterInteractiveScene || transportOutput.enterInteractive;
+        if ( result.replayWorkspace.restoreRequest.kind == ReplayLiveRestoreKind::None &&
+             transportOutput.restoreRequest.kind != ReplayLiveRestoreKind::None )
+        {
+            result.replayWorkspace.restoreRequest = transportOutput.restoreRequest;
+        }
+    }
 
     const auto updateInputMode = [&]( RuntimeInputAction action, RuntimeInputActionSource source )
     {
@@ -791,6 +907,77 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         result.enterInteractiveScene = true;
         recordUIAction( RuntimeInputAction::ToggleEditorTerrainAlign );
     }
+    SceneWorld& editorWorld = sceneController.Scene();
+    if ( uiCommands.editor.requestSelectSceneObject && runtimeTools.Editor().editorModeEnabled )
+    {
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = uiCommands.editor.requestedSceneObjectId;
+        const int modelIndex = editorWorld.Entities().FindBySceneObjectId( sceneObjectId );
+        const SceneEntityRecord* entity = editorWorld.Entities().TryGet( modelIndex );
+        if ( entity )
+        {
+            RuntimeInteractionCommand command;
+            command.type = RuntimeInteractionCommandType::SetEditorSelection;
+            command.body = entity->body;
+            command.collider = editorWorld.Colliders().HandleForSceneObjectId( sceneObjectId );
+            command.claimSelectionOwner = false;
+            if ( runtimeTools.ApplySelectionCommand( command, editorWorld ) )
+            {
+                result.enterInteractiveScene = true;
+            }
+        }
+    }
+    // Invariant: hierarchy metadata is a live editor concern. Typed secondary
+    // commands cannot mutate scene presentation or edit locks while play mode
+    // owns the frame, even if a stale packet crosses the mode transition.
+    if ( uiCommands.editor.requestSetEntityVisible && runtimeTools.Editor().editorModeEnabled )
+    {
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = uiCommands.editor.visibilitySceneObjectId;
+        result.enterInteractiveScene =
+            editorWorld.SetEditorEntityVisible( sceneObjectId, uiCommands.editor.requestedEntityVisible ) ||
+            result.enterInteractiveScene;
+    }
+    if ( uiCommands.editor.requestSetEntityLocked && runtimeTools.Editor().editorModeEnabled )
+    {
+        PhysicsSceneObjectId sceneObjectId;
+        sceneObjectId.value = uiCommands.editor.lockSceneObjectId;
+        result.enterInteractiveScene =
+            editorWorld.SetEditorEntityLocked( sceneObjectId, uiCommands.editor.requestedEntityLocked ) ||
+            result.enterInteractiveScene;
+    }
+    if ( uiCommands.editor.requestDuplicateSelection && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.DuplicateEditorSelection( editorWorld, sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+    }
+    if ( uiCommands.editor.requestDeleteSelection && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.DeleteEditorSelection( editorWorld, sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+        recordUIAction( RuntimeInputAction::DeleteEditorSelection );
+    }
+    if ( uiCommands.editor.requestUndo && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.UndoEditorCommand( sceneController.Scene(), sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+        recordUIAction( RuntimeInputAction::UndoEditor );
+    }
+    if ( uiCommands.editor.requestRedo && runtimeTools.Editor().editorModeEnabled &&
+         runtimeTools.RedoEditorCommand( sceneController.Scene(), sceneController.State() ) )
+    {
+        result.enterInteractiveScene = true;
+        recordUIAction( RuntimeInputAction::RedoEditor );
+    }
+    if ( uiCommands.scene.toggleCrossScenePause )
+    {
+        sceneController.ToggleCrossScenePause();
+        recordUIAction( RuntimeInputAction::ToggleCrossScenePause );
+    }
+    // Invariant: the one-frame step request joins the routed Space level later
+    // in ProcessInputFrame. It is meaningful only while the scene-flow owner is
+    // paused and is never retained as Run business state.
+    result.requestSceneStep = uiCommands.scene.requestSingleStep && sceneController.CrossScenePauseLocked();
     const DiagnosticsPhysicsOverlayUICommandResult physicsDiagnosticsCommands =
         ApplyDiagnosticsPhysicsOverlayUICommands( debug, uiCommands.physics );
     if ( physicsDiagnosticsCommands.toggledCollisionVisualizer )

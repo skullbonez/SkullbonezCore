@@ -33,6 +33,8 @@ Invariants:
     body state for presentation.
   - Wake commands update solver sleep/island state without rebuilding render
     projection records.
+  - Authored create, destroy, update, trim, and replay-restore commands
+    invalidate derived awake/grid state, including same-count row replacement.
 
 Related:
   - SkullbonezSource/Physics/PhysicsScene.h
@@ -260,6 +262,7 @@ bool PhysicsScene::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthore
 void PhysicsScene::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs )
 {
     m_bodyStore.LoadFromDescriptors( bodyDescs, m_world.GetSleepStates() );
+    m_world.InvalidateBodyTopology();
 }
 
 
@@ -291,6 +294,7 @@ PhysicsAuthoredBodyRegistration PhysicsScene::RegisterAuthoredBody( const Physic
         m_authoredBodyDescs.pop_back();
         return {};
     }
+    m_world.InvalidateBodyTopology();
     return { body, collider };
 }
 
@@ -321,6 +325,7 @@ bool PhysicsScene::DestroyAuthoredBody( PhysicsBodyHandle body )
         m_authoredBodyDescs[row] = std::move( m_authoredBodyDescs.back() );
     }
     m_authoredBodyDescs.pop_back();
+    m_world.InvalidateBodyTopology();
     return true;
 }
 
@@ -392,6 +397,7 @@ bool PhysicsScene::UpdateAuthoredBody( const PhysicsBodyUpdateDesc& update )
             WakeBody( update.body );
         }
     }
+    m_world.InvalidateBodyTopology();
     return true;
 }
 
@@ -453,7 +459,12 @@ void PhysicsScene::ClearPendingBodyImpulses()
 
 bool PhysicsScene::TrimBodiesToCount( PhysicsBodyCount bodyCount )
 {
-    return m_bodyStore.TrimToCount( CountAsInt( bodyCount ) );
+    const bool trimmed = m_bodyStore.TrimToCount( CountAsInt( bodyCount ) );
+    if ( trimmed )
+    {
+        m_world.InvalidateBodyTopology();
+    }
+    return trimmed;
 }
 
 
@@ -475,17 +486,22 @@ bool PhysicsScene::RestoreReplayBodyState( PhysicsBodyHandle body,
                                            const Math::Vector::Vector3& rotationalInertia,
                                            const Math::Vector::Vector3& inverseRotationalInertia )
 {
-    return m_bodyStore.RestoreReplayBodyState( body,
-                                               replayBodyId,
-                                               fixed,
-                                               position,
-                                               orientation,
-                                               linearVelocity,
-                                               angularVelocity,
-                                               mass,
-                                               inverseMass,
-                                               rotationalInertia,
-                                               inverseRotationalInertia );
+    const bool restored = m_bodyStore.RestoreReplayBodyState( body,
+                                                              replayBodyId,
+                                                              fixed,
+                                                              position,
+                                                              orientation,
+                                                              linearVelocity,
+                                                              angularVelocity,
+                                                              mass,
+                                                              inverseMass,
+                                                              rotationalInertia,
+                                                              inverseRotationalInertia );
+    if ( restored )
+    {
+        m_world.InvalidateBodyTopology();
+    }
+    return restored;
 }
 
 

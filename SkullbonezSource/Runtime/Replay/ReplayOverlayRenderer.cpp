@@ -87,6 +87,13 @@ float ReplayOverlayTrackPosition( const ReplayScrubberView& scrubber, RunReplayT
 void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( context.profiler, "Frame/Replay/ScrubberOverlay" );
+    if ( !context.legacyReplaySurfaceActive )
+    {
+        // Invariant: the immutable replay publication may feed ImGui, but the
+        // Legacy renderer must emit no competing pixels while that surface is
+        // inactive. This is a presentation fence, not replay-owner mutation.
+        return;
+    }
     const ReplayScrubberView& scrubber = context.scrubber;
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
@@ -820,6 +827,10 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
 void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
 {
     PROFILE_SCOPED( context.profiler, "Frame/Replay/CauseTree/Overlay" );
+    if ( !context.legacyReplaySurfaceActive )
+    {
+        return;
+    }
     Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
     const int screenW = context.screenW;
     const int screenH = context.screenH;

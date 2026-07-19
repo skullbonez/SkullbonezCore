@@ -20,6 +20,7 @@
 //
 // Invariants:
 //   - Out-of-range model indices are rejected before array access.
+//   - Sleep-only pairs are rejected before geometric candidate work.
 //   - Invalid broadphase radii are accepted, not rejected, so narrowphase keeps
 //     authority over malformed or transitional shape data.
 //
@@ -112,6 +113,7 @@ TEST_CASE( "Solver broadphase stage: candidate filter handles static and swept p
     BroadphaseCandidateFilterContext context{ bodyStore.Records(),
                                               bodyStore.HotFields(),
                                               { colliderRecords.data(), colliderRecords.size() },
+                                              {},
                                               4,
                                               1.0f,
                                               0.0f };
@@ -134,6 +136,7 @@ TEST_CASE( "Solver broadphase stage: candidate filter keeps boundary policy cons
     BroadphaseCandidateFilterContext context{ bodyStore.Records(),
                                               bodyStore.HotFields(),
                                               { colliderRecords.data(), colliderRecords.size() },
+                                              {},
                                               2,
                                               1.0f,
                                               0.0f };
@@ -154,6 +157,7 @@ TEST_CASE( "Solver broadphase stage: contact skin includes the exact static boun
     BroadphaseCandidateFilterContext context{ bodyStore.Records(),
                                               bodyStore.HotFields(),
                                               { colliderRecords.data(), colliderRecords.size() },
+                                              {},
                                               2,
                                               1.0f,
                                               0.1f };
@@ -161,6 +165,27 @@ TEST_CASE( "Solver broadphase stage: contact skin includes the exact static boun
     CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
     bodyStore.MutableHotFields().positionX[1] = 2.1002f;
     CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+}
+
+
+TEST_CASE( "Solver broadphase stage: two sleepers never enter candidate work" )
+{
+    PhysicsBodyStore& bodyStore = TestBodyStore();
+    ColliderRecordList& colliderRecords = TestColliderRecords();
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 0.0f, 0.0f, 0.0f ), Vector3(), 1.0f );
+    AddCandidateBody( bodyStore, colliderRecords, Vector3( 1.0f, 0.0f, 0.0f ), Vector3(), 1.0f );
+    std::array<uint8_t, 2> sleepState = { 1u, 1u };
+    BroadphaseCandidateFilterContext context{ bodyStore.Records(),
+                                              bodyStore.HotFields(),
+                                              { colliderRecords.data(), colliderRecords.size() },
+                                              sleepState,
+                                              2,
+                                              1.0f / 120.0f,
+                                              0.0f };
+
+    CHECK_FALSE( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
+    sleepState[0] = 0u;
+    CHECK( BroadphaseCandidateCanTouch( &context, 0, 1 ) );
 }
 
 

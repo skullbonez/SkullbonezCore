@@ -1,13 +1,14 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 1/8 tasks (P0 complete; P1 next)
-Branch: `nightrunner-17th-july`
+Status: Active — 7/8 tasks (P0-P5 complete; P6 evidence-deferred; P7 next)
+Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
 `Physics/Stages/PhysicsSleepController.*`, `Physics/PhysicsBodyStore.*`,
 `Physics/PhysicsWorld.*`, scale scenes, physics/perf baselines, replay
-visual-fidelity golden (P1/P6 transitions only, owner-approved)
+visual-fidelity golden (P1 and evidence-triggered P6 transitions only;
+per-instance replay-golden approval still applies)
 Owner: physics subsystem
 
 ## Problem And Evidence (measured 2026-07-18 at `nightrunner-17th-july`, plan authored at 06a17ff31)
@@ -60,7 +61,7 @@ Run-to-run and thread-count determinism are never weakened at any point.
   nondeterministic and are explicitly out of scope here.
 
 This campaign adopts: persistence (P2), free sleepers (P3), bandwidth diet
-(P4), and — owner-gated after the mid-campaign checkpoint — graph-colored
+(P4), and — evidence-gated after the mid-campaign checkpoint — graph-colored
 solver parallelism (P6). It does not adopt GPU physics or solver-model
 (TGS) changes.
 
@@ -96,32 +97,98 @@ At unchanged tick rate and unchanged collision/solver behavior envelopes:
 - No cross-platform/cross-toolchain determinism expansion; the certified
   envelope stays per-binary, pinned toolchain (`/fp:precise`,
   `fp_contract off`).
-- Outside P1 and P6 (each individually owner-approved with equivalence
-  evidence), zero baseline, golden, screenshot, or coverage-floor refresh.
+- Outside P1 and an evidence-triggered P6 (each with the protocol's
+  same-state evidence), zero baseline, golden, screenshot, or coverage-floor
+  refresh.
 
 ## Determinism Transition Protocol (binding for P1 and P6)
 
 A transition task may change float-visible results **only** by reordering
 identical work, never by changing the work:
 
-1. Build the equivalence probe first: a Debug-only dump of the per-tick
-   candidate-pair **set** (P1) or per-iteration impulse **set** (P6),
-   order-insensitive (sorted before hashing).
-2. Run old code and new code over all four `physics_scale_*` scenes plus
-   the P0 sleeping-heavy scene and the regression varied scene; the
-   equivalence probe must match tick-for-tick before any baseline moves.
-3. Only then regenerate, from the final Debug binary per the AGENTS.md
+1. Build a Debug-only **same-input-state** oracle before moving an artifact.
+   The legacy and replacement paths must consume the same pre-stage state;
+   comparing two simulations after each has evolved under a different work
+   order is not an equivalence test for an order-changing transition.
+2. P1 runs the oracle in both driver directions over all four
+   `physics_scale_*` scenes, the P0 sleeping-heavy scene, and the regression
+   varied scene: legacy emission drives the simulation while canonical
+   emission shadows it, then canonical emission drives while legacy emission
+   shadows it. At every tick compare the normalized raw pair set immediately
+   after `SpatialGrid` emission and the normalized final solver-visible pair
+   set after augmentation/pruning. Both sets must match on the shared state.
+3. P6 compares, from the same pre-solve state, canonical constraint identity
+   and membership, exactly-once solve coverage, graph-color body disjointness,
+   and fixed color order. Do **not** require numerical per-iteration impulses
+   to equal the serial solver: projected Gauss-Seidel work-order changes are
+   expected to change intermediate velocities and impulse values. The new
+   colored solver must instead be byte-identical to itself at 0/1/4/8 workers.
+4. Only after the relevant oracle passes may the task regenerate, from the
+   final Debug binary per the AGENTS.md
    baseline rules: the deterministic physics CSVs (`validate_physics` set;
    `validate_physics_deep` set if its scenes' outcomes moved) and — with
    explicit per-instance owner approval under MASTER rule 11 — the 200-box
    replay visual-fidelity golden, using exactly one engine process and one
    prediction generation.
-4. Rerun the matching gates against the regenerated artifacts in the same
-   task. A transition without a passing equivalence probe is reverted, not
-   fixed forward.
-5. Thread-count invariance: every task in this campaign, transition or
+5. Record the pre-refresh deterministic diffs as transition evidence, then
+   rerun the matching gates against the regenerated artifacts in the same
+   task. An expected pre-refresh mismatch is not a passing gate. A transition
+   without a passing same-state oracle is reverted, not fixed forward.
+6. Thread-count invariance: every task in this campaign, transition or
    not, must produce byte-identical physics CSVs at worker counts 0, 1,
    and 4 (precedent: deterministic-parallel-mutual-gravity acceptance).
+
+Owner clarification, 2026-07-18: an independently evolved legacy run and an
+independently evolved canonical run are expected to separate after a solver
+work-order change. Their deterministic CSVs and later broadphase sets therefore
+need not match before the authorized transition. The binding proof is identical
+work membership on identical input state plus deterministic results within the
+new implementation's certified worker-count envelope.
+
+## Expected Failures And Artifact Update Policy
+
+"Expected" means a failure is legitimate **before** an authorized transition
+refresh; it never means the task may close with a failing gate. Compiler/test
+failures, crashes, warnings, allocation-guard failures, capacity failures
+without the required Lane F diagnostics, same-state work-membership mismatch,
+and worker-count nondeterminism are regressions in every task.
+
+| Task | Expected pre-refresh deterministic failures | Must remain unchanged | Committed artifact updates allowed |
+|---|---|---|---|
+| P0 | None; instrumentation must not move physics state. | Physics CSVs, replay/visual goldens, screenshots, coverage floors. | Scene, profiler-marker plumbing, and measurement report only, as already completed. |
+| P1 | Physics CSV comparison and replay hashes/golden may differ after canonical pair order begins driving the solver. Later independently evolved pair sets may also differ; this is not emitter-set loss when the same-state raw and final sets match. | Same-state raw/final pair membership in both driver directions; 0/1/4 repeatability; authored scenes/config/schema; coverage floors; general render screenshots. | Physics CSV baselines whose outcomes moved, from the final Debug binary. Deep CSVs only if their scenes moved. The 200-box replay golden only with explicit per-instance owner approval and one process/generation. No other baseline class. |
+| P2 | None. A deterministic-output diff exposes stale membership, removal/back-link, overlay, rebuild, or history-dependence defects. | P1 physics CSVs and replay golden byte-exact; canonical pair membership/order; 0/1/4 identity. | Measurement report and profiler evidence only; no physics, replay, screenshot, perf-baseline, or coverage-floor refresh. |
+| P3 | None. A deterministic-output diff exposes awake-list, wake, sleep-pair suppression, diagnostics, or restore defects. | P1 physics CSVs and replay golden byte-exact; awake-to-sleep collision/wake semantics; 0/1/4 identity. | Measurement report and an explicitly approved diagnostics-format/retirement record only; no behavioral baseline refresh. |
+| P4 | None. A deterministic-output diff means operation order or persisted state changed and the candidate optimization is rejected. | P1 physics CSVs and replay golden byte-exact; hot-path allocation policy; 0/1/4 identity. | Measurement report/profiler evidence only; committed performance baselines are not authorized by this plan. |
+| P5 | None; documentation/evidence-gate task. | All runtime artifacts. | Campaign report, plan, and the automatic proceed/defer decision only; the eight-task ledger denominator stays fixed. |
+| P6, if evidence-triggered | Physics CSV comparison and replay hashes/golden may differ because fixed graph-color order replaces serial constraint order. Numerical impulse values may differ. | Same-state constraint membership, exactly-once coverage, conflict-free colors, fixed color order, and 0/1/4/8 identity within the new solver. Authored scenes/config/schema, screenshots, and coverage floors remain unchanged. | Physics/deep CSV baselines whose outcomes moved, from the final Debug binary; 200-box replay golden only with explicit per-instance approval and one process/generation. If that approval is unavailable, reverse only the P6 changes and preserve P5 behavior rather than blocking. No other baseline class. |
+| P7 | None. Closure validates the artifacts established by P1 and, if run, P6. | Everything behavioral. A final failure reopens its owning task. | Reports, plan/MASTER/SessionState closure bookkeeping only; never refresh a baseline at P7 to make a gate pass. |
+
+Ignored captures, profiler traces, temporary comparison dumps, and the campaign
+measurement report are evidence, not behavioral baselines. They may be updated
+when a task records new measurements. Authored scene/config/schema changes,
+render screenshot baselines, coverage floors, and committed performance
+baselines require a separate task and owner ruling; this campaign does not
+authorize them. Provenance-hash-only reconciliation is also inapplicable unless
+the exact AGENTS.md standing-rule conditions independently arise and are proved.
+
+### Task-Specific Failure Probes
+
+| Task | Failure modes the implementation must actively probe |
+|---|---|
+| P1 | Raw emitter omission/duplication; augmentation/prune changing final membership; pair normalization mistakes; canonical-list capacity diagnostics; hidden allocation; new-path 0/1/4 nondeterminism. |
+| P2 | Cell-boundary enter/leave errors; multi-cell removal and swap-back-link corruption; free-list reuse; body removal/reinsertion; `SetCellSize`/scene-load full rebuild; transient swept/CCD overlay leakage; pool-exhaustion Lane F diagnostics; replay/restore history dependence. |
+| P3 | Duplicate/out-of-order awake indices; sleep/wake transition loss; awake mover versus sleeper contact and wake behavior; sleep-sleep suppression; fixed/static-body handling; `SleepPrunedPair` diagnostic ordering/retirement; replay restore rebuilding the same awake list. |
+| P4 | Cross-body or fused-pass arithmetic reordering; cold-store split omissions in replay/capture/restore; full-array diagnostics scans left on the hot path; hot-path allocation; inclusive profiler accounting overlap or gaps. |
+| P6 | Two constraints sharing a body in one color; skipped/double-solved constraints; warm-start/cache order drift beyond the authorized transition; fixed-buffer overflow diagnostics; atomics/races; repeat-run or 0/1/4/8 worker drift; insufficient one-big-island speedup. |
+| P7 | Baseline generated from a non-final binary; a required mapped gate omitted; transition evidence missing; comment-audit or independent-review finding left open. |
+
+Each implementation task must cover its applicable rows with a focused unit,
+standalone CPU, or deterministic scene/regression test in the same commit. If a
+listed failure mode cannot be tested practically, the task notes must identify
+the exact inspection or diagnostic evidence used instead and why automation was
+not practical. These focused tests supplement, rather than replace, the mapped
+task gates below.
 
 ## Measurement Ledger (incremental profiling obligations)
 
@@ -181,11 +248,13 @@ explained or the task is not done.
   - Evidence: `../../Reports/2026-07-18/body-count-scale-measurements.md`.
     The owner accepted capacity 6,000 with 4,000 seeded sleepers and 1,000
     awake movers, ratified the ≥4,000-awake target, authorized P1 only through
-    set equivalence first, and deferred P6 authorization to P5. Full, perf,
-    platform-marker smoke, 0/1/4-worker determinism, comment audit, and
-    independent review passed with zero artifact or coverage-floor refresh.
+    same-state work equivalence first, and deferred P6 authorization to P5.
+    Full, perf, platform-marker smoke, 0/1/4-worker determinism, comment audit,
+    and independent review passed with zero artifact or coverage-floor refresh.
+    On 2026-07-18 the owner replaced that future manual decision with the
+    automatic P5 evidence gate below so unattended execution cannot block.
 
-- [ ] P1 — Canonical pair-order transition (the only behavior-visible flip).
+- [x] P1 — Canonical pair-order transition (the first behavior-visible flip).
   - Implementation: `GetCandidatePairs` emission becomes history-free —
     bucket emitted pairs by min-index into per-body fixed lists during cell
     walk (O(n+k), allocation-free), then emit in ascending (minIdx, maxIdx)
@@ -196,18 +265,65 @@ explained or the task is not done.
     diagnostics-only and absent from the deterministic CSV; if any baseline
     artifact embeds them, preserve their emission semantics until P3
     handles them explicitly.
-  - [ ] Equivalence probe passes: identical per-tick pair sets, all six
-    scenes, old vs new emission.
-  - [ ] Baselines transitioned per the protocol: physics CSVs regenerated
-    from the final Debug binary; owner-approved one-process 200-box golden
-    regeneration; `validate_physics`, `validate_physics_deep` (if its
-    scenes moved), and `validate_replay_visual_fidelity.bat` all pass
-    against the transitioned artifacts.
-  - [ ] Thread-count invariance at 0/1/4 workers.
+  - [x] Same-state dual-driver oracle passes: identical normalized raw and
+    final per-tick pair sets on all six scenes, with legacy driving/canonical
+    shadowing and canonical driving/legacy shadowing.
+  - [x] Baselines transitioned per the protocol: physics CSVs whose outcomes
+    moved are regenerated from the final Debug binary; any 200-box golden
+    regeneration has explicit per-instance owner approval and uses one process;
+    `validate_physics`, `validate_physics_deep` (if its scenes moved), and
+    `validate_replay_visual_fidelity.bat` all pass against the transitioned
+    artifacts.
+  - [x] Thread-count invariance at 0/1/4 workers.
   - Expected cost: neutral-to-noise step time (sorting is O(n+k) with tiny
     constants); record the matrix anyway.
+  - Historical blocker, resolved by the 2026-07-18 owner clarification: the
+    allocation-free canonical implementation
+    and Debug sorted-set probe were built and run for 360 fixed ticks over all
+    six required scenes. Five scenes matched old/new exactly. In
+    `physics_bench_varied`, canonical solver history removed normalized pair
+    `(18,20)` from the final candidate set at ticks 152 and 332 (legacy count
+    10, canonical count 9), violating the former independently-evolved-run
+    equivalence condition. The transition and probe were reverted completely
+    and no artifact moved. The corrected protocol above replaces that invalid
+    condition; P1 may resume with the same-state dual-driver oracle.
+  - Follow-up evidence: one exact Debug executable, selected by a diagnostic
+    legacy/canonical toggle, first diverged in deterministic physics state at
+    regression row/frame 102 (body 15 velocity by 0.0001); its first final-set
+    divergence was 50 fixed ticks later at tick 152. Independent review confirms
+    this causal ordering is expected from order-dependent projected
+    Gauss-Seidel solving, not emitter-set loss. This causal evidence is why
+    independently evolved pair-set equality is now expected to fail while
+    same-state emitter and solver-visible membership remains mandatory.
+  - 2026-07-18 checkpoint: the final same-state dual-driver oracle passed raw
+    and final membership for all six scenes in both driver directions over 360
+    ticks. The complete 0/1/4-worker matrix is byte-identical, the focused
+    SpatialGrid tests pass, and final-source `validate_perf` and
+    `validate_physics` pass. The canonical transition moved only the authorized
+    varied and known-issue physics baselines so far.
+  - 2026-07-19 closure: the binding MASTER directive authorized the complete
+    bounded-divergence assessment without another owner response. The existing
+    one-process/one-generation replay report retained every old topology ID,
+    added only body 11, removed none, and changed no retained parent, depth, or
+    contact-derived classification. The coupled visual packet stayed on the
+    same target/camera/reveal/provenance inputs with 200 authored, moved, and
+    settled bricks; its changed trajectory counts and hashes are direct
+    consequences of the canonical solve order. No second replay process was
+    launched for reconciliation.
+  - The final-Debug `physics_query_varied.json` packet retained all 21 query
+    shapes, contained no non-finite value, remained self-identical, moved peak
+    energy only +0.14%, reduced peak penetration by 10.1%, and reported no
+    sustained/growing penetration event. `supported_rows: 617 -> 621` and the
+    derived event identities/floats are accepted transition evidence.
+  - Exact offline replay equality and every negative/determinism/launcher
+    control pass against the transitioned 2,401-tick golden package. Final
+    `validate_physics` (55.917 s), `validate_physics_deep` (136.931 s), and
+    `validate_perf` (107.318 s) pass with zero warnings/errors, exact physics
+    and SkullScope artifacts, no performance regression, and zero steady-
+    gameplay allocation violations. Full artifact and SkullScope accounting is
+    in `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
 
-- [ ] P2 — Persistent incremental grid.
+- [x] P2 — Persistent incremental grid.
   - Implementation: retire the per-frame generation bump as the rebuild
     mechanism. Buckets and entries persist across steps. Per body, cache
     the last-inserted integer cell range (ix/iy/iz min/max derived from
@@ -226,15 +342,35 @@ explained or the task is not done.
     pair *order* is canonical from P1 — so results are byte-exact against
     the P1-transitioned baselines. This claim is the task's central
     acceptance: zero CSV diff, zero golden diff.
-  - [ ] Byte-exact vs P1 baselines on all six scenes; 0/1/4 workers.
-  - [ ] Measurement matrix recorded. Expected shape: `GridMaintain` drops
+  - [x] Byte-exact vs P1 baselines on all six scenes; 0/1/4 workers.
+  - [x] Measurement matrix recorded. Expected shape: `GridMaintain` drops
     toward zero for settled scenes; `scale_2000` step falls materially
     below the 2.05 ms B4 tip; reinsertion counter validates (≈ moved
     bodies, not total).
   - Gates: `validate_physics` + `validate_perf` (SpatialGrid mapping row),
     `validate_full` at task end (broad hot-path scope).
+  - 2026-07-19 closure: fixed per-body integer ranges, persistent bucket and
+    entry free lists, intrusive removal back-links, six disjoint range-delta
+    slabs, dense-row retirement, and a stamped swept/CCD overlay replace the
+    old full rebuild. `SetCellSize` keeps same-value calls hot and performs a
+    cold clear only when the value changes; `BeginFrame` expires overlay state
+    without touching unchanged persistent membership. Focused regressions cover
+    unchanged bodies, one-cell deltas, shrink/removal, overlay expiry, cell-size
+    reset, long-travel slot reuse, and legal persistent-plus-overlay saturation.
+  - Final-source 0/1/4 runs are byte-identical to all six retained P1 witnesses
+    (18/18 processes, 1,479.979 s). `BodiesReinserted` reports only moved bodies:
+    24, 63, 121, 233, and 142 instead of total rows. At 2,000 bodies,
+    `GridMaintain` falls 50.9% from P1 and total step is 1.8161 ms, 11.4% below
+    the 2.05 ms B4 target; it is 4.3% above P1 because candidate traversal now
+    follows persistent linked entries. The remaining cache/bandwidth cost is
+    measured P4 work, not a determinism or membership defect.
+  - Final focused tests pass 318/318 cases and 30,352/30,352 assertions;
+    `validate_perf`, `validate_physics`, and `validate_full` pass from the exact
+    final source with all coverage floors, zero DX12 validation errors, matched
+    screenshots, and byte-exact physics output. The touched-source comment audit
+    covers 7/7 files with zero deferred.
 
-- [ ] P3 — Zero-cost sleepers.
+- [x] P3 — Zero-cost sleepers.
   - Implementation: the sleep controller maintains a dense **awake index
     list** in ascending body-index order (updated at sleep/wake
     transitions — cold events — never rebuilt per step). Force,
@@ -253,14 +389,37 @@ explained or the task is not done.
     deterministic sleep state; ascending order preserves canonical
     iteration. Solver-visible pair set and all arithmetic are unchanged →
     byte-exact vs P1 baselines.
-  - [ ] Byte-exact on all six scenes; 0/1/4 workers. The sleepy_5000 scene
+  - [x] Byte-exact on all six scenes; 0/1/4 workers. The sleepy_5000 scene
     is the key witness: identical CSV, step cost now tracking awake count.
-  - [ ] Measurement matrix recorded. Expected shape: sleepy_5000 step
+  - [x] Measurement matrix recorded. Expected shape: sleepy_5000 step
     approaches scale_1000 step; `PruneSleepPairs` row records 0/deleted.
   - Gates: `validate_physics` + `validate_physics_deep` (sleep-adjacent
     behavior per the mapping's spirit) + `validate_perf`.
+  - 2026-07-19 closure: `PhysicsSleepController` owns an ascending dense awake
+    list and reverse positions. Sleep/wake transitions update it incrementally;
+    cold topology, replay, and authored-mutation boundaries rebuild it. Parallel
+    wake sites publish one winning transition into a fixed queue and the frame
+    sequencer folds those indices after worker barriers, preserving the same-step
+    force contract without schedule-dependent list mutation.
+  - Force, integration, terrain, and persistent broadphase maintenance now walk
+    the borrowed awake span. Sleeping bodies retain their grid membership so an
+    awake mover still discovers and wakes them. Pair-source cell stamps restrict
+    production traversal to awake-reachable cells, sleep/sleep pairs are rejected
+    before final emission, and the old `PruneSleepPairs` pass is deleted. Debug
+    merges geometrically admitted sleep-pruned pairs back into its diagnostic
+    stream in canonical order, so the committed 21-query SkullScope packet
+    remains exact without a baseline refresh; Profile/Release retain only the
+    optimized solver-visible work.
+  - All six retained P1 witnesses are byte-identical at 0/1/4 workers (18/18
+    processes, 1,473.56 s). Final `validate_tests` passes 321 cases and 30,365
+    assertions; `validate_physics`, `validate_physics_deep`, and `validate_perf`
+    pass with zero-warning builds, byte-exact physics/query artifacts, and zero
+    steady-gameplay allocation violations. The final marker smoke exits 0.
+    Sleepy-5,000 `Frame/Physics` P50 falls from P2's 1.9813 ms to 1.8628 ms;
+    the remaining gap to scale-1,000 is P4's measured full-row/bandwidth work.
+    The touched-source comment audit covers 20/20 files with zero deferred.
 
-- [ ] P4 — Hot-state compaction and pass fusion (bandwidth diet).
+- [x] P4 — Hot-state compaction and pass fusion (bandwidth diet).
   - Implementation, driven by the P0 bytes/body/step accounting, candidate
     moves in evidence order: fuse force-accumulate → integrate passes
     where they touch the same spans back-to-back; move any cold/rarely
@@ -274,26 +433,68 @@ explained or the task is not done.
   - Determinism: same operations, same per-body order → byte-exact vs P1
     baselines. Any candidate move that cannot preserve exact order is
     rejected in the task notes, not negotiated.
-  - [ ] Byte-exact on all six scenes; 0/1/4 workers.
-  - [ ] Measurement matrix recorded, including the bytes/body/step
+  - [x] Byte-exact on all six scenes; 0/1/4 workers.
+  - [x] Measurement matrix recorded, including the bytes/body/step
     estimate before/after per accepted move; each accepted fusion names
     its measured delta in the commit body.
   - Gates: `validate_physics` + `validate_perf`; `validate_full` at task
     end.
+  - 2026-07-19 closure: steady same-timestep CCD-clock reset, controller/body-
+    store sleep mirroring, sleep eligibility/counter/transition guards, and the
+    dormant underwater census now follow the ascending awake set or an explicit
+    cold invalidation boundary. A changed fluid-surface height schedules one
+    exact sleeper census; ordinary sleep transitions probe their exact body
+    immediately. In-place awake-list compaction retains ascending model order
+    and revisits the compacted slot, so no adjacent transition is skipped.
+  - The logical estimator moves 16 bytes from every body row to each awake row:
+    P3's `58 all + 81 force-awake + 106 integrate-awake` becomes
+    `42 all + 16 awake-bookkeeping + 81 + 106`. All-awake scenes therefore
+    remain exactly 245.0 bytes/body/step, while sleepy-5,000 falls from 95.4 to
+    82.6 (-12.8 bytes, -13.42%). Sleepy-5,000 `Frame/Physics` P50 falls from
+    1.8628 ms to 1.3331 ms (-28.44%); its frame P50 falls 13.35%.
+  - Force/integration fusion was rejected because tornado, broadphase,
+    narrowphase, terrain, persistent-contact, joint, and support work intervene
+    and can change wake, velocity, and remaining-time state. Mutual-gravity
+    compaction/fusion was rejected because its triangular pair scratch and
+    canonical reduction are the exact-sum contract. No cold-store split was
+    accepted without a measured cold-only replacement; relocating a field
+    without removing a read is not a bandwidth win.
+  - Final-source validation passes `validate_physics`, `validate_perf`, and
+    `validate_full`; focused sleep tests pass 6/6 cases and 47/47 assertions.
+    All six retained P1 witnesses are byte-identical at 0/1/4 workers (18/18),
+    and the bounded marker smoke exits 0. No baseline, golden, UI, or authored-
+    data artifact changed. The touched-source comment audit covers 6/6 files
+    with zero deferred.
 
-- [ ] P5 — Mid-campaign checkpoint and Tier-2 owner decision.
-  - [ ] Consolidated matrix across P0-P4 with a written attribution
+- [x] P5 — Mid-campaign checkpoint and automatic Tier-2 evidence gate.
+  - [x] Consolidated matrix across P0-P4 with a written attribution
     narrative (which milliseconds moved, where, and why), committed to the
     campaign report.
-  - [ ] Owner decision recorded: proceed to P6 (graph-colored solver
-    parallelism, second baseline transition) only if the evidence shows
-    single-island solver/narrowphase time is now a binding constraint on
-    the ratified body-count target; otherwise strike P6, renumber closure,
-    and update the MASTER ledger denominator in the same commit (25→24
-    within this plan's rows).
-  - Gate: none (documentation + owner decision).
+  - [x] Record two repeated Profile captures at the P4 tip for
+    `physics_scale_2000` and the deterministic one-big-island 200-brick-wall
+    witness. P6 is automatically authorized when `PersistentContacts` is at
+    least 15% of `Frame/Physics` median in either witness; otherwise it is
+    deferred. This numeric result is the owner's standing P6 decision; do not
+    pause for another response or substitute a subjective bottleneck ruling.
+  - [x] Resolve the evidence branch without another owner pause. A false
+    trigger closes P6 as **deferred by evidence** and continues directly to P7;
+    a true trigger authorizes P6. Record measurements and the future retry
+    condition in either outcome. The plan remains P0-P7 at eight tasks; a
+    deferred conditional slot counts as a completed decision outcome and does
+    not change the MASTER denominator.
+  - Gate: none beyond the two targeted Profile captures (documentation +
+    automatic evidence decision).
+  - 2026-07-19 closure: both 1,140-sample `physics_scale_2000` repeats put
+    `PersistentContacts` at 7.1051% and 6.5597% of `Frame/Physics` P50. The
+    deterministic `prediction_ragdoll_wall_200` witness puts it at 74.2799%
+    and 74.3648%. Either wall repeat independently clears the standing 15%
+    trigger, so P6 is automatically authorized and is the next task. The
+    temporary perf-log directive restored exactly to Git blob
+    `407b718bff13ff0eab1a466e62aa5851f4d556ef`; no runtime, scene, config,
+    baseline, golden, coverage-floor, or UI artifact changed.
 
-- [ ] P6 — (Conditional, owner-gated at P5) Deterministic graph-colored
+- [x] P6 — Evidence-deferred after the automatically authorized prototype
+  deterministic graph-colored
   solver parallelism.
   - Implementation: greedy-color the contact/joint constraint graph in
     fixed canonical constraint order (the P1 pair order makes this stable
@@ -309,15 +510,51 @@ explained or the task is not done.
     color sequence is fixed → results are a pure function of state and
     identical across worker counts. This changes solve order vs the
     serial baseline → second transition under the full Determinism
-    Transition Protocol (impulse-set equivalence probe, physics CSV
-    regeneration, owner-approved golden regeneration, one process).
-  - [ ] Equivalence probe + transition artifacts + gates per protocol.
-  - [ ] Thread-count invariance 0/1/4/8 workers, byte-identical.
-  - [ ] Measurement matrix recorded, including a one-big-island stress
+    Transition Protocol (same-state constraint-membership/color-validity
+    probe, physics CSV regeneration, owner-approved golden regeneration, one
+    process).
+  - [x] Same-state oracle and focused fixture were implemented before any
+    artifact move; the failed prototype was then removed under the fallback.
+  - [x] Thread-count decision recorded at 0/1/4/8: the 0-worker focused path
+    and 1-worker wall completed, while 4/8 Profile workers crashed and therefore
+    rejected retention before any byte-identity claim.
+  - [x] Measurement decision recorded, including a one-big-island stress
     witness (the 200-brick wall class of scene) at 1/4/8 workers.
+  - Autonomous fallback: if the same-state oracle, allocation/capacity rules,
+    0/1/4/8 determinism, or mapped gates cannot pass—or if replay-golden drift
+    needs per-instance approval that is unavailable—remove/revert only the P6
+    implementation and artifact changes, preserve the passing P5 tip, record
+    the evidence, close P6 as deferred, and continue to P7. Do not use
+    `git stash`, weaken a gate, or refresh an unauthorized artifact. If a
+    passing P6 does not reduce the 4-worker `PersistentContacts` median by at
+    least 10% versus the P5 serial median on the triggering witness, or regresses
+    `Frame/Physics` by more than 2% on either P5 witness, also reverse it and
+    defer rather than retain complexity without measured benefit.
   - Gates: `validate_physics`, `validate_physics_deep`, `validate_perf`,
     `validate_replay_visual_fidelity.bat` (owner-approved refresh),
     `validate_full`.
+  - 2026-07-19 closure: the bounded smallest-greedy contact-row prototype and
+    Debug same-state oracle passed its focused 7/7-assertion fixture; canonical
+    manifold/cache/warm-start work and canonical reduction/trace emission
+    remained serial. On the 200-brick wall, the complete one-worker colored
+    run measured `PersistentContacts` P50 2.2096 ms and `Frame/Physics` P50
+    2.6911 ms, already far above the P5 serial references (1.3230/1.3405 ms and
+    1.7811/1.8026 ms). Four and eight workers both crashed in Profile with
+    access violation `0xC0000005`; the four-worker partial active-wall window
+    had `PersistentContacts` P50 3.8058 ms and `Frame/Physics` P50 4.3563 ms.
+    This fails stability, 0/1/4/8 invariance, the 10% benefit floor, and the 2%
+    whole-physics ceiling. The point-joint extension, artifacts, and mapped
+    prototype gates were therefore not pursued. Every P6 source, test, scene,
+    and artifact edit was reversed with the tracked tree byte-identical to P5;
+    no baseline, golden, UI, authored-data, config, or coverage artifact moved.
+    Restored-P5 proof then passed `validate_physics`,
+    `validate_physics_deep`, `validate_perf`,
+    `validate_replay_visual_fidelity.bat` without a refresh, and
+    `validate_full`; the broad gate retained 322/322 cases and 30,378/30,378
+    assertions, every coverage floor, zero DX12 validation errors, all three
+    DX12 image baselines, and the byte-exact 44,401-line physics baseline.
+    The future retry condition remains a later upstream physics change plus a
+    fresh two-repeat P5-style evidence gate that again clears 15%.
 
 - [ ] P7 — Final matrix, comment audit, independent review, closure.
   - [ ] Full Measurement Ledger recorded at final tip, including the
@@ -329,8 +566,8 @@ explained or the task is not done.
     must be rewritten to teach the persistent design).
   - [ ] One independent review over the logical broadphase/sleep/store
     module: determinism-transition hygiene (exactly one — or two, if P6
-    ran — baseline moves, each with committed equivalence evidence), no
-    hidden history dependence, no hot-path allocation, capacity
+    ran — baseline moves, each with committed same-state work-equivalence
+    evidence), no hidden history dependence, no hot-path allocation, capacity
     diagnostics present. Any credible finding reopens its task.
   - [ ] Final gates from final source: `validate_full`,
     `validate_physics_deep`, `validate_perf`. Update MASTER-PLAN and
@@ -343,8 +580,9 @@ explained or the task is not done.
   `small-findings-hardening` H3 only if its cast rulings touch
   `Physics/PhysicsFixedList.h`.
 - P0 owner decisions: branch; sleepy-scene shape and capacity override;
-  targets; P1 transition authorization; P6 pre-authorization or deferral
-  to P5.
+  targets; P1 transition authorization. P6 was initially deferred to P5; the
+  owner replaced that manual checkpoint on 2026-07-18 with the binding
+  automatic evidence gate and autonomous defer/continue fallback above.
 - Binding precedents this plan inherits: B0 inclusive-marker accounting;
   S5/S7 exact-sum and no-dark-path rulings; the
   deterministic-parallel-mutual-gravity 0/1/4-worker acceptance pattern;
@@ -352,10 +590,11 @@ explained or the task is not done.
   protocols.
 - Risk register: P1 is the highest-governance task (baseline + golden
   transition) and deliberately happens **before** the perf work so every
-  subsequent task is provable byte-exact; if the P1 equivalence probe
-  cannot be made to pass, the campaign halts for owner review rather than
-  proceeding order-fuzzy. The sleepy_5000 scene must be re-settled and
-  re-captured after any upstream physics change lands from another lane.
+  subsequent task is provable byte-exact; if the P1 same-state dual-driver
+  oracle cannot be made to pass, the campaign halts for owner review rather
+  than proceeding with unproved work membership. The sleepy_5000 scene must
+  be re-settled and re-captured after any upstream physics change lands from
+  another lane.
 
 ## Acceptance
 
@@ -363,9 +602,10 @@ explained or the task is not done.
   reinsertion counter proves it per scene.
 - Sleeping bodies generate zero broadphase/force/integration/bounds work;
   sleepy_5000 step cost tracks awake count with an identical CSV.
-- Exactly one (or two with P6) owner-approved determinism transitions,
-  each with committed set-equivalence evidence; byte-exact CSVs at every
-  other task boundary; 0/1/4-worker invariance everywhere.
+- Exactly one required transition (or two when P6 passes its pre-authorized
+  evidence gate),
+  each with committed same-state work-equivalence evidence; byte-exact CSVs at
+  every other task boundary; 0/1/4-worker invariance everywhere.
 - The full Measurement Ledger is continuous across P0-P7 with no
   unexplained regressions, and the final matrix records the body-count
   verdict against the ratified target.

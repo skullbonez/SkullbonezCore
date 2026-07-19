@@ -14,6 +14,8 @@
 #   Staged blob: The exact file content currently in the git index.
 #   Comparison blob: The exact HEAD content of a file added or modified since an
 #     explicit base ref.
+#   Gitlink: A mode-160000 tree entry that pins a submodule commit; its content
+#     lives in the submodule object database rather than in a parent-repo blob.
 #   Size allowlist: Repository areas where large tracked data is intentional.
 #
 # Invariants:
@@ -23,6 +25,8 @@
 #     clean hosted checkout does not silently validate zero files.
 #   - Rename detection is disabled so moving an allowlisted blob to an ordinary
 #     path is evaluated as a deleted source plus an added destination blob.
+#   - Gitlinks contribute zero parent-repository blob bytes; the checker still
+#     measures the ordinary .gitmodules blob that makes each pin reproducible.
 #   - Baselines and SkullbonezData are the only broad large-file locations.
 #   - Self-tests run without touching the real git index.
 #
@@ -107,10 +111,31 @@ def staged_paths(repo: Path) -> list[str]:
 
 
 def staged_blob_size(repo: Path, path: str) -> int:
+    mode = staged_entry_mode(repo, path)
+    if mode == "160000":
+        return 0
     result = run_git(repo, ["cat-file", "-s", f":{path}"])
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or f"git cat-file failed for {path}")
     return int(result.stdout.strip())
+
+
+def entry_mode(record: str, path: str) -> str:
+    metadata, separator, _ = record.partition("\t")
+    fields = metadata.split()
+    if not separator or not fields:
+        raise RuntimeError(f"cannot parse git entry metadata for {path}")
+    return fields[0]
+
+
+def staged_entry_mode(repo: Path, path: str) -> str:
+    result = run_git(repo, ["ls-files", "--stage", "-z", "--", path])
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"git ls-files failed for {path}")
+    record = result.stdout.rstrip("\0")
+    if not record or "\0" in record:
+        raise RuntimeError(f"expected one staged git entry for {path}")
+    return entry_mode(record, path)
 
 
 def comparison_paths(repo: Path, base_ref: str) -> list[str]:
@@ -126,10 +151,23 @@ def comparison_paths(repo: Path, base_ref: str) -> list[str]:
 
 
 def head_blob_size(repo: Path, path: str) -> int:
+    mode = head_entry_mode(repo, path)
+    if mode == "160000":
+        return 0
     result = run_git(repo, ["cat-file", "-s", f"HEAD:{path}"])
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or f"git cat-file failed for HEAD:{path}")
     return int(result.stdout.strip())
+
+
+def head_entry_mode(repo: Path, path: str) -> str:
+    result = run_git(repo, ["ls-tree", "-z", "HEAD", "--", path])
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"git ls-tree failed for HEAD:{path}")
+    record = result.stdout.rstrip("\0")
+    if not record or "\0" in record:
+        raise RuntimeError(f"expected one HEAD git entry for {path}")
+    return entry_mode(record, path)
 
 
 def collect_entries(repo: Path, base_ref: str | None) -> list[CandidateFile]:
@@ -184,6 +222,10 @@ def run_self_tests() -> list[str]:
     expect_clean("large data asset", [CandidateFile("SkullbonezData/assets/large.assets.json", large)])
     expect_violation("large temp report", [CandidateFile("Agentic/Temp/huge.txt", large)], "Agentic/Temp/huge.txt")
     expect_violation("large root file", [CandidateFile("huge.bin", large)], "huge.bin")
+    if entry_mode("160000 deadbeef 0\tThirdPtySource/imgui", "ThirdPtySource/imgui") != "160000":
+        failures.append("staged gitlink mode: expected 160000")
+    if entry_mode("100644 blob deadbeef\tREADME.md", "README.md") != "100644":
+        failures.append("HEAD blob mode: expected 100644")
     return failures
 
 

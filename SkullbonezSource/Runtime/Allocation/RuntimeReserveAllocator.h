@@ -8,6 +8,8 @@ Summary:
   heap. Gameplay owners register fixed capacity so diagnostics can report their
   budget and high-water use. Replay owners are the only owners allowed to ask
   for hard-cap-bounded runtime reserve bumps, and every bump is counted.
+  Development builds additionally admit explicitly scoped, hard-byte-capped
+  ImGui and Tracy owners without changing the gameplay phase.
 
 Glossary:
   Reserve owner: A runtime subsystem buffer with a named capacity contract.
@@ -15,6 +17,8 @@ Glossary:
     attribute generic C++ heap traffic to the owner currently doing work.
   Replay growth: A rare capacity increase requested during replay and bounded
     by its registered hard capacity.
+  Development tool permission: Compile-time-only owner metadata that lets one
+    calling thread allocate for ImGui or Tracy up to a hard active-byte cap.
 
 Invariants:
   - Registry and counter storage is fixed; reporting and hook attribution must
@@ -24,9 +28,12 @@ Invariants:
   - Gameplay owners never receive growth approval from this allocator.
   - Replay byte-budget owners share one active-allocation cap across all of
     their vector/object targets.
+  - Development tool permission does not exist in Release or Profile-WPO, and
+    cannot exempt allocations on another thread.
 
 Related:
   - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
+  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
   - AGENTS.md (Runtime Static Allocation Policy)
 */
 #pragma once
@@ -64,7 +71,10 @@ enum class RuntimeReserveSubsystem
     OwnerRequests,
     Replay,
     Diagnostics,
-    AllocationTracker
+    AllocationTracker,
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    DevelopmentTools,
+#endif
 };
 
 struct RuntimeReserveOwnerDesc
@@ -77,6 +87,11 @@ struct RuntimeReserveOwnerDesc
     int replayGrowthLimit;   // Negative means hard-cap-only; every growth is still counted.
     bool allowReplayGrowth;
     const char* capacityReason;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Permanent-development permission. RuntimeAllocationTracker still requires
+    // the calling thread to enter this exact registered owner scope.
+    bool allowDevelopmentToolAllocations = false;
+#endif
 };
 
 struct RuntimeReserveGrowthRequest
@@ -131,6 +146,9 @@ struct RuntimeReserveOwnerStatsView
     int highWaterCapacity;   // Owner capacity units; byte-budget owners use bytes.
     int lastGrowthFrame;
     bool allowReplayGrowth;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    bool allowDevelopmentToolAllocations;
+#endif
 };
 
 class RuntimeReserveGrowthScope
@@ -174,6 +192,15 @@ class RuntimeReserveAllocator
     static RuntimeReserveOwnerHandle CurrentOwner() noexcept;
     static void SetCurrentOwner( RuntimeReserveOwnerHandle owner ) noexcept;
     static bool IsApprovedReplayGrowthAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    static bool IsApprovedDevelopmentToolAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex ) noexcept;
+    // Reserves one vendor-owned backing range before an allocator maps it.
+    // Unlike RecordAllocation(), this can reject the request without first
+    // crossing the registered live-byte cap.
+    static bool TryRecordDevelopmentToolBackingAllocation( RuntimeReserveOwnerHandle owner,
+                                                           int phaseIndex,
+                                                           uint64_t bytes ) noexcept;
+#endif
 
     static void RecordAllocation( RuntimeReserveOwnerHandle owner, int phaseIndex, uint64_t bytes ) noexcept;
     static void RecordFree( RuntimeReserveOwnerHandle owner, uint64_t bytes ) noexcept;

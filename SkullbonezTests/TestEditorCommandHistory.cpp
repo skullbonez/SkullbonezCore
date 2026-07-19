@@ -1,7 +1,7 @@
 /*
 File: SkullbonezTests/TestEditorCommandHistory.cpp
 Purpose:
-  Proves fixed editor history push, undo, redo, branching, overflow, and clear.
+  Proves fixed editor history push, undo, redo, branching, dirty state, overflow, and clear.
 
 Summary:
   Tests drive only the cursor owner; scene-command application is covered at
@@ -67,6 +67,7 @@ TEST_CASE( "EditorCommandHistory drops oldest on overflow and clear resets depth
     }
     CHECK( history.StoredCount() == EDITOR_COMMAND_HISTORY_CAPACITY );
     CHECK( history.UndoDepth() == EDITOR_COMMAND_HISTORY_CAPACITY );
+    CHECK( history.IsDirty() );
     REQUIRE( history.PendingUndo() != nullptr );
     CHECK( history.PendingUndo()->transforms[0].sceneObjectId.value == EDITOR_COMMAND_HISTORY_CAPACITY + 3 );
 
@@ -81,6 +82,7 @@ TEST_CASE( "EditorCommandHistory drops oldest on overflow and clear resets depth
     CHECK( history.UndoDepth() == 0 );
     CHECK( history.RedoDepth() == 0 );
     CHECK( history.PendingUndo() == nullptr );
+    CHECK_FALSE( history.IsDirty() );
 }
 
 TEST_CASE( "EditorCommandHistory invalidates both branches for an edit without an inverse" )
@@ -96,4 +98,28 @@ TEST_CASE( "EditorCommandHistory invalidates both branches for an edit without a
     CHECK( history.UndoDepth() == 0 );
     CHECK( history.RedoDepth() == 0 );
     CHECK( history.StoredCount() == 0 );
+    CHECK( history.IsDirty() );
+}
+
+TEST_CASE( "EditorCommandHistory dirty state follows successful save and reachable cursor" )
+{
+    EditorCommandHistory history;
+    CHECK_FALSE( history.IsDirty() );
+
+    history.Push( MakeEntry( 1 ) );
+    CHECK( history.IsDirty() );
+    history.MarkClean();
+    CHECK_FALSE( history.IsDirty() );
+
+    history.Push( MakeEntry( 2 ) );
+    CHECK( history.IsDirty() );
+    REQUIRE( history.CommitUndo() );
+    CHECK_FALSE( history.IsDirty() );
+    REQUIRE( history.CommitRedo() );
+    CHECK( history.IsDirty() );
+
+    history.MarkClean();
+    REQUIRE( history.CommitUndo() );
+    history.Push( MakeEntry( 3 ) );
+    CHECK( history.IsDirty() );
 }

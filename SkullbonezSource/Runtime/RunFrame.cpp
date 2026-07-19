@@ -27,12 +27,19 @@ Glossary:
     scheduled and auto-cycle capture automation.
   Frame view: Non-copyable stack record of references used to name per-call
     borrows without moving ownership out of the composition root.
+  Submitted-frame mark: Development profiler boundary emitted only after DX12
+    accepts a successful Present for the game frame.
+  Shared editor view: One immutable scene/property/render/replay/tool value
+    assembled before the selected operator frontend renders.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
     in a stable order used by validation and replay comparisons.
   - Capture pinning is decided before physics and camera work for that frame.
   - Frame views are created once per frame turn and never retained by helpers.
+  - A successful submitted game frame emits exactly one development profiler
+    frame mark; failed or capture-only turns emit none.
+  - A development surface swap hides the source before the target begins a frame.
 
 Related:
   - RuntimeFrameViews.h defines the frame-helper calling convention.
@@ -57,6 +64,11 @@ Related:
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "Allocation/RuntimeAllocationTracker.h"
+#include "Allocation/RuntimeReserveAllocator.h"
+#include "DevelopmentTools/TracyClientOwner.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorOwner.h"
+#endif
 #include "OperatorCommandApplier.h"
 #include "Scene/SceneRuntimeStyle.h"
 
@@ -72,7 +84,9 @@ Related:
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UI.h"
+#include "../UI/UITabEditor.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <cstdint>
@@ -133,6 +147,190 @@ bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
     }
 }
 
+void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
+                                      const SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
+                                      const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
+{
+    using SkullbonezCore::UI::UICinematicFeature;
+    using SkullbonezCore::UI::UICinematicParam;
+    using SkullbonezCore::UI::UIRenderParam;
+    // Invariant: every enum slot crosses the runtime/presentation boundary
+    // explicitly. The count assertions make a newly authored parameter fail
+    // the build until this bounded projection is updated.
+    static_assert( static_cast<int>( UIRenderParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::ordinaryParameterCount );
+    static_assert( static_cast<int>( UICinematicParam::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicParameterCount );
+    static_assert( static_cast<int>( UICinematicFeature::Count ) ==
+                   SkullbonezCore::UI::OperatorEditorRenderingView::cinematicFeatureCount );
+    const auto ordinaryValue = [&]( UIRenderParam parameter, float value )
+    { view.ordinaryParameters[static_cast<int>( parameter )] = value; };
+    ordinaryValue( UIRenderParam::SunIntensity, ordinary.sunIntensity );
+    ordinaryValue( UIRenderParam::SunRed, ordinary.sunColorR );
+    ordinaryValue( UIRenderParam::SunGreen, ordinary.sunColorG );
+    ordinaryValue( UIRenderParam::SunBlue, ordinary.sunColorB );
+    ordinaryValue( UIRenderParam::AmbientStrength, ordinary.ambientStrength );
+    ordinaryValue( UIRenderParam::SkyRed, ordinary.skyAmbientR );
+    ordinaryValue( UIRenderParam::SkyGreen, ordinary.skyAmbientG );
+    ordinaryValue( UIRenderParam::SkyBlue, ordinary.skyAmbientB );
+    ordinaryValue( UIRenderParam::GroundRed, ordinary.groundAmbientR );
+    ordinaryValue( UIRenderParam::GroundGreen, ordinary.groundAmbientG );
+    ordinaryValue( UIRenderParam::GroundBlue, ordinary.groundAmbientB );
+    ordinaryValue( UIRenderParam::ShadowStrength, ordinary.shadow.strength );
+    ordinaryValue( UIRenderParam::ShadowSoftness, ordinary.shadow.softness );
+    ordinaryValue( UIRenderParam::ShadowDepthBias, ordinary.shadow.depthBias );
+    ordinaryValue( UIRenderParam::ShadowSlopeBias, ordinary.shadow.slopeBias );
+    ordinaryValue( UIRenderParam::WaterRed, ordinary.waterTintR );
+    ordinaryValue( UIRenderParam::WaterGreen, ordinary.waterTintG );
+    ordinaryValue( UIRenderParam::WaterBlue, ordinary.waterTintB );
+    ordinaryValue( UIRenderParam::WaterAlpha, ordinary.waterAlpha );
+    ordinaryValue( UIRenderParam::WaterReflection, ordinary.waterReflectionStrength );
+    ordinaryValue( UIRenderParam::WaterFresnel, ordinary.waterFresnelF0 );
+    ordinaryValue( UIRenderParam::BallRoughness, ordinary.ballRoughnessScale );
+    ordinaryValue( UIRenderParam::BallSpecular, ordinary.ballSpecularScale );
+    ordinaryValue( UIRenderParam::BoxRoughness, ordinary.boxRoughnessScale );
+    ordinaryValue( UIRenderParam::BoxSpecular, ordinary.boxSpecularScale );
+
+    const auto cinematicValue = [&]( UICinematicParam parameter, float value )
+    { view.cinematicParameters[static_cast<int>( parameter )] = value; };
+    cinematicValue( UICinematicParam::Exposure, cinematic.exposure );
+    cinematicValue( UICinematicParam::Gamma, cinematic.gamma );
+    cinematicValue( UICinematicParam::SkyMode, static_cast<float>( cinematic.skyMode ) );
+    cinematicValue( UICinematicParam::TerrainMode, static_cast<float>( cinematic.terrainMode ) );
+    cinematicValue( UICinematicParam::ObjectStyle, static_cast<float>( cinematic.objectStyle ) );
+    cinematicValue( UICinematicParam::WaterMode, static_cast<float>( cinematic.waterMode ) );
+    cinematicValue( UICinematicParam::StyleSaturation, cinematic.styleSaturation );
+    cinematicValue( UICinematicParam::StyleContrast, cinematic.styleContrast );
+    cinematicValue( UICinematicParam::StyleVignette, cinematic.styleVignette );
+    cinematicValue( UICinematicParam::SunAzimuth, cinematic.sunAzimuth );
+    cinematicValue( UICinematicParam::SunElevation, cinematic.sunElevation );
+    cinematicValue( UICinematicParam::SunBrightness, cinematic.sunIntensity );
+    cinematicValue( UICinematicParam::SunRed, cinematic.sunColorR );
+    cinematicValue( UICinematicParam::SunGreen, cinematic.sunColorG );
+    cinematicValue( UICinematicParam::SunBlue, cinematic.sunColorB );
+    cinematicValue( UICinematicParam::SkyGlow, cinematic.skyGlowStrength );
+    cinematicValue( UICinematicParam::HorizonRed, cinematic.skyHorizonR );
+    cinematicValue( UICinematicParam::HorizonGreen, cinematic.skyHorizonG );
+    cinematicValue( UICinematicParam::HorizonBlue, cinematic.skyHorizonB );
+    cinematicValue( UICinematicParam::ZenithRed, cinematic.skyZenithR );
+    cinematicValue( UICinematicParam::ZenithGreen, cinematic.skyZenithG );
+    cinematicValue( UICinematicParam::ZenithBlue, cinematic.skyZenithB );
+    cinematicValue( UICinematicParam::CloudCoverage, cinematic.cloudCoverage );
+    cinematicValue( UICinematicParam::CloudSoftness, cinematic.cloudSoftness );
+    cinematicValue( UICinematicParam::CloudScale, cinematic.cloudScale );
+    cinematicValue( UICinematicParam::CloudIntensity, cinematic.cloudIntensity );
+    cinematicValue( UICinematicParam::ShaftStrength, cinematic.sunShaftStrength );
+    cinematicValue( UICinematicParam::ShaftFalloff, cinematic.sunShaftFalloff );
+    cinematicValue( UICinematicParam::VolumetricStrength, cinematic.volumetricStrength );
+    cinematicValue( UICinematicParam::VolumetricDensity, cinematic.volumetricDensity );
+    cinematicValue( UICinematicParam::VolumetricDecay, cinematic.volumetricDecay );
+    cinematicValue( UICinematicParam::BloomThreshold, cinematic.bloomThreshold );
+    cinematicValue( UICinematicParam::BloomKnee, cinematic.bloomKnee );
+    cinematicValue( UICinematicParam::BloomStrength, cinematic.bloomStrength );
+    cinematicValue( UICinematicParam::BloomRadius, cinematic.bloomRadius );
+    cinematicValue( UICinematicParam::TerrainRelief, cinematic.terrainRelief );
+    cinematicValue( UICinematicParam::TerrainTintRed, cinematic.terrainTintR );
+    cinematicValue( UICinematicParam::TerrainTintGreen, cinematic.terrainTintG );
+    cinematicValue( UICinematicParam::TerrainTintBlue, cinematic.terrainTintB );
+    cinematicValue( UICinematicParam::TerrainAccentRed, cinematic.terrainAccentR );
+    cinematicValue( UICinematicParam::TerrainAccentGreen, cinematic.terrainAccentG );
+    cinematicValue( UICinematicParam::TerrainAccentBlue, cinematic.terrainAccentB );
+    cinematicValue( UICinematicParam::TerrainGridScale, cinematic.terrainGridScale );
+    cinematicValue( UICinematicParam::TerrainGridStrength, cinematic.terrainGridStrength );
+    cinematicValue( UICinematicParam::WaterTintRed, cinematic.waterTintR );
+    cinematicValue( UICinematicParam::WaterTintGreen, cinematic.waterTintG );
+    cinematicValue( UICinematicParam::WaterTintBlue, cinematic.waterTintB );
+    cinematicValue( UICinematicParam::WaterAlpha, cinematic.waterAlpha );
+    cinematicValue( UICinematicParam::WaterReflection, cinematic.waterReflectionStrength );
+    cinematicValue( UICinematicParam::WaterGlint, cinematic.waterGlintStrength );
+    cinematicValue( UICinematicParam::BasinCenterX, cinematic.basinCenterX );
+    cinematicValue( UICinematicParam::BasinCenterZ, cinematic.basinCenterZ );
+    cinematicValue( UICinematicParam::BasinRadiusX, cinematic.basinRadiusX );
+    cinematicValue( UICinematicParam::BasinRadiusZ, cinematic.basinRadiusZ );
+    cinematicValue( UICinematicParam::BasinFeather, cinematic.basinFeather );
+    cinematicValue( UICinematicParam::BasinDepth, cinematic.basinDepth );
+    cinematicValue( UICinematicParam::BasinRimLift, cinematic.basinRimLift );
+    cinematicValue( UICinematicParam::FogDensity, cinematic.fogDensity );
+    cinematicValue( UICinematicParam::FogOpacity, cinematic.fogMaxOpacity );
+    cinematicValue( UICinematicParam::FogStart, cinematic.fogStart );
+    cinematicValue( UICinematicParam::FogEnd, cinematic.fogEnd );
+    cinematicValue( UICinematicParam::FogRed, cinematic.fogColorR );
+    cinematicValue( UICinematicParam::FogGreen, cinematic.fogColorG );
+    cinematicValue( UICinematicParam::FogBlue, cinematic.fogColorB );
+
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Sky )] = cinematic.skyAtmosphereEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Clouds )] = cinematic.cloudsEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::GodRays )] = cinematic.godRaysEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::VolumetricLight )] =
+        cinematic.volumetricLightingEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Bloom )] = cinematic.bloomEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Fog )] = cinematic.fogEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::TerrainRelief )] = cinematic.terrainReliefEnabled;
+    view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
+}
+
+void FillOperatorAudioView( SkullbonezCore::UI::OperatorEditorAudioView& view,
+                            const RuntimeContactAudioSnapshot& audio )
+{
+    // Lifetime: names and paths borrow the startup-loaded audio catalog only
+    // for this synchronous frame; counts clamp every borrowed array boundary.
+    view.enabled = audio.enabled;
+    view.available = audio.available;
+    view.simpleMode = audio.simpleMode;
+    view.globalParameters[0] = audio.simpleMinLinearEnergy;
+    view.globalParameters[1] = audio.simpleMinLinearDeltaSpeed;
+    view.globalParameters[2] = audio.simpleLinearEnergyRange;
+    view.globalParameters[3] = audio.masterGain;
+    view.globalParameters[4] = audio.maxDistanceScale;
+    view.globalParameters[5] = audio.minClosingSpeed;
+    view.globalParameters[6] = audio.minImpactScore;
+    view.globalParameters[7] = audio.impactScoreRangeSeconds;
+    view.globalParameters[8] = static_cast<float>( audio.burstVoicesPerWindow );
+    view.globalParameters[9] = audio.rollingLevelDb;
+    view.globalParameters[10] = audio.rollingMaxDistance;
+    view.globalParameters[11] = audio.rollingMinSlipSpeed;
+    view.globalParameters[12] = static_cast<float>( audio.rollingVoicesPerWindow );
+    view.setCount = (std::min)( audio.soundSetCount, SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_SET_CAPACITY );
+    view.sampleCount = (std::min)( audio.soundSampleCount, SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY );
+    for ( int sampleIndex = 0; sampleIndex < view.sampleCount; ++sampleIndex )
+    {
+        view.samplePaths[sampleIndex] = audio.soundSamplePaths[sampleIndex];
+    }
+    for ( int setIndex = 0; setIndex < view.setCount; ++setIndex )
+    {
+        const Audio::ContactAudioSetTuning& source = audio.soundSets[setIndex];
+        SkullbonezCore::UI::OperatorEditorAudioSetView& target = view.sets[setIndex];
+        target.name = source.name;
+        target.materialA = source.materialA;
+        target.materialB = source.materialB;
+        target.parameters[0] = source.minImpulse;
+        target.parameters[1] = source.impulseRange;
+        target.parameters[2] = source.cooldownMs;
+        target.parameters[3] = source.overrideCooldownMs;
+        target.parameters[4] = source.maxDistance;
+        target.parameters[5] = source.baseGain;
+        target.parameters[6] = source.pitchMin;
+        target.parameters[7] = source.pitchMax;
+        target.parameters[8] = static_cast<float>( source.maxVoices );
+        target.sampleCount = source.sampleCount;
+        target.bandCount =
+            (std::min)( source.bandCount,
+                        static_cast<uint32_t>( SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_BAND_CAPACITY ) );
+        for ( uint32_t bandIndex = 0u; bandIndex < target.bandCount; ++bandIndex )
+        {
+            const Audio::ContactAudioBandTuning& sourceBand = source.bands[bandIndex];
+            SkullbonezCore::UI::OperatorEditorAudioBandView& targetBand = target.bands[bandIndex];
+            targetBand.name = sourceBand.name;
+            targetBand.minImpulse = sourceBand.minImpulse;
+            targetBand.impulseRange = sourceBand.impulseRange;
+            targetBand.baseGain = sourceBand.baseGain;
+            targetBand.pitchMin = sourceBand.pitchMin;
+            targetBand.pitchMax = sourceBand.pitchMax;
+            targetBand.sampleCount = sourceBand.sampleCount;
+        }
+    }
+}
+
 
 void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                RuntimeFrameInteractionView& interactionOwners,
@@ -140,6 +338,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                RuntimeFramePresentationView& presentationOwners,
                                ReplayRuntime& replayRuntime,
                                const RuntimeUiTextFrameFacts& facts,
+                               const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
                                SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
                                const SkullbonezCore::UI::UIRenderContext& uiRender,
                                const RuntimeRenderModelFrameView& renderModels )
@@ -164,15 +363,294 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     // late UI call; no render or UI owner retains them.
     const RunSceneBrowserState& uiSceneBrowser = ui.SceneNavigation().browser;
     const std::string* uiScenePath = sceneController.CurrentPath();
+    const ReplayHudStatus sharedReplayHud = replayRuntime.BuildHudStatus( false );
+    const SkullbonezCore::Core::CinematicRenderConfig& sharedCinematic = ActiveSceneCinematicConfig( scene, config );
+    const bool sharedCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
+    const bool sharedShadows =
+        sharedCinematicRendering ? sharedCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
+    // Invariant: build this common value once. The legacy draw pass and the
+    // secondary editor receive this exact object, not independently sampled owners.
+    facts.operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
+                                       uiSceneBrowser.namePtrs.empty() ? nullptr : uiSceneBrowser.namePtrs.data(),
+                                       CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
+                                       static_cast<int>( uiSceneBrowser.namePtrs.size() ),
+                                       scene.currentFrame,
+                                       sceneController.Scene().SceneEntityCount(),
+                                       scene.timeScale,
+                                       uiScenePath && !uiScenePath->empty(),
+                                       false };
+    facts.operatorEditorView.property = { sceneController.Scene().Environment().GetGravity(),
+                                          sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                          sceneController.Scene().Environment().GetFluidDensity() };
+    SkullbonezCore::UI::OperatorEditorRenderingView& sharedRendering = facts.operatorEditorView.rendering;
+    sharedRendering.vsyncEnabled = renderer.PresentationSettings().vsyncEnabled;
+    sharedRendering.shadowsEnabled = sharedShadows;
+    sharedRendering.cinematicRendering = sharedCinematicRendering;
+    sharedRendering.presentationInterpolation = config.runtimeRender.presentationInterpolation;
+    sharedRendering.presentationAlpha = facts.presentationAlpha;
+    sharedRendering.terrainHidden = debug.isTerrainHidden;
+    sharedRendering.waterHidden = debug.isWaterHidden;
+    sharedRendering.waterFrozen = debug.isWaterFreezeDebug;
+    sharedRendering.waterFlat = debug.isWaterFlatDebug;
+    sharedRendering.waterReflectionMode = debug.isWaterNoReflect ? 2 : ( debug.isWaterRTReflect ? 1 : 0 );
+    FillOperatorRenderingParameters( sharedRendering, config.ordinaryRender, sharedCinematic );
+    const char* sharedGizmoMode = "translate";
+    if ( facts.interactionGesture.kind == RuntimeInteractionGestureKind::GizmoDrag )
+    {
+        switch ( facts.interactionGesture.gizmoKind )
+        {
+        case RuntimeGizmoDragKind::Rotate:
+            sharedGizmoMode = "rotate";
+            break;
+        case RuntimeGizmoDragKind::Scale:
+            sharedGizmoMode = "scale";
+            break;
+        case RuntimeGizmoDragKind::Translate:
+        case RuntimeGizmoDragKind::None:
+        default:
+            break;
+        }
+    }
+    facts.operatorEditorView.viewport = { facts.cameraModeLabel, sharedGizmoMode, facts.presentationPinned };
+    facts.operatorEditorView.replay = { sharedReplayHud.memoryPreset,
+                                        sharedReplayHud.requestedRetentionSeconds,
+                                        sharedReplayHud.requestedBudgetMiB,
+                                        sharedReplayHud.presentationRetentionSeconds,
+                                        sharedReplayHud.solverRetentionSeconds,
+                                        sharedReplayHud.memoryBudgetClamped,
+                                        sharedReplayHud.solverWindowReduced };
+    facts.operatorEditorView.surfaces = { ui.IsVisible(), facts.operatorEditorView.surfaces.secondaryVisible };
+    const RunEditorPlacementState& sharedEditor = runtimeTools.Editor();
+    facts.operatorEditorView.scene.dirty = sharedEditor.history.IsDirty();
+    facts.operatorEditorView.tools = { sharedEditor.editorModeEnabled,
+                                       sharedEditor.placementModeEnabled,
+                                       sharedEditor.placeStaticObject,
+                                       sceneController.CrossScenePauseLocked(),
+                                       scene.isFixedStep,
+                                       sharedEditor.autoTerrainAlign,
+                                       static_cast<int>( sharedEditor.history.UndoDepth() ),
+                                       static_cast<int>( sharedEditor.history.RedoDepth() ) };
+    const SceneEntityStore& hierarchyEntities = sceneController.Scene().Entities();
+    const int selectedHierarchyRow =
+        RunInternal::PeekSelectedEditorModelIndex( sharedEditor, sceneController.Scene().BodyStore() );
+    facts.operatorEditorView.hierarchy.totalRowCount = static_cast<uint32_t>( hierarchyEntities.Count() );
+    const uint32_t hierarchyRowCount = (std::min)( facts.operatorEditorView.hierarchy.totalRowCount,
+                                                   SkullbonezCore::UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
+    facts.operatorEditorView.hierarchy.rowCount = hierarchyRowCount;
+    facts.operatorEditorView.hierarchy.truncated = facts.operatorEditorView.hierarchy.totalRowCount > hierarchyRowCount;
+    for ( uint32_t index = 0u; index < hierarchyRowCount; ++index )
+    {
+        const SceneEntityRecord& entity = hierarchyEntities.At( static_cast<int>( index ) );
+        SkullbonezCore::UI::OperatorEditorHierarchyRow& row = facts.operatorEditorView.hierarchy.rows[index];
+        row.displayName = entity.displayName;
+        row.sceneObjectId = entity.sceneObjectId.value;
+        row.groupRootObjectId = entity.behaviorGroup.rootObjectId.value;
+        row.groupPartIndex = entity.behaviorGroup.partIndex;
+        row.assetBacked = entity.asset.isAssetBacked;
+        row.visible = entity.editorVisible;
+        row.locked = entity.editorLocked;
+        row.selected = static_cast<int>( index ) == selectedHierarchyRow;
+        if ( row.selected )
+        {
+            facts.operatorEditorView.hierarchy.selectedSceneObjectId = row.sceneObjectId;
+        }
+    }
+    facts.operatorEditorView.assets = { sharedEditor.objectType,
+                                        SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
+                                        host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Why: the legacy surface does not consume E12 contextual detail. Sampling
+    // cold body/collider/material rows only while the secondary editor is
+    // visible keeps ordinary Profile and shipping frames on their prior path.
+    if ( facts.operatorEditorView.surfaces.secondaryVisible )
+    {
+        SkullbonezCore::UI::OperatorEditorInspectorView& inspector = facts.operatorEditorView.inspector;
+        if ( sharedEditor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
+        {
+            // Hazard: a scene transition can invalidate the body handle before the
+            // presentation frame observes the cleared editor selection. Report the
+            // stale state; never repair identity from a dense-row guess in the UI.
+            inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
+        }
+        else if ( selectedHierarchyRow >= 0 )
+        {
+            const SceneEntityRecord* entity = hierarchyEntities.TryGet( selectedHierarchyRow );
+            const PhysicsBodyStore& bodyStore = sceneController.Scene().BodyStore();
+            const ColliderStore& colliderStore = sceneController.Scene().Colliders();
+            const PhysicsBodyRecord* body = entity ? bodyStore.RecordForHandle( entity->body ) : nullptr;
+            const PhysicsColliderHandle colliderHandle =
+                entity ? colliderStore.HandleForBodyHandle( entity->body ) : PhysicsColliderHandle{};
+            const ColliderRecord* collider = colliderStore.RecordForHandle( colliderHandle );
+            if ( !entity || !body || !collider )
+            {
+                inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Stale;
+            }
+            else
+            {
+                const PhysicsBodyHotFieldsConstView hot = bodyStore.HotFields();
+                const std::size_t row = static_cast<std::size_t>( selectedHierarchyRow );
+                const Vector3 position = PhysicsBodyPosition( hot, row );
+                const Quaternion orientation = PhysicsBodyOrientation( hot, row );
+                const Vector3 linearVelocity = PhysicsBodyLinearVelocity( hot, row );
+                const Vector3 angularVelocity = PhysicsBodyAngularVelocity( hot, row );
+                inspector.displayName = entity->displayName;
+                inspector.renderMaterialName =
+                    entity->renderMaterial.name[0] != '\0'
+                        ? entity->renderMaterial.name
+                        : SkullbonezCore::Rendering::RenderMaterialKindName( entity->renderMaterial.kind );
+                inspector.contactMaterialName = collider->contactMaterialName;
+                inspector.assetName = entity->asset.assetName;
+                inspector.assetInstanceName = entity->asset.instanceName;
+                inspector.assetPartName = entity->asset.partName;
+                inspector.selectionState = SkullbonezCore::UI::OperatorEditorInspectorSelectionState::Single;
+                inspector.sceneObjectId = entity->sceneObjectId.value;
+                inspector.selectionCount = 1u;
+                inspector.renderMaterialKind = static_cast<int>( entity->renderMaterial.kind );
+                inspector.colliderShapeKind = static_cast<int>( collider->shapeKind );
+                inspector.behaviorGroupKind = static_cast<int>( entity->behaviorGroup.kind );
+                inspector.behaviorPartIndex = entity->behaviorGroup.partIndex;
+                inspector.position[0] = position.x;
+                inspector.position[1] = position.y;
+                inspector.position[2] = position.z;
+                orientation.GetComponents( inspector.orientation[0],
+                                           inspector.orientation[1],
+                                           inspector.orientation[2],
+                                           inspector.orientation[3] );
+                inspector.linearVelocity[0] = linearVelocity.x;
+                inspector.linearVelocity[1] = linearVelocity.y;
+                inspector.linearVelocity[2] = linearVelocity.z;
+                inspector.angularVelocity[0] = angularVelocity.x;
+                inspector.angularVelocity[1] = angularVelocity.y;
+                inspector.angularVelocity[2] = angularVelocity.z;
+                for ( int channel = 0; channel < 4; ++channel )
+                {
+                    inspector.baseColor[channel] = entity->renderMaterial.baseColor[channel];
+                }
+                inspector.mass = body->mass;
+                inspector.volume = body->volume;
+                inspector.boundingRadius = collider->boundingRadius;
+                inspector.dragCoefficient = collider->dragCoefficient;
+                inspector.friction = collider->friction;
+                inspector.restitution = collider->restitution;
+                inspector.roughness = entity->renderMaterial.roughness;
+                inspector.metallic = entity->renderMaterial.metallic;
+                inspector.specular = entity->renderMaterial.specular;
+                inspector.visible = entity->editorVisible;
+                inspector.locked = entity->editorLocked;
+                inspector.fixed = hot.fixed[row] != 0u;
+                inspector.sleeping = hot.awake[row] == 0u;
+                inspector.assetBacked = entity->asset.isAssetBacked;
+            }
+        }
+        const TornadoFieldConfig& tornado = sceneController.Scene().Physics().GetTornadoFieldConfig();
+        facts.operatorEditorView.world = { scene.modelCount,
+                                           config.runtimeCapacity.sceneObjectCapacity,
+                                           scene.solverBallCount,
+                                           scene.solverBoxCount,
+                                           static_cast<int>( scene.rngSeed ),
+                                           scene.timeScale,
+                                           sceneController.Scene().Environment().GetGravity(),
+                                           sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                           sceneController.Scene().Environment().GetFluidDensity(),
+                                           config.physicsMaterial.frictionCoeff,
+                                           config.physicsMaterial.objectFrictionCoeff,
+                                           config.physicsMaterial.rollingFrictionCoeff,
+                                           tornado.radius,
+                                           tornado.height,
+                                           tornado.inwardAcceleration,
+                                           tornado.swirlAcceleration,
+                                           tornado.liftAcceleration,
+                                           scene.isFixedStep,
+                                           sceneController.Scene().Physics().IsSleepEnabled(),
+                                           tornado.enabled };
+    }
+#endif
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
-    const ReplayOverlay::ReplayOverlayStateView replayOverlay =
-        replayRuntime.BuildOverlayStateView( runtimeTools.Editor().editorModeEnabled,
-                                             ui.IsVisible(),
-                                             ui.IsMinimized(),
-                                             facts.interactionGesture.kind,
-                                             renderModels.presentationRecords,
-                                             renderModels.bodyStore );
+    if ( facts.operatorEditorView.surfaces.secondaryVisible )
+    {
+        // Why: the secondary surface can be visible while the legacy UI is
+        // hidden. Sample its bounded authoring/diagnostic values here instead
+        // of making ImGui depend on whether the legacy text pass happens to run.
+        runtimeViewModel =
+            RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController.State(),
+                                                                     sceneController.Scene(),
+                                                                     sceneController.QueueSize(),
+                                                                     diagnosticsRuntime.Capture(),
+                                                                     config.runtimeRender.presentationInterpolation,
+                                                                     facts.presentationPinned,
+                                                                     facts.presentationAlpha },
+                                            contactAudio );
+        renderTargetPreviews = renderer.BuildRenderTargetPreviewSnapshot(
+            sharedShadows,
+            sharedCinematicRendering,
+            sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
+        FillOperatorAudioView( facts.operatorEditorView.audio, runtimeViewModel.contactAudio );
+
+        SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = facts.operatorEditorView.diagnostics;
+        // Invariant: the right rail reads fixed snapshots and cached counters;
+        // opening Diagnostics must not trigger an allocation scan or grow data.
+        const SkullbonezCore::Core::MainMemoryStats& mainMemory = diagnosticsRuntime.MainMemoryStatsSnapshot();
+        const SkullbonezCore::Rendering::RenderMemoryStats renderMemory = renderDiagnostics.GetRenderMemoryStats();
+        diagnostics.rendererName = renderDiagnostics.GetRendererName();
+        diagnostics.drawCalls = renderDiagnostics.GetFrameDrawCallCount();
+        diagnostics.uiDrawCalls = timers.lastUIDrawCalls;
+        diagnostics.workerThreadCount = workerPool.GetThreadCount();
+        diagnostics.maxWorkerThreadCount = SkullbonezCore::Threading::WorkerPool::MaxThreadCount();
+        diagnostics.fps = facts.secondsPerFrame > 0.0 ? static_cast<float>( 1.0 / facts.secondsPerFrame ) : 0.0f;
+        diagnostics.renderMs =
+            ( timers.rollingRenderTime > 0.0f ? timers.rollingRenderTime : timers.renderTime ) * 1000.0f;
+        diagnostics.physicsMs =
+            ( timers.rollingPhysicsTime > 0.0f ? timers.rollingPhysicsTime : timers.physicsTime ) * 1000.0f;
+        diagnostics.cpuFrameMs = timers.cpuFrameWorkMs;
+        diagnostics.gpuFrameMs = timers.gpuFrameWorkMs;
+        diagnostics.physicsDebugFlags = debug.physicsDebugFlags;
+        const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+        int stageIndex = stageCount > 0 ? debug.physicsDebugPipelineStageCursor % stageCount : 0;
+        if ( stageIndex < 0 )
+        {
+            stageIndex += stageCount;
+        }
+        diagnostics.physicsPipelineStageIndex = stageIndex;
+        diagnostics.physicsPipelineStageCount = stageCount;
+        diagnostics.physicsPipelineStageName =
+            PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
+        diagnostics.physicsDebugAlpha = debug.physicsDebugAlpha;
+        diagnostics.physicsDebugContactLinger = debug.physicsDebugContactLinger;
+        diagnostics.rayCastImpulseStrength = runtimeTools.RayCastTest().impulseStrength;
+        diagnostics.launcherProjectileSpeed = runtimeTools.RayCastTest().projectileSpeed;
+        diagnostics.collisionVisualizer = debug.isCollisionVisualizer;
+        diagnostics.physicsDebugTransparent = debug.isPhysicsDebugTransparent;
+        diagnostics.broadphaseOverlay = debug.isBroadphaseOverlay;
+        diagnostics.tornadoVisualShell = renderer.TornadoVisualSettingsSnapshot().enabled;
+        diagnostics.tornadoFieldVectors =
+            sceneController.Scene().Physics().GetTornadoFieldConfig().visualizeVelocityField;
+        diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
+        diagnostics.audioDebugCounters = runtimeViewModel.contactAudio.debugCounters;
+        diagnostics.audioFlashModeLabel = runtimeViewModel.contactAudio.flashModeLabel;
+        diagnostics.audioEventsSeen = runtimeViewModel.contactAudio.stats.eventsSeen;
+        diagnostics.audioCandidates = runtimeViewModel.contactAudio.stats.patchCandidates;
+        diagnostics.audioSubmittedVoices = runtimeViewModel.contactAudio.stats.submittedVoices;
+        diagnostics.audioDroppedVoices = runtimeViewModel.contactAudio.stats.droppedVoices;
+        diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
+        diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
+        diagnostics.uploadUsedBytes = renderMemory.uploadUsedBytes;
+        diagnostics.uploadCapacityBytes = renderMemory.uploadCapacityBytes;
+        diagnostics.replayReserveGrowthEvents =
+            SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+        diagnostics.renderTargetCount =
+            (std::min)( renderTargetPreviews.count, SkullbonezCore::UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
+        for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
+        {
+            const RuntimeRenderTargetPreview& source = renderTargetPreviews.targets[static_cast<size_t>( index )];
+            diagnostics.renderTargets[index] = { source.label,
+                                                 source.width,
+                                                 source.height,
+                                                 source.available && source.textureHandle != 0u,
+                                                 source.depth,
+                                                 source.hdr };
+        }
+    }
     const UiTextPassState uiTextState{ debug,
                                        sceneController.CrossScenePauseLocked(),
                                        scene,
@@ -186,6 +664,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                        runtimeViewModel,
                                        uiSceneBrowser,
                                        renderTargetPreviews,
+                                       facts.operatorEditorView,
                                        &workerPool,
                                        window.ClientWidth(),
                                        window.ClientHeight(),
@@ -237,6 +716,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                                               replayOverlay.solverPresentTrackPosition,
                                                                               replayOverlay.loadedPresentation,
                                                                               replayOverlay.predictionTimelineAvailable,
+                                                                              facts.legacyDevelopmentUiActive,
                                                                               replayOverlay.shouldRenderScrubber,
                                                                               runtimeTools.Editor().editorModeEnabled,
                                                                               ui.IsVisible(),
@@ -472,6 +952,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
+    if ( m_applicationExit.ExitRequested() )
+    {
+        return m_applicationExit.Resolve( 0 );
+    }
     MSG msg;
     int messageExitCode = 0;
     constexpr int kMaxMessagesPerFrame = 256;
@@ -571,6 +1055,91 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                       frameInteraction,
                                                       frameScene,
                                                       automationReplayView );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            for ( std::size_t commandIndex = 0u; commandIndex < automationBeforeInput.developmentUiCommandCount;
+                  ++commandIndex )
+            {
+                const InteractionAutomationDevelopmentUiCommand& command =
+                    automationBeforeInput.developmentUiCommands[commandIndex];
+                SkullbonezCore::Core::SbResult commandStatus = SkullbonezCore::Core::SbResult::Success();
+                switch ( command.type )
+                {
+                case InteractionAutomationDevelopmentUiCommandType::SelectSurface:
+                    SelectDevelopmentUiSurface( std::strcmp( command.target, "imgui" ) == 0
+                                                    ? DevelopmentUiMode::ImGui
+                                                    : DevelopmentUiMode::Legacy );
+                    break;
+                case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
+                case InteractionAutomationDevelopmentUiCommandType::FocusPanel:
+                {
+                    DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
+                    if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
+                    {
+                        commandStatus = SkullbonezCore::Core::SbResult::Failure(
+                            "DevelopmentTools/ImGuiAutomation",
+                            "Interaction script names an unknown ImGui panel: %s",
+                            command.target );
+                        break;
+                    }
+                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+                    editorCommand.type = command.type == InteractionAutomationDevelopmentUiCommandType::SetPanelVisible
+                                             ? DevelopmentTools::ImGuiEditorAutomationCommandType::SetPanelVisible
+                                             : DevelopmentTools::ImGuiEditorAutomationCommandType::FocusPanel;
+                    editorCommand.panel = panel;
+                    editorCommand.visible = command.boolValue;
+                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
+                    break;
+                }
+                case InteractionAutomationDevelopmentUiCommandType::ResetLayout:
+                {
+                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+                    editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::ResetLayout;
+                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
+                    break;
+                }
+                case InteractionAutomationDevelopmentUiCommandType::SetDpiScale:
+                {
+                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+                    editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::SetDpiScale;
+                    editorCommand.dpiScale = command.numberValue;
+                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
+                    break;
+                }
+                case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
+                {
+                    // Why: scripts describe client pixels because those are the
+                    // editor's layout coordinates. Win32 resizes the outer frame,
+                    // so include the current style and monitor DPI exactly once.
+                    RECT outer{ 0, 0, command.width, command.height };
+                    const HWND window = m_window.NativeWindowHandle();
+                    const DWORD style = static_cast<DWORD>( GetWindowLongPtr( window, GWL_STYLE ) );
+                    const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( window, GWL_EXSTYLE ) );
+                    const UINT dpi = GetDpiForWindow( window );
+                    if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
+                         !SetWindowPos( window,
+                                        nullptr,
+                                        0,
+                                        0,
+                                        outer.right - outer.left,
+                                        outer.bottom - outer.top,
+                                        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
+                    {
+                        commandStatus = SkullbonezCore::Core::SbResult::Failure(
+                            "DevelopmentTools/ImGuiAutomation",
+                            "Failed to resize the automation client area to %dx%d",
+                            command.width,
+                            command.height );
+                    }
+                    break;
+                }
+                }
+                if ( !commandStatus.ok )
+                {
+                    m_applicationExit.RequestOwnedFailure( commandStatus );
+                    break;
+                }
+            }
+#endif
             if ( automationBeforeInput.applyCameraMode )
             {
                 m_inputRouter.ApplyCameraMode( automationBeforeInput.cameraMode,
@@ -607,7 +1176,86 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 PostQuitMessage( 0 );
             }
 #endif
-            ProcessInputFrame( frameHost, frameInteraction, frameScene, framePresentation, m_replayRuntime );
+            UiInputCaptureIntent developmentUiCapture;
+            SkullbonezCore::UI::OperatorEditorCommandQueues developmentEditorCommands;
+            bool legacyDevelopmentUiActive = true;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            // Concept: native messages were already offered to ImGui while the
+            // queue drained. The previous completed editor frame now supplies
+            // class-specific capture intent to the single engine input sample.
+            const DevelopmentTools::ImGuiEditorInputFrameState imguiInput = m_imguiEditor.ConsumeInputFrameState();
+            developmentUiCapture = UiInputCaptureIntent{ imguiInput.capture.mouse,
+                                                         imguiInput.capture.keyboard,
+                                                         imguiInput.capture.text,
+                                                         imguiInput.nativePointerStateTouched };
+            developmentUiCapture.gameViewportMappingActive = imguiInput.gameViewport.valid;
+            developmentUiCapture.gameViewportMinX = imguiInput.gameViewport.imageMinX;
+            developmentUiCapture.gameViewportMinY = imguiInput.gameViewport.imageMinY;
+            developmentUiCapture.gameViewportWidth = imguiInput.gameViewport.imageWidth;
+            developmentUiCapture.gameViewportHeight = imguiInput.gameViewport.imageHeight;
+            developmentUiCapture.gameViewportDpiScale = imguiInput.gameViewport.dpiScale;
+            developmentUiCapture.gameViewportSourceWidth = imguiInput.gameViewport.sourceWidth;
+            developmentUiCapture.gameViewportSourceHeight = imguiInput.gameViewport.sourceHeight;
+            developmentEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+            if ( automationBeforeInput.hasOperatorEditorReplayCommand )
+            {
+                const SkullbonezCore::Core::SbResult submitStatus =
+                    UI::SubmitOperatorEditorCommand( developmentEditorCommands.replay,
+                                                     automationBeforeInput.operatorEditorReplayCommand );
+                if ( !submitStatus.ok )
+                {
+                    m_applicationExit.RequestOwnedFailure( submitStatus );
+                }
+            }
+#endif
+            legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+#endif
+            ProcessInputFrame( frameHost,
+                               frameInteraction,
+                               frameScene,
+                               framePresentation,
+                               m_replayRuntime,
+                               developmentUiCapture,
+                               developmentEditorCommands,
+                               legacyDevelopmentUiActive );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            if ( m_launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
+            {
+                // Invariant: a scene load may apply scene-authored Legacy window
+                // defaults during the input checkpoint. Reassert an explicit
+                // process selection before either surface can begin its frame.
+                SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
+            }
+            bool legacySurfaceSwapRequested = false;
+            if ( m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy &&
+                 m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) )
+            {
+                const InputActions& actions = m_inputRouter.Actions();
+                for ( std::size_t actionIndex = 0u; actionIndex < actions.Count(); ++actionIndex )
+                {
+                    const InputActionEvent& action = actions[actionIndex];
+                    legacySurfaceSwapRequested = action.action == RuntimeInputAction::ToggleUIVisibility &&
+                                                 action.edge == InputActionEdge::Pressed;
+                    if ( legacySurfaceSwapRequested )
+                    {
+                        break;
+                    }
+                }
+            }
+            if ( legacySurfaceSwapRequested )
+            {
+                // Plain 0 retains the Legacy minimize behavior. Ctrl+0 is the
+                // explicit surface chord; selection hides Legacy before ImGui
+                // begins a frame, so focus ownership never overlaps.
+                SelectDevelopmentUiSurface( DevelopmentUiMode::ImGui );
+            }
+            // Invariant: ProcessInputFrame may consume Ctrl+0 after the first
+            // input snapshot. Resample the selected presentation only after
+            // every pre-render swap so this frame cannot draw Legacy replay
+            // underneath a newly active ImGui frame.
+            legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
+#endif
             m_validationHarness->TickLiveStyle(
                 SceneRuntimeStyleContext{ m_launchOptions,
                                           m_sceneController.State(),
@@ -675,7 +1323,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                              frameScene,
                                                              framePresentation,
                                                              m_replayRuntime,
-                                                             frameRenderDiagnostics );
+                                                             frameRenderDiagnostics,
+                                                             legacyDevelopmentUiActive );
             const float presentationAlpha =
                 ResolvePresentationAlpha( m_config, capturePresentationPinned, simulationPresentationAlpha );
 
@@ -710,6 +1359,27 @@ SkullbonezCore::Core::SbResult Run::Execute()
             }
             PROFILE_END( m_profiler, "Frame/Render" );
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            // Invariant: copy the completed world backbuffer before either
+            // operator surface draws. The persistent texture follows only the
+            // swap-chain extent, so dock drags never recreate GPU resources.
+            if ( m_imguiEditor.IsVisible() )
+            {
+                const SkullbonezCore::Core::SbResult viewportCapture = m_imguiEditor.CaptureGameViewport();
+                if ( !viewportCapture.ok )
+                {
+                    m_timers.frameTimer.StopTimer();
+                    PROFILE_FRAME_END( m_profiler );
+                    m_applicationExit.RequestOwnedFailure( viewportCapture );
+                    return m_applicationExit.Resolve( 0 );
+                }
+            }
+#endif
+
+            SkullbonezCore::UI::OperatorEditorFrameView operatorEditorView;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            operatorEditorView.surfaces.secondaryVisible = m_imguiEditor.IsVisible();
+#endif
             const RuntimeUiTextFrameFacts uiTextFacts{
                 RuntimeCameraModeEnabledMask( m_sceneController.State().isSceneMode,
                                               m_sceneController.Scene().SceneEntityCount() ),
@@ -720,16 +1390,61 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_interaction.Gesture(),
                 presentationAlpha,
                 capturePresentationPinned,
-                secondsPerFrame };
+                secondsPerFrame,
+                legacyDevelopmentUiActive,
+                operatorEditorView };
+            // Lifetime: replay publishes one immutable cause/scrubber view for
+            // both the legacy late pass and the development editor. E14 reads
+            // its rows directly instead of building a second causality tree.
+            const ReplayOverlay::ReplayOverlayStateView replayOverlay =
+                m_replayRuntime.BuildOverlayStateView( m_runtimeTools.Editor().editorModeEnabled,
+                                                       m_operatorUi->IsVisible(),
+                                                       m_operatorUi->IsMinimized(),
+                                                       m_interaction.Gesture().kind,
+                                                       renderModels.presentationRecords,
+                                                       renderModels.bodyStore );
             RenderExecuteUiTextFrame( frameHost,
                                       frameInteraction,
                                       frameScene,
                                       framePresentation,
                                       m_replayRuntime,
                                       uiTextFacts,
+                                      replayOverlay,
                                       frameRenderDiagnostics,
                                       uiRender,
                                       renderModels );
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            // Concept: the context owner builds one typed editor frame, then
+            // its narrow E6 renderer binding records draw data before Present.
+            // Win32 message routing remains isolated to E7.
+            const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
+            const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
+            const DevelopmentTools::TracyClientStatus tracyStatus = DevelopmentTools::TracyClientOwner::CopyStatus();
+            const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput{ m_window.ClientWidth(),
+                                                                           m_window.ClientHeight(),
+                                                                           dpiScale,
+                                                                           static_cast<float>( secondsPerFrame ),
+                                                                           tracyStatus.initialized,
+                                                                           tracyStatus.viewerConnected,
+                                                                           tracyStatus.heavyMode };
+            if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
+            {
+                m_imguiEditor.BuildEditorShell( operatorEditorView, replayOverlay );
+                const DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
+                if ( !imguiResult.status.ok )
+                {
+                    m_timers.frameTimer.StopTimer();
+                    PROFILE_FRAME_END( m_profiler );
+                    m_applicationExit.RequestOwnedFailure( imguiResult.status );
+                    return m_applicationExit.Resolve( 0 );
+                }
+                if ( imguiResult.commands.requestSurfaceSwap )
+                {
+                    SelectDevelopmentUiSurface( DevelopmentUiMode::Legacy );
+                }
+            }
+#endif
 
             PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
             {
@@ -742,11 +1457,28 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
             PROFILE_BEGIN( m_profiler, "Frame/PostDraw/InteractionAutomation" );
+            InteractionAutomationDevelopmentUiView automationDevelopmentUiView;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+            const DevelopmentTools::ImGuiEditorStatus imguiAutomationStatus = m_imguiEditor.CopyStatus();
+            automationDevelopmentUiView.available = imguiAutomationStatus.initialized;
+            automationDevelopmentUiView.selectedImGui = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::ImGui;
+            automationDevelopmentUiView.legacyVisible = m_operatorUi->IsVisible();
+            automationDevelopmentUiView.imguiVisible = imguiAutomationStatus.visible;
+            automationDevelopmentUiView.legacyReplayPresentationActive = uiTextFacts.legacyDevelopmentUiActive;
+            automationDevelopmentUiView.panelVisibilityMask = imguiAutomationStatus.panelVisibilityMask;
+            automationDevelopmentUiView.layoutResetCount = imguiAutomationStatus.layoutResetCount;
+            automationDevelopmentUiView.automationFocusCount = imguiAutomationStatus.automationFocusCount;
+            automationDevelopmentUiView.appliedDpiScale = imguiAutomationStatus.appliedDpiScale;
+            automationDevelopmentUiView.rendererDescriptorHighWater = imguiAutomationStatus.rendererDescriptorHighWater;
+            automationDevelopmentUiView.gameViewportRecreations = imguiAutomationStatus.gameViewportRecreations;
+            automationDevelopmentUiView.preferencesRecovered = imguiAutomationStatus.preferencesRecovered;
+#endif
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
                                                       frameInteraction,
                                                       frameScene,
                                                       m_replayRuntime.BuildAutomationView(),
+                                                      automationDevelopmentUiView,
                                                       m_diagnosticsRuntime.Capture(),
                                                       m_renderBackendView.RequireCaptureBackend() );
             if ( !automationAfterRender.status.ok )
@@ -792,6 +1524,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_applicationExit.RequestOwnedFailure( presentResult );
                 return m_applicationExit.Resolve( 0 );
             }
+
+            // Invariant: Tracy counts submitted game frames, not attempted
+            // render turns, capture-only continues, or failed Presents.
+            SKORE_TRACY_MARK_SUBMITTED_FRAME();
 
             m_timers.frameTimer.StopTimer();
             PROFILE_FRAME_END( m_profiler );

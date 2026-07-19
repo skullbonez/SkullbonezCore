@@ -74,6 +74,9 @@ namespace Rendering
 {
 class IRenderCaptureBackend;
 class IRenderCommandContext;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+class Dx12ImGuiRendererOwner;
+#endif
 class IRenderDeviceLifecycle;
 class IRenderDiagnostics;
 class IRenderResourceFactory;
@@ -144,13 +147,16 @@ struct RenderToolOverlayView
 
 struct RuntimeRenderBackendView
 {
-    Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;     // Startup/present/resize/drain capability.
-    Rendering::IRenderCommandContext* renderCommands = nullptr;       // Per-frame draw-state and submission capability.
-    Rendering::IRenderResourceFactory* renderResources = nullptr;     // Resource creation/rebuild capability.
-    Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;       // Capability, draw-trace, timer, and memory snapshots.
-    Rendering::IRenderCaptureBackend* captureBackend = nullptr;       // Screenshot/readback capability.
-    Rendering::IRenderRayTracing* rayTracingBackend = nullptr;        // Optional DXR facet borrowed from the active renderer.
-    Rendering::IRenderShaderDevelopment* shaderDevelopment = nullptr; // Optional manual offline-DXC reload capability.
+    Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;       // Startup/present/resize/drain capability.
+    Rendering::IRenderCommandContext* renderCommands = nullptr;         // Per-frame draw-state and submission capability.
+    Rendering::IRenderResourceFactory* renderResources = nullptr;       // Resource creation/rebuild capability.
+    Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;         // Capability, draw-trace, timer, and memory snapshots.
+    Rendering::IRenderCaptureBackend* captureBackend = nullptr;         // Screenshot/readback capability.
+    Rendering::IRenderRayTracing* rayTracingBackend = nullptr;          // Optional DXR facet borrowed from the active renderer.
+    Rendering::IRenderShaderDevelopment* shaderDevelopment = nullptr;   // Optional manual offline-DXC reload capability.
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    Rendering::Dx12ImGuiRendererOwner* developmentUiRenderer = nullptr; // Narrow development-only DX12 UI recorder.
+#endif
 
     // Returns the startup-required capture facet or terminates through Lane F.
     Rendering::IRenderCaptureBackend& RequireCaptureBackend() const;

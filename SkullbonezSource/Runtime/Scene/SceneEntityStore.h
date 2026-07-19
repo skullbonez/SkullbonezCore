@@ -75,6 +75,8 @@ struct SceneEntityCreateDesc
     SceneAssetAffiliation asset;
     SceneBehaviorGroup behaviorGroup;
     char displayName[64] = {};
+    bool editorVisible = true;
+    bool editorLocked = false;
 
     SceneEntityCreateDesc();
     void SetName( const char* name );
@@ -99,6 +101,10 @@ struct SceneEntityRecord
     SceneAssetAffiliation asset;
     SceneBehaviorGroup behaviorGroup;
     char displayName[64] = {};
+    // Editor-only session metadata follows stable scene identity through
+    // swap-last compaction but is deliberately absent from authored schema.
+    bool editorVisible = true;
+    bool editorLocked = false;
 };
 
 class SceneEntityStore

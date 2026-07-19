@@ -37,11 +37,13 @@ Related:
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/InputRouter.h"
+#include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h"
 #include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
 
 #include <initializer_list>
 
 using namespace SkullbonezCore::Runtime;
+using namespace SkullbonezCore::Runtime::DevelopmentTools;
 
 namespace
 {
@@ -89,6 +91,94 @@ TEST_CASE( "Input router: key snapshot is bounded and ignores invalid virtual ke
     CHECK_FALSE( snapshot.IsDown( 256 ) );
     CHECK( snapshot.Words().size() == InputKeySnapshot::WORD_COUNT );
     static_assert( InputActions::CAPACITY == static_cast<std::size_t>( RuntimeInputAction::Count ) );
+}
+
+
+TEST_CASE( "ImGui input policy: the selected surface routes each event class to one application consumer" )
+{
+    struct MatrixRow
+    {
+        const char* label;
+        ImGuiEditorInputIntent intent;
+        ImGuiEditorMessageClass messageClass;
+        bool editorConsumes;
+    };
+
+    const MatrixRow rows[] = {
+        { "legacy tool mouse", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Mouse, false },
+        { "legacy tool keyboard", { false, true, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, false },
+        { "imgui tool drag", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
+        { "imgui tool drag repeat", { true, true, false, false, false, false }, ImGuiEditorMessageClass::Mouse, true },
+        { "imgui tool typing", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Keyboard, true },
+        { "imgui tool text", { true, false, true, true, false, false }, ImGuiEditorMessageClass::Text, true },
+        { "viewport camera drag", { true, true, false, false, true, true }, ImGuiEditorMessageClass::Mouse, false },
+        { "viewport replay shortcut",
+          { true, false, true, false, true, true },
+          ImGuiEditorMessageClass::Keyboard,
+          false },
+        { "focused field text over viewport",
+          { true, false, true, true, true, true },
+          ImGuiEditorMessageClass::Text,
+          true },
+        { "alt tab focus and dpi", { true, true, true, true, false, false }, ImGuiEditorMessageClass::Platform, false },
+    };
+
+    for ( const MatrixRow& row : rows )
+    {
+        CAPTURE( row.label );
+        const ImGuiEditorInputCapture capture = EvaluateImGuiEditorInputCapture( row.intent );
+        const ImGuiEditorMessageDecision decision = DecideImGuiEditorMessageRoute( row.messageClass, capture );
+        CHECK( decision.editorConsumes == row.editorConsumes );
+        CHECK( decision.engineConsumes != decision.editorConsumes );
+    }
+
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_INPUT, 0 ) == ImGuiEditorMessageClass::Mouse );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_MOUSEWHEEL, 0 ) == ImGuiEditorMessageClass::Mouse );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_KEYDOWN, VK_ESCAPE ) == ImGuiEditorMessageClass::Keyboard );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_SYSKEYDOWN, VK_TAB ) == ImGuiEditorMessageClass::Platform );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_SYSKEYDOWN, VK_F4 ) == ImGuiEditorMessageClass::Platform );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_IME_COMPOSITION, 0 ) == ImGuiEditorMessageClass::Text );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_SETFOCUS, 0 ) == ImGuiEditorMessageClass::Platform );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_SIZE, 0 ) == ImGuiEditorMessageClass::Platform );
+    CHECK( ClassifyImGuiEditorNativeMessage( WM_DPICHANGED, 0 ) == ImGuiEditorMessageClass::Platform );
+}
+
+
+TEST_CASE( "Input router: captured tool input requires release and repress before gameplay" )
+{
+    const RuntimeInputKeyBinding bindings[] = {
+        { 'A', RuntimeInputAction::ToggleEditor, Context( RuntimeInputBindingContext::KeyboardUnblocked ) },
+    };
+    const RuntimeInputKeyBindingView view = BindingView( bindings );
+    const RuntimeInputContextMask active = Context( RuntimeInputBindingContext::KeyboardUnblocked );
+    InputRouter router;
+    InputActions output;
+
+    router.BeginFrame( FocusedFrame( {} ), view, output );
+    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output, UiInputCaptureIntent{ true, true, true } );
+    router.RoutePhase( view, InputActionPhase::PreUi, active, output );
+    CHECK( output.Empty() );
+    CHECK_FALSE( output.mouse.leftPressed );
+    CHECK_FALSE( router.DeviceFrame().keys.IsDown( 'A' ) );
+    CHECK_FALSE( router.DeviceFrame().leftDown );
+
+    // Tool focus returns while the physical inputs remain held. The router
+    // resynchronizes levels instead of manufacturing a press.
+    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output );
+    router.RoutePhase( view, InputActionPhase::PreUi, active, output );
+    CHECK( output.Empty() );
+    CHECK_FALSE( output.mouse.leftPressed );
+
+    router.BeginFrame( FocusedFrame( {} ), view, output );
+    router.RoutePhase( view, InputActionPhase::PreUi, active, output );
+    CHECK( output.Empty() );
+    CHECK( output.mouse.leftReleased );
+
+    router.BeginFrame( FocusedFrame( { 'A' }, true ), view, output );
+    router.RoutePhase( view, InputActionPhase::PreUi, active, output );
+    REQUIRE( output.Count() == 1 );
+    CHECK( output[0].edge == InputActionEdge::Pressed );
+    CHECK( output.mouse.leftPressed );
 }
 
 
@@ -315,6 +405,13 @@ TEST_CASE( "Input router: cold start initializes cursor and focus loss restores 
     CHECK_FALSE( presentation.nativeCapture );
     CHECK( presentation.cursorVisible );
     CHECK_FALSE( router.ConsumePointerPresentationChange( presentation ) );
+
+    // A platform UI may have changed HWND capture/cursor state without changing
+    // the engine's desired values. Deferral must republish those same values.
+    router.DeferPointerPresentationCommit();
+    REQUIRE( router.ConsumePointerPresentationChange( presentation ) );
+    CHECK_FALSE( presentation.nativeCapture );
+    CHECK( presentation.cursorVisible );
 
     router.BeginFrame( FocusedFrame( {} ), {}, output );
     router.RequestNativeCapture();

@@ -34,6 +34,7 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -110,6 +111,8 @@ bool CapturePrimitiveRecipe( const SceneWorld& world, int modelIndex, EditorPrim
     outRecipe.entity.asset = entity.asset;
     outRecipe.entity.behaviorGroup = entity.behaviorGroup;
     strcpy_s( outRecipe.entity.displayName, entity.displayName );
+    outRecipe.entity.editorVisible = entity.editorVisible;
+    outRecipe.entity.editorLocked = entity.editorLocked;
     // Invariant: recreation facts exclude the live handle, transient impulses,
     // replay id, and borrowed terrain pointer from PhysicsBodyRecord.
     const PhysicsBodyHotState hotState =
@@ -467,12 +470,48 @@ bool RuntimeTools::RedoEditorCommand( SceneWorld& world, RunSceneState& scene )
 }
 
 
+bool RuntimeTools::DuplicateEditorSelection( SceneWorld& world, RunSceneState& scene )
+{
+    const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
+    EditorCommandEntry entry;
+    entry.kind = EditorCommandKind::Place;
+    if ( !m_editor.editorModeEnabled || modelIndex < 0 || world.Entities().At( modelIndex ).editorLocked ||
+         !CapturePrimitiveRecipe( world, modelIndex, entry.primitive ) )
+    {
+        return false;
+    }
+
+    entry.primitive.entity.sceneObjectId = scene.AllocateSceneObjectId();
+    entry.primitive.entity.editorVisible = true;
+    entry.primitive.entity.editorLocked = false;
+    entry.primitive.body.position.x += 2.0f;
+    entry.primitive.body.position.z += 2.0f;
+    const char* sourceName =
+        entry.primitive.entity.displayName[0] != '\0' ? entry.primitive.entity.displayName : "Object";
+    char duplicateName[64] = {};
+    snprintf( duplicateName, sizeof( duplicateName ), "%.52s Copy", sourceName );
+    strcpy_s( entry.primitive.entity.displayName, duplicateName );
+
+    PhysicsBodyHandle body;
+    PhysicsColliderHandle collider;
+    if ( !RecreatePrimitive( world, scene, entry.primitive, body, collider ) )
+    {
+        return false;
+    }
+    m_editor.history.Push( entry );
+    m_editor.selectedBody = body;
+    m_editor.selectedCollider = collider;
+    m_editor.selectedModelRow.value = world.BodyStore().ModelIndexForHandle( body );
+    return true;
+}
+
+
 bool RuntimeTools::DeleteEditorSelection( SceneWorld& world, RunSceneState& scene )
 {
     const int modelIndex = RunInternal::ResolveSelectedEditorModelIndex( m_editor, world.BodyStore() );
     EditorCommandEntry entry;
     entry.kind = EditorCommandKind::Delete;
-    if ( !m_editor.editorModeEnabled || modelIndex < 0 ||
+    if ( !m_editor.editorModeEnabled || modelIndex < 0 || world.Entities().At( modelIndex ).editorLocked ||
          !CapturePrimitiveRecipe( world, modelIndex, entry.primitive ) ||
          !world.DestroySceneEntity( m_editor.selectedBody ) )
     {

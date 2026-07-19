@@ -496,6 +496,17 @@ TEST_CASE( "Coverage floor contract: replay timeline applies retention and seque
     CHECK( eventStats.eventCount == 1u );
     CHECK( eventStats.nextSequence == 1u );
 
+    // Record/stop is a gate over already-reserved rings. It neither clears the
+    // timeline nor lets stopped owner events advance the event cursor.
+    CHECK( timeline->SetRecordingEnabled( false ) );
+    CHECK_FALSE( timeline->RecordingEnabled() );
+    timeline->SubmitEvent( command, branch );
+    CHECK( timeline->Events().GetStats().eventCount == 1u );
+    CHECK( timeline->SetRecordingEnabled( true ) );
+    CHECK( timeline->RecordingEnabled() );
+    timeline->SubmitEvent( command, branch );
+    CHECK( timeline->Events().GetStats().eventCount == 2u );
+
     ReplayMemoryPolicyRequest compact;
     compact.presetIndex = static_cast<int>( ReplayMemoryPreset::Compact );
     const ReplayMemoryPolicyApplyResult changed = timeline->ApplyMemoryPolicyRequest( compact );

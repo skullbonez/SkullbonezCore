@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 8, "assert": { "developmentUiSurface": "legacy" } },
+    { "frame": 8, "assert": { "imguiVisible": false } },
+    { "frame": 12, "screenshot": "TestOutput/interaction/imgui_e17_legacy_default.bmp" }
+  ]
+}
