@@ -4,13 +4,14 @@ Purpose:
   Implements deterministic broadphase candidate generation and retained output.
 
 Summary:
-  The stage rebuilds the spatial grid, preserves conservative fast-projectile
-  augmentation, canonicalizes solver-visible pair order, prunes
-  fixed/joint/sleep-only pairs, and records bounded pipeline evidence.
+  The stage maintains persistent integer-range membership, adds a one-step
+  swept overlay for fast projectiles, canonicalizes solver-visible pair order,
+  prunes fixed/joint/sleep-only pairs, and records bounded pipeline evidence.
 
 Glossary:
   Broadphase filter: Shape-aware cheap predicate applied while grid pairs form.
-  Swept insertion: Grid coverage of a body's start-to-end fixed-step path.
+  Swept overlay: One-step grid coverage of a body's start-to-end path that
+    cannot pollute its persistent current-position membership.
   Sleep-pruned pair: Pair of dormant bodies with no awake energy to create work.
   Canonical pair order: Ascending normalized `(minIndex, maxIndex)` order that
     does not depend on cell-bucket discovery history.
@@ -419,6 +420,7 @@ void PhysicsBroadphaseStage::Clear()
 {
     m_candidatePairs.clear();
     m_collisionCellKeys.clear();
+    m_spatialGrid.Clear();
 #if defined( _DEBUG )
     m_pairOracleShadowPairs.clear();
     m_pairOracleNormalizedDriverPairs.clear();
@@ -472,11 +474,11 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
         const float sceneCell =
             (std::max)( BROADPHASE_MIN_CELL_SIZE, ( largestBroadphaseRadius + context.contactSkin ) * 2.0f );
         m_spatialGrid.SetCellSize( (std::min)( configuredCell, sceneCell ) );
-        m_spatialGrid.Clear();
+        m_spatialGrid.BeginFrame( context.modelCount );
         m_collisionCellKeys.clear();
     }
     {
-        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/GridInsert" );
+        PROFILE_SCOPED( context.profiler, "Frame/Physics/Broadphase/GridMaintain" );
         for ( int i = 0; i < context.modelCount; ++i )
         {
             const float radius = SolverBodyRadius( context.colliderRecords, i ) + context.contactSkin;

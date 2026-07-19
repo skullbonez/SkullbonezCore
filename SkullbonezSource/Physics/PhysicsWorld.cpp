@@ -990,9 +990,12 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // count is more actionable in an external capture than object-pair guesses
     // and is sampled after the solver finishes owning the row set.
     PROFILE_COUNTER( m_profiler, "Counter/Physics/PersistentContactRows", m_contactSolverStage.GetStats().rowCount );
-    // P0 reserves this identity; P2 replaces the zero with persistent-grid
-    // cell-range changes owned by PhysicsBroadphaseStage.
-    PROFILE_COUNTER( m_profiler, "Counter/Physics/BodiesReinserted", 0 );
+    // P2 contract: a body counts only when its integer cell range changes.
+    // First insertion and swept-overlay cells have separate meanings and do not
+    // inflate this steady-step maintenance witness.
+    PROFILE_COUNTER( m_profiler,
+                     "Counter/Physics/BodiesReinserted",
+                     m_broadphase.GetSpatialGrid().GetMaintenanceStats().movedBodies );
     PROFILE_COUNTER( m_profiler,
                      "Counter/Physics/EstimatedHotBytesPerBodyStep",
                      EstimatePhysicsHotBytesPerBodyStep( modelCount, forceAwakeBodyCount, integrateAwakeBodyCount ) );

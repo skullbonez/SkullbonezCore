@@ -6,7 +6,7 @@ Campaign: `physics-body-count-scale-campaign`
 
 Branch: `nightrunner-18th-july`
 
-Task boundary: P0-P1 complete; P2 persistent-grid work is next
+Task boundary: P0-P2 complete; P3 zero-cost-sleeper work is next
 
 ## P0 Owner Rulings
 
@@ -313,3 +313,85 @@ allocation guard, analyzer self-test, structural probe, budgets, and the five
 scale captures passed. The focused SpatialGrid suite passed 8/8 cases and 27/27
 assertions. P1's touched-source comment audit covers 5/5 files with zero
 deferred; see `physics-body-count-p1-comment-audit.md`.
+
+## P2 Persistent Incremental Grid
+
+P2 replaces per-step grid reconstruction with persistent integer-range
+membership. Each body owns its last inserted `CellRange`; identical ranges are
+true no-ops, while movement adds and removes only the six disjoint slabs between
+old and new ranges. Fixed hash buckets and persistent entries use intrusive
+bucket/object chains, removal back-links, and free lists, so dense-row retirement
+and long travel reuse storage without allocation. `SetCellSize` treats an
+identical value as a hot no-op and cold-clears only after a real size change.
+
+Velocity-dependent occupancy remains separate. `BeginFrame` expires the prior
+stamped swept/CCD overlay and removes retired dense rows, while `InsertSwept`
+adds only cells outside current persistent membership. Candidate collection
+combines the persistent and current overlay occupants before the P1 canonical
+emitter. Singleton persistent buckets are skipped unless the current overlay
+raises occupancy to two; this recovered the expected candidate cost without
+changing membership. The stage marker is now `GridMaintain`, and
+`BodiesReinserted` counts moved persistent bodies only, excluding first
+insertion and overlay work.
+
+Focused coverage exercises unchanged reinsertion, single-cell range deltas,
+body-count shrink, overlay expiry, changed/same cell-size behavior, long-travel
+entry and bucket reuse, crowded-cell canonicalization, and legal combined
+persistent-plus-overlay saturation. The full final-source doctest run passed
+318/318 cases and 30,352/30,352 assertions; the targeted SpatialGrid set passed
+14/14 cases and 8,503 assertions, and the child fatal contract passed 1/1 case
+and 53 assertions.
+
+### P2 Worker-Count Determinism
+
+The final Debug source reproduced every retained P1 witness byte-for-byte at
+worker counts 0, 1, and 4 across all six scenes: 18/18 processes in 1,479.979
+seconds. Scale scenes used their 600-frame horizon and `physics_bench_varied`
+used its 1,200-frame horizon. An earlier diagnostic mistakenly used 600 frames
+for the varied witness; a bounded streaming comparison showed equality through
+frame 600 and only the horizon/header boundary differed. The corrected complete
+matrix is the acceptance evidence below. Worker duplicates were removed only
+after exact comparison; retained P1 witnesses remain unchanged.
+
+| Scene | Bytes | SHA-256 |
+|---|---:|---|
+| scale_200 | 33,831,818 | `3DAD84BE52C8C7A9BCA029B11543E841E54B2F14DFE24E7FCF14D0CBE5BF522A` |
+| scale_520 | 88,116,798 | `9B8F705074EE7158E7F8B6A8483D49E69632EA857613F83FC551A4FEA8499B5E` |
+| scale_1000 | 169,580,528 | `F277D16226591F5B258C0D4C0F8BE54EAD52A9CE679EF49C03970305B4F8DE8C` |
+| scale_2000 | 340,410,150 | `AA9D3BFD770ABB838D2EDBF836F33C110E4FBE730437C16739E7F7D847CD36DC` |
+| sleepy_5000 | 912,830,920 | `67FDBC3D7A6FBDDD6FC15E0393A9DF137AA3777193EE8E9F564090C7B7174C76` |
+| regression_varied | 12,660,434 | `8E9092CB7F28EAFC0D9F167E90CF9D5292D022485D6AE93D591FB758CAEA6387` |
+
+### P2 Measurement Matrix
+
+Profile medians are milliseconds over the final performance captures. P2
+improves total step time at 200, 520, 1,000, and sleepy 5,000 bodies. The
+2,000-body step is 4.3% above P1 but 11.4% below the plan's 2.05 ms B4 target;
+`GridMaintain` itself falls 50.9% there. Persistent linked-entry traversal raises
+candidate collection relative to P1, particularly in the dense scale scenes;
+that measured cache/bandwidth cost is owned by P4's hot-state diet.
+
+| Marker / counter | scale_200 | scale_520 | scale_1000 | scale_2000 | sleepy_5000 |
+|---|---:|---:|---:|---:|---:|
+| `Frame/Physics` | 0.1050 | 0.7722 | 1.0299 | 1.8161 | 1.9813 |
+| `Frame/Physics/Broadphase` | 0.0209 | 0.1046 | 0.2395 | 0.6081 | 0.4930 |
+| `Frame/Physics/Broadphase/GridMaintain` | 0.0138 | 0.0622 | 0.1160 | 0.2272 | 0.2130 |
+| `Frame/Physics/Broadphase/CandidatePairs` | 0.0032 | 0.0268 | 0.0713 | 0.2255 | 0.2367 |
+| `Frame/Physics/Broadphase/PruneSleepPairs` | 0.0001 | 0.0002 | 0.0003 | 0.0004 | 0.0002 |
+| `Frame/Physics/ApplyForces` | 0.0265 | 0.1779 | 0.1844 | 0.2000 | 0.2107 |
+| `Frame/Physics/Integrate` | 0.0214 | 0.1986 | 0.2098 | 0.2389 | 0.2549 |
+| `Frame/Physics/Narrowphase` | 0.0004 | 0.0033 | 0.0073 | 0.0238 | 0.0010 |
+| Inclusive solver owner (`PersistentContacts`) | 0.0067 | 0.0309 | 0.0570 | 0.1373 | 0.0027 |
+| Awake / total bodies | 200 / 200 | 520 / 520 | 1,000 / 1,000 | 2,000 / 2,000 | 1,000 / 5,000 |
+| Bodies reinserted this step | 24 | 63 | 121 | 233 | 142 |
+| Estimated hot bytes/body/step | 245.0 | 245.0 | 245.0 | 245.0 | 95.4 |
+
+Final `tools\validate_perf.bat` passed its allocation guard, analyzer self-test,
+structural probe, budgets, and all five scale captures. Final
+`tools\validate_physics.bat` built Profile and Debug with zero warnings/errors
+and matched the 44,401-line varied oracle byte-for-byte. Final
+`tools\validate_full.bat` passed formatting (276 headers), all 318 doctest cases,
+every coverage floor, interaction/parser/DX12 architecture suites, Automation
+replay/prediction smoke, three zero-error DX12 baseline comparisons, and exact
+physics determinism. P2's touched-source comment audit covers 7/7 files with
+zero deferred; see `../2026-07-19/physics-body-count-p2-comment-audit.md`.

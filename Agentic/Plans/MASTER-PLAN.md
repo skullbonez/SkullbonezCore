@@ -216,9 +216,9 @@ for side-by-side owner evaluation.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 2 | 8 | 25% |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 3 | 8 | 38% |
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| **Active/future total** | **19** | **26** | **73%** |
+| **Active/future total** | **20** | **26** | **77%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -267,14 +267,17 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is 2/8 with P1 complete. The
+`physics-body-count-scale-campaign` (P0-P7) is 3/8 with P2 complete. The
 canonical emitter, Debug-only same-state dual-driver raw/final oracle, 0/1/4
 worker matrix, focused tests, and final physics/deep/performance gates pass.
 The complete coupled one-process replay visual/causal delta and mechanically
 derived 21-query SkullScope packet were assessed under the binding directive,
 accepted as bounded consequences of canonical solve order, and transitioned.
-Those artifacts are exact again for P2 onward. The ImGui E14-E15 ledger
-reconciliation is complete, so P2 persistent incremental-grid work is next.
+Those artifacts remain exact after P2. The persistent grid now retains integer
+cell ranges, changes only six disjoint delta slabs, reuses fixed bucket/entry
+slots, and keeps swept/CCD occupancy in an expiring overlay. Its final 18-run
+0/1/4 matrix matches every P1 witness byte-for-byte; mapped perf, physics, and
+full gates pass. P3 zero-cost sleepers is next.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
 the accepted P1 one-process golden and their retained replay gates now pass
@@ -991,7 +994,7 @@ The conditional P6 slot remains part of the eight-task ledger in either outcome.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P1 complete; P2 next | 2/8 | Implement the persistent incremental grid with byte-exact P1 artifacts |
+| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P2 complete; P3 next | 3/8 | Maintain an ascending dense awake list and remove settled sleepers from per-step force, integration, bounds, and broadphase maintenance work |
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 

@@ -265,10 +265,22 @@ bool RunRuntimeFatalCase( const char* caseName )
     {
         static SpatialGrid grid( 1.0f );
         grid.Clear();
-        for ( int cell = 0; cell <= SpatialGrid::MAX_BUCKETS; ++cell )
+        constexpr int persistentCells = SpatialGrid::MAX_BUCKETS / 2;
+        for ( int cell = 0; cell < persistentCells; ++cell )
         {
-            grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+            grid.Insert( cell, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
         }
+        // Hazard: repeated Insert calls now move one persistent body. Fill the
+        // remaining legal cells through the bounded swept-overlay path, then
+        // request one genuinely new cell to exercise the Lane F table limit.
+        const Vector3 sweepStart( static_cast<float>( persistentCells ) + 0.25f, 0.25f, 0.25f );
+        grid.InsertSwept( persistentCells,
+                          sweepStart,
+                          Vector3( static_cast<float>( persistentCells - 1 ), 0.0f, 0.0f ),
+                          0.0f );
+        grid.Insert( persistentCells + 1,
+                     Vector3( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f ),
+                     0.0f );
         return true;
     }
     if ( std::strcmp( caseName, "amortized-task-in-flight-destroy" ) == 0 )

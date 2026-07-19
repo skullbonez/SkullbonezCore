@@ -4,10 +4,10 @@ Purpose:
   Owns fixed-step spatial broadphase storage and deterministic candidate output.
 
 Summary:
-  PhysicsBroadphaseStage rebuilds the spatial grid for one fixed tick, augments
-  conservative fast sweeps, prunes pairs that cannot produce work, and exposes
-  its retained candidate span to later stages. Collision-cell keys share this
-  owner because they are indexed in the same broadphase coordinate system.
+  PhysicsBroadphaseStage incrementally maintains persistent spatial membership
+  for one fixed tick, overlays conservative fast sweeps, prunes pairs that
+  cannot produce work, and exposes its retained candidate span to later stages.
+  Collision-cell keys share this owner because they use the same coordinates.
 
 Glossary:
   Broadphase: Cheap collision pass that finds object pairs worth precise tests.
@@ -17,6 +17,8 @@ Glossary:
   Collision-cell key: Deterministic diagnostic hash of a contact midpoint cell.
   Same-state oracle: Debug-only comparison that runs legacy and canonical pair
     construction from one broadphase input state before either can evolve it.
+  Grid maintenance: Adds or removes only cells whose integer body range changed;
+    settled bodies retain their entries without per-step reinsertion.
 
 Invariants:
   - Solver-visible candidates use the P1 canonical `(minIndex, maxIndex)`
@@ -26,6 +28,7 @@ Invariants:
   - Returned spans remain valid only until the next Run or Clear call.
   - Candidate and collision-key vectors are reserved at construction and never
     grow beyond their fixed runtime capacities.
+  - Swept occupancy expires every step and never changes persistent membership.
 
 Related:
   - SkullbonezSource/Physics/Stages/PhysicsBroadphaseStage.cpp

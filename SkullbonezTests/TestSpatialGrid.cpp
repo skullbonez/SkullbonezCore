@@ -12,15 +12,17 @@
 //   Cell: Integer grid bucket covering one cube of world space.
 //   Candidate pair: Pair of object indices that share at least one occupied
 //     cell and still need narrowphase testing.
-//   Generation clear: O(1) clear that marks old buckets stale instead of
-//     zeroing the whole table.
+//   Persistent membership: Cell occupancy retained until a body's integer cell
+//     range changes or a cold clear invalidates all ranges.
+//   Swept overlay: Velocity-dependent cells that expire at the next BeginFrame.
 //   Canonical pair order: Ascending `(smaller index, larger index)` order that
 //     is independent of the order in which cells discover the pair.
 //
 // Invariants:
 //   - Output pair vectors must reserve capacity before GetCandidatePairs().
 //   - Candidate pairs are normalized and emitted in ascending canonical order.
-//   - Clear() is the public removal path; there is no per-object remove API.
+//   - BeginFrame removes retired dense rows and expires only swept occupancy.
+//   - Clear() is a cold scene/config/replay reset, not the per-step path.
 //
 // Related:
 //   - SkullbonezSource/Physics/SpatialGrid.h
@@ -123,7 +125,7 @@ TEST_CASE( "SpatialGrid: swept insert reaches a later cell without duplicate pai
 }
 
 
-TEST_CASE( "SpatialGrid: clear removes old generation contents from queries" )
+TEST_CASE( "SpatialGrid: cold clear removes retained contents from queries" )
 {
     SpatialGrid& grid = TestGrid();
     grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
@@ -135,6 +137,122 @@ TEST_CASE( "SpatialGrid: clear removes old generation contents from queries" )
 
     CHECK( grid.GetActiveCellCount() == 0 );
     CHECK( pairs.empty() );
+}
+
+
+TEST_CASE( "SpatialGrid: unchanged integer ranges perform zero cell maintenance" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    CHECK( grid.GetMaintenanceStats().insertedBodies == 2 );
+    CHECK( grid.GetMaintenanceStats().persistentCellsAdded == 2 );
+
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 5.5f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 6.5f, 5.0f, 5.0f ), 1.0f );
+    const auto pairs = CandidatePairs( grid );
+    const auto& stats = grid.GetMaintenanceStats();
+
+    CHECK( stats.unchangedBodies == 2 );
+    CHECK( stats.movedBodies == 0 );
+    CHECK( stats.persistentCellsAdded == 0 );
+    CHECK( stats.persistentCellsRemoved == 0 );
+    REQUIRE( pairs.size() == 1u );
+    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+}
+
+
+TEST_CASE( "SpatialGrid: one-cell move updates only the changed range slabs" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 15.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    const auto pairs = CandidatePairs( grid );
+    const auto& stats = grid.GetMaintenanceStats();
+
+    CHECK( stats.movedBodies == 1 );
+    CHECK( stats.unchangedBodies == 1 );
+    CHECK( stats.persistentCellsAdded == 1 );
+    CHECK( stats.persistentCellsRemoved == 1 );
+    CHECK( pairs.empty() );
+}
+
+
+TEST_CASE( "SpatialGrid: dense-prefix shrink removes retired body memberships" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 15.0f, 5.0f, 5.0f ), 1.0f );
+    CHECK( grid.GetActiveCellCount() == 2 );
+
+    grid.BeginFrame( 1 );
+    grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+
+    CHECK( grid.GetMaintenanceStats().removedBodies == 1 );
+    CHECK( grid.GetMaintenanceStats().persistentCellsRemoved == 1 );
+    CHECK( grid.GetActiveCellCount() == 1 );
+    CHECK( CandidatePairs( grid ).empty() );
+}
+
+
+TEST_CASE( "SpatialGrid: swept overlay expires without polluting persistent membership" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.BeginFrame( 2 );
+    grid.InsertSwept( 0, Vector3( 1.0f, 5.0f, 5.0f ), Vector3( 19.0f, 0.0f, 0.0f ), 0.1f );
+    grid.Insert( 1, Vector3( 20.0f, 5.0f, 5.0f ), 0.1f );
+    REQUIRE( CandidatePairs( grid ).size() == 1u );
+    CHECK( grid.GetMaintenanceStats().sweptOverlayCellsAdded > 0 );
+
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 1.0f, 5.0f, 5.0f ), 0.1f );
+    grid.Insert( 1, Vector3( 20.0f, 5.0f, 5.0f ), 0.1f );
+
+    CHECK( grid.GetMaintenanceStats().sweptOverlayCellsAdded == 0 );
+    CHECK( grid.GetMaintenanceStats().unchangedBodies == 2 );
+    CHECK( CandidatePairs( grid ).empty() );
+}
+
+
+TEST_CASE( "SpatialGrid: changed cell size performs a cold membership reset" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    REQUIRE( CandidatePairs( grid ).size() == 1u );
+
+    grid.SetCellSize( 5.0f );
+    CHECK( grid.GetActiveCellCount() == 0 );
+    CHECK( CandidatePairs( grid ).empty() );
+
+    grid.BeginFrame( 2 );
+    grid.Insert( 0, Vector3( 5.0f, 5.0f, 5.0f ), 1.0f );
+    grid.Insert( 1, Vector3( 6.0f, 5.0f, 5.0f ), 1.0f );
+    CHECK( CandidatePairs( grid ).size() == 1u );
+}
+
+
+TEST_CASE( "SpatialGrid: persistent entry and bucket slots reuse across long travel" )
+{
+    SpatialGrid& grid = TestGrid();
+    grid.SetCellSize( 1.0f );
+    grid.BeginFrame( 1 );
+    for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS + 256; ++cell )
+    {
+        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+        CHECK( grid.GetActiveCellCount() == 1 );
+    }
+
+    CHECK( CandidatePairs( grid ).empty() );
 }
 
 
@@ -202,22 +320,31 @@ TEST_CASE( "SpatialGrid: one fixed table retains all 8192 cells and existing-key
 {
     SpatialGrid& grid = TestGrid();
     grid.SetCellSize( 1.0f );
-    for ( int cell = 0; cell < SpatialGrid::MAX_BUCKETS - 1; ++cell )
+    constexpr int kPersistentCells = SpatialGrid::MAX_BUCKETS / 2;
+    for ( int cell = 0; cell < kPersistentCells; ++cell )
     {
-        grid.Insert( 0, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
+        grid.Insert( cell, Vector3( static_cast<float>( cell ) + 0.25f, 0.25f, 0.25f ), 0.0f );
     }
 
-    // Why: x=0 and x=8192 share a home slot under the low-bit table mask. The
-    // final row is therefore displaced through occupied slots; reinserting it
-    // at full capacity proves lookup does not mistake saturation for absence.
-    const Vector3 displacedCell( static_cast<float>( SpatialGrid::MAX_BUCKETS ) + 0.25f, 0.25f, 0.25f );
-    grid.Insert( 0, displacedCell, 0.0f );
-    grid.Insert( 1, displacedCell, 0.0f );
+    // Fill the other half through one legal swept overlay. Its current-position
+    // cell remains persistent and the following 4,095 cells are transient.
+    const int sweptBody = kPersistentCells;
+    const Vector3 sweepStart( static_cast<float>( kPersistentCells ) + 0.25f, 0.25f, 0.25f );
+    grid.InsertSwept( sweptBody,
+                      sweepStart,
+                      Vector3( static_cast<float>( kPersistentCells - 1 ), 0.0f, 0.0f ),
+                      0.0f );
+
+    // Inserting another body into the final occupied key must succeed even when
+    // no unused table row remains.
+    const int targetBody = sweptBody + 1;
+    const Vector3 finalCell( static_cast<float>( SpatialGrid::MAX_BUCKETS - 1 ) + 0.25f, 0.25f, 0.25f );
+    grid.Insert( targetBody, finalCell, 0.0f );
     const auto pairs = CandidatePairs( grid );
 
     CHECK( grid.GetActiveCellCount() == SpatialGrid::MAX_BUCKETS );
     REQUIRE( pairs.size() == 1u );
-    CHECK( pairs[0] == std::make_pair( 0, 1 ) );
+    CHECK( pairs[0] == std::make_pair( sweptBody, targetBody ) );
 }
 
 

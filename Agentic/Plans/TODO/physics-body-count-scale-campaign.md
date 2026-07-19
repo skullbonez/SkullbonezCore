@@ -1,7 +1,7 @@
 # Physics Body-Count Scale Campaign — Persistent Broadphase, Free Sleepers, Bandwidth Diet
 
 Date: 2026-07-18
-Status: Active — 2/8 tasks (P0-P1 complete; P2 persistent incremental grid next)
+Status: Active — 3/8 tasks (P0-P2 complete; P3 zero-cost sleepers next)
 Branch: `nightrunner-18th-july`
 Impact area: `SkullbonezSource/Physics/SpatialGrid.*`,
 `Physics/Stages/PhysicsBroadphaseStage.*`, `Physics/Stages/PhysicsForceStage.*`,
@@ -323,7 +323,7 @@ explained or the task is not done.
     gameplay allocation violations. Full artifact and SkullScope accounting is
     in `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`.
 
-- [ ] P2 — Persistent incremental grid.
+- [x] P2 — Persistent incremental grid.
   - Implementation: retire the per-frame generation bump as the rebuild
     mechanism. Buckets and entries persist across steps. Per body, cache
     the last-inserted integer cell range (ix/iy/iz min/max derived from
@@ -342,13 +342,33 @@ explained or the task is not done.
     pair *order* is canonical from P1 — so results are byte-exact against
     the P1-transitioned baselines. This claim is the task's central
     acceptance: zero CSV diff, zero golden diff.
-  - [ ] Byte-exact vs P1 baselines on all six scenes; 0/1/4 workers.
-  - [ ] Measurement matrix recorded. Expected shape: `GridMaintain` drops
+  - [x] Byte-exact vs P1 baselines on all six scenes; 0/1/4 workers.
+  - [x] Measurement matrix recorded. Expected shape: `GridMaintain` drops
     toward zero for settled scenes; `scale_2000` step falls materially
     below the 2.05 ms B4 tip; reinsertion counter validates (≈ moved
     bodies, not total).
   - Gates: `validate_physics` + `validate_perf` (SpatialGrid mapping row),
     `validate_full` at task end (broad hot-path scope).
+  - 2026-07-19 closure: fixed per-body integer ranges, persistent bucket and
+    entry free lists, intrusive removal back-links, six disjoint range-delta
+    slabs, dense-row retirement, and a stamped swept/CCD overlay replace the
+    old full rebuild. `SetCellSize` keeps same-value calls hot and performs a
+    cold clear only when the value changes; `BeginFrame` expires overlay state
+    without touching unchanged persistent membership. Focused regressions cover
+    unchanged bodies, one-cell deltas, shrink/removal, overlay expiry, cell-size
+    reset, long-travel slot reuse, and legal persistent-plus-overlay saturation.
+  - Final-source 0/1/4 runs are byte-identical to all six retained P1 witnesses
+    (18/18 processes, 1,479.979 s). `BodiesReinserted` reports only moved bodies:
+    24, 63, 121, 233, and 142 instead of total rows. At 2,000 bodies,
+    `GridMaintain` falls 50.9% from P1 and total step is 1.8161 ms, 11.4% below
+    the 2.05 ms B4 target; it is 4.3% above P1 because candidate traversal now
+    follows persistent linked entries. The remaining cache/bandwidth cost is
+    measured P4 work, not a determinism or membership defect.
+  - Final focused tests pass 318/318 cases and 30,352/30,352 assertions;
+    `validate_perf`, `validate_physics`, and `validate_full` pass from the exact
+    final source with all coverage floors, zero DX12 validation errors, matched
+    screenshots, and byte-exact physics output. The touched-source comment audit
+    covers 7/7 files with zero deferred.
 
 - [ ] P3 — Zero-cost sleepers.
   - Implementation: the sleep controller maintains a dense **awake index

@@ -11,19 +11,20 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-18th-july` |
-| Current baseline | Physics P1 is complete: canonical pair emission, varied/known-issue physics artifacts, the coupled one-process 200-box replay golden, and `physics_query_varied.json` are the new exact baseline after a complete bounded-divergence assessment. |
-| Current objective | Implement Physics P2 persistent incremental grid while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
-| Active/future progress | 19 / 26 live tasks; 73%. |
-| Last broad local gate | E17 `validate_full` passed 311 cases/21,874 assertions, coverage floors, Automation/replay, zero-error DX12 comparisons, and the byte-exact physics oracle; UI, UI stress, DX12, bounded graphics stress, unchanged-retry perf, allocation, Release exclusion, and independent review also passed. |
-| Validation for current edits | P1 final `validate_physics`, `validate_physics_deep`, `validate_perf`, and offline replay equality/control suite pass against the transitioned artifacts; the existing replay capture remains the sole process/generation used for approval. |
+| Current baseline | Physics P2 is complete: persistent integer-range membership and its stamped swept overlay reproduce every transitioned P1 artifact byte-for-byte at 0/1/4 workers. |
+| Current objective | Implement Physics P3 zero-cost sleepers while Legacy remains the exclusive default; E17 awaits only extended hands-on owner acceptance. |
+| Active/future progress | 20 / 26 live tasks; 77%. |
+| Last broad local gate | P2 `validate_full` passed 318 cases/30,352 assertions, all coverage floors, Automation/replay, zero-error DX12 comparisons, and the byte-exact 44,401-line physics oracle. |
+| Validation for current edits | Final P2 `validate_perf`, `validate_physics`, and `validate_full` pass; the 18-run six-scene 0/1/4 matrix matches the retained P1 witnesses exactly in 1,479.979 seconds. |
 
 ## Live Queue
 
-NOW. Two live plans, 26 tasks. Physics body-count scale is 2/8 with P1 complete
-     and P2 next. The canonical emitter passed the 12-run same-state oracle and
-     18-run worker matrix; the complete replay/query delta was bounded, the
-     coupled one-process golden and derived SkullScope packet were transitioned,
-     and final physics/deep/perf plus offline replay controls pass. ImGui/Tracy
+NOW. Two live plans, 26 tasks. Physics body-count scale is 3/8 with P2 complete
+     and P3 next. Persistent integer ranges, fixed bucket/entry free lists,
+     removal back-links, six delta slabs, dense-row retirement, and the stamped
+     swept overlay reproduce all six retained P1 witnesses exactly across the
+     18-run 0/1/4 matrix. Final perf/physics/full gates pass, with moved-body
+     reinsertion counters and a measured P4 cache/bandwidth follow-up. ImGui/Tracy
      is 17/18: E14-E15 are reconciled against that accepted golden, E16 is
      complete, and E17 remains unchecked only for extended hands-on owner
      acceptance. E0 froze the complete
@@ -555,7 +556,7 @@ NOW. Two live plans, 26 tasks. Physics body-count scale is 2/8 with P1 complete
 
 ## Next Handoff
 
-Continue Physics P2-P7 in order. P1's complete assessment is recorded in
+Continue Physics P3-P7 in order. P1-P2 evidence is recorded in
 `Agentic/Reports/2026-07-18/body-count-scale-measurements.md`; future ordinary
 tasks are byte-exact against the transitioned artifacts and receive no refresh
 allowance.
