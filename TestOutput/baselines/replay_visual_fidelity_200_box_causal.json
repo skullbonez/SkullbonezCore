@@ -1,13 +1,13 @@
 {
   "format": "skullbonez.replay-visual-fidelity-causal.json",
   "schemaVersion": 1,
-  "workingBaseCommit": "2f13168ff41c0aa524194a2c4e722c23e1e0641a",
-  "captureCommit": "47db68a0219b5f54adf23c1ea016ab9f5ce784d7",
+  "workingBaseCommit": "8bc929bfe8d7d545011c4aa14d2c1ebb5b2c4f82",
+  "captureCommit": "8bc929bfe8d7d545011c4aa14d2c1ebb5b2c4f82",
   "configuration": "Automation",
   "fixedStep": true,
   "target": "prediction_striker_ball",
   "horizonSeconds": 20.0,
-  "visualBaselineSha256": "ecd0b5937db203acf00b9138346915539c9bda5ed0dec16f3d960a5e0ac3fe47",
+  "visualBaselineSha256": "a3db2039879993a97814e277be8eb1a56b1b88903fad190238252e2ac452d3dc",
   "targetId": 1,
   "topologyCount": 200,
   "topology": [

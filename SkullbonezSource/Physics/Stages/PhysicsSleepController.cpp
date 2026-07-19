@@ -104,8 +104,8 @@ void SkullbonezCore::Physics::ValidateSleepSupportEdgeCount( std::size_t request
 }
 
 void SkullbonezCore::Physics::AppendSleepSupportEdge( std::vector<std::pair<int, int>>& edges,
-                                                       int supporter,
-                                                       int supported )
+                                                      int supporter,
+                                                      int supported )
 {
     // Hazard: checking the semantic cap alone would still let an incorrectly
     // initialized vector grow below that cap. The actual construction reserve

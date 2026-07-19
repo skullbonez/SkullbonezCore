@@ -1,8 +1,8 @@
 {
   "format": "skullbonez.replay-visual-fidelity.json",
   "schemaVersion": 2,
-  "workingBaseCommit": "2f13168ff41c0aa524194a2c4e722c23e1e0641a",
-  "captureCommit": "47db68a0219b5f54adf23c1ea016ab9f5ce784d7",
+  "workingBaseCommit": "8bc929bfe8d7d545011c4aa14d2c1ebb5b2c4f82",
+  "captureCommit": "8bc929bfe8d7d545011c4aa14d2c1ebb5b2c4f82",
   "configuration": "Automation",
   "fixedStep": true,
   "target": "prediction_striker_ball",

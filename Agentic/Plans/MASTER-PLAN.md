@@ -1,6 +1,6 @@
 # MASTER PLAN — Authoritative Remaining Work
 
-Date: 2026-07-18
+Date: 2026-07-20
 Status: Authoritative inventory of every live repository plan
 
 ## Binding Owner Directive — 2026-07-19: Finish UI, Then Resolve Physics
@@ -77,6 +77,23 @@ state, explosive energy, allocation violation, or unrelated refresh. The
 transitioned replay/query artifacts pass exact offline controls plus final
 physics, deep-physics, and performance gates. They are the exact baseline for
 P2 onward.
+
+### Binding Owner Acceptance — 2026-07-20: Retain P7 Sleepers And Refresh Baselines
+
+The owner explicitly accepted the final deterministic sleeper/canonical-order
+behavior, judged the sleeping-heavy gain worth the measured all-awake cost, and
+directed all affected baselines to be rewritten. This is a P7-instance
+acceptance, not a general permission to normalize future divergence. Final
+physics baseline writers must still run from the final Debug executable and
+remain exact; replay must still use one engine process and one prediction
+generation; all final gates must pass against the accepted artifacts.
+
+P7 satisfied that ruling on 2026-07-20. Physics CSV, known-signature, and
+SkullScope query baselines regenerated to their existing bytes. Performance
+baselines moved to the final source measurements. Replay behavioral fields
+remained unchanged and only final-source provenance plus the mechanically
+derived visual-baseline hash moved. Closure evidence is in
+`../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 After an accepted transition, the new committed artifacts become exact again:
 P2-P5, P7, and ordinary ImGui/replay work do not receive a general divergence or
@@ -212,13 +229,18 @@ is in `../Reports/2026-07-18/small-findings-hardening-closure.md`.
 The denominator grew 8 → 26 on 2026-07-18 when the owner registered the
 18-task ImGui + Tracy development-editor campaign. It is sequenced directly
 after the physics body-count scale campaign and retains the complete legacy UI
-for side-by-side owner evaluation.
+for separate, mutually exclusive Legacy/ImGui owner evaluation with atomic hot
+swap support.
+
+The active/future denominator returned from 26 → 18 on 2026-07-20 when the
+physics body-count scale campaign closed P0-P7 and left the live ledger under
+rule 4. Closure evidence is in
+`../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | 7 | 8 | 88% |
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| **Active/future total** | **24** | **26** | **92%** |
+| **Active/future total** | **17** | **18** | **94%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -267,38 +289,18 @@ The 2026-07-18 adversarial-review round-7 lane is closed. Scene-controller
 round 2, DX12 backend ownership, naming/identity debt, and small-findings
 hardening have all left the live ledger with closure evidence.
 
-`physics-body-count-scale-campaign` (P0-P7) is 7/8 with P6 evidence-deferred
-and P7 next. The
-sleep-owned ascending awake set now drives steady sleep mirroring, same-
-timestep CCD-clock reset, eligibility/counter/transition work, and ordinary
-underwater-lock decisions. Full dormant censuses occur only at cold rebuild,
-explicit seed, or exact fluid-surface-height change boundaries. The logical
-estimate remains 245.0 bytes/body/step for all-awake scenes and falls from 95.4
-to 82.6 for sleepy-5,000. Its `Frame/Physics` P50 falls from 1.8628 ms to
-1.3331 ms. Force/integration and mutual-gravity fusion candidates were rejected
-because they would cross state-changing stages or violate exact-sum order. All
-six retained P1 witnesses match byte-for-byte at 0/1/4 workers (18/18), and
-focused tests plus physics, performance, full, allocation, and marker gates
-pass. P5 rebuilt and captured the exact P4 tip twice for both scale-2,000 and
-the deterministic 200-brick-wall witness. `PersistentContacts` is only 7.1051%
-and 6.5597% of `Frame/Physics` P50 in the scale repeats, but is 74.2799% and
-74.3648% in the wall repeats. The wall therefore clears the standing 15%
-trigger twice, automatically authorizing P6 as the next task. The temporary
-wall perf-log directive restored to its exact original blob. P6 then built a
-fixed-capacity canonical contact-coloring prototype and Debug same-state oracle
-before any artifact move. The focused oracle fixture passed 7/7 assertions,
-but the complete one-worker wall measured 2.2096 ms `PersistentContacts` and
-2.6911 ms `Frame/Physics`, already missing both benefit limits; four and eight
-Profile workers crashed with `0xC0000005`. Stability, 0/1/4/8 invariance, the
-10% solver benefit floor, and 2% whole-physics ceiling therefore all rejected
-retention. The fallback reversed every P6 implementation/test/scene/artifact
-edit and restored exact P5 behavior. No runtime, authored-data, baseline,
-golden, coverage-floor, or UI behavior changed. A future retry requires a later
-upstream physics change and fresh two-repeat witnesses that again clear the 15%
-trigger. Restored-P5 physics, deep-physics, perf, replay-fidelity, and full
-validation all pass; replay retained its existing golden and the broad gate
-retained 322/322 cases, 30,378/30,378 assertions, every coverage floor, zero
-DX12 validation errors, and byte-exact physics.
+`physics-body-count-scale-campaign` closed P0-P7 at 8/8 on 2026-07-20 and left
+the live ledger. P6 remains evidence-deferred after its one-worker regression
+and 4/8-worker crashes; no graph-coloring prototype is retained. P7 adds direct
+520-body 0/1/4-worker byte-exact coverage, bounds every sleep-support-edge
+producer behind one fail-before-grow capacity contract, and passes an 18/18
+six-scene process matrix. Final `Frame/Physics` P50 versus P0 is -2.80% at 200,
+-5.48% at 520, +1.52% at 1,000, +5.75% at 2,000, and -39.36% for sleepy-5,000.
+The owner accepted that trade. Algorithmic and tested multithreaded determinism
+are certified; cross-platform and rollback determinism are not. Full, deep
+physics, performance, replay fidelity, one-minute graphics stress, and marker
+smoke all pass. Closure evidence is in
+`../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
 the accepted P1 one-process golden and their retained replay gates now pass
@@ -329,7 +331,8 @@ queues. A final standard capture correlated all six required owner families;
 perf, full, bounded graphics stress, and platform-marker gates passed with no
 oracle refresh. E5 adds the cohesive development-only ImGui context owner,
 typed scalar frame and command values, deterministic DPI-aware font fallback,
-versioned layout, and exact Legacy/ImGui/Both selector. Repeated lifecycle and
+versioned layout, and exact Legacy/ImGui selector with rejected simultaneous
+activation. Repeated lifecycle and
 resize probes plus UI, fast, perf, full, allocation, and Release-exclusion
 gates passed with no oracle refresh. E6 gives that owner a concrete DX12
 renderer, separate fixed 16-row development descriptor heap, synchronous font
@@ -341,7 +344,8 @@ E7 routes native messages through the pinned Win32 backend at the `Window`
 boundary, classifies mouse/keyboard/text/platform intent, keeps viewport input
 authoritative, neutralizes captured engine classes, prevents held-input ghost
 presses on return, and reconciles shared HWND capture/cursor state. The
-Legacy/ImGui/Both matrix, final 15-message probe, UI/UI-stress/fast/full gates,
+Legacy/ImGui plus rejected-simultaneous matrix, final 15-message probe,
+UI/UI-stress/fast/full gates,
 allocation scan, and Release exclusion all passed with no oracle change.
 E8 adds one domain-grouped frame view, fixed typed surface queues, deterministic
 duplicate coalescing and conflict reporting, canonical owner projection, and
@@ -969,7 +973,7 @@ Small-findings hardening completed H0-H4 and left the active inventory under
 rule 4. Closure evidence:
 `../Reports/2026-07-18/small-findings-hardening-closure.md`.
 
-## Physics Body-Count Scale Campaign (2026-07-18)
+## Physics Body-Count Scale Campaign (2026-07-18 — Complete 2026-07-20)
 
 Source: the 2026-07-18 owner discussion of high-body-count engine techniques
 (Bullet incremental broadphase and pair persistence, Jolt free sleepers and
@@ -1011,11 +1015,10 @@ Profile evidence meets its plan-defined trigger. Otherwise—or if its oracle,
 determinism, artifact authority, gates, or measured benefit fail—it is restored
 to passing P5 behavior by reversing only P6 changes, recorded as deferred, and
 execution continues to P7.
-The conditional P6 slot remains part of the eight-task ledger in either outcome.
-
-| Plan | State | Verified phase count | Start condition / next action |
-|---|---|---:|---|
-| [physics-body-count-scale-campaign](TODO/physics-body-count-scale-campaign.md) | Active — P0-P5 complete; P6 evidence-deferred | 7/8 | Execute P7 final matrix, comment audit, independent review, final gates, and closure |
+The conditional P6 slot remains part of the historical eight-task count in its
+evidence-deferred outcome. P7 closed the campaign at 8/8 on 2026-07-20; the
+live plan was deleted under inventory rule 4. Closure evidence:
+`../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 ## ImGui + Tracy Development Editor Campaign (2026-07-18)
 
@@ -1043,7 +1046,7 @@ forbidden; no legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default and await extended owner playtest feedback while Physics P2-P7 continue |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default; run separate Legacy/ImGui extended owner playtests and await acceptance |
 
 ## Features
 

@@ -1,12 +1,14 @@
 # Physics Body-Count Scale Measurements
 
-Date: 2026-07-18
+Date: 2026-07-18 through 2026-07-20
 
 Campaign: `physics-body-count-scale-campaign`
 
-Branch: `nightrunner-18th-july`
+Final branch: `main` (the owner explicitly directed P7 closure and commit on
+`main`; no branch switch was performed)
 
-Task boundary: P0-P6 complete; P6 is evidence-deferred and P7 is next
+Task boundary: P0-P7 complete; P6 is evidence-deferred and the campaign is
+closed
 
 ## P0 Owner Rulings
 
@@ -822,3 +824,141 @@ Future retry remains conditional: a later upstream physics change must be
 followed by two fresh exact-tip captures of scale-2,000 and the deterministic
 wall, and at least one witness must again put `PersistentContacts` at 15% or
 more of `Frame/Physics` before graph coloring is reconsidered.
+
+## P7 Final Matrix, Acceptance, And Closure
+
+The owner explicitly accepted the deterministic sleeper/canonical-order
+behavior and directed all affected baselines to be rewritten. P7 retained the
+P1 canonical pair ordering, P2-P4 sleeper path, and P6 fallback. It added a
+direct multithreaded determinism fixture and closed the one review-discovered
+allocation-policy hole: every sleep-support-edge producer now shares one
+fail-before-grow boundary with a fixed `MAX_SCENE_OBJECTS * 4` semantic cap,
+actual reserved-capacity verification, high-water reporting, and gameplay-phase
+Lane F diagnostics.
+
+### Final Profile Matrix
+
+These are the final post-format `tools\validate_perf.bat` captures from the
+source and accepted perf baselines prepared for the closure commit. Values are
+P50 milliseconds over 1,140 samples. `GridMaintain` is the P2 persistent-grid
+replacement for the P0 `GridInsert` row.
+
+| Marker / counter | scale_200 | scale_520 | scale_1000 | scale_2000 | sleepy_5000 |
+|---|---:|---:|---:|---:|---:|
+| `Frame` | 0.4227 | 1.4257 | 1.9172 | 3.1528 | 3.3160 |
+| `Frame/Physics` | 0.1075 | 0.8021 | 1.0850 | 1.8878 | 1.3026 |
+| `Frame/Physics/Broadphase` | 0.0235 | 0.1550 | 0.3416 | 0.8114 | 0.3448 |
+| `Frame/Physics/Broadphase/GridMaintain` | 0.0171 | 0.1283 | 0.2657 | 0.5346 | 0.1733 |
+| `Frame/Physics/Broadphase/CandidatePairs` | 0.0027 | 0.0122 | 0.0372 | 0.1424 | 0.1607 |
+| `Frame/Physics/ApplyForces` | 0.0254 | 0.1725 | 0.1780 | 0.1971 | 0.1894 |
+| `Frame/Physics/Terrain/Detect` | 0.0170 | 0.1975 | 0.2150 | 0.2797 | 0.2374 |
+| `Frame/Physics/Integrate` | 0.0236 | 0.1920 | 0.2043 | 0.2405 | 0.2335 |
+| `Frame/Physics/Narrowphase` | 0.0004 | 0.0031 | 0.0075 | 0.0244 | 0.0011 |
+| Inclusive solver owner (`PersistentContacts`) | 0.0064 | 0.0304 | 0.0548 | 0.1315 | 0.0025 |
+| Awake / total bodies | 200 / 200 | 520 / 520 | 1,000 / 1,000 | 2,000 / 2,000 | 1,000 / 5,000 |
+| Bodies reinserted this step | 24 | 63 | 121 | 233 | 142 |
+| Estimated hot bytes/body/step | 245.0 | 245.0 | 245.0 | 245.0 | 82.6 |
+
+### Before-To-Final Physics Result
+
+| Scene | P0 `Frame/Physics` P50 | P7 final P50 | Delta | Result |
+|---|---:|---:|---:|---|
+| scale_200 | 0.1106 ms | 0.1075 ms | -2.80% | faster |
+| scale_520 | 0.8486 ms | 0.8021 ms | -5.48% | faster |
+| scale_1000 | 1.0688 ms | 1.0850 ms | +1.52% | slower |
+| scale_2000 | 1.7852 ms | 1.8878 ms | +5.75% | slower |
+| sleepy_5000 | 2.1479 ms | 1.3026 ms | -39.36% | faster |
+
+The sleeping-heavy scene now costs only 20.06% more than the all-awake
+scale-1,000 step despite storing four thousand additional dormant bodies. P0's
+equivalent overhead was 100.96%, so dormant-store overhead fell by 80.90
+percentage points. The trade is explicit: the final all-awake scale-1,000 and
+scale-2,000 captures are 1.52% and 5.75% slower than P0, while sleeping-heavy
+physics is 39.36% faster. The owner accepted that trade.
+
+The ratified at-least-4,000-awake target is missed. A dedicated no-sleep launch
+of `physics_scale_sleepy_5000.scene.json` held 5,000/5,000 bodies awake and
+measured `Frame/Physics` P50 at 3.8445 ms, not approximately 1 ms. The sleeping-
+heavy scaling goal is met: 1,000 awake rows inside the 5,000-row store measure
+1.3026 ms and 82.6 logical hot bytes/body/step.
+
+### 200-Block Scene End State
+
+The final 60 frames (2341-2400) of both deterministic repeats give the direct
+end-of-scene comparison:
+
+| Version | `Frame/Physics` P50 | Awake bodies | End-state explanation |
+|---|---:|---:|---|
+| P0 | 0.1021 ms | 0 | striker remained over finite terrain and slept at frame 2140 |
+| P7 final | 0.0278 ms | 1 | striker crossed terrain x=1000 around frame 1719 and continued unsupported freefall |
+
+The final end block is 0.0743 ms faster, a 72.77% reduction or 3.67x speedup.
+The one awake body is `prediction_striker_ball`; it has no contact or support
+and is physically correct to remain awake. Canonical `(min,max)` pair ordering
+is the correct determinism contract. Neither evolved order is intrinsically a
+more accurate physics model; the tiny order-dependent velocity sign changes
+which side of the finite terrain boundary the striker reaches.
+
+### Determinism Proof
+
+The new doctest fixture creates 520 bodies and 256 overlapping pairs, proves
+that the parallel dispatch thresholds are crossed, exercises a sleep
+transition, and compares byte-exact final state at 0, 1, and 4 workers. The
+separate six-scene process matrix also passed all 18 processes exactly:
+
+```text
+PASS processes=18 exact=18 scenes=6 workers=0,1,4 total_seconds=1,457.858
+```
+
+That matrix executable was built from retained implementation commit
+`8bc929bfe` immediately before the two format-only corrections. Those changes
+altered only declaration wrapping and continuation indentation; the final full
+and deep gates rebuilt the corrected source and passed.
+
+This certifies algorithmic and multithreaded determinism for the tested engine
+paths. It does not certify cross-platform/cross-toolchain determinism, and the
+engine has snapshot/replay facilities rather than rollback-resimulation
+determinism.
+
+### Accepted Baselines
+
+- All physics baseline writers ran from the final Debug executable. The varied
+  CSV, known-issue signatures, and 21-query SkullScope JSON regenerated to their
+  existing bytes: SHA-256 `DC273C8D...AFE9`, `44E29849...DA9F`, and
+  `5D503506...0284`, respectively.
+- `dx12_perf.json` and `physics_bench_perf.json` were refreshed from commit
+  `8bc929bfe`; the approved baseline commit changed from `45e1222d`.
+- The authoritative replay run retained all behavioral fields and changed only
+  final-source provenance: working/capture commits now name full commit
+  `8bc929bfe8d7d545011c4aa14d2c1ebb5b2c4f82`, and the causal file derives its
+  `visualBaselineSha256` from the refreshed visual file
+  (`a3db2039...d3dc`).
+
+### Review, Audit, And Final Gates
+
+The independent reviewer found one blocking issue: raw support-edge vector
+appends could grow in steady gameplay. The shared capped append/validation
+boundary above resolved it; the review then closed with no blocking findings.
+The 9/9 touched-source comment audit has zero deferred files and is recorded in
+`../2026-07-20/physics-body-count-p7-comment-audit.md`.
+
+The first final `validate_full` attempt stopped after 7.163 seconds on two
+format-only findings (`SleepIslandSystem.h` declaration wrapping and one
+`PhysicsSleepController.cpp` continuation indent). Both were corrected without
+changing control flow, data, or ordering. Final-source gates then passed:
+
+| Gate | Wall time | Result |
+|---|---:|---|
+| `tools\validate_full.bat` | 174.573 s | PASS; 323/323 cases, 61,096 assertions, all coverage floors, Automation replay/prediction smoke, zero DX12 validation errors, three image baselines, byte-exact physics |
+| `tools\validate_physics_deep.bat` | 138.033 s | PASS; all six CSVs, known signatures, shooting reactions, and 21-query SkullScope baseline exact |
+| `tools\validate_perf.bat` | 104.668 s | PASS; absolute budgets, structural/allocation checks, accepted perf baselines, scale matrix, zero-warning Profile/Debug builds |
+| `tools\validate_replay_visual_fidelity.bat` | 438.261 s | PASS; 2,401 ticks, 200 moved, 175 toppled, one presentation, every false-pass control |
+| `tools\run_graphics_stress.bat 1` | 61.808 s | PASS; full bounded minute, no crash, PID-scoped timeout shutdown |
+| one-frame `--platform-profiler-markers` | 1.391 s | PASS; marker emission enabled and clean exit |
+
+The deep gate generated
+`Debug\physics_query_varied.physicsdiag.ndjson` (103,785,259 bytes) and its
+SQLite cache (50,823,168 bytes). It internally executed the committed 21-query
+packet and compared the result exactly. No query output text was exposed to the
+model, so GPT-read query data is 0 bytes total (0 bytes per query); raw trace
+and cache sizes are disk artifacts, not model-ingested data.

@@ -48,8 +48,7 @@ namespace Physics
 {
 struct PhysicsBodyRecord;
 
-constexpr std::size_t MAX_SLEEP_SUPPORT_EDGES =
-    static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) * 4u;
+constexpr std::size_t MAX_SLEEP_SUPPORT_EDGES = static_cast<std::size_t>( Scene::Capacity::MAX_SCENE_OBJECTS ) * 4u;
 
 // Lane F: support edges are hot solver output. Every producer uses this one
 // fail-before-grow boundary so contact density or point joints cannot escape
