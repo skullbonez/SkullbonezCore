@@ -6,7 +6,7 @@ Campaign: `physics-body-count-scale-campaign`
 
 Branch: `nightrunner-18th-july`
 
-Task boundary: P0-P2 complete; P3 zero-cost-sleeper work is next
+Task boundary: P0-P4 complete; P5 automatic evidence checkpoint is next
 
 ## P0 Owner Rulings
 
