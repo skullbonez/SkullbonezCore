@@ -522,7 +522,9 @@ bounded graphics-stress, unchanged-retry performance, allocation-policy,
 platform-marker, and Release gates passed. The mandated single replay-fidelity
 invocation reached only the already authorized topology `199 -> 200` transition;
 P1 later reconciled that same one-process report. Extended hands-on feedback
-remains the sole E17 hold and does not block Physics P2-P7.
+remains the sole E17 hold. A 2026-07-21 current-tip assisted ImGui/Tracy/Legacy
+playtest found no blocking usability issue and recommends ready; only the
+owner's ready/not-ready verdict can close the task.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for separate Legacy and
@@ -1138,7 +1140,7 @@ forbidden; no legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default; run separate Legacy/ImGui extended owner playtests and await acceptance |
+| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint and current-tip assisted playtest clear; owner acceptance retained | 17/18 | Retain Legacy as the default; obtain the owner's ready/not-ready verdict |
 
 ## Architecture Review Campaign (2026-07-20)
 

@@ -10,13 +10,13 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; the architecture-review campaign is closed through replay policy with exact proofs and independent review clear. |
-| Current objective | No agent-actionable architecture task remains; E17 owner acceptance stays parked. |
+| Branch | `nightrunner-21st-july` |
+| Current baseline | Synced `origin/main` at `d4c8088d`; the architecture-review campaign is closed through replay policy, and the current-tip E17 assisted ImGui/Tracy/Legacy playtest has no blocking finding. |
+| Current objective | Obtain the owner's ready/not-ready E17 verdict after the clean current-tip assisted playtest. |
 | Active/future progress | 17 / 18 live tasks; 94%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Replay RP3 final `validate_full` passes in 145.73 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | Replay RP3 passes strict allocation, performance, full, physics, and one-generation visual fidelity after restoring the cold-record 16-byte vector boundary; no artifact/baseline refresh. |
+| Last broad local gate | Synchronized-main `validate_full` passes in 243.7 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
+| Validation for current edits | Documentation-only E17 evidence update; no repository validation required. |
 
 ## Live Queue
 
@@ -47,9 +47,11 @@ closed through replay policy. No agent-actionable architecture row remains.
 independent review is clear with no remaining findings.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
-extended hands-on owner acceptance, now parked and non-blocking. Do not
-change the default during that evaluation: Legacy is default, ImGui is
-explicit opt-in, and only one UI surface owns focus/input at a time.
+extended hands-on owner acceptance. A 2026-07-21 current-tip assisted
+ImGui/Tracy/Legacy playtest found no blocking issue and recommends ready; the
+owner's verdict is the sole remaining hold. Do not change the default during
+that evaluation: Legacy is default, ImGui is explicit opt-in, and only one UI
+surface owns focus/input at a time.
 
 ## Audio Removal
 
@@ -203,6 +205,8 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 `replay-policy-debt-closure` is archived 4/4 with its independent review clear
-and all cumulative static/runtime gates clean. E17 extended owner playtest is
-the only live task and is explicitly parked; keep Legacy default until owner
-authorization.
+and all cumulative static/runtime gates clean. E17 is the only live task. Ask
+the owner for a `ready` or `not ready` verdict after the clean current-tip
+assisted playtest. If ready, check E17, archive the plan, reconcile the ledger,
+and commit the closure; if not ready, reopen and resolve the reported blocking
+findings. Keep Legacy default until separate owner authorization.

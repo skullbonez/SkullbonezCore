@@ -599,8 +599,11 @@ It does **not** authorize removal from the legacy UI.
     control proofs, then reached the binding P1 transition. P1's later complete
     assessment reconciled the coupled golden from that same report, which now
     passes exact 2,401-tick equality and all offline controls without a second
-    replay process. E17 remains unchecked solely for extended hands-on owner
-    acceptance; that retained checkpoint does not block Physics P2-P7.
+    replay process. A 2026-07-21 current-tip assisted ImGui/Tracy/Legacy
+    playtest found no blocking usability issue: the one-click Tracy command
+    launched and connected the pinned viewer, and the menu hot swap remained
+    exclusive. E17 remains unchecked solely for the owner's ready/not-ready
+    acceptance verdict.
 
 ## Final Acceptance
 

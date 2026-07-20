@@ -1,7 +1,7 @@
 # ImGui + Tracy E17 Owner Playtest
 
 Build: `Profile\SKULLBONEZ_CORE.exe` from the final E17 source on branch
-`nightrunner-18th-july`.
+`nightrunner-21st-july` at commit `d4c8088d`.
 
 Time: about 10 minutes. Legacy and ImGui are alternatives; do not launch two
 engine processes for comparison. `Ctrl+0` swaps the one live process atomically.
@@ -9,7 +9,7 @@ engine processes for comparison. `Ctrl+0` swaps the one live process atomically.
 ## 1. Confirm the unchanged default
 
 ```powershell
-Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json --interactive on
 ```
 
 Expected: ImGui does not appear. Legacy is the selected implementation. The
@@ -21,7 +21,7 @@ floating Legacy window starts hidden. Plain `0` only minimizes/restores Legacy.
 Start with the full Legacy surface forced visible:
 
 ```powershell
-Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --dev-ui legacy --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --dev-ui legacy --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json --interactive on
 ```
 
 Check the existing tabs, footer, F5/F6 overlays, replay scrubber, and cause
@@ -32,14 +32,14 @@ be no doubled replay/cause-tree pixels and no focus tug-of-war in either state.
 For a direct ImGui launch:
 
 ```powershell
-Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --dev-ui imgui --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --dev-ui imgui --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json --interactive on
 ```
 
 Expected default topology:
 
 - scene, hierarchy, and assets/create down the left;
 - game viewport dominant in the centre;
-- Inspector, World/Simulation, Rendering/Audio, Diagnostics, and compact
+- Inspector, World/Simulation, Rendering, Diagnostics, and compact
   Causality on the right;
 - replay transport across the bottom, with the status bar below it.
 
@@ -54,7 +54,7 @@ Build or use the pinned viewer named in the editor, then launch:
 
 ```powershell
 $env:SKORE_TRACY_MODE = 'standard'
-Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --dev-ui imgui --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --dev-ui imgui --replay on --replay-seconds 4 --scene SkullbonezData/scenes/stacking.scene.json --interactive on
 Remove-Item Env:SKORE_TRACY_MODE
 ```
 
@@ -72,6 +72,10 @@ Please record:
 - non-blocking: preferred grouping, labels, default panel visibility, spacing,
   or shortcuts;
 - verdict: ready / not ready for extended hands-on use.
+
+The 2026-07-21 current-tip assisted playtest found no blocker and recommends
+**ready**. Owner acceptance is still pending: reply `ready`, or reply
+`not ready` and separate blocking findings from non-blocking preferences.
 
 No Legacy retirement or default switch is part of this evaluation. Legacy
 remains compiled, selectable, and the launch default until a later explicit
