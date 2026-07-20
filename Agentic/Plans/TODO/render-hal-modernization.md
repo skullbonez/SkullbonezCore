@@ -1,6 +1,6 @@
 # Render HAL Modernization
 
-Status: Active — 0/6 tasks (M0-M5)
+Status: Active — 1/6 tasks (M0-M5)
 Owner: repository owner; registered 2026-07-20 as campaign plan 6 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding F)
 Ledger: M0-M5
@@ -74,9 +74,185 @@ parallel recording readiness, bindless) while protecting nothing.
    with new inheritance, a callback pack, service bag, global lookup, or host
    pointer.
 
+## M0 Declared-State Contract And Inventory
+
+Inventory date: 2026-07-20. The inventory used the current
+`IRenderCommandContext.h` declaration plus exact member-call searches over
+tracked `SkullbonezSource` C++ headers and sources. Backend override/forwarding
+calls are implementation evidence, not consumers, and are omitted from the
+caller column. `Clear` has four command-context calls; unrelated container
+`Clear()` matches were rejected by source inspection.
+
+Classification vocabulary:
+
+- **Keep**: remains a dynamic command or graph/resource operation. A later
+  typed-parameter cleanup is allowed, but it is not raster-state authority.
+- **Migrate**: callers move to a typed declaration or typed draw/upload input;
+  the old member is deleted when its last caller moves.
+- **Delete**: no replacement command remains. Zero-caller rows can disappear
+  directly; getter callers become explicit bucket selection rather than
+  save/mutate/restore logic.
+
+| `IRenderCommandContext` member | External callers at M0 | Classification and closure action |
+|---|---|---|
+| `SetViewport` | `RuntimeRenderPasses.cpp` (8) | **Keep** as dynamic viewport/scissor command; later use a typed `ViewportDesc`. |
+| `Clear` | `RuntimeRenderer.cpp` (1), `RuntimeRenderPasses.cpp` (3) | **Migrate** to `ClearTargetDesc` so color/depth values travel with the clear and cannot be hidden mutable state. |
+| `SetClearColor` | none | **Delete**; zero caller proof. Its value moves into `ClearTargetDesc`. |
+| `SetClearDepth` | none | **Delete**; zero caller proof. Its value moves into `ClearTargetDesc`. |
+| `SetDepthTest` | `Text.cpp` (6), `UIFrameComposition.cpp` (2), `RunEditorTracer.cpp` (3), `LauncherLaser.cpp` (2), `RuntimeRenderPasses.cpp` (12) | **Migrate** to `RasterStateDesc::depthTest`; delete the setter at M3. |
+| `SetDepthWrite` | `UIFrameComposition.cpp` (2), `LauncherLaser.cpp` (2), `RunEditorTracer.cpp` (2), `PrimitiveBatchRenderer.cpp` (2), `RuntimeRenderPasses.cpp` (12) | **Migrate** to `RasterStateDesc::depthWrite`; delete at M3. |
+| `SetBlend` | `PrimitiveBatchRenderer.cpp` (2), `UIFrameComposition.cpp` (2), `Text.cpp` (6), `LauncherLaser.cpp` (2), `RunEditorTracer.cpp` (2), `RuntimeRenderPasses.cpp` (12) | **Migrate** to `RasterStateDesc::blendEnabled`; delete at M3. |
+| `SetBlendFunc` | `PrimitiveBatchRenderer.cpp` (1), `UIFrameComposition.cpp` (1), `Text.cpp` (3), `LauncherLaser.cpp` (2), `RunEditorTracer.cpp` (2), `RuntimeRenderPasses.cpp` (4) | **Migrate** to typed source/destination blend factors; delete at M3. |
+| `SetCullFace` | `LauncherLaser.cpp` (2), `RunEditorTracer.cpp` (2), `RuntimeRenderPasses.cpp` (3) | **Migrate** from boolean enablement to typed `CullMode`; delete at M3. |
+| `SetPolygonOffset` | `RuntimeRenderPasses.cpp` (2) | **Migrate** to `DepthBiasDesc`; delete at M3. |
+| `SetClipPlane` | `RuntimeRenderPasses.cpp` (6) | **Migrate** to an optional typed clip-plane pass/draw input. It is live reflection state, so M0 disproves the earlier dead-code example. Delete the indexed toggle at M3/M4. |
+| `BindTexture` | `WorldEnvironment.cpp` (1), `TextureCollection.cpp` (1), `UIFrameComposition.cpp` (2), `PrimitiveBatchRenderer.cpp` (3), `Text.cpp` (1), `Shadow.h` (3), `RuntimeRenderPasses.cpp` (2) | **Keep** as draw-resource binding; bindless is a non-goal. Replace raw slot integers with a typed binding index only where touched. |
+| `MaterializeGraphTransientResources` | `RuntimeRenderer.cpp` (1) | **Keep**; graph resource-lifetime operation. |
+| `ResolveGraphTextureBinding` | `RuntimeRenderer.cpp` (1) | **Keep**; graph-to-backend resource resolution. |
+| `ResolveGraphResourceToken` | `RuntimeRenderer.cpp` (5) | **Keep**; graph declaration tokenization. |
+| `ResolveGraphBackbufferBinding` | `RuntimeRenderer.cpp` (1) | **Keep**; swap-chain graph binding. |
+| `ExecuteGraphTransitions` | `RuntimeRenderer.cpp` (3) | **Keep**; compiled graph barrier execution. |
+| `BeginGraphTextureRenderTarget` | `RuntimeRenderPasses.cpp` (1) | **Keep** for the current graph executor; M2 may absorb it into a typed pass-begin command, but not into raster state. |
+| `EndGraphTextureRenderTarget` | `RuntimeRenderPasses.cpp` (1) | **Keep** under the same lifetime rule as pass begin. |
+| `IsDepthTestEnabled` | `Text.cpp` (3), `UIFrameComposition.cpp` (1), `RunEditorTracer.cpp` (1), `LauncherLaser.cpp` (1), `RuntimeRenderPasses.cpp` (6) | **Delete** after save/restore callers select explicit buckets. |
+| `IsDepthWriteEnabled` | `UIFrameComposition.cpp` (1), `LauncherLaser.cpp` (1), `RunEditorTracer.cpp` (1), `RuntimeRenderPasses.cpp` (2) | **Delete** after explicit bucket migration. |
+| `IsBlendEnabled` | `Text.cpp` (3), `UIFrameComposition.cpp` (1), `RuntimeRenderPasses.cpp` (6), `LauncherLaser.cpp` (1), `RunEditorTracer.cpp` (1) | **Delete** after explicit bucket migration. |
+| `IsCullFaceEnabled` | `LauncherLaser.cpp` (1), `RunEditorTracer.cpp` (1), `RuntimeRenderPasses.cpp` (1) | **Delete** after explicit bucket migration. |
+| `GetBlendFunc` | `UIFrameComposition.cpp` (1), `RunEditorTracer.cpp` (1), `RuntimeRenderPasses.cpp` (2), `LauncherLaser.cpp` (1) | **Delete** after explicit bucket migration. |
+| `UploadAndDrawDynamicVB` | `LauncherLaser.cpp` (1), `UIFrameComposition.cpp` (1), `RuntimeRenderPasses.cpp` (1), `Text.cpp` (3), `PrimitiveBatchRenderer.cpp` (2) | **Migrate** to typed vertex span plus declared raster bucket; no raw float stream at closure. |
+| `DrawLinesColored` | `RunEditorTracer.cpp` (1), `RuntimeRenderPasses.cpp` (1) | **Migrate** to typed colored-line span, `Matrix4`, and declared raster bucket. |
+| `DrawTransientColoredTriangles` | `RunEditorTracer.cpp` (2), `RuntimeRenderPasses.cpp` (1) | **Migrate** to typed triangle span, `Matrix4`, style, and declared raster bucket. |
+| `UploadInstanceData` | `PrimitiveBatchRenderer.cpp` (6) | **Migrate** raw float/count input to a typed instance span; upload remains separate from raster selection. |
+| `DrawInstancedMesh` | `PrimitiveBatchRenderer.cpp` (6) | **Migrate** to a typed instanced-draw description carrying the declared raster bucket. |
+
+### Raster description and pass-local buckets
+
+The source-of-truth shape for M1-M3 is a value-only declaration, not another
+mutable command-context selector:
+
+```cpp
+struct DepthBiasDesc
+{
+    bool enabled = false;
+    float constant = 0.0f;
+    float slopeScaled = 0.0f;
+};
+
+struct RenderTargetFormatSet
+{
+    FixedRenderTargetFormats colorFormats;
+    DepthTargetFormat depthFormat = DepthTargetFormat::None;
+    uint8_t sampleCount = 1;
+};
+
+struct RasterStateDesc
+{
+    bool depthTest = true;
+    bool depthWrite = true;
+    bool blendEnabled = false;
+    BlendFactor sourceBlend = BlendFactor::One;
+    BlendFactor destinationBlend = BlendFactor::Zero;
+    CullMode cullMode = CullMode::Back;
+    DepthBiasDesc depthBias;
+    RenderTargetFormatSet targets;
+};
+
+struct PassRasterStateBucket
+{
+    RasterStateBucketId id; // pass-local index, never durable identity
+    RasterStateDesc raster;
+};
+
+struct PassRasterStateSet
+{
+    FixedSpan<const PassRasterStateBucket> buckets;
+};
+```
+
+Exact engine enum/container names may follow existing fixed-capacity types, but
+the semantics above are binding. The graph pass declaration owns the fixed
+bucket set. Every draw that can affect a graphics PSO receives a pass-local
+`RasterStateBucketId` (or the resolved `const RasterStateDesc&` at the backend
+boundary). There is no `SelectRasterState`/`SetCurrentBucket` mutable command.
+The DX12 owner builds `PSOKey12` directly from the selected declaration plus
+shader, vertex layout, root-signature identity, and target formats. Known pass
+buckets may be precompiled during resource creation. Overlay helpers that
+temporarily changed state must declare their normal and overlay buckets and
+choose explicitly; they must not query or restore ambient state. All bucket
+storage is fixed/preallocated before steady gameplay.
+
+`ClearTargetDesc`, typed clip-plane data, typed vertex/instance spans, and
+`Matrix4` are adjacent command-data contracts rather than members of
+`RasterStateDesc`. This prevents unrelated clear/resource/geometry data from
+turning the raster record into a new state bag.
+
+### PSO-cache baseline
+
+The baseline is the G5 one-minute `tools\run_graphics_stress.bat 1` result at
+the source tip immediately before this documentation task
+(`TestOutput/graphics_stress/latest_stdout.txt`, 2026-07-20 21:31 local;
+`latest_exit.txt` = 0). `RenderMemoryStats::psoCacheCount` sampled the in-memory
+fixed cache as follows:
+
+| Stress frame | 1 | 1,800 | 3,600 | 5,400 | 7,200 | 9,000 | 10,800 | 12,600 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| PSO entries | 0 | 24 | 24 | 24 | 24 | 24 | 24 | 24 |
+
+The existing hit path linearly searches the 96-row fixed array and reuses the
+matching pointer; only a miss logs `dx12_pso_cache_miss`, creates a PSO, and
+increments `m_psoCacheCount` (`RenderBackendDX12.Pipeline.cpp:498-548`). Thus
+the stable 24-entry count across 10,800 sampled frames and repeated scene
+reloads proves in-process reuse after warm-up. The current diagnostics expose
+entry count but no exact hit counter, so M1 must add fixed monotonic
+`psoCacheHitCount`, `psoCacheMissCount`, and `precompiledPsoCount` diagnostics
+before the pilot. Before/after evidence records those counters plus entry count;
+the M0 baseline is not to be misrepresented as an exact hit total. The mapped
+persistent-driver cache remains an independent cold-start accelerator and does
+not replace this in-process evidence.
+
+### Profiler dependency seam and owned replacement
+
+`Core/Profiler.h` currently leaks Rendering/Text through five concrete seams:
+
+1. forward declarations of `IRenderCommandContext`, `IRenderDiagnostics`, and
+   `TextBatch`;
+2. `BindRenderDiagnostics(IRenderDiagnostics*)` and the stored
+   `m_renderDiagnostics` borrow;
+3. `RenderOverlay(TextBatch&, IRenderCommandContext&, ...)`;
+4. `RenderBarOverlay(TextBatch&, IRenderCommandContext&, ...)`; and
+5. GPU begin/end, query-result reads, device invalidation, platform GPU events,
+   render-memory counters, and draw-call counters implemented by pulling
+   `IRenderDiagnostics` from `ProfilerImplementation.cpp`.
+
+M5's owned replacement is a one-way value boundary:
+
+- Core owns marker/counter identity and history and publishes fixed,
+  read-only `ProfilerFrameView`/marker/counter spans. It accepts completed
+  `GpuTimingSample` values keyed by Core marker identity. Core stores no
+  renderer pointer and contains no Rendering/Text declarations.
+- Rendering owns a concrete `RenderGpuTimingOwner`. Runtime wiring gives it the
+  existing diagnostics/backend lifetime; it records timestamp/platform events
+  immediately around Rendering/UI command recording, owns the fixed open-marker
+  stack, reads completed queries, and hands a fixed span of `GpuTimingSample`
+  values to Core at the frame boundary. GPU profiling call sites receive this
+  owner explicitly; no callback, global lookup, service bag, host pointer, or
+  new polymorphic interface is permitted.
+- Rendering owns a concrete `ProfilerOverlayPresenter`. It consumes a
+  `const ProfilerFrameView&`, Rendering-owned memory/draw statistics, the
+  current `TextBatch`, and the declared UI render bucket. The two rendering
+  methods move out of `Core::Profiler`; render/Tracy counter publication moves
+  with the presenter/timing owner rather than Core pulling diagnostics.
+- Runtime construction/wiring sequences the value handoff and guarantees GPU
+  query invalidation before backend teardown. Core's public GPU macros either
+  move to the Rendering timing surface or become CPU-only helpers; they cannot
+  preserve the old hidden renderer borrow under a different spelling.
+
+This boundary preserves immediate GPU timestamps and Core-owned history while
+restoring the allowed Rendering -> Core dependency direction.
+
 ## Tasks
 
-- [ ] M0 — Contract and inventory: enumerate every `IRenderCommandContext`
+- [x] M0 — Contract and inventory: enumerate every `IRenderCommandContext`
   member with its callers; classify keep-as-is / migrate-to-state-desc /
   delete-with-proof; define `RasterStateDesc` and the per-pass state-bucket
   shape; record the PSO cache baseline (entry count, hit behavior) for the
