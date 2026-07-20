@@ -372,7 +372,7 @@
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
-      "path": "SkullbonezSource/Physics/PhysicsScene.cpp",
+      "path": "SkullbonezSource/Physics/PhysicsEngine.cpp",
       "patterns": [
         ".push_back(",
         ".reserve("
@@ -384,7 +384,7 @@
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
-      "path": "SkullbonezSource/Physics/PhysicsScene.h",
+      "path": "SkullbonezSource/Physics/PhysicsEngine.h",
       "patterns": [
         "std::vector<"
       ],
