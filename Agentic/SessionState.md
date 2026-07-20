@@ -11,22 +11,18 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, Render HAL, and gameplay extraction are closed with exact proofs and independent review clear. |
-| Current objective | Finish the cumulative replay policy closure audit and independent review. |
-| Active/future progress | 20 / 22 live tasks; 91%. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; the architecture-review campaign is closed through replay policy with exact proofs and independent review clear. |
+| Current objective | No agent-actionable architecture task remains; E17 owner acceptance stays parked. |
+| Active/future progress | 17 / 18 live tasks; 94%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Replay RP2 final `validate_full` passes in 153.8 s: CPU umbrella and five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | Replay RP2 passes focused 336 doctests, physics, full, and replay visual fidelity; artifact bytes/schema and all baselines unchanged. |
+| Last broad local gate | Replay RP3 final `validate_full` passes in 145.73 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
+| Validation for current edits | Replay RP3 passes strict allocation, performance, full, physics, and one-generation visual fidelity after restoring the cold-record 16-byte vector boundary; no artifact/baseline refresh. |
 
 ## Live Queue
 
-NOW. Two live plans, 22 tasks; 20 complete (91%). The remaining architecture-review campaign
-(registered 2026-07-20 from
-`Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
-binding order: replay-boundary-containment → replay-policy-debt-closure. Owner
-decisions at registration: the render-graph and Render HAL migrations are
-complete; PhysicsEngine absorbs PhysicsScene; gameplay
-extracts to a new top-level `SkullbonezSource/Gameplay/` module.
+NOW. One live plan, 18 tasks; 17 complete (94%). The architecture-review
+campaign registered from `Reports/2026-07-20/engine-architecture-review.md` is
+closed through replay policy. No agent-actionable architecture row remains.
 
 `dependency-direction-restoration` is closed 6/6 and archived in
 `Agentic/Reports/2026-07-20/dependency-direction-restoration-closure.md`.
@@ -46,6 +42,9 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-21/gameplay-module-extraction-closure.md`.
 `replay-boundary-containment` is closed 3/3 and archived in
 `Agentic/Reports/2026-07-21/replay-boundary-containment-closure.md`.
+`replay-policy-debt-closure` is closed 4/4 and archived in
+`Agentic/Reports/2026-07-21/replay-policy-debt-closure.md`; its single fresh
+independent review is clear with no remaining findings.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -184,6 +183,18 @@ are not certified. Full evidence:
 | `tools\validate_physics.bat` (RP2) | 85.63 s | PASS; handle mirror smoke and 44,401-line CSV byte-exact |
 | `tools\validate_full.bat` (RP2 final) | 153.8 s | PASS; CPU umbrella and five runtime lanes, accepted DX12 images, byte-exact physics |
 | replay visual fidelity (RP2) | 447.0 s | PASS; 2,401 ticks, one generation/presentation, durable artifact and all controls |
+| RP3 static boundary/identity/allocation/comment proofs | 2.2 s | PASS; zero forbidden/retired surfaces, exactly three owners, 57/57 comment audit |
+| detached RP1 performance control | 157.28 s | PASS; DX12 frame average/p50 +1.8%/+1.2%, proving RP2-local regression |
+| targeted RP3 alignment build + doctest | 10.81 s + 1.48 s | PASS; 1 case / 1 assertion pins offset 16 |
+| `tools\validate_perf.bat` (RP3 final) | 137.29 s | PASS; DX12 +9.4%/+8.7%, allocation and physics comparisons clean |
+| `tools\validate_full.bat` (RP3 final) | 145.73 s | PASS; 337 tests / 68,634 assertions, five runtime lanes |
+| `tools\validate_physics.bat` (RP3 final) | 55.30 s | PASS; handle mirror and 44,401-line CSV byte-exact |
+| strict two-generation Replay allocation (RP3 final) | 16.66 s | PASS; frame 180, zero gameplay/policy violations, three owners, zero failed growths |
+| replay visual fidelity (RP3, one engine generation) | 441.56 s | PASS; 2,401 ticks, durable/causal proof and all controls |
+| `tools\validate_fast.bat` (RP3 review hardening) | 56.35 s | PASS; 337 tests / 68,634 assertions, zero warnings/errors |
+| hardened strict Replay allocation (RP3 final tip) | 16.72 s | PASS; fresh report, frame 180, exactly two generations, zero gameplay/policy violations |
+| replay query identity witness | 0.4 s | PASS; existing artifact emits `sceneObjectId: 6`, no retired label |
+| `tools\validate_fast.bat` (RP3 final tool tip) | 55.46 s | PASS; 337 tests / 68,634 assertions, zero warnings/errors |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -191,12 +202,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-policy-debt-closure` RP3 on `nightrunner-20th-july`. RP2 is
-closed: Replay, Physics, Rendering, and runtime presentation carry
-`PhysicsSceneObjectId`; the duplicate raw identities and two definition-only
-facades are gone; the artifact scalar encoding/schema and all baselines are
-unchanged. RP3 must rerun the strict allocation probe, inbound Replay include
-proof, identity census, allocation inventory, 48-file comment audit, cumulative
-full/physics/perf/fidelity gates, and one independent rubber-duck review. E17
-extended owner playtest remains parked; keep Legacy default until explicit
-owner authorization.
+`replay-policy-debt-closure` is archived 4/4 with its independent review clear
+and all cumulative static/runtime gates clean. E17 extended owner playtest is
+the only live task and is explicitly parked; keep Legacy default until owner
+authorization.

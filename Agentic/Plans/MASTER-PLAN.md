@@ -301,8 +301,16 @@ owner and Core-owned value history. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | 3 | 4 | 75% |
-| **Active/future total** | **20** | **22** | **91%** |
+| **Active/future total** | **17** | **18** | **94%** |
+
+The active/future denominator returned 22 → 18 when
+`replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
+Thread-local allocation attribution and a strict two-generation gate now prove
+zero gameplay/reserve-policy violations; Replay, Physics, Rendering, and
+Runtime share `PhysicsSceneObjectId`; the duplicate identities and dormant
+facades are gone; and cumulative allocation, physics, performance, full, replay,
+comment, and independent-review evidence is recorded in
+`../Reports/2026-07-21/replay-policy-debt-closure.md`.
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -376,8 +384,11 @@ review is clear. Closure evidence is in
 Replay boundary containment is closed with an enforceable zero-inbound rule,
 an exact three-owner privilege inventory, a complete surface census, and clear
 independent review. Closure evidence is in
-`../Reports/2026-07-21/replay-boundary-containment-closure.md`. The remaining
-execution target is the audit-filed `replay-policy-debt-closure`. Owner decisions
+`../Reports/2026-07-21/replay-boundary-containment-closure.md`. Its audit-filed
+policy follow-up is also closed: strict allocation is zero/zero, identity is
+converged on `PhysicsSceneObjectId`, artifact bytes/schema are unchanged, and
+the final performance, physics, full, and visual-fidelity gates pass. Closure
+evidence is in `../Reports/2026-07-21/replay-policy-debt-closure.md`. Owner decisions
 ratified at registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
 a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
@@ -1159,13 +1170,9 @@ or hot-path inheritance/callback artifacts (existing review rules apply
 verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
 this campaign: it waits on the parked E17 owner verdict.
 
-Execution order is binding (biggest wins first). Render-graph completion,
-Render HAL modernization, and gameplay extraction are closed. Replay boundary
-containment inherits the now-closed solver-snapshot move and is unblocked.
-
-| Plan | State | Verified phase count | Start condition / next action |
-|---|---|---:|---|
-| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | Active | 3/4 | RP2 identity convergence is clean; run cumulative census, allocation, comment, and independent-review closure in RP3 |
+Execution order was binding (biggest wins first). All eight architecture-review
+campaign plans are closed with exact evidence and independent review. No live
+execution row remains; E17 extended owner acceptance is parked and non-blocking.
 
 ## Features
 

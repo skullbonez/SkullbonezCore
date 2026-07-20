@@ -43,6 +43,7 @@ Related:
 */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -84,6 +85,10 @@ struct PhysicsBodyRecord
 {
     PhysicsBodyHandle handle;                                                                         // Stable body handle resolved through the store maps.
     PhysicsSceneObjectId sceneObjectId;                                                               // Scene-local id supplied once by the creation owner.
+    // Invariant: the retired duplicate replay-id scalar used to occupy these
+    // four bytes. Keep the following vector block on its proven 16-byte
+    // boundary without restoring a second identity authority.
+    uint32_t vectorAlignmentPadding = 0;
     Math::Vector::Vector3 rotationalInertia = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulse = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 pendingImpulseApplicationPoint = Math::Vector::ZERO_VECTOR;
@@ -101,6 +106,9 @@ struct PhysicsBodyRecord
     bool releasesFromFixedOnContact = false;                                                          // Authored fixed prop can become dynamic after strong contact.
     bool hasPendingImpulse = false;                                                                   // One-shot impulse waiting for the next body integration pass.
 };
+
+static_assert( offsetof( PhysicsBodyRecord, rotationalInertia ) == 16u,
+               "PhysicsBodyRecord vector metadata must retain its 16-byte boundary" );
 
 // Plain one-row value used only at cold creation/restore boundaries and inside
 // scalar kernels. Live storage remains the component arrays below.

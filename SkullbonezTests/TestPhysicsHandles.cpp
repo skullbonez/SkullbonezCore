@@ -42,6 +42,7 @@
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRestoreService.h"
 
+#include <cstddef>
 #include <cstring>
 #include <cstdint>
 #include <cmath>
@@ -55,6 +56,7 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyCreateDesc;
 using SkullbonezCore::Physics::PhysicsBodyPosition;
+using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsColliderHandle;
 using SkullbonezCore::Physics::PhysicsWorldForces;
@@ -101,6 +103,12 @@ ColliderStore& TestColliderStore()
     return store;
 }
 } // namespace
+
+
+TEST_CASE( "Physics body cold record: vector metadata retains its 16-byte boundary" )
+{
+    CHECK_EQ( offsetof( PhysicsBodyRecord, rotationalInertia ), 16u );
+}
 
 
 TEST_CASE( "Property invariant: equal-and-opposite impulses conserve pair momentum [seed 0x16A11CE5]" )
