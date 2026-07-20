@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade, and physics settings plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the five remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 17 / 37 live tasks; 46%. |
+| Active/future progress | 18 / 37 live tasks; 49%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | X2 `validate_full` passes in 166.92s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | X2: 10/10 touched-source/tool comment audit, clear independent review, clean Automation/Release builds, focused policy test, combined automation lane, project metadata proof, and full gate pass. |
+| Validation for current edits | G0 is documentation-only; no repository validation required. X2 remains the last validated source tip. |
 
 ## Live Queue
 
-NOW. Five live plans, 37 tasks; 17 complete (46%). The remaining architecture-review campaign
+NOW. Five live plans, 37 tasks; 18 complete (49%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: render-graph-completion → render-hal-modernization →
@@ -111,9 +111,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `render-graph-completion` G0 on `nightrunner-20th-july`.
-Inventory the remaining manual transition/barrier sites and classify them by
-resource and pass owner before changing renderer behavior. The Profiler semantic
+Continue `render-graph-completion` G1 on `nightrunner-20th-july`.
+The G0 map records every callback-owned pass, the four remaining live transition
+authorities, the class migration order, and the frame-edge exception candidates.
+Transfer graph-transient barriers to compiled graph execution first. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

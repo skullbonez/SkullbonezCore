@@ -1,6 +1,6 @@
 # Render Graph Completion
 
-Status: Registered — 0/6 tasks (G0-G5)
+Status: Active — 1/6 tasks (G0 complete; G1-G5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 5 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding E)
 Ledger: G0-G5
@@ -30,7 +30,7 @@ expensive foundations exist; only authority transfer remains.
 
 - No visual change: DX12 screenshot baselines and replay visual fidelity are
   the oracle for every slice; zero refresh authorized.
-- No pass reordering: the stable sky → shadows → reflection → scene target →
+- No pass reordering: the stable shadows → sky → reflection → scene target →
   objects → terrain → water → tornado → ghosts → overlay → post → UI/text
   order is preserved.
 - No HAL statefulness retirement (that is `render-hal-modernization`); this
@@ -67,9 +67,82 @@ expensive foundations exist; only authority transfer remains.
 7. DX12 validation layer at zero errors is a per-slice hard gate; a single
    validation message reverts the slice.
 
+## G0 Authority Inventory And Migration Map
+
+Inventory tip: `nightrunner-20th-july` after `run-execute-deaccretion` X2.
+`RuntimeRenderer` creates a fresh graph per wrapper, assigns a typed callback,
+compiles it, dry-runs it, and then executes the callback. Consequently every
+listed frame pass already has `RenderGraphPassExecutionOwner::Callback`; there
+is no live direct pass invocation beside the callback. The remaining duality is
+barrier authority: callbacks still enter backend helpers that emit transitions
+independently of the compiled graph. The `callbackOwned` results are diagnostic
+proofs of callback execution, not alternate execution branches.
+
+### Pass And Barrier Authority
+
+| Stable order / pass | Current execution owner | Declared graph resources | Live handwritten transition on the pass's behalf | Resource class / migration slice |
+|---|---|---|---|---|
+| `ShadowMapPass` | Callback | Write `TerrainShadowMapDepth` and `ObjectShadowMapDepth` as depth | Each shadow framebuffer `Bind` changes color SRV -> RT and depth SRV/DepthRead -> DepthWrite; `Unbind` restores RT -> SRV and DepthWrite/DepthRead -> SRV | Owned shadow targets / G2 |
+| `SkyboxPass` (non-cinematic) | Callback | Write `SwapchainBackbuffer` as render target | `ClearBackbuffer` normally changes Present -> RenderTarget before this wrapper; `Dx12FrameOwner::PrepareDraw` is the implicit fallback | Backbuffer edge / G4 |
+| `DxrReflectionPass` | Callback | Read object shadow; write `DxrReflectionTexture` as UAV | `DispatchReflectionRays` changes reflection SRV -> UAV, emits a UAV ordering barrier, then changes UAV -> SRV | Owned DXR reflection target / G2 |
+| `RasterReflectionPass` | Callback | Read object shadow; write `RasterReflectionColor` as RT and `RasterReflectionDepth` as depth | Reflection framebuffer `Bind`/`Unbind` emits the symmetric color and depth transition pairs | Owned reflection target / G2 |
+| `CinematicSceneBegin` | Callback | Write `CinematicSceneColor` as RT and `CinematicSceneDepth` as depth | HDR framebuffer `Bind` changes color SRV -> RT and tracked depth SRV/DepthRead -> DepthWrite | Owned cinematic scene target / G2 |
+| `ObjectOpaquePass` | Callback | Optional object-shadow read; write current frame color/depth | No pass-local barrier; it inherits the RT/depth state established by backbuffer preparation or cinematic target bind | World target use / G3; producer transition retires in G2/G4 |
+| `TerrainPass` | Callback | Optional terrain/object-shadow reads; write current frame color/depth | No pass-local barrier; same inherited target state | World target use / G3 |
+| `WaterPass` | Callback | Optional DXR/raster reflection read; write current frame color/depth | No pass-local barrier; reflection producers have already restored their texture to SRV | World target use / G3 |
+| `TornadoVisualPass` | Callback | Write current frame color/depth | No pass-local barrier; same inherited target state | World target use / G3 |
+| `ObjectTransparentPass` | Callback | Optional object-shadow read; write current frame color/depth | No pass-local barrier; same inherited target state | World target use / G3 |
+| `ReplayPredictionGhostPass` | Callback | Optional object-shadow read; write current frame color/depth | No pass-local barrier; same inherited target state | World target use / G3 |
+| `DebugOverlayPass` | Callback | Write current frame color/depth | No pass-local barrier; same inherited target state | World target use / G3 |
+| `VolumetricLightPass` (optional) | Callback | Read cinematic scene color/depth; write transient `VolumetricLight` as RT | HDR framebuffer `Unbind` restores scene RT/depth to SRV. `Dx12GraphTransientPool::BeginRenderTarget` changes transient SRV -> RT and `EndRenderTarget` changes RT -> SRV | Graph transient / G1; scene-target release / G2 |
+| `ToneMapPass` | Callback | Read scene color/depth and optional volumetric transient; write backbuffer RT | When volumetric is absent, HDR framebuffer `Unbind` restores scene RT/depth to SRV. Backbuffer `PrepareDraw` can still force RT before the fullscreen draw | Transient consumer / G1; scene target / G2; backbuffer / G4 |
+| `UiTextPass` | Callback | Write `SwapchainBackbuffer` as RT | `Dx12FrameOwner::PrepareDraw` can force Present/CopySource -> RT before UI/text draws | Backbuffer edge / G4 |
+
+The table records the current execution order. Disabled passes disappear
+without moving their neighbours; cinematic sky is part of
+`CinematicSceneBegin`, while ordinary sky is `SkyboxPass`. No migration slice
+may reorder callbacks.
+
+### Backend Transition Site Inventory
+
+| Site | Current authority | Disposition |
+|---|---|---|
+| `Dx12GraphTransientPool::BeginRenderTarget` / `EndRenderTarget` | Emits graph-transient SRV <-> RT transitions by local `currentAccess` | G1 replaces these local transition decisions with the compiled graph's ordered transitions; target binding remains a backend operation |
+| `FramebufferDX12::Bind` / `Unbind` | Emits color SRV <-> RT and tracked depth SRV/DepthRead <-> DepthWrite transitions | G2 migrates shadow, raster-reflection, and cinematic target instances class by class, then removes transition emission from framebuffer binding |
+| `RenderBackendDX12::DispatchReflectionRays` | Emits reflection SRV -> UAV, UAV ordering, and UAV -> SRV barriers | G2 moves all three into graph execution; the UAV ordering barrier is required and is not an exception |
+| `Dx12FrameOwner::TransitionBackbuffer`, `PrepareDraw`, `ClearBackbuffer`, and `PresentBackbuffer` | Tracks and transitions the current swapchain image | G4 transfers normal frame RT edges to graph execution; Present remains an explicit frame-edge exception |
+| `Dx12ImGuiRendererOwner` development viewport copy | Temporarily changes the backbuffer to CopySource and the viewport texture CopyDest -> SRV | Retained frame-edge exception: editor-only copy occurs after world presentation and owns both resources as one bounded copy operation; record final reason in G4/G5 |
+| `Dx12BackbufferCapture` readback | Temporarily changes backbuffer RT/Present -> CopySource and restores the prior state | Retained frame-edge exception: cold synchronous capture/readback is outside normal pass scheduling; record final reason in G4/G5 |
+| Shutdown/resize backbuffer reconciliation | Ensures a swapchain image is Present before release/recreation | Retained lifecycle exception; it does not execute a frame pass |
+| Texture upload/mip generation, mesh and dynamic-geometry upload, BLAS/TLAS build barriers | Resource creation/upload or acceleration-structure ordering outside the frame-pass texture graph | Out of scope, retained under their concrete resource owners; none may be used as a frame-pass escape hatch |
+
+### Class-By-Class Transfer Order
+
+1. **G1 — graph transients.** Feed the compiled transition sequence to the
+   DX12 executor for materialized transient resources. Remove local
+   `Dx12GraphTransientPool` state-based barrier emission while retaining
+   descriptor allocation and render-target binding. Replace touched wrapper
+   arguments with typed inputs.
+2. **G2 — producer targets.** Register concrete native resources for shadow,
+   raster/DXR reflection, and cinematic scene color/depth, execute their
+   compiled transitions, and delete equivalent framebuffer/DXR barriers per
+   completed class. A producer class is incomplete if either path can emit.
+3. **G3 — world target users.** Consolidate objects, terrain, water, tornado,
+   replay ghosts, and debug overlay into the single callback-owned graph
+   schedule with typed inputs. Their declarations become the proof that target
+   state spans adjacent world passes; no direct fallback or hidden target
+   transition may remain.
+4. **G4 — UI/text and frame edges.** Put normal backbuffer RT acquisition under
+   graph authority, retain only explicitly recorded Present/capture/editor-copy
+   and lifecycle exceptions, then delete `RenderGraphBarrierPolicy`,
+   `callbackOwned`, and the diagnostic result scaffolding.
+5. **G5 — closure.** Reconcile this inventory against source, finalize the
+   exception reasons, extend the architecture tests, and prove the single
+   execution/barrier path with full, perf, and stress evidence.
+
 ## Tasks
 
-- [ ] G0 — Authority inventory and migration map: for every pass, record
+- [x] G0 — Authority inventory and migration map: for every pass, record
   execution owner (direct vs callback), every hand-written barrier the
   backend emits on its behalf, and the resource class each barrier belongs
   to; define the class-by-class migration order and the expected exception
