@@ -58,6 +58,11 @@ and explicit side-effect buffers. New runtime inheritance requires an owning
 plan proving why value composition is insufficient and naming call frequency
 and validation/perf evidence.
 
+Replay is an upper Runtime consumer. The Replay Boundary Rule in `../AGENTS.md`
+forbids downward `Runtime/Replay/*` includes and requires every replay reserve
+registration or privilege change to stay reconciled with the authoritative
+owner/phase/cap/counter inventory.
+
 ## Validation
 
 Validation scripts are pre-commit/PR gates, not routine iteration.

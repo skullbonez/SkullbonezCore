@@ -100,6 +100,33 @@ If an edge cannot be inverted in the owning task, record it in that task's
 exception table with the owner, reason, and deletion condition. An unrecorded
 edge or a compatibility spelling that hides it is a closure failure.
 
+## Replay Boundary Rule
+
+Replay is an upper Runtime consumer, not a type provider to engine layers.
+`Physics/`, `Rendering/`, `Scene/`, `World/`, and `Core/` must not include
+`Runtime/Replay/*`. Replay reads Physics through `PhysicsApi.h`,
+`PhysicsEngine`, and Physics-owned value snapshots; render presentation crosses
+as value packets or bounded queues. Do not move a Replay type downward or hide
+one behind a forwarding header, alias, callback pack, or broad context object.
+
+Before closing replay-facing work, run this exact review proof; it must return
+no rows:
+
+```powershell
+rg -n '^#include[[:space:]]+.*Runtime/Replay/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
+```
+
+Replay retains the only post-gameplay growth privilege, and only through a
+`RuntimeReserveAllocator`-registered owner with a replay-phase check, hard cap,
+logged growth counter, and owner-specific policy comment. The authoritative
+replay-boundary plan or closure report carries the registration inventory:
+owner, phase gate, cap, high-water/growth counter, policy comment, and status.
+Adding a registration, increasing a cap, weakening a phase gate, or changing
+counter coverage must update that inventory in the same commit. Reviews of
+replay-touching work must answer both questions: did a downward Replay include
+appear, and did a growth privilege appear or expand outside the inventory?
+Either finding blocks the touching change.
+
 ## Comment Quality Gate
 
 Comment quality is part of completion, not a follow-up nicety.

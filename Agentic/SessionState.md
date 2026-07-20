@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, Render HAL, and gameplay extraction are closed with exact proofs and independent review clear. |
 | Current objective | Complete replay boundary containment, recording external blockers without stopping automatable work. |
-| Active/future progress | 17 / 21 live tasks; 81%. |
+| Active/future progress | 18 / 21 live tasks; 86%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Gameplay T3 final `validate_full` passes in 145.4 s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | Gameplay T3 is complete: full, standalone physics, performance, reconciled replay fidelity, final-tip DX12, and one-minute graphics stress all pass. |
+| Validation for current edits | Replay RB0 is documentation-only: inbound replay include proof returns zero rows; no repository validation required. |
 
 ## Live Queue
 
-NOW. Two live plans, 21 tasks; 17 complete (81%). The remaining architecture-review campaign
+NOW. Two live plans, 21 tasks; 18 complete (86%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: gameplay-module-extraction → replay-boundary-containment. Owner
@@ -179,10 +179,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `replay-boundary-containment` R0 on `nightrunner-20th-july`. Gameplay
-extraction is closed 4/4: Gameplay owns tornado state, force publication, and
-visual registration; Physics, Rendering, and `Runtime/Render` retain zero
-content vocabulary; every mapped gate passes; and independent ownership review
-is clear. R0 must census the remaining replay boundary and bind the value-only
-contract on the already-closed solver-snapshot seam. E17 extended owner
+Start `replay-boundary-containment` RB1 on `nightrunner-20th-july`. RB0 is
+complete: `AGENTS.md` codifies Replay as an upper Runtime consumer, the exact
+inbound-include proof returns zero rows, and replay reserve privilege changes
+must update the owner/phase/cap/counter inventory in the same commit. RB1 must
+enumerate every reserve registration and replay-facing Physics/Rendering
+surface, accepting or filing defects with concrete reasons. E17 extended owner
 playtest remains parked; keep Legacy default until explicit owner authorization.

@@ -1,6 +1,6 @@
 # Replay Boundary Containment
 
-Status: Registered — 0/3 tasks (RB0-RB2)
+Status: Active — 1/3 tasks (RB0 complete; RB1-RB2 remain)
 Owner: repository owner; registered 2026-07-20 as campaign plan 8 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding H)
 Ledger: RB0-RB2
@@ -61,7 +61,7 @@ standing inbound-dependency rule, so nothing stops the leak from recurring.
 
 ## Tasks
 
-- [ ] RB0 — Codify: add the boundary rule, grep proof, and privilege-
+- [x] RB0 — Codify: add the boundary rule, grep proof, and privilege-
   inventory contract to `AGENTS.md` (adjacent to the plan-1 direction rule);
   cross-link from `Agentic/README.md` hot-path/validation notes if needed.
   Run the rule-1 grep at current tip and record the result (expected zero
@@ -95,5 +95,20 @@ standing inbound-dependency rule, so nothing stops the leak from recurring.
 
 ## Validation Summary
 
-Documentation-only plan: no repository validation required (prove diffs are
-docs-only). `validate_fast` only if RB1 applies a trivial include deletion.
+RB0 complete 2026-07-21. `AGENTS.md` now makes Replay an upper Runtime
+consumer, forbids `Runtime/Replay/*` includes from Physics, Rendering, Scene,
+World, and Core, names the Physics-owned value surfaces replay may consume,
+and requires replay-touching reviews to check both downward dependencies and
+reserve-privilege drift. The reserve contract requires an inventory update in
+the same commit as any registration, cap, phase-gate, or counter-coverage
+change. `Agentic/README.md` cross-links the rule from the hot-path guidance.
+
+Exact proof at the RB0 tip:
+
+```powershell
+rg -n '^#include[[:space:]]+.*Runtime/Replay/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
+```
+
+Result: zero rows. The diff is documentation-only, so no repository validation
+is required. `validate_fast` remains required only if RB1 applies a one-line
+include deletion.

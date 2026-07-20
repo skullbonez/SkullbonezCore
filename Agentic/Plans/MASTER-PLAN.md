@@ -301,8 +301,8 @@ owner and Core-owned value history. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **17** | **21** | **81%** |
+| [replay-boundary-containment](TODO/replay-boundary-containment.md) | 1 | 3 | 33% |
+| **Active/future total** | **18** | **21** | **86%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1161,7 +1161,7 @@ containment inherits the now-closed solver-snapshot move and is unblocked.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Active | 0/3 | Start R0 boundary census and contract on the closed solver-snapshot seam |
+| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Active | 1/3 | RB0 codifies the zero-row inbound rule; start RB1 privilege and surface audit |
 
 ## Features
 
