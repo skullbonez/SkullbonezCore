@@ -1,8 +1,8 @@
-# Replay Boundary Containment
+# Replay Boundary Containment Closure
 
-Status: Active — 2/3 tasks (RB0-RB1 complete; RB2 remains)
+Status: Complete — 3/3 tasks (RB0-RB2 complete)
 Owner: repository owner; registered 2026-07-20 as campaign plan 8 of 8
-Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding H)
+Evidence: `../2026-07-20/engine-architecture-review.md` (finding H)
 Ledger: RB0-RB2
 Depends on: `dependency-direction-restoration` L2 (the solver-snapshot move
 creates the boundary this plan makes permanent).
@@ -70,9 +70,9 @@ Tracy high-water plots. No fourth or hidden Replay registration exists.
 
 | Registered owner | Registration / policy | Phase and cap | Counter and exhaustion evidence | RB1 status |
 |---|---|---|---|---|
-| `replay_recorder_samples` | `ReplayRecorder.cpp:97`; `ReplayRetainedMemory.h:104-116` | Replay-only request/scope; initial 0; aggregate 32 MiB hard cap; measured high-water 6,206,626 bytes; growth-count limit unbounded but counted | `CopyOwnerStatsByName` publishes active/high-water bytes, growths, failures, high-water capacity, and last frame; denial is fatal because partial retained samples are nondeterministic | Registration accepted. The older nearby “per vector” comment contradicts the aggregate allocator rule and is filed as RB1-F3. |
-| `replay_solver_snapshot` | `PhysicsWorld.cpp:205`; `PhysicsSolverSnapshot.h:41-44`; policy row `ReplayRetainedMemory.h:117-121` | Replay-only request/scope; initial 0; aggregate 8 MiB hard cap; measured high-water 1,437,696 bytes; unbounded-but-counted growths | One batched byte request covers all snapshot-vector reserves under the owner/growth scopes; common diagnostics publish the same counters; denial is fatal | Accepted: Physics owns the value snapshot and Replay only triggers capture/restore. |
-| `replay_prediction_working_set` | `ReplayPredictionReserve.cpp:45`; policy row `ReplayRetainedMemory.h:108-109,122-126` | Replay-only request/scope; initial 0; aggregate 256 MiB hard cap; measured high-water 211,376,304 bytes; unbounded-but-counted growths | Prediction/frame/trajectory requests use byte capacities and narrow owner/growth scopes; common diagnostics publish counters; denial cancels the prediction build instead of publishing a partial prefix | Registration accepted. Strict-path owner-zero allocations outside these scopes are filed as RB1-F1. |
+| `replay_recorder_samples` | `ReplayRecorder.cpp:97`; `ReplayRetainedMemory.h:104-116` | Replay-only request/scope; initial 0; aggregate 32 MiB hard cap; historical policy measurement 6,206,626 bytes; growth-count limit unbounded but counted | Strict two-generation run: allocator high-water 17,737,640 bytes, 933 growths, 0 failures; `CopyOwnerStatsByName` publishes the same counter family; denial is fatal | Registration accepted. The source's “per vector”/“>5x” comments and two allowlist rows contradict aggregate/current evidence and are filed as RB1-F3. |
+| `replay_solver_snapshot` | `PhysicsWorld.cpp:205`; `PhysicsSolverSnapshot.h:41-44`; policy row `ReplayRetainedMemory.h:117-121` | Replay-only request/scope; initial 0; aggregate 8 MiB hard cap; historical capacity measurement 1,437,696 bytes; unbounded-but-counted growths | Strict run: allocator high-water 2,877,186 bytes, 2 growths, 0 failures; one batched request covers all vector reserves; denial is fatal | Registration accepted. The source's “>5x” comment does not describe current transient active-byte high-water and is filed as RB1-F3. |
+| `replay_prediction_working_set` | `ReplayPredictionReserve.cpp:45`; policy row `ReplayRetainedMemory.h:108-109,122-126` | Replay-only request/scope; initial 0; aggregate 256 MiB hard cap; policy measurement 211,376,304 bytes; unbounded-but-counted growths | Strict run: allocator high-water 110,979,828 bytes, 8,943 growths, 0 failures; narrow owner/growth scopes cover registered requests; denial cancels the build | Registration accepted. Strict-path owner-zero allocations outside these scopes are filed as RB1-F1. |
 
 All three descriptors set subsystem/phase to Replay, `allowReplayGrowth=true`,
 and carry owner-specific `capacityReason` text. `RuntimeReserveAllocator`
@@ -83,9 +83,13 @@ it does not excuse allocations that occur outside their scopes.
 
 | Downward-facing surface | Current boundary | Reason / policy status |
 |---|---|---|
-| Solver snapshot value | Physics owns `PhysicsSolverSnapshot`; `PhysicsEngine::CaptureReplaySolverSnapshot` and `RestoreReplaySolverSnapshot` accept that value plus typed body count, and `PhysicsReplaySolverSnapshotView` is a borrowed Physics API view | Accepted. Replay types do not enter Physics; capture/restore ordering and fatal reserve denial remain Physics-owned. |
+| Solver snapshot value | Physics owns `PhysicsSolverSnapshot`; `PhysicsEngine::CaptureReplaySolverSnapshot` and `RestoreReplaySolverSnapshot` accept that value plus typed body count | Accepted. Replay types do not enter Physics; capture/restore ordering and fatal reserve denial remain Physics-owned. |
+| Dormant Physics snapshot view | `PhysicsReplaySolverSnapshotView` in `PhysicsApi.h` is definition-only | Not accepted as unused API surface. RP2 deletes it unless a concrete non-Replay consumer is proven before that task. |
 | Solver implementation | `PhysicsWorld` performs the actual capture/restore and batched reserve behind `PhysicsEngine` | Accepted as internal implementation, not a Replay-owned facade or callback. |
-| One-frame render pose | Replay presentation resolves a body, then calls `Rendering::RenderInstanceStore::OverridePose(modelIndex, id, position, orientation, colliders)` directly; no callback or retained command queue crosses downward | Shape accepted: bounded in-place value mutation. Its raw legacy identity parameter is RB1-F2 and must converge to `PhysicsSceneObjectId`. |
+| Physics authored refresh and body resolution | `PhysicsAuthoredBodyRefreshView::replayBodyIds`; `PhysicsBodyStore::RestoreReplayBodyState`, `BuildReplayBodyIdsForReload`, and `HandleForReplayBodyId`; body handle-id tables | Not accepted: these raw-ID surfaces duplicate `PhysicsSceneObjectId`. RP2 owns typed convergence and deletion/renaming of obsolete helpers. |
+| Collider identity | `ColliderRecord::replayBodyId`, handle replay-id tables, and raw-id resolution paths mirror the body value | Not accepted: RP2 converges the collider/store boundary to `PhysicsSceneObjectId`. |
+| One-frame render pose | Replay presentation resolves a body, then calls `Rendering::RenderInstanceStore::OverridePose`; `RenderInstanceRecord::replayBodyId` and the override parameter are raw integers | Shape accepted as bounded in-place mutation; identity spelling is not. RP2 replaces the field/parameter with `PhysicsSceneObjectId`. |
+| Dormant Runtime scene pose facade | `SceneWorld::TryQueueReplayRenderPoseOverride` is definition-only and duplicates the direct ReplayPresentation-to-RenderInstanceStore path | Not accepted. RP2 deletes the declaration/definition rather than preserving a nominal forwarding surface. |
 | Frame presentation view | `ReplayRenderFrameView` carries frame-local borrowed pointers to selected presentation, solver, prediction, visual packet, and focus-mask values into `Runtime/Render` | Accepted. It is Runtime-to-Runtime composition and cannot reach Replay mutation/scheduling authority. |
 | Visual presentation packet | Replay owns immutable `ReplayVisualPacket` spans/metadata; `RuntimeRenderer` consumes the packet synchronously for graph callbacks and validation | Accepted. No `Rendering/` header includes a Replay type; the callback payload is stack-scoped and value-only. |
 | Cross-system object identity | Replay defines `ReplayBodyId`; Physics and Rendering retain raw `replayBodyId` fields derived from scene identity | Not accepted under the standing Scene Object Identity Policy. Filed as RB1-F2; serialized scalar compatibility must be preserved during convergence. |
@@ -101,15 +105,22 @@ it does not excuse allocations that occur outside their scopes.
   this path. Owner: Replay/Runtime presentation. Deletion condition: the same
   strict probe returns zero/zero with complete callsite attribution and mapped
   gates pass.
-- **RB1-F2 — legacy replay identity:** `ReplayBodyId` plus Physics/Rendering
-  `replayBodyId` fields duplicate the policy-owned `PhysicsSceneObjectId`
-  boundary. Owner: Replay with Physics/Rendering value consumers. Deletion
-  condition: live cross-system surfaces use `PhysicsSceneObjectId`, model rows
-  remain hints only, and existing artifact bytes/schema remain unchanged.
-- **RB1-F3 — recorder cap comment:** `ReplayRecorder.cpp` still calls the 32
-  MiB cap “per vector” although allocator enforcement and the allowlist make it
-  aggregate. Owner: Replay recorder. Deletion condition: source policy comment
-  agrees with the aggregate owner cap.
+- **RB1-F2 — legacy replay identity and dormant facades:** `ReplayBodyId`;
+  Physics authored-refresh/body/collider raw-id fields and APIs; Rendering's
+  raw instance/override identity; and the definition-only SceneWorld pose
+  wrapper duplicate the policy-owned `PhysicsSceneObjectId` boundary.
+  `PhysicsReplaySolverSnapshotView` is also definition-only. Owner: Replay with
+  Physics/Rendering/Runtime Scene value consumers. Deletion condition: all
+  cross-system surfaces use `PhysicsSceneObjectId`, model rows remain hints,
+  both unused facades are deleted unless a concrete consumer is proven, and
+  existing artifact bytes/schema remain unchanged.
+- **RB1-F3 — recorder/solver policy evidence drift:** `ReplayRecorder.cpp`
+  calls the 32 MiB cap “per vector”; its allowlist `.cpp`/`.h` rows incorrectly
+  assign recorder storage to the prediction owner and 256 MiB cap; and recorder/
+  solver “>5x” comments predate strict-run allocator high-water of 17,737,640/
+  2,877,186 bytes. Owner: Replay recorder/solver snapshot policy. Deletion
+  condition: source comments, policy-table evidence, and allowlist owner/reason/
+  cap rows agree with current aggregate counters and retain honest headroom.
 
 All three findings are owned by the newly registered
 `replay-policy-debt-closure.md` plan (RP0-RP3), as required by this plan's
@@ -133,7 +144,7 @@ non-goal. RB1 made no source edit.
   audit tables committed to the closure report; follow-up rows filed for any
   defect. Documentation-only unless a one-line include deletion is applied
   (then `tools\validate_fast.bat`).
-- [ ] RB2 — Closure: reconcile RB0 rule text against RB1 findings;
+- [x] RB2 — Closure: reconcile RB0 rule text against RB1 findings;
   independent rubber-duck review (is the rule enforceable as written; is the
   inventory complete); final grep proofs at closure tip recorded in the
   report. Documentation-only: no repository validation required.
@@ -177,3 +188,32 @@ RB1-F3 are concrete defects, so `replay-policy-debt-closure.md` is registered
 with owner, reason, deletion conditions, and validation rather than hiding
 them inside this documentation plan. No include deletion was needed; the RB1
 diff is documentation-only and requires no repository validation.
+
+RB2 complete 2026-07-21. The first independent rubber-duck pass blocked
+archival on four documentation gaps: two ReplayRecorder allowlist rows were
+misattributed to the prediction owner; historical policy measurements were not
+separated from the stricter current allocator high-water/counters; the raw-id
+and dormant-facade surface inventory was too coarse; and RP1/RP2 omitted
+task-local mapped gates. The report and `replay-policy-debt-closure.md` now name
+each surface, owner, deletion condition, strict counter, allowlist correction,
+and required fast/full/physics/perf/replay gate. The focused follow-up review
+returned clear with no remaining blocker or non-blocker.
+
+Final closure proofs:
+
+```powershell
+rg -n '^#include[[:space:]]+.*Runtime/Replay/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
+rg -n -C 8 'RuntimeReserveSubsystem::Replay' SkullbonezSource
+```
+
+The first command returns zero rows. The second contains exactly three
+`RegisterOwner` initializers: recorder, solver snapshot, and prediction working
+set. `git diff --check` passes. RB0-RB2 changed only documentation/governance;
+no repository validation was required.
+
+## Rubber-Duck Accounting
+
+| Plan | Duck run | Reviewer | Reason | Prompt chars | Response chars | Tokens | Elapsed | Verdict | Follow-up |
+|---|---|---|---|---:|---:|---|---|---|---|
+| `replay-boundary-containment` | `replay-boundary-duck-01` | `/root/replay_boundary_duck_01` | Initial enforceability/completeness review | 1,944 | 6,819 | n/a | ~8 min | Four documentation blockers | Inventory/validation corrections required |
+| `replay-boundary-containment` | `replay-boundary-duck-02` | `/root/replay_boundary_duck_01` | Focused review after corrections | 807 | 448 | n/a | ~1 min | Clear | None |

@@ -301,9 +301,8 @@ owner and Core-owned value history. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [replay-boundary-containment](TODO/replay-boundary-containment.md) | 2 | 3 | 67% |
 | [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | 0 | 4 | 0% |
-| **Active/future total** | **19** | **25** | **76%** |
+| **Active/future total** | **17** | **22** | **77%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -374,8 +373,11 @@ visuals above bounded Physics/Rendering value seams; final full, physics,
 performance, replay, DX12, and stress gates pass, and independent ownership
 review is clear. Closure evidence is in
 `../Reports/2026-07-21/gameplay-module-extraction-closure.md`.
-The remaining execution order is `replay-boundary-containment`, then the
-audit-filed `replay-policy-debt-closure`. Owner decisions
+Replay boundary containment is closed with an enforceable zero-inbound rule,
+an exact three-owner privilege inventory, a complete surface census, and clear
+independent review. Closure evidence is in
+`../Reports/2026-07-21/replay-boundary-containment-closure.md`. The remaining
+execution target is the audit-filed `replay-policy-debt-closure`. Owner decisions
 ratified at registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
 a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
@@ -1163,8 +1165,7 @@ containment inherits the now-closed solver-snapshot move and is unblocked.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Active | 2/3 | RB1 accepts three registered owners/value seams and files three defects; run RB2 independent closure review |
-| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | Registered | 0/4 | Start after RB2; attribute/close strict allocation gaps, then converge Replay identity |
+| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | Active | 0/4 | RB2 is closed; attribute/close strict allocation gaps, then converge Replay identity |
 
 ## Features
 

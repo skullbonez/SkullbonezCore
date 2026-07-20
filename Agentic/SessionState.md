@@ -12,15 +12,15 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, Render HAL, and gameplay extraction are closed with exact proofs and independent review clear. |
-| Current objective | Complete replay boundary containment, then close its filed allocation/identity defects without stopping at the findings. |
-| Active/future progress | 19 / 25 live tasks; 76%. |
+| Current objective | Close replay boundary's filed allocation/identity defects without stopping at the findings. |
+| Active/future progress | 17 / 22 live tasks; 77%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Gameplay T3 final `validate_full` passes in 145.4 s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | Replay RB1 is documentation-only: three reserve owners and all downward-facing surfaces are inventoried; no repository validation required. |
+| Validation for current edits | Replay RB2 is documentation-only: final inbound proof is zero, registration census is three, and independent follow-up review is clear; no repository validation required. |
 
 ## Live Queue
 
-NOW. Three live plans, 25 tasks; 19 complete (76%). The remaining architecture-review campaign
+NOW. Two live plans, 22 tasks; 17 complete (77%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: replay-boundary-containment → replay-policy-debt-closure. Owner
@@ -44,6 +44,8 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-21/render-hal-modernization-closure.md`.
 `gameplay-module-extraction` is closed 4/4 and archived in
 `Agentic/Reports/2026-07-21/gameplay-module-extraction-closure.md`.
+`replay-boundary-containment` is closed 3/3 and archived in
+`Agentic/Reports/2026-07-21/replay-boundary-containment-closure.md`.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -179,11 +181,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `replay-boundary-containment` RB2 on `nightrunner-20th-july`. RB1 is
-complete: exactly three replay reserve registrations are reconciled with their
-phase/cap/high-water/counter contracts; solver, pose, and presentation seams
-are inventoried; and the audit filed strict owner-zero allocations, legacy
-Replay identity, and one stale aggregate-cap comment into the registered
-four-task `replay-policy-debt-closure` plan. RB2 performs the required
-independent enforceability/completeness review before archival. E17 extended owner
+Start `replay-policy-debt-closure` RP0 on `nightrunner-20th-july`. Replay
+boundary containment is closed 3/3: the exact inbound include proof returns
+zero, exactly three reserve registrations are reconciled, every solver/pose/
+presentation/raw-id surface is inventoried, and the follow-up independent
+review is clear. RP0 must attribute every material owner-zero callsite from the
+strict two-generation probe before RP1 changes allocation ownership. E17 extended owner
 playtest remains parked; keep Legacy default until explicit owner authorization.

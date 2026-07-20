@@ -2,13 +2,14 @@
 
 Status: Registered — 0/4 tasks (RP0-RP3)
 Owner: repository owner; registered 2026-07-21 from replay-boundary RB1 audit
-Evidence: `replay-boundary-containment.md` RB1 findings RB1-F1 through RB1-F3
+Evidence: `../../Reports/2026-07-21/replay-boundary-containment-closure.md`
+RB1 findings RB1-F1 through RB1-F3
 Ledger: RP0-RP3
 Depends on: `replay-boundary-containment` RB2 closure
 
 ## Objective
 
-Close the two concrete defects exposed by the replay boundary audit without
+Close the three findings exposed by the replay boundary audit without
 shrinking Replay or changing replay behavior: every live prediction/
 presentation allocation must be attributed to an existing registered replay
 owner, and `PhysicsSceneObjectId` must become Replay's durable cross-system
@@ -45,18 +46,28 @@ identity while serialized artifact scalars remain byte-compatible.
 - [ ] RP1 — Allocation closure: route every live Replay-owned growth through
   one of the three existing registered owners or prepare fixed capacity before
   steady use; eliminate owner-zero render/steady allocations caused by replay
-  presentation without blanket scopes. Correct the recorder policy comment to
-  say the 32 MiB cap is aggregate. Extend focused coverage so the strict probe
-  fails on any gameplay or reserve-policy violation. Validation:
+  presentation without blanket scopes. Correct the recorder/solver policy
+  comments and `REPLAY_GROWTH_OWNER_POLICIES` evidence against the strict-run
+  allocator high-water/counters. Fix the two ReplayRecorder `.cpp`/`.h`
+  allowlist rows to name `replay_recorder_samples`, its aggregate 32 MiB cap,
+  and recorder-owned storage. Extend focused coverage so the strict probe fails
+  on any gameplay or reserve-policy violation. Validation:
+  `tools\validate_fast.bat`,
   `python tools\check_allocation_policy.py --self-test`,
   `python tools\check_allocation_policy.py --repo .`,
-  `tools\validate_perf.bat`, and the focused strict probe.
+  `tools\validate_perf.bat`, the focused strict probe,
+  `tools\validate_full.bat`, and
+  `tools\validate_replay_visual_fidelity.bat`.
 - [ ] RP2 — Identity convergence: replace Replay-owned `ReplayBodyId` and raw
-  cross-system `replayBodyId` surfaces with `PhysicsSceneObjectId`; retain dense
-  model rows only as repairable hints. Keep artifact encoding/decoding as the
-  existing fixed-width scalar at the cold IO boundary and prove existing
-  artifacts load/save byte-identically. Validation: focused identity/restore
-  tests, `tools\validate_physics.bat`, and
+  cross-system `replayBodyId` surfaces with `PhysicsSceneObjectId`, including
+  Physics authored refresh/body/collider APIs and storage plus Rendering
+  instance/override values; retain dense model rows only as repairable hints.
+  Delete definition-only `PhysicsReplaySolverSnapshotView` and
+  `SceneWorld::TryQueueReplayRenderPoseOverride` unless a concrete non-Replay
+  consumer is proven. Keep artifact encoding/decoding as the existing
+  fixed-width scalar at the cold IO boundary and prove existing artifacts
+  load/save byte-identically. Validation: focused identity/restore tests,
+  `tools\validate_physics.bat`, `tools\validate_full.bat`, and
   `tools\validate_replay_visual_fidelity.bat`.
 - [ ] RP3 — Closure: rerun the strict allocation probe, inbound Replay include
   proof, identity census, allocation inventory, comment audit, and one
@@ -71,8 +82,10 @@ identity while serialized artifact scalars remain byte-compatible.
   and zero reserve-policy violations without suppressing guard coverage.
 - Exactly three replay reserve owners remain, with unchanged or explicitly
   evidence-approved caps and complete counters.
-- Live Replay, Physics, Rendering, and Runtime scene/presentation boundaries
-  use `PhysicsSceneObjectId`; durable artifact bytes and schema are unchanged.
+- Replay, Physics, Rendering, and Runtime scene/presentation boundaries use
+  `PhysicsSceneObjectId`; the two definition-only facades are gone unless a
+  concrete retained consumer is documented; durable artifact bytes and schema
+  are unchanged.
 - All mapped gates pass without baseline refresh and independent review is
   clear.
 
