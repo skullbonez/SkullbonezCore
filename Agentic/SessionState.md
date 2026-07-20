@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency-direction restoration L0-L5 and allocation-namespace restoration A0 are closed, with physical and allocation namespace proofs at zero. |
 | Current objective | Complete the seven remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 17 / 47 live tasks; 36%. |
+| Active/future progress | 18 / 47 live tasks; 38%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | A0 closure-tip `validate_full` passes in 148.04s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
 | Validation for current edits | A0 exact namespace proofs; 47/47 comment audit; allocation, physics, single-invocation replay, perf, DX12, stress, and final full gates all pass. |
 
 ## Live Queue
 
-NOW. Eight live plans, 47 tasks. The remaining architecture-review campaign
+NOW. Eight live plans, 47 tasks; 18 complete (38%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: physics-facade-unification → physics-settings-snapshot →
@@ -34,7 +34,9 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-20/dependency-direction-restoration-closure.md`.
 `allocation-namespace-restoration` is closed 1/1 and archived in
 `Agentic/Reports/2026-07-20/allocation-namespace-restoration-closure.md`.
-`physics-facade-unification` F0 is next with no blocker.
+`physics-facade-unification` F0 is complete. F1 absorb/delete is next with no
+blocker; the inventory proves 49 single-target relays, 13 read projections,
+three private helpers, and zero direct external `PhysicsScene` type users.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -84,9 +86,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-facade-unification` F0 on `nightrunner-20th-july`.
-Inventory every public `PhysicsScene` and `PhysicsEngine` declaration/call site
-before choosing the surviving PhysicsEngine API. The Profiler semantic
+Continue `physics-facade-unification` F1 on `nightrunner-20th-july`.
+Absorb the inventoried `PhysicsScene` implementation/state into PhysicsEngine,
+delete both Scene files/project rows, and preserve the exact relay order and
+read projections. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

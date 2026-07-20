@@ -1,6 +1,6 @@
 # Physics Facade Unification
 
-Status: Registered — 0/3 tasks (F0-F2)
+Status: In progress — 1/3 tasks (F0-F2)
 Owner: repository owner; registered 2026-07-20 as campaign plan 2 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding C)
 Ledger: F0-F2
@@ -44,9 +44,88 @@ touch.
 4. Callers that name `PhysicsScene` directly (if any exist outside
    PhysicsEngine) are migrated to `PhysicsEngine` in the same commit.
 
+## F0 Inventory
+
+Inventory completed 2026-07-20 from the current CodeGraph plus exact source and
+project searches.
+
+### Surface Counts
+
+| Surface | Public entries | Shape |
+|---|---:|---|
+| `PhysicsEngine` | 63 | Default constructor, 49 command/query relays, and 13 immutable read projections. |
+| `PhysicsScene` | 51 | Constructor, the 49 relay targets, and one aggregate `ReadView`. |
+
+The 12-entry difference is exact: thirteen field-specific Engine readers
+replace one Scene aggregate reader. `PhysicsScene` also has three private
+helpers that move with its state: `LoadBodyDescriptors`,
+`ApplyFixedTreeReleaseEvents`, and Debug-only
+`ValidatePhysicsStoreMappings`.
+
+### Forwarder Map
+
+Every `PhysicsEngine.cpp` method contains exactly one `m_scene` target. The 46
+identity relays below map to the same-named `PhysicsScene` method:
+
+| Group | Engine method → Scene method |
+|---|---|
+| Lifecycle/configuration | `BindProfiler`, `ApplyRuntimeConfig`, `ApplyAuthoredBodyPolicy`, `ApplyAuthoredColliderPolicy`, `ReserveAuthoredBodyCapacity`, `AuthoredBodyDescriptorCount`, `CanRegisterAuthoredBody`, `TrimAuthoredBodyDescriptorsToCount`, `Clear`, `RefreshBodyStoreFromAuthoredDescriptors` → same name |
+| Authoring/replay state | `RegisterAuthoredBody`, `DestroyAuthoredBody`, `UpdateAuthoredBody`, `UpdateAuthoredBodyAndCollider`, `ClearPendingBodyImpulses`, `TrimBodiesToCount`, `TrimCollidersToCount`, `RestoreReplayBodyState`, `RefreshColliderSnapshot` → same name |
+| Live commands | `WakeBody`, `ReleaseFixedBodyAndAttachedTreeParts`, `SetBodyVelocity`, `SeedBodyAsleep`, `SetPendingBodyImpulse`, `ApplyBodyImpulse`, `BeginCollisionVisualFrame`, `EndCollisionVisualFrame`, `ClearPointJointConstraints`, `CreatePointJoint` → same name |
+| Tornado/replay/diagnostics | `SetTornadoFieldConfig`, `GetTornadoFieldConfig`, `SetTornadoSystemConfig`, `GetTornadoSystemConfig`, `GetTornadoSystemElapsedSeconds`, `CaptureReplaySolverSnapshot`, `RestoreReplaySolverSnapshot`, `GetDiagnosticsView`, `CollectPhysicsWorldMemoryBytes`, `CollectDebugAndBroadphaseMemoryBytes`, `ShouldEmitStepDiagnostics`, `ShouldEmitCollisionTimeDiagnostics` → same name |
+| Debug-only controls | `SetPhysicsRegressionLogPath`, `SetPhysicsCollisionTimeLogPath`, `SetPhysicsDiagnosticsPath`, `SetPhysicsDiagnosticsRunId`, `SetDiagnosticsSuppressed` → same name |
+
+The three name-translated relays are:
+
+| Engine method | Scene target | Extra behavior |
+|---|---|---|
+| `Step` | `RunPhysics` | None; parameter order is identical. |
+| `SetSleepEnabled` | `SetPhysicsSleepEnabled` | None. |
+| `IsSleepEnabled` | `IsPhysicsSleepEnabled` | None. |
+
+The thirteen immutable read relays each call `ReadView` once and return one
+field:
+
+| Engine reader | `PhysicsSceneReadView` field |
+|---|---|
+| `ReadBodies` | `bodies` |
+| `ReadColliders` | `colliders` |
+| `ReadSpatialGrid` | `spatialGrid` |
+| `ReadFixedContactHighlightBodies` | `fixedContactHighlightBodies` |
+| `ReadCollisionCellKeys` | `collisionCellKeys` |
+| `ReadCollisionVisualContacts` | `collisionVisualContacts` |
+| `ReadSleepStates` | `sleepStates` |
+| `ReadSleepIslandVisualIds` | `sleepIslandVisualIds` |
+| `ReadSleepSupportedStates` | `sleepSupportedStates` |
+| `ReadSleepInhibitedStates` | `sleepInhibitedStates` |
+| `ReadDebugContacts` | `debugContacts` |
+| `ReadPipelineTrace` | `pipelineTrace` |
+| `ReadPointJointConstraints` | `pointJointConstraints` |
+
+No forwarder branches, mutates unrelated state, reorders calls, or invokes a
+second target. `RegisterAuthoredBody` and `UpdateAuthoredBodyAndCollider` only
+move their by-value collider argument into the Scene call; the absorb retains
+that ownership transfer. The thirteen read projections are the only logic
+beyond direct return/call syntax and remain field-for-field on PhysicsEngine.
+
+### Direct Users And F1 Edit Census
+
+There are zero direct `PhysicsScene` type users outside `PhysicsEngine`.
+`PhysicsEngine.h` is the sole owner and include site. Four project/filter rows
+register `PhysicsScene.h/.cpp` and must be deleted in F1. Remaining external
+source rows are comments or Related paths in `ColliderStore.h`,
+`PhysicsBodyStore.h`, `PhysicsApi.h`, `PhysicsWorld.h/.cpp`,
+`RenderInstanceStore.h`, `SceneAuthoredSetup.cpp`, and `SceneWorld.cpp`; F1
+updates those owner words/paths to `PhysicsEngine`.
+
+The absorbed state is cohesive: `PhysicsWorld`, authored body descriptors,
+body/collider stores, physics material, body limits, contact policy, last world
+forces/validity, and the reused fixed-tree wake list all remain together on the
+single `PhysicsEngine` owner.
+
 ## Tasks
 
-- [ ] F0 — Inventory: enumerate both public surfaces, map every forwarder to
+- [x] F0 — Inventory: enumerate both public surfaces, map every forwarder to
   its target, list all direct `PhysicsScene` users outside PhysicsEngine, and
   record any forwarder that is not a pure relay (extra logic must be
   preserved and named). Output: inventory table in this plan or the closure
