@@ -223,6 +223,9 @@ class ImGuiEditorOwner
     void BuildEditorShell( const UI::OperatorEditorFrameView& view,
                            const ReplayOverlay::ReplayOverlayStateView& replay );
     ImGuiEditorFrameResult EndFrame();
+    // Records draw data published by EndFrame. The caller must invoke this
+    // synchronously from the current frame's graph callback before Present.
+    SkullbonezCore::Core::SbResult RenderPreparedDrawData();
     ImGuiEditorStatus CopyStatus() const noexcept;
 
   private:

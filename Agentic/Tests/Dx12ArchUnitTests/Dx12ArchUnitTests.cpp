@@ -879,6 +879,94 @@ void TestRenderGraphExecutesCallbacksInPassOrder()
     EXPECT_EQ( trace.labels[1], std::string( "second" ) );
 }
 
+void TestRenderGraphFrameEdgesKeepOnlyPresentDeclarationOnly()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present );
+
+    RenderGraphCallbackTrace trace;
+    const uint32_t clearPass = graph.AddPass( "BackbufferClear" );
+    graph.AddWrite( clearPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<RecordRenderGraphCallback>( clearPass, trace, true, "clear" );
+    const RenderGraphCallbackExecutionResult worldResult =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, clearPass, 1u );
+
+    // Invariant: production wrappers rediscover the same named external
+    // resource while appending later pass ranges. Identity must remain stable
+    // so the compiler retains cross-pass state history.
+    const RenderGraphResourceHandle reboundBackbuffer =
+        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::RenderTarget );
+    EXPECT_EQ( reboundBackbuffer.index, backbuffer.index );
+    const uint32_t uiPass = graph.AddPass( "UiTargetAcquire" );
+    graph.AddWrite( uiPass, reboundBackbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<RecordRenderGraphCallback>( uiPass, trace, true, "ui" );
+    const RenderGraphCallbackExecutionResult uiResult =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, uiPass, 1u );
+
+    // Invariant: normal frame work is callback-owned. Present alone is a
+    // declaration-only frame edge because the swap-chain owner performs it
+    // after graph callback execution.
+    const uint32_t presentPass = graph.AddPass( "Present" );
+    graph.AddWrite( presentPass, backbuffer, RenderGraphResourceAccess::Present );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( compiled.transitions[0].passIndex, clearPass );
+    EXPECT_TRUE( compiled.transitions[0].before == RenderGraphResourceAccess::Present );
+    EXPECT_TRUE( compiled.transitions[0].after == RenderGraphResourceAccess::RenderTarget );
+    EXPECT_EQ( compiled.transitions[1].passIndex, presentPass );
+    EXPECT_TRUE( compiled.transitions[1].before == RenderGraphResourceAccess::RenderTarget );
+    EXPECT_TRUE( compiled.transitions[1].after == RenderGraphResourceAccess::Present );
+
+    EXPECT_TRUE( graph.Passes()[clearPass].executionOwner == RenderGraphPassExecutionOwner::Callback );
+    EXPECT_TRUE( graph.Passes()[uiPass].executionOwner == RenderGraphPassExecutionOwner::Callback );
+    EXPECT_TRUE( graph.Passes()[presentPass].executionOwner == RenderGraphPassExecutionOwner::DeclarationOnly );
+
+    const RenderGraphExecutionContractResult contract = graph.ValidateFrameExecutionContract( "Present" );
+    EXPECT_TRUE( contract.IsValid() );
+    EXPECT_EQ( contract.callbackPassCount, static_cast<size_t>( 2 ) );
+    EXPECT_EQ( contract.declarationOnlyPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( worldResult.executedPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( uiResult.executedPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( trace.labels.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( trace.labels[0], std::string( "clear" ) );
+    EXPECT_EQ( trace.labels[1], std::string( "ui" ) );
+
+    // Capture-restart frames execute the same callback-owned UI/world ranges
+    // but intentionally leave before swap-chain Present. The production
+    // validator must accept exactly zero declaration-only rows for that edge.
+    RenderGraph captureGraph;
+    const RenderGraphResourceHandle captureBackbuffer =
+        captureGraph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::RenderTarget );
+    const uint32_t captureUiPass = captureGraph.AddPass( "UiTargetAcquire" );
+    captureGraph.AddWrite( captureUiPass, captureBackbuffer, RenderGraphResourceAccess::RenderTarget );
+    captureGraph.SetPassCallback<RecordRenderGraphCallback>( captureUiPass, trace, true, "capture-ui" );
+    const RenderGraphCallbackExecutionResult captureResult =
+        captureGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, captureUiPass, 1u );
+    const RenderGraphExecutionContractResult captureContract =
+        captureGraph.ValidateFrameExecutionContract( nullptr );
+    EXPECT_TRUE( captureContract.IsValid() );
+    EXPECT_EQ( captureContract.expectedDeclarationOnlyPassCount, static_cast<size_t>( 0 ) );
+    EXPECT_EQ( captureContract.declarationOnlyPassCount, static_cast<size_t>( 0 ) );
+    EXPECT_EQ( captureResult.executedPassCount, static_cast<size_t>( 1 ) );
+    captureGraph.ReleaseCallbackPayloadBorrows();
+
+    const uint32_t accidentalDeclaration = graph.AddPass( "AccidentalDirectPass" );
+    graph.AddWrite( accidentalDeclaration, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    EXPECT_TRUE( !graph.ValidateFrameExecutionContract( "Present" ).IsValid() );
+
+    RenderGraph disabledGraph;
+    const RenderGraphResourceHandle disabledBackbuffer =
+        disabledGraph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::RenderTarget );
+    const uint32_t disabledPass = disabledGraph.AddPass( "DisabledFramePass" );
+    disabledGraph.AddWrite( disabledPass, disabledBackbuffer, RenderGraphResourceAccess::RenderTarget );
+    disabledGraph.SetPassCallback<RecordRenderGraphCallback>( disabledPass, trace, false, "disabled" );
+    const uint32_t disabledPresent = disabledGraph.AddPass( "Present" );
+    disabledGraph.AddWrite( disabledPresent, disabledBackbuffer, RenderGraphResourceAccess::Present );
+    EXPECT_TRUE( !disabledGraph.ValidateFrameExecutionContract( "Present" ).IsValid() );
+}
+
 void TestRenderGraphDryRunValidatesCallbacksWithoutExecuting()
 {
     RenderGraph graph;
@@ -1394,6 +1482,8 @@ const TestCase kTests[] = {
       TestRenderGraphReusesCompatibleNonOverlappingTransientResources },
     { "Render graph rejects unused transient resource", TestRenderGraphRejectsUnusedTransientResource },
     { "Render graph executes callbacks in pass order", TestRenderGraphExecutesCallbacksInPassOrder },
+    { "Render graph frame edges keep only Present declaration-only",
+      TestRenderGraphFrameEdgesKeepOnlyPresentDeclarationOnly },
     { "Render graph dry-run validates callbacks without executing",
       TestRenderGraphDryRunValidatesCallbacksWithoutExecuting },
     { "Render graph disabled callback does not execute", TestRenderGraphDisabledCallbackDoesNotExecute },

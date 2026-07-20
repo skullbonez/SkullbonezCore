@@ -11,22 +11,21 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade, and physics settings plans are closed with exact proofs and independent review clear. |
-| Current objective | Complete the five remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 22 / 37 live tasks; 59%. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, and render-graph plans are closed with exact proofs and independent review clear. |
+| Current objective | Complete the three remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
+| Active/future progress | 17 / 31 live tasks; 55%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | X2 `validate_full` passes in 166.92s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | G4: direct Automation build, three consecutive DX12 renderer gates, and bounded graphics stress pass; 12/12 comment audit, 0 deferred. |
+| Last broad local gate | G5 `validate_full` passes in 177.73s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | G5: architecture/Automation/four runtime probes, replay fidelity, full, perf, and bounded stress pass; independent review clear; 10/10 comment audit, 0 deferred. |
 
 ## Live Queue
 
-NOW. Five live plans, 37 tasks; 22 complete (59%). The remaining architecture-review campaign
+NOW. Four live plans, 31 tasks; 17 complete (55%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
-binding order: render-graph-completion → render-hal-modernization →
-gameplay-module-extraction →
-replay-boundary-containment. Owner decisions at registration: finish the
-render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
+binding order: render-hal-modernization → gameplay-module-extraction →
+replay-boundary-containment. Owner decisions at registration: the render-graph
+migration is complete; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 
 `dependency-direction-restoration` is closed 6/6 and archived in
@@ -39,6 +38,8 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-20/physics-settings-snapshot-closure.md`.
 `run-execute-deaccretion` is closed 3/3 and archived in
 `Agentic/Reports/2026-07-20/run-execute-deaccretion-closure.md`.
+`render-graph-completion` is closed 6/6 and archived in
+`Agentic/Reports/2026-07-20/render-graph-completion-closure.md`.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -125,6 +126,14 @@ are not certified. Full evidence:
 | `tools\validate_dx12_renderer.bat` (G4 run 2) | 56.0 s | PASS; zero DX12 errors and unchanged baselines |
 | `tools\validate_dx12_renderer.bat` (G4 run 3) | 55.57 s | PASS; zero DX12 errors and unchanged baselines |
 | `tools\run_graphics_stress.bat 1` (G4) | 62.11 s | PASS; PID 39000, bounded PID-scoped run, crash-free |
+| Debug DX12 architecture build/test (G5) | 26.50 s | PASS; single-path normal/capture contracts |
+| direct Automation build (G5) | 18.31 s | PASS; zero warnings/errors |
+| Legacy / ImGui / text-only / capture probes (G5) | 4.74 s | PASS; all exit 0, ImGui 5 frames / 77 draws |
+| replay visual fidelity (G5, one engine generation) | 454.96 s | PASS; 2,401 ticks, all positive/negative controls, zero refresh |
+| `tools\validate_format.bat` (G5 preflight correction) | 12.78 s | PASS; one touched header formatted |
+| `tools\validate_full.bat` (G5 closure tip) | 177.73 s | PASS; CPU/coverage and five runtime lanes, 44,401-line physics CSV byte-exact |
+| `tools\validate_perf.bat` (G5) | 104.76 s | PASS; zero gameplay/reserve violations and no regression |
+| `tools\run_graphics_stress.bat 1` (G5) | 62.66 s | PASS; PID 27628, bounded PID-scoped run, crash-free |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -132,16 +141,13 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `render-graph-completion` G5 on `nightrunner-20th-july`.
-G4 transferred normal backbuffer RenderTarget acquisition to compiled graph
-callbacks for clear, tonemap, text, and the shared late-UI entry. Direct draw,
-clear, and ImGui paths now enforce the graph-owned state instead of repairing
-it. Only plan-approved Present/capture/editor-copy/lifecycle exceptions remain;
-the barrier-policy, callback-owned, and graph-result scaffolding is deleted.
-Three consecutive DX12 gates and bounded stress passed. Finalize the exception
-inventory, strengthen the DX12 architecture CPU test for the single-path
-contract, run full/perf/stress, and obtain the one end-of-plan independent
-review. The Profiler semantic
-exception remains deletion-bound to Render HAL M0/M5. E17
+Start `render-hal-modernization` M0 on `nightrunner-20th-july`.
+Render-graph G0-G5 is closed with one live callback/barrier path, explicit
+Present and capture-only completion contracts, callback-only ImGui submission,
+formal replay/full/perf/stress evidence, and clear independent review. M0 must
+inventory every `IRenderCommandContext` member/caller, define
+`RasterStateDesc` and state buckets, record the PSO cache baseline, and design
+the Rendering-owned Profiler presentation/GPU-timing seam. M0 is documentation
+only. The Profiler semantic exception remains deletion-bound to M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

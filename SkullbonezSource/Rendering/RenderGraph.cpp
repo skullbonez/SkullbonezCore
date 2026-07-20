@@ -28,6 +28,7 @@ Related:
 #include "RenderGraph.h"
 
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 
 namespace SkullbonezCore
@@ -243,6 +244,32 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name,
     // initialAccess is the graph's best knowledge of how the backend-owned
     // resource starts the frame. For example, a swap-chain backbuffer often
     // starts as Present, then the first draw pass transitions it to RenderTarget.
+    const char* resolvedName = ( name && name[0] != '\0' ) ? name : "UnnamedResource";
+    for ( size_t resourceIndex = 0; resourceIndex < m_resources.size(); ++resourceIndex )
+    {
+        RenderGraphResourceDesc& existing = m_resources[resourceIndex];
+        if ( std::strcmp( existing.name, resolvedName ) != 0 )
+        {
+            continue;
+        }
+        if ( !existing.external )
+        {
+            SB_FATAL( "RenderGraph", "External resource name aliases a transient resource. name=%s", resolvedName );
+        }
+        if ( static_cast<bool>( existing.nativeResource ) && static_cast<bool>( nativeResource ) &&
+             existing.nativeResource.value != nativeResource.value )
+        {
+            SB_FATAL( "RenderGraph", "External resource name aliases two native resources. name=%s", resolvedName );
+        }
+        if ( !static_cast<bool>( existing.nativeResource ) && static_cast<bool>( nativeResource ) )
+        {
+            existing.nativeResource = nativeResource;
+        }
+        RenderGraphResourceHandle existingHandle;
+        existingHandle.index = static_cast<uint32_t>( resourceIndex );
+        return existingHandle;
+    }
+
     if ( m_resources.size() >= RENDER_GRAPH_MAX_RESOURCES )
     {
         SB_FATAL( "RenderGraph",
@@ -251,7 +278,7 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name,
                   RENDER_GRAPH_MAX_RESOURCES );
     }
     RenderGraphResourceDesc desc;
-    desc.name = ( name && name[0] != '\0' ) ? name : "UnnamedResource";
+    desc.name = resolvedName;
     desc.external = true;
     desc.initialAccess = initialAccess;
     desc.nativeResource = nativeResource;
@@ -783,8 +810,25 @@ void RenderGraph::Compile( RenderGraphCompileResult& result ) const
 
 RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const
 {
+    return ExecuteCallbacks( mode, 0u, static_cast<uint32_t>( m_passes.size() ) );
+}
+
+
+RenderGraphCallbackExecutionResult
+RenderGraph::ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass, uint32_t passCount ) const
+{
     RenderGraphCallbackExecutionResult result;
-    for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
+    const size_t first = static_cast<size_t>( firstPass );
+    const size_t requestedEnd = first + static_cast<size_t>( passCount );
+    if ( first > m_passes.size() || requestedEnd < first || requestedEnd > m_passes.size() )
+    {
+        SB_FATAL( "RenderGraph",
+                  "Callback execution range is out of bounds. first=%u count=%u passes=%zu",
+                  firstPass,
+                  passCount,
+                  m_passes.size() );
+    }
+    for ( size_t passIndex = first; passIndex < requestedEnd; ++passIndex )
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
         if ( pass.executionOwner != RenderGraphPassExecutionOwner::Callback )
@@ -829,6 +873,46 @@ RenderGraphCallbackExecutionResult RenderGraph::ExecuteCallbacks( RenderGraphCal
 }
 
 
+RenderGraphExecutionContractResult
+RenderGraph::ValidateFrameExecutionContract( const char* declarationOnlyPassName ) const
+{
+    RenderGraphExecutionContractResult result;
+    const bool expectsDeclarationOnlyPass = declarationOnlyPassName && declarationOnlyPassName[0] != '\0';
+    result.expectedDeclarationOnlyPassCount = expectsDeclarationOnlyPass ? 1u : 0u;
+    const char* expectedName = expectsDeclarationOnlyPass ? declarationOnlyPassName : "";
+    for ( const RenderGraphPassDesc& pass : m_passes )
+    {
+        if ( pass.executionOwner == RenderGraphPassExecutionOwner::Callback )
+        {
+            ++result.callbackPassCount;
+            result.allCallbacksEnabled = result.allCallbacksEnabled && pass.callbackEnabled;
+            continue;
+        }
+        ++result.declarationOnlyPassCount;
+        result.declarationOnlyNameMatches =
+            result.declarationOnlyNameMatches && std::strcmp( pass.name, expectedName ) == 0;
+    }
+    return result;
+}
+
+
+void RenderGraph::ReleaseCallbackPayloadBorrows()
+{
+    // Lifetime: production callbacks borrow stack payloads only through their
+    // synchronous append/execute range. Once frame diagnostics are complete,
+    // poison every erased invocation slot so accidental full-graph replay
+    // fails through the missing-callback invariant instead of dereferencing a
+    // payload whose owner has left scope.
+    for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
+    {
+        if ( m_passes[passIndex].executionOwner == RenderGraphPassExecutionOwner::Callback )
+        {
+            m_callbackRecords[passIndex] = {};
+        }
+    }
+}
+
+
 const RenderGraphResourceDesc& RenderGraph::CheckedResource( RenderGraphResourceHandle handle ) const
 {
     // Fail immediately when a pass refers to a resource that was never declared.
@@ -845,7 +929,7 @@ const RenderGraphResourceDesc& RenderGraph::CheckedResource( RenderGraphResource
 
 RenderGraphPassDesc& RenderGraph::CheckedPass( uint32_t passIndex )
 {
-    // Pass indices are local to this graph. Throwing here keeps graph
+    // Pass indices are local to this graph. Failing fatally here keeps graph
     // construction mistakes in CPU code instead of letting them silently produce
     // incomplete barrier schedules later.
     if ( passIndex >= m_passes.size() )

@@ -4,8 +4,8 @@ Purpose:
   Coordinates render passes for the active scene.
 
 Summary:
-  Renderer-facing code builds one frame context and runs named passes in
-  the same order the image is produced.
+  Renderer-facing code builds one frame context and appends named pass
+  callbacks to one live graph in the order the image is produced.
 
 Glossary:
   Render pass: Named slice of RuntimeRenderer::RenderFrame() with explicit
@@ -24,9 +24,8 @@ Glossary:
     before its callback records commands.
 
 Invariants:
-  - RuntimeRenderer::RenderFrameEntry() owns pass order. Pass classes may bind
-    targets and restore local render state, but they must not present or advance
-    the frame.
+  - The live RenderGraph owns pass order from world clear through late UI;
+    FinalizeFrameGraph adds the sole declaration-only Present edge.
   - Pass resource reset hooks run while the renderer backend is alive, because
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
   - Pass input/output structs borrow data for one frame only. Do not cache
@@ -35,7 +34,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h declares the render owner.
-  - SkullbonezSource/Rendering/RenderPipeline.h owns executed frame graph diagnostics.
+  - SkullbonezSource/Rendering/RenderPipeline.h formats the live graph diagnostics.
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeRenderer.h"
@@ -73,6 +72,9 @@ Related:
 #include "../../UI/UI.h"
 #include "../../World/SkyBox.h"
 #include "../../World/WorldEnvironment.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "../DevelopmentTools/ImGuiEditorOwner.h"
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -352,6 +354,17 @@ struct ReplayGhostGraphCallbackData
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
 };
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+struct DevelopmentUiGraphCallbackData
+{
+    SkullbonezCore::Runtime::DevelopmentTools::ImGuiEditorOwner* editor = nullptr;
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+};
+#endif
+
 size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
                                         uint32_t passIndex );
 
@@ -605,6 +618,19 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
                                   data.shadow );
 }
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+void ExecuteDevelopmentUiGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                        DevelopmentUiGraphCallbackData& data )
+{
+    if ( !data.editor )
+    {
+        SB_FATAL( "RunRender", "ImGuiEditorPass graph callback missing its presentation owner." );
+    }
+    (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
+    data.status = data.editor->RenderPreparedDrawData();
+}
+#endif
+
 void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                       SceneTargetGraphCallbackData& data )
 {
@@ -809,9 +835,23 @@ void ExecuteGraphCallbacksOrFatal( const SkullbonezCore::Rendering::RenderGraph&
                                    uint32_t expectedPassCount,
                                    const char* owner )
 {
-    graph.ExecuteCallbacks( SkullbonezCore::Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const size_t passCount = graph.Passes().size();
+    if ( expectedPassCount > passCount )
+    {
+        SB_FATAL( "RunRender",
+                  "Executable graph callback range underflow. owner=%s expected=%u passes=%zu",
+                  owner ? owner : "unknown",
+                  expectedPassCount,
+                  passCount );
+    }
+    const uint32_t firstPass = static_cast<uint32_t>( passCount - expectedPassCount );
+    graph.ExecuteCallbacks( SkullbonezCore::Rendering::RenderGraphCallbackExecutionMode::DryRun,
+                            firstPass,
+                            expectedPassCount );
     const SkullbonezCore::Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( SkullbonezCore::Rendering::RenderGraphCallbackExecutionMode::Execute );
+        graph.ExecuteCallbacks( SkullbonezCore::Rendering::RenderGraphCallbackExecutionMode::Execute,
+                                firstPass,
+                                expectedPassCount );
     if ( executed.executedPassCount != expectedPassCount )
     {
         SB_FATAL( "RunRender",
@@ -1465,7 +1505,7 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
 }
 
 
-RuntimeRenderer::CinematicPostGraphResult
+RuntimeRenderer::CinematicPostFrameOutput
 RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs )
 {
     const RenderFrameContext& frame = inputs.frame;
@@ -1543,9 +1583,9 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
             callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
             if ( !callbackData.volumetricLight.IsValid() )
             {
-                // Lane R: if the graph-managed texture allocation fails, the
-                // volumetric callback can still render through its legacy
-                // framebuffer target. Keep the failure visible in logs/evidence.
+                // Lane R: if graph-managed texture allocation fails, the
+                // optional volumetric callback records no draw and tonemap
+                // proceeds without its sample. Keep the failure visible.
                 SkullbonezCore::Core::Log().WriteEventf(
                     "render_graph_volumetric_transient_unavailable materialization_failed=%d "
                     "hresult=0x%08X resource=%s",
@@ -1565,7 +1605,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
                                      callbackData.volumetricTransitionCount,
                                      callbackData.tonemapTransitionCount );
 
-    CinematicPostGraphResult result;
+    CinematicPostFrameOutput result;
     result.volumetricPassExecuted = volumetricDeclared;
     result.volumetricReady = volumetricDeclared && callbackData.volumetricRendered;
     result.volumetricTextureHandle = callbackData.volumetricLight.textureHandle;
@@ -1909,7 +1949,6 @@ RuntimeRenderTargetPreviewSnapshot RuntimeRenderer::BuildRenderTargetPreviewSnap
 
 SkullbonezCore::Rendering::RenderGraph& RuntimeRenderer::BeginRenderPassGraph()
 {
-    m_renderPassGraphScratch.Clear();
     return m_renderPassGraphScratch;
 }
 
@@ -1940,6 +1979,14 @@ void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resourc
 
 bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 {
+    // Invariant: Run opens graph ownership before choosing a world or text-only
+    // path. RenderFrame may only append to that active frame and may never
+    // replace the graph after earlier frame work has been recorded.
+    if ( m_frameGraphFinalized || m_frameGraphRenderCommands != &renderInputs.services.renderCommands )
+    {
+        SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
+    }
+
     const RuntimeRenderServices& services = renderInputs.services;
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     const ReplayRenderFrameView& replayFrame = services.replayFrame;
@@ -2144,11 +2191,11 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { frame, services, useCinematicTarget } );
 
     bool volumetricReady = false;
-    CinematicPostGraphResult cinematicPostGraph;
+    CinematicPostFrameOutput cinematicPostOutput;
     if ( useCinematicTarget )
     {
-        cinematicPostGraph = ExecuteCinematicPostThroughRenderGraph( { frame } );
-        volumetricReady = cinematicPostGraph.volumetricReady;
+        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph( { frame } );
+        volumetricReady = cinematicPostOutput.volumetricReady;
     }
 
     Rendering::RenderSceneSnapshot frameSnapshot;
@@ -2166,19 +2213,15 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
     frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
-    frameSnapshot.volumetricPassExecuted = cinematicPostGraph.volumetricPassExecuted;
+    frameSnapshot.volumetricPassExecuted = cinematicPostOutput.volumetricPassExecuted;
     frameSnapshot.volumetricReady = volumetricReady;
     if ( volumetricReady )
     {
-        frameSnapshot.volumetricTextureHandle = cinematicPostGraph.volumetricTextureHandle;
-        frameSnapshot.volumetricWidth = cinematicPostGraph.volumetricWidth;
-        frameSnapshot.volumetricHeight = cinematicPostGraph.volumetricHeight;
+        frameSnapshot.volumetricTextureHandle = cinematicPostOutput.volumetricTextureHandle;
+        frameSnapshot.volumetricWidth = cinematicPostOutput.volumetricWidth;
+        frameSnapshot.volumetricHeight = cinematicPostOutput.volumetricHeight;
     }
-    {
-        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
-            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
-        Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
-    }
+    m_frameGraphSnapshot = frameSnapshot;
     return debugOverlayRendered;
 }
 
@@ -2397,12 +2440,124 @@ void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracin
 }
 
 
+void RuntimeRenderer::BeginFrameGraph( Rendering::IRenderCommandContext& renderCommands )
+{
+    if ( m_frameGraphRenderCommands && !m_frameGraphFinalized )
+    {
+        SB_FATAL( "RunRender", "A new frame cannot replace an unfinished frame graph." );
+    }
+
+    // Concept: one graph instance accumulates every production pass for this
+    // frame. World and UI wrappers append and synchronously execute only their
+    // new callback ranges while resource identity and transition history remain
+    // shared until Present or an explicit capture-only completion.
+    m_renderPassGraphScratch.Clear();
+    m_frameGraphSnapshot = Rendering::RenderSceneSnapshot();
+    m_frameGraphRenderCommands = &renderCommands;
+    m_frameGraphFinalized = false;
+}
+
+
 void RuntimeRenderer::PrepareUiFrameTarget( Rendering::IRenderCommandContext& renderCommands )
 {
     // Text-only and ImGui-only frames do not necessarily execute a world or
     // tonemap pass. This graph callback is their normal backbuffer acquisition;
     // on ordinary frames it validates the already-render-target state.
     ExecuteBackbufferAcquireThroughRenderGraph( { renderCommands, false } );
+}
+
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor )
+{
+    if ( !m_frameGraphRenderCommands )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
+    }
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *m_frameGraphRenderCommands );
+    const uint32_t pass = graph.AddPass( "ImGuiEditorPass" );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    DevelopmentUiGraphCallbackData callbackData;
+    callbackData.editor = &editor;
+    callbackData.renderCommands = m_frameGraphRenderCommands;
+    graph.SetPassCallback<ExecuteDevelopmentUiGraphCallback>( pass, callbackData, true, "Frame/UI/ImGuiEditor" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
+    callbackData.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "ImGuiEditor" );
+    return callbackData.status;
+}
+#endif
+
+
+void RuntimeRenderer::FinalizeFrameGraph()
+{
+    FinalizeFrameGraphInternal( "Present", true, false );
+}
+
+
+void RuntimeRenderer::FinalizeCaptureOnlyFrameGraph()
+{
+    // Capture restart frames intentionally do not reach swap-chain Present.
+    // Validate that every recorded pass was callback-owned, then release all
+    // scene/resource payload borrows before capture automation can load a new
+    // scene in the same Run::TickScreenshots call.
+    FinalizeFrameGraphInternal( nullptr, false, true );
+}
+
+
+void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPassName,
+                                                  bool appendPresent,
+                                                  bool releaseGraphStorage )
+{
+    if ( m_frameGraphFinalized || !m_frameGraphRenderCommands )
+    {
+        SB_FATAL( "RunRender", "Frame graph finalization requires one active, unfinished frame graph." );
+    }
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    if ( appendPresent )
+    {
+        const Rendering::RenderGraphResourceHandle backbuffer =
+            AddBackbufferResource( graph, *m_frameGraphRenderCommands );
+        // Declaration-only exception: Present is the external swap-chain/fence
+        // boundary after command recording. The backend consumes this final edge.
+        const uint32_t presentPass = graph.AddPass( "Present" );
+        graph.AddWrite( presentPass, backbuffer, Rendering::RenderGraphResourceAccess::Present );
+    }
+    CompileRenderPassGraph( graph );
+
+    const Rendering::RenderGraphExecutionContractResult contract =
+        graph.ValidateFrameExecutionContract( declarationOnlyPassName );
+    if ( !contract.IsValid() ||
+         contract.callbackPassCount + contract.declarationOnlyPassCount != graph.Passes().size() )
+    {
+        SB_FATAL( "RunRender",
+                  "Production frame graph violates callback ownership. callbacks=%zu declarations=%zu expected=%zu "
+                  "name_match=%d enabled=%d passes=%zu",
+                  contract.callbackPassCount,
+                  contract.declarationOnlyPassCount,
+                  contract.expectedDeclarationOnlyPassCount,
+                  contract.declarationOnlyNameMatches ? 1 : 0,
+                  contract.allCallbacksEnabled ? 1 : 0,
+                  graph.Passes().size() );
+    }
+
+    {
+        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+        Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( graph, m_frameGraphSnapshot );
+    }
+    graph.ReleaseCallbackPayloadBorrows();
+    m_frameGraphFinalized = true;
+    if ( releaseGraphStorage )
+    {
+        graph.Clear();
+        m_frameGraphSnapshot = Rendering::RenderSceneSnapshot();
+        m_frameGraphRenderCommands = nullptr;
+    }
 }
 
 

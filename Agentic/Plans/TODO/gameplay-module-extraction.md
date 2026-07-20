@@ -6,8 +6,8 @@ Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding G)
 Ledger: T0-T3
 Depends on: `physics-settings-snapshot` C1 (force-stage inputs are typed
 values, giving the external-force seam its shape) and
-`render-graph-completion` (pass registration seam for T2). T0-T1 can start
-after plan 3; T2 requires plan 5.
+`../../Reports/2026-07-20/render-graph-completion-closure.md` (satisfied;
+the callback-owned pass-registration seam required by T2 is available).
 
 ## Objective
 

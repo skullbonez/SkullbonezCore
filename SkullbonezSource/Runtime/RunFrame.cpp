@@ -503,6 +503,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
+                if ( !m_renderBackendView.renderCommands )
+                {
+                    SB_FATAL( "RunFrame", "A rendered frame requires the startup-bound render command context." );
+                }
+                // Invariant: graph ownership begins before Render can choose
+                // the text-only early return. Every world/UI/capture path below
+                // therefore closes the same current-frame graph exactly once.
+                m_renderer.BeginFrameGraph( *m_renderBackendView.renderCommands );
                 Render( renderModels, presentationAlpha );
             }
             PROFILE_END( m_profiler, "Frame/Render" );
@@ -564,8 +572,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
             // Concept: the context owner builds one typed editor frame, then
-            // its narrow E6 renderer binding records draw data before Present.
-            // Win32 message routing remains isolated to E7.
+            // RuntimeRenderer records its prepared draw data through the live
+            // graph callback before Present. Win32 routing remains isolated to E7.
             const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
             const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
             const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus tracyStatus =
@@ -580,7 +588,11 @@ SkullbonezCore::Core::SbResult Run::Execute()
             if ( m_imguiEditor.BeginFrame( imguiFrameInput ) )
             {
                 m_imguiEditor.BuildEditorShell( operatorEditorView, replayOverlay );
-                const DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
+                DevelopmentTools::ImGuiEditorFrameResult imguiResult = m_imguiEditor.EndFrame();
+                if ( imguiResult.status.ok )
+                {
+                    imguiResult.status = m_renderer.RenderDevelopmentUi( m_imguiEditor );
+                }
                 if ( !imguiResult.status.ok )
                 {
                     m_timers.frameTimer.StopTimer();
@@ -663,6 +675,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Render );
+                // Invariant: close the live production graph with its sole
+                // declaration-only Present edge before the swap-chain owner
+                // consumes that edge and submits the frame.
+                m_renderer.FinalizeFrameGraph();
                 presentResult = renderLifecycle.Present();
             }
             PROFILE_END( m_profiler, "Frame/VsyncWait" );
@@ -921,6 +937,14 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                     m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
                                     scenePath ? scenePath->c_str() : nullptr },
         m_renderBackendView.RequireCaptureBackend() );
+
+    if ( result.restartFrame )
+    {
+        // Capture automation can synchronously replace scene-owned render
+        // resources below. Close and clear graph borrows before that mutation;
+        // this restart path deliberately records no Present declaration.
+        m_renderer.FinalizeCaptureOnlyFrameGraph();
+    }
 
     PROFILE_END( m_profiler, "Frame/PostDraw/Screenshots" );
 

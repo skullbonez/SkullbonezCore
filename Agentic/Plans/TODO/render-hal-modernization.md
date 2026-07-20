@@ -1,11 +1,11 @@
 # Render HAL Modernization
 
-Status: Registered — 0/6 tasks (M0-M5)
+Status: Active — 0/6 tasks (M0-M5)
 Owner: repository owner; registered 2026-07-20 as campaign plan 6 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding F)
 Ledger: M0-M5
-Depends on: `render-graph-completion` (hard blocker — pass-declared state
-needs the single graph execution path as its shape).
+Depends on: `../../Reports/2026-07-20/render-graph-completion-closure.md`
+(satisfied — the single callback/barrier graph path is now the migration seam).
 
 ## Objective
 

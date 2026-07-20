@@ -4,12 +4,12 @@ Purpose:
   Declares the runtime renderer owner for ordered render passes.
 
 Summary:
-  RuntimeRenderer owns pass objects, backend-resource lifetime, and the frame
-  pass order. Five named owner views supply lifetime-stable dependencies;
+  RuntimeRenderer owns pass objects and backend-resource lifetime. One live
+  RenderGraph owns the frame pass order. Five named owner views supply lifetime-stable dependencies;
   immutable per-frame records carry submission facts and completed overlays.
 
 Glossary:
-  RuntimeRenderer: Owner of pass instances and the frame pass order.
+  RuntimeRenderer: Owner of pass instances and the live frame-graph builder.
   Pass order: The stable sequence of shadows, sky, reflection, objects, terrain,
     water, post effects, and UI/text.
   Lane R result: Recoverable resource setup or GPU-drain failure reported
@@ -23,7 +23,8 @@ Glossary:
 
 Invariants:
   - RuntimeRenderer owns pass instances; Run owns one RuntimeRenderer.
-  - RenderFrame preserves the existing pass order and frame graph snapshot.
+  - One graph accumulates world, late UI, development UI, and Present rows in
+    execution order; wrappers never clear or reconstruct it mid-frame.
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
 
@@ -42,6 +43,7 @@ Related:
 #include "../../Assets/TextureCollection.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGraph.h"
+#include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/Text.h"
 
 #include <array>
@@ -64,6 +66,12 @@ namespace Threading
 {
 class WorkerPool;
 }
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+namespace Runtime::DevelopmentTools
+{
+class ImGuiEditorOwner;
+}
+#endif
 namespace Runtime
 {
 class RuntimeRenderer
@@ -154,7 +162,19 @@ class RuntimeRenderer
                                                           int screenH );
     bool ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
+    // Opens the one frame-owned graph before Run chooses world or text-only
+    // rendering. The caller must close it exactly once through a finalizer below.
+    void BeginFrameGraph( Rendering::IRenderCommandContext& renderCommands );
     void PrepareUiFrameTarget( Rendering::IRenderCommandContext& renderCommands );
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    SkullbonezCore::Core::SbResult RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor );
+#endif
+    // Adds the sole declaration-only Present edge and validates the submitted
+    // frame contract before the swap-chain owner presents.
+    void FinalizeFrameGraph();
+    // Validates a restart frame with no Present edge, then releases every
+    // callback/resource borrow before capture automation can replace the scene.
+    void FinalizeCaptureOnlyFrameGraph();
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
                        const UiTextPassState& state,
@@ -169,7 +189,7 @@ class RuntimeRenderer
                        double dSecondsPerFrame );
 
   private:
-    struct CinematicPostGraphResult
+    struct CinematicPostFrameOutput
     {
         bool volumetricPassExecuted = false;              // Volumetric callback was scheduled for this post chain.
         bool volumetricReady = false;                     // Volumetric target was produced and can be sampled by tonemap.
@@ -272,6 +292,8 @@ class RuntimeRenderer
                                                       bool cinematicRender ) const;
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
+    void
+    FinalizeFrameGraphInternal( const char* declarationOnlyPassName, bool appendPresent, bool releaseGraphStorage );
     void ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs );
     ShadowPassOutput ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs );
     void ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
@@ -287,7 +309,7 @@ class RuntimeRenderer
                                                     const RuntimeRenderServices& services ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
-    CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
+    CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
     void ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
                                           const UiTextPassState& state,
@@ -341,11 +363,14 @@ class RuntimeRenderer
     // renderer process owner and is synchronously borrowed by UI/text calls.
     Text::TextBatch m_textBatch;
     UiTextPass m_uiTextPass;                              // HUD/UI/text pass.
-    // Runtime allocation policy: graph wrapper passes reuse this owner scratch
-    // storage. Pass labels are borrowed literals and per-pass reads/writes are
-    // bounded, so steady render frames do not create per-wrapper graph heaps.
+    // Runtime allocation policy: one owner scratch graph accumulates the whole
+    // frame. Pass labels are borrowed literals and pass/resource lists are
+    // bounded, so steady render frames do not create graph heaps.
     Rendering::RenderGraph m_renderPassGraphScratch;
     Rendering::RenderGraphCompileResult m_renderPassCompileScratch;
+    Rendering::RenderSceneSnapshot m_frameGraphSnapshot;
+    Rendering::IRenderCommandContext* m_frameGraphRenderCommands = nullptr;
+    bool m_frameGraphFinalized = false;
     // Lifetime: borrowed only for the next UI pass after world rendering, then
     // refreshed or cleared before backend release and text-only frames.
     Rendering::IRenderRayTracing* m_uiTextRayTracing = nullptr;

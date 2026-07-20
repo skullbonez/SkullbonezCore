@@ -2839,18 +2839,26 @@ ImGuiEditorFrameResult ImGuiEditorOwner::EndFrame()
             m_pendingOperatorEditorCommands = queued.commands;
         }
     }
-    if ( !m_renderer || !ImGui::GetDrawData() )
-    {
-        result.status = SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
-                                                                 "Completed frame has no DX12 draw-data target" );
-        return result;
-    }
-    const SkullbonezCore::Core::SbResult renderStatus = m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );
-    if ( result.status.ok )
-    {
-        result.status = renderStatus;
-    }
     return result;
+}
+
+
+SkullbonezCore::Core::SbResult ImGuiEditorOwner::RenderPreparedDrawData()
+{
+    // Lifetime: EndFrame publishes draw data inside this owned context; the
+    // live frame-graph callback consumes it synchronously before Present.
+    if ( !m_context || !m_renderer )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
+                                                        "Completed frame has no DX12 draw-data target" );
+    }
+    ImGui::SetCurrentContext( m_context );
+    if ( !ImGui::GetDrawData() )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGui",
+                                                        "Completed frame has no DX12 draw data" );
+    }
+    return m_renderer->RenderDrawData( *m_context, *ImGui::GetDrawData() );
 }
 
 ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept

@@ -284,14 +284,20 @@ now sequences one scene proceed policy and one concrete operator-editor
 composer call; the complete logical ownership review is clear. Closure evidence
 is in `../Reports/2026-07-20/run-execute-deaccretion-closure.md`.
 
+The active/future denominator returned 37 → 31 when
+`render-graph-completion` closed G0-G5 and left the ledger under rule 4. One
+live graph now owns world/UI callback order and compiled resource transitions;
+normal frames retain only the declaration-only Present edge, while capture
+restart uses an explicit zero-declaration completion. Closure evidence is in
+`../Reports/2026-07-20/render-graph-completion-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [render-graph-completion](TODO/render-graph-completion.md) | 5 | 6 | 83% |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **22** | **37** | **59%** |
+| **Active/future total** | **17** | **31** | **55%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -356,11 +362,9 @@ smoke all pass. Closure evidence is in
 The architecture-review campaign registered 2026-07-20 is the active queue.
 Dependency-direction restoration, allocation-namespace restoration,
 physics-facade unification, physics-settings snapshot, and Run::Execute
-de-accretion are closed. Remaining execution order is binding and
-biggest-wins-first: 1 `render-graph-completion`, 2
-`render-hal-modernization` (hard-blocked on 1), 3
-`gameplay-module-extraction` (T0-T1 unblocked; T2 after 1), 4
-`replay-boundary-containment`. Owner decisions ratified at
+de-accretion, and render-graph completion are closed. Remaining execution order
+is binding and biggest-wins-first: 1 `render-hal-modernization`, 2
+`gameplay-module-extraction`, 3 `replay-boundary-containment`. Owner decisions ratified at
 registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
 a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
@@ -1142,15 +1146,14 @@ or hot-path inheritance/callback artifacts (existing review rules apply
 verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
 this campaign: it waits on the parked E17 owner verdict.
 
-Execution order is binding (biggest wins first). Render-graph completion gates
-Render HAL modernization and gameplay T2. Replay boundary containment inherits
-the now-closed solver-snapshot move.
+Execution order is binding (biggest wins first). Render-graph completion is
+closed, so Render HAL modernization and gameplay T2 are unblocked. Replay
+boundary containment inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-graph-completion](TODO/render-graph-completion.md) | Active | 5/6 | G4 transferred normal backbuffer/UI edges and retired dual-path scaffolding; start G5 closure |
-| [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
-| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | T0-T1 unblocked; T2 after render-graph-completion |
+| [render-hal-modernization](TODO/render-hal-modernization.md) | Active | 0/6 | Start M0 contract, caller inventory, PSO-cache baseline, and Profiler seam design |
+| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | All tasks unblocked; start after Render HAL in binding order |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |
 
 ## Features
@@ -1166,12 +1169,10 @@ rule 9 applies — it is not live work and is not tracked here).
 
 Binding:
 
-- Superseded 2026-07-20 by the owner's render-graph decision: RenderGraph
-  becomes the owner of pass scheduling and barrier emission through
-  [`render-graph-completion`](TODO/render-graph-completion.md). Until a
-  resource class is migrated by that plan, DX12 explicit helpers remain the
-  live barrier authority for it; the old freeze ruling no longer blocks the
-  migration.
+- Satisfied 2026-07-20 by the owner's render-graph decision: RenderGraph is the
+  owner of pass scheduling and ordinary frame-resource barrier emission.
+  Closure and bounded edge exceptions are recorded in
+  [`render-graph-completion-closure`](../Reports/2026-07-20/render-graph-completion-closure.md).
 - Any DX12 modification requires a crash-free graphics-stress run lasting at
   least 10 seconds; `tools\run_graphics_stress.bat 1` is the standard bounded
   proof.

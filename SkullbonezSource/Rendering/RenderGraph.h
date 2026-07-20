@@ -286,8 +286,8 @@ struct RenderGraphNativeResourceToken
 };
 
 // Typed view of the current swap-chain image and the backend's tracked access.
-// The graph borrows this identity only while compiling/executing one wrapper;
-// the backend remains the resource lifetime owner.
+// The graph borrows this identity for one accumulated frame schedule; the
+// backend remains the resource lifetime owner.
 struct RenderGraphBackbufferBinding
 {
     RenderGraphNativeResourceToken nativeResource;
@@ -585,6 +585,21 @@ struct RenderGraphCallbackExecutionResult
     size_t disabledCallbackPassCount = 0;
 };
 
+struct RenderGraphExecutionContractResult
+{
+    size_t callbackPassCount = 0;
+    size_t declarationOnlyPassCount = 0;
+    size_t expectedDeclarationOnlyPassCount = 1;
+    bool declarationOnlyNameMatches = true;
+    bool allCallbacksEnabled = true;
+
+    bool IsValid() const
+    {
+        return declarationOnlyPassCount == expectedDeclarationOnlyPassCount && declarationOnlyNameMatches &&
+               allCallbacksEnabled;
+    }
+};
+
 class RenderGraph
 {
   private:
@@ -654,7 +669,17 @@ class RenderGraph
     std::string DumpText() const;
     RenderGraphCompileResult Compile() const;
     void Compile( RenderGraphCompileResult& result ) const;
+    // Executes callback-owned passes in declaration order. The range overload
+    // is the production path for newly appended one-shot callback payloads.
     RenderGraphCallbackExecutionResult ExecuteCallbacks( RenderGraphCallbackExecutionMode mode ) const;
+    RenderGraphCallbackExecutionResult
+    ExecuteCallbacks( RenderGraphCallbackExecutionMode mode, uint32_t firstPass, uint32_t passCount ) const;
+    // Passing a null/empty declaration name validates a capture-only graph with
+    // no declaration-only edge; ordinary submitted frames pass "Present".
+    RenderGraphExecutionContractResult ValidateFrameExecutionContract( const char* declarationOnlyPassName ) const;
+    // Poisons erased one-frame callback borrows after execution and diagnostics.
+    // Declarations remain available until Clear for frame-edge inspection.
+    void ReleaseCallbackPayloadBorrows();
 
   private:
     const RenderGraphResourceDesc& CheckedResource( RenderGraphResourceHandle handle ) const;
