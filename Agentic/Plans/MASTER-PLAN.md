@@ -301,9 +301,9 @@ owner and Core-owned value history. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
+| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 1 | 4 | 25% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **17** | **25** | **68%** |
+| **Active/future total** | **18** | **25** | **72%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1158,7 +1158,7 @@ Replay boundary containment inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Active | 0/4 | Start T0 seam design and complete tornado census |
+| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Active | 1/4 | T0 bound path 2; start T1 physics extraction and deterministic force witness |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |
 
 ## Features

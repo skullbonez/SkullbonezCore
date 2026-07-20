@@ -1,6 +1,6 @@
 # Gameplay Module Extraction
 
-Status: Registered — 0/4 tasks (T0-T3)
+Status: Active — 1/4 tasks (T0 complete; T1-T3 remain)
 Owner: repository owner; registered 2026-07-20 as campaign plan 7 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding G)
 Ledger: T0-T3
@@ -31,9 +31,10 @@ game feature copying this pattern makes the engine less an engine.
 ## Non-Goals
 
 - No behavior change: tornado force application order, magnitudes, worker
-  scheduling, and determinism are preserved exactly. Byte-exact physics CSV
-  (tornado scenes are in the varied baseline set) is the oracle; zero
-  refresh authorized.
+  scheduling, and determinism are preserved exactly. The current varied
+  physics baseline does not contain a tornado scene, so T1 must add a direct
+  deterministic force witness before the move and preserve it exactly after
+  the move. Existing physics CSV remains byte-exact; zero refresh authorized.
 - Buoyancy, water, terrain, and world environment stay in the engine — they
   are environment, not content.
 - No general plugin/scripting system: the external-force lane is a typed,
@@ -70,9 +71,98 @@ game feature copying this pattern makes the engine less an engine.
 5. `TornadoVisualPass` registers through the plan-5 pass path from
    `Gameplay/`; `RuntimeRenderer` keeps zero tornado-named members.
 
+## T0 Census (2026-07-21)
+
+`git grep -il tornado -- . ':(exclude)Agentic/**'` finds 82 tracked files.
+This inventory is the closure source of truth; T3 must rerun and reconcile it.
+
+| Surface | Tracked files containing tornado vocabulary | T1-T3 disposition |
+|---|---|---|
+| Physics | `PhysicsBodyStore.h`, `PhysicsEngine.cpp/.h`, `PhysicsRuntimeSettings.h`, `PhysicsSolverSnapshot.h`, `PhysicsWorld.cpp/.h`, `Stages/PhysicsSleepController.Wake.cpp`, `TornadoField.cpp/.h`, `TornadoGameplay.cpp/.h` | T1 moves content/config/state to `Gameplay/` and replaces the physics-facing names with the value lane below. Closure target: zero rows. |
+| Runtime render | `RenderPresentationSettings.h`, `RuntimeRenderer.cpp/.h`, `RuntimeRenderInputs.h`, `RuntimeRenderPasses.cpp/.h` | T2 moves visual settings, snapshot, pass state, GPU lifecycle, and graph callback payload to `Gameplay/`. Closure target: zero rows. |
+| Rendering | `DX12/GeneratedShaderReflection.h`, `DX12/RenderBackendDX12.DynamicGeometry.cpp`, `RenderPipeline.cpp`, `RenderSceneSnapshot.h`, `ShaderContracts.h` | T2 replaces content-specific shader/draw vocabulary with the existing generic transient-colored-triangle contract; generated reflection and manifest keys move with the gameplay shader contract. Closure target: zero rows. |
+| Runtime composition and tools | `DevelopmentTools/ImGuiEditorOwner.cpp`, `InputController.cpp/.h`, `InputFrame.cpp`, `OperatorCommandApplier.cpp/.h`, `Run.cpp`, `RunLaunchOptions.h`, `RuntimeDiagnostics.cpp`, `RuntimeStressController.cpp`, `Scene/RunScene.cpp`, `Scene/SceneRuntimeReset.cpp/.h`, `Startup/StartupCommandLine.cpp/.h`, `Startup/StartupLaunchResolution.cpp`, `UI/OperatorEditorFrameComposer.cpp`, `UiTextPass.cpp` | T1 wires the Gameplay owner into the fixed-step value lane; T3 routes input, startup, reset, stress, diagnostics, and UI composition to that owner. Runtime composition may name Gameplay; Physics, Rendering, and `Runtime/Render` may not. |
+| Replay | `ReplayPrediction.cpp`, `ReplayPredictionArchive.cpp`, `ReplayPredictionView.h`, `ReplayRecorder.cpp/.h`, `ReplayRestoreService.h`, `ReplayV2Artifact.cpp` | T3 records/restores Gameplay-owned values without changing replay ordering, schema, or sample values. |
+| Scene authoring | `AuthoredScene.cpp/.h`, `AuthoredSceneParser.cpp`, `AuthoredSceneParserRuntime.cpp`, `AuthoredSceneParserSchema.h` | T3 keeps authored schema spelling stable while projecting parsed values into Gameplay ownership. No schema/version bump is intended. |
+| UI | `OperatorEditorExchange.cpp/.h`, `UI.cpp/.h`, `UICommands.h`, `UIFrameComposition.cpp`, `UILayout.h`, `UITabPhysics.cpp/.h` | T3 preserves operator command/value vocabulary and moves the owning command target from Physics/renderer to Gameplay. |
+| Core, assets, and config | `Assets/AssetSystem.cpp`, `Core/Config.cpp/.h`, `SkullbonezData/engine.cfg` | T3 moves content config projection to Gameplay. The only config-file hit is `physics_parallel_tornado_field`; its authored spelling remains stable unless a versioned migration is explicitly added. |
+| Data and shader | `scenes/aaa_ragdoll_sunset_showcase.scene.json`, `scenes/tornado_alley_showcase.scene.json`, `scenes/tornado_village_rampage.scene.json`, `shaders/shader_manifest.json`, `shaders/tornado_fx.hlsl` | Authored content names stay content names. The three scenes author 1, 3, and 3 vortices respectively. T2/T3 update only ownership/build routing. |
+| Tests and tools | `TestDeterminism.cpp`, `TestOwnerRequestQueues.cpp`, `TestPhysicsStageState.cpp`, `TestStartup.cpp`, `tools/allocation_policy_allowlist.json`, `tools/replay_query.py`, `tools/validate_project_filters.py` | Tests follow the new owner and add the missing direct force witness; allowlist/project-filter/query tooling follows moved paths without weakening checks. |
+| Project metadata | `SKULLBONEZ_CORE.vcxproj/.filters`, `SKULLBONEZ_PHYSICS.vcxproj/.filters` | T1 adds the `Gameplay` filter and moves compilation ownership out of the physics-only project. |
+| Baselines | No tracked file under `TestOutput/baselines/` contains tornado vocabulary. `validate_physics.bat` runs `physics_bench_varied.scene.json`, which has no tornado configuration. | This is a validation gap, not refresh authority. T1 adds a focused deterministic witness and still runs the normal byte-exact physics gate. |
+
+## T0 Bound Seam Contract
+
+Binding-decision path **2** is selected. The current behavior maps losslessly to
+a Physics-owned cylindrical external-force primitive, so path 3 is not
+authorized at T0. If the T1 pre-move witness disproves that statement, T1 must
+stop and amend this plan with the exact-position typed hook, its owner, reason,
+deletion condition, and comparison evidence before source changes continue.
+
+### External-force lane
+
+- Physics owns the value vocabulary, tentatively
+  `ExternalCylindricalForceField` and `ExternalForceFrameInput`; Gameplay owns
+  authored configuration, time evolution, and the fixed storage that publishes
+  those records. Neither side stores a callback, service, host pointer, or
+  polymorphic object.
+- The field capacity is **64** records per fixed step. Committed authored scenes
+  currently peak at three. Storage is allocated/prepared before steady gameplay;
+  overflow is a recoverable scene/config failure with owner, requested count,
+  and capacity. There is no truncation or growth fallback.
+- Each record carries center and vertical extent in metres; radius in metres;
+  inward, tangential, lift, outward-eject, and upward-eject acceleration in
+  metres/second squared; ejection-band fraction; minimum exposure and repeat
+  cooldown in seconds; and maximum per-step delta velocity in metres/second.
+  Per-body exposure/cooldown state is bounded by
+  `Scene::Capacity::MAX_SCENE_OBJECTS` and remains Gameplay-owned mutable value
+  storage borrowed only for the step.
+- Gameplay publishes active fields in authored/source order after its existing
+  grow/shrink, drift, and repulsion update. Physics consumes that span in the
+  same order. For each body row in ascending dense-row order, it sums fields
+  left-to-right, selects the strongest capture field with the existing strict
+  `>` comparison, and applies the existing deterministic ejection-slot formula.
+  No reduction, sort, handle lookup, or reordered floating-point accumulation
+  is permitted.
+- The lane executes immediately after base `PhysicsForceStage::ApplyForces` and
+  before `PhysicsSleepController::FlushPendingAwakeBodyIndices` and broadphase,
+  matching the current call position. Fixed-body release scans rows ascending;
+  released wake rows preserve append order; each movable body writes only its
+  own hot-state velocity row.
+- `parallelTornadoField` becomes a Gameplay execution setting but retains exact
+  behavior: the existing allocation-free worker pool partitions only body rows;
+  every worker reads the immutable ordered field span and writes disjoint body
+  and Gameplay state rows. Serial and parallel modes use identical per-body
+  field iteration and arithmetic.
+- The fixed-step composition owner builds the Gameplay frame input before
+  `SceneWorld::StepPhysics` and passes it through a Physics-named value boundary.
+  Physics never includes `Gameplay/`; diagnostics/wake results leave Physics as
+  generic row/value outputs and are interpreted by Gameplay after the step.
+
+### Render pass registration
+
+- T2 introduces a content-neutral, stack-scoped world-extension registration
+  scope owned by RuntimeRenderer/Rendering. It exposes the current color/depth
+  graph resources, the existing frame command/view values, and synchronous
+  typed `RenderGraph::SetPassCallback` registration; it exposes no renderer,
+  scene-container, replay-owner, or backend service pointer.
+- The higher composition layer opens that scope at the current scheduling point:
+  after opaque terrain/water and before the optional transparent-body replay
+  pass. `Gameplay::TornadoVisualPass` appends exactly one graphics pass, declares
+  color/depth writes, registers its concrete stack payload, and the renderer
+  compiles/executes that appended range before the scope ends.
+- Gameplay owns visual settings, replay-to-visual sampling, transient vertex
+  storage, GPU prepare/release, and the callback trampoline. RuntimeRenderer
+  retains only the generic registration scope and ordering; it has no tornado
+  member, method, snapshot, pass name, or resource-lifecycle branch.
+- The callback remains synchronous and fixed-capacity as guaranteed by
+  `RenderGraph`; payload borrows cannot escape graph execution. Existing visual
+  timing label, raster state, world-view/depth use, and draw ordering remain
+  unchanged.
+
 ## Tasks
 
-- [ ] T0 — Seam design and census: enumerate every tornado reference in
+- [x] T0 — Seam design and census: enumerate every tornado reference in
   `Physics/`, `Runtime/`, `Rendering/`, `UI/`, replay, config, scenes, and
   baselines; specify the external-force lane contract (capacity, ordering,
   units, worker interaction) and the pass-registration usage; name which
@@ -82,8 +172,9 @@ game feature copying this pattern makes the engine less an engine.
   `TornadoGameplay`/`TornadoField` there, feed forces through the seam,
   delete tornado members/APIs from `PhysicsWorld`/`PhysicsEngine`.
   Proof: `grep -irn "tornado" SkullbonezSource/Physics` returns zero rows.
-  Validation: `tools\validate_physics.bat` (byte-exact, tornado scenes
-  included) + `tools\validate_perf.bat` (force-stage hot path touched);
+  Validation: add/run the focused deterministic tornado force witness, then
+  `tools\validate_physics.bat` (existing CSV remains byte-exact) +
+  `tools\validate_perf.bat` (force-stage hot path touched);
   `tools\validate_physics_deep.bat` if any SkullScope tornado diagnostics
   move.
 - [ ] T2 — Render extraction: `TornadoVisualPass` ownership and its

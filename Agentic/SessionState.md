@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, and Render HAL plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the two remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 17 / 25 live tasks; 68%. |
+| Active/future progress | 18 / 25 live tasks; 72%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | M5 final `validate_full` passes in 149.05s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | M5 final full, performance, one-minute stress, and platform-profiler probes pass after independent-review remediation. Core Profiler owns values only; Rendering owns GPU timing and overlay presentation. |
+| Validation for current edits | Gameplay T0 is documentation-only; no repository validation required. T0 found that the varied physics gate has no tornado scene, so T1 must add a focused deterministic force witness before extraction. |
 
 ## Live Queue
 
-NOW. Three live plans, 25 tasks; 17 complete (68%). The remaining architecture-review campaign
+NOW. Three live plans, 25 tasks; 18 complete (72%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: gameplay-module-extraction → replay-boundary-containment. Owner
@@ -163,11 +163,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `gameplay-module-extraction` T0 on `nightrunner-20th-july`.
-Render HAL modernization is closed 6/6: raster state and DXR surfaces are typed,
-Core Profiler owns fixed values only, Rendering owns the concrete GPU timing and
-overlay seams, final full/perf/stress/marker gates pass, and independent review
-is clear after the reflection early-return scope fix. T0 is documentation-only:
-complete the tornado census and bind the external-force/pass-registration seam
-before implementation. E17 extended owner playtest remains parked; keep Legacy
-default until the owner explicitly authorizes a switch.
+Start `gameplay-module-extraction` T1 on `nightrunner-20th-july`.
+T0 is complete: the 82-file tornado census is recorded, binding path 2 is bound
+to a 64-record cylindrical external-force value lane at the exact current force
+stage position, and the visual move uses a content-neutral stack-scoped graph
+registration. The varied physics baseline contains no tornado scene, so T1 must
+add a focused deterministic force witness before moving the implementation,
+then preserve it exactly. E17 extended owner playtest remains parked; keep
+Legacy default until the owner explicitly authorizes a switch.
