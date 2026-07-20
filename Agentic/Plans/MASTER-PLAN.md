@@ -271,16 +271,22 @@ aggregate read view, files, and project rows are deleted with zero compatibility
 shapes. Closure evidence is in
 `../Reports/2026-07-20/physics-facade-unification-closure.md`.
 
+The active/future denominator returned 44 → 40 when
+`physics-settings-snapshot` closed C0-C3 and left the ledger under rule 4.
+The final 27-field Physics-owned value has one cold Core stamp, no fixed-step
+Core-config edge, exact default/custom/Boolean provenance tests, unchanged
+single-site clamps, and clear independent review. Closure evidence is in
+`../Reports/2026-07-20/physics-settings-snapshot-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 3 | 4 | 75% |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 0 | 3 | 0% |
 | [render-graph-completion](TODO/render-graph-completion.md) | 0 | 6 | 0% |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **20** | **44** | **45%** |
+| **Active/future total** | **17** | **40** | **43%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -343,12 +349,12 @@ smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 The architecture-review campaign registered 2026-07-20 is the active queue.
-Dependency-direction restoration, allocation-namespace restoration, and
-physics-facade unification are closed. Remaining execution order is binding and
-biggest-wins-first: 1 `physics-settings-snapshot`, 2
-`run-execute-deaccretion`, 3 `render-graph-completion`, 4
-`render-hal-modernization` (hard-blocked on 3), 5
-`gameplay-module-extraction` (T0-T1 after 1; T2 after 3), 6
+Dependency-direction restoration, allocation-namespace restoration,
+physics-facade unification, and physics-settings snapshot are closed. Remaining
+execution order is binding and biggest-wins-first: 1
+`run-execute-deaccretion`, 2 `render-graph-completion`, 3
+`render-hal-modernization` (hard-blocked on 2), 4
+`gameplay-module-extraction` (T0-T1 unblocked; T2 after 2), 5
 `replay-boundary-containment`. Owner decisions ratified at
 registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
@@ -1131,18 +1137,17 @@ or hot-path inheritance/callback artifacts (existing review rules apply
 verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
 this campaign: it waits on the parked E17 owner verdict.
 
-Execution order is binding (biggest wins first): plans 1-4 are the cheap
-compounding tranche; plan 5 gates plan 6 and 7-T2. Replay boundary containment
-inherits the now-closed solver-snapshot move.
+Execution order is binding (biggest wins first). Render-graph completion gates
+Render HAL modernization and gameplay T2. Replay boundary containment inherits
+the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Active | 3/4 | Start C3 independent review and closure gates; no blocker |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Registered | 0/3 | Independent; may run parallel to plans 2-3 |
 | [render-graph-completion](TODO/render-graph-completion.md) | Registered | 0/6 | Start G0 anytime; owner ruling to finish the migration is recorded |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | T0-T1 unblocked; T2 after render-graph-completion |
-| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | RB0 after plan 1 L2 lands the snapshot move (soft) |
+| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |
 
 ## Features
 

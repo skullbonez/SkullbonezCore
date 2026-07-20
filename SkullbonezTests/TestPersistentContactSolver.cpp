@@ -21,12 +21,16 @@
 //     writeback, matching the physics baseline contract.
 //   Sleep support edge: Directed relationship used later to propagate grounded
 //     sleep eligibility through an object stack.
+//   Solver step policy: Once-per-solve normalized contact limits shared by
+//     object and terrain rows.
 //
 // Invariants:
 //   - The fixture always bypasses broadphase. Terrain cases own their exact row;
 //     object cases deliberately use exact narrowphase before solver ingestion.
 //   - Static fixed lists mirror runtime storage and avoid allocating
 //     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS records on the doctest stack.
+//   - Raw stamped settings normalize once at the solver boundary; direct value
+//     tests pin every lower and upper bound used by contact rows.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -251,49 +255,6 @@ struct SolverFixture
     }
 };
 
-struct SolverClampOutcome
-{
-    Vector3 position;
-    Vector3 linearVelocity;
-    float accumulatedNormalImpulse = 0.0f;
-    int solverIterations = 0;
-};
-
-SolverClampOutcome SolveClampProbe( float slop,
-                                    float baumgarteBeta,
-                                    float positionCorrectionPercent,
-                                    int iterations,
-                                    float maxBaumgarteBias )
-{
-    SolverFixture fixture;
-    fixture.config.solver.slop = slop;
-    fixture.config.solver.baumgarteBeta = baumgarteBeta;
-    fixture.config.solver.positionCorrectionPercent = positionCorrectionPercent;
-    fixture.config.solver.iterations = iterations;
-    fixture.config.terrain.maxBaumgarteBias = maxBaumgarteBias;
-    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.25f, 0.0f ) );
-    fixture.AddTerrainContact( 0, 177u, 0.08f );
-    fixture.Solve();
-
-    const auto hot = fixture.bodyStore.HotFields();
-    CHECK( fixture.persistentContactCache.size() == 1u );
-    return SolverClampOutcome{ PhysicsBodyPosition( hot, 0u ),
-                               Vector3( hot.linearVelocityX[0], hot.linearVelocityY[0], hot.linearVelocityZ[0] ),
-                               fixture.persistentContactCache.empty() ? 0.0f : fixture.persistentContactCache[0].accN,
-                               fixture.stats.solverIterations };
-}
-
-void CheckSolverOutcomesEqual( const SolverClampOutcome& actual, const SolverClampOutcome& expected )
-{
-    CHECK( actual.position.x == expected.position.x );
-    CHECK( actual.position.y == expected.position.y );
-    CHECK( actual.position.z == expected.position.z );
-    CHECK( actual.linearVelocity.x == expected.linearVelocity.x );
-    CHECK( actual.linearVelocity.y == expected.linearVelocity.y );
-    CHECK( actual.linearVelocity.z == expected.linearVelocity.z );
-    CHECK( actual.accumulatedNormalImpulse == expected.accumulatedNormalImpulse );
-    CHECK( actual.solverIterations == expected.solverIterations );
-}
 } // namespace
 
 
@@ -302,13 +263,39 @@ TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped set
     // Invariant: the cold config stamp does not normalize values. The solver's
     // historical guards remain the one place that defines effective policy;
     // drift here can change the byte-exact physics regression baseline.
-    const SolverClampOutcome invalidUpper = SolveClampProbe( -0.25f, -0.5f, 1.5f, 0, -2.0f );
-    const SolverClampOutcome normalizedUpper = SolveClampProbe( 0.0f, 0.0f, 1.0f, 1, 0.0f );
-    CheckSolverOutcomesEqual( invalidUpper, normalizedUpper );
+    SkullbonezCore::Physics::PhysicsRuntimeSettings settings;
+    settings.solver.slop = -0.25f;
+    settings.solver.baumgarteBeta = -0.5f;
+    settings.solver.positionCorrectionPercent = -1.5f;
+    settings.solver.iterations = -7;
+    settings.terrain.slop = -0.35f;
+    settings.terrain.baumgarteBeta = -0.6f;
+    settings.terrain.maxBaumgarteBias = -2.0f;
 
-    const SolverClampOutcome invalidLower = SolveClampProbe( -0.25f, -0.5f, -1.5f, -7, -2.0f );
-    const SolverClampOutcome normalizedLower = SolveClampProbe( 0.0f, 0.0f, 0.0f, 1, 0.0f );
-    CheckSolverOutcomesEqual( invalidLower, normalizedLower );
+    auto policy = PersistentContactSolver::ResolveStepPolicy( settings );
+    CHECK( policy.objectSlop == 0.0f );
+    CHECK( policy.objectBaumgarteBeta == 0.0f );
+    CHECK( policy.objectPositionCorrectionPercent == 0.0f );
+    CHECK( policy.terrainSlop == 0.0f );
+    CHECK( policy.terrainBaumgarteBeta == 0.0f );
+    CHECK( policy.maxBaumgarteBias == 0.0f );
+    CHECK( policy.iterations == 1 );
+
+    settings.solver.slop = 0.15f;
+    settings.solver.baumgarteBeta = 0.25f;
+    settings.solver.positionCorrectionPercent = 1.5f;
+    settings.solver.iterations = 19;
+    settings.terrain.slop = 0.45f;
+    settings.terrain.baumgarteBeta = 0.55f;
+    settings.terrain.maxBaumgarteBias = 3.0f;
+    policy = PersistentContactSolver::ResolveStepPolicy( settings );
+    CHECK( policy.objectSlop == settings.solver.slop );
+    CHECK( policy.objectBaumgarteBeta == settings.solver.baumgarteBeta );
+    CHECK( policy.objectPositionCorrectionPercent == 1.0f );
+    CHECK( policy.terrainSlop == settings.terrain.slop );
+    CHECK( policy.terrainBaumgarteBeta == settings.terrain.baumgarteBeta );
+    CHECK( policy.maxBaumgarteBias == settings.terrain.maxBaumgarteBias );
+    CHECK( policy.iterations == settings.solver.iterations );
 }
 
 

@@ -32,10 +32,13 @@ Glossary:
   for warm starting.
   Resting footprint: Stable multi-point support patch that can seed sleep and
   cached support impulses.
+  Step policy: Once-per-solve normalized view of authored contact bounds used
+  by both object and terrain rows.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
+  - Contact setting clamps resolve once before row construction and iteration.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.h
@@ -71,6 +74,23 @@ namespace
 {
 constexpr int TERRAIN_BODY_INDEX = -1;
 } // namespace
+
+PersistentContactSolverStepPolicy
+PersistentContactSolver::ResolveStepPolicy( const PhysicsRuntimeSettings& settings ) noexcept
+{
+    // Invariant: these are the historical use-site guards, collected without
+    // changing their bounds so every row in the solve shares one interpretation.
+    PersistentContactSolverStepPolicy policy;
+    policy.objectSlop = (std::max)( 0.0f, settings.solver.slop );
+    policy.objectBaumgarteBeta = (std::max)( 0.0f, settings.solver.baumgarteBeta );
+    policy.objectPositionCorrectionPercent =
+        (std::max)( 0.0f, (std::min)( settings.solver.positionCorrectionPercent, 1.0f ) );
+    policy.terrainSlop = (std::max)( 0.0f, settings.terrain.slop );
+    policy.terrainBaumgarteBeta = (std::max)( 0.0f, settings.terrain.baumgarteBeta );
+    policy.maxBaumgarteBias = (std::max)( 0.0f, settings.terrain.maxBaumgarteBias );
+    policy.iterations = (std::max)( 1, settings.solver.iterations );
+    return policy;
+}
 
 void PersistentContactSolver::Solve( PersistentContactSolverContext& context, float dt )
 {
@@ -140,6 +160,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                                          static_cast<int>( m_colliderRecords.size() ) } );
     auto isFixedBody = [&]( int index ) -> bool { return m_hotFields.fixed[static_cast<size_t>( index )] != 0u; };
     const PhysicsRuntimeSettings& settings = context.settings;
+    const PersistentContactSolverStepPolicy stepPolicy = ResolveStepPolicy( settings );
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
     m_persistentContactCounts.assign( modelCount, 0 );
@@ -161,7 +182,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     //   do not jitter while chasing floating-point dust.
     // Small allowed overlap. Without this tolerance, floating-point noise makes
     // the solver chase microscopic errors and resting bodies visibly tremble.
-    const float contactSlop = (std::max)( 0.0f, settings.solver.slop );
+    const float contactSlop = stepPolicy.objectSlop;
 
     // CATTO REF:
     //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -170,7 +191,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // Baumgarte bias is a gentle "please separate" velocity for bodies that are
     // already interpenetrating. It removes overlap over several ticks instead of
     // teleporting everything apart in one harsh correction.
-    const float baumgarteBeta = (std::max)( 0.0f, settings.solver.baumgarteBeta );
+    const float baumgarteBeta = stepPolicy.objectBaumgarteBeta;
 
     // ENGINE-SPECIFIC:
     //   Catto uses the bias term for penetration correction. This partial
@@ -178,9 +199,8 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     //   object manifolds; it is intentionally partial so stacks do not pop.
     // A final direct positional correction catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
-    const float positionCorrectionPercent =
-        (std::max)( 0.0f, (std::min)( settings.solver.positionCorrectionPercent, 1.0f ) );
-    const float maxBaumgarteBias = (std::max)( 0.0f, settings.terrain.maxBaumgarteBias );
+    const float positionCorrectionPercent = stepPolicy.objectPositionCorrectionPercent;
+    const float maxBaumgarteBias = stepPolicy.maxBaumgarteBias;
 
     // CATTO REF:
     //   Catto 2005, PDF p. 15, Section 7, and PDF pp. 16-17, Section 7.2,
@@ -189,7 +209,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
     // Projected Gauss-Seidel works by revisiting every contact repeatedly. Each
     // visit improves the answer a little; twelve passes is a compromise between
     // stack stability and keeping the physics hot path affordable.
-    const int solverIterations = (std::max)( 1, settings.solver.iterations );
+    const int solverIterations = stepPolicy.iterations;
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
     // Why: mutual-gravity space has no ambient support surface. Contacts should
     // exchange momentum instead of cooling into friction or cached resting rows.
@@ -1045,7 +1065,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
             c.bias = 0.0f;
             if ( c.isTerrain )
             {
-                const float terrainSlop = (std::max)( 0.0f, settings.terrain.slop );
+                const float terrainSlop = stepPolicy.terrainSlop;
                 if ( !c.supportsRestingPolicy && c.penetration <= terrainSlop && vn > -restitutionThreshold )
                 {
                     c.normalMass = 0.0f;
@@ -1057,12 +1077,10 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
                     float penetrationError = c.penetration - terrainSlop;
                     if ( penetrationError > 0.0f )
                     {
-                        const float terrainBeta = (std::max)( 0.0f, settings.terrain.baumgarteBeta );
-                        const float maxTerrainBias = (std::max)( 0.0f, settings.terrain.maxBaumgarteBias );
-                        c.bias = terrainBeta * penetrationError * invDt;
-                        if ( c.bias > maxTerrainBias )
+                        c.bias = stepPolicy.terrainBaumgarteBeta * penetrationError * invDt;
+                        if ( c.bias > stepPolicy.maxBaumgarteBias )
                         {
-                            c.bias = maxTerrainBias;
+                            c.bias = stepPolicy.maxBaumgarteBias;
                         }
                     }
                 }
@@ -1484,7 +1502,7 @@ void PersistentContactSolver::Solve( PersistentContactSolverContext& context, fl
         PROFILE_SCOPED( context.profiler, "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
         for ( const PersistentContact& c : m_persistentContacts )
         {
-            const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, settings.terrain.slop ) : contactSlop;
+            const float rowContactSlop = c.isTerrain ? stepPolicy.terrainSlop : contactSlop;
             if ( c.penetration <= rowContactSlop )
             {
                 continue;

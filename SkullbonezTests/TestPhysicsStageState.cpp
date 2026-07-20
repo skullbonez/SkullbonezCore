@@ -136,6 +136,9 @@ TEST_CASE( "Physics runtime settings: default config stamps every owned field ex
 {
     const SkullbonezCore::Core::EngineConfig config;
 
+    // Invariant: PhysicsEngine may exist before the first cold config stamp, so
+    // the owner-native value defaults must independently mirror Core defaults.
+    CheckRuntimeSettingsMatchConfig( PhysicsRuntimeSettings(), config );
     CheckRuntimeSettingsMatchConfig( PhysicsEngine::RuntimeSettingsFromConfig( config ), config );
 }
 
@@ -173,6 +176,42 @@ TEST_CASE( "Physics runtime settings: custom config remains unclamped at the sta
     // Invariant: stamping records provenance exactly. Sleep, solver, and
     // broadphase owners retain the single authoritative clamp sites.
     CheckRuntimeSettingsMatchConfig( PhysicsEngine::RuntimeSettingsFromConfig( config ), config );
+}
+
+TEST_CASE( "Physics runtime settings: execution switches preserve one-hot provenance" )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsExecution.parallel = false;
+    config.physicsExecution.parallelApplyForces = false;
+    config.physicsExecution.parallelMutualGravity = false;
+    config.physicsExecution.parallelTornadoField = false;
+    config.physicsExecution.parallelNarrowphase = false;
+    config.physicsExecution.parallelTerrainDetect = false;
+    config.physicsExecution.parallelIntegrate = false;
+
+    auto checkOneHot = [&]()
+    { CheckRuntimeSettingsMatchConfig( PhysicsEngine::RuntimeSettingsFromConfig( config ), config ); };
+
+    config.physicsExecution.parallel = true;
+    checkOneHot();
+    config.physicsExecution.parallel = false;
+    config.physicsExecution.parallelApplyForces = true;
+    checkOneHot();
+    config.physicsExecution.parallelApplyForces = false;
+    config.physicsExecution.parallelMutualGravity = true;
+    checkOneHot();
+    config.physicsExecution.parallelMutualGravity = false;
+    config.physicsExecution.parallelTornadoField = true;
+    checkOneHot();
+    config.physicsExecution.parallelTornadoField = false;
+    config.physicsExecution.parallelNarrowphase = true;
+    checkOneHot();
+    config.physicsExecution.parallelNarrowphase = false;
+    config.physicsExecution.parallelTerrainDetect = true;
+    checkOneHot();
+    config.physicsExecution.parallelTerrainDetect = false;
+    config.physicsExecution.parallelIntegrate = true;
+    checkOneHot();
 }
 
 TEST_CASE( "Physics sleep policy: thresholds square after clamp and frame count saturates at 255" )
