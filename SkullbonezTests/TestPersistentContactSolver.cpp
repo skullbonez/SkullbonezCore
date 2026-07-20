@@ -250,7 +250,66 @@ struct SolverFixture
         solver.Solve( context, kSolverDt );
     }
 };
+
+struct SolverClampOutcome
+{
+    Vector3 position;
+    Vector3 linearVelocity;
+    float accumulatedNormalImpulse = 0.0f;
+    int solverIterations = 0;
+};
+
+SolverClampOutcome SolveClampProbe( float slop,
+                                    float baumgarteBeta,
+                                    float positionCorrectionPercent,
+                                    int iterations,
+                                    float maxBaumgarteBias )
+{
+    SolverFixture fixture;
+    fixture.config.solver.slop = slop;
+    fixture.config.solver.baumgarteBeta = baumgarteBeta;
+    fixture.config.solver.positionCorrectionPercent = positionCorrectionPercent;
+    fixture.config.solver.iterations = iterations;
+    fixture.config.terrain.maxBaumgarteBias = maxBaumgarteBias;
+    fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -0.25f, 0.0f ) );
+    fixture.AddTerrainContact( 0, 177u, 0.08f );
+    fixture.Solve();
+
+    const auto hot = fixture.bodyStore.HotFields();
+    CHECK( fixture.persistentContactCache.size() == 1u );
+    return SolverClampOutcome{ PhysicsBodyPosition( hot, 0u ),
+                               Vector3( hot.linearVelocityX[0], hot.linearVelocityY[0], hot.linearVelocityZ[0] ),
+                               fixture.persistentContactCache.empty() ? 0.0f : fixture.persistentContactCache[0].accN,
+                               fixture.stats.solverIterations };
+}
+
+void CheckSolverOutcomesEqual( const SolverClampOutcome& actual, const SolverClampOutcome& expected )
+{
+    CHECK( actual.position.x == expected.position.x );
+    CHECK( actual.position.y == expected.position.y );
+    CHECK( actual.position.z == expected.position.z );
+    CHECK( actual.linearVelocity.x == expected.linearVelocity.x );
+    CHECK( actual.linearVelocity.y == expected.linearVelocity.y );
+    CHECK( actual.linearVelocity.z == expected.linearVelocity.z );
+    CHECK( actual.accumulatedNormalImpulse == expected.accumulatedNormalImpulse );
+    CHECK( actual.solverIterations == expected.solverIterations );
+}
 } // namespace
+
+
+TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped settings exactly once" )
+{
+    // Invariant: the cold config stamp does not normalize values. The solver's
+    // historical guards remain the one place that defines effective policy;
+    // drift here can change the byte-exact physics regression baseline.
+    const SolverClampOutcome invalidUpper = SolveClampProbe( -0.25f, -0.5f, 1.5f, 0, -2.0f );
+    const SolverClampOutcome normalizedUpper = SolveClampProbe( 0.0f, 0.0f, 1.0f, 1, 0.0f );
+    CheckSolverOutcomesEqual( invalidUpper, normalizedUpper );
+
+    const SolverClampOutcome invalidLower = SolveClampProbe( -0.25f, -0.5f, -1.5f, -7, -2.0f );
+    const SolverClampOutcome normalizedLower = SolveClampProbe( 0.0f, 0.0f, 0.0f, 1, 0.0f );
+    CheckSolverOutcomesEqual( invalidLower, normalizedLower );
+}
 
 
 TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching terrain row" )

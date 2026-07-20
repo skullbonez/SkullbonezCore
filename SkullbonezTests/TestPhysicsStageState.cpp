@@ -12,6 +12,8 @@
 //   Support edge: Directed relation from a grounded supporter to a supported body.
 //   Underwater lock: Dormancy state that prevents a fully submerged ball from jitter-waking.
 //   Pair slot: Event row whose index remains identical to the broadphase candidate index.
+//   Runtime settings snapshot: Physics-owned copy stamped once from process
+//     configuration before fixed-step consumers borrow it.
 //   Point-joint relaxation: Anchor-distance check that prevents a stretched
 //     constraint island from sleeping before the joint settles inside slack.
 //
@@ -23,10 +25,13 @@
 //   - Awake indices remain sorted across sleep, parallel-wake flush, and cold
 //     topology rebuild boundaries.
 //   - Parallel narrowphase scheduling cannot reorder pair-slot results.
+//   - Config stamping copies every Physics-owned source field without clamping;
+//     clamp policy remains at the consuming owner boundary.
 //
 // Related:
 //   - SkullbonezSource/Physics/Stages/PhysicsSleepController.h
 //   - SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h
+//   - SkullbonezSource/Physics/PhysicsRuntimeSettings.h
 //   - SkullbonezSource/Physics/SleepIslandSystem.cpp
 //
 
@@ -37,6 +42,7 @@
 #include "../SkullbonezSource/Physics/BoundingSphere.h"
 #include "../SkullbonezSource/Physics/ColliderStore.h"
 #include "../SkullbonezSource/Physics/PhysicsApi.h"
+#include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsNarrowphaseStage.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsSleepController.h"
@@ -60,6 +66,8 @@ using SkullbonezCore::Physics::PhysicsBodyCreateRecord;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsNarrowphaseStage;
+using SkullbonezCore::Physics::PhysicsEngine;
+using SkullbonezCore::Physics::PhysicsRuntimeSettings;
 using SkullbonezCore::Physics::PhysicsSleepController;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Threading::LockOrderValidator;
@@ -90,7 +98,82 @@ CollisionShape UnitSphere()
 {
     return CollisionShape( BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR, 0.0f ) );
 }
+
+void CheckRuntimeSettingsMatchConfig( const PhysicsRuntimeSettings& settings,
+                                      const SkullbonezCore::Core::EngineConfig& config )
+{
+    CHECK( settings.material.sphereDragCoefficient == config.physicsMaterial.sphereDragCoeff );
+    CHECK( settings.material.terrainFrictionCoefficient == config.physicsMaterial.frictionCoeff );
+    CHECK( settings.material.objectFrictionCoefficient == config.physicsMaterial.objectFrictionCoeff );
+    CHECK( settings.material.rollingFrictionCoefficient == config.physicsMaterial.rollingFrictionCoeff );
+    CHECK( settings.body.angularVelocityLimit == config.bodySimulation.velocityLimit );
+    CHECK( settings.body.contactRestitutionThreshold == config.bodySimulation.contactRestitutionThreshold );
+    CHECK( settings.body.contactEpsilon == config.bodySimulation.contactEpsilon );
+    CHECK( settings.solver.slop == config.persistentContactSolver.slop );
+    CHECK( settings.solver.baumgarteBeta == config.persistentContactSolver.baumgarteBeta );
+    CHECK( settings.solver.positionCorrectionPercent == config.persistentContactSolver.positionCorrectionPercent );
+    CHECK( settings.solver.iterations == config.persistentContactSolver.iterations );
+    CHECK( settings.terrain.threshold == config.terrainContact.threshold );
+    CHECK( settings.terrain.slop == config.terrainContact.slop );
+    CHECK( settings.terrain.baumgarteBeta == config.terrainContact.baumgarteBeta );
+    CHECK( settings.terrain.maxBaumgarteBias == config.terrainContact.maxBaumgarteBias );
+    CHECK( settings.sleep.linearSpeed == config.physicsSleep.linearSpeed );
+    CHECK( settings.sleep.angularSpeed == config.physicsSleep.angularSpeed );
+    CHECK( settings.sleep.frames == config.physicsSleep.frames );
+    CHECK( settings.broadphase.cellSize == config.broadphase.cellSize );
+    CHECK( settings.execution.parallel == config.physicsExecution.parallel );
+    CHECK( settings.execution.parallelApplyForces == config.physicsExecution.parallelApplyForces );
+    CHECK( settings.execution.parallelMutualGravity == config.physicsExecution.parallelMutualGravity );
+    CHECK( settings.execution.parallelTornadoField == config.physicsExecution.parallelTornadoField );
+    CHECK( settings.execution.parallelNarrowphase == config.physicsExecution.parallelNarrowphase );
+    CHECK( settings.execution.parallelTerrainDetect == config.physicsExecution.parallelTerrainDetect );
+    CHECK( settings.execution.parallelIntegrate == config.physicsExecution.parallelIntegrate );
+    CHECK( settings.worldForces.gravity == config.worldForces.gravity );
+}
 } // namespace
+
+TEST_CASE( "Physics runtime settings: default config stamps every owned field exactly" )
+{
+    const SkullbonezCore::Core::EngineConfig config;
+
+    CheckRuntimeSettingsMatchConfig( PhysicsEngine::RuntimeSettingsFromConfig( config ), config );
+}
+
+TEST_CASE( "Physics runtime settings: custom config remains unclamped at the stamp boundary" )
+{
+    SkullbonezCore::Core::EngineConfig config;
+    config.physicsMaterial.sphereDragCoeff = 1.1f;
+    config.physicsMaterial.frictionCoeff = 1.2f;
+    config.physicsMaterial.objectFrictionCoeff = 1.3f;
+    config.physicsMaterial.rollingFrictionCoeff = 1.4f;
+    config.bodySimulation.velocityLimit = 2.1f;
+    config.bodySimulation.contactRestitutionThreshold = 2.2f;
+    config.bodySimulation.contactEpsilon = 2.3f;
+    config.persistentContactSolver.slop = -3.1f;
+    config.persistentContactSolver.baumgarteBeta = -3.2f;
+    config.persistentContactSolver.positionCorrectionPercent = 3.3f;
+    config.persistentContactSolver.iterations = -34;
+    config.terrainContact.threshold = 4.1f;
+    config.terrainContact.slop = -4.2f;
+    config.terrainContact.baumgarteBeta = -4.3f;
+    config.terrainContact.maxBaumgarteBias = -4.4f;
+    config.physicsSleep.linearSpeed = -5.1f;
+    config.physicsSleep.angularSpeed = -5.2f;
+    config.physicsSleep.frames = -53;
+    config.broadphase.cellSize = -6.1f;
+    config.physicsExecution.parallel = false;
+    config.physicsExecution.parallelApplyForces = true;
+    config.physicsExecution.parallelMutualGravity = false;
+    config.physicsExecution.parallelTornadoField = true;
+    config.physicsExecution.parallelNarrowphase = false;
+    config.physicsExecution.parallelTerrainDetect = true;
+    config.physicsExecution.parallelIntegrate = false;
+    config.worldForces.gravity = 7.1f;
+
+    // Invariant: stamping records provenance exactly. Sleep, solver, and
+    // broadphase owners retain the single authoritative clamp sites.
+    CheckRuntimeSettingsMatchConfig( PhysicsEngine::RuntimeSettingsFromConfig( config ), config );
+}
 
 TEST_CASE( "Physics sleep policy: thresholds square after clamp and frame count saturates at 255" )
 {

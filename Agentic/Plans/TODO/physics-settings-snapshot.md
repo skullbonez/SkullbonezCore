@@ -1,6 +1,6 @@
 # Physics Settings Snapshot
 
-Status: In progress — 2/4 tasks (C0-C3)
+Status: In progress — 3/4 tasks (C0-C3)
 Owner: repository owner; registered 2026-07-20 as campaign plan 3 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding B)
 Ledger: C0-C3
@@ -169,7 +169,7 @@ Negative census findings are binding for C1:
   cold `ApplyRuntimeConfig`/authoring stamp edges (target: PhysicsEngine
   only). Validation: `tools\validate_physics.bat` (byte-exact) and
   `tools\validate_perf.bat` (hot-path signature change).
-- [ ] C2 — Faithfulness tests: unit coverage asserting the stamped snapshot
+- [x] C2 — Faithfulness tests: unit coverage asserting the stamped snapshot
   equals the source config field-for-field (including defaults and clamp
   behavior such as the existing `max(1, iterations)` / `max(0, slop)`
   guards, which must move or be provably duplicated, not silently doubled).
@@ -208,6 +208,24 @@ Negative census findings are binding for C1:
 - A pre-existing facade-closure allowlist row still named deleted
   `PhysicsScene` files. It was repaired separately in `7cd9ca5f`; self-test,
   repository scan, and `validate_fast` all pass with zero allowlist errors.
+
+## C2 Evidence — 2026-07-20
+
+- `TestPhysicsStageState.cpp` checks all 27 fields twice: once from default
+  `EngineConfig` values and once from distinct custom values, including
+  deliberately invalid negatives and out-of-range solver values. This proves
+  the cold stamp is a verbatim provenance copy and does not normalize early.
+- Existing sleep-policy coverage still pins non-negative speed thresholds,
+  squaring, and the `[1,255]` frame clamp. A new direct persistent-solver probe
+  proves negative slop/Baumgarte/bias, iteration counts below one, and both
+  sides of the position-correction clamp produce exactly the same state as
+  their normalized values at the use site.
+- The touched-file comment-style audit inspected both changed test sources:
+  2 checked, 0 deferred. Their learning headers and nearby invariants explain
+  provenance, clamp ownership, determinism, and byte-exact baseline risk.
+- `tools\validate_tests.bat` passed in 12.84 s: 327/327 cases and
+  61,131/61,131 assertions. Coverage was not run separately because C2 pins
+  behavior rather than raising a ratified coverage floor.
 
 ## Acceptance
 
