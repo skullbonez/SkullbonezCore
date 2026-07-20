@@ -57,6 +57,7 @@ class IRenderCommandContext;
 class IRenderDiagnostics;
 class IRenderResourceFactory;
 class RenderInstanceStore;
+struct PassRasterStateBucket;
 } // namespace Rendering
 
 namespace Math
@@ -141,11 +142,13 @@ class CollisionVisualizer
     void DrawInstances( Rendering::IRenderCommandContext& renderCommands,
                         uint32_t mesh,
                         int vertexCount,
-                        const std::vector<float>& instanceData );
+                        const std::vector<float>& instanceData,
+                        const Rendering::PassRasterStateBucket& rasterState );
     void DrawHullInstance( Rendering::IRenderCommandContext& renderCommands,
                            const Math::CollisionDetection::ConvexHullShape& hull,
                            const Math::Transformation::Matrix4& model,
-                           const Color& color );
+                           const Color& color,
+                           const Rendering::PassRasterStateBucket& rasterState );
 
   public:
     CollisionVisualizer();

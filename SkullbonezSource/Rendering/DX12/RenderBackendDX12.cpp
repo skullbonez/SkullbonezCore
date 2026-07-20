@@ -682,9 +682,9 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
 SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* device )
 {
     // Lifetime: initialization is reusable after a prior Shutdown or partial
-    // startup failure. Desired state returns to cold defaults before publishing
+    // startup failure. Command bindings return to cold defaults before publishing
     // a new root signature.
-    ResetDesiredState();
+    ResetCommandState();
     std::string reflectedContractError;
     if ( !ValidateGeneratedUnifiedRasterRootSignature( reflectedContractError ) )
     {
@@ -1600,45 +1600,6 @@ void RenderBackendDX12::SetClearDepth( float depth )
 }
 
 
-// --- Render State ---
-
-
-void RenderBackendDX12::SetDepthTest( bool enable )
-{
-    m_pipelineOwner.SetDepthTest( enable );
-}
-
-
-void RenderBackendDX12::SetDepthWrite( bool enable )
-{
-    m_pipelineOwner.SetDepthWrite( enable );
-}
-
-
-void RenderBackendDX12::SetBlend( bool enable )
-{
-    m_pipelineOwner.SetBlend( enable );
-}
-
-
-void RenderBackendDX12::SetBlendFunc( BlendFactor src, BlendFactor dst )
-{
-    m_pipelineOwner.SetBlendFunc( src, dst );
-}
-
-
-void RenderBackendDX12::SetCullFace( bool enable )
-{
-    m_pipelineOwner.SetCullFace( enable );
-}
-
-
-void RenderBackendDX12::SetPolygonOffset( bool enable, float factor, float units )
-{
-    m_pipelineOwner.SetPolygonOffset( enable, factor, units );
-}
-
-
 void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
 {
     // Clip planes are handled through shader constants.
@@ -1708,36 +1669,6 @@ int RenderBackendDX12::GetWidth() const
 int RenderBackendDX12::GetHeight() const
 {
     return m_renderDevice.Height();
-}
-
-
-bool RenderBackendDX12::IsDepthTestEnabled() const
-{
-    return m_pipelineOwner.DepthTestEnabled();
-}
-
-
-bool RenderBackendDX12::IsDepthWriteEnabled() const
-{
-    return m_pipelineOwner.DepthWriteEnabled();
-}
-
-
-bool RenderBackendDX12::IsBlendEnabled() const
-{
-    return m_pipelineOwner.BlendEnabled();
-}
-
-
-bool RenderBackendDX12::IsCullFaceEnabled() const
-{
-    return m_pipelineOwner.CullEnabled();
-}
-
-
-void RenderBackendDX12::GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const
-{
-    m_pipelineOwner.GetBlendFunc( outSrc, outDst );
 }
 
 

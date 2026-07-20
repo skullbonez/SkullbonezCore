@@ -14,8 +14,8 @@ Summary:
   targets and their balanced binding transaction, Dx12Diagnostics owns timing
   and draw evidence, Dx12ShaderDevelopment owns cold reload registration and
   adoption, and the private frame epoch and retirement owners live in
-  Dx12FrameOwner.h. Dx12PipelineOwner accepts pass-declared raster values for
-  migrated draws without copying them into its legacy desired-state fields.
+  Dx12FrameOwner.h. Dx12PipelineOwner consumes each draw's declared raster
+  value directly while retaining only command bindings and output state.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -343,8 +343,8 @@ class Dx12TextureOwner
 };
 
 // Concept: a pipeline is the complete draw recipe, not a collection of backend
-// flags. This owner retains root-signature, fixed-state intent, target state,
-// PSO cache, and the dirty-state fast path as one coherent lifetime.
+// flags. This owner retains root-signature identity, command bindings, target
+// state, PSO cache, and the dirty-state fast path as one coherent lifetime.
 class Dx12PipelineOwner
 {
   public:
@@ -358,7 +358,7 @@ class Dx12PipelineOwner
                       bool instanced,
                       const InstancedMeshDX12* instancedMesh,
                       const DynamicVBDX12* dynamicVertexBuffer,
-                      const RasterStateDesc* declaredRasterState );
+                      const RasterStateDesc& rasterState );
     bool PrecompileDraw( ID3D12Device* device,
                          VertexFormat12 format,
                          bool instanced,
@@ -372,17 +372,6 @@ class Dx12PipelineOwner
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
     void SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor );
-    void SetDepthTest( bool enabled );
-    void SetDepthWrite( bool enabled );
-    void SetBlend( bool enabled );
-    void SetBlendFunc( BlendFactor src, BlendFactor dst );
-    void SetCullFace( bool enabled );
-    void SetPolygonOffset( bool enabled, float factor, float units );
-    bool DepthTestEnabled() const;
-    bool DepthWriteEnabled() const;
-    bool BlendEnabled() const;
-    bool CullEnabled() const;
-    void GetBlendFunc( BlendFactor& src, BlendFactor& dst ) const;
     void InvalidateCommandState();
     void InvalidateTargets();
     DXGI_FORMAT RenderTargetFormat() const;
@@ -414,7 +403,6 @@ class Dx12PipelineOwner
                                     const InstancedMeshDX12* instancedMesh,
                                     const DynamicVBDX12* dynamicVertexBuffer,
                                     const RasterStateDesc& rasterState );
-    RasterStateDesc DesiredRasterState() const;
     PSOKey12 BuildPSOKey( VertexFormat12 format, bool instanced, const RasterStateDesc& rasterState ) const;
     static size_t BuildPSOHash( const PSOKey12& key, const DynamicVBDX12* dynamicVertexBuffer );
     ID3D12PipelineState* FindOrCreatePSO( ID3D12Device* device,
@@ -426,7 +414,7 @@ class Dx12PipelineOwner
                                           const DynamicVBDX12* dynamicVertexBuffer,
                                           const RasterStateDesc& rasterState,
                                           bool precompile );
-    void ResetDesiredState();
+    void ResetCommandState();
 
     static constexpr size_t CACHE_CAPACITY = 96;
     static constexpr size_t ROOT_SIGNATURE_SERIALIZED_CAPACITY = 4096;
@@ -452,22 +440,13 @@ class Dx12PipelineOwner
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
     DXGI_FORMAT m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-    bool m_depthTestEnabled = true;
-    bool m_depthWriteEnabled = true;
-    bool m_blendEnabled = false;
-    BlendFactor m_blendSrc = BlendFactor::One;
-    BlendFactor m_blendDst = BlendFactor::Zero;
-    bool m_cullEnabled = true;
-    bool m_polyOffsetEnabled = false;
-    float m_polyOffsetFactor = 0.0f;
-    float m_polyOffsetUnits = 0.0f;
     bool m_renderingToFBO = false;
     // Concept: clear values are desired output state. They travel with the
     // pipeline owner's current target recipe rather than the composition root.
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
     size_t m_lastPSOHash = 0;
-    bool m_psoDirty = true;
+    bool m_pipelineBindingDirty = true;
     bool m_targetsDirty = true;
 };
 
@@ -481,14 +460,13 @@ class Dx12GeometryOwner
   public:
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices );
     void UploadAndDrawDynamicVB( uint32_t handle,
-                                 const float* data,
-                                 int vertexCount,
+                                 std::span<const float> packedVertices,
                                  D3D12_GPU_VIRTUAL_ADDRESS address,
                                  uint8_t* uploadPointer,
                                  ID3D12GraphicsCommandList* commandList,
                                  Dx12DrawGate& drawGate,
                                  Dx12Diagnostics& diagnostics,
-                                 const RasterStateDesc* declaredRasterState );
+                                 const RasterStateDesc& rasterState );
     bool PrecompileDynamicVBRasterState( uint32_t handle,
                                          Dx12DrawGate& drawGate,
                                          const RasterStateDesc& declaredRasterState );
@@ -501,19 +479,17 @@ class Dx12GeometryOwner
     void InvalidateGridLinePipelinesForShaderReload();
     UINT GridLineConstantBytes() const;
     UINT TransientConstantBytes( TransientTriangleStyle style ) const;
-    void DrawLinesColored( const float* data,
-                           int vertexCount,
-                           const float* viewProjMatrix16,
+    void DrawLinesColored( std::span<const float> packedVertices,
+                           const Math::Transformation::Matrix4& viewProjection,
                            D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
                            uint8_t* uploadPointer,
                            ID3D12GraphicsCommandList* commandList,
                            Dx12PipelineOwner& pipeline,
                            Dx12DrawGate& drawGate,
                            Dx12Diagnostics& diagnostics,
-                           const RasterStateDesc* declaredRasterState );
-    void DrawTransientColoredTriangles( const float* data,
-                                        int vertexCount,
-                                        const float* viewProjMatrix16,
+                           const RasterStateDesc& rasterState );
+    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
+                                        const Math::Transformation::Matrix4& viewProjection,
                                         TransientTriangleStyle style,
                                         int viewportWidth,
                                         int viewportHeight,
@@ -522,7 +498,7 @@ class Dx12GeometryOwner
                                         ID3D12GraphicsCommandList* commandList,
                                         Dx12DrawGate& drawGate,
                                         Dx12Diagnostics& diagnostics,
-                                        const RasterStateDesc* declaredRasterState );
+                                        const RasterStateDesc& rasterState );
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
                                   int staticFloatsPerVert,
@@ -538,23 +514,19 @@ class Dx12GeometryOwner
                                   D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
                                   uint8_t* uploadPointer );
     void UploadInstanceData( uint32_t handle,
-                             const float* data,
-                             int floatCount,
+                             std::span<const float> packedInstances,
                              D3D12_GPU_VIRTUAL_ADDRESS address,
                              uint8_t* uploadPointer );
-    void DrawInstancedMesh( uint32_t handle,
-                            int staticVertCount,
-                            int instanceCount,
+    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw,
                             ID3D12GraphicsCommandList* commandList,
                             Dx12DrawGate& drawGate,
-                            Dx12Diagnostics& diagnostics,
-                            const RasterStateDesc* declaredRasterState );
+                            Dx12Diagnostics& diagnostics );
     void DestroyInstancedMesh( uint32_t handle );
     uint64_t StaticVertexBufferAddress( uint32_t handle ) const;
     int StaticVertexStride( uint32_t handle ) const;
     size_t DynamicCount() const;
     size_t DynamicCapacity() const;
-    UINT64 DynamicUploadBytes( uint32_t handle, int vertexCount ) const;
+    UINT64 DynamicUploadBytes( uint32_t handle, std::span<const float> packedVertices ) const;
     size_t InstancedCount() const;
     size_t InstancedCapacity() const;
     void Shutdown();
@@ -762,12 +734,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void SetClearColor( float r, float g, float b, float a ) override;
     void SetClearDepth( float depth ) override;
 
-    void SetDepthTest( bool enable ) override;
-    void SetDepthWrite( bool enable ) override;
-    void SetBlend( bool enable ) override;
-    void SetBlendFunc( BlendFactor src, BlendFactor dst ) override;
-    void SetCullFace( bool enable ) override;
-    void SetPolygonOffset( bool enable, float factor = 0.0f, float units = 0.0f ) override;
     void SetClipPlane( int index, bool enable ) override;
 
     std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
@@ -803,11 +769,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int GetWidth() const override;
     int GetHeight() const override;
 
-    bool IsDepthTestEnabled() const override;
-    bool IsDepthWriteEnabled() const override;
-    bool IsBlendEnabled() const override;
-    bool IsCullFaceEnabled() const override;
-    void GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const override;
     const char* GetRendererName() const override
     {
         return "DirectX 12";
@@ -900,26 +861,17 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void PlatformProfilerGpuMarker( const char* name, uint32_t hash ) override;
 
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
-    void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
     bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket ) override;
     void UploadAndDrawDynamicVB( uint32_t handle,
-                                 const float* data,
-                                 int vertexCount,
+                                 std::span<const float> packedVertices,
                                  const PassRasterStateBucket& bucket ) override;
     void DestroyDynamicVB( uint32_t handle ) override;
 
-    void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
-    void DrawLinesColored( const float* data,
-                           int vertCount,
-                           const float* viewProjMatrix16,
+    void DrawLinesColored( std::span<const float> packedVertices,
+                           const Math::Transformation::Matrix4& viewProjection,
                            const PassRasterStateBucket& bucket ) override;
-    void DrawTransientColoredTriangles( const float* data,
-                                        int vertexCount,
-                                        const float* viewProjMatrix16,
-                                        TransientTriangleStyle style ) override;
-    void DrawTransientColoredTriangles( const float* data,
-                                        int vertexCount,
-                                        const float* viewProjMatrix16,
+    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
+                                        const Math::Transformation::Matrix4& viewProjection,
                                         TransientTriangleStyle style,
                                         const PassRasterStateBucket& bucket ) override;
 
@@ -933,12 +885,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                                   int numInstanceAttribs,
                                   const int* staticAttribSizes = nullptr,
                                   int numStaticAttribs = 0 ) override;
-    void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;
-    void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) override;
-    void DrawInstancedMesh( uint32_t handle,
-                            int staticVertCount,
-                            int instanceCount,
-                            const PassRasterStateBucket& bucket ) override;
+    void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances ) override;
+    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw ) override;
     void DestroyInstancedMesh( uint32_t handle ) override;
 };
 } // namespace Rendering

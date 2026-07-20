@@ -75,6 +75,10 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
+constexpr PassRasterStateBucket COLLISION_OPAQUE_RASTER = MakePassRasterStateBucket( 0, true, true, false );
+constexpr PassRasterStateBucket COLLISION_TRANSLUCENT_RASTER =
+    MakePassRasterStateBucket( 1, true, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+
 // Why: the legacy DRAW_CALL_TRACE_SCOPE macro still reaches through the global
 // renderer accessor. This local scope records the same child labels through the
 // frame-owned diagnostics facet that CollisionVisualizer already borrows for
@@ -408,7 +412,8 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
 void CollisionVisualizer::DrawInstances( IRenderCommandContext& renderCommands,
                                          uint32_t mesh,
                                          int vertexCount,
-                                         const std::vector<float>& instanceData )
+                                         const std::vector<float>& instanceData,
+                                         const PassRasterStateBucket& rasterState )
 {
     // Skip empty shape batches. This keeps mixed scenes cheap when one primitive
     // type is absent, and it avoids uploading an empty instance buffer.
@@ -418,15 +423,16 @@ void CollisionVisualizer::DrawInstances( IRenderCommandContext& renderCommands,
         return;
     }
 
-    renderCommands.UploadInstanceData( mesh, instanceData.data(), static_cast<int>( instanceData.size() ) );
-    renderCommands.DrawInstancedMesh( mesh, vertexCount, instanceCount );
+    renderCommands.UploadInstanceData( mesh, instanceData );
+    renderCommands.DrawInstancedMesh( { mesh, vertexCount, instanceCount, rasterState } );
 }
 
 
 void CollisionVisualizer::DrawHullInstance( IRenderCommandContext& renderCommands,
                                             const ConvexHullShape& hull,
                                             const Matrix4& model,
-                                            const Color& color )
+                                            const Color& color,
+                                            const PassRasterStateBucket& rasterState )
 {
     static_assert(
         HULL_MAX_TRIANGLE_VERTICES == ConvexHullShape::MAX_FACES * ( ConvexHullShape::MAX_FACE_VERTICES - 2 ) * 3,
@@ -485,7 +491,11 @@ void CollisionVisualizer::DrawHullInstance( IRenderCommandContext& renderCommand
 
     if ( vertexCount > 0 )
     {
-        renderCommands.UploadAndDrawDynamicVB( m_hullDynamicVB, m_hullDebugVertexData.data(), vertexCount );
+        renderCommands.UploadAndDrawDynamicVB(
+            m_hullDynamicVB,
+            std::span<const float>( m_hullDebugVertexData.data(),
+                                    static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX ),
+            rasterState );
     }
 }
 
@@ -555,19 +565,14 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
     m_shader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
 
     const bool translucent = m_alphaOverride >= 0.0f && m_alphaOverride < 1.0f;
-    renderCommands.SetBlend( translucent );
-    if ( translucent )
-    {
-        renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
-        renderCommands.SetDepthWrite( false );
-    }
+    const PassRasterStateBucket& rasterState = translucent ? COLLISION_TRANSLUCENT_RASTER : COLLISION_OPAQUE_RASTER;
     {
         CollisionVisualizerTraceScope traceScope( renderDiagnostics, "CollisionSpheres" );
-        DrawInstances( renderCommands, m_sphereInstMesh, m_sphereVertexCount, m_sphereInstanceData );
+        DrawInstances( renderCommands, m_sphereInstMesh, m_sphereVertexCount, m_sphereInstanceData, rasterState );
     }
     {
         CollisionVisualizerTraceScope traceScope( renderDiagnostics, "CollisionBoxes" );
-        DrawInstances( renderCommands, m_boxInstMesh, m_boxVertexCount, m_boxInstanceData );
+        DrawInstances( renderCommands, m_boxInstMesh, m_boxVertexCount, m_boxInstanceData, rasterState );
     }
     {
         CollisionVisualizerTraceScope traceScope( renderDiagnostics, "CollisionHulls" );
@@ -590,12 +595,11 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
             {
                 color.a = m_alphaOverride;
             }
-            DrawHullInstance( renderCommands, *hull, instances[static_cast<std::size_t>( i )].modelMatrix, color );
+            DrawHullInstance( renderCommands,
+                              *hull,
+                              instances[static_cast<std::size_t>( i )].modelMatrix,
+                              color,
+                              rasterState );
         }
     }
-    if ( translucent )
-    {
-        renderCommands.SetDepthWrite( true );
-    }
-    renderCommands.SetBlend( false );
 }

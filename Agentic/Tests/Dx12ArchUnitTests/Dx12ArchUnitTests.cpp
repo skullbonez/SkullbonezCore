@@ -944,8 +944,7 @@ void TestRenderGraphFrameEdgesKeepOnlyPresentDeclarationOnly()
     captureGraph.SetPassCallback<RecordRenderGraphCallback>( captureUiPass, trace, true, "capture-ui" );
     const RenderGraphCallbackExecutionResult captureResult =
         captureGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, captureUiPass, 1u );
-    const RenderGraphExecutionContractResult captureContract =
-        captureGraph.ValidateFrameExecutionContract( nullptr );
+    const RenderGraphExecutionContractResult captureContract = captureGraph.ValidateFrameExecutionContract( nullptr );
     EXPECT_TRUE( captureContract.IsValid() );
     EXPECT_EQ( captureContract.expectedDeclarationOnlyPassCount, static_cast<size_t>( 0 ) );
     EXPECT_EQ( captureContract.declarationOnlyPassCount, static_cast<size_t>( 0 ) );
@@ -1280,27 +1279,18 @@ bool RunFatalCase( const char* caseName )
     return true;
 }
 
-void TestPipelineDesiredStateResetRestoresReusableDefaults()
+void TestPipelineCommandStateResetRestoresReusableDefaults()
 {
-    Dx12PipelineDesiredState state;
+    Dx12PipelineCommandState state;
     state.m_activeShader = reinterpret_cast<ShaderDX12*>( 1 );
     state.m_viewport.Width = 800.0f;
     state.m_scissorRect.right = 800;
     state.m_currentRTV.ptr = 11;
     state.m_currentDSV.ptr = 22;
     state.m_currentRTVFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    state.m_depthTestEnabled = false;
-    state.m_depthWriteEnabled = false;
-    state.m_blendEnabled = true;
-    state.m_blendSrc = BlendFactor::SrcAlpha;
-    state.m_blendDst = BlendFactor::OneMinusSrcAlpha;
-    state.m_cullEnabled = false;
-    state.m_polyOffsetEnabled = true;
-    state.m_polyOffsetFactor = 3.0f;
-    state.m_polyOffsetUnits = 4.0f;
     state.m_renderingToFBO = true;
     state.m_lastPSOHash = 123;
-    state.m_psoDirty = false;
+    state.m_pipelineBindingDirty = false;
     state.m_targetsDirty = false;
 
     state.Reset();
@@ -1311,18 +1301,9 @@ void TestPipelineDesiredStateResetRestoresReusableDefaults()
     EXPECT_EQ( state.m_currentRTV.ptr, static_cast<SIZE_T>( 0 ) );
     EXPECT_EQ( state.m_currentDSV.ptr, static_cast<SIZE_T>( 0 ) );
     EXPECT_TRUE( state.m_currentRTVFormat == DXGI_FORMAT_R8G8B8A8_UNORM );
-    EXPECT_TRUE( state.m_depthTestEnabled );
-    EXPECT_TRUE( state.m_depthWriteEnabled );
-    EXPECT_TRUE( !state.m_blendEnabled );
-    EXPECT_TRUE( state.m_blendSrc == BlendFactor::One );
-    EXPECT_TRUE( state.m_blendDst == BlendFactor::Zero );
-    EXPECT_TRUE( state.m_cullEnabled );
-    EXPECT_TRUE( !state.m_polyOffsetEnabled );
-    EXPECT_EQ( state.m_polyOffsetFactor, 0.0f );
-    EXPECT_EQ( state.m_polyOffsetUnits, 0.0f );
     EXPECT_TRUE( !state.m_renderingToFBO );
     EXPECT_EQ( state.m_lastPSOHash, static_cast<size_t>( 0 ) );
-    EXPECT_TRUE( state.m_psoDirty );
+    EXPECT_TRUE( state.m_pipelineBindingDirty );
     EXPECT_TRUE( state.m_targetsDirty );
 }
 
@@ -1433,8 +1414,8 @@ const TestCase kTests[] = {
       TestPlatformProfilerGpuStackRejectsOverflowAndUnderflow },
     { "Platform profiler GPU stack reset clears stale device epoch",
       TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch },
-    { "Pipeline desired-state reset restores reusable defaults",
-      TestPipelineDesiredStateResetRestoresReusableDefaults },
+    { "Pipeline command-state reset restores reusable defaults",
+      TestPipelineCommandStateResetRestoresReusableDefaults },
     { "Command close failure does not commit closed state", TestCommandCloseFailureDoesNotCommitClosedState },
     { "Command close success commits closed state", TestCommandCloseSuccessCommitsClosedState },
     { "Allocator reset failure blocks list reset", TestAllocatorResetFailureBlocksListReset },

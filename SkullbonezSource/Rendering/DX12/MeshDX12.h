@@ -96,10 +96,8 @@ class MeshDX12 : public IMesh
                  uint8_t* uploadPtr,
                  ID3D12Resource* uploadBuffer );
 
-    void Draw() const override;
     bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const override;
     void Draw( const PassRasterStateBucket& bucket ) const override;
-    void DrawInstanced( int instanceCount ) const override;
     int GetVertexCount() const override
     {
         return m_vertexCount;

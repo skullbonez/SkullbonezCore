@@ -118,7 +118,7 @@ class Dx12DrawGate
                               bool instanced,
                               const InstancedMeshDX12* instancedMesh,
                               const DynamicVBDX12* dynamicVertexBuffer,
-                              const RasterStateDesc* declaredRasterState = nullptr );
+                              const RasterStateDesc& rasterState );
     bool PrecompilePipelineDraw( VertexFormat12 format,
                                  bool instanced,
                                  const InstancedMeshDX12* instancedMesh,
@@ -281,7 +281,7 @@ class Dx12FrameOwner
                               bool instanced,
                               const InstancedMeshDX12* instancedMesh,
                               const DynamicVBDX12* dynamicVertexBuffer,
-                              const RasterStateDesc* declaredRasterState );
+                              const RasterStateDesc& rasterState );
     bool PrecompilePipelineDraw( VertexFormat12 format,
                                  bool instanced,
                                  const InstancedMeshDX12* instancedMesh,

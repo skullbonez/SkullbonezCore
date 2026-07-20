@@ -919,13 +919,11 @@ void PrimitiveBatchRenderer::DrawSphereBatchEnd( const PrimitiveRenderContext& c
     {
         if ( m_state.sphereBatchReady )
         {
-            Commands( context ).UploadInstanceData( m_state.activeSphereInstMesh,
-                                                    m_state.sphereInstanceData.data(),
-                                                    static_cast<int>( m_state.sphereInstanceData.size() ) );
-            Commands( context ).DrawInstancedMesh( m_state.activeSphereInstMesh,
-                                                   m_state.activeSphereVertexCount,
-                                                   instanceCount,
-                                                   PrimitiveVisibleRasterState( m_state.sphereBatchTransparent ) );
+            Commands( context ).UploadInstanceData( m_state.activeSphereInstMesh, m_state.sphereInstanceData );
+            Commands( context ).DrawInstancedMesh( { m_state.activeSphereInstMesh,
+                                                     m_state.activeSphereVertexCount,
+                                                     instanceCount,
+                                                     PrimitiveVisibleRasterState( m_state.sphereBatchTransparent ) } );
         }
     }
     m_state.sphereBatchTransparent = false;
@@ -997,13 +995,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
         // Upload only the compact per-instance stream, then issue one instanced
         // draw for every sphere caster. This keeps the shadow pass draw-call
         // count predictable even in scenes with hundreds of balls.
-        Commands( context ).UploadInstanceData( m_state.activeSphereInstMesh,
-                                                m_state.sphereInstanceData.data(),
-                                                static_cast<int>( m_state.sphereInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.activeSphereInstMesh,
-                                               m_state.activeSphereVertexCount,
-                                               instanceCount,
-                                               PRIMITIVE_SHADOW_RASTER );
+        Commands( context ).UploadInstanceData( m_state.activeSphereInstMesh, m_state.sphereInstanceData );
+        Commands( context ).DrawInstancedMesh(
+            { m_state.activeSphereInstMesh, m_state.activeSphereVertexCount, instanceCount, PRIMITIVE_SHADOW_RASTER } );
     }
     m_state.sphereBatchReady = false;
 }
@@ -1102,13 +1096,11 @@ void PrimitiveBatchRenderer::DrawBoxBatchEnd( const PrimitiveRenderContext& cont
     int instanceCount = static_cast<int>( m_state.boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.boxBatchReady && instanceCount > 0 )
     {
-        Commands( context ).UploadInstanceData( m_state.boxInstMesh,
-                                                m_state.boxInstanceData.data(),
-                                                static_cast<int>( m_state.boxInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.boxInstMesh,
-                                               m_state.boxVertexCount,
-                                               instanceCount,
-                                               PrimitiveVisibleRasterState( m_state.boxBatchTransparent ) );
+        Commands( context ).UploadInstanceData( m_state.boxInstMesh, m_state.boxInstanceData );
+        Commands( context ).DrawInstancedMesh( { m_state.boxInstMesh,
+                                                 m_state.boxVertexCount,
+                                                 instanceCount,
+                                                 PrimitiveVisibleRasterState( m_state.boxBatchTransparent ) } );
     }
     m_state.boxBatchTransparent = false;
     m_state.boxBatchReady = false;
@@ -1158,13 +1150,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchEnd( const PrimitiveRenderCo
         // This draw is the box-caster fix point: if a scene has boxes and shadow
         // maps are active, their depth is written here before terrain/objects
         // sample the map in the forward pass.
-        Commands( context ).UploadInstanceData( m_state.boxInstMesh,
-                                                m_state.boxInstanceData.data(),
-                                                static_cast<int>( m_state.boxInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.boxInstMesh,
-                                               m_state.boxVertexCount,
-                                               instanceCount,
-                                               PRIMITIVE_SHADOW_RASTER );
+        Commands( context ).UploadInstanceData( m_state.boxInstMesh, m_state.boxInstanceData );
+        Commands( context ).DrawInstancedMesh(
+            { m_state.boxInstMesh, m_state.boxVertexCount, instanceCount, PRIMITIVE_SHADOW_RASTER } );
     }
     m_state.boxBatchReady = false;
 }
@@ -1205,10 +1193,11 @@ void PrimitiveBatchRenderer::DrawConvexHullModel( const PrimitiveRenderContext& 
                                                    materialAlpha } );
     if ( ready )
     {
-        Commands( context ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
-                                                    m_state.convexHullVertexData.data(),
-                                                    vertexCount,
-                                                    PrimitiveVisibleRasterState( isTransparent ) );
+        Commands( context ).UploadAndDrawDynamicVB(
+            m_state.convexHullDynamicVB,
+            std::span<const float>( m_state.convexHullVertexData.data(),
+                                    static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX ),
+            PrimitiveVisibleRasterState( isTransparent ) );
     }
 }
 
@@ -1243,10 +1232,11 @@ void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const PrimitiveRend
     if ( m_state.shadowDepthShader->SetConstantBufferBytes( SkullbonezCore::Core::ObjectBytes( constants ),
                                                             "InstancedShadowDepthConstants" ) )
     {
-        Commands( context ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
-                                                    m_state.convexHullVertexData.data(),
-                                                    vertexCount,
-                                                    PRIMITIVE_SHADOW_RASTER );
+        Commands( context ).UploadAndDrawDynamicVB(
+            m_state.convexHullDynamicVB,
+            std::span<const float>( m_state.convexHullVertexData.data(),
+                                    static_cast<size_t>( vertexCount ) * HULL_DYNAMIC_FLOATS_PER_VERTEX ),
+            PRIMITIVE_SHADOW_RASTER );
     }
 }
 
@@ -1332,13 +1322,11 @@ void PrimitiveBatchRenderer::DrawPineBatchEnd( const PrimitiveRenderContext& con
     int instanceCount = static_cast<int>( m_state.pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.pineBatchReady && instanceCount > 0 )
     {
-        Commands( context ).UploadInstanceData( m_state.pineInstMesh,
-                                                m_state.pineInstanceData.data(),
-                                                static_cast<int>( m_state.pineInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.pineInstMesh,
-                                               m_state.pineVertexCount,
-                                               instanceCount,
-                                               PrimitiveVisibleRasterState( m_state.pineBatchTransparent ) );
+        Commands( context ).UploadInstanceData( m_state.pineInstMesh, m_state.pineInstanceData );
+        Commands( context ).DrawInstancedMesh( { m_state.pineInstMesh,
+                                                 m_state.pineVertexCount,
+                                                 instanceCount,
+                                                 PrimitiveVisibleRasterState( m_state.pineBatchTransparent ) } );
     }
     m_state.pineBatchTransparent = false;
     m_state.pineBatchReady = false;
@@ -1385,13 +1373,9 @@ void PrimitiveBatchRenderer::DrawShadowDepthPineBatchEnd( const PrimitiveRenderC
     int instanceCount = static_cast<int>( m_state.pineInstanceData.size() ) / INSTANCE_FLOATS;
     if ( m_state.pineBatchReady && instanceCount > 0 && m_state.pineInstMesh != 0 )
     {
-        Commands( context ).UploadInstanceData( m_state.pineInstMesh,
-                                                m_state.pineInstanceData.data(),
-                                                static_cast<int>( m_state.pineInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.pineInstMesh,
-                                               m_state.pineVertexCount,
-                                               instanceCount,
-                                               PRIMITIVE_SHADOW_RASTER );
+        Commands( context ).UploadInstanceData( m_state.pineInstMesh, m_state.pineInstanceData );
+        Commands( context ).DrawInstancedMesh(
+            { m_state.pineInstMesh, m_state.pineVertexCount, instanceCount, PRIMITIVE_SHADOW_RASTER } );
     }
     m_state.pineBatchReady = false;
 }

@@ -803,10 +803,10 @@ void Text2d::FlushText( TextBatch& batch, IRenderCommandContext& renderCommands 
     renderCommands.BindTexture( Text2d::fontTexture, 0 );
 
     // One GPU upload + one draw call covers the entire frame's text at all colors.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::textBatchVB,
-                                           batch.m_textVertices.data(),
-                                           batch.m_textVertexCount,
-                                           TEXT_RASTER_STATE );
+    renderCommands.UploadAndDrawDynamicVB(
+        Text2d::textBatchVB,
+        std::span<const float>( batch.m_textVertices.data(), batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT ),
+        TEXT_RASTER_STATE );
 
     batch.m_textVertexCount = 0;
 }
@@ -879,7 +879,7 @@ void Text2d::Render2dQuad( TextBatch& batch,
     Text2d::pSolidShader->SetMat4( "uProjection", batch.m_projection );
     Text2d::pSolidShader->SetVec4( "uColor", r, g, b, a );
 
-    renderCommands.UploadAndDrawDynamicVB( Text2d::dynamicVB, quadVertices, 6, TEXT_RASTER_STATE );
+    renderCommands.UploadAndDrawDynamicVB( Text2d::dynamicVB, quadVertices, TEXT_RASTER_STATE );
 }
 
 
@@ -1005,10 +1005,10 @@ void Text2d::FlushQuads( TextBatch& batch, IRenderCommandContext& renderCommands
     Text2d::pSolidBatchShader->SetMat4( "uProjection", batch.m_projection );
 
     // One GPU upload + one draw call covers every quad batched this frame.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::quadBatchVB,
-                                           batch.m_quadVertices.data(),
-                                           batch.m_quadVertexCount,
-                                           TEXT_RASTER_STATE );
+    renderCommands.UploadAndDrawDynamicVB(
+        Text2d::quadBatchVB,
+        std::span<const float>( batch.m_quadVertices.data(), batch.m_quadVertexCount * QUAD_BATCH_FLOATS_PER_VERT ),
+        TEXT_RASTER_STATE );
 
     batch.m_quadVertexCount = 0;
 }

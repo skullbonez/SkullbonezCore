@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.PipelineState.h
 Purpose:
-  Defines the allocation-free desired-state record owned by Dx12PipelineOwner.
+  Defines the allocation-free command-binding reset record owned by
+  Dx12PipelineOwner.
 
 Summary:
-  Pipeline COM objects have explicit release logic, while desired draw state is
-  a plain reusable value. Resetting this record restores the exact state a new
-  backend publishes before its first ordinary raster draw.
+  Pipeline COM objects have explicit release logic, while dynamic output and
+  command-binding state is a plain reusable value. Raster state is absent: each
+  draw supplies its complete `RasterStateDesc` directly.
 
 Glossary:
   PSO (Pipeline State Object): Compiled shader and fixed-function draw recipe.
@@ -34,7 +35,7 @@ namespace Rendering
 {
 class ShaderDX12;
 
-struct Dx12PipelineDesiredState
+struct Dx12PipelineCommandState
 {
     void Reset()
     {
@@ -46,18 +47,9 @@ struct Dx12PipelineDesiredState
         m_currentRTV = {};
         m_currentDSV = {};
         m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-        m_depthTestEnabled = true;
-        m_depthWriteEnabled = true;
-        m_blendEnabled = false;
-        m_blendSrc = BlendFactor::One;
-        m_blendDst = BlendFactor::Zero;
-        m_cullEnabled = true;
-        m_polyOffsetEnabled = false;
-        m_polyOffsetFactor = 0.0f;
-        m_polyOffsetUnits = 0.0f;
         m_renderingToFBO = false;
         m_lastPSOHash = 0;
-        m_psoDirty = true;
+        m_pipelineBindingDirty = true;
         m_targetsDirty = true;
     }
 
@@ -67,18 +59,9 @@ struct Dx12PipelineDesiredState
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
     DXGI_FORMAT m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-    bool m_depthTestEnabled = true;
-    bool m_depthWriteEnabled = true;
-    bool m_blendEnabled = false;
-    BlendFactor m_blendSrc = BlendFactor::One;
-    BlendFactor m_blendDst = BlendFactor::Zero;
-    bool m_cullEnabled = true;
-    bool m_polyOffsetEnabled = false;
-    float m_polyOffsetFactor = 0.0f;
-    float m_polyOffsetUnits = 0.0f;
     bool m_renderingToFBO = false;
     size_t m_lastPSOHash = 0;
-    bool m_psoDirty = true;
+    bool m_pipelineBindingDirty = true;
     bool m_targetsDirty = true;
 };
 } // namespace Rendering

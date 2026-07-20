@@ -1,6 +1,6 @@
 # Render HAL Modernization
 
-Status: Active — 3/6 tasks (M0-M5)
+Status: Active — 4/6 tasks (M0-M5)
 Owner: repository owner; registered 2026-07-20 as campaign plan 6 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding F)
 Ledger: M0-M5
@@ -350,6 +350,52 @@ interaction (3.50 s, `ok=true`). Comment-style audit: 12/12 touched
 source-bearing files inspected, zero deferred. Formatting pipeline passed after
 scoped formatting of the touched files only.
 
+## M3 Setter-Retirement Evidence
+
+Completed 2026-07-20 on `nightrunner-20th-july`.
+
+The command boundary now has one declared-state path:
+
+- `IRenderCommandContext` and `IMesh` expose no raster setters, raster-state
+  queries, or bucketless graphics-draw overloads;
+- `Dx12PipelineOwner` retains command bindings and output state only. It builds
+  every `PSOKey12` directly from the draw's `RasterStateDesc`; the former
+  desired-raster fields, reconstruction fallback, and setter/query forwarding
+  methods are deleted;
+- dynamic, line, transient-triangle, and instance uploads use bounded
+  `std::span<const float>` values. Line and transient transforms use
+  `Matrix4`, and instanced submission uses `InstancedMeshDrawDesc`; malformed
+  dynamic/transient packed-span divisibility is rejected before upload; and
+- the three tracked debug visualizers omitted from M0's initial `rg` inventory
+  were found by the M3 compile proof and migrated too. Collision debug solids
+  select explicit opaque/translucent buckets; broadphase and physics overlays
+  select the immutable debug-line bucket. This corrects the M0 caller inventory
+  without weakening its closure classification.
+
+The DX12 architecture reset test now pins command-binding reset state without
+any raster fields. Exact stress telemetry is unchanged from M2: 19 entries and
+misses from frame 1,800 through 12,600, hits rise 24,634 -> 175,960, and one
+PSO is created by pass precompile. The run reached 13,149 frames and 361 scene
+loads before graceful PID-scoped shutdown; stderr was empty.
+
+Validation at the final M3 source tip:
+
+| Command | Time | Result |
+|---|---:|---|
+| `tools\validate_dx12_renderer.bat` run 1 | 79.46 s | PASS; Profile/Debug clean, zero warnings/errors, captures accepted, zero DX12 validation errors |
+| `tools\validate_dx12_renderer.bat` run 2 | 56.07 s | PASS; same evidence |
+| `tools\validate_dx12_renderer.bat` run 3 | 55.78 s | PASS; same evidence |
+| `tools\run_graphics_stress.bat 1` | 62.28 s | PASS; 13,149 frames/361 scene loads, graceful PID-scoped stop, stderr empty, 19 misses stable and 175,960 hits |
+| `tools\validate_perf.bat` | 110.79 s | PASS; absolute budgets and DX12/physics comparisons pass; DX12 frame avg 0.7051 ms, p99 1.3105 ms |
+| `tools\validate_full.bat` | 144.36 s | PASS; 329/329 tests and 61,354 assertions, coverage/Automation/DX12/physics, zero DX12 errors, accepted screenshots, 44,401 physics lines byte-exact |
+| `tools\validate_format.bat` | 13.41 s | PASS; 276 headers aligned and all source files formatted |
+
+Focused iteration passed the Profile build (12.72 s, zero warnings/errors) and
+all DX12 architecture tests (22.64 s). Comment-style audit: 23/23 touched
+source-bearing files inspected, zero deferred. The format gate initially found
+two touched headers needing the repository alignment post-pass; scoped repair
+was applied and every formal gate then passed.
+
 ## Tasks
 
 - [x] M0 — Contract and inventory: enumerate every `IRenderCommandContext`
@@ -368,7 +414,7 @@ scoped formatting of the touched files only.
 - [x] M2 — Full pass migration: remaining passes move to declared state;
   per-draw setter calls disappear from pass bodies. Validation:
   `tools\validate_dx12_renderer.bat` ×3 + `tools\run_graphics_stress.bat 1`.
-- [ ] M3 — Setter retirement: delete the global raster-state setters/getters
+- [x] M3 — Setter retirement: delete the global raster-state setters/getters
   from `IRenderCommandContext` and their backend state tracking; `PSOKey12`
   population is state-desc-only. Typed math types per binding decision 3 on
   migrated signatures. Validation: `tools\validate_dx12_renderer.bat` ×3 +

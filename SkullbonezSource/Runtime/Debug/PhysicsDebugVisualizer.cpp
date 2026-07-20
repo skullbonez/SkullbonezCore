@@ -49,6 +49,8 @@ using namespace SkullbonezCore::Geometry;
 namespace
 {
 constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Count );
+constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER =
+    MakePassRasterStateBucket( 0, false, false, false, BlendFactor::One, BlendFactor::Zero, CullMode::None );
 
 float ShapeAxisLength( const ColliderRecord& collider, int axis )
 {
@@ -606,8 +608,6 @@ void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view,
     {
         // Why: DebugOverlayPass resolves renderer readiness once per frame; this
         // visualizer only owns physics diagnostic geometry.
-        renderCommands.DrawLinesColored( m_lineData.data(),
-                                         static_cast<int>( m_lineData.size() / 6 ),
-                                         viewProj.Data() );
+        renderCommands.DrawLinesColored( m_lineData, viewProj, PHYSICS_DEBUG_LINE_RASTER );
     }
 }

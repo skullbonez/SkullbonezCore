@@ -286,22 +286,6 @@ void Dx12PipelineOwner::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
 }
 
 
-RasterStateDesc Dx12PipelineOwner::DesiredRasterState() const
-{
-    RasterStateDesc state;
-    state.depthTest = m_depthTestEnabled;
-    state.depthWrite = m_depthWriteEnabled;
-    state.blendEnabled = m_blendEnabled;
-    state.sourceBlend = m_blendSrc;
-    state.destinationBlend = m_blendDst;
-    state.cullMode = m_cullEnabled ? CullMode::Back : CullMode::None;
-    state.depthBias.enabled = m_polyOffsetEnabled;
-    state.depthBias.constant = m_polyOffsetUnits;
-    state.depthBias.slopeScaled = m_polyOffsetFactor;
-    return state;
-}
-
-
 PSOKey12
 Dx12PipelineOwner::BuildPSOKey( VertexFormat12 format, bool instanced, const RasterStateDesc& rasterState ) const
 {
@@ -572,7 +556,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
                                      bool instanced,
                                      const InstancedMeshDX12* im,
                                      const DynamicVBDX12* dvb,
-                                     const RasterStateDesc* declaredRasterState )
+                                     const RasterStateDesc& rasterState )
 {
     // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
     //
@@ -585,7 +569,6 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // UnifiedRaster, but future graph-local signatures must not accidentally
     // reuse an incompatible cached PSO. The owner-issued epoch survives COM
     // address recycling and therefore represents recipe identity, not storage.
-    const RasterStateDesc rasterState = declaredRasterState ? *declaredRasterState : DesiredRasterState();
     const PSOKey12 key = BuildPSOKey( format, instanced, rasterState );
     const size_t psoHash = BuildPSOHash( key, dvb );
 
@@ -593,7 +576,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // unchanged, the only per-draw work left is uploading the constant buffer.
     // This is the common path for many objects sharing the same mesh/shader
     // shape, such as generated balls or boxes.
-    bool psoChanged = m_psoDirty || ( psoHash != m_lastPSOHash );
+    bool psoChanged = m_pipelineBindingDirty || ( psoHash != m_lastPSOHash );
 
     if ( !psoChanged && !textures.BindingsDirty() && !m_targetsDirty )
     {
@@ -706,7 +689,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
     commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
-    m_psoDirty = false;
+    m_pipelineBindingDirty = false;
     return true;
 }
 
@@ -714,7 +697,7 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
 void Dx12PipelineOwner::SetActiveShader( const ShaderDX12* shader )
 {
     m_activeShader = shader;
-    m_psoDirty = true;
+    m_pipelineBindingDirty = true;
 }
 
 
@@ -740,7 +723,7 @@ void Dx12PipelineOwner::RestoreShaderPipelinesAfterReload()
     // Invariant: bytecode adoption is complete and cannot fail. Reopen the
     // persistent cache against the new manifest before the next PSO lookup.
     m_lastPSOHash = 0;
-    m_psoDirty = true;
+    m_pipelineBindingDirty = true;
     m_targetsDirty = true;
     m_persistentPsoCache.Initialize( { m_rootSignatureSerialized.data(), m_rootSignatureSerializedSize } );
 }
@@ -758,7 +741,7 @@ void Dx12PipelineOwner::SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat
 {
     m_renderingToFBO = rendering;
     m_currentRTVFormat = rendering ? rtvFormat : DXGI_FORMAT_R8G8B8A8_UNORM;
-    m_psoDirty = true;
+    m_pipelineBindingDirty = true;
 }
 
 
@@ -779,7 +762,7 @@ void Dx12PipelineOwner::SetViewport( const D3D12_VIEWPORT& viewport, const D3D12
 void Dx12PipelineOwner::InvalidateCommandState()
 {
     m_lastPSOHash = 0;
-    m_psoDirty = true;
+    m_pipelineBindingDirty = true;
     m_targetsDirty = true;
 }
 
@@ -823,7 +806,7 @@ bool Dx12PipelineOwner::RenderingToFramebuffer() const
 void Dx12PipelineOwner::RestoreRenderTargetFormat( DXGI_FORMAT format )
 {
     m_currentRTVFormat = format;
-    m_psoDirty = true;
+    m_pipelineBindingDirty = true;
 }
 
 
@@ -923,13 +906,13 @@ void Dx12PipelineOwner::Shutdown()
     m_activeShader = nullptr;
     m_rootSignatureSerialized = {};
     m_rootSignatureSerializedSize = 0;
-    ResetDesiredState();
+    ResetCommandState();
 }
 
 
-void Dx12PipelineOwner::ResetDesiredState()
+void Dx12PipelineOwner::ResetCommandState()
 {
-    Dx12PipelineDesiredState defaults;
+    Dx12PipelineCommandState defaults;
     defaults.Reset();
     m_activeShader = defaults.m_activeShader;
     m_viewport = defaults.m_viewport;
@@ -937,15 +920,6 @@ void Dx12PipelineOwner::ResetDesiredState()
     m_currentRTV = defaults.m_currentRTV;
     m_currentDSV = defaults.m_currentDSV;
     m_currentRTVFormat = defaults.m_currentRTVFormat;
-    m_depthTestEnabled = defaults.m_depthTestEnabled;
-    m_depthWriteEnabled = defaults.m_depthWriteEnabled;
-    m_blendEnabled = defaults.m_blendEnabled;
-    m_blendSrc = defaults.m_blendSrc;
-    m_blendDst = defaults.m_blendDst;
-    m_cullEnabled = defaults.m_cullEnabled;
-    m_polyOffsetEnabled = defaults.m_polyOffsetEnabled;
-    m_polyOffsetFactor = defaults.m_polyOffsetFactor;
-    m_polyOffsetUnits = defaults.m_polyOffsetUnits;
     m_renderingToFBO = defaults.m_renderingToFBO;
     m_clearColor[0] = 0.0f;
     m_clearColor[1] = 0.0f;
@@ -953,94 +927,6 @@ void Dx12PipelineOwner::ResetDesiredState()
     m_clearColor[3] = 1.0f;
     m_clearDepth = 1.0f;
     m_lastPSOHash = defaults.m_lastPSOHash;
-    m_psoDirty = defaults.m_psoDirty;
+    m_pipelineBindingDirty = defaults.m_pipelineBindingDirty;
     m_targetsDirty = defaults.m_targetsDirty;
-}
-
-
-void Dx12PipelineOwner::SetDepthTest( bool enabled )
-{
-    if ( m_depthTestEnabled != enabled )
-    {
-        m_depthTestEnabled = enabled;
-        m_psoDirty = true;
-    }
-}
-
-
-void Dx12PipelineOwner::SetDepthWrite( bool enabled )
-{
-    if ( m_depthWriteEnabled != enabled )
-    {
-        m_depthWriteEnabled = enabled;
-        m_psoDirty = true;
-    }
-}
-
-
-void Dx12PipelineOwner::SetBlend( bool enabled )
-{
-    if ( m_blendEnabled != enabled )
-    {
-        m_blendEnabled = enabled;
-        m_psoDirty = true;
-    }
-}
-
-
-void Dx12PipelineOwner::SetBlendFunc( BlendFactor src, BlendFactor dst )
-{
-    if ( m_blendSrc != src || m_blendDst != dst )
-    {
-        m_blendSrc = src;
-        m_blendDst = dst;
-        m_psoDirty = true;
-    }
-}
-
-
-void Dx12PipelineOwner::SetCullFace( bool enabled )
-{
-    if ( m_cullEnabled != enabled )
-    {
-        m_cullEnabled = enabled;
-        m_psoDirty = true;
-    }
-}
-
-
-void Dx12PipelineOwner::SetPolygonOffset( bool enabled, float factor, float units )
-{
-    if ( m_polyOffsetEnabled != enabled || m_polyOffsetFactor != factor || m_polyOffsetUnits != units )
-    {
-        m_polyOffsetEnabled = enabled;
-        m_polyOffsetFactor = factor;
-        m_polyOffsetUnits = units;
-        m_psoDirty = true;
-    }
-}
-
-
-bool Dx12PipelineOwner::DepthTestEnabled() const
-{
-    return m_depthTestEnabled;
-}
-bool Dx12PipelineOwner::DepthWriteEnabled() const
-{
-    return m_depthWriteEnabled;
-}
-bool Dx12PipelineOwner::BlendEnabled() const
-{
-    return m_blendEnabled;
-}
-bool Dx12PipelineOwner::CullEnabled() const
-{
-    return m_cullEnabled;
-}
-
-
-void Dx12PipelineOwner::GetBlendFunc( BlendFactor& src, BlendFactor& dst ) const
-{
-    src = m_blendSrc;
-    dst = m_blendDst;
 }

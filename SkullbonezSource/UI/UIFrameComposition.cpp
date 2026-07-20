@@ -766,7 +766,7 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader
     commands.BindTexture( resource.textureHandle, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( *render.diagnostics, "RenderTargetPreview" );
-        commands.UploadAndDrawDynamicVB( dynamicVB, verts, 6, PREVIEW_RASTER_STATE );
+        commands.UploadAndDrawDynamicVB( dynamicVB, verts, PREVIEW_RASTER_STATE );
     }
     commands.BindTexture( 0, 0 );
 }

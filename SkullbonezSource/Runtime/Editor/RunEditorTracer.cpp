@@ -1390,10 +1390,7 @@ void RunEditorTracer::Render( const ReplayVisualPacket& packet,
     {
         // Invariant: combinedLines stores colored vertices as xyz/rgb floats; every
         // pair of vertices is one line segment consumed by DrawLinesColored.
-        renderCommands.DrawLinesColored( packet.combinedLines.data(),
-                                         static_cast<int>( packet.combinedLines.size() / 6u ),
-                                         viewProjection.Data(),
-                                         REPLAY_LINE_RASTER );
+        renderCommands.DrawLinesColored( packet.combinedLines, viewProjection, REPLAY_LINE_RASTER );
     }
 
     if ( !packet.expandedRibbonVertices.empty() )
@@ -1402,20 +1399,14 @@ void RunEditorTracer::Render( const ReplayVisualPacket& packet,
         // testing disabled; the normal pass is depth-tested, so visible
         // strokes stay seated while occluded spans remain only faintly
         // readable behind scene geometry.
-        renderCommands.DrawTransientColoredTriangles(
-            packet.expandedRibbonVertices.data(),
-            static_cast<int>( packet.expandedRibbonVertices.size() /
-                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-            viewProjection.Data(),
-            Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
-            REPLAY_RIBBON_DEPTH_HINT_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
+                                                      viewProjection,
+                                                      Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+                                                      REPLAY_RIBBON_DEPTH_HINT_RASTER );
 
-        renderCommands.DrawTransientColoredTriangles(
-            packet.expandedRibbonVertices.data(),
-            static_cast<int>( packet.expandedRibbonVertices.size() /
-                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-            viewProjection.Data(),
-            Rendering::TransientTriangleStyle::TrajectoryRibbon,
-            REPLAY_RIBBON_VISIBLE_RASTER );
+        renderCommands.DrawTransientColoredTriangles( packet.expandedRibbonVertices,
+                                                      viewProjection,
+                                                      Rendering::TransientTriangleStyle::TrajectoryRibbon,
+                                                      REPLAY_RIBBON_VISIBLE_RASTER );
     }
 }

@@ -436,7 +436,7 @@ void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& rende
 {
     // Shared post vertex contract: clip-space xy followed by UV. Keeping one
     // copy prevents sky, volumetric, and tonemap from quietly drifting apart.
-    renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, 6, rasterState );
+    renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, rasterState );
 }
 
 void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
@@ -1847,12 +1847,10 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/TornadoVisual" );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
     ClearAllRenderTextureSlots( renderCommands );
-    renderCommands.DrawTransientColoredTriangles(
-        m_vertices.data(),
-        static_cast<int>( m_vertices.size() / TORNADO_VISUAL_FLOATS_PER_VERTEX ),
-        inputs.frame.viewProjection.Data(),
-        Rendering::TransientTriangleStyle::Color,
-        TORNADO_RASTER );
+    renderCommands.DrawTransientColoredTriangles( m_vertices,
+                                                  inputs.frame.viewProjection,
+                                                  Rendering::TransientTriangleStyle::Color,
+                                                  TORNADO_RASTER );
     PROFILE_GPU_END( m_profiler, "Frame/Render/TornadoVisual" );
     return true;
 }
@@ -2096,11 +2094,7 @@ void DebugOverlayPass::RenderTornadoVectorOverlay( const DebugOverlayPassInputs&
 
         if ( !m_tornadoVectorLineData.empty() )
         {
-            const int vertCount = static_cast<int>( m_tornadoVectorLineData.size() / 6 );
-            renderCommands.DrawLinesColored( m_tornadoVectorLineData.data(),
-                                             vertCount,
-                                             inputs.frame.viewProjection.Data(),
-                                             DEBUG_LINE_RASTER );
+            renderCommands.DrawLinesColored( m_tornadoVectorLineData, inputs.frame.viewProjection, DEBUG_LINE_RASTER );
         }
     }
 }

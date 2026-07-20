@@ -409,8 +409,5 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
         return;
     }
     m_shader->SetMat4( "uViewProj", viewProjection );
-    renderCommands.UploadAndDrawDynamicVB( m_dynamicVB,
-                                           m_vertices.data(),
-                                           static_cast<int>( m_vertices.size() / 7 ),
-                                           LASER_RASTER_BUCKET );
+    renderCommands.UploadAndDrawDynamicVB( m_dynamicVB, m_vertices, LASER_RASTER_BUCKET );
 }

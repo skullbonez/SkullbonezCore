@@ -884,7 +884,7 @@ bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
                                           bool instanced,
                                           const InstancedMeshDX12* instancedMesh,
                                           const DynamicVBDX12* dynamicVertexBuffer,
-                                          const RasterStateDesc* declaredRasterState )
+                                          const RasterStateDesc& rasterState )
 {
     if ( !PrepareDraw() )
     {
@@ -898,7 +898,7 @@ bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
                                    instanced,
                                    instancedMesh,
                                    dynamicVertexBuffer,
-                                   declaredRasterState );
+                                   rasterState );
 }
 
 
@@ -923,9 +923,9 @@ bool Dx12DrawGate::PreparePipelineDraw( VertexFormat12 format,
                                         bool instanced,
                                         const InstancedMeshDX12* instancedMesh,
                                         const DynamicVBDX12* dynamicVertexBuffer,
-                                        const RasterStateDesc* declaredRasterState )
+                                        const RasterStateDesc& rasterState )
 {
-    return m_owner.PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
+    return m_owner.PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer, rasterState );
 }
 
 
