@@ -45,7 +45,7 @@ bool IsSameSnapshot( const RenderSceneSnapshot& lhs, const RenderSceneSnapshot& 
            lhs.objectOpaquePass == rhs.objectOpaquePass && lhs.objectTransparentPass == rhs.objectTransparentPass &&
            lhs.terrainPassRendered == rhs.terrainPassRendered && lhs.waterPassRendered == rhs.waterPassRendered &&
            lhs.waterSamplesReflection == rhs.waterSamplesReflection &&
-           lhs.tornadoVisualRendered == rhs.tornadoVisualRendered &&
+           lhs.worldExtensionRendered == rhs.worldExtensionRendered &&
            lhs.volumetricPassExecuted == rhs.volumetricPassExecuted && lhs.volumetricReady == rhs.volumetricReady &&
            lhs.volumetricTextureHandle == rhs.volumetricTextureHandle && lhs.volumetricWidth == rhs.volumetricWidth &&
            lhs.volumetricHeight == rhs.volumetricHeight;
@@ -138,7 +138,7 @@ std::string RenderPipeline::BuildExecutedFrameGraphText( const RenderGraph& grap
     out << "terrain_pass_rendered=" << ( snapshot.terrainPassRendered ? "true" : "false" ) << "\n";
     out << "water_pass_rendered=" << ( snapshot.waterPassRendered ? "true" : "false" ) << "\n";
     out << "water_samples_reflection=" << ( snapshot.waterSamplesReflection ? "true" : "false" ) << "\n";
-    out << "tornado_visual_rendered=" << ( snapshot.tornadoVisualRendered ? "true" : "false" ) << "\n";
+    out << "world_extension_rendered=" << ( snapshot.worldExtensionRendered ? "true" : "false" ) << "\n";
     out << "volumetric_pass_executed=" << ( snapshot.volumetricPassExecuted ? "true" : "false" ) << "\n";
     out << "volumetric_ready=" << ( snapshot.volumetricReady ? "true" : "false" ) << "\n";
     out << "volumetric_texture_handle=" << snapshot.volumetricTextureHandle << "\n";

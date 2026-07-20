@@ -1,22 +1,26 @@
 /*
 File: SkullbonezSource/Gameplay/TornadoGameplay.cpp
 Purpose:
-  Advances tornado content and publishes bounded external-force frame values.
+  Advances tornado content and publishes bounded force and debug values.
 
 Summary:
-  The owner retains authored field/system configuration, procedural time, and
-  per-body exposure state. Each fixed tick it converts active vortices to the
-  Physics-owned cylindrical value vocabulary without changing order or math.
+  The owner retains authored field/system configuration, procedural time,
+  per-body exposure state, and preallocated debug-line scratch. Fixed ticks
+  publish Physics-owned cylindrical values; render preparation publishes packed
+  line vertices without transferring gameplay state ownership.
 
 Glossary:
   Active vortex: Authored vortex after spawn, growth, shrink, drift, and
     repulsion have been evaluated for the current gameplay clock.
   Force frame: Synchronous spans borrowed by Physics for exactly one Step call.
+  Debug line row: Two position/color vertices packed as xyz/rgb floats for one
+    synchronous late-frame draw.
 
 Invariants:
   - The system clock advances exactly once per BuildForceFrame call.
   - Field conversion retains active/source order and exact float values.
   - The fixed 64-field array never allocates during steady gameplay.
+  - Debug buffers are preallocated for the fixed 64-vortex sampling ceiling.
 
 Related:
   - SkullbonezSource/Gameplay/TornadoGameplay.h
@@ -28,6 +32,7 @@ Related:
 #include "../Core/SceneCapacity.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace SkullbonezCore::Gameplay
 {
@@ -42,6 +47,8 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 TornadoGameplay::TornadoGameplay()
 {
     ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    m_debugLineVertices.reserve( MAX_ACTIVE_FORCE_FIELDS * 12u * 4u * 5u * 6u * 6u );
+    m_debugVortices.reserve( MAX_ACTIVE_FORCE_FIELDS );
 }
 
 void TornadoGameplay::ReserveBodyCapacity( int capacity )
@@ -56,6 +63,8 @@ void TornadoGameplay::Clear()
     m_captureSeconds.clear();
     m_ejectCooldownSeconds.clear();
     m_forceFieldCount = 0u;
+    m_debugLineVertices.clear();
+    m_debugVortices.clear();
     m_field.SetConfig( TornadoFieldConfig{} );
     m_system.SetConfig( TornadoSystemConfig{} );
     m_system.ResetElapsedSeconds();
@@ -145,6 +154,99 @@ void TornadoGameplay::RestoreReplayState( const TornadoGameplayReplayState& stat
                     state.field,
                     state.system,
                     state.systemElapsedSeconds );
+}
+
+std::span<const float> TornadoGameplay::BuildDebugLineVertices()
+{
+    m_debugLineVertices.clear();
+    m_debugVortices.clear();
+    const TornadoSystemConfig& system = m_system.GetConfig();
+    if ( system.enabled && !system.vortices.empty() )
+    {
+        TornadoSystem::BuildActiveVortices( system, m_system.GetElapsedSeconds(), m_debugVortices );
+    }
+    else if ( m_field.GetConfig().enabled )
+    {
+        TornadoActiveVortex active;
+        active.field = m_field.GetConfig();
+        active.strength = 1.0f;
+        active.ageSeconds = m_system.GetElapsedSeconds();
+        active.sourceIndex = 0;
+        m_debugVortices.push_back( active );
+    }
+
+    constexpr int ANGLE_STEPS = 12;
+    constexpr int RADIUS_STEPS = 4;
+    constexpr int HEIGHT_STEPS = 5;
+    constexpr float PI = 3.1415926535f;
+    for ( const TornadoActiveVortex& vortex : m_debugVortices )
+    {
+        const TornadoFieldConfig& fieldConfig = vortex.field;
+        if ( !fieldConfig.visualizeVelocityField )
+        {
+            continue;
+        }
+
+        const float maxFieldSpeed = (std::max)( 1.0f,
+                                                sqrtf( fieldConfig.inwardAcceleration * fieldConfig.inwardAcceleration +
+                                                       fieldConfig.swirlAcceleration * fieldConfig.swirlAcceleration +
+                                                       fieldConfig.liftAcceleration * fieldConfig.liftAcceleration ) );
+        const auto emit =
+            [&]( const Math::Vector::Vector3& a, const Math::Vector::Vector3& b, float r, float g, float blue )
+        {
+            m_debugLineVertices.insert( m_debugLineVertices.end(),
+                                        { a.x, a.y, a.z, r, g, blue, b.x, b.y, b.z, r, g, blue } );
+        };
+
+        for ( int h = 0; h < HEIGHT_STEPS; ++h )
+        {
+            const float height01 = 0.12f + static_cast<float>( h ) * ( 0.78f / static_cast<float>( HEIGHT_STEPS - 1 ) );
+            const float y = fieldConfig.center.y + fieldConfig.height * height01;
+            for ( int rIndex = 0; rIndex < RADIUS_STEPS; ++rIndex )
+            {
+                const float radial01 =
+                    0.22f + static_cast<float>( rIndex ) * ( 0.72f / static_cast<float>( RADIUS_STEPS - 1 ) );
+                const float radius = fieldConfig.radius * radial01;
+                for ( int aIndex = 0; aIndex < ANGLE_STEPS; ++aIndex )
+                {
+                    const float angle =
+                        ( static_cast<float>( aIndex ) / static_cast<float>( ANGLE_STEPS ) ) * PI * 2.0f;
+                    Math::Vector::Vector3 start( fieldConfig.center.x + cosf( angle ) * radius,
+                                                 y,
+                                                 fieldConfig.center.z + sinf( angle ) * radius );
+                    Math::Vector::Vector3 field = TornadoField::SampleAccelerationForConfig( fieldConfig, start );
+                    const float speed = Math::Vector::VectorMag( field );
+                    if ( speed <= TOLERANCE )
+                    {
+                        continue;
+                    }
+
+                    const float t = std::clamp( speed / maxFieldSpeed, 0.0f, 1.0f );
+                    const float red = t;
+                    const float green = 1.0f - t;
+                    const float arrowLength = 9.0f + 23.0f * t;
+                    Math::Vector::Vector3 dir = field / speed;
+                    Math::Vector::Vector3 end = start + dir * arrowLength;
+                    emit( start, end, red, green, 0.0f );
+
+                    Math::Vector::Vector3 side( -dir.z, 0.0f, dir.x );
+                    const float sideMag = Math::Vector::VectorMag( side );
+                    if ( sideMag > TOLERANCE )
+                    {
+                        side /= sideMag;
+                    }
+                    else
+                    {
+                        side = Math::Vector::Vector3( 1.0f, 0.0f, 0.0f );
+                    }
+                    const Math::Vector::Vector3 headBase = end - dir * 4.4f;
+                    emit( end, headBase + side * 2.4f, red, green, 0.0f );
+                    emit( end, headBase - side * 2.4f, red, green, 0.0f );
+                }
+            }
+        }
+    }
+    return m_debugLineVertices;
 }
 
 Physics::ExternalForceFrameInput TornadoGameplay::BuildForceFrame( float dt, int bodyCount )

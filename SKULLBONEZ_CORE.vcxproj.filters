@@ -228,6 +228,9 @@
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp">
       <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
     </ClCompile>
@@ -832,6 +835,9 @@
     <ClInclude Include="SkullbonezSource\Gameplay\TornadoGameplay.h">
       <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoVisualPass.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h">
       <Filter>Header Files\Runtime\Camera</Filter>
     </ClInclude>
@@ -1276,6 +1282,9 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
@@ -1530,7 +1539,7 @@
     <None Include="SkullbonezData\shaders\trajectory_ribbon.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\tornado_fx.hlsl">
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\lit_textured.hlsl">
@@ -1632,10 +1641,10 @@
     <None Include="SkullbonezData\shaders\text.vs.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\tornado_fx.ps.dxil">
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.ps.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\tornado_fx.vs.dxil">
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.vs.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\trajectory_ribbon.ps.dxil">

@@ -1134,7 +1134,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         {
             tornadoSystem = Gameplay::ProjectAuthoredTornadoSystem( sceneTornadoSystem );
             tornadoField.enabled = false;
-            renderer.SetTornadoVisualEnabled( true );
+            m_sceneController.Scene().Tornado().SetVisualEnabled( true );
         }
         m_sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
         m_sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
@@ -1152,9 +1152,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         {
             tornadoField.enabled = launchOptions.tornadoEnabled;
         }
-        if ( renderer.TornadoVisualAutoEnableWithTornado() )
+        if ( m_sceneController.Scene().Tornado().VisualAutoEnableWithTornado() )
         {
-            renderer.SetTornadoVisualEnabled( launchOptions.tornadoEnabled );
+            m_sceneController.Scene().Tornado().SetVisualEnabled( launchOptions.tornadoEnabled );
         }
     }
     if ( launchOptions.tornadoVectors )

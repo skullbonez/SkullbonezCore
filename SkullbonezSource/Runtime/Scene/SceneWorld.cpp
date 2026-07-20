@@ -288,6 +288,12 @@ const SkullbonezCore::Gameplay::TornadoGameplay& SceneWorld::Tornado() const
 }
 
 
+std::span<const float> SceneWorld::BuildWorldExtensionDebugLines()
+{
+    return m_tornadoGameplay.BuildDebugLineVertices();
+}
+
+
 void SceneWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_activeSceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );

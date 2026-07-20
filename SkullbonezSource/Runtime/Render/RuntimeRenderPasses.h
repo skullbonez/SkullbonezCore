@@ -39,7 +39,6 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
-#include "../../Gameplay/TornadoField.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/Shadow.h"
 #include "RenderPresentationSettings.h"
@@ -164,7 +163,6 @@ struct RunSceneBrowserState;
 struct RunSceneState;
 struct RunTimerState;
 struct RunReplayPredictionFrame;
-struct TornadoVisualSettings;
 
 // Concept: these private pass contracts are the extraction boundary.
 //
@@ -235,8 +233,6 @@ struct RenderFrameContext
     const Physics::ColliderStore* colliders = nullptr;
     const Physics::PhysicsBodyStore* bodyStore = nullptr;
     Physics::PhysicsEngine* physicsEngine = nullptr;
-    const Gameplay::TornadoFieldConfig* tornadoField = nullptr;
-    const Gameplay::TornadoSystemConfig* tornadoSystem = nullptr;
     // Lifetime: spans borrow the frame model stores and remain valid only for
     // this synchronous render-graph execution.
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
@@ -252,7 +248,6 @@ struct RenderFrameContext
     bool renderCollisionVolumes = false;
     bool shadowParallelPrep = false;
     double sceneKineticEnergy = 0.0;
-    float tornadoElapsedSeconds = 0.0f;
 
     // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
@@ -463,39 +458,13 @@ struct WaterPassDebugInfo
     int styleWaterMode = -1;
 };
 
-struct TornadoVisualSnapshot
-{
-    // Frame-level tornado art inputs. Live runtime state chooses the visual
-    // style and time source before the graph callback; the pass only expands
-    // that snapshot into transient ribbon/dust vertices.
-    const TornadoVisualSettings* visual = nullptr;
-    const Gameplay::TornadoSystemConfig* tornadoSystem = nullptr;
-    const Gameplay::TornadoFieldConfig* tornadoField = nullptr;
-    const ReplayPresentationSample* replaySample = nullptr;
-    const ReplaySolverFrameSample* solverSample = nullptr;
-    const RunReplayPredictionFrame* predictionFrame = nullptr;
-    bool replayLiveAdvanceHeld = false;
-    double simulationSourceSeconds = 0.0;
-};
-
-struct TornadoVisualPassInputs
-{
-    // Production tornado art uses the final world view/depth after opaque
-    // objects, terrain, and water. Physics field state is read-only shape input.
-    const RenderFrameContext& frame;
-    const TornadoVisualSnapshot& snapshot;
-};
-
 struct DebugOverlaySnapshot
 {
     // Frame-level overlay decisions sampled before graph callback execution.
     // The pass may draw multiple overlay families, but it should not reopen
     // broad runtime debug/tool/replay state while drawing them.
     bool broadphaseOverlayVisible = false;
-    bool tornadoVectorsVisible = false;                 // Includes per-vortex flags once another overlay wakes the pass.
-    bool tornadoOverlayWorkVisible = false;             // Legacy pass wake-up predicate from global tornado vector toggles.
-    const Gameplay::TornadoSystemConfig* tornadoSystem = nullptr;
-    const Gameplay::TornadoFieldConfig* tornadoField = nullptr;
+    std::span<const float> worldExtensionDebugLines;    // position.xyz + color.rgb line vertices.
     bool editorOverlayWorkVisible = false;
     uint32_t physicsDebugFlags = 0u;
     int physicsDebugPipelineStageCursor = 0;
@@ -799,36 +768,6 @@ class WaterPass
     WaterPassDebugInfo m_debugInfo;
 };
 
-/* -- TornadoVisualPass
--------------------------------------------------------------------------------------------------------------------------------------
-
-    Draws sparse production tornado ribbons and dust after opaque world
-    depth exists, while leaving debug field vectors in DebugOverlayPass.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class TornadoVisualPass
-{
-  public:
-    TornadoVisualPass( SceneTerrain& terrain, SkullbonezCore::Core::Profiler* profiler )
-        : m_terrain( terrain ), m_profiler( profiler )
-    {
-    }
-
-    void EnsureGpuResources( const RenderResourceContext& resources, const TornadoVisualSnapshot& snapshot );
-    void ReleaseGpuResources();
-    bool Render( const TornadoVisualPassInputs& inputs );
-
-  private:
-    // Lifetime: borrows the stable scene terrain owner and resolves its current
-    // terrain after each scene load.
-    SceneTerrain& m_terrain;
-    SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
-    std::vector<float> m_vertices;
-    std::vector<Gameplay::TornadoActiveVortex> m_activeVisualVortices;
-    float m_liveVisualTimeSeconds = 0.0f;
-    double m_lastLiveVisualSourceSeconds = 0.0;
-    bool m_hasLiveVisualTime = false;
-};
-
 /* -- DebugOverlayPass
 --------------------------------------------------------------------------------------------------------------------------------------
 
@@ -847,11 +786,6 @@ class DebugOverlayPass
         : m_broadphaseVisualizer( broadphaseVisualizer ), m_physicsDebugVisualizer( physicsDebugVisualizer ),
           m_terrain( terrain ), m_assets( assets ), m_profiler( profiler )
     {
-        // Invariant: tornado vector arrows are a runtime debug overlay. The
-        // transient line buffer stays with the render pass so physics sampling
-        // code remains render-API-free.
-        m_tornadoVectorLineData.reserve( 12u * 4u * 5u * 6u * 6u );
-        m_tornadoVectorVortices.reserve( 16u );
     }
 
     void EnsureGpuResources( const RenderResourceContext& resources );
@@ -860,12 +794,9 @@ class DebugOverlayPass
 
   private:
     bool HasOverlayWork( const DebugOverlayPassInputs& inputs ) const;
-    void RenderTornadoVectorOverlay( const DebugOverlayPassInputs& inputs );
 
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
-    std::vector<float> m_tornadoVectorLineData;
-    std::vector<Gameplay::TornadoActiveVortex> m_tornadoVectorVortices;
     // Lifetime: borrows the stable scene terrain owner and resolves its current
     // terrain after each scene load.
     SceneTerrain& m_terrain;

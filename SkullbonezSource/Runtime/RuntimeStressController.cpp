@@ -494,19 +494,19 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = models.Scene().Tornado().GetFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
-        renderer.SetTornadoVisualEnabled( stress.NextInt( 2 ) != 0 );
+        models.Scene().Tornado().SetVisualEnabled( stress.NextInt( 2 ) != 0 );
         models.Scene().Tornado().SetFieldConfig( tornadoField );
         break;
     }
     case 20:
     {
-        TornadoVisualSettings tornadoVisual = renderer.TornadoVisualSettingsSnapshot();
+        SkullbonezCore::Gameplay::TornadoVisualSettings tornadoVisual = models.Scene().Tornado().VisualSettings();
         tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
         tornadoVisual.dustAlpha = stress.NextFloat( 0.02f, 0.55f );
         tornadoVisual.ribbonWidth = stress.NextFloat( 1.0f, 12.0f );
         tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
         tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
-        renderer.SetTornadoVisualSettings( tornadoVisual );
+        models.Scene().Tornado().SetVisualSettings( tornadoVisual );
         break;
     }
     case 21:

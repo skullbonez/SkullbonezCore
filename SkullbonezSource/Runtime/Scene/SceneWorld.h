@@ -162,6 +162,9 @@ class SceneWorld
     const Physics::PhysicsEngine& Physics() const;
     Gameplay::TornadoGameplay& Tornado();
     const Gameplay::TornadoGameplay& Tornado() const;
+    // Content-neutral publication consumed by the late debug render pass. The
+    // span aliases scene-owned gameplay scratch for this frame only.
+    std::span<const float> BuildWorldExtensionDebugLines();
 
   private:
     void ReserveForActiveSceneObjectCapacity();

@@ -1,12 +1,13 @@
 /*
 File: SkullbonezSource/Gameplay/TornadoGameplay.h
 Purpose:
-  Owns tornado gameplay state and applies tornado-driven body effects.
+  Owns tornado gameplay state, body effects, production visuals, and debug lines.
 
 Summary:
-  Tornado gameplay advances authored vortex content and publishes one bounded,
-  value-only external-force frame to Physics. Physics consumes the values at
-  its force-stage boundary; neither module retains a callback into the other.
+  Tornado gameplay advances authored vortex content, publishes one bounded
+  external-force frame to Physics, and registers its production visual through
+  Rendering's synchronous world-extension seam. Physics receives only force
+  values; Rendering receives only a typed frame callback and packed debug lines.
 
 Glossary:
   Capture timer: Per-body time spent inside an active tornado before an eject
@@ -15,6 +16,8 @@ Glossary:
     impulse can fire.
   Force frame: Ordered cylindrical field values plus per-body timer spans
     borrowed by Physics for exactly one fixed tick.
+  Visual registration: One frame-scoped callback that appends the production
+    art pass without exposing gameplay ownership to RuntimeRenderer.
 
 Invariants:
   - Active fields retain authored/source order; Physics must accumulate them
@@ -23,18 +26,22 @@ Invariants:
     frame borrow is published.
   - At most 64 active fields cross one fixed step; the storage never grows in
     steady gameplay.
+  - Visual and debug publications retain no renderer, scene, or replay owner.
 
 Related:
   - SkullbonezSource/Gameplay/TornadoGameplay.cpp
   - SkullbonezSource/Physics/Stages/ExternalForceStage.h
+  - SkullbonezSource/Gameplay/TornadoVisualPass.h
 */
 #pragma once
 
 #include "TornadoField.h"
+#include "TornadoVisualPass.h"
 #include "../Physics/Stages/ExternalForceStage.h"
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace SkullbonezCore
@@ -76,6 +83,18 @@ class TornadoGameplay
     void CaptureReplayState( TornadoGameplayReplayState& outState ) const;
     void RestoreReplayState( const TornadoGameplayReplayState& state );
 
+    const TornadoVisualSettings& VisualSettings() const;
+    void SetVisualSettings( const TornadoVisualSettings& settings );
+    bool VisualAutoEnableWithTornado() const;
+    void SetVisualEnabled( bool enabled );
+    Rendering::WorldRenderExtensionRegistration PrepareVisualFrame( const TornadoVisualTimeCandidates& time );
+    void ReleaseVisualResources();
+
+    // Lifetime: returned float rows alias owner scratch until the next call.
+    // Each line vertex is position.xyz + color.rgb and is consumed by the
+    // current render frame before gameplay advances again.
+    std::span<const float> BuildDebugLineVertices();
+
     // Lifetime: returned spans alias this owner until the next mutation. The
     // fixed-step composition edge must pass them directly into Physics::Step.
     Physics::ExternalForceFrameInput BuildForceFrame( float dt, int bodyCount );
@@ -91,6 +110,9 @@ class TornadoGameplay
     TornadoSystem m_system;
     std::vector<float> m_captureSeconds;
     std::vector<float> m_ejectCooldownSeconds;
+    TornadoVisualPass m_visualPass;
+    std::vector<float> m_debugLineVertices;
+    std::vector<TornadoActiveVortex> m_debugVortices;
     std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields{};
     std::size_t m_forceFieldCount = 0u;
 };

@@ -589,7 +589,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     TornadoUICommandResult result;
     Gameplay::TornadoFieldConfig tornadoField = context.world.Tornado().GetFieldConfig();
     Gameplay::TornadoSystemConfig tornadoSystem = context.world.Tornado().GetSystemConfig();
-    TornadoVisualSettings tornadoVisual = context.renderer.TornadoVisualSettingsSnapshot();
+    Gameplay::TornadoVisualSettings tornadoVisual = context.world.Tornado().VisualSettings();
     bool tornadoFieldChanged = false;
     const bool hasTornadoSystem = !tornadoSystem.vortices.empty();
 
@@ -696,7 +696,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
         context.world.Tornado().SetFieldConfig( tornadoField );
         context.world.Tornado().SetSystemConfig( tornadoSystem );
     }
-    context.renderer.SetTornadoVisualSettings( tornadoVisual );
+    context.world.Tornado().SetVisualSettings( tornadoVisual );
     return result;
 }
 

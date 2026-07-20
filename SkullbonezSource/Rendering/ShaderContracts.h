@@ -112,7 +112,7 @@ inline const ShaderVertexInputContract* ShippingShaderVertexInputContracts()
         { "solid_color", "POSITION0:xy:NONE" },
         { "solid_color_batch", "POSITION0:xy:NONE,TEXCOORD0:xyzw:NONE" },
         { "text", "POSITION0:xy:NONE,TEXCOORD0:xy:NONE,TEXCOORD1:xyz:NONE" },
-        { "tornado_fx", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
+        { "transient_colored_triangles", "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE" },
         { "trajectory_ribbon",
           "POSITION0:xyz:NONE,TEXCOORD0:xyzw:NONE,TEXCOORD1:xyzw:NONE,TEXCOORD2:xy:NONE,TEXCOORD3:xyz:NONE,"
           "TEXCOORD4:xyz:NONE,SV_VertexID0:x:VERTID" },
@@ -507,7 +507,7 @@ inline const ShaderProgramDesc* ShippingRasterShaderContracts()
           sizeof( projectionUniforms ) / sizeof( projectionUniforms[0] ),
           nullptr,
           0 },
-        { "tornado_fx",
+        { "transient_colored_triangles",
           "effects",
           "P3_Color4_UV4",
           viewProjectionUniforms,

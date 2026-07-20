@@ -7,6 +7,8 @@ Summary:
   RuntimeRenderer owns pass objects and backend-resource lifetime. One live
   RenderGraph owns the frame pass order. Five named owner views supply lifetime-stable dependencies;
   immutable per-frame records carry submission facts and completed overlays.
+  A content-neutral extension scope lets higher composition append one typed
+  world pass at the renderer-owned post-water scheduling point.
 
 Glossary:
   RuntimeRenderer: Owner of pass instances and the live frame-graph builder.
@@ -19,7 +21,9 @@ Glossary:
   Resource context: Creation/rebuild-only view of the renderer factory and
   resize-sensitive dimensions.
   Backend-owned resource: GPU object that must be released before backend
-  teardown.
+    teardown.
+  World extension: One synchronous callback-owned graphics pass registered by
+    higher composition without exposing its content owner to this renderer.
 
 Invariants:
   - RuntimeRenderer owns pass instances; Run owns one RuntimeRenderer.
@@ -27,6 +31,7 @@ Invariants:
     execution order; wrappers never clear or reconstruct it mid-frame.
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
+  - The world-extension registration is consumed before its stack scope ends.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -45,6 +50,7 @@ Related:
 #include "../../Rendering/RenderGpuTimingOwner.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
+#include "../../Rendering/WorldRenderExtension.h"
 #include "../../Rendering/Text.h"
 
 #include <array>
@@ -95,6 +101,7 @@ class RuntimeRenderer
         RuntimeRenderFramePolicy framePolicy;
         const RenderReplayOverlayView& replayOverlay;
         const RenderToolOverlayView& toolOverlay;
+        const Rendering::WorldRenderExtensionRegistration& worldExtension;
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
         float presentationAlpha = 1.0f;                   // Exact solver state is 1; live frames may use the accumulator fraction.
         bool cinematicRequested = false;
@@ -120,12 +127,6 @@ class RuntimeRenderer
     bool PipelineSyncEnabled() const;
     void SetPipelineSyncEnabled( bool enabled );
     void ResetSceneRuntimePolicyFromConfig();
-    // Returns a read-only visual-style snapshot. Callers edit a copy and commit
-    // it through SetTornadoVisualSettings so unrelated presentation fields stay hidden.
-    const TornadoVisualSettings& TornadoVisualSettingsSnapshot() const;
-    void SetTornadoVisualSettings( const TornadoVisualSettings& settings );
-    bool TornadoVisualAutoEnableWithTornado() const;
-    void SetTornadoVisualEnabled( bool enabled );
 
     void EnsureFrameResources( const RenderResourceContext& resources );
     // Packages model-owned render/debug views before the frame passes consume them.
@@ -270,11 +271,11 @@ class RuntimeRenderer
         float frozenTime = 0.0f;
         float liveWaterTime = 0.0f;
     };
-    struct TornadoVisualGraphInputs
+    struct WorldExtensionGraphInputs
     {
         const RenderFrameContext& frame;
+        const Rendering::WorldRenderExtensionRegistration& registration;
         bool useCinematicTarget = false;
-        const TornadoVisualSnapshot& snapshot;
     };
     struct ReplayGhostGraphInputs
     {
@@ -307,11 +308,8 @@ class RuntimeRenderer
     void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
     void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
     void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
-    TornadoVisualSnapshot BuildTornadoVisualSnapshot( const RenderFrameContext& frame,
-                                                      const RuntimeRenderServices& services ) const;
-    bool ExecuteTornadoVisualThroughRenderGraph( const TornadoVisualGraphInputs& inputs );
-    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RenderFrameContext& frame,
-                                                    const RuntimeRenderServices& services ) const;
+    bool ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs );
+    DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RuntimeRenderServices& services ) const;
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
@@ -361,7 +359,6 @@ class RuntimeRenderer
     ObjectPass m_objectPass;                              // Production body and collision-solid pass.
     TerrainPass m_terrainPass;                            // Terrain material/shadow receiver pass.
     WaterPass m_waterPass;                                // Calm/ocean water pass.
-    TornadoVisualPass m_tornadoVisualPass;                // Sparse alpha tornado shell/dust pass.
     DebugOverlayPass m_debugOverlayPass;                  // Broadphase and physics debug overlay pass.
     VolumetricPass m_volumetricPass;                      // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                            // HDR-to-backbuffer resolve pass.

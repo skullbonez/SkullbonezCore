@@ -98,10 +98,7 @@ BuildCameraMovementSettings( const SkullbonezCore::Core::EngineConfig& cfg )
 // without turning launch-only details back into `Run` public or private methods.
 // They mutate the owner references that `Run` passes to them synchronously from
 // `ApplyStartupOverrides()`, preserving the original command-line apply order.
-void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
-                               RunLaunchOptions& target,
-                               RuntimeRenderer& renderer,
-                               SceneWorld& sceneWorld )
+void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions& target, SceneWorld& sceneWorld )
 {
     PhysicsEngine& physics = sceneWorld.Physics();
     SkullbonezCore::Gameplay::TornadoGameplay& tornadoGameplay = sceneWorld.Tornado();
@@ -138,9 +135,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
         SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = tornadoGameplay.GetFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
         tornadoGameplay.SetFieldConfig( tornadoField );
-        if ( renderer.TornadoVisualAutoEnableWithTornado() )
+        if ( tornadoGameplay.VisualAutoEnableWithTornado() )
         {
-            renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
+            tornadoGameplay.SetVisualEnabled( launch.tornadoEnabled );
         }
     }
     if ( launch.tornadoVectors )
@@ -366,6 +363,10 @@ Run::~Run()
                   releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
                   releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
     }
+    // Lifetime: the renderer has now drained submitted GPU work. Gameplay can
+    // release its extension-owned transient storage without a renderer-side
+    // content branch or a retained backend pointer.
+    m_sceneController.Scene().Tornado().ReleaseVisualResources();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Lifetime: the preceding release path proved all submitted frames complete.
     // Destroy vendor GPU objects and return its descriptor rows while both the
@@ -385,7 +386,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Scene() );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_sceneController.Scene() );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     ApplyDevelopmentUiMode();
 #endif

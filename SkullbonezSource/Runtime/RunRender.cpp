@@ -139,6 +139,34 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                             replayGrowthEventCount );
     const RenderReplayOverlayView replayOverlay{ replayFrame };
     const bool replayPredictionEnabled = replayFrame.predictionEnabled;
+    Gameplay::TornadoVisualTimeCandidates visualTime;
+    visualTime.simulationSourceSeconds = framePolicy.simulationSeconds;
+    visualTime.liveAdvanceHeld = replayFrame.liveAdvanceHeld;
+    if ( replayFrame.presentationSample )
+    {
+        visualTime.hasPresentation = true;
+        visualTime.presentationSeconds = replayFrame.presentationSample->simulationSeconds;
+    }
+    if ( replayFrame.solverSample )
+    {
+        visualTime.hasSolver = true;
+        visualTime.solverSeconds = replayFrame.solverSample->simulationSeconds;
+        visualTime.solverSystemSeconds = replayFrame.solverSample->worldSnapshot.tornadoSystemElapsedSeconds;
+    }
+    if ( replayFrame.predictionFrame )
+    {
+        visualTime.hasPrediction = true;
+        visualTime.predictionSeconds = replayFrame.predictionFrame->simulationSeconds;
+        visualTime.predictionSystemSeconds = replayFrame.predictionFrame->tornadoSystemElapsedSeconds;
+    }
+    Rendering::WorldRenderExtensionRegistration worldExtension;
+    {
+        // Why: transient visual storage may grow only during the backend-init
+        // phase. The returned registration keeps no allocation authority and
+        // is consumed synchronously by this frame's render graph.
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
+        worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
+    }
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                          renderModels,
@@ -146,6 +174,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                          framePolicy,
                                                                          replayOverlay,
                                                                          toolOverlay,
+                                                                         worldExtension,
                                                                          activeCinematic,
                                                                          presentationAlpha,
                                                                          cinematicRequested,

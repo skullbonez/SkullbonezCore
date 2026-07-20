@@ -298,6 +298,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp" />
     <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp" />
       <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
@@ -520,6 +521,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Gameplay\TornadoField.h" />
     <ClInclude Include="SkullbonezSource\Gameplay\TornadoGameplay.h" />
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoVisualPass.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetKeys.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h" />
@@ -719,6 +721,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
@@ -765,7 +768,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\engine.cfg" />
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
     <None Include="SkullbonezData\shaders\trajectory_ribbon.hlsl" />
-    <None Include="SkullbonezData\shaders\tornado_fx.hlsl" />
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />
     <None Include="SkullbonezData\hulls\hex_prism.hull" />
     <None Include="SkullbonezData\hulls\pyramid.hull" />
@@ -917,8 +920,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\shaders\solid_color_batch.vs.dxil" />
     <None Include="SkullbonezData\shaders\text.ps.dxil" />
     <None Include="SkullbonezData\shaders\text.vs.dxil" />
-    <None Include="SkullbonezData\shaders\tornado_fx.ps.dxil" />
-    <None Include="SkullbonezData\shaders\tornado_fx.vs.dxil" />
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.ps.dxil" />
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.vs.dxil" />
     <None Include="SkullbonezData\shaders\trajectory_ribbon.ps.dxil" />
     <None Include="SkullbonezData\shaders\trajectory_ribbon.vs.dxil" />
     <None Include="SkullbonezData\shaders\ui_render_target_preview.ps.dxil" />

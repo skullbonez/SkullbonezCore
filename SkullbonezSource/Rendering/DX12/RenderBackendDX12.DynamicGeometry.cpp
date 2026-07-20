@@ -106,7 +106,7 @@ const char* TransientTriangleShaderBaseName( TransientTriangleStyle style )
         return "shaders/soft_additive_ribbon";
     case TransientTriangleStyle::Color:
     default:
-        return "shaders/tornado_fx";
+        return "shaders/transient_colored_triangles";
     }
 }
 
@@ -122,7 +122,7 @@ const char* TransientTriangleTraceLabel( TransientTriangleStyle style )
         return "SoftAdditiveRibbon";
     case TransientTriangleStyle::Color:
     default:
-        return "TornadoVisual";
+        return "TransientColoredTriangles";
     }
 }
 

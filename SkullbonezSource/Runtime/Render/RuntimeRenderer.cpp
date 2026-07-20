@@ -71,6 +71,7 @@ Related:
 #include "../../Rendering/RenderPipeline.h"
 #include "../../UI/UI.h"
 #include "../../World/SkyBox.h"
+#include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "../DevelopmentTools/ImGuiEditorOwner.h"
@@ -101,6 +102,11 @@ using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {
+float SampleWorldSurfaceHeight( SkullbonezCore::Geometry::Terrain& surface, float x, float z, float fallback )
+{
+    return surface.IsInBounds( x, z ) ? surface.GetTerrainHeightAt( x, z ) : fallback;
+}
+
 float LerpFloat( float from, float to, float t )
 {
     return from + ( to - from ) * t;
@@ -336,14 +342,6 @@ struct UiTextGraphCallbackData
     size_t expectedTransitionCount = 0;
 };
 
-struct TornadoVisualGraphCallbackData
-{
-    TornadoVisualPass* tornadoVisualPass = nullptr;
-    const RenderFrameContext* frame = nullptr;
-    const TornadoVisualSnapshot* snapshot = nullptr;
-    bool rendered = false;
-};
-
 struct ReplayGhostGraphCallbackData
 {
     SkullbonezCore::Core::Profiler* profiler = nullptr;
@@ -494,16 +492,6 @@ void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPass
                               data.freezeTime,
                               data.frozenTime,
                               data.liveWaterTime } );
-}
-
-void ExecuteTornadoVisualGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
-                                        TornadoVisualGraphCallbackData& data )
-{
-    if ( !data.tornadoVisualPass || !data.frame || !data.snapshot )
-    {
-        SB_FATAL( "RunRender", "TornadoVisualPass graph callback missing execution data." );
-    }
-    data.rendered = data.tornadoVisualPass->Render( { *data.frame, *data.snapshot } );
 }
 
 void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -936,22 +924,6 @@ void AddFramebufferReads( Rendering::RenderGraph& graph, uint32_t pass, const Gr
     graph.AddRead( pass, resources.depth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
 }
 
-bool TornadoSystemVectorsVisible( const SkullbonezCore::Gameplay::TornadoSystemConfig& config )
-{
-    if ( config.visualizeVelocityField )
-    {
-        return true;
-    }
-    for ( const SkullbonezCore::Gameplay::TornadoVortexConfig& vortex : config.vortices )
-    {
-        if ( vortex.field.visualizeVelocityField )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 } // namespace
 
 void RuntimeRenderer::ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs )
@@ -1352,9 +1324,8 @@ void RuntimeRenderer::ExecuteWaterThroughRenderGraph( const WaterGraphInputs& in
 }
 
 
-bool RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const TornadoVisualGraphInputs& inputs )
+bool RuntimeRenderer::ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs )
 {
-    const RenderFrameContext& frame = inputs.frame;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle colorTarget =
         graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
@@ -1363,46 +1334,26 @@ bool RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const TornadoVisua
         graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
                                    Rendering::RenderGraphResourceAccess::DepthWrite );
 
-    const uint32_t tornadoPass = graph.AddPass( "TornadoVisualPass", Rendering::RenderGraphQueueType::Graphics );
-    graph.AddWrite( tornadoPass, colorTarget, Rendering::RenderGraphResourceAccess::RenderTarget );
-    graph.AddWrite( tornadoPass, depthTarget, Rendering::RenderGraphResourceAccess::DepthWrite );
-
-    TornadoVisualGraphCallbackData callbackData;
-    callbackData.tornadoVisualPass = &m_tornadoVisualPass;
-    callbackData.frame = &frame;
-    callbackData.snapshot = &inputs.snapshot;
-    graph.SetPassCallback<ExecuteTornadoVisualGraphCallback>( tornadoPass,
-                                                              callbackData,
-                                                              true,
-                                                              "Frame/Render/TornadoVisual" );
-
-    // Invariant: TornadoVisualPass may skip drawing after rebuilding its
-    // transient vertex list, but its scheduling point still executes in graph
-    // order every frame.
-    CompileRenderPassGraph( graph );
-    ExecuteGraphCallbacksOrFatal( graph, 1u, "TornadoVisual" );
-    return callbackData.rendered;
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::WorldSurfaceHeightView surfaceHeight =
+        m_terrain.Get()
+            ? Rendering::WorldSurfaceHeightView::Bind<Geometry::Terrain, &SampleWorldSurfaceHeight>( *m_terrain.Get() )
+            : Rendering::WorldSurfaceHeightView();
+    const Rendering::WorldRenderExtensionFrameView frameView{ frame.viewProjection,
+                                                              frame.eye,
+                                                              frame.viewCenter,
+                                                              frame.up,
+                                                              *frame.renderCommands,
+                                                              *frame.renderDiagnostics,
+                                                              *frame.renderGpuTiming,
+                                                              surfaceHeight };
+    Rendering::WorldRenderExtensionScope scope( graph,
+                                                m_renderPassCompileScratch,
+                                                colorTarget,
+                                                depthTarget,
+                                                frameView );
+    return inputs.registration.Register( scope );
 }
-
-
-TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot( const RenderFrameContext& frame,
-                                                                   const RuntimeRenderServices& services ) const
-{
-    const ReplayRenderFrameView& replayFrame = services.replayFrame;
-
-    TornadoVisualSnapshot snapshot;
-    snapshot.visual = &m_presentationSettings.tornadoVisual;
-    snapshot.tornadoSystem = frame.tornadoSystem;
-    snapshot.tornadoField = frame.tornadoField;
-    snapshot.replaySample = replayFrame.presentationSample;
-    snapshot.solverSample = replayFrame.solverSample;
-    snapshot.predictionFrame = replayFrame.predictionFrame;
-    snapshot.replayLiveAdvanceHeld = replayFrame.liveAdvanceHeld;
-    snapshot.simulationSourceSeconds = services.framePolicy.simulationSeconds;
-    return snapshot;
-}
-
-
 void RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs )
 {
     const RenderFrameContext& frame = inputs.frame;
@@ -1448,7 +1399,7 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayG
     const RenderFrameContext& frame = inputs.frame;
     const RuntimeRenderServices& services = inputs.services;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( frame, services );
+    const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( services );
     const Rendering::RenderGraphResourceHandle colorTarget =
         graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
                                    Rendering::RenderGraphResourceAccess::RenderTarget );
@@ -1480,22 +1431,12 @@ bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayG
 }
 
 
-DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFrameContext& frame,
-                                                                 const RuntimeRenderServices& services ) const
+DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RuntimeRenderServices& services ) const
 {
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     DebugOverlaySnapshot snapshot;
     snapshot.broadphaseOverlayVisible = policy.broadphaseOverlay;
-    const Gameplay::TornadoFieldConfig* tornadoField = frame.tornadoField;
-    const Gameplay::TornadoSystemConfig* tornadoSystem = frame.tornadoSystem;
-    snapshot.tornadoVectorsVisible =
-        tornadoField && tornadoSystem &&
-        ( tornadoField->visualizeVelocityField || TornadoSystemVectorsVisible( *tornadoSystem ) );
-    snapshot.tornadoOverlayWorkVisible =
-        tornadoField && tornadoSystem &&
-        ( tornadoField->visualizeVelocityField || tornadoSystem->visualizeVelocityField );
-    snapshot.tornadoSystem = tornadoSystem;
-    snapshot.tornadoField = tornadoField;
+    snapshot.worldExtensionDebugLines = services.models.worldExtensionDebugLines;
     snapshot.physicsDebugFlags = policy.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = policy.physicsDebugPipelineStageCursor;
     snapshot.editorOverlayWorkVisible = services.toolOverlay.editorOverlayWorkVisible;
@@ -1682,8 +1623,6 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.colliders = &services.models.colliders;
     frame.bodyStore = &services.models.bodyStore;
     frame.physicsEngine = &services.models.physicsEngine;
-    frame.tornadoField = &services.models.tornadoField;
-    frame.tornadoSystem = &services.models.tornadoSystem;
     frame.presentationRecords = services.models.presentationRecords;
     frame.collisionVisualContacts = &services.models.collisionVisualContacts;
     frame.sleepStates = services.models.sleepStates;
@@ -1697,7 +1636,6 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.renderCollisionVolumes = services.models.renderCollisionVolumes;
     frame.shadowParallelPrep = services.models.shadowParallelPrep;
     frame.sceneKineticEnergy = services.models.sceneKineticEnergy;
-    frame.tornadoElapsedSeconds = services.models.tornadoElapsedSeconds;
     frame.assets = &services.assets;
     frame.textures = &services.textures;
     frame.renderResources = &services.renderResources;
@@ -1774,7 +1712,7 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
                         m_lifecycleLog,
                         m_profiler ),
       m_objectPass( m_collisionVisualizer, m_config, m_profiler ), m_terrainPass( m_terrain, m_config, m_profiler ),
-      m_waterPass( m_world, m_config, m_profiler ), m_tornadoVisualPass( m_terrain, m_profiler ),
+      m_waterPass( m_world, m_config, m_profiler ),
       m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_terrain, m_assets, m_profiler ),
       m_volumetricPass( m_passResources.cinematicScene,
                         m_passResources.volumetricLight,
@@ -1899,30 +1837,6 @@ void RuntimeRenderer::SetPipelineSyncEnabled( bool enabled )
 }
 
 
-const TornadoVisualSettings& RuntimeRenderer::TornadoVisualSettingsSnapshot() const
-{
-    return m_presentationSettings.tornadoVisual;
-}
-
-
-void RuntimeRenderer::SetTornadoVisualSettings( const TornadoVisualSettings& settings )
-{
-    m_presentationSettings.tornadoVisual = settings;
-}
-
-
-bool RuntimeRenderer::TornadoVisualAutoEnableWithTornado() const
-{
-    return m_presentationSettings.tornadoVisual.autoEnableWithTornado;
-}
-
-
-void RuntimeRenderer::SetTornadoVisualEnabled( bool enabled )
-{
-    m_presentationSettings.tornadoVisual.enabled = enabled;
-}
-
-
 RuntimeRenderTargetPreviewSnapshot RuntimeRenderer::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                                       bool cinematicTargetsAvailable,
                                                                                       bool volumetricAvailable ) const
@@ -2020,7 +1934,6 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
     RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
-    const TornadoVisualSnapshot tornadoVisual = BuildTornadoVisualSnapshot( frame, services );
 
     // These passes currently borrow subsystem-owned mesh/material resources,
     // but keeping the ensure calls in the frame story gives future extraction
@@ -2030,7 +1943,6 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         m_objectPass.EnsureGpuResources( resourceContext );
         m_terrainPass.EnsureGpuResources( resourceContext );
         m_waterPass.EnsureGpuResources( resourceContext );
-        m_tornadoVisualPass.EnsureGpuResources( resourceContext, tornadoVisual );
         m_debugOverlayPass.EnsureGpuResources( resourceContext );
     }
 
@@ -2161,8 +2073,8 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
                                       policy.frozenWaterTime,
                                       static_cast<float>( policy.simulationSeconds ) } );
 
-    const bool tornadoVisualRendered =
-        ExecuteTornadoVisualThroughRenderGraph( { frame, useCinematicTarget, tornadoVisual } );
+    const bool worldExtensionRendered =
+        ExecuteWorldExtensionThroughRenderGraph( { frame, services.worldExtension, useCinematicTarget } );
 
     if ( debugTransparentBodyPass )
     {
@@ -2221,7 +2133,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
-    frameSnapshot.tornadoVisualRendered = tornadoVisualRendered;
+    frameSnapshot.worldExtensionRendered = worldExtensionRendered;
     frameSnapshot.volumetricPassExecuted = cinematicPostOutput.volumetricPassExecuted;
     frameSnapshot.volumetricReady = volumetricReady;
     if ( volumetricReady )
@@ -2242,7 +2154,6 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     // handles are invalidated before targets die.
     m_tonemapPass.ReleaseGpuResources();
     m_volumetricPass.ReleaseGpuResources();
-    m_tornadoVisualPass.ReleaseGpuResources();
     m_sceneTargetPass.ReleaseGpuResources();
     m_shadowPass.ReleaseGpuResources();
     m_reflectionPass.ReleaseGpuResources();
@@ -2612,8 +2523,7 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
         SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
         SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
         physics,
-        scene.Tornado().GetFieldConfig(),
-        scene.Tornado().GetSystemConfig(),
+        scene.BuildWorldExtensionDebugLines(),
         scene.RenderPresentationRecords(),
         SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
         SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
@@ -2627,7 +2537,6 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
         config.runtimeRender.renderCollisionVolumes,
         config.runtimeRender.shadowParallelPrep,
         scene.GetSceneKineticEnergy(),
-        scene.Tornado().GetSystemElapsedSeconds(),
         CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(), physics, scene.RenderInstances() } ) };
 }
 
@@ -2674,24 +2583,26 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     // Why: this call constructs the one-frame render record directly. Field
     // labels keep every live borrow visible and prevent positional drift when
     // RuntimeRenderServices changes; RenderFrame does not retain the record.
-    return RenderFrame( RuntimeRenderInputs{ .services = RuntimeRenderServices{ .assets = m_assets,
-                                                                                .textures = m_textures,
-                                                                                .models = context.renderModels,
-                                                                                .world = m_world,
-                                                                                .terrain = m_terrain.Get(),
-                                                                                .cameras = m_cameras,
-                                                                                .window = m_window,
-                                                                                .ui = context.ui,
-                                                                                .runtimeTools = runtimeTools,
-                                                                                .replayFrame = replayFrame,
-                                                                                .toolOverlay = context.toolOverlay,
-                                                                                .framePolicy = policy,
-                                                                                .skyBox = m_skyBox.get(),
-                                                                                .cinematic = frameCinematic,
-                                                                                .cinematicEnabled = cinematicRender,
-                                                                                .renderCommands = *renderCommands,
-                                                                                .renderResources = *renderResources,
-                                                                                .renderDiagnostics = *renderDiagnostics,
-                                                                                .renderRayTracing = renderRayTracing,
-                                                                                .renderReady = renderReady } } );
+    return RenderFrame(
+        RuntimeRenderInputs{ .services = RuntimeRenderServices{ .assets = m_assets,
+                                                                .textures = m_textures,
+                                                                .models = context.renderModels,
+                                                                .world = m_world,
+                                                                .terrain = m_terrain.Get(),
+                                                                .cameras = m_cameras,
+                                                                .window = m_window,
+                                                                .ui = context.ui,
+                                                                .runtimeTools = runtimeTools,
+                                                                .replayFrame = replayFrame,
+                                                                .toolOverlay = context.toolOverlay,
+                                                                .worldExtension = context.worldExtension,
+                                                                .framePolicy = policy,
+                                                                .skyBox = m_skyBox.get(),
+                                                                .cinematic = frameCinematic,
+                                                                .cinematicEnabled = cinematicRender,
+                                                                .renderCommands = *renderCommands,
+                                                                .renderResources = *renderResources,
+                                                                .renderDiagnostics = *renderDiagnostics,
+                                                                .renderRayTracing = renderRayTracing,
+                                                                .renderReady = renderReady } } );
 }

@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, and Render HAL plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the two remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 19 / 25 live tasks; 76%. |
+| Active/future progress | 20 / 25 live tasks; 80%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Gameplay T1 final `validate_full` passes in 199.48s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | Gameplay T1 is complete: direct deterministic witness, full/physics, perf/allocation, and one-process replay visual-fidelity gates pass at the final source tip. |
+| Validation for current edits | Gameplay T2 is complete: fast metadata/build, shader freshness, allocation/filter checks, DX12 screenshots/InfoQueue, and one-minute graphics stress pass at the final source tip. |
 
 ## Live Queue
 
-NOW. Three live plans, 25 tasks; 19 complete (76%). The remaining architecture-review campaign
+NOW. Three live plans, 25 tasks; 20 complete (80%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: gameplay-module-extraction → replay-boundary-containment. Owner
@@ -160,6 +160,9 @@ are not certified. Full evidence:
 | `tools\validate_full.bat` (T1 final) | 199.48 s | PASS; all CPU/coverage/runtime lanes, zero DX12 errors, unchanged images, 44,401-line physics CSV byte-exact |
 | `tools\validate_perf.bat` (T1) | 106.09 s | PASS; zero steady-gameplay allocations and no DX12/physics regression |
 | replay visual fidelity (T1 final, one engine generation) | 440.53 s | PASS; 2,401 ticks, causal/durable-artifact proof and all negative controls |
+| `tools\validate_fast.bat` (T2 final) | 80.83 s | PASS; format/metadata/size gates and zero-warning Profile/Debug builds |
+| `tools\validate_dx12_renderer.bat` (T2 final) | 57.63 s | PASS; zero InfoQueue errors and all three screenshots within committed thresholds |
+| `tools\run_graphics_stress.bat 1` (T2 final) | 62.74 s | PASS; PID 17628, bounded PID-scoped stop, crash-free, empty stderr |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -167,11 +170,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `gameplay-module-extraction` T2 on `nightrunner-20th-july`. T1 is complete:
-Gameplay owns tornado simulation/config/timers, Physics has zero tornado
-vocabulary and consumes the bounded value lane, replay composes the two owner
-values, and all required gates pass without baseline refresh. T2 moves
-`TornadoVisualPass` and its settings/payload ownership into Gameplay through the
-content-neutral stack-scoped render-graph registration seam; Rendering and
-`Runtime/Render` must end with zero tornado vocabulary. E17 extended owner
+Start `gameplay-module-extraction` T3 on `nightrunner-20th-july`. T2 is complete:
+Gameplay owns the visual settings, sampling, storage, lifecycle, and callback;
+RuntimeRenderer retains only the generic post-water registration scope; and
+Rendering plus `Runtime/Render` have zero tornado vocabulary. T3 reconciles the
+remaining UI/replay/config call sites, extends the Gameplay direction rule,
+runs the one required independent boundary review, and closes with full plus
+physics validation. E17 extended owner
 playtest remains parked; keep Legacy default until explicit owner authorization.

@@ -1,6 +1,6 @@
 # Gameplay Module Extraction
 
-Status: Active — 2/4 tasks (T0-T1 complete; T2-T3 remain)
+Status: Active — 3/4 tasks (T0-T2 complete; T3 remains)
 Owner: repository owner; registered 2026-07-20 as campaign plan 7 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding G)
 Ledger: T0-T3
@@ -86,7 +86,7 @@ This inventory is the closure source of truth; T3 must rerun and reconcile it.
 | Scene authoring | `AuthoredScene.cpp/.h`, `AuthoredSceneParser.cpp`, `AuthoredSceneParserRuntime.cpp`, `AuthoredSceneParserSchema.h` | T3 keeps authored schema spelling stable while projecting parsed values into Gameplay ownership. No schema/version bump is intended. |
 | UI | `OperatorEditorExchange.cpp/.h`, `UI.cpp/.h`, `UICommands.h`, `UIFrameComposition.cpp`, `UILayout.h`, `UITabPhysics.cpp/.h` | T3 preserves operator command/value vocabulary and moves the owning command target from Physics/renderer to Gameplay. |
 | Core, assets, and config | `Assets/AssetSystem.cpp`, `Core/Config.cpp/.h`, `SkullbonezData/engine.cfg` | T3 moves content config projection to Gameplay. The only config-file hit is `physics_parallel_tornado_field`; its authored spelling remains stable unless a versioned migration is explicitly added. |
-| Data and shader | `scenes/aaa_ragdoll_sunset_showcase.scene.json`, `scenes/tornado_alley_showcase.scene.json`, `scenes/tornado_village_rampage.scene.json`, `shaders/shader_manifest.json`, `shaders/tornado_fx.hlsl` | Authored content names stay content names. The three scenes author 1, 3, and 3 vortices respectively. T2/T3 update only ownership/build routing. |
+| Data and shader | `scenes/aaa_ragdoll_sunset_showcase.scene.json`, `scenes/tornado_alley_showcase.scene.json`, `scenes/tornado_village_rampage.scene.json`, `shaders/shader_manifest.json`, `shaders/transient_colored_triangles.hlsl` | Authored scene content names stay content names. The three scenes author 1, 3, and 3 vortices respectively. T2 moved the shared packed-triangle shader to a content-neutral build key without changing shader behavior. |
 | Tests and tools | `TestDeterminism.cpp`, `TestOwnerRequestQueues.cpp`, `TestPhysicsStageState.cpp`, `TestStartup.cpp`, `tools/allocation_policy_allowlist.json`, `tools/replay_query.py`, `tools/validate_project_filters.py` | Tests follow the new owner and add the missing direct force witness; allowlist/project-filter/query tooling follows moved paths without weakening checks. |
 | Project metadata | `SKULLBONEZ_CORE.vcxproj/.filters`, `SKULLBONEZ_PHYSICS.vcxproj/.filters` | T1 adds the `Gameplay` filter and moves compilation ownership out of the physics-only project. |
 | Baselines | No tracked file under `TestOutput/baselines/` contains tornado vocabulary. `validate_physics.bat` runs `physics_bench_varied.scene.json`, which has no tornado configuration. | This is a validation gap, not refresh authority. T1 adds a focused deterministic witness and still runs the normal byte-exact physics gate. |
@@ -177,7 +177,7 @@ deletion condition, and comparison evidence before source changes continue.
   `tools\validate_perf.bat` (force-stage hot path touched);
   `tools\validate_physics_deep.bat` if any SkullScope tornado diagnostics
   move.
-- [ ] T2 — Render extraction: `TornadoVisualPass` ownership and its
+- [x] T2 — Render extraction: `TornadoVisualPass` ownership and its
   settings snapshot move to `Gameplay/`, registering through the plan-5
   pass path; `RuntimeRenderer` loses tornado members. Proof:
   `grep -irn "tornado" SkullbonezSource/Runtime/Render
@@ -222,5 +222,22 @@ scan reports 409 files and zero allowlist errors. SkullScope surfaces did not
 move, so `validate_physics_deep` was not required. Comment audit checked 55/55
 touched source-bearing files with zero deferred.
 
-T2: `validate_dx12_renderer` + bounded stress. T3: `validate_full` +
+T2 complete 2026-07-21. Gameplay owns visual settings, live/replay time
+selection, transient triangle/debug-line storage, resource prepare/release,
+and the callback trampoline. Run supplies a stack-scoped typed registration;
+RuntimeRenderer opens only the content-neutral post-water scope and compiles/
+executes its one appended pass before the scope ends. Rendering uses the generic
+transient-colored-triangle shader/draw key. `rg -i tornado
+SkullbonezSource/Runtime/Render SkullbonezSource/Rendering` returns zero rows.
+
+Evidence at the final source tip: shader freshness passes for 43 stages;
+allocation policy scans 412 files with zero allowlist errors; project-filter
+validation reports 728/728 covered items; `tools\validate_fast.bat` 80.83 s
+PASS with zero-warning Profile/Debug builds; `tools\validate_dx12_renderer.bat`
+57.63 s PASS with zero InfoQueue errors and all three screenshots within their
+committed thresholds; `tools\run_graphics_stress.bat 1` 62.74 s PASS with a
+PID-scoped stop and empty stderr. No baseline was refreshed. Comment audit
+checked 31/31 touched source-bearing files with zero deferred.
+
+T3: `validate_full` +
 `validate_physics` at final source.

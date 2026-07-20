@@ -38,11 +38,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Gameplay
-{
-struct TornadoFieldConfig;
-struct TornadoSystemConfig;
-} // namespace Gameplay
 namespace Core
 {
 struct CinematicRenderConfig;
@@ -85,6 +80,7 @@ class IRenderDiagnostics;
 class IRenderRayTracing;
 class IRenderResourceFactory;
 class RenderInstanceStore;
+class WorldRenderExtensionRegistration;
 struct RenderInstancePresentationRecord;
 } // namespace Rendering
 
@@ -135,8 +131,7 @@ struct RuntimeRenderModelFrameView
     const Physics::ColliderStore& colliders;
     const Physics::PhysicsBodyStore& bodyStore;
     Physics::PhysicsEngine& physicsEngine;
-    const Gameplay::TornadoFieldConfig& tornadoField;
-    const Gameplay::TornadoSystemConfig& tornadoSystem;
+    std::span<const float> worldExtensionDebugLines;
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
     const std::vector<uint8_t>& collisionVisualContacts;
     std::span<const uint8_t> sleepStates;
@@ -150,7 +145,6 @@ struct RuntimeRenderModelFrameView
     bool renderCollisionVolumes = false;
     bool shadowParallelPrep = false;
     double sceneKineticEnergy = 0.0;
-    float tornadoElapsedSeconds = 0.0f;
     SkullbonezCore::Core::MainMemoryGameObjectStats gameObjectMemory;
 };
 
@@ -167,6 +161,7 @@ struct RuntimeRenderServices
     RuntimeTools& runtimeTools;
     const ReplayRenderFrameView& replayFrame;
     const RenderToolOverlayView& toolOverlay;
+    const Rendering::WorldRenderExtensionRegistration& worldExtension;
     const RuntimeRenderFramePolicy& framePolicy;
     Geometry::SkyBox* skyBox;
     // Lifetime: selected once by Run for this render call. Passes use this

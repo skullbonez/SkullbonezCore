@@ -191,6 +191,7 @@ PHYSICS_STAGE_PREFIXES = (
 GAMEPLAY_PREFIXES = (
     "TornadoField",
     "TornadoGameplay",
+    "TornadoVisualPass",
 )
 
 PHYSICS_DIAGNOSTICS_PREFIXES = (
@@ -267,6 +268,7 @@ RENDERING_PREFIXES = (
     "RenderSceneView",
     "RenderMaterial",
     "RenderGpuTimingOwner",
+    "WorldRenderExtension",
     "ShaderContracts",
     "ShaderReflectionContracts",
     "Shadow",

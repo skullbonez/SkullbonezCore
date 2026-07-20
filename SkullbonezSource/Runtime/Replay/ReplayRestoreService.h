@@ -203,9 +203,9 @@ class ReplayRestoreService
         context.scene.isScenePhysics = sample.world.scenePhysicsEnabled;
         context.scene.isSceneText = sample.world.sceneTextEnabled;
         context.scene.modelCount = restoreModelCount;
-        if ( context.renderer.TornadoVisualAutoEnableWithTornado() )
+        if ( context.world.Tornado().VisualAutoEnableWithTornado() )
         {
-            context.renderer.SetTornadoVisualEnabled( sample.worldSnapshot.tornadoConfig.enabled ||
+            context.world.Tornado().SetVisualEnabled( sample.worldSnapshot.tornadoConfig.enabled ||
                                                       sample.worldSnapshot.tornadoSystemConfig.enabled );
         }
 

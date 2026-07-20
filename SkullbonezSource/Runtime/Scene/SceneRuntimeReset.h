@@ -31,6 +31,7 @@ Related:
 #include "../RunDebugState.h"
 #include "../Render/RenderPresentationSettings.h"
 #include "../../Gameplay/TornadoField.h"
+#include "../../Gameplay/TornadoVisualPass.h"
 #include "../../Core/Config.h"
 
 #include <cstdint>
@@ -55,6 +56,7 @@ struct SceneRuntimeResetSnapshot
     bool physicsSleepEnabled = true;
     Gameplay::TornadoFieldConfig tornadoField;
     Gameplay::TornadoSystemConfig tornadoSystem;
+    Gameplay::TornadoVisualSettings tornadoVisual;
     RunDebugState
         debug;                                     // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics =

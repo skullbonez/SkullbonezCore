@@ -49,6 +49,7 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     snapshot.physicsSleepEnabled = controller.Scene().Physics().IsSleepEnabled();
     snapshot.tornadoField = controller.Scene().Tornado().GetFieldConfig();
     snapshot.tornadoSystem = controller.Scene().Tornado().GetSystemConfig();
+    snapshot.tornadoVisual = controller.Scene().Tornado().VisualSettings();
     snapshot.debug = debug;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
@@ -97,6 +98,7 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
     controller.Scene().Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
     controller.Scene().Tornado().SetFieldConfig( snapshot.tornadoField );
     controller.Scene().Tornado().SetSystemConfig( snapshot.tornadoSystem );
+    controller.Scene().Tornado().SetVisualSettings( snapshot.tornadoVisual );
     debug = snapshot.debug;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;

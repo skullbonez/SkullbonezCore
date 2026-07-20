@@ -660,13 +660,15 @@
       "path": "SkullbonezSource/Gameplay/TornadoGameplay.cpp",
       "patterns": [
         ".assign(",
-        ".reserve("
+        ".reserve(",
+        ".push_back(",
+        ".insert("
       ],
-      "owner": "Gameplay tornado authored-content and preallocated state surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Body timers reserve to the scene-object capacity before steady gameplay; assign only changes logical size within that reserve, and authored vortex growth stays in scene load/replay.",
-      "cap": "Active force fields are fixed at 64; timer capacity is the configured scene-object capacity and overflow is fatal with diagnostics.",
-      "removal_or_wrapper_plan": "Replace replay-owned dynamic copies separately; retain preallocated body rows unless Physics adopts a shared fixed store."
+      "owner": "Gameplay tornado authored-content, body state, and debug-line publication",
+      "phase": "startup_preallocation_scene_load_replay_and_bounded_debug_build",
+      "reason": "Body timers and debug buffers reserve before steady gameplay; assigns/inserts/pushes only change logical size inside capacities, while authored vortex growth stays in scene load/replay.",
+      "cap": "Active force fields and debug vortices are capped at 64; timer rows use scene-object capacity; debug vertices reserve the fixed 12x4x5 sampling recipe for all 64 vortices.",
+      "removal_or_wrapper_plan": "Replace replay-owned dynamic copies separately and move debug publication to a fixed packed-line store when the shared diagnostics buffer contract lands."
     },
     {
       "path": "SkullbonezSource/Gameplay/TornadoGameplay.h",
@@ -678,6 +680,31 @@
       "reason": "Gameplay owns pre-reserved per-body timers and a cold authored vortex list; the force-frame boundary itself is fixed storage plus spans.",
       "cap": "Active force fields are capped at 64 and timer rows at the configured scene-object capacity.",
       "removal_or_wrapper_plan": "Replace replay-owned dynamic copies separately; retain preallocated body rows unless Physics adopts a shared fixed store."
+    },
+    {
+      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve(",
+        ".shrink_to_fit("
+      ],
+      "owner": "Gameplay tornado production visual",
+      "phase": "startup_and_backend_init_prepare_then_drained_shutdown_release",
+      "reason": "Gameplay pre-reserves the 64 active-vortex rows and prepares bounded transient triangle capacity under the explicit BackendInit allocation scope before graph execution; shrink occurs only after the renderer drains GPU work during shutdown.",
+      "cap": "At most 64 active vortices, 16 ribbons, 96 ribbon segments, three 56-segment dust bands, 256 particles, and 11 floats per emitted vertex.",
+      "removal_or_wrapper_plan": "Replace the transient float vector with the render upload arena and the active-vortex vector with a fixed Gameplay list once those typed stores are available."
+    },
+    {
+      "path": "SkullbonezSource/Gameplay/TornadoVisualPass.h",
+      "patterns": [
+        "std::vector<",
+        ".reserve("
+      ],
+      "owner": "Gameplay tornado production visual",
+      "phase": "startup_and_backend_init_prepare_then_drained_shutdown_release",
+      "reason": "The owner retains preallocated active-vortex and transient packed-vertex storage; the graph callback only clears and fills within the prepared capacity.",
+      "cap": "The same 64-vortex and clamped visual-recipe limits enforced by TornadoVisualPass::EnsureTransientCapacity.",
+      "removal_or_wrapper_plan": "Adopt fixed active-vortex storage and the renderer upload arena, then remove both owning vectors."
     },
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
@@ -1009,18 +1036,6 @@
       "removal_or_wrapper_plan": "Use a fixed two-element descriptor array when the validation harness next changes."
     },
     {
-      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h",
-      "patterns": [
-        ".reserve(",
-        "std::vector<"
-      ],
-      "owner": "Runtime orchestration preallocation surface",
-      "phase": "startup_scene_load_diagnostics",
-      "reason": "Runtime orchestration, automation, demo, and pass setup vectors grow while preparing startup, scene, diagnostics, or bounded command data.",
-      "cap": "Bounded by startup arguments, scene/model counts, render pass counts, or automation script sizes.",
-      "removal_or_wrapper_plan": "Move runtime orchestration storage to typed fixed buffers or owner wrappers as each subsystem is decomposed."
-    },
-    {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
         ".assign(",
@@ -1217,19 +1232,6 @@
       "reason": "The cold scene-load value retains parsed contact and broadphase expectations until validation adopts the completed configuration.",
       "cap": "Bounded by the explicitly supplied validation requirements.",
       "removal_or_wrapper_plan": "Replace requirement vectors with bounded validation storage when the validation schema gains hard row caps."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Render/RuntimeRenderPasses.cpp",
-      "patterns": [
-        ".push_back(",
-        ".reserve(",
-        ".shrink_to_fit("
-      ],
-      "owner": "RuntimeRenderer tornado and debug-overlay passes",
-      "phase": "startup_backend_resource_prepare_and_release",
-      "reason": "Pass-owned vectors reserve bounded tornado/debug geometry before submission and release capacity during explicit backend teardown.",
-      "cap": "Bounded by configured tornado vortex limits and the fixed debug-overlay sampling grid.",
-      "removal_or_wrapper_plan": "Replace these vectors with pass-owned fixed buffers when render-backend decomposition closes the tornado/debug pass storage rows."
     },
     {
       "path": "SkullbonezSource/Runtime/Render/RuntimeRenderer.cpp",

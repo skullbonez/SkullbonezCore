@@ -1,5 +1,5 @@
 /*
-File: SkullbonezData/shaders/tornado_fx.hlsl
+File: SkullbonezData/shaders/transient_colored_triangles.hlsl
 Purpose:
   Draws sparse tornado visual-effect triangles.
 
@@ -19,7 +19,7 @@ Invariants:
   - fx.z selects dust behavior; non-dust ribbon pixels return the CPU color.
 
 Related:
-  - SkullbonezSource/Runtime/RunPasses.cpp
+  - SkullbonezSource/Gameplay/TornadoVisualPass.cpp
 */
 #pragma pack_matrix(column_major)
 

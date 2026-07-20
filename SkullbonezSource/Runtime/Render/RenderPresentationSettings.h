@@ -11,8 +11,6 @@ Summary:
 Glossary:
   Pipeline sync: Diagnostic mode that forces CPU/GPU synchronization before a
     frame is rendered.
-  Tornado visual: Non-deterministic sparse funnel art paired with, but separate
-    from, the physics-owned tornado force configuration.
 
 Invariants:
   - These values never change deterministic physics state.
@@ -30,24 +28,10 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-struct TornadoVisualSettings
-{
-    bool enabled = true;
-    bool autoEnableWithTornado = true;
-    float shellAlpha = 0.14f;
-    float dustAlpha = 0.20f;
-    float ribbonWidth = 5.5f;
-    int ribbonCount = 7;
-    int ribbonSegments = 48;
-    int particleCount = 96;
-    float rotationSpeed = 1.25f;
-};
-
 struct RenderPresentationSettings
 {
     bool vsyncEnabled = true;
     bool pipelineSyncEnabled = false;
-    TornadoVisualSettings tornadoVisual;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

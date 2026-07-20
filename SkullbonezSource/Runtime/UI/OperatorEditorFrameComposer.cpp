@@ -481,7 +481,7 @@ void Render( RuntimeFrameHostView& host,
         diagnostics.collisionVisualizer = debug.isCollisionVisualizer;
         diagnostics.physicsDebugTransparent = debug.isPhysicsDebugTransparent;
         diagnostics.broadphaseOverlay = debug.isBroadphaseOverlay;
-        diagnostics.tornadoVisualShell = renderer.TornadoVisualSettingsSnapshot().enabled;
+        diagnostics.tornadoVisualShell = sceneController.Scene().Tornado().VisualSettings().enabled;
         diagnostics.tornadoFieldVectors = sceneController.Scene().Tornado().GetFieldConfig().visualizeVelocityField;
         diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
         diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
