@@ -752,6 +752,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled ) override;
     RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const override;
     RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const override;
+    RenderGraphBackbufferBinding ResolveGraphBackbufferBinding() const override;
     size_t ExecuteGraphTransitions( const RenderGraph& graph,
                                     const RenderGraphCompileResult& compiled,
                                     uint32_t passIndex ) override;

@@ -103,6 +103,12 @@ class IRenderCommandContext
         (void)textureHandle;
         return {};
     }
+    // Returns the current swap-chain image plus its tracked access so the
+    // first executable graph pass can compile the normal Present -> RT edge.
+    virtual RenderGraphBackbufferBinding ResolveGraphBackbufferBinding() const
+    {
+        return {};
+    }
     // Executes every compiled transition assigned to one callback pass. The
     // returned count proves that declared producer/consumer edges became live.
     virtual size_t

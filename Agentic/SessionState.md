@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade, and physics settings plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the five remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 21 / 37 live tasks; 57%. |
+| Active/future progress | 22 / 37 live tasks; 59%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | X2 `validate_full` passes in 166.92s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | G3: direct Automation build, three consecutive DX12 renderer gates, bounded graphics stress, and the single-process replay-fidelity gate pass; 2/2 comment audit, 0 deferred. |
+| Validation for current edits | G4: direct Automation build, three consecutive DX12 renderer gates, and bounded graphics stress pass; 12/12 comment audit, 0 deferred. |
 
 ## Live Queue
 
-NOW. Five live plans, 37 tasks; 21 complete (57%). The remaining architecture-review campaign
+NOW. Five live plans, 37 tasks; 22 complete (59%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: render-graph-completion → render-hal-modernization →
@@ -120,6 +120,11 @@ are not certified. Full evidence:
 | `tools\validate_dx12_renderer.bat` (G3 run 3) | 55.24 s | PASS; zero DX12 errors and unchanged baselines |
 | `tools\run_graphics_stress.bat 1` (G3) | 61.70 s | PASS; bounded PID-scoped run, crash-free |
 | replay visual fidelity (G3, one engine generation) | 447.61 s | PASS; all positive/negative controls, zero refresh |
+| direct Automation build (G4) | 23.95 s | PASS; zero warnings/errors |
+| `tools\validate_dx12_renderer.bat` (G4 run 1) | 75.40 s | PASS; zero DX12 errors and unchanged baselines |
+| `tools\validate_dx12_renderer.bat` (G4 run 2) | 56.0 s | PASS; zero DX12 errors and unchanged baselines |
+| `tools\validate_dx12_renderer.bat` (G4 run 3) | 55.57 s | PASS; zero DX12 errors and unchanged baselines |
+| `tools\run_graphics_stress.bat 1` (G4) | 62.11 s | PASS; PID 39000, bounded PID-scoped run, crash-free |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -127,14 +132,16 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `render-graph-completion` G4 on `nightrunner-20th-july`.
-G3 replaced every world-pass wrapper avalanche with a typed input record and
-proved objects, terrain, water, tornado visuals, replay ghosts, and debug
-overlays have callback-only execution with no hidden transition fallback.
-Three consecutive DX12 gates, stress, and the single-process replay-fidelity
-gate passed. Transfer UI/text and normal backbuffer frame edges next, recording
-only the plan-approved Present/capture/editor-copy/lifecycle exceptions and
-deleting the graph diagnostic scaffolding. The Profiler semantic
+Continue `render-graph-completion` G5 on `nightrunner-20th-july`.
+G4 transferred normal backbuffer RenderTarget acquisition to compiled graph
+callbacks for clear, tonemap, text, and the shared late-UI entry. Direct draw,
+clear, and ImGui paths now enforce the graph-owned state instead of repairing
+it. Only plan-approved Present/capture/editor-copy/lifecycle exceptions remain;
+the barrier-policy, callback-owned, and graph-result scaffolding is deleted.
+Three consecutive DX12 gates and bounded stress passed. Finalize the exception
+inventory, strengthen the DX12 architecture CPU test for the single-path
+contract, run full/perf/stress, and obtain the one end-of-plan independent
+review. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

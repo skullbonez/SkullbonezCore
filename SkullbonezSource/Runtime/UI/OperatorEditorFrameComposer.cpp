@@ -44,6 +44,7 @@ Related:
 #include "../Editor/EditorTools.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
@@ -530,6 +531,12 @@ void Render( RuntimeFrameHostView& host,
                                        facts.isLauncherCameraMode,
                                        replayOverlay.shouldRenderScrubber,
                                        replayRuntime.BuildInputView().hasPathTarget };
+
+    if ( !uiRender.commands )
+    {
+        SB_FATAL( "Runtime/UI", "Operator editor frame has no render command context." );
+    }
+    renderer.PrepareUiFrameTarget( *uiRender.commands );
 
     if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
     {

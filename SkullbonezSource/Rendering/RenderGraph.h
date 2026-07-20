@@ -120,21 +120,8 @@ enum class RenderGraphQueueType
     Copy
 };
 
-// Barrier policy names whether a pass declaration is plain diagnostics or a
-// reviewed handoff marker. DX12 explicit backend helpers own live transition
-// emission; this marker only documents whether a declaration has been reviewed.
-// Callback execution ownership is tracked separately because a pass can have
-// reviewed resource declarations before its body is graph-scheduled.
-enum class RenderGraphBarrierPolicy
-{
-    DiagnosticOnly,  // The graph documents intent; hand-written backend barriers still own execution.
-    HandoffValidated // The pass/resource declaration is reviewed as a migration handoff marker, not executed by the
-                     // graph.
-};
-
-// Execution ownership names whether a pass is only declared for diagnostics or
-// whether the graph owns calling its command-recording body. Callback-owned
-// passes still use the same read/write declarations as barrier-only passes.
+// Execution ownership distinguishes executable frame work from the few
+// callback-free rows that document external frame edges such as Present.
 enum class RenderGraphPassExecutionOwner
 {
     DeclarationOnly,
@@ -298,6 +285,20 @@ struct RenderGraphNativeResourceToken
     std::uintptr_t value = 0;
 };
 
+// Typed view of the current swap-chain image and the backend's tracked access.
+// The graph borrows this identity only while compiling/executing one wrapper;
+// the backend remains the resource lifetime owner.
+struct RenderGraphBackbufferBinding
+{
+    RenderGraphNativeResourceToken nativeResource;
+    RenderGraphResourceAccess currentAccess = RenderGraphResourceAccess::Unknown;
+
+    bool IsValid() const
+    {
+        return static_cast<bool>( nativeResource ) && currentAccess != RenderGraphResourceAccess::Unknown;
+    }
+};
+
 // A named resource in the graph.
 //
 // For this first slice, resources are just names and "external" markers.
@@ -367,15 +368,13 @@ struct RenderGraphResourceUseList
 // - Which resources does it read?
 // - Which resources does it write?
 //
-// Callback fields are optional. Declaration-only passes still serve diagnostics
-// and barrier compilation; callback-owned passes use the same read/write records
-// before the graph invokes their command-recording body.
+// Callback fields are optional only for declared frame-edge bookkeeping such as
+// Present. Every command-recording frame pass installs a callback.
 struct RenderGraphPassDesc
 {
     const char* name = "UnnamedPass";
     const char* debugLabel = "UnnamedPass";
     RenderGraphQueueType queue = RenderGraphQueueType::Graphics;
-    RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly;
     RenderGraphPassExecutionOwner executionOwner = RenderGraphPassExecutionOwner::DeclarationOnly;
     bool callbackEnabled = true;
     RenderGraphResourceUseList reads;
@@ -614,9 +613,7 @@ class RenderGraph
     AddTransientResource( const char* name,
                           const RenderGraphTransientResourceDesc& desc,
                           RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
-    uint32_t AddPass( const char* name,
-                      RenderGraphQueueType queue = RenderGraphQueueType::Graphics,
-                      RenderGraphBarrierPolicy barrierPolicy = RenderGraphBarrierPolicy::DiagnosticOnly );
+    uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
 
     void AddRead( uint32_t passIndex,
                   RenderGraphResourceHandle resource,
@@ -670,7 +667,6 @@ class RenderGraph
 };
 
 const char* ToString( RenderGraphQueueType queue );
-const char* ToString( RenderGraphBarrierPolicy policy );
 const char* ToString( RenderGraphPassExecutionOwner owner );
 const char* ToString( RenderGraphResourceAccess access );
 const char* ToString( RenderGraphResourceKind kind );

@@ -51,20 +51,6 @@ const char* ToString( RenderGraphQueueType queue )
 }
 
 
-const char* ToString( RenderGraphBarrierPolicy policy )
-{
-    switch ( policy )
-    {
-    case RenderGraphBarrierPolicy::DiagnosticOnly:
-        return "DiagnosticOnly";
-    case RenderGraphBarrierPolicy::HandoffValidated:
-        return "HandoffValidated";
-    default:
-        return "Unknown";
-    }
-}
-
-
 const char* ToString( RenderGraphPassExecutionOwner owner )
 {
     switch ( owner )
@@ -315,11 +301,11 @@ RenderGraphResourceHandle RenderGraph::AddTransientResource( const char* name,
 }
 
 
-uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue, RenderGraphBarrierPolicy barrierPolicy )
+uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue )
 {
-    // A pass is a named unit of frame work. Declaration-only passes record
-    // intent for diagnostics and barriers; callback-owned passes can later use
-    // the same pass index to record commands in graph order.
+    // A pass is a named unit of frame work. A declaration becomes executable
+    // when its callback is installed; callback-free rows are frame-edge
+    // bookkeeping only.
     if ( m_passes.size() >= RENDER_GRAPH_MAX_PASSES )
     {
         SB_FATAL( "RenderGraph",
@@ -331,7 +317,6 @@ uint32_t RenderGraph::AddPass( const char* name, RenderGraphQueueType queue, Ren
     pass.name = ( name && name[0] != '\0' ) ? name : "UnnamedPass";
     pass.debugLabel = pass.name;
     pass.queue = queue;
-    pass.barrierPolicy = barrierPolicy;
 
     const uint32_t index = static_cast<uint32_t>( m_passes.size() );
     m_passes.push_back( pass );
@@ -422,7 +407,7 @@ std::string RenderGraph::DumpText() const
     {
         const RenderGraphPassDesc& pass = m_passes[passIndex];
         out << "  [" << passIndex << "] " << pass.name << " queue=" << ToString( pass.queue )
-            << " barriers=" << ToString( pass.barrierPolicy ) << " execution=" << ToString( pass.executionOwner );
+            << " execution=" << ToString( pass.executionOwner );
         if ( pass.executionOwner == RenderGraphPassExecutionOwner::Callback )
         {
             out << " callback_enabled=" << ( pass.callbackEnabled ? "true" : "false" )

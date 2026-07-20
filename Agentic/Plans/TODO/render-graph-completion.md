@@ -1,6 +1,6 @@
 # Render Graph Completion
 
-Status: Active — 4/6 tasks (G0-G3 complete; G4-G5 pending)
+Status: Active — 5/6 tasks (G0-G4 complete; G5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 5 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding E)
 Ledger: G0-G5
@@ -237,6 +237,43 @@ Validation at the unchanged G3 tip:
   complete learning headers and the typed-input borrow/synchronous-execution
   contract is documented beside the new records.
 
+## G4 UI/Text And Frame-Edge Transfer Evidence
+
+Normal backbuffer RenderTarget acquisition is now a compiled graph edge. The
+ordinary clear callback declares the backbuffer and depth target, executes the
+compiler-selected transitions, and then clears. The shared late-UI entry adds
+one `UiTargetAcquire` callback before either Legacy text or ImGui consumes the
+backbuffer, so neither UI implementation relies on an implicit draw-time
+transition. Cinematic tonemap and text callbacks resolve the same typed current
+backbuffer binding and consume their compiled transitions before recording.
+
+`Dx12FrameOwner::PrepareDraw`, backend clear, and ImGui drawing now assert the
+RenderTarget invariant instead of repairing it. The remaining explicit
+backbuffer transitions are bounded frame-edge operations only: Present,
+synchronous capture/readback with exact prior-state restoration, the
+development viewport copy with exact prior-state restoration, and
+shutdown/resize Present reconciliation. `RenderGraphBarrierPolicy`, every
+`callbackOwned` field, and the graph-result diagnostic scaffolding are deleted;
+the diagnostic graph installs callbacks for executed passes and retains only
+its final Present row as `DeclarationOnly`, with the frame-edge reason beside
+the declaration.
+
+Validation at the unchanged G4 tip:
+
+- Direct Automation build: PASS in 23.95 s, zero warnings/errors.
+- `tools\validate_dx12_renderer.bat` runs 1-3: PASS in 75.40 s, 56.0 s,
+  and 55.57 s; every run reported zero DX12 validation errors and matched all
+  three committed screenshot baselines.
+- `tools\run_graphics_stress.bat 1`: PASS in 62.11 s; PID 39000 completed the
+  bounded minute and closed by the PID-scoped timeout without a crash.
+- Static retirement proof: no `callbackOwned`, `CallbackOwned`,
+  `RenderGraphBarrierPolicy`, or normal-frame explicit backbuffer transition
+  remains. Every surviving `TransitionBackbuffer` call is one of the approved
+  capture, development-copy, Present, or lifecycle exceptions.
+- Touched-source comment audit: 12/12 checked, 0 deferred; every touched source
+  file retains a complete learning header, and graph/backbuffer authority,
+  transition ordering, and UI target invariants are documented locally.
+
 ## Tasks
 
 - [x] G0 — Authority inventory and migration map: for every pass, record
@@ -263,7 +300,7 @@ Validation at the unchanged G3 tip:
   `tools\validate_dx12_renderer.bat` ×3 + `tools\run_graphics_stress.bat 1`
   + `tools\validate_replay_visual_fidelity.bat` (one invocation, one engine
   process, zero golden refresh).
-- [ ] G4 — UI/text and frame-edge class: UI/text pass and
+- [x] G4 — UI/text and frame-edge class: UI/text pass and
   backbuffer/present edges resolve; remaining `DeclarationOnly` rows each
   get a recorded reason. Delete `RenderGraphBarrierPolicy`, the
   `callbackOwned` flags, and the dual-path scaffolding per binding

@@ -337,6 +337,16 @@ RenderGraphNativeResourceToken RenderBackendDX12::ResolveGraphResourceToken( uin
 }
 
 
+RenderGraphBackbufferBinding RenderBackendDX12::ResolveGraphBackbufferBinding() const
+{
+    RenderGraphBackbufferBinding binding;
+    binding.nativeResource =
+        RenderGraphNativeResourceToken::From( m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() ) );
+    binding.currentAccess = m_frameOwner.BackBufferAccess();
+    return binding;
+}
+
+
 size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
                                                    const RenderGraphCompileResult& compiled,
                                                    uint32_t passIndex )
@@ -372,6 +382,19 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
                       "Compiled external transition could not open command recording. pass=%s resource=%s",
                       graph.Passes()[passIndex].name,
                       resource.name );
+        }
+
+        const bool isCurrentBackbuffer = nativeResource == m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() );
+        if ( isCurrentBackbuffer && transition.before != m_frameOwner.BackBufferAccess() )
+        {
+            // Hazard: graph compilation uses the tracked access sampled by the
+            // wrapper. A mismatch means an untracked frame-edge transition ran
+            // between declaration and callback execution.
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled backbuffer transition has stale before-state. pass=%s tracked=%s compiled=%s",
+                      graph.Passes()[passIndex].name,
+                      ToString( m_frameOwner.BackBufferAccess() ),
+                      ToString( transition.before ) );
         }
 
         // Hazard: leaving UAV writes unordered before the compiled consumer
@@ -412,6 +435,11 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
                       "Compiled graph external transition was not emitted. pass=%s resource=%s",
                       graph.Passes()[passIndex].name,
                       resource.name );
+        }
+        if ( isCurrentBackbuffer )
+        {
+            m_frameOwner.SetBackBufferAccess( transition.after );
+            m_pipelineOwner.InvalidateTargets();
         }
         ++emittedCount;
     }
@@ -1058,6 +1086,10 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // had EndQuery recorded this frame. Resolving unwritten slots triggers D3D12 error 1319.
     const bool resolvedTimerSlotsThisFrame = m_diagnostics.ResolveWrittenGpuTimers( m_frameOwner.DiagnosticsFrame() );
 
+    // Frame-edge exception: Present coordinates command-list close, submission,
+    // swap-chain flip, and fence advancement after all executable graph passes.
+    // It is not command-recording frame work and therefore retains this one
+    // explicit RenderTarget -> Present transition.
     m_frameOwner.TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
     if ( m_frameOwner.HasFailure() )
     {
@@ -1465,7 +1497,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
     // back buffer and the depth candidate exists.
     m_frameOwner.RefreshFrameIndex();
     // ResizeBuffers puts all back buffers into PRESENT state, so the next
-    // Clear()/PrepareDraw() must transition from that concrete state.
+    // executable backbuffer graph pass compiles from that concrete state.
     m_frameOwner.SetBackBufferAccess( RenderGraphResourceAccess::Present );
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
@@ -1515,13 +1547,14 @@ void RenderBackendDX12::Clear( bool color, bool depth )
         return;
     }
 
-    if ( !m_pipelineOwner.RenderingToFramebuffer() )
+    if ( !m_pipelineOwner.RenderingToFramebuffer() &&
+         m_frameOwner.BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
     {
-        m_frameOwner.TransitionBackbuffer( "ClearBackbuffer", RenderGraphResourceAccess::RenderTarget );
-        if ( m_frameOwner.HasFailure() )
-        {
-            return;
-        }
+        // Invariant: BackbufferClear is an executable graph pass. Clear only
+        // records the operation after that pass has acquired RenderTarget.
+        SB_FATAL( "RenderBackendDX12",
+                  "Backbuffer clear reached the backend without graph acquisition. tracked=%s",
+                  ToString( m_frameOwner.BackBufferAccess() ) );
     }
     // Bind the render target and depth buffer to the Output Merger (OM) stage — this tells the
     // GPU where to write pixel colors and depth values for subsequent draw calls.

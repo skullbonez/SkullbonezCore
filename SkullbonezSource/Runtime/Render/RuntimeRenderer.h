@@ -154,6 +154,7 @@ class RuntimeRenderer
                                                           int screenH );
     bool ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
+    void PrepareUiFrameTarget( Rendering::IRenderCommandContext& renderCommands );
     void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
                        const UiTextPassState& state,
@@ -168,22 +169,10 @@ class RuntimeRenderer
                        double dSecondsPerFrame );
 
   private:
-    // Concept: callback-owned results record which render passes executed
-    // through the temporary RenderGraph callback path this frame.
-    //
-    // Why: diagnostics still compare direct pass execution with callback-owned
-    // graph execution while the graph API carries C-style userData. RuntimeRenderer
-    // owns these flags because pass scheduling is its responsibility.
-    //
-    // Deletion condition: remove these flags with the callback payload structs
-    // when render passes become typed graph nodes. Checker budget: callback
-    // accounting stays renderer-local and may not add concrete scene-container
-    // or Run borrows to Runtime/Render contracts.
     struct CinematicPostGraphResult
     {
+        bool volumetricPassExecuted = false;              // Volumetric callback was scheduled for this post chain.
         bool volumetricReady = false;                     // Volumetric target was produced and can be sampled by tonemap.
-        bool volumetricCallbackOwned = false;             // Volumetric command recording ran through RenderGraph callback execution.
-        bool tonemapCallbackOwned = false;                // Tonemap command recording ran through RenderGraph callback execution.
         uint32_t volumetricTextureHandle = 0;             // Renderer texture handle resolved from the graph-managed transient SRV.
         uint32_t volumetricWidth = 0;                     // Materialized graph transient width for diagnostics.
         uint32_t volumetricHeight = 0;                    // Materialized graph transient height for diagnostics.
@@ -191,6 +180,11 @@ class RuntimeRenderer
     struct CinematicPostGraphInputs
     {
         const RenderFrameContext& frame;                  // Complete immutable render facts borrowed for this post chain.
+    };
+    struct BackbufferAcquireGraphInputs
+    {
+        Rendering::IRenderCommandContext& renderCommands;
+        bool clearFrameTargets = false;
     };
     struct ShadowGraphInputs
     {
@@ -271,22 +265,6 @@ class RuntimeRenderer
         const RuntimeRenderServices& services;
         bool useCinematicTarget = false;
     };
-    struct GraphPassResult
-    {
-        bool rendered = false;                            // Pass body produced visible output.
-        bool callbackOwned = false;                       // Pass scheduling ran through RenderGraph callback execution.
-    };
-    struct ShadowGraphResult
-    {
-        ShadowPassOutput output;                          // Shadow maps produced by the callback-owned shadow pass.
-        bool callbackOwned = false;                       // Shadow pass scheduling ran through RenderGraph callback execution.
-    };
-    struct ReflectionGraphResult
-    {
-        ReflectionPassOutput output;                      // Reflection texture produced by the callback-owned reflection pass.
-        bool callbackOwned = false;                       // Reflection pass scheduling ran through RenderGraph callback execution.
-    };
-
     RenderFrameContext BuildRenderFrameContext( const RuntimeRenderInputs& renderInputs,
                                                 bool cinematicRender,
                                                 const SkullbonezCore::Core::CinematicRenderConfig& renderConfig );
@@ -294,22 +272,23 @@ class RuntimeRenderer
                                                       bool cinematicRender ) const;
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
-    ShadowGraphResult ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs );
-    bool ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
-    ReflectionGraphResult ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs );
-    bool ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
-    bool ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
-    bool ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
-    bool ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
+    void ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs );
+    ShadowPassOutput ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs );
+    void ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
+    ReflectionPassOutput ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs );
+    void ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
+    void ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
+    void ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
+    void ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     TornadoVisualSnapshot BuildTornadoVisualSnapshot( const RenderFrameContext& frame,
                                                       const RuntimeRenderServices& services ) const;
-    GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const TornadoVisualGraphInputs& inputs );
+    bool ExecuteTornadoVisualThroughRenderGraph( const TornadoVisualGraphInputs& inputs );
     DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RenderFrameContext& frame,
                                                     const RuntimeRenderServices& services ) const;
-    bool ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
-    GraphPassResult ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
+    void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
+    bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
-    bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+    void ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
                                           const UiTextPassState& state,
                                           RunTimerState& timers,

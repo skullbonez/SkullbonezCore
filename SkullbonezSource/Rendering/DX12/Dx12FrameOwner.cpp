@@ -95,6 +95,9 @@ void Dx12FrameOwner::ResetAfterShutdown()
 
 bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
 {
+    // Exception boundary: this helper is reserved for Present, cold synchronous
+    // capture, the editor viewport copy/restore pair, and lifecycle
+    // reconciliation. Executable frame passes use compiled graph transitions.
     ID3D12Resource* backbuffer = RenderTarget( FrameIndex() );
     if ( !backbuffer || BackBufferAccess() == after )
     {
@@ -195,21 +198,12 @@ bool Dx12FrameOwner::PrepareDraw()
     }
     if ( !m_pipeline.RenderingToFramebuffer() && m_backBufferAccess != RenderGraphResourceAccess::RenderTarget )
     {
-        Dx12RenderGraphSingleTransitionDesc desc;
-        desc.commandList = m_device.CommandList();
-        desc.resource = m_renderTargets[m_frameIndex];
-        desc.before = m_backBufferAccess;
-        desc.after = RenderGraphResourceAccess::RenderTarget;
-        const Dx12RenderGraphBarrierRecord record = ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit",
-                                                                                            "PrepareDrawBackbuffer",
-                                                                                            "SwapchainBackbuffer",
-                                                                                            desc );
-        if ( !record.emitted )
-        {
-            SB_FATAL( "Dx12FrameOwner", "Draw backbuffer transition did not emit." );
-        }
-        m_backBufferAccess = RenderGraphResourceAccess::RenderTarget;
-        m_pipeline.InvalidateTargets();
+        // Invariant: executable graph callbacks acquire the normal render
+        // target state. Draw submission is a consumer and must never recreate
+        // the retired implicit transition fallback.
+        SB_FATAL( "Dx12FrameOwner",
+                  "Backbuffer draw reached submission without graph acquisition. tracked=%s",
+                  ToString( m_backBufferAccess ) );
     }
     return !m_recording.HasFailure();
 }
