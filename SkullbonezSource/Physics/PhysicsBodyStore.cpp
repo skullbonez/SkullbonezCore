@@ -1602,7 +1602,7 @@ bool PhysicsBodyStore::ReleaseFixedBody( int modelIndex,
 
 
 void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
-                                                      std::vector<int>& outReleasedBodyIndices )
+                                                      PhysicsBodyIndexList& outReleasedBodyIndices )
 {
     outReleasedBodyIndices.clear();
     const int sourceIndex = event.sourceIndex;

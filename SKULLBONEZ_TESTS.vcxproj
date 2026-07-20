@@ -242,6 +242,8 @@
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />

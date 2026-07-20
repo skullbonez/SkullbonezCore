@@ -1445,6 +1445,7 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,
 }
 
 void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
+                                      const Gameplay::TornadoGameplay& tornadoGameplay,
                                       const SceneEntityStore& entities,
                                       const SkullbonezCore::Core::EngineConfig& config,
                                       const Physics::PhysicsWorldForces& worldForces,
@@ -1460,6 +1461,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     ReplayPredictionUpdateResult result;
     m_predictionOwner.UpdateFrame( physics,
+                                   tornadoGameplay,
                                    entities,
                                    config,
                                    worldForces,

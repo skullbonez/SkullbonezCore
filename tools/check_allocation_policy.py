@@ -52,6 +52,7 @@ from typing import Iterable
 # heap/growth enforcement through a path-specific exception.
 SOURCE_ROOTS = (
     "SkullbonezSource/Core",
+    "SkullbonezSource/Gameplay",
     "SkullbonezSource/Runtime",
     "SkullbonezSource/Physics",
     "SkullbonezSource/Rendering",

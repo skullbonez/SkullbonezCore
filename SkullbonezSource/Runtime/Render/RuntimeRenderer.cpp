@@ -936,13 +936,13 @@ void AddFramebufferReads( Rendering::RenderGraph& graph, uint32_t pass, const Gr
     graph.AddRead( pass, resources.depth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
 }
 
-bool TornadoSystemVectorsVisible( const Physics::TornadoSystemConfig& config )
+bool TornadoSystemVectorsVisible( const SkullbonezCore::Gameplay::TornadoSystemConfig& config )
 {
     if ( config.visualizeVelocityField )
     {
         return true;
     }
-    for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
+    for ( const SkullbonezCore::Gameplay::TornadoVortexConfig& vortex : config.vortices )
     {
         if ( vortex.field.visualizeVelocityField )
         {
@@ -1392,8 +1392,8 @@ TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot( const RenderF
 
     TornadoVisualSnapshot snapshot;
     snapshot.visual = &m_presentationSettings.tornadoVisual;
-    snapshot.tornadoSystem = frame.physicsEngine ? &frame.physicsEngine->GetTornadoSystemConfig() : nullptr;
-    snapshot.tornadoField = frame.physicsEngine ? &frame.physicsEngine->GetTornadoFieldConfig() : nullptr;
+    snapshot.tornadoSystem = frame.tornadoSystem;
+    snapshot.tornadoField = frame.tornadoField;
     snapshot.replaySample = replayFrame.presentationSample;
     snapshot.solverSample = replayFrame.solverSample;
     snapshot.predictionFrame = replayFrame.predictionFrame;
@@ -1486,10 +1486,8 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     DebugOverlaySnapshot snapshot;
     snapshot.broadphaseOverlayVisible = policy.broadphaseOverlay;
-    const Physics::TornadoFieldConfig* tornadoField =
-        frame.physicsEngine ? &frame.physicsEngine->GetTornadoFieldConfig() : nullptr;
-    const Physics::TornadoSystemConfig* tornadoSystem =
-        frame.physicsEngine ? &frame.physicsEngine->GetTornadoSystemConfig() : nullptr;
+    const Gameplay::TornadoFieldConfig* tornadoField = frame.tornadoField;
+    const Gameplay::TornadoSystemConfig* tornadoSystem = frame.tornadoSystem;
     snapshot.tornadoVectorsVisible =
         tornadoField && tornadoSystem &&
         ( tornadoField->visualizeVelocityField || TornadoSystemVectorsVisible( *tornadoSystem ) );
@@ -1684,6 +1682,8 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.colliders = &services.models.colliders;
     frame.bodyStore = &services.models.bodyStore;
     frame.physicsEngine = &services.models.physicsEngine;
+    frame.tornadoField = &services.models.tornadoField;
+    frame.tornadoSystem = &services.models.tornadoSystem;
     frame.presentationRecords = services.models.presentationRecords;
     frame.collisionVisualContacts = &services.models.collisionVisualContacts;
     frame.sleepStates = services.models.sleepStates;
@@ -2612,6 +2612,8 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
         SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
         SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
         physics,
+        scene.Tornado().GetFieldConfig(),
+        scene.Tornado().GetSystemConfig(),
         scene.RenderPresentationRecords(),
         SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
         SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
@@ -2625,7 +2627,7 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
         config.runtimeRender.renderCollisionVolumes,
         config.runtimeRender.shadowParallelPrep,
         scene.GetSceneKineticEnergy(),
-        physics.GetTornadoSystemElapsedSeconds(),
+        scene.Tornado().GetSystemElapsedSeconds(),
         CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(), physics, scene.RenderInstances() } ) };
 }
 

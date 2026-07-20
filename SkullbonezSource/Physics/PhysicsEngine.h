@@ -132,6 +132,13 @@ class PhysicsEngine
                const char* const* diagnosticNames,
                int diagnosticNameCount,
                const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void Step( float deltaSeconds,
+               const PhysicsWorldForces& worldForces,
+               const ExternalForceFrameInput& externalForces,
+               Threading::WorkerPool& workerPool,
+               const char* const* diagnosticNames,
+               int diagnosticNameCount,
+               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
     // Runtime fixed-tree commands enter physics by handle; release, wake, and
     // sleep propagation stay inside the owned stores.
     bool ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sourceBody,
@@ -168,11 +175,6 @@ class PhysicsEngine
     // Creates a point joint from physics body handles and rejects stale or
     // same-body endpoints before the solver stores its internal row.
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
-    void SetTornadoFieldConfig( const TornadoFieldConfig& config );
-    const TornadoFieldConfig& GetTornadoFieldConfig() const;
-    void SetTornadoSystemConfig( const TornadoSystemConfig& config );
-    const TornadoSystemConfig& GetTornadoSystemConfig() const;
-    float GetTornadoSystemElapsedSeconds() const;
     void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
@@ -223,7 +225,8 @@ class PhysicsEngine
     PhysicsRuntimeSettings m_runtimeSettings;               // Physics-owned process settings stamped before fixed stepping.
     PhysicsWorldForces m_lastWorldForces;                   // Last real step boundary forces used by explicit wake commands.
     bool m_hasLastWorldForces = false;                      // False until the first physics step supplies world forces.
-    std::vector<int> m_fixedTreeReleaseWakeBodies;          // Reused owner-edge wake list; avoids release-time allocation churn.
+    PhysicsBodyIndexList m_fixedTreeReleaseWakeBodies{      // Fixed owner-edge wake list; never grows during release.
+                                                       "PhysicsEngine fixed-tree release output" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

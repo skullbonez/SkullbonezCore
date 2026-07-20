@@ -391,7 +391,7 @@ bool ReplayAuthoring::BuildCauseTreeRows(
     const std::vector<RunReplayPathTraceNode>& nodes =
         usePrediction ? prediction.futureNodeCache.futureNodes : path.futureNodes;
     const std::size_t solverContactCount =
-        solverSample ? solverSample->worldSnapshot.persistentContacts.size() : static_cast<std::size_t>( 0 );
+        solverSample ? solverSample->worldSnapshot.physics.persistentContacts.size() : static_cast<std::size_t>( 0 );
     const std::size_t estimatedRows = 1 + nodes.size() + solverContactCount * 3;
     if ( !CauseTreeRowCapacityCovers( estimatedRows ) )
     {
@@ -555,7 +555,7 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         std::array<ManifoldGroup, REPLAY_CAUSE_TREE_CONTACT_CAPACITY> groups = {};
         std::size_t groupCount = 0;
         for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact :
-              solverSample->worldSnapshot.persistentContacts )
+              solverSample->worldSnapshot.physics.persistentContacts )
         {
             if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
             {
@@ -594,10 +594,11 @@ bool ReplayAuthoring::BuildCauseTreeRows(
             int pointCount = 0;
             int firstContactIndex = -1;
             uint32_t firstFeatureId = 0;
-            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
+            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.physics.persistentContacts.size() );
+                  ++i )
             {
                 const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact =
-                    solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
+                    solverSample->worldSnapshot.physics.persistentContacts[static_cast<std::size_t>( i )];
                 if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
                 {
                     continue;
@@ -663,10 +664,11 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                 return;
             }
 
-            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
+            for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.physics.persistentContacts.size() );
+                  ++i )
             {
                 const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact =
-                    solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
+                    solverSample->worldSnapshot.physics.persistentContacts[static_cast<std::size_t>( i )];
                 if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
                 {
                     continue;
@@ -688,7 +690,8 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                 solverRow.counterpartModelRow.value = group.otherModelIndex;
                 solverRow.contactIndex = i;
                 solverRow.solverRowIndex = i;
-                solverRow.pipelineIndex = ReplayFindPipelineIndexForContact( solverSample->worldSnapshot, contact );
+                solverRow.pipelineIndex =
+                    ReplayFindPipelineIndexForContact( solverSample->worldSnapshot.physics, contact );
                 solverRow.featureId = static_cast<int>( contact.featureId );
                 solverRow.manifoldPointCount = contact.manifoldPointCount;
                 solverRow.penetration = contact.penetration;
@@ -708,7 +711,8 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                 if ( solverRow.pipelineIndex >= 0 )
                 {
                     const PhysicsPipelineRecord& record =
-                        solverSample->worldSnapshot.pipelineTrace[static_cast<std::size_t>( solverRow.pipelineIndex )];
+                        solverSample->worldSnapshot.physics
+                            .pipelineTrace[static_cast<std::size_t>( solverRow.pipelineIndex )];
                     traceStage = PhysicsPipelineStageName( record.stage );
                 }
                 sprintf_s( solverRow.detail,

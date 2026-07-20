@@ -83,6 +83,7 @@ using namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionReserveOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
+namespace Gameplay = SkullbonezCore::Gameplay;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
@@ -149,12 +150,16 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 // diagnostics-name presentation belongs to the live engine only; prediction
 // samples read the private engine's hot-field arrays directly.
 bool StepPredictionEngineTick( PhysicsEngine& engine,
+                               Gameplay::TornadoGameplay& tornadoGameplay,
                                float fixedDt,
                                const PhysicsWorldForces& worldForces,
                                SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    engine.Step( fixedDt, worldForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
+    const SkullbonezCore::Physics::ExternalForceFrameInput externalForces =
+        tornadoGameplay.BuildForceFrame( fixedDt,
+                                         SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() );
+    engine.Step( fixedDt, worldForces, externalForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
     return true;
 }
 
@@ -351,34 +356,35 @@ template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::v
     return ReplayPredictionCapacityBytes<T>( values.capacity(), bytes ) ? bytes : 0;
 }
 
-uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
+uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
+    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
     uint64_t bytes = 0;
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.timeRemaining );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepSupportedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepState );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepCounter );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.underwaterSleepLocked );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.timeRemaining );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportedThisFrame );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepInhibitedThisFrame );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepState );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepCounter );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.underwaterSleepLocked );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.collisionVisualContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandAssignedVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepSupportEdges );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandParent );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandRank );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandHasAwake );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandHasSupportAnchor );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandEligible );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandCanSleep );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContactCache );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentRestingContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.debugContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.pipelineTrace );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.collisionCellKeys );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionVisualContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandVisualId );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandAssignedVisualId );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportEdges );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandParent );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandRank );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasAwake );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasSupportAnchor );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandEligible );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandCanSleep );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCache );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCounts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentRestingContactCounts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.debugContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.pipelineTrace );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionCellKeys );
     return bytes;
 }
 
@@ -2919,7 +2925,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;
     if ( !ApplyReplayPredictionBodyState( predictionEngine, profiler, prediction.simulation.predictionBodies ) ||
-         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld,
+         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld.physics,
                                                         MakePhysicsBodyCountFromNonNegativeInt( modelCount ) ) )
     {
         return false;
@@ -2955,7 +2961,7 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
     frame.frameIndex = frameIndex;
     frame.simulationSeconds = prediction.simulation.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
-    frame.tornadoSystemElapsedSeconds = physicsEngine.GetTornadoSystemElapsedSeconds();
+    frame.tornadoSystemElapsedSeconds = prediction.simulation.predictionTornadoGameplay.GetSystemElapsedSeconds();
     frame.contactsIncomplete = false;
     if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )
     {
@@ -3080,6 +3086,7 @@ void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction,
         // Scene mutation paths must cancel and wait before live stores are
         // reloaded, because this worker never borrows legacy object record rows.
         if ( !StepPredictionEngineTick( predictionEngine,
+                                        prediction.simulation.predictionTornadoGameplay,
                                         PHYSICS_FIXED_DT,
                                         prediction.simulation.predictionWorldForces,
                                         workerPool ) ||
@@ -3161,10 +3168,16 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     if ( prediction.simulation.predictionEngine )
     {
         prediction.simulation.predictionEngine->CaptureReplaySolverSnapshot(
-            prediction.simulation.predictionWorld,
+            prediction.simulation.predictionWorld.physics,
             MakePhysicsBodyCountFromNonNegativeInt(
                 SkullbonezCore::Physics::PhysicsEngine::ReadBodies( *prediction.simulation.predictionEngine )
                     .Count() ) );
+        const Gameplay::TornadoGameplay& tornadoGameplay = prediction.simulation.predictionTornadoGameplay;
+        prediction.simulation.predictionWorld.tornadoConfig = tornadoGameplay.GetFieldConfig();
+        prediction.simulation.predictionWorld.tornadoSystemConfig = tornadoGameplay.GetSystemConfig();
+        prediction.simulation.predictionWorld.tornadoSystemElapsedSeconds = tornadoGameplay.GetSystemElapsedSeconds();
+        prediction.simulation.predictionWorld.tornadoCaptureSeconds = tornadoGameplay.CaptureSeconds();
+        prediction.simulation.predictionWorld.tornadoEjectCooldownSeconds = tornadoGameplay.EjectCooldownSeconds();
     }
 
     const bool hadCommittedPredictionFrames = prediction.simulation.frames.size() >= 2;
@@ -3216,6 +3229,7 @@ struct ReplayPredictionJobDesc
     ReplayPrediction& predictionOwner;
     RunReplayPredictionState& prediction;
     PhysicsEngine& physicsEngine;
+    const Gameplay::TornadoGameplay& tornadoGameplay;
     const SceneEntityStore& entities;
     const SkullbonezCore::Core::EngineConfig& config;
     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
@@ -3239,6 +3253,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     ReplayPrediction& predictionOwner = desc.predictionOwner;
     RunReplayPredictionState& prediction = desc.prediction;
     PhysicsEngine& physicsEngine = desc.physicsEngine;
+    const Gameplay::TornadoGameplay& tornadoGameplay = desc.tornadoGameplay;
     const SceneEntityStore& entities = desc.entities;
     const SkullbonezCore::Core::EngineConfig& config = desc.config;
     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces = desc.worldForces;
@@ -3427,8 +3442,18 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
         return false;
     }
 
-    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld,
+    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld.physics,
                                                MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
+    prediction.simulation.predictionTornadoGameplay.SetReplayState( tornadoGameplay.CaptureSeconds(),
+                                                                    tornadoGameplay.EjectCooldownSeconds(),
+                                                                    tornadoGameplay.GetFieldConfig(),
+                                                                    tornadoGameplay.GetSystemConfig(),
+                                                                    tornadoGameplay.GetSystemElapsedSeconds() );
+    prediction.simulation.predictionWorld.tornadoConfig = tornadoGameplay.GetFieldConfig();
+    prediction.simulation.predictionWorld.tornadoSystemConfig = tornadoGameplay.GetSystemConfig();
+    prediction.simulation.predictionWorld.tornadoSystemElapsedSeconds = tornadoGameplay.GetSystemElapsedSeconds();
+    prediction.simulation.predictionWorld.tornadoCaptureSeconds = tornadoGameplay.CaptureSeconds();
+    prediction.simulation.predictionWorld.tornadoEjectCooldownSeconds = tornadoGameplay.EjectCooldownSeconds();
 
     if ( !SeedReplayPredictionEngine( prediction,
                                       predictionOwner.ProfilerBorrow(),
@@ -3696,6 +3721,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
 void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
                              RunReplayPredictionState& prediction,
                              PhysicsEngine& physicsEngine,
+                             const Gameplay::TornadoGameplay& tornadoGameplay,
                              const SceneEntityStore& entities,
                              const SkullbonezCore::Core::EngineConfig& config,
                              const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
@@ -3808,6 +3834,7 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
             ReplayPredictionJobDesc{ .predictionOwner = predictionOwner,
                                      .prediction = prediction,
                                      .physicsEngine = physicsEngine,
+                                     .tornadoGameplay = tornadoGameplay,
                                      .entities = entities,
                                      .config = config,
                                      .worldForces = worldForces,
@@ -3891,6 +3918,7 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
 } // namespace
 
 void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
+                                    const Gameplay::TornadoGameplay& tornadoGameplay,
                                     const SceneEntityStore& entities,
                                     const SkullbonezCore::Core::EngineConfig& config,
                                     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
@@ -3913,6 +3941,7 @@ void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
     UpdateReplayPrediction( *this,
                             m_state,
                             physicsEngine,
+                            tornadoGameplay,
                             entities,
                             config,
                             worldForces,
@@ -4176,7 +4205,8 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     }
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = SkullbonezCore::Physics::PhysicsSolverSnapshot();
+    m_state.simulation.predictionTornadoGameplay.Clear();
+    m_state.simulation.predictionWorld = SkullbonezCore::Runtime::ReplaySolverWorldSnapshot();
     return true;
 }
 
@@ -4193,7 +4223,8 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     m_state.build.targetTickCount = 0;
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = SkullbonezCore::Physics::PhysicsSolverSnapshot();
+    m_state.simulation.predictionTornadoGameplay.Clear();
+    m_state.simulation.predictionWorld = SkullbonezCore::Runtime::ReplaySolverWorldSnapshot();
     // Runtime allocation policy: cancellation invalidates publication but keeps
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();

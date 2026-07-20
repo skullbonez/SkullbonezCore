@@ -1,29 +1,30 @@
 /*
-File: SkullbonezSource/Physics/TornadoField.h
+File: SkullbonezSource/Gameplay/TornadoField.h
 Purpose:
-  Computes a procedural tornado force field for generated physics scenes.
+  Owns tornado configuration and deterministic active-vortex evolution.
 
 Summary:
-  TornadoField.h computes a procedural tornado force field for generated
-  physics scenes. As a public header, keep edits anchored on deterministic
-  physics, diagnostics, or world-state flow and on the glossary/invariants
-  below.
+  Gameplay retains the authored tornado values, evolves their active strengths
+  and positions, and exposes sampling used by presentation. The fixed-step
+  Physics boundary is published separately by TornadoGameplay.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Authored projection: Cold-load copy from Scene DTOs into Gameplay-owned
+    configuration.
+  Active vortex: An authored vortex after spawn, growth, shrink, drift, and
+    pair-repulsion have been evaluated at the current gameplay time.
 
 Invariants:
-  - Physics-visible behavior must remain deterministic; byte-exact baselines
-    are the validation contract.
+  - Physics-visible behavior must remain deterministic; the direct force
+    witness and byte-exact baselines are the validation contract.
+  - Active vortices retain source order, including after inactive rows are
+    omitted; no sort or unordered reduction is permitted.
   - Tornado vector visualization samples this math from runtime-side render
     passes; physics never submits draw commands.
 
 Related:
-  - SkullbonezSource/Physics/TornadoField.cpp
+  - SkullbonezSource/Gameplay/TornadoField.cpp
+  - SkullbonezSource/Physics/Stages/ExternalForceStage.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -33,16 +34,23 @@ Related:
 #include <cstddef>
 #include <vector>
 #include "../Maths/Vector3.h"
+#include "../Scene/AuthoredTornadoConfig.h"
 
 
 namespace SkullbonezCore
 {
-namespace Physics
+namespace Gameplay
 {
+// Invariant: authored content is rejected before mutation when it exceeds this
+// fixed gameplay budget; steady gameplay never truncates or grows the field set.
+inline constexpr std::size_t MAX_TORNADO_ACTIVE_FORCE_FIELDS = 64u;
+
 struct TornadoFieldConfig
 {
     bool enabled = false;
     bool visualizeVelocityField = false;
+    // Units: center/radius/height use metres; acceleration terms use m/s^2;
+    // exposure/cooldown use seconds; maxDeltaVelocity uses m/s per fixed step.
     Math::Vector::Vector3 center = Math::Vector::Vector3( 620.0f, 25.0f, 615.0f );
     float radius = 210.0f;
     float height = 140.0f;
@@ -60,6 +68,8 @@ struct TornadoFieldConfig
 struct TornadoVortexConfig
 {
     TornadoFieldConfig field;
+    // Units: lifecycle values use seconds, drift phase uses radians, drift
+    // speed uses radians/second, radii use metres, and repulsion is a scalar.
     float spawnSeconds = 0.0f;
     float timeToLiveSeconds = 0.0f;
     float growSeconds = 2.0f;
@@ -75,8 +85,14 @@ struct TornadoSystemConfig
 {
     bool enabled = false;
     bool visualizeVelocityField = false;
+    // Lifetime: this authored vector is populated during cold scene/replay
+    // setup and is reserved before steady gameplay begins.
     std::vector<TornadoVortexConfig> vortices;
 };
+
+// Boundary: Scene owns the authored DTO; Gameplay owns the projected copy used
+// by simulation, replay, and presentation after cold scene loading completes.
+TornadoSystemConfig ProjectAuthoredTornadoSystem( const Runtime::AuthoredTornadoSystemConfig& authored );
 
 struct TornadoActiveVortex
 {
@@ -138,5 +154,5 @@ class TornadoSystem
 
     void RebuildActiveVortices();
 };
-} // namespace Physics
+} // namespace Gameplay
 } // namespace SkullbonezCore

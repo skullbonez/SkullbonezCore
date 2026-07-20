@@ -191,6 +191,7 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.Wake.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Stages\ExternalForceStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.Execution.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp" />
@@ -201,8 +202,6 @@
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">false</WholeProgramOptimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Physics\BoundingBox.h" />
@@ -240,12 +239,11 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\ExternalForceStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
-    <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
-    <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">

@@ -5,7 +5,7 @@ Purpose:
 
 Summary:
   Solver snapshots are not render poses. A restorable replay tick also needs
-  the persistent contact cache, sleep state, diagnostics, and tornado state
+  the persistent contact cache, sleep state, and diagnostics
   that determine the next fixed physics step. Physics owns this value contract;
   Runtime replay may retain and serialize it without defining solver state.
 
@@ -15,7 +15,6 @@ Glossary:
   Contact cache: Persistent contact rows and accumulated impulses reused by the
     solver for stability.
   Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
-  Tornado field: Gameplay force field whose state affects future physics ticks.
 
 Invariants:
   - Snapshot field order stays stable for replay artifact compatibility.
@@ -31,7 +30,6 @@ Related:
 #pragma once
 
 #include "PhysicsDebugData.h"
-#include "TornadoField.h"
 #include "../Maths/Vector3.h"
 
 #include <cstdint>
@@ -109,17 +107,12 @@ struct PhysicsSolverSnapshot
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
     bool collisionVisualFrameActive = false;
-    TornadoFieldConfig tornadoConfig;
-    TornadoSystemConfig tornadoSystemConfig;
-    float tornadoSystemElapsedSeconds = 0.0f;
     std::vector<float> timeRemaining;
     std::vector<uint8_t> sleepSupportedThisFrame;
     std::vector<uint8_t> sleepInhibitedThisFrame;
     std::vector<uint8_t> sleepState;
     std::vector<uint8_t> sleepCounter;
     std::vector<uint8_t> underwaterSleepLocked;
-    std::vector<float> tornadoCaptureSeconds;
-    std::vector<float> tornadoEjectCooldownSeconds;
     std::vector<uint8_t> collisionVisualContacts;
     std::vector<int> sleepIslandVisualId;
     std::vector<int> sleepIslandAssignedVisualId;

@@ -71,7 +71,7 @@ class ColliderStore;
 struct PhysicsBodyCreateDesc;
 struct PhysicsWorldForces;
 
-// Describes one fixed-tree release source. Solver and tornado code pass this
+// Describes one fixed-tree release source. Solver and external-force code pass this
 // value to the store so released parts inherit deterministic seed velocities.
 struct PhysicsFixedTreeReleaseEvent
 {
@@ -132,6 +132,7 @@ using PhysicsHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene:
 using PhysicsHandleReplayIdList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using PhysicsHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using PhysicsBodyIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
 // Borrowed hot-field spans keep stage inputs explicit and prevent kernels from
 // reaching unrelated cold authoring state. They are the only live hot-state
@@ -354,7 +355,7 @@ class PhysicsBodyStore
     // Releases higher same-tree fixed parts using release-group metadata already
     // copied into body rows. outReleasedBodyIndices is caller-owned scratch.
     void ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
-                                        std::vector<int>& outReleasedBodyIndices );
+                                        PhysicsBodyIndexList& outReleasedBodyIndices );
 
     const PhysicsBodyRecord* Data() const;
     int Count() const;

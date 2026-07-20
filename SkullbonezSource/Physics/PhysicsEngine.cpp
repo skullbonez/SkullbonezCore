@@ -191,7 +191,7 @@ PhysicsRuntimeSettings PhysicsEngine::RuntimeSettingsFromConfig( const Skullbone
     settings.execution.parallel = config.physicsExecution.parallel;
     settings.execution.parallelApplyForces = config.physicsExecution.parallelApplyForces;
     settings.execution.parallelMutualGravity = config.physicsExecution.parallelMutualGravity;
-    settings.execution.parallelTornadoField = config.physicsExecution.parallelTornadoField;
+    settings.execution.parallelExternalForceFields = config.physicsExecution.parallelExternalForceFields;
     settings.execution.parallelNarrowphase = config.physicsExecution.parallelNarrowphase;
     settings.execution.parallelTerrainDetect = config.physicsExecution.parallelTerrainDetect;
     settings.execution.parallelIntegrate = config.physicsExecution.parallelIntegrate;
@@ -588,10 +588,34 @@ void PhysicsEngine::Step( float fChangeInTime,
                           int diagnosticNameCount,
                           const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
 {
+    Step( fChangeInTime,
+          worldForces,
+          ExternalForceFrameInput{},
+          workerPool,
+          diagnosticNames,
+          diagnosticNameCount,
+          diagnosticsCsvWriter );
+}
+
+
+void PhysicsEngine::Step( float fChangeInTime,
+                          const PhysicsWorldForces& worldForces,
+                          const ExternalForceFrameInput& externalForces,
+                          Threading::WorkerPool& workerPool,
+                          const char* const* diagnosticNames,
+                          int diagnosticNameCount,
+                          const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter )
+{
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
 
-    m_world.RunPhysics( m_bodyStore, m_colliderStore, fChangeInTime, m_runtimeSettings, worldForces, workerPool );
+    m_world.RunPhysics( m_bodyStore,
+                        m_colliderStore,
+                        fChangeInTime,
+                        m_runtimeSettings,
+                        worldForces,
+                        externalForces,
+                        workerPool );
 
     ApplyFixedTreeReleaseEvents( worldForces );
 
@@ -617,7 +641,6 @@ void PhysicsEngine::ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& world
     // Why: fixed-tree release changes live simulation state, then wake
     // propagation may touch neighbouring bodies. Keep both operations on the
     // body store before Debug diagnostics or presentation sampling reads it.
-    m_fixedTreeReleaseWakeBodies.reserve( static_cast<std::size_t>( m_bodyStore.Count() ) );
     for ( const PhysicsFixedTreeReleaseEvent& event : releaseEvents )
     {
         m_bodyStore.ReleaseAttachedFixedTreeParts( event, m_fixedTreeReleaseWakeBodies );
@@ -640,9 +663,6 @@ bool PhysicsEngine::ReleaseFixedBodyAndAttachedTreeParts( PhysicsBodyHandle sour
     {
         return false;
     }
-
-    const std::size_t bodyCapacity = static_cast<std::size_t>( m_bodyStore.Count() );
-    m_fixedTreeReleaseWakeBodies.reserve( bodyCapacity );
 
     bool sourceReleased = false;
     const PhysicsBodyHotFieldsConstView hotFields = m_bodyStore.HotFields();
@@ -833,36 +853,6 @@ PhysicsConstraintHandle PhysicsEngine::CreatePointJoint( const PhysicsPointJoint
     }
 
     return m_world.CreatePointJoint( desc );
-}
-
-
-void PhysicsEngine::SetTornadoFieldConfig( const TornadoFieldConfig& config )
-{
-    m_world.SetTornadoFieldConfig( config );
-}
-
-
-const SkullbonezCore::Physics::TornadoFieldConfig& PhysicsEngine::GetTornadoFieldConfig() const
-{
-    return m_world.GetTornadoFieldConfig();
-}
-
-
-void PhysicsEngine::SetTornadoSystemConfig( const TornadoSystemConfig& config )
-{
-    m_world.SetTornadoSystemConfig( config );
-}
-
-
-const SkullbonezCore::Physics::TornadoSystemConfig& PhysicsEngine::GetTornadoSystemConfig() const
-{
-    return m_world.GetTornadoSystemConfig();
-}
-
-
-float PhysicsEngine::GetTornadoSystemElapsedSeconds() const
-{
-    return m_world.GetTornadoSystemElapsedSeconds();
 }
 
 

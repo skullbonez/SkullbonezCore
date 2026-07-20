@@ -80,7 +80,7 @@ struct PhysicsExecutionSettings
     bool parallel = true;
     bool parallelApplyForces = true;
     bool parallelMutualGravity = true;
-    bool parallelTornadoField = false;
+    bool parallelExternalForceFields = false;
     bool parallelNarrowphase = false;
     bool parallelTerrainDetect = true;
     bool parallelIntegrate = true;

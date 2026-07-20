@@ -38,6 +38,11 @@ Related:
 
 namespace SkullbonezCore
 {
+namespace Gameplay
+{
+struct TornadoFieldConfig;
+struct TornadoSystemConfig;
+} // namespace Gameplay
 namespace Core
 {
 struct CinematicRenderConfig;
@@ -130,6 +135,8 @@ struct RuntimeRenderModelFrameView
     const Physics::ColliderStore& colliders;
     const Physics::PhysicsBodyStore& bodyStore;
     Physics::PhysicsEngine& physicsEngine;
+    const Gameplay::TornadoFieldConfig& tornadoField;
+    const Gameplay::TornadoSystemConfig& tornadoSystem;
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
     const std::vector<uint8_t>& collisionVisualContacts;
     std::span<const uint8_t> sleepStates;

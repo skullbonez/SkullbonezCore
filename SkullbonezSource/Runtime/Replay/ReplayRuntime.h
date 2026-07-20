@@ -308,6 +308,7 @@ class ReplayRuntime
     // Advances and publishes the private prediction during frame update.
     // Callers must complete this before any replay overlay traversal begins.
     void UpdatePrediction( Physics::PhysicsEngine& physics,
+                           const Gameplay::TornadoGameplay& tornadoGameplay,
                            const SceneEntityStore& entities,
                            const SkullbonezCore::Core::EngineConfig& config,
                            const Physics::PhysicsWorldForces& worldForces,

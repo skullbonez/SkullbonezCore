@@ -149,6 +149,7 @@ void SceneWorld::ReserveForActiveSceneObjectCapacity()
     // append paths discover the new capacity by reallocating.
     const std::size_t capacity = static_cast<std::size_t>( m_activeSceneObjectCapacity );
     m_physics.ReserveAuthoredBodyCapacity( capacity );
+    m_tornadoGameplay.ReserveBodyCapacity( m_activeSceneObjectCapacity );
     m_renderInstanceStore.ReservePresentationCapacity( capacity );
 }
 
@@ -275,6 +276,18 @@ const SkullbonezCore::Physics::PhysicsEngine& SceneWorld::Physics() const
 }
 
 
+SkullbonezCore::Gameplay::TornadoGameplay& SceneWorld::Tornado()
+{
+    return m_tornadoGameplay;
+}
+
+
+const SkullbonezCore::Gameplay::TornadoGameplay& SceneWorld::Tornado() const
+{
+    return m_tornadoGameplay;
+}
+
+
 void SceneWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_activeSceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
@@ -308,7 +321,15 @@ ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt,
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
 #endif
-    m_physics.Step( fixedDt, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+    const Physics::ExternalForceFrameInput externalForces =
+        m_tornadoGameplay.BuildForceFrame( fixedDt, Physics::PhysicsEngine::ReadBodies( m_physics ).Count() );
+    m_physics.Step( fixedDt,
+                    worldForces,
+                    externalForces,
+                    workerPool,
+                    diagnosticNames,
+                    diagnosticNameCount,
+                    diagnosticsCsvWriter );
 
     return ScenePhysicsPostStepOutput{ Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) };
 }
@@ -534,6 +555,7 @@ void SceneWorld::Clear()
 {
     Entities().Clear();
     m_physics.Clear();
+    m_tornadoGameplay.Clear();
     m_renderInstanceStore.Clear();
     AssertSceneCreationTopology( 0 );
 }

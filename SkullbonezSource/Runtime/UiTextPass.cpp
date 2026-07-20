@@ -856,7 +856,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.collisionVisualizer = state.debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = state.debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = state.debug.isBroadphaseOverlay;
-        const Physics::TornadoFieldConfig& tornadoField = state.world.Physics().GetTornadoFieldConfig();
+        const Gameplay::TornadoFieldConfig& tornadoField = state.world.Tornado().GetFieldConfig();
         UIData.tornadoEnabled = tornadoField.enabled;
         UIData.tornadoVisualShell = state.renderPresentation.tornadoVisual.enabled && tornadoField.enabled;
         UIData.tornadoFieldVectors = tornadoField.visualizeVelocityField;

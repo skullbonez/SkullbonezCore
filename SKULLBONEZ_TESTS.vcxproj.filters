@@ -28,6 +28,9 @@
     <Filter Include="Source Files\Assets">
       <UniqueIdentifier>{6A96B565-85DF-4E09-8F65-E5556EE490C5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Gameplay">
+      <UniqueIdentifier>{E8169022-7C7B-49E2-91F6-3B7909D35F5E}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Runtime">
       <UniqueIdentifier>{B1E9B95C-2E68-4B0F-8EE6-EC0F5529E0BA}</UniqueIdentifier>
     </Filter>
@@ -230,6 +233,12 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
       <Filter>Source Files\Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp">
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Config.cpp">
       <Filter>Source Files\Core</Filter>

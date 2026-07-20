@@ -89,6 +89,8 @@ using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
 using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
+using SkullbonezCore::Gameplay::TornadoFieldConfig;
+using SkullbonezCore::Gameplay::TornadoSystemConfig;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Hardware::Input;
@@ -724,7 +726,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     }
     bool hasSceneTornadoSystem = false;
     bool sceneMutualGravityEnabled = false;
-    TornadoSystemConfig sceneTornadoSystem;
+    AuthoredTornadoSystemConfig sceneTornadoSystem;
 
     // Each bit is attached to its concrete call above. SceneRuntime rejects the
     // phase if a future edit drops an owner receipt without updating policy.
@@ -1123,22 +1125,22 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     }
     if ( !shouldPreserveRuntimeState )
     {
-        Physics::TornadoFieldConfig tornadoField;
-        Physics::TornadoSystemConfig tornadoSystem;
+        Gameplay::TornadoFieldConfig tornadoField;
+        Gameplay::TornadoSystemConfig tornadoSystem;
         ApplyTornadoDefaultsForActiveScene( tornadoField,
                                             m_sceneController.Scene().Environment(),
                                             ActiveSceneCinematicConfig( SceneState(), config ) );
         if ( hasSceneTornadoSystem )
         {
-            tornadoSystem = sceneTornadoSystem;
+            tornadoSystem = Gameplay::ProjectAuthoredTornadoSystem( sceneTornadoSystem );
             tornadoField.enabled = false;
             renderer.SetTornadoVisualEnabled( true );
         }
-        m_sceneController.Scene().Physics().SetTornadoFieldConfig( tornadoField );
-        m_sceneController.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
+        m_sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
+        m_sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
     }
-    Physics::TornadoFieldConfig tornadoField = m_sceneController.Scene().Physics().GetTornadoFieldConfig();
-    Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Scene().Physics().GetTornadoSystemConfig();
+    Gameplay::TornadoFieldConfig tornadoField = m_sceneController.Scene().Tornado().GetFieldConfig();
+    Gameplay::TornadoSystemConfig tornadoSystem = m_sceneController.Scene().Tornado().GetSystemConfig();
     if ( launchOptions.hasTornadoOverride )
     {
         if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
@@ -1160,8 +1162,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         tornadoField.visualizeVelocityField = true;
         tornadoSystem.visualizeVelocityField = true;
     }
-    m_sceneController.Scene().Physics().SetTornadoFieldConfig( tornadoField );
-    m_sceneController.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
+    m_sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
+    m_sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
     if ( sceneMutualGravityEnabled )
     {
         // Why: n-body space scenes have no contacts to wake quiet bodies later;

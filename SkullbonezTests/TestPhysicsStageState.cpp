@@ -124,7 +124,7 @@ void CheckRuntimeSettingsMatchConfig( const PhysicsRuntimeSettings& settings,
     CHECK( settings.execution.parallel == config.physicsExecution.parallel );
     CHECK( settings.execution.parallelApplyForces == config.physicsExecution.parallelApplyForces );
     CHECK( settings.execution.parallelMutualGravity == config.physicsExecution.parallelMutualGravity );
-    CHECK( settings.execution.parallelTornadoField == config.physicsExecution.parallelTornadoField );
+    CHECK( settings.execution.parallelExternalForceFields == config.physicsExecution.parallelExternalForceFields );
     CHECK( settings.execution.parallelNarrowphase == config.physicsExecution.parallelNarrowphase );
     CHECK( settings.execution.parallelTerrainDetect == config.physicsExecution.parallelTerrainDetect );
     CHECK( settings.execution.parallelIntegrate == config.physicsExecution.parallelIntegrate );
@@ -167,7 +167,7 @@ TEST_CASE( "Physics runtime settings: custom config remains unclamped at the sta
     config.physicsExecution.parallel = false;
     config.physicsExecution.parallelApplyForces = true;
     config.physicsExecution.parallelMutualGravity = false;
-    config.physicsExecution.parallelTornadoField = true;
+    config.physicsExecution.parallelExternalForceFields = true;
     config.physicsExecution.parallelNarrowphase = false;
     config.physicsExecution.parallelTerrainDetect = true;
     config.physicsExecution.parallelIntegrate = false;
@@ -184,7 +184,7 @@ TEST_CASE( "Physics runtime settings: execution switches preserve one-hot proven
     config.physicsExecution.parallel = false;
     config.physicsExecution.parallelApplyForces = false;
     config.physicsExecution.parallelMutualGravity = false;
-    config.physicsExecution.parallelTornadoField = false;
+    config.physicsExecution.parallelExternalForceFields = false;
     config.physicsExecution.parallelNarrowphase = false;
     config.physicsExecution.parallelTerrainDetect = false;
     config.physicsExecution.parallelIntegrate = false;
@@ -201,9 +201,9 @@ TEST_CASE( "Physics runtime settings: execution switches preserve one-hot proven
     config.physicsExecution.parallelMutualGravity = true;
     checkOneHot();
     config.physicsExecution.parallelMutualGravity = false;
-    config.physicsExecution.parallelTornadoField = true;
+    config.physicsExecution.parallelExternalForceFields = true;
     checkOneHot();
-    config.physicsExecution.parallelTornadoField = false;
+    config.physicsExecution.parallelExternalForceFields = false;
     config.physicsExecution.parallelNarrowphase = true;
     checkOneHot();
     config.physicsExecution.parallelNarrowphase = false;

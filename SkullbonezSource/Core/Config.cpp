@@ -380,7 +380,7 @@ static const ConfigSetting kPhysicsExecutionSettings[] = {
     CONFIG_BOOL( "physics_parallel", physicsExecution.parallel ),
     CONFIG_BOOL( "physics_parallel_apply_forces", physicsExecution.parallelApplyForces ),
     CONFIG_BOOL( "physics_parallel_mutual_gravity", physicsExecution.parallelMutualGravity ),
-    CONFIG_BOOL( "physics_parallel_tornado_field", physicsExecution.parallelTornadoField ),
+    CONFIG_BOOL( "physics_parallel_tornado_field", physicsExecution.parallelExternalForceFields ),
     CONFIG_BOOL( "physics_parallel_narrowphase", physicsExecution.parallelNarrowphase ),
     CONFIG_BOOL( "physics_parallel_terrain_detect", physicsExecution.parallelTerrainDetect ),
     CONFIG_BOOL( "physics_parallel_integrate", physicsExecution.parallelIntegrate ),

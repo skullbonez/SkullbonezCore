@@ -58,6 +58,7 @@ Related:
 #include "SpatialGrid.h"
 #include "Stages/PhysicsBroadphaseStage.h"
 #include "Stages/PhysicsContactSolverStage.h"
+#include "Stages/ExternalForceStage.h"
 #include "Stages/PhysicsForceStage.h"
 #include "Stages/PhysicsNarrowphaseStage.h"
 #include "Stages/PhysicsStageContexts.h"
@@ -65,7 +66,6 @@ Related:
 #include "Stages/PhysicsSleepController.h"
 #include "Stages/PhysicsStepDiagnostics.h"
 #include "TerrainContactManifold.h"
-#include "TornadoGameplay.h"
 
 namespace SkullbonezCore
 {
@@ -106,6 +106,9 @@ class PhysicsWorld
     // Lifetime: startup-bound diagnostics borrow; stage contexts never retain it.
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     PhysicsForceStage m_forceStage;
+    // Gameplay force content crosses one bounded value lane; this stage owns
+    // only reusable physics-side release scratch and application policy.
+    ExternalForceStage m_externalForceStage;
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The facade borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
@@ -142,9 +145,6 @@ class PhysicsWorld
     // Stay-behind: point joints are a facade-owned top-level constraint lane;
     // the solver and sleep owner borrow the dense rows synchronously.
     std::vector<PointJointConstraint> m_pointJointConstraints;
-    // Stay-behind: tornado gameplay is already a cohesive sibling owner whose
-    // force application is sequenced alongside the extracted force stage.
-    TornadoGameplay m_tornadoGameplay;
 #ifdef _DEBUG
     // Stay-behind: scoped diagnostic suppression is a facade policy override,
     // while every diagnostic row and output sink belongs to its concrete owner.
@@ -156,17 +156,18 @@ class PhysicsWorld
                            float dt,
                            const PhysicsRuntimeSettings& settings,
                            const PhysicsWorldForces& worldForces,
+                           const ExternalForceFrameInput& externalForces,
                            Threading::WorkerPool& workerPool,
                            bool probeDormantUnderwaterLocks );
     void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                           const ColliderStore& colliderStore,
                                           const PhysicsWorldForces& worldForces );
-    void ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
-                               const ColliderStore& colliderStore,
-                               const PhysicsWorldForces& worldForces,
-                               float dt,
-                               const PhysicsExecutionSettings& execution,
-                               Threading::WorkerPool& workerPool );
+    void ApplyExternalForces( PhysicsBodyStore& bodyStore,
+                              const ColliderStore& colliderStore,
+                              const PhysicsWorldForces& worldForces,
+                              const ExternalForceFrameInput& input,
+                              const PhysicsExecutionSettings& execution,
+                              Threading::WorkerPool& workerPool );
 
   public:
     PhysicsWorld();
@@ -182,6 +183,7 @@ class PhysicsWorld
                      float fChangeInTime,
                      const PhysicsRuntimeSettings& settings,
                      const PhysicsWorldForces& worldForces,
+                     const ExternalForceFrameInput& externalForces,
                      Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the
     // caller passes in. PhysicsEngine owns the cold presentation-name overlay and
@@ -215,11 +217,6 @@ class PhysicsWorld
     void DestroyPointJointsForBody( PhysicsBodyHandle body );
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
-    void SetTornadoFieldConfig( const TornadoFieldConfig& config );
-    const TornadoFieldConfig& GetTornadoFieldConfig() const;
-    void SetTornadoSystemConfig( const TornadoSystemConfig& config );
-    const TornadoSystemConfig& GetTornadoSystemConfig() const;
-    float GetTornadoSystemElapsedSeconds() const;
     void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;

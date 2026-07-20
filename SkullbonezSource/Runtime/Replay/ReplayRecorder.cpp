@@ -57,6 +57,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::PhysicsDebugContact;
 namespace Physics = SkullbonezCore::Physics;
+namespace Gameplay = SkullbonezCore::Gameplay;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
@@ -308,18 +309,16 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-// Invariant: this list mirrors PhysicsSolverSnapshot vector fields. Dense
-// artifact reconstruction, delta storage, and memory accounting all iterate the
-// same list so adding solver state cannot silently miss one path.
-#define REPLAY_SOLVER_WORLD_VECTOR_FIELDS( VISIT )                                                                     \
+// Invariant: these lists mirror the composed Physics and Gameplay snapshot
+// vectors. Dense artifact reconstruction, delta storage, and memory accounting
+// all iterate the same lists so adding owner state cannot silently miss a path.
+#define REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( VISIT )                                                                   \
     VISIT( timeRemaining )                                                                                             \
     VISIT( sleepSupportedThisFrame )                                                                                   \
     VISIT( sleepInhibitedThisFrame )                                                                                   \
     VISIT( sleepState )                                                                                                \
     VISIT( sleepCounter )                                                                                              \
     VISIT( underwaterSleepLocked )                                                                                     \
-    VISIT( tornadoCaptureSeconds )                                                                                     \
-    VISIT( tornadoEjectCooldownSeconds )                                                                               \
     VISIT( collisionVisualContacts )                                                                                   \
     VISIT( sleepIslandVisualId )                                                                                       \
     VISIT( sleepIslandAssignedVisualId )                                                                               \
@@ -338,6 +337,14 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     VISIT( pipelineTrace )                                                                                             \
     VISIT( collisionCellKeys )
 
+#define REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( VISIT )                                                                  \
+    VISIT( tornadoCaptureSeconds )                                                                                     \
+    VISIT( tornadoEjectCooldownSeconds )
+
+#define REPLAY_SOLVER_WORLD_VECTOR_FIELDS( VISIT )                                                                     \
+    REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( VISIT )                                                                       \
+    REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( VISIT )
+
 uint64_t ReplayRecorderScratchMemoryBytes( const std::vector<uint16_t>& contactCountScratch,
                                            const std::vector<float>& maxPenetrationScratch,
                                            const std::vector<float>& normalImpulseSumScratch )
@@ -351,35 +358,36 @@ uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
     return VectorCapacityBytes( visual.rayLines ) + VectorCapacityBytes( visual.laserShots );
 }
 
-uint64_t SolverWorldSnapshotMemoryBytes( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
+uint64_t SolverWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
+    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
     uint64_t bytes = 0;
     bytes += VectorCapacityBytes( snapshot.tornadoSystemConfig.vortices );
-    bytes += VectorCapacityBytes( snapshot.timeRemaining );
-    bytes += VectorCapacityBytes( snapshot.sleepSupportedThisFrame );
-    bytes += VectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
-    bytes += VectorCapacityBytes( snapshot.sleepState );
-    bytes += VectorCapacityBytes( snapshot.sleepCounter );
-    bytes += VectorCapacityBytes( snapshot.underwaterSleepLocked );
+    bytes += VectorCapacityBytes( physics.timeRemaining );
+    bytes += VectorCapacityBytes( physics.sleepSupportedThisFrame );
+    bytes += VectorCapacityBytes( physics.sleepInhibitedThisFrame );
+    bytes += VectorCapacityBytes( physics.sleepState );
+    bytes += VectorCapacityBytes( physics.sleepCounter );
+    bytes += VectorCapacityBytes( physics.underwaterSleepLocked );
     bytes += VectorCapacityBytes( snapshot.tornadoCaptureSeconds );
     bytes += VectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
-    bytes += VectorCapacityBytes( snapshot.collisionVisualContacts );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandVisualId );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandAssignedVisualId );
-    bytes += VectorCapacityBytes( snapshot.sleepSupportEdges );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandParent );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandRank );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandHasAwake );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandHasSupportAnchor );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandEligible );
-    bytes += VectorCapacityBytes( snapshot.sleepIslandCanSleep );
-    bytes += VectorCapacityBytes( snapshot.persistentContacts );
-    bytes += VectorCapacityBytes( snapshot.persistentContactCache );
-    bytes += VectorCapacityBytes( snapshot.persistentContactCounts );
-    bytes += VectorCapacityBytes( snapshot.persistentRestingContactCounts );
-    bytes += VectorCapacityBytes( snapshot.debugContacts );
-    bytes += VectorCapacityBytes( snapshot.pipelineTrace );
-    bytes += VectorCapacityBytes( snapshot.collisionCellKeys );
+    bytes += VectorCapacityBytes( physics.collisionVisualContacts );
+    bytes += VectorCapacityBytes( physics.sleepIslandVisualId );
+    bytes += VectorCapacityBytes( physics.sleepIslandAssignedVisualId );
+    bytes += VectorCapacityBytes( physics.sleepSupportEdges );
+    bytes += VectorCapacityBytes( physics.sleepIslandParent );
+    bytes += VectorCapacityBytes( physics.sleepIslandRank );
+    bytes += VectorCapacityBytes( physics.sleepIslandHasAwake );
+    bytes += VectorCapacityBytes( physics.sleepIslandHasSupportAnchor );
+    bytes += VectorCapacityBytes( physics.sleepIslandEligible );
+    bytes += VectorCapacityBytes( physics.sleepIslandCanSleep );
+    bytes += VectorCapacityBytes( physics.persistentContacts );
+    bytes += VectorCapacityBytes( physics.persistentContactCache );
+    bytes += VectorCapacityBytes( physics.persistentContactCounts );
+    bytes += VectorCapacityBytes( physics.persistentRestingContactCounts );
+    bytes += VectorCapacityBytes( physics.debugContacts );
+    bytes += VectorCapacityBytes( physics.pipelineTrace );
+    bytes += VectorCapacityBytes( physics.collisionCellKeys );
     return bytes;
 }
 
@@ -691,8 +699,8 @@ void BuildSolverBodyFromCompact( const ReplaySolverBodyMetadata& metadata,
     out.normalImpulseSum = state.normalImpulseSum;
 }
 
-void CopyTornadoSystemConfigWithReserve( Physics::TornadoSystemConfig& target,
-                                         const Physics::TornadoSystemConfig& source,
+void CopyTornadoSystemConfigWithReserve( Gameplay::TornadoSystemConfig& target,
+                                         const Gameplay::TornadoSystemConfig& source,
                                          ReplayFrameIndex frameIndex,
                                          const char* targetName )
 {
@@ -701,41 +709,41 @@ void CopyTornadoSystemConfigWithReserve( Physics::TornadoSystemConfig& target,
 }
 
 void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target,
-                                         const SkullbonezCore::Physics::PhysicsSolverSnapshot& source,
+                                         const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& source,
                                          ReplayFrameIndex frameIndex,
                                          const char* targetName )
 {
-    target.version = source.version;
-    target.modelCount = source.modelCount;
-    target.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
-    target.sleepEnabled = source.sleepEnabled;
-    target.collisionVisualFrameActive = source.collisionVisualFrameActive;
+    target.version = source.physics.version;
+    target.modelCount = source.physics.modelCount;
+    target.nextSleepIslandVisualId = source.physics.nextSleepIslandVisualId;
+    target.sleepEnabled = source.physics.sleepEnabled;
+    target.collisionVisualFrameActive = source.physics.collisionVisualFrameActive;
     target.tornadoConfig = source.tornadoConfig;
     CopyTornadoSystemConfigWithReserve( target.tornadoSystemConfig,
                                         source.tornadoSystemConfig,
                                         frameIndex,
                                         targetName );
     target.tornadoSystemElapsedSeconds = source.tornadoSystemElapsedSeconds;
-    target.solverStats = source.solverStats;
+    target.solverStats = source.physics.solverStats;
 }
 
 void ApplySolverWorldScalarsToSnapshot( const ReplaySolverWorldScalarState& source,
-                                        SkullbonezCore::Physics::PhysicsSolverSnapshot& target,
+                                        SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& target,
                                         ReplayFrameIndex frameIndex,
                                         const char* targetName )
 {
-    target.version = source.version;
-    target.modelCount = source.modelCount;
-    target.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
-    target.sleepEnabled = source.sleepEnabled;
-    target.collisionVisualFrameActive = source.collisionVisualFrameActive;
+    target.physics.version = source.version;
+    target.physics.modelCount = source.modelCount;
+    target.physics.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
+    target.physics.sleepEnabled = source.sleepEnabled;
+    target.physics.collisionVisualFrameActive = source.collisionVisualFrameActive;
     target.tornadoConfig = source.tornadoConfig;
     CopyTornadoSystemConfigWithReserve( target.tornadoSystemConfig,
                                         source.tornadoSystemConfig,
                                         frameIndex,
                                         targetName );
     target.tornadoSystemElapsedSeconds = source.tornadoSystemElapsedSeconds;
-    target.solverStats = source.solverStats;
+    target.physics.solverStats = source.solverStats;
 }
 
 template <typename T> bool SameSolverValueBytes( const T& a, const T& b )
@@ -760,7 +768,7 @@ void ClearSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame )
     frame.scalarState.nextSleepIslandVisualId = 1;
     frame.scalarState.sleepEnabled = true;
     frame.scalarState.collisionVisualFrameActive = false;
-    frame.scalarState.tornadoConfig = Physics::TornadoFieldConfig{};
+    frame.scalarState.tornadoConfig = Gameplay::TornadoFieldConfig{};
     frame.scalarState.tornadoSystemConfig.enabled = false;
     frame.scalarState.tornadoSystemConfig.visualizeVelocityField = false;
     frame.scalarState.tornadoSystemConfig.vortices.clear();
@@ -830,51 +838,59 @@ bool ApplySolverVectorDelta( const ReplaySolverVectorDelta<T>& delta,
     return true;
 }
 
-void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Physics::PhysicsSolverSnapshot& target,
-                                         const SkullbonezCore::Physics::PhysicsSolverSnapshot& source,
+void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& target,
+                                         const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& source,
                                          ReplayFrameIndex frameIndex,
                                          const char* targetName )
 {
-    target.version = source.version;
-    target.modelCount = source.modelCount;
-    target.nextSleepIslandVisualId = source.nextSleepIslandVisualId;
-    target.sleepEnabled = source.sleepEnabled;
-    target.collisionVisualFrameActive = source.collisionVisualFrameActive;
+    target.physics.version = source.physics.version;
+    target.physics.modelCount = source.physics.modelCount;
+    target.physics.nextSleepIslandVisualId = source.physics.nextSleepIslandVisualId;
+    target.physics.sleepEnabled = source.physics.sleepEnabled;
+    target.physics.collisionVisualFrameActive = source.physics.collisionVisualFrameActive;
     target.tornadoConfig = source.tornadoConfig;
     CopyTornadoSystemConfigWithReserve( target.tornadoSystemConfig,
                                         source.tornadoSystemConfig,
                                         frameIndex,
                                         targetName );
     target.tornadoSystemElapsedSeconds = source.tornadoSystemElapsedSeconds;
-    target.solverStats = source.solverStats;
-#define COPY_SOLVER_WORLD_VECTOR_FIELD( field )                                                                        \
+    target.physics.solverStats = source.physics.solverStats;
+#define COPY_SOLVER_PHYSICS_VECTOR_FIELD( field )                                                                      \
+    ReserveReplayRecorderDeltaVector( target.physics.field, source.physics.field.size(), frameIndex, targetName );     \
+    target.physics.field = source.physics.field;
+    REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( COPY_SOLVER_PHYSICS_VECTOR_FIELD )
+#undef COPY_SOLVER_PHYSICS_VECTOR_FIELD
+#define COPY_SOLVER_GAMEPLAY_VECTOR_FIELD( field )                                                                     \
     ReserveReplayRecorderDeltaVector( target.field, source.field.size(), frameIndex, targetName );                     \
     target.field = source.field;
-    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( COPY_SOLVER_WORLD_VECTOR_FIELD )
-#undef COPY_SOLVER_WORLD_VECTOR_FIELD
+    REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( COPY_SOLVER_GAMEPLAY_VECTOR_FIELD )
+#undef COPY_SOLVER_GAMEPLAY_VECTOR_FIELD
 }
 
-void ClearSolverWorldSnapshotValues( SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
+void ClearSolverWorldSnapshotValues( SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
-    snapshot.version = 2;
-    snapshot.modelCount = 0;
-    snapshot.nextSleepIslandVisualId = 1;
-    snapshot.sleepEnabled = true;
-    snapshot.collisionVisualFrameActive = false;
-    snapshot.tornadoConfig = Physics::TornadoFieldConfig{};
+    snapshot.physics.version = 2;
+    snapshot.physics.modelCount = 0;
+    snapshot.physics.nextSleepIslandVisualId = 1;
+    snapshot.physics.sleepEnabled = true;
+    snapshot.physics.collisionVisualFrameActive = false;
+    snapshot.tornadoConfig = Gameplay::TornadoFieldConfig{};
     snapshot.tornadoSystemConfig.enabled = false;
     snapshot.tornadoSystemConfig.visualizeVelocityField = false;
     snapshot.tornadoSystemConfig.vortices.clear();
     snapshot.tornadoSystemElapsedSeconds = 0.0f;
-    snapshot.solverStats = SkullbonezCore::Physics::PhysicsSolverStatsSample{};
-#define CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD( field ) snapshot.field.clear();
-    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD )
-#undef CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD
+    snapshot.physics.solverStats = SkullbonezCore::Physics::PhysicsSolverStatsSample{};
+#define CLEAR_SOLVER_PHYSICS_SNAPSHOT_FIELD( field ) snapshot.physics.field.clear();
+    REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( CLEAR_SOLVER_PHYSICS_SNAPSHOT_FIELD )
+#undef CLEAR_SOLVER_PHYSICS_SNAPSHOT_FIELD
+#define CLEAR_SOLVER_GAMEPLAY_SNAPSHOT_FIELD( field ) snapshot.field.clear();
+    REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( CLEAR_SOLVER_GAMEPLAY_SNAPSHOT_FIELD )
+#undef CLEAR_SOLVER_GAMEPLAY_SNAPSHOT_FIELD
 }
 
 void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
-                                 const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
-                                 const SkullbonezCore::Physics::PhysicsSolverSnapshot& previous,
+                                 const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot,
+                                 const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& previous,
                                  bool forceKeyframe,
                                  ReplayFrameIndex frameIndex )
 {
@@ -883,29 +899,48 @@ void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
     // other vectors stay as sparse indexed edits.
     ClearSolverWorldDeltaFrame( frame );
     CopySolverWorldScalarsFromSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldDelta::scalar" );
-#define STORE_SOLVER_WORLD_DELTA_FIELD( field )                                                                        \
+#define STORE_SOLVER_PHYSICS_DELTA_FIELD( field )                                                                      \
+    StoreSolverVectorDelta( frame.field,                                                                               \
+                            snapshot.physics.field,                                                                    \
+                            previous.physics.field,                                                                    \
+                            forceKeyframe,                                                                             \
+                            frameIndex,                                                                                \
+                            "ReplaySolverWorldDelta::" #field );
+    REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( STORE_SOLVER_PHYSICS_DELTA_FIELD )
+#undef STORE_SOLVER_PHYSICS_DELTA_FIELD
+#define STORE_SOLVER_GAMEPLAY_DELTA_FIELD( field )                                                                     \
     StoreSolverVectorDelta( frame.field,                                                                               \
                             snapshot.field,                                                                            \
                             previous.field,                                                                            \
                             forceKeyframe,                                                                             \
                             frameIndex,                                                                                \
                             "ReplaySolverWorldDelta::" #field );
-    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( STORE_SOLVER_WORLD_DELTA_FIELD )
-#undef STORE_SOLVER_WORLD_DELTA_FIELD
+    REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( STORE_SOLVER_GAMEPLAY_DELTA_FIELD )
+#undef STORE_SOLVER_GAMEPLAY_DELTA_FIELD
 }
 
 bool ApplySolverWorldDeltaFrame( const ReplaySolverWorldDeltaFrame& frame,
-                                 SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
+                                 SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot,
                                  ReplayFrameIndex frameIndex )
 {
     ApplySolverWorldScalarsToSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldResolve::scalar" );
-#define APPLY_SOLVER_WORLD_DELTA_FIELD( field )                                                                        \
+#define APPLY_SOLVER_PHYSICS_DELTA_FIELD( field )                                                                      \
+    if ( !ApplySolverVectorDelta( frame.field,                                                                         \
+                                  snapshot.physics.field,                                                              \
+                                  frameIndex,                                                                          \
+                                  "ReplaySolverWorldResolve::" #field ) )                                              \
+    {                                                                                                                  \
+        return false;                                                                                                  \
+    }
+    REPLAY_SOLVER_PHYSICS_VECTOR_FIELDS( APPLY_SOLVER_PHYSICS_DELTA_FIELD )
+#undef APPLY_SOLVER_PHYSICS_DELTA_FIELD
+#define APPLY_SOLVER_GAMEPLAY_DELTA_FIELD( field )                                                                     \
     if ( !ApplySolverVectorDelta( frame.field, snapshot.field, frameIndex, "ReplaySolverWorldResolve::" #field ) )     \
     {                                                                                                                  \
         return false;                                                                                                  \
     }
-    REPLAY_SOLVER_WORLD_VECTOR_FIELDS( APPLY_SOLVER_WORLD_DELTA_FIELD )
-#undef APPLY_SOLVER_WORLD_DELTA_FIELD
+    REPLAY_SOLVER_GAMEPLAY_VECTOR_FIELDS( APPLY_SOLVER_GAMEPLAY_DELTA_FIELD )
+#undef APPLY_SOLVER_GAMEPLAY_DELTA_FIELD
     return true;
 }
 
@@ -1088,7 +1123,7 @@ uint64_t HashWorld( uint64_t hash, const ReplayWorldPresentationSample& world )
     return hash;
 }
 
-uint64_t HashTornadoConfig( uint64_t hash, const Physics::TornadoFieldConfig& config )
+uint64_t HashTornadoConfig( uint64_t hash, const Gameplay::TornadoFieldConfig& config )
 {
     hash = HashBool( hash, config.enabled );
     hash = HashBool( hash, config.visualizeVelocityField );
@@ -1108,12 +1143,12 @@ uint64_t HashTornadoConfig( uint64_t hash, const Physics::TornadoFieldConfig& co
 }
 
 
-uint64_t HashTornadoSystemConfig( uint64_t hash, const Physics::TornadoSystemConfig& config )
+uint64_t HashTornadoSystemConfig( uint64_t hash, const Gameplay::TornadoSystemConfig& config )
 {
     hash = HashBool( hash, config.enabled );
     hash = HashBool( hash, config.visualizeVelocityField );
     hash = HashSize( hash, config.vortices.size() );
-    for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
+    for ( const Gameplay::TornadoVortexConfig& vortex : config.vortices )
     {
         hash = HashTornadoConfig( hash, vortex.field );
         hash = HashFloat( hash, vortex.spawnSeconds );
@@ -1445,67 +1480,68 @@ uint64_t HashPhysicsPipelineRecord( uint64_t hash, const Physics::PhysicsPipelin
     return hash;
 }
 
-uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
+uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
-    hash = HashUint32( hash, snapshot.version );
-    hash = HashInt( hash, snapshot.modelCount );
-    hash = HashInt( hash, snapshot.nextSleepIslandVisualId );
-    hash = HashBool( hash, snapshot.sleepEnabled );
-    hash = HashBool( hash, snapshot.collisionVisualFrameActive );
+    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
+    hash = HashUint32( hash, physics.version );
+    hash = HashInt( hash, physics.modelCount );
+    hash = HashInt( hash, physics.nextSleepIslandVisualId );
+    hash = HashBool( hash, physics.sleepEnabled );
+    hash = HashBool( hash, physics.collisionVisualFrameActive );
     hash = HashTornadoConfig( hash, snapshot.tornadoConfig );
-    if ( snapshot.version >= 2 )
+    if ( physics.version >= 2 )
     {
         hash = HashTornadoSystemConfig( hash, snapshot.tornadoSystemConfig );
         hash = HashFloat( hash, snapshot.tornadoSystemElapsedSeconds );
     }
-    hash = HashFloatVector( hash, snapshot.timeRemaining );
-    hash = HashUint8Vector( hash, snapshot.sleepSupportedThisFrame );
-    hash = HashUint8Vector( hash, snapshot.sleepInhibitedThisFrame );
-    hash = HashUint8Vector( hash, snapshot.sleepState );
-    hash = HashUint8Vector( hash, snapshot.sleepCounter );
-    hash = HashUint8Vector( hash, snapshot.underwaterSleepLocked );
+    hash = HashFloatVector( hash, physics.timeRemaining );
+    hash = HashUint8Vector( hash, physics.sleepSupportedThisFrame );
+    hash = HashUint8Vector( hash, physics.sleepInhibitedThisFrame );
+    hash = HashUint8Vector( hash, physics.sleepState );
+    hash = HashUint8Vector( hash, physics.sleepCounter );
+    hash = HashUint8Vector( hash, physics.underwaterSleepLocked );
     hash = HashFloatVector( hash, snapshot.tornadoCaptureSeconds );
     hash = HashFloatVector( hash, snapshot.tornadoEjectCooldownSeconds );
-    hash = HashUint8Vector( hash, snapshot.collisionVisualContacts );
-    hash = HashIntVector( hash, snapshot.sleepIslandVisualId );
-    hash = HashIntVector( hash, snapshot.sleepIslandAssignedVisualId );
-    hash = HashPairVector( hash, snapshot.sleepSupportEdges );
-    hash = HashIntVector( hash, snapshot.sleepIslandParent );
-    hash = HashUint8Vector( hash, snapshot.sleepIslandRank );
-    hash = HashUint8Vector( hash, snapshot.sleepIslandHasAwake );
-    hash = HashUint8Vector( hash, snapshot.sleepIslandHasSupportAnchor );
-    hash = HashUint8Vector( hash, snapshot.sleepIslandEligible );
-    hash = HashUint8Vector( hash, snapshot.sleepIslandCanSleep );
+    hash = HashUint8Vector( hash, physics.collisionVisualContacts );
+    hash = HashIntVector( hash, physics.sleepIslandVisualId );
+    hash = HashIntVector( hash, physics.sleepIslandAssignedVisualId );
+    hash = HashPairVector( hash, physics.sleepSupportEdges );
+    hash = HashIntVector( hash, physics.sleepIslandParent );
+    hash = HashUint8Vector( hash, physics.sleepIslandRank );
+    hash = HashUint8Vector( hash, physics.sleepIslandHasAwake );
+    hash = HashUint8Vector( hash, physics.sleepIslandHasSupportAnchor );
+    hash = HashUint8Vector( hash, physics.sleepIslandEligible );
+    hash = HashUint8Vector( hash, physics.sleepIslandCanSleep );
 
-    hash = HashSize( hash, snapshot.persistentContacts.size() );
-    for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact : snapshot.persistentContacts )
+    hash = HashSize( hash, physics.persistentContacts.size() );
+    for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact : physics.persistentContacts )
     {
         hash = HashPersistentContact( hash, contact );
     }
 
-    hash = HashSize( hash, snapshot.persistentContactCache.size() );
-    for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : snapshot.persistentContactCache )
+    hash = HashSize( hash, physics.persistentContactCache.size() );
+    for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : physics.persistentContactCache )
     {
         hash = HashContactCache( hash, cache );
     }
 
-    hash = HashSolverStats( hash, snapshot.solverStats );
-    hash = HashUint16Vector( hash, snapshot.persistentContactCounts );
-    hash = HashUint16Vector( hash, snapshot.persistentRestingContactCounts );
+    hash = HashSolverStats( hash, physics.solverStats );
+    hash = HashUint16Vector( hash, physics.persistentContactCounts );
+    hash = HashUint16Vector( hash, physics.persistentRestingContactCounts );
 
-    hash = HashSize( hash, snapshot.debugContacts.size() );
-    for ( const PhysicsDebugContact& contact : snapshot.debugContacts )
+    hash = HashSize( hash, physics.debugContacts.size() );
+    for ( const PhysicsDebugContact& contact : physics.debugContacts )
     {
         hash = HashPhysicsDebugContact( hash, contact );
     }
 
-    hash = HashSize( hash, snapshot.pipelineTrace.size() );
-    for ( const Physics::PhysicsPipelineRecord& record : snapshot.pipelineTrace )
+    hash = HashSize( hash, physics.pipelineTrace.size() );
+    for ( const Physics::PhysicsPipelineRecord& record : physics.pipelineTrace )
     {
         hash = HashPhysicsPipelineRecord( hash, record );
     }
 
-    hash = HashInt64Vector( hash, snapshot.collisionCellKeys );
+    hash = HashInt64Vector( hash, physics.collisionCellKeys );
     return hash;
 }
 } // namespace
@@ -1901,7 +1937,8 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.physics || !input.entities || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.physics || !input.tornadoGameplay || !input.entities || !input.bodyStore ||
+         !input.colliderStore )
     {
         return;
     }
@@ -2678,7 +2715,8 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
 
 void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 {
-    if ( !m_config.enabled || !input.physics || !input.entities || !input.bodyStore || !input.colliderStore )
+    if ( !m_config.enabled || !input.physics || !input.tornadoGameplay || !input.entities || !input.bodyStore ||
+         !input.colliderStore )
     {
         return;
     }
@@ -2771,8 +2809,25 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
 
     sample.pipelineRecordCount = SaturatingUint16( Physics::PhysicsEngine::ReadPipelineTrace( physics ).size() );
     physics.CaptureReplaySolverSnapshot(
-        m_solverCaptureWorldSnapshot,
+        m_solverCaptureWorldSnapshot.physics,
         Physics::MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( modelCount ) ) );
+    const Gameplay::TornadoGameplay& tornadoGameplay = *input.tornadoGameplay;
+    m_solverCaptureWorldSnapshot.tornadoConfig = tornadoGameplay.GetFieldConfig();
+    CopyTornadoSystemConfigWithReserve( m_solverCaptureWorldSnapshot.tornadoSystemConfig,
+                                        tornadoGameplay.GetSystemConfig(),
+                                        sample.frameIndex,
+                                        "ReplaySolverCapture::tornadoSystem" );
+    m_solverCaptureWorldSnapshot.tornadoSystemElapsedSeconds = tornadoGameplay.GetSystemElapsedSeconds();
+    ReserveReplayRecorderDeltaVector( m_solverCaptureWorldSnapshot.tornadoCaptureSeconds,
+                                      tornadoGameplay.CaptureSeconds().size(),
+                                      sample.frameIndex,
+                                      "ReplaySolverCapture::tornadoCapture" );
+    m_solverCaptureWorldSnapshot.tornadoCaptureSeconds = tornadoGameplay.CaptureSeconds();
+    ReserveReplayRecorderDeltaVector( m_solverCaptureWorldSnapshot.tornadoEjectCooldownSeconds,
+                                      tornadoGameplay.EjectCooldownSeconds().size(),
+                                      sample.frameIndex,
+                                      "ReplaySolverCapture::tornadoCooldown" );
+    m_solverCaptureWorldSnapshot.tornadoEjectCooldownSeconds = tornadoGameplay.EjectCooldownSeconds();
 
     const auto sleepStates = Physics::PhysicsEngine::ReadSleepStates( physics );
     const auto sleepSupportedStates = Physics::PhysicsEngine::ReadSleepSupportedStates( physics );
@@ -3070,12 +3125,13 @@ std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolve
     return requiredSize - 1u;
 }
 
-void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex,
-                                                    const ReplaySolverFrameSample& sample,
-                                                    const std::vector<ReplaySolverBodySample>& bodies,
-                                                    const SkullbonezCore::Physics::PhysicsSolverSnapshot& worldSnapshot,
-                                                    bool forceKeyframe,
-                                                    bool updateCarry )
+void ReplaySolverRecorder::StoreSolverFramePayload(
+    std::size_t slotIndex,
+    const ReplaySolverFrameSample& sample,
+    const std::vector<ReplaySolverBodySample>& bodies,
+    const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& worldSnapshot,
+    bool forceKeyframe,
+    bool updateCarry )
 {
     // Invariant: slotIndex addresses both the retained sample header and the
     // compact solver payload. Saved replay artifacts still see a dense sample

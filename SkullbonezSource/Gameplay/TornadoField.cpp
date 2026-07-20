@@ -1,27 +1,26 @@
 /*
-File: SkullbonezSource/Physics/TornadoField.cpp
+File: SkullbonezSource/Gameplay/TornadoField.cpp
 Purpose:
-  Computes a procedural tornado force field for generated physics scenes.
+  Evolves Gameplay-owned tornado fields and samples their acceleration.
 
 Summary:
-  TornadoField.cpp computes a procedural tornado force field for generated
-  physics scenes. As an implementation unit, keep edits anchored on
-  deterministic physics, diagnostics, or world-state flow and on the
-  glossary/invariants below.
+  Cold scene DTOs are projected into Gameplay values, then authored vortices
+  advance through deterministic growth, drift, and pair-repulsion math. The
+  resulting active rows retain source order for Physics and presentation.
 
 Glossary:
-  Broadphase: Cheap collision pass that finds object pairs worth testing more
-  precisely.
-  Narrowphase: Precise collision pass that computes contact points, normals,
-  and penetration.
-  Manifold: Set of contact points and normals describing one colliding pair.
+  Strength envelope: Product of the growth and shrink factors for one vortex.
+  Pair repulsion: Deterministic separation applied to overlapping active
+    vortex centers after their independent drift is evaluated.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Authored projection copies every schema field explicitly so a future field
+    addition cannot silently cross the Scene-to-Gameplay boundary.
 
 Related:
-  - SkullbonezSource/Physics/TornadoField.h
+  - SkullbonezSource/Gameplay/TornadoField.h
   - Agentic/Reference/physics-overview.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -31,10 +30,58 @@ Related:
 #include <cmath>
 
 
-using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Gameplay;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 namespace Vector = SkullbonezCore::Math::Vector;
+
+
+static TornadoFieldConfig
+ProjectAuthoredTornadoField( const SkullbonezCore::Runtime::AuthoredTornadoFieldConfig& authored )
+{
+    TornadoFieldConfig projected;
+    projected.enabled = authored.enabled;
+    projected.visualizeVelocityField = authored.visualizeVelocityField;
+    projected.center = authored.center;
+    projected.radius = authored.radius;
+    projected.height = authored.height;
+    projected.inwardAcceleration = authored.inwardAcceleration;
+    projected.swirlAcceleration = authored.swirlAcceleration;
+    projected.liftAcceleration = authored.liftAcceleration;
+    projected.ejectAcceleration = authored.ejectAcceleration;
+    projected.ejectUpAcceleration = authored.ejectUpAcceleration;
+    projected.ejectBand = authored.ejectBand;
+    projected.minCaptureSeconds = authored.minCaptureSeconds;
+    projected.ejectCooldownSeconds = authored.ejectCooldownSeconds;
+    projected.maxDeltaVelocity = authored.maxDeltaVelocity;
+    return projected;
+}
+
+
+TornadoSystemConfig SkullbonezCore::Gameplay::ProjectAuthoredTornadoSystem(
+    const SkullbonezCore::Runtime::AuthoredTornadoSystemConfig& authored )
+{
+    TornadoSystemConfig projected;
+    projected.enabled = authored.enabled;
+    projected.visualizeVelocityField = authored.visualizeVelocityField;
+    projected.vortices.reserve( authored.vortices.size() );
+    for ( const SkullbonezCore::Runtime::AuthoredTornadoVortexConfig& authoredVortex : authored.vortices )
+    {
+        TornadoVortexConfig vortex;
+        vortex.field = ProjectAuthoredTornadoField( authoredVortex.field );
+        vortex.spawnSeconds = authoredVortex.spawnSeconds;
+        vortex.timeToLiveSeconds = authoredVortex.timeToLiveSeconds;
+        vortex.growSeconds = authoredVortex.growSeconds;
+        vortex.shrinkSeconds = authoredVortex.shrinkSeconds;
+        vortex.driftRadius = authoredVortex.driftRadius;
+        vortex.driftSpeed = authoredVortex.driftSpeed;
+        vortex.driftPhase = authoredVortex.driftPhase;
+        vortex.repulsionRadius = authoredVortex.repulsionRadius;
+        vortex.repulsionStrength = authoredVortex.repulsionStrength;
+        projected.vortices.push_back( vortex );
+    }
+    return projected;
+}
 
 
 static float SmoothStep01( float edge0, float edge1, float value )
@@ -185,6 +232,8 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
 
     elapsedSeconds = (std::max)( 0.0f, elapsedSeconds );
     const float twoPi = 6.28318530718f;
+    // Invariant: append order is authored source order. Physics consumes this
+    // exact order for left-to-right floating-point accumulation.
     for ( int i = 0; i < static_cast<int>( config.vortices.size() ); ++i )
     {
         const TornadoVortexConfig& source = config.vortices[static_cast<size_t>( i )];
@@ -240,6 +289,8 @@ void TornadoSystem::BuildActiveVortices( const TornadoSystemConfig& config,
         outVortices.push_back( active );
     }
 
+    // Why: pair iteration is ascending and updates both centers immediately;
+    // changing this to a parallel or unordered reduction changes later pairs.
     for ( int a = 0; a < static_cast<int>( outVortices.size() ); ++a )
     {
         const TornadoVortexConfig& configA = config.vortices[static_cast<size_t>( outVortices[a].sourceIndex )];

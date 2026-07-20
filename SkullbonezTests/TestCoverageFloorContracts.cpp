@@ -4,7 +4,7 @@
 //   Exercise high-value physics and replay owner contracts needed by the armed
 //   coverage gate.
 //
-// Mental model:
+// Summary:
 //   The fixtures drive production replay checkpoint/event serialization from a
 //   real one-body solver capture, exercise every object-manifold shape pair,
 //   and drive the retained timeline through its value API. Assertions validate
@@ -276,6 +276,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     launcher.laserShots.push_back( shot );
 
     ReplayCaptureInput capture;
+    SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
     capture.branch.branchId = 9u;
     capture.branch.parentBranchId = 4u;
     capture.eventCursor = 3u;
@@ -283,6 +284,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     capture.physicsDt = 1.0f / 120.0f;
     capture.fixedStep = true;
     capture.physics = &engine;
+    capture.tornadoGameplay = &tornadoGameplay;
     capture.entities = &entities;
     capture.bodyStore = &PhysicsEngine::ReadBodies( engine );
     capture.colliderStore = &PhysicsEngine::ReadColliders( engine );

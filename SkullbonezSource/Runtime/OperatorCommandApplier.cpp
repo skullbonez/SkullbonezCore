@@ -50,15 +50,15 @@ namespace RunInternal
 {
 namespace
 {
-void ApplyTornadoFieldValue( Physics::TornadoFieldConfig& tornadoField,
-                             Physics::TornadoSystemConfig& tornadoSystem,
+void ApplyTornadoFieldValue( Gameplay::TornadoFieldConfig& tornadoField,
+                             Gameplay::TornadoSystemConfig& tornadoSystem,
                              bool hasTornadoSystem,
-                             float Physics::TornadoFieldConfig::* field,
+                             float Gameplay::TornadoFieldConfig::* field,
                              float value )
 {
     if ( hasTornadoSystem )
     {
-        for ( Physics::TornadoVortexConfig& vortex : tornadoSystem.vortices )
+        for ( Gameplay::TornadoVortexConfig& vortex : tornadoSystem.vortices )
         {
             vortex.field.*field = value;
         }
@@ -585,10 +585,10 @@ PhysicsFrictionUICommandResult ApplyPhysicsFrictionUICommands( PhysicsFrictionUI
 TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, const UI::UIPhysicsCommands& commands )
 {
     // Why: RunInput owns input-mode bookkeeping, while this helper owns the
-    // physics-facing mutation and single sync point for accepted tornado edits.
+    // gameplay-facing mutation and single sync point for accepted tornado edits.
     TornadoUICommandResult result;
-    Physics::TornadoFieldConfig tornadoField = context.world.Physics().GetTornadoFieldConfig();
-    Physics::TornadoSystemConfig tornadoSystem = context.world.Physics().GetTornadoSystemConfig();
+    Gameplay::TornadoFieldConfig tornadoField = context.world.Tornado().GetFieldConfig();
+    Gameplay::TornadoSystemConfig tornadoSystem = context.world.Tornado().GetSystemConfig();
     TornadoVisualSettings tornadoVisual = context.renderer.TornadoVisualSettingsSnapshot();
     bool tornadoFieldChanged = false;
     const bool hasTornadoSystem = !tornadoSystem.vortices.empty();
@@ -636,7 +636,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
         ApplyTornadoFieldValue( tornadoField,
                                 tornadoSystem,
                                 hasTornadoSystem,
-                                &Physics::TornadoFieldConfig::radius,
+                                &Gameplay::TornadoFieldConfig::radius,
                                 std::clamp( commands.requestedTornadoRadius,
                                             UI::Layout::UI_TORNADO_RADIUS_MIN,
                                             UI::Layout::UI_TORNADO_RADIUS_MAX ) );
@@ -648,7 +648,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
         ApplyTornadoFieldValue( tornadoField,
                                 tornadoSystem,
                                 hasTornadoSystem,
-                                &Physics::TornadoFieldConfig::height,
+                                &Gameplay::TornadoFieldConfig::height,
                                 std::clamp( commands.requestedTornadoHeight,
                                             UI::Layout::UI_TORNADO_HEIGHT_MIN,
                                             UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
@@ -660,7 +660,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
         ApplyTornadoFieldValue( tornadoField,
                                 tornadoSystem,
                                 hasTornadoSystem,
-                                &Physics::TornadoFieldConfig::inwardAcceleration,
+                                &Gameplay::TornadoFieldConfig::inwardAcceleration,
                                 std::clamp( commands.requestedTornadoInward,
                                             UI::Layout::UI_TORNADO_INWARD_MIN,
                                             UI::Layout::UI_TORNADO_INWARD_MAX ) );
@@ -672,7 +672,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
         ApplyTornadoFieldValue( tornadoField,
                                 tornadoSystem,
                                 hasTornadoSystem,
-                                &Physics::TornadoFieldConfig::swirlAcceleration,
+                                &Gameplay::TornadoFieldConfig::swirlAcceleration,
                                 std::clamp( commands.requestedTornadoSwirl,
                                             UI::Layout::UI_TORNADO_SWIRL_MIN,
                                             UI::Layout::UI_TORNADO_SWIRL_MAX ) );
@@ -684,7 +684,7 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
         ApplyTornadoFieldValue( tornadoField,
                                 tornadoSystem,
                                 hasTornadoSystem,
-                                &Physics::TornadoFieldConfig::liftAcceleration,
+                                &Gameplay::TornadoFieldConfig::liftAcceleration,
                                 std::clamp( commands.requestedTornadoLift,
                                             UI::Layout::UI_TORNADO_LIFT_MIN,
                                             UI::Layout::UI_TORNADO_LIFT_MAX ) );
@@ -693,8 +693,8 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     }
     if ( tornadoFieldChanged )
     {
-        context.world.Physics().SetTornadoFieldConfig( tornadoField );
-        context.world.Physics().SetTornadoSystemConfig( tornadoSystem );
+        context.world.Tornado().SetFieldConfig( tornadoField );
+        context.world.Tornado().SetSystemConfig( tornadoSystem );
     }
     context.renderer.SetTornadoVisualSettings( tornadoVisual );
     return result;

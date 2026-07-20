@@ -1959,7 +1959,7 @@ void ReplayPresentation::RenderCauseFocusOverlay( const RunReplayCauseTreeState&
                 {
                     bool drewContact = false;
                     for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact :
-                          sample->worldSnapshot.persistentContacts )
+                          sample->worldSnapshot.physics.persistentContacts )
                     {
                         if ( !ReplayContactHasModelIndex( contact, focusedBody->modelRow.value ) )
                         {

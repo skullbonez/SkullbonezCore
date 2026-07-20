@@ -1,6 +1,6 @@
 # Gameplay Module Extraction
 
-Status: Active — 1/4 tasks (T0 complete; T1-T3 remain)
+Status: Active — 2/4 tasks (T0-T1 complete; T2-T3 remain)
 Owner: repository owner; registered 2026-07-20 as campaign plan 7 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding G)
 Ledger: T0-T3
@@ -168,7 +168,7 @@ deletion condition, and comparison evidence before source changes continue.
   units, worker interaction) and the pass-registration usage; name which
   binding-decision path (2 or 3) the evidence supports. Output: census +
   contract committed into this plan. No validation (documentation).
-- [ ] T1 — Physics extraction: create `Gameplay/`, move
+- [x] T1 — Physics extraction: create `Gameplay/`, move
   `TornadoGameplay`/`TornadoField` there, feed forces through the seam,
   delete tornado members/APIs from `PhysicsWorld`/`PhysicsEngine`.
   Proof: `grep -irn "tornado" SkullbonezSource/Physics` returns zero rows.
@@ -203,6 +203,24 @@ deletion condition, and comparison evidence before source changes continue.
 
 ## Validation Summary
 
-T1: `validate_physics` + `validate_perf` (+ `validate_physics_deep` when
-SkullScope surfaces move). T2: `validate_dx12_renderer` + bounded stress.
-T3: `validate_full` + `validate_physics` at final source.
+T1 complete 2026-07-21. `TornadoField`/`TornadoGameplay` and mutable
+configuration/timers now live in `Gameplay/`; Physics consumes a 64-record
+ordered `ExternalForceFrameInput` through `ExternalForceStage`, with fixed
+release scratch and no callback/inheritance seam. Scene parsing retains a
+neutral authored DTO and Runtime projects it into Gameplay, preserving the
+direction rule. Replay composes Physics and Gameplay values without changing
+artifact field order; invalid artifacts over the Gameplay cap fail before
+restore. `rg -i tornado SkullbonezSource/Physics` returns zero rows.
+
+Evidence at the final source tip: focused one-step witness 1/1 case and 7/7
+assertions; `tools\validate_full.bat` 199.48 s PASS (including the required
+physics gate, 44,401-line byte-exact CSV, zero DX12 errors, unchanged images);
+`tools\validate_perf.bat` 106.09 s PASS (zero steady-gameplay allocations and
+no DX12/physics regressions); replay visual fidelity 440.53 s PASS (one process,
+one generation, 2,401 ticks, all positive/negative controls). Allocation policy
+scan reports 409 files and zero allowlist errors. SkullScope surfaces did not
+move, so `validate_physics_deep` was not required. Comment audit checked 55/55
+touched source-bearing files with zero deferred.
+
+T2: `validate_dx12_renderer` + bounded stress. T3: `validate_full` +
+`validate_physics` at final source.

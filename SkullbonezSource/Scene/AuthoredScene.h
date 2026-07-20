@@ -50,10 +50,10 @@ Related:
 #include "../Physics/PhysicsDebugData.h"
 #include "../Physics/PhysicsHandles.h"
 #include "../Physics/PhysicsTimestep.h"
-#include "../Physics/TornadoField.h"
 #include "../Physics/PhysicsWorldForces.h"
 #include "../Rendering/RenderMaterial.h"
 #include "../Maths/Vector3.h"
+#include "AuthoredTornadoConfig.h"
 #include <cstdint>
 #include <vector>
 
@@ -457,7 +457,7 @@ struct SceneWorldOverride
 struct SceneTornadoSystem
 {
     bool hasTornadoSystem = false;
-    Physics::TornadoSystemConfig config;
+    AuthoredTornadoSystemConfig config;
 };
 
 struct SceneUIOptions
@@ -663,7 +663,7 @@ class AuthoredScene
     const Physics::MutualGravitySettings& GetWorldMutualGravitySettings() const;
     bool HasMutualGravityEnabled() const;
     bool HasTornadoSystem() const;
-    const Physics::TornadoSystemConfig& GetTornadoSystemConfig() const;
+    const AuthoredTornadoSystemConfig& GetTornadoSystemConfig() const;
     const SceneUIOptions& GetUIOptions() const;
 };
 } // namespace Runtime

@@ -1133,7 +1133,7 @@ class AuthoredSceneParser
                             const char* memberName,
                             float& target,
                             float minimum );
-    void ApplyTornadoVortex( const Json& object, const std::string& path, Physics::TornadoSystemConfig& system );
+    void ApplyTornadoVortex( const Json& object, const std::string& path, AuthoredTornadoSystemConfig& system );
     void ApplyTornadoSystem( const Json& tornadoSystem, const std::string& path );
     void ApplyRuntime( const Json& runtime, const std::string& path );
     void ApplyCapture( const Json& capture, const std::string& path );

@@ -553,6 +553,17 @@
       "removal_or_wrapper_plan": "Replace the seven vectors with fixed-capacity stores owned by PhysicsNarrowphaseStage, then remove this row."
     },
     {
+      "path": "SkullbonezSource/Physics/Stages/ExternalForceStage.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "Physics ExternalForceStage fixed-capacity release rows",
+      "phase": "steady_gameplay",
+      "reason": "These calls append to PhysicsFixedList inline storage; they cannot allocate or grow backing storage and fail fatally at the 8,192-row compile-time cap.",
+      "cap": "Two inline PhysicsFixedList<int, 8192> rows; no heap or fallback growth path.",
+      "removal_or_wrapper_plan": "Teach the checker to distinguish PhysicsFixedList append calls from dynamic STL growth, then remove this syntactic allowlist row."
+    },
+    {
       "path": "SkullbonezSource/Physics/Stages/PhysicsTerrainStage.cpp",
       "patterns": [
         ".assign(",
@@ -623,51 +634,50 @@
       "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
     },
     {
-      "path": "SkullbonezSource/Physics/TornadoField.cpp",
+      "path": "SkullbonezSource/Gameplay/TornadoField.cpp",
       "patterns": [
         ".push_back(",
         ".reserve("
       ],
-      "owner": "Physics preallocated/replay static STL surface",
+      "owner": "Gameplay tornado authored-content and preallocated state surface",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+      "reason": "Authored vortex rows grow only during scene/config load; active force publication uses a fixed 64-field array and pre-reserved per-body timer rows.",
+      "cap": "Authored vortex count is capped at 64 and body timers are bounded by the configured scene-object capacity.",
+      "removal_or_wrapper_plan": "Replace authored vortex vectors with bounded gameplay storage when the scene schema gains a fixed-list representation."
     },
     {
-      "path": "SkullbonezSource/Physics/TornadoField.h",
+      "path": "SkullbonezSource/Gameplay/TornadoField.h",
       "patterns": [
         "std::vector<"
       ],
-      "owner": "Physics preallocated/replay static STL surface",
+      "owner": "Gameplay tornado authored-content and preallocated state surface",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+      "reason": "The authored system config retains its cold scene-load vortex list; steady gameplay reads the list without growing it.",
+      "cap": "Authored vortex count is capped at 64 by the recoverable scene parser boundary.",
+      "removal_or_wrapper_plan": "Replace authored vortex vectors with bounded gameplay storage when the scene schema gains a fixed-list representation."
     },
     {
-      "path": "SkullbonezSource/Physics/TornadoGameplay.cpp",
+      "path": "SkullbonezSource/Gameplay/TornadoGameplay.cpp",
       "patterns": [
         ".assign(",
-        ".push_back(",
         ".reserve("
       ],
-      "owner": "Physics preallocated/replay static STL surface",
+      "owner": "Gameplay tornado authored-content and preallocated state surface",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+      "reason": "Body timers reserve to the scene-object capacity before steady gameplay; assign only changes logical size within that reserve, and authored vortex growth stays in scene load/replay.",
+      "cap": "Active force fields are fixed at 64; timer capacity is the configured scene-object capacity and overflow is fatal with diagnostics.",
+      "removal_or_wrapper_plan": "Replace replay-owned dynamic copies separately; retain preallocated body rows unless Physics adopts a shared fixed store."
     },
     {
-      "path": "SkullbonezSource/Physics/TornadoGameplay.h",
+      "path": "SkullbonezSource/Gameplay/TornadoGameplay.h",
       "patterns": [
         "std::vector<"
       ],
-      "owner": "Physics preallocated/replay static STL surface",
+      "owner": "Gameplay tornado authored-content and preallocated state surface",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
+      "reason": "Gameplay owns pre-reserved per-body timers and a cold authored vortex list; the force-frame boundary itself is fixed storage plus spans.",
+      "cap": "Active force fields are capped at 64 and timer rows at the configured scene-object capacity.",
+      "removal_or_wrapper_plan": "Replace replay-owned dynamic copies separately; retain preallocated body rows unless Physics adopts a shared fixed store."
     },
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",

@@ -101,7 +101,7 @@ constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
 // growth count remains diagnostic instead of being a fatal budget.
 constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT =
     CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
-constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
+constexpr uint32_t PHYSICS_EXTERNAL_FORCE_WORKER_HASH = HashStr( "Frame/Physics/ExternalForceField/WorkerBodies" );
 
 #ifdef SKULLBONEZ_PROFILE_ENABLED
 constexpr uint64_t LogicalStreamBytes( std::size_t elementBytes, uint64_t elementOperations )
@@ -312,10 +312,6 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     VISIT( sleepIslandEligible, m_sleepController.GetSleepIslandEligible(), "sleepIslandEligible" )                    \
     VISIT( sleepIslandCanSleep, m_sleepController.GetSleepIslandCanSleep(), "sleepIslandCanSleep" )
 
-#define SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                \
-    VISIT( tornadoCaptureSeconds, m_tornadoGameplay.CaptureSeconds(), "tornadoCaptureSeconds" )                        \
-    VISIT( tornadoEjectCooldownSeconds, m_tornadoGameplay.EjectCooldownSeconds(), "tornadoEjectCooldownSeconds" )
-
 #define SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )                                                          \
     VISIT( persistentContactCounts, m_contactSolverStage.GetPersistentContactCounts(), "persistentContactCounts" )     \
     VISIT( persistentRestingContactCounts,                                                                             \
@@ -328,7 +324,6 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                     \
     SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                      \
     SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                 \
-    SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                    \
     SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )
 
 
@@ -360,9 +355,9 @@ void PhysicsWorld::Clear()
     m_lastUnderwaterProbeFluidSurfaceHeight = 0.0f;
     m_lastUnderwaterProbeFluidSurfaceHeightValid = false;
     m_forceStage.Clear();
+    m_externalForceStage.Clear();
     m_broadphase.Clear();
     m_sleepController.Clear();
-    m_tornadoGameplay.Clear();
     m_stepDiagnostics.Clear();
     m_contactSolverStage.Clear();
     m_terrain.Clear();
@@ -399,9 +394,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
 
     outSnapshot.version = 2;
     outSnapshot.modelCount = modelCount;
-    outSnapshot.tornadoConfig = m_tornadoGameplay.GetFieldConfig();
-    outSnapshot.tornadoSystemConfig = m_tornadoGameplay.GetSystemConfig();
-    outSnapshot.tornadoSystemElapsedSeconds = m_tornadoGameplay.GetSystemElapsedSeconds();
     // Runtime allocation policy: a solver snapshot owns many typed vectors.
     // Batch their byte budget into one replay approval, then reserve individual
     // vectors inside that owner scope so replay diagnostics stay readable.
@@ -461,7 +453,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
     }
 #define CAPTURE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField = worldValues;
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
-    SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef CAPTURE_REPLAY_SOLVER_VECTOR_FIELD
 
     m_sleepController.CaptureReplayState( outSnapshot );
@@ -480,11 +471,6 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 #define RESTORE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) worldValues = snapshot.snapshotField;
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( RESTORE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef RESTORE_REPLAY_SOLVER_VECTOR_FIELD
-    m_tornadoGameplay.SetReplayState( snapshot.tornadoCaptureSeconds,
-                                      snapshot.tornadoEjectCooldownSeconds,
-                                      snapshot.tornadoConfig,
-                                      snapshot.tornadoSystemConfig,
-                                      snapshot.tornadoSystemElapsedSeconds );
 
     m_sleepController.RestoreReplayState( snapshot );
     m_stepDiagnostics.RestoreReplayState( snapshot );
@@ -498,7 +484,6 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& sna
 #undef SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS
-#undef SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_VECTOR_FIELDS
 
@@ -529,6 +514,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                float fChangeInTime,
                                const PhysicsRuntimeSettings& settings,
                                const PhysicsWorldForces& worldForces,
+                               const ExternalForceFrameInput& externalForces,
                                Threading::WorkerPool& workerPool )
 {
     // Concept: one fixed physics tick has a predictable data flow.
@@ -576,6 +562,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                       fChangeInTime,
                       settings,
                       worldForces,
+                      externalForces,
                       workerPool,
                       probeDormantUnderwaterLocks );
 }
@@ -638,27 +625,26 @@ bool PhysicsWorld::IsPhysicsSleepEnabled() const
 }
 
 
-void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
-                                         const ColliderStore& colliderStore,
-                                         const PhysicsWorldForces& worldForces,
-                                         float dt,
-                                         const PhysicsExecutionSettings& execution,
-                                         Threading::WorkerPool& workerPool )
+void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        const PhysicsWorldForces& worldForces,
+                                        const ExternalForceFrameInput& input,
+                                        const PhysicsExecutionSettings& execution,
+                                        Threading::WorkerPool& workerPool )
 {
-    const TornadoGameplayStepState stepState = m_tornadoGameplay.BeginStep( dt );
-    if ( !stepState.active )
+    if ( !input.Active() )
     {
         return;
     }
 
-    PROFILE_SCOPED( m_profiler, "Frame/Physics/TornadoField" );
-    const std::vector<int>& releaseWakeBodies = m_tornadoGameplay.ReleaseFixedBodies( stepState, bodyStore );
+    PROFILE_SCOPED( m_profiler, "Frame/Physics/ExternalForceField" );
+    const std::span<const int> releaseWakeBodies = m_externalForceStage.ReleaseFixedBodies( input, bodyStore );
     for ( int releasedIndex : releaseWakeBodies )
     {
         WakeModel( bodyStore, colliderStore, worldForces, releasedIndex );
     }
 
-    TornadoBodyForceContext tornadoBodyForceContext{
+    ExternalForceBodyContext bodyForceContext{
         bodyStore,
         colliderStore,
         worldForces,
@@ -668,47 +654,15 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
                                                        bodyStore.MutableRecords(),
                                                        m_timeRemaining,
                                                        bodyStore.Count(),
-                                                       dt ),
+                                                       input.stepSeconds ),
         m_sleepController.GetSleepStates(),
-        m_timeRemaining,
         m_sleepController.GetUnderwaterSleepLocks(),
-        dt,
         execution,
         workerPool,
         PHYSICS_PARALLEL_MIN_BODIES,
-        "Frame/Physics/TornadoField/WorkerBodies",
-        PHYSICS_TORNADO_WORKER_HASH };
-    m_tornadoGameplay.ApplyBodyForces( stepState, tornadoBodyForceContext );
-}
-
-
-void PhysicsWorld::SetTornadoFieldConfig( const TornadoFieldConfig& config )
-{
-    m_tornadoGameplay.SetFieldConfig( config );
-}
-
-
-const TornadoFieldConfig& PhysicsWorld::GetTornadoFieldConfig() const
-{
-    return m_tornadoGameplay.GetFieldConfig();
-}
-
-
-void PhysicsWorld::SetTornadoSystemConfig( const TornadoSystemConfig& config )
-{
-    m_tornadoGameplay.SetSystemConfig( config );
-}
-
-
-const TornadoSystemConfig& PhysicsWorld::GetTornadoSystemConfig() const
-{
-    return m_tornadoGameplay.GetSystemConfig();
-}
-
-
-float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
-{
-    return m_tornadoGameplay.GetSystemElapsedSeconds();
+        "Frame/Physics/ExternalForceField/WorkerBodies",
+        PHYSICS_EXTERNAL_FORCE_WORKER_HASH };
+    m_externalForceStage.ApplyBodyForces( input, bodyForceContext );
 }
 
 
@@ -749,6 +703,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      float dt,
                                      const PhysicsRuntimeSettings& settings,
                                      const PhysicsWorldForces& worldForces,
+                                     const ExternalForceFrameInput& externalForces,
                                      Threading::WorkerPool& workerPool,
                                      bool probeDormantUnderwaterLocks )
 {
@@ -811,7 +766,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #endif
     m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, settings.execution );
 
-    ApplyTornadoGameplay( bodyStore, colliderStore, worldForces, dt, settings.execution, workerPool );
+    ApplyExternalForces( bodyStore, colliderStore, worldForces, externalForces, settings.execution, workerPool );
     m_sleepController.FlushPendingAwakeBodyIndices();
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
@@ -1241,7 +1196,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += m_terrain.CollectDynamicMemoryBytes();
     bytes += m_narrowphase.CollectDynamicMemoryBytes();
     bytes += VectorCapacityBytes( m_pointJointConstraints );
-    bytes += m_tornadoGameplay.CollectMemoryBytes();
+    bytes += m_externalForceStage.CollectMemoryBytes();
     return bytes;
 }
 
@@ -1250,7 +1205,6 @@ uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
     uint64_t bytes = m_broadphase.CollectDebugAndBroadphaseMemoryBytes();
     bytes += m_stepDiagnostics.CollectDebugMemoryBytes();
     bytes += VectorCapacityBytes( m_sleepController.GetSleepIslandVisualIdVector() );
-    bytes += m_tornadoGameplay.CollectDebugMemoryBytes();
     return bytes;
 }
 

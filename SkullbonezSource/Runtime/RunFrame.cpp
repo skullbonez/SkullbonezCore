@@ -167,6 +167,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     input.cameras = &cameras;
     input.world = &world;
     input.physics = &physics;
+    input.tornadoGameplay = &models.Scene().Tornado();
     input.entities = &entities;
     input.bodyStore = &models.Scene().BodyStore();
     input.colliderStore = &models.Scene().Colliders();
@@ -451,6 +452,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Replay );
                 m_replayRuntime.UpdatePrediction( m_sceneController.Scene().Physics(),
+                                                  m_sceneController.Scene().Tornado(),
                                                   m_sceneController.Scene().Entities(),
                                                   m_config,
                                                   m_sceneController.Scene().Environment().GetPhysicsWorldForces(),

@@ -48,6 +48,7 @@ Related:
 #include <vector>
 
 #include "../../Core/MainMemoryStats.h"
+#include "../../Gameplay/TornadoGameplay.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
@@ -280,10 +281,26 @@ struct ReplaySolverWorldScalarState
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
     bool collisionVisualFrameActive = false;
-    Physics::TornadoFieldConfig tornadoConfig;
-    Physics::TornadoSystemConfig tornadoSystemConfig;
+    Gameplay::TornadoFieldConfig tornadoConfig;
+    Gameplay::TornadoSystemConfig tornadoSystemConfig;
     float tornadoSystemElapsedSeconds = 0.0f;
     Physics::PhysicsSolverStatsSample solverStats;
+};
+
+// Owner: Runtime/ReplaySolverRecorder. Reason: replay checkpoints must compose
+// Physics solver caches with Gameplay tornado state while preserving artifact
+// field order; neither lower module may include the other. Deletion condition:
+// none--this value-only composition is the end-state replay boundary. Review
+// evidence: validate_replay_visual_fidelity proves artifact bytes, restore,
+// prediction, and one-presentation behavior without inheritance or callbacks.
+struct ReplaySolverWorldSnapshot
+{
+    Physics::PhysicsSolverSnapshot physics;
+    Gameplay::TornadoFieldConfig tornadoConfig;
+    Gameplay::TornadoSystemConfig tornadoSystemConfig;
+    float tornadoSystemElapsedSeconds = 0.0f;
+    std::vector<float> tornadoCaptureSeconds;
+    std::vector<float> tornadoEjectCooldownSeconds;
 };
 
 // Invariant: a full vector payload is used for keyframes and size changes.
@@ -385,7 +402,7 @@ struct ReplaySolverFrameSample
     ReplayCameraSample camera;
     ReplayWorldPresentationSample world;
     ReplayLauncherVisualSample launcherVisual;
-    Physics::PhysicsSolverSnapshot worldSnapshot;
+    ReplaySolverWorldSnapshot worldSnapshot;
     std::vector<ReplaySolverBodySample> bodies;
     uint64_t solverHash = 0;
     uint64_t presentationHash = 0;
@@ -453,6 +470,7 @@ struct ReplayCaptureInput
     // and diagnostics. Body/collider stores remain explicit read views so the
     // recorder cannot recover presentation or scene authority through it.
     Physics::PhysicsEngine* physics = nullptr;
+    const Gameplay::TornadoGameplay* tornadoGameplay = nullptr;
     const SceneEntityStore* entities = nullptr;
     // Replay recorders borrow stores for physics state and the scene entity
     // owner for names, so capture does not depend on legacy object record writeback.
@@ -665,7 +683,7 @@ class ReplaySolverRecorder
     void StoreSolverFramePayload( std::size_t slotIndex,
                                   const ReplaySolverFrameSample& sample,
                                   const std::vector<ReplaySolverBodySample>& bodies,
-                                  const Physics::PhysicsSolverSnapshot& worldSnapshot,
+                                  const ReplaySolverWorldSnapshot& worldSnapshot,
                                   bool forceKeyframe,
                                   bool updateCarry );
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
@@ -689,8 +707,8 @@ class ReplaySolverRecorder
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
     std::ofstream m_hashLog;
-    Physics::PhysicsSolverSnapshot m_solverCaptureWorldSnapshot;
-    Physics::PhysicsSolverSnapshot m_solverWorldCarrySnapshot;
+    ReplaySolverWorldSnapshot m_solverCaptureWorldSnapshot;
+    ReplaySolverWorldSnapshot m_solverWorldCarrySnapshot;
     bool m_solverWorldCarryActive = false;
     // Lifetime: historical scrub reads and "latest" reads can be compared by
     // pointer-owning callers in the same tick, so they need separate dense
@@ -700,7 +718,7 @@ class ReplaySolverRecorder
     mutable ReplaySolverFrameSample m_promotedSolverSample;
     mutable std::vector<ReplaySolverBodyState> m_solverResolveStateScratch;
     mutable std::vector<uint8_t> m_solverResolveActiveScratch;
-    mutable Physics::PhysicsSolverSnapshot m_solverResolveWorldScratch;
+    mutable ReplaySolverWorldSnapshot m_solverResolveWorldScratch;
     std::size_t m_sampleHead = 0;
     std::size_t m_sampleCount = 0;
     std::size_t m_checkpointHead = 0;

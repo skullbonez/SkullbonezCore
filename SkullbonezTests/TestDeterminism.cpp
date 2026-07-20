@@ -61,6 +61,7 @@
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"
+#include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Rendering/IRenderResourceFactory.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -141,7 +142,7 @@ SkullbonezCore::Core::EngineConfig MakeDeterministicConfig()
     config.physicsExecution.parallel = false;
     config.physicsExecution.parallelApplyForces = false;
     config.physicsExecution.parallelMutualGravity = false;
-    config.physicsExecution.parallelTornadoField = false;
+    config.physicsExecution.parallelExternalForceFields = false;
     config.physicsExecution.parallelNarrowphase = false;
     config.physicsExecution.parallelTerrainDetect = false;
     config.physicsExecution.parallelIntegrate = false;
@@ -324,6 +325,62 @@ TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
     CHECK( engine.IsSleepEnabled() );
     engine.SetSleepEnabled( false );
     CHECK_FALSE( engine.IsSleepEnabled() );
+}
+
+TEST_CASE( "Tornado force witness preserves exact one-step body state" )
+{
+    // Why: the varied-scene CSV gate does not contain tornado content. This
+    // focused byte witness pins the field arithmetic and its exact force-stage
+    // scheduling point before gameplay ownership moves out of Physics.
+    auto engineStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& engine = *engineStorage;
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = 0.0f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    AddMicroBody( engine, 901u, Vector3( 100.0f, 50.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+
+    SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
+    SkullbonezCore::Gameplay::TornadoFieldConfig field;
+    field.enabled = true;
+    field.center = Vector3( 0.0f, 0.0f, 0.0f );
+    field.radius = 200.0f;
+    field.height = 100.0f;
+    field.minCaptureSeconds = 1000.0f;
+    field.maxDeltaVelocity = 1000.0f;
+    tornadoGameplay.SetFieldConfig( field );
+
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workers( lockOrderValidator );
+    engine.Step( PHYSICS_FIXED_DT,
+                 NoGravityForces(),
+                 tornadoGameplay.BuildForceFrame( PHYSICS_FIXED_DT, 1 ),
+                 workers,
+                 nullptr,
+                 0,
+                 SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+
+    const PhysicsBodyHotState hot = LoadPhysicsBodyHotState(
+        PhysicsEngine::ReadBodies( engine ).HotFields(), 0u );
+    uint32_t velocityXBits = 0;
+    uint32_t velocityYBits = 0;
+    uint32_t velocityZBits = 0;
+    uint32_t positionXBits = 0;
+    uint32_t positionYBits = 0;
+    uint32_t positionZBits = 0;
+    std::memcpy( &velocityXBits, &hot.linearVelocity.x, sizeof( velocityXBits ) );
+    std::memcpy( &velocityYBits, &hot.linearVelocity.y, sizeof( velocityYBits ) );
+    std::memcpy( &velocityZBits, &hot.linearVelocity.z, sizeof( velocityZBits ) );
+    std::memcpy( &positionXBits, &hot.position.x, sizeof( positionXBits ) );
+    std::memcpy( &positionYBits, &hot.position.y, sizeof( positionYBits ) );
+    std::memcpy( &positionZBits, &hot.position.z, sizeof( positionZBits ) );
+    CHECK( velocityXBits == 3208432847u );
+    CHECK( velocityYBits == 1057523849u );
+    CHECK( velocityZBits == 3214464429u );
+    CHECK( positionXBits == 1120402650u );
+    CHECK( positionYBits == 1112016013u );
+    CHECK( positionZBits == 3156411918u );
 }
 
 void AddMutualGravityBody( PhysicsEngine& engine,
@@ -628,15 +685,15 @@ uint64_t HashReplaySampleForTest( const ReplaySolverFrameSample& sample )
     HashValueForReplayTest( hash, sample.world.fixedStep );
     HashValueForReplayTest( hash, sample.world.scenePhysicsEnabled );
     HashValueForReplayTest( hash, sample.world.sceneTextEnabled );
-    HashValueForReplayTest( hash, sample.worldSnapshot.version );
-    HashValueForReplayTest( hash, sample.worldSnapshot.modelCount );
-    HashValueForReplayTest( hash, sample.worldSnapshot.sleepEnabled );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.timeRemaining );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepState );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepCounter );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.collisionVisualContacts );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepIslandParent );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepIslandRank );
+    HashValueForReplayTest( hash, sample.worldSnapshot.physics.version );
+    HashValueForReplayTest( hash, sample.worldSnapshot.physics.modelCount );
+    HashValueForReplayTest( hash, sample.worldSnapshot.physics.sleepEnabled );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.timeRemaining );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepState );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepCounter );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.collisionVisualContacts );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepIslandParent );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepIslandRank );
     HashValueForReplayTest( hash, sample.contactCount );
     HashValueForReplayTest( hash, sample.pipelineRecordCount );
     const std::size_t bodyCount = sample.bodies.size();
@@ -722,7 +779,7 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
         static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( engine ).size() );
     sample.pipelineRecordCount =
         static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( engine ).size() );
-    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot,
+    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot.physics,
                                         MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
 
     sample.bodies.reserve( kMicroBodyCount );
@@ -759,9 +816,9 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
 {
     // Why: replay restore applies solver cache first, then body rows. The test
     // mirrors that order so a future mismatch points at the same boundary Run uses.
-    REQUIRE( sample.worldSnapshot.modelCount == static_cast<int>( sample.bodies.size() ) );
+    REQUIRE( sample.worldSnapshot.physics.modelCount == static_cast<int>( sample.bodies.size() ) );
     REQUIRE( engine.RestoreReplaySolverSnapshot(
-        sample.worldSnapshot,
+        sample.worldSnapshot.physics,
         MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( sample.bodies.size() ) ) ) );
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
@@ -847,15 +904,16 @@ void CheckReplaySamplesEqual( const ReplaySolverFrameSample& lhs, const ReplaySo
     CHECK( lhs.world.fixedStep == rhs.world.fixedStep );
     CHECK( lhs.world.scenePhysicsEnabled == rhs.world.scenePhysicsEnabled );
     CHECK( lhs.world.sceneTextEnabled == rhs.world.sceneTextEnabled );
-    CHECK( lhs.worldSnapshot.version == rhs.worldSnapshot.version );
-    CHECK( lhs.worldSnapshot.modelCount == rhs.worldSnapshot.modelCount );
-    CHECK( lhs.worldSnapshot.sleepEnabled == rhs.worldSnapshot.sleepEnabled );
-    CheckVectorContentsEqual( lhs.worldSnapshot.timeRemaining, rhs.worldSnapshot.timeRemaining );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepState, rhs.worldSnapshot.sleepState );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepCounter, rhs.worldSnapshot.sleepCounter );
-    CheckVectorContentsEqual( lhs.worldSnapshot.collisionVisualContacts, rhs.worldSnapshot.collisionVisualContacts );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepIslandParent, rhs.worldSnapshot.sleepIslandParent );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepIslandRank, rhs.worldSnapshot.sleepIslandRank );
+    CHECK( lhs.worldSnapshot.physics.version == rhs.worldSnapshot.physics.version );
+    CHECK( lhs.worldSnapshot.physics.modelCount == rhs.worldSnapshot.physics.modelCount );
+    CHECK( lhs.worldSnapshot.physics.sleepEnabled == rhs.worldSnapshot.physics.sleepEnabled );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.timeRemaining, rhs.worldSnapshot.physics.timeRemaining );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepState, rhs.worldSnapshot.physics.sleepState );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepCounter, rhs.worldSnapshot.physics.sleepCounter );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.collisionVisualContacts,
+                              rhs.worldSnapshot.physics.collisionVisualContacts );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepIslandParent, rhs.worldSnapshot.physics.sleepIslandParent );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepIslandRank, rhs.worldSnapshot.physics.sleepIslandRank );
     CHECK( lhs.contactCount == rhs.contactCount );
     CHECK( lhs.pipelineRecordCount == rhs.pipelineRecordCount );
     CHECK( lhs.solverHash != 0u );

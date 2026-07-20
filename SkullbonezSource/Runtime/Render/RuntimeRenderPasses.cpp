@@ -1607,7 +1607,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     const RunReplayPredictionFrame* predictionFrame =
         ( replaySample || solverSample ) ? nullptr : snapshot.predictionFrame;
     const bool useReplayTime = replaySample != nullptr || solverSample != nullptr || predictionFrame != nullptr;
-    const Physics::TornadoSystemConfig& tornadoSystem = *snapshot.tornadoSystem;
+    const Gameplay::TornadoSystemConfig& tornadoSystem = *snapshot.tornadoSystem;
     const bool useTornadoSystem = tornadoSystem.enabled && !tornadoSystem.vortices.empty();
     const double sourceSeconds = snapshot.simulationSourceSeconds;
     if ( !m_hasLiveVisualTime || sourceSeconds < m_lastLiveVisualSourceSeconds )
@@ -1644,14 +1644,14 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     m_activeVisualVortices.clear();
     if ( useTornadoSystem )
     {
-        Physics::TornadoSystem::BuildActiveVortices( tornadoSystem, time, m_activeVisualVortices );
+        Gameplay::TornadoSystem::BuildActiveVortices( tornadoSystem, time, m_activeVisualVortices );
     }
     else
     {
-        const Physics::TornadoFieldConfig& field = *snapshot.tornadoField;
+        const Gameplay::TornadoFieldConfig& field = *snapshot.tornadoField;
         if ( field.enabled && field.radius > 1.0f && field.height > 1.0f )
         {
-            Physics::TornadoActiveVortex active;
+            Gameplay::TornadoActiveVortex active;
             active.field = field;
             active.strength = 1.0f;
             active.ageSeconds = time;
@@ -1679,9 +1679,9 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         return position.y - 64.0f;
     };
 
-    for ( const Physics::TornadoActiveVortex& activeVortex : m_activeVisualVortices )
+    for ( const Gameplay::TornadoActiveVortex& activeVortex : m_activeVisualVortices )
     {
-        const Physics::TornadoFieldConfig& field = activeVortex.field;
+        const Gameplay::TornadoFieldConfig& field = activeVortex.field;
         const float rotation = time * visual.rotationSpeed + static_cast<float>( activeVortex.sourceIndex ) * 1.73f;
         const float radius = field.radius;
         const float height = field.height;
@@ -1971,21 +1971,21 @@ void DebugOverlayPass::RenderTornadoVectorOverlay( const DebugOverlayPassInputs&
         return;
     }
 
-    const Physics::TornadoSystemConfig& tornadoSystem = *snapshot.tornadoSystem;
+    const Gameplay::TornadoSystemConfig& tornadoSystem = *snapshot.tornadoSystem;
     const bool useTornadoSystem = tornadoSystem.enabled && !tornadoSystem.vortices.empty();
     m_tornadoVectorVortices.clear();
     if ( useTornadoSystem )
     {
-        Physics::TornadoSystem::BuildActiveVortices( tornadoSystem,
-                                                     inputs.frame.tornadoElapsedSeconds,
-                                                     m_tornadoVectorVortices );
+        Gameplay::TornadoSystem::BuildActiveVortices( tornadoSystem,
+                                                      inputs.frame.tornadoElapsedSeconds,
+                                                      m_tornadoVectorVortices );
     }
     else
     {
-        const Physics::TornadoFieldConfig& field = *snapshot.tornadoField;
+        const Gameplay::TornadoFieldConfig& field = *snapshot.tornadoField;
         if ( field.enabled )
         {
-            Physics::TornadoActiveVortex active;
+            Gameplay::TornadoActiveVortex active;
             active.field = field;
             active.strength = 1.0f;
             active.ageSeconds = inputs.frame.tornadoElapsedSeconds;
@@ -1999,9 +1999,9 @@ void DebugOverlayPass::RenderTornadoVectorOverlay( const DebugOverlayPassInputs&
     constexpr int RADIUS_STEPS = 4;
     constexpr int HEIGHT_STEPS = 5;
     constexpr float PI = 3.1415926535f;
-    for ( const Physics::TornadoActiveVortex& vortex : m_tornadoVectorVortices )
+    for ( const Gameplay::TornadoActiveVortex& vortex : m_tornadoVectorVortices )
     {
-        const Physics::TornadoFieldConfig& fieldConfig = vortex.field;
+        const Gameplay::TornadoFieldConfig& fieldConfig = vortex.field;
         if ( !fieldConfig.visualizeVelocityField )
         {
             continue;
@@ -2047,7 +2047,7 @@ void DebugOverlayPass::RenderTornadoVectorOverlay( const DebugOverlayPassInputs&
                     Vector3 start( fieldConfig.center.x + cosf( angle ) * radius,
                                    y,
                                    fieldConfig.center.z + sinf( angle ) * radius );
-                    Vector3 field = Physics::TornadoField::SampleAccelerationForConfig( fieldConfig, start );
+                    Vector3 field = Gameplay::TornadoField::SampleAccelerationForConfig( fieldConfig, start );
                     const float speed = SkullbonezCore::Math::Vector::VectorMag( field );
                     if ( speed <= TOLERANCE )
                     {

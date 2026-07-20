@@ -39,7 +39,7 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
-#include "../../Physics/TornadoField.h"
+#include "../../Gameplay/TornadoField.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/Shadow.h"
 #include "RenderPresentationSettings.h"
@@ -235,6 +235,8 @@ struct RenderFrameContext
     const Physics::ColliderStore* colliders = nullptr;
     const Physics::PhysicsBodyStore* bodyStore = nullptr;
     Physics::PhysicsEngine* physicsEngine = nullptr;
+    const Gameplay::TornadoFieldConfig* tornadoField = nullptr;
+    const Gameplay::TornadoSystemConfig* tornadoSystem = nullptr;
     // Lifetime: spans borrow the frame model stores and remain valid only for
     // this synchronous render-graph execution.
     std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords;
@@ -467,8 +469,8 @@ struct TornadoVisualSnapshot
     // style and time source before the graph callback; the pass only expands
     // that snapshot into transient ribbon/dust vertices.
     const TornadoVisualSettings* visual = nullptr;
-    const Physics::TornadoSystemConfig* tornadoSystem = nullptr;
-    const Physics::TornadoFieldConfig* tornadoField = nullptr;
+    const Gameplay::TornadoSystemConfig* tornadoSystem = nullptr;
+    const Gameplay::TornadoFieldConfig* tornadoField = nullptr;
     const ReplayPresentationSample* replaySample = nullptr;
     const ReplaySolverFrameSample* solverSample = nullptr;
     const RunReplayPredictionFrame* predictionFrame = nullptr;
@@ -492,8 +494,8 @@ struct DebugOverlaySnapshot
     bool broadphaseOverlayVisible = false;
     bool tornadoVectorsVisible = false;                 // Includes per-vortex flags once another overlay wakes the pass.
     bool tornadoOverlayWorkVisible = false;             // Legacy pass wake-up predicate from global tornado vector toggles.
-    const Physics::TornadoSystemConfig* tornadoSystem = nullptr;
-    const Physics::TornadoFieldConfig* tornadoField = nullptr;
+    const Gameplay::TornadoSystemConfig* tornadoSystem = nullptr;
+    const Gameplay::TornadoFieldConfig* tornadoField = nullptr;
     bool editorOverlayWorkVisible = false;
     uint32_t physicsDebugFlags = 0u;
     int physicsDebugPipelineStageCursor = 0;
@@ -821,7 +823,7 @@ class TornadoVisualPass
     SceneTerrain& m_terrain;
     SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.
     std::vector<float> m_vertices;
-    std::vector<Physics::TornadoActiveVortex> m_activeVisualVortices;
+    std::vector<Gameplay::TornadoActiveVortex> m_activeVisualVortices;
     float m_liveVisualTimeSeconds = 0.0f;
     double m_lastLiveVisualSourceSeconds = 0.0;
     bool m_hasLiveVisualTime = false;
@@ -863,7 +865,7 @@ class DebugOverlayPass
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     std::vector<float> m_tornadoVectorLineData;
-    std::vector<Physics::TornadoActiveVortex> m_tornadoVectorVortices;
+    std::vector<Gameplay::TornadoActiveVortex> m_tornadoVectorVortices;
     // Lifetime: borrows the stable scene terrain owner and resolves its current
     // terrain after each scene load.
     SceneTerrain& m_terrain;

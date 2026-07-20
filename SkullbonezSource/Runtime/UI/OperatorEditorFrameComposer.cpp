@@ -404,7 +404,7 @@ void Render( RuntimeFrameHostView& host,
                 inspector.assetBacked = entity->asset.isAssetBacked;
             }
         }
-        const TornadoFieldConfig& tornado = sceneController.Scene().Physics().GetTornadoFieldConfig();
+        const Gameplay::TornadoFieldConfig& tornado = sceneController.Scene().Tornado().GetFieldConfig();
         facts.operatorEditorView.world = { scene.modelCount,
                                            config.runtimeCapacity.sceneObjectCapacity,
                                            scene.solverBallCount,
@@ -482,8 +482,7 @@ void Render( RuntimeFrameHostView& host,
         diagnostics.physicsDebugTransparent = debug.isPhysicsDebugTransparent;
         diagnostics.broadphaseOverlay = debug.isBroadphaseOverlay;
         diagnostics.tornadoVisualShell = renderer.TornadoVisualSettingsSnapshot().enabled;
-        diagnostics.tornadoFieldVectors =
-            sceneController.Scene().Physics().GetTornadoFieldConfig().visualizeVelocityField;
+        diagnostics.tornadoFieldVectors = sceneController.Scene().Tornado().GetFieldConfig().visualizeVelocityField;
         diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
         diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
         diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;

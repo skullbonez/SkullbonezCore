@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, and Render HAL plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the two remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 18 / 25 live tasks; 72%. |
+| Active/future progress | 19 / 25 live tasks; 76%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | M5 final `validate_full` passes in 149.05s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | Gameplay T0 is documentation-only; no repository validation required. T0 found that the varied physics gate has no tornado scene, so T1 must add a focused deterministic force witness before extraction. |
+| Last broad local gate | Gameplay T1 final `validate_full` passes in 199.48s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | Gameplay T1 is complete: direct deterministic witness, full/physics, perf/allocation, and one-process replay visual-fidelity gates pass at the final source tip. |
 
 ## Live Queue
 
-NOW. Three live plans, 25 tasks; 18 complete (72%). The remaining architecture-review campaign
+NOW. Three live plans, 25 tasks; 19 complete (76%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: gameplay-module-extraction → replay-boundary-containment. Owner
@@ -156,6 +156,10 @@ are not certified. Full evidence:
 | `tools\validate_perf.bat` (M5 final) | 106.07 s | PASS; DX12 0.7245 ms average / 1.2042 ms P99, zero gameplay/reserve policy violations |
 | `tools\run_graphics_stress.bat 1` (M5 final) | 61.99 s | PASS; 12,239 frames, 336 scene loads, graceful PID-scoped stop, empty stderr, 19 PSO misses fixed |
 | platform-profiler 10-frame probe (M5 final) | 1.28 s | PASS; exit 0, marker emission requested/enabled, empty stderr |
+| focused tornado force witness (T1) | 4.00 s | PASS; 1 case, 7 assertions, exact preserved body-state bits |
+| `tools\validate_full.bat` (T1 final) | 199.48 s | PASS; all CPU/coverage/runtime lanes, zero DX12 errors, unchanged images, 44,401-line physics CSV byte-exact |
+| `tools\validate_perf.bat` (T1) | 106.09 s | PASS; zero steady-gameplay allocations and no DX12/physics regression |
+| replay visual fidelity (T1 final, one engine generation) | 440.53 s | PASS; 2,401 ticks, causal/durable-artifact proof and all negative controls |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -163,11 +167,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `gameplay-module-extraction` T1 on `nightrunner-20th-july`.
-T0 is complete: the 82-file tornado census is recorded, binding path 2 is bound
-to a 64-record cylindrical external-force value lane at the exact current force
-stage position, and the visual move uses a content-neutral stack-scoped graph
-registration. The varied physics baseline contains no tornado scene, so T1 must
-add a focused deterministic force witness before moving the implementation,
-then preserve it exactly. E17 extended owner playtest remains parked; keep
-Legacy default until the owner explicitly authorizes a switch.
+Start `gameplay-module-extraction` T2 on `nightrunner-20th-july`. T1 is complete:
+Gameplay owns tornado simulation/config/timers, Physics has zero tornado
+vocabulary and consumes the bounded value lane, replay composes the two owner
+values, and all required gates pass without baseline refresh. T2 moves
+`TornadoVisualPass` and its settings/payload ownership into Gameplay through the
+content-neutral stack-scoped render-graph registration seam; Rendering and
+`Runtime/Render` must end with zero tornado vocabulary. E17 extended owner
+playtest remains parked; keep Legacy default until explicit owner authorization.

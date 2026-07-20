@@ -883,7 +883,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               }
               config.physicsExecution.parallel = enabled;
               config.physicsExecution.parallelApplyForces = enabled;
-              config.physicsExecution.parallelTornadoField = enabled;
+              config.physicsExecution.parallelExternalForceFields = enabled;
               config.physicsExecution.parallelNarrowphase = enabled;
               config.physicsExecution.parallelTerrainDetect = enabled;
               config.physicsExecution.parallelIntegrate = enabled;

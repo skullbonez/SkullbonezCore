@@ -166,8 +166,6 @@ PHYSICS_COLLISION_PREFIXES = (
 PHYSICS_FORCE_PREFIXES = (
     "BuoyancySystem",
     "PhysicsWorldForces",
-    "TornadoField",
-    "TornadoGameplay",
 )
 
 PHYSICS_SOLVER_PREFIXES = (
@@ -179,6 +177,7 @@ PHYSICS_SOLVER_PREFIXES = (
 )
 
 PHYSICS_STAGE_PREFIXES = (
+    "ExternalForceStage",
     "PhysicsBroadphaseStage",
     "PhysicsContactSolverStage",
     "PhysicsForceStage",
@@ -187,6 +186,11 @@ PHYSICS_STAGE_PREFIXES = (
     "PhysicsStageContexts",
     "PhysicsStepDiagnostics",
     "PhysicsTerrainStage",
+)
+
+GAMEPLAY_PREFIXES = (
+    "TornadoField",
+    "TornadoGameplay",
 )
 
 PHYSICS_DIAGNOSTICS_PREFIXES = (
@@ -273,6 +277,7 @@ SCENE_PREFIXES = (
     "SceneRequestExecution",
     "SceneSnapshotWriter",
     "AuthoredScene",
+    "AuthoredTornadoConfig",
     "AuthoredSceneParser",
     "AuthoredSceneParserAssets",
     "AuthoredSceneParserBodies",
@@ -503,6 +508,7 @@ CORE_PREFIXES = (
 
 AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
+    ("Gameplay", GAMEPLAY_PREFIXES),
     ("Physics\\Core", PHYSICS_CORE_PREFIXES),
     ("Physics\\Bodies", PHYSICS_BODY_PREFIXES),
     ("Physics\\Collision", PHYSICS_COLLISION_PREFIXES),

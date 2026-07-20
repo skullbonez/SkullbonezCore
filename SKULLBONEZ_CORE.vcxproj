@@ -296,6 +296,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp" />
       <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
@@ -516,6 +518,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoField.h" />
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoGameplay.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetKeys.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h" />
@@ -696,6 +700,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h" />
     <ClInclude Include="SkullbonezSource\Scene\AuthoredScene.h" />
+    <ClInclude Include="SkullbonezSource\Scene\AuthoredTornadoConfig.h" />
     <ClInclude Include="SkullbonezSource\Scene\AuthoredSceneParserSchema.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h" />
     <ClInclude Include="SkullbonezSource\Core\Profiler.h" />

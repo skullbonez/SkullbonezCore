@@ -41,6 +41,7 @@ Related:
 #include "SceneEntityStore.h"
 #include "SceneTerrain.h"
 #include "../../Maths/Vector3.h"
+#include "../../Gameplay/TornadoGameplay.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -159,6 +160,8 @@ class SceneWorld
     const SceneTerrain& Terrain() const;
     Physics::PhysicsEngine& Physics();
     const Physics::PhysicsEngine& Physics() const;
+    Gameplay::TornadoGameplay& Tornado();
+    const Gameplay::TornadoGameplay& Tornado() const;
 
   private:
     void ReserveForActiveSceneObjectCapacity();
@@ -178,6 +181,9 @@ class SceneWorld
     Environment::WorldEnvironment m_world;
     SceneTerrain m_terrain;
     Physics::PhysicsEngine m_physics;
+    // Scene-lifetime gameplay state is a sibling of Physics; only its bounded
+    // value frame crosses the fixed-step boundary.
+    Gameplay::TornadoGameplay m_tornadoGameplay;
     Rendering::RenderInstanceStore m_renderInstanceStore;
 };
 } // namespace Runtime

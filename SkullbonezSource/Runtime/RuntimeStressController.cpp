@@ -491,11 +491,11 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         break;
     case 19:
     {
-        TornadoFieldConfig tornadoField = models.Scene().Physics().GetTornadoFieldConfig();
+        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = models.Scene().Tornado().GetFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
         renderer.SetTornadoVisualEnabled( stress.NextInt( 2 ) != 0 );
-        models.Scene().Physics().SetTornadoFieldConfig( tornadoField );
+        models.Scene().Tornado().SetFieldConfig( tornadoField );
         break;
     }
     case 20:

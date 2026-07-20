@@ -125,13 +125,13 @@ class ReplayRestoreService
                                         char* outReason,
                                         std::size_t reasonSize )
     {
-        if ( sample.worldSnapshot.version < 1 || sample.worldSnapshot.version > 2 )
+        if ( sample.worldSnapshot.physics.version < 1 || sample.worldSnapshot.physics.version > 2 )
         {
             WriteReason( outReason, reasonSize, "unsupported snapshot version" );
             return false;
         }
 
-        if ( sample.worldSnapshot.modelCount != static_cast<int>( sample.bodies.size() ) )
+        if ( sample.worldSnapshot.physics.modelCount != static_cast<int>( sample.bodies.size() ) )
         {
             WriteReason( outReason, reasonSize, "snapshot body count mismatch" );
             return false;
@@ -182,12 +182,17 @@ class ReplayRestoreService
         physics.ClearPendingBodyImpulses();
 
         if ( !physics.RestoreReplaySolverSnapshot(
-                 sample.worldSnapshot,
+                 sample.worldSnapshot.physics,
                  Physics::MakePhysicsBodyCountFromNonNegativeInt( restoreModelCount ) ) )
         {
             SB_FATAL( "Runtime/ReplayRestore",
                       "Replay solver commit rejected the version/count values accepted during preflight" );
         }
+        context.world.Tornado().SetReplayState( sample.worldSnapshot.tornadoCaptureSeconds,
+                                                sample.worldSnapshot.tornadoEjectCooldownSeconds,
+                                                sample.worldSnapshot.tornadoConfig,
+                                                sample.worldSnapshot.tornadoSystemConfig,
+                                                sample.worldSnapshot.tornadoSystemElapsedSeconds );
 
         context.world.Environment().SetGravity( sample.world.gravity );
         context.world.Environment().SetFluidSurfaceHeight( sample.world.fluidHeight );
@@ -248,6 +253,7 @@ class ReplayRestoreService
         input.cameras = &context.world.Cameras();
         input.world = &context.world.Environment();
         input.physics = &context.world.Physics();
+        input.tornadoGameplay = &context.world.Tornado();
         input.entities = &context.world.Entities();
         input.bodyStore = &context.world.BodyStore();
         input.colliderStore = &context.world.Colliders();

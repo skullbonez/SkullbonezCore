@@ -27,6 +27,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Scene/AuthoredScene.h"
+#include "../SkullbonezSource/Gameplay/TornadoField.h"
 
 #include <cstdio>
 #include <fstream>
@@ -48,7 +49,7 @@ struct TemporaryMalformedSceneFile
 {
     const char* path = nullptr;
 
-    TemporaryMalformedSceneFile( const char* fixturePath, const char* contents ) : path( fixturePath )
+    TemporaryMalformedSceneFile( const char* fixturePath, const std::string& contents ) : path( fixturePath )
     {
         std::ofstream output( path );
         if ( !output )
@@ -72,6 +73,22 @@ void CheckLoadFailure( const SkullbonezCore::Core::SbResult& result, const char*
     CHECK( message.find( expectedMessage ) != std::string::npos );
     CHECK( message.find( path ) != std::string::npos );
     CHECK( message.find( "AuthoredScene::LoadFromFile" ) != std::string::npos );
+}
+
+std::string BuildOverCapacityTornadoScene()
+{
+    std::string scene =
+        R"({"format":"skullbonez.scene.json","version":2,"physics":true,"text":false,"cameras":[{"name":"main","position":[0,0,0],"view":[0,0,1],"up":[0,1,0]}],"tornadoSystem":{"vortices":[)";
+    for ( std::size_t index = 0; index <= SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS; ++index )
+    {
+        if ( index != 0u )
+        {
+            scene += ',';
+        }
+        scene += R"({"center":[0,0,0]})";
+    }
+    scene += "]}}";
+    return scene;
 }
 } // namespace
 
@@ -164,6 +181,17 @@ TEST_CASE( "AuthoredSceneParser: missing camera reports recoverable load failure
     CheckLoadFailure( AuthoredScene::TryLoadFromFile( missingCamera.path, scene ),
                       missingCamera.path,
                       "at least one camera" );
+}
+
+
+TEST_CASE( "AuthoredSceneParser: tornado fields over the fixed gameplay capacity fail recoverably" )
+{
+    const TemporaryMalformedSceneFile overCapacity( "unit_scene_parser_tornado_capacity.scene.json",
+                                                     BuildOverCapacityTornadoScene() );
+    AuthoredScene scene;
+    CheckLoadFailure( AuthoredScene::TryLoadFromFile( overCapacity.path, scene ),
+                      overCapacity.path,
+                      "Gameplay.TornadoGameplay tornadoSystem.vortices requested 65, capacity is 64" );
 }
 
 

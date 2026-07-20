@@ -240,9 +240,10 @@ struct RunReplayPredictionSimulationState
     // deletion condition: none, this is the end-state isolation boundary;
     // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
+    Gameplay::TornadoGameplay predictionTornadoGameplay;
     Physics::PhysicsWorldForces predictionWorldForces;
     bool predictionEngineReady = false;
-    Physics::PhysicsSolverSnapshot predictionWorld;
+    ReplaySolverWorldSnapshot predictionWorld;
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
     std::vector<RunReplayPredictionFrame> frames;
 };
@@ -459,6 +460,7 @@ class ReplayPrediction
                          int beginTickIndex,
                          int endTickIndex );
     void UpdateFrame( Physics::PhysicsEngine& physicsEngine,
+                      const Gameplay::TornadoGameplay& tornadoGameplay,
                       const SceneEntityStore& entities,
                       const SkullbonezCore::Core::EngineConfig& config,
                       const Physics::PhysicsWorldForces& worldForces,

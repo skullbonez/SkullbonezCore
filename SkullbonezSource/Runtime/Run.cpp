@@ -101,8 +101,10 @@ BuildCameraMovementSettings( const SkullbonezCore::Core::EngineConfig& cfg )
 void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                RunLaunchOptions& target,
                                RuntimeRenderer& renderer,
-                               PhysicsEngine& physics )
+                               SceneWorld& sceneWorld )
 {
+    PhysicsEngine& physics = sceneWorld.Physics();
+    SkullbonezCore::Gameplay::TornadoGameplay& tornadoGameplay = sceneWorld.Tornado();
     target.allocationGuardMode = launch.allocationGuardMode;
     if ( CoreAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
     {
@@ -133,9 +135,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        TornadoFieldConfig tornadoField = physics.GetTornadoFieldConfig();
+        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = tornadoGameplay.GetFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
-        physics.SetTornadoFieldConfig( tornadoField );
+        tornadoGameplay.SetFieldConfig( tornadoField );
         if ( renderer.TornadoVisualAutoEnableWithTornado() )
         {
             renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
@@ -144,9 +146,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        TornadoFieldConfig tornadoField = physics.GetTornadoFieldConfig();
+        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = tornadoGameplay.GetFieldConfig();
         tornadoField.visualizeVelocityField = true;
-        physics.SetTornadoFieldConfig( tornadoField );
+        tornadoGameplay.SetFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -383,7 +385,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Scene().Physics() );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Scene() );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     ApplyDevelopmentUiMode();
 #endif
