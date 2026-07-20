@@ -285,7 +285,6 @@ void SceneWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& c
 
 
 ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt,
-                                                    const SkullbonezCore::Core::EngineConfig& config,
                                                     const Physics::PhysicsWorldForces& worldForces,
                                                     Threading::WorkerPool& workerPool )
 {
@@ -309,8 +308,7 @@ ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt,
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
 #endif
-    m_physics
-        .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+    m_physics.Step( fixedDt, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
 
     return ScenePhysicsPostStepOutput{ Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) };
 }

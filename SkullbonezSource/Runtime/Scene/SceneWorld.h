@@ -102,10 +102,8 @@ class SceneWorld
     void CompletePhysicsStepPresentationCapture();
     // Executes the deterministic live/replay physics boundary. Returned dense
     // rows are valid only for the synchronous presentation handoff.
-    ScenePhysicsPostStepOutput StepPhysics( float fixedDt,
-                                            const SkullbonezCore::Core::EngineConfig& config,
-                                            const Physics::PhysicsWorldForces& worldForces,
-                                            Threading::WorkerPool& workerPool );
+    ScenePhysicsPostStepOutput
+    StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool );
     void PrepareRenderInstances( float presentationAlpha = 1.0f );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();

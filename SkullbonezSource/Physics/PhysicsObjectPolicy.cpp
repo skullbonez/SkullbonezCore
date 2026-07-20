@@ -1,12 +1,12 @@
 /*
 File: SkullbonezSource/Physics/PhysicsObjectPolicy.cpp
 Purpose:
-  Converts runtime config into small per-object physics policy values.
+  Converts stamped runtime settings into small per-object physics policy values.
 
 Summary:
-  Runtime config is broad process input. Physics object policy is the narrow
-  value vocabulary copied into body and collider descriptors before simulation
-  stores consume it.
+  Physics runtime settings are the owner-local snapshot. Physics object policy
+  is the narrow value vocabulary copied into body and collider descriptors
+  before simulation stores consume it.
 
 Glossary:
   Physics material: Friction and drag coefficients used by body/collider rows.
@@ -14,7 +14,7 @@ Glossary:
   Contact policy: Terrain/contact thresholds shared by body-store force logic.
 
 Invariants:
-  - These helpers allocate nothing and read only the supplied config snapshot.
+  - These helpers allocate nothing and read only supplied Physics settings.
   - The returned structs are value policy, not ownership handles.
 
 Related:
@@ -24,34 +24,34 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "PhysicsObjectPolicy.h"
-#include "../Core/Config.h"
 
 
 namespace SkullbonezCore
 {
 namespace Physics
 {
-PhysicsMaterial PhysicsMaterial::FromConfig( const SkullbonezCore::Core::EngineConfig& config )
+PhysicsMaterial PhysicsMaterial::FromSettings( const PhysicsMaterialSettings& settings )
 {
     PhysicsMaterial material;
-    material.frictionCoefficient = config.physicsMaterial.frictionCoeff;
-    material.sphereDragCoefficient = config.physicsMaterial.sphereDragCoeff;
+    material.frictionCoefficient = settings.terrainFrictionCoefficient;
+    material.sphereDragCoefficient = settings.sphereDragCoefficient;
     return material;
 }
 
-BodySimulationLimits BodySimulationLimits::FromConfig( const SkullbonezCore::Core::EngineConfig& config )
+BodySimulationLimits BodySimulationLimits::FromSettings( const BodySimulationSettings& settings )
 {
     BodySimulationLimits limits;
-    limits.angularVelocityLimit = config.bodySimulation.velocityLimit;
+    limits.angularVelocityLimit = settings.angularVelocityLimit;
     return limits;
 }
 
-ContactPolicy ContactPolicy::FromConfig( const SkullbonezCore::Core::EngineConfig& config )
+ContactPolicy ContactPolicy::FromSettings( const BodySimulationSettings& bodySettings,
+                                           const TerrainContactSettings& terrainSettings )
 {
     ContactPolicy policy;
-    policy.contactEpsilon = config.bodySimulation.contactEpsilon;
-    policy.terrainContactThreshold = config.terrainContact.threshold;
-    policy.restitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
+    policy.contactEpsilon = bodySettings.contactEpsilon;
+    policy.terrainContactThreshold = terrainSettings.threshold;
+    policy.restitutionThreshold = bodySettings.contactRestitutionThreshold;
     return policy;
 }
 } // namespace Physics

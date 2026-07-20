@@ -139,7 +139,7 @@ ASSET_PREFIXES = (
 PHYSICS_CORE_PREFIXES = (
     "PhysicsApi",
     "PhysicsEngine",
-    "PhysicsScene",
+    "PhysicsRuntimeSettings",
     "PhysicsSolverSnapshot",
     "PhysicsWorld",
 )

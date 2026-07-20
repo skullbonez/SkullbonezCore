@@ -53,6 +53,7 @@ Related:
 #include "PhysicsDebugData.h"
 #include "Ragdoll.h"
 #include "PhysicsSolverSnapshot.h"
+#include "PhysicsRuntimeSettings.h"
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "Stages/PhysicsBroadphaseStage.h"
@@ -70,7 +71,6 @@ namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 class Profiler;
 } // namespace Core
 namespace Runtime
@@ -154,7 +154,7 @@ class PhysicsWorld
     void RunSolverPhysics( PhysicsBodyStore& bodyStore,
                            const ColliderStore& colliderStore,
                            float dt,
-                           const SkullbonezCore::Core::EngineConfig& config,
+                           const PhysicsRuntimeSettings& settings,
                            const PhysicsWorldForces& worldForces,
                            Threading::WorkerPool& workerPool,
                            bool probeDormantUnderwaterLocks );
@@ -165,14 +165,14 @@ class PhysicsWorld
                                const ColliderStore& colliderStore,
                                const PhysicsWorldForces& worldForces,
                                float dt,
-                               const SkullbonezCore::Core::EngineConfig& runtimeConfig,
+                               const PhysicsExecutionSettings& execution,
                                Threading::WorkerPool& workerPool );
 
   public:
     PhysicsWorld();
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
-    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+    void ApplyRuntimeSettings( const PhysicsRuntimeSettings& settings );
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
     // Runs one fixed world step over the stores. Collision diagnostics append
@@ -180,7 +180,7 @@ class PhysicsWorld
     void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
                      float fChangeInTime,
-                     const SkullbonezCore::Core::EngineConfig& config,
+                     const PhysicsRuntimeSettings& settings,
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the

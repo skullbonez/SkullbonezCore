@@ -1,6 +1,6 @@
 # Physics Settings Snapshot
 
-Status: In progress — 1/4 tasks (C0-C3)
+Status: In progress — 2/4 tasks (C0-C3)
 Owner: repository owner; registered 2026-07-20 as campaign plan 3 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding B)
 Ledger: C0-C3
@@ -161,7 +161,7 @@ Negative census findings are binding for C1:
   spatial grid), grouped by proposed owner sub-value, with the exact
   config-field provenance table. Output: table committed into this plan.
   No validation (documentation).
-- [ ] C1 — Introduce `PhysicsRuntimeSettings` + sub-values, stamp in
+- [x] C1 — Introduce `PhysicsRuntimeSettings` + sub-values, stamp in
   `ApplyRuntimeConfig`, thread through `RunPhysics`, stage contexts
   (`PhysicsStageContexts.h`), and solver entry points; delete every
   `EngineConfig` include/parameter from `Physics/` fixed-step code. Proof:
@@ -180,6 +180,34 @@ Negative census findings are binding for C1:
   semantics preserved), final gates, provenance table reconciled against
   final source. Validation: `tools\validate_physics.bat`,
   `tools\validate_perf.bat`, `tools\validate_full.bat` at closure tip.
+
+## C1 Evidence — 2026-07-20
+
+- `PhysicsRuntimeSettings.h` now owns eight domain sub-values and the exact 27
+  inventoried fields. `PhysicsEngine::RuntimeSettingsFromConfig` is the sole
+  field-by-field conversion seam, and `ApplyRuntimeConfig` stores that value
+  once before applying cold authored-body, broadphase, and sleep policy.
+- `PhysicsEngine::Step`, `PhysicsWorld`, broadphase, force, narrowphase,
+  terrain, contact-solver, sleep, tornado, live scene, replay prediction, and
+  focused test fixtures consume Physics-owned settings or narrower sub-values.
+- Exact negative proof:
+  `rg -n "EngineConfig|Core/Config\\.h|PhysicsExecutionConfig|PhysicsSleepConfig" SkullbonezSource/Physics`
+  returns only `PhysicsEngine.h/.cpp` declarations/definitions and the one
+  `Core/Config.h` include needed by the cold converter.
+- The touched-file comment-style audit inspected 32 existing source/tool files
+  plus the new settings header: 33 checked, 0 deferred. Every file has
+  the required learning-header sections; the stamp boundary adds a nearby
+  `Concept:` comment and the new value header records ownership/lifetime
+  invariants.
+- Validation: `tools\validate_physics.bat` passed in 79.83 s with the 44,401-line
+  varied-scene CSV byte-exact; `tools\validate_perf.bat` passed in 109.20 s
+  with zero allocation violations and no DX12/physics-benchmark regression;
+  the one-process replay visual-fidelity generation completed in 391.01 s and
+  every documented offline/negative control passed; `tools\validate_full.bat`
+  passed in 143.12 s with all CPU, coverage, runtime, DX12, and physics lanes.
+- A pre-existing facade-closure allowlist row still named deleted
+  `PhysicsScene` files. It was repaired separately in `7cd9ca5f`; self-test,
+  repository scan, and `validate_fast` all pass with zero allowlist errors.
 
 ## Acceptance
 

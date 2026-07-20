@@ -1165,7 +1165,7 @@ bool StepReplayRestoreTarget( ReplayRestoreStepContext& context,
         SkullbonezCore::Rendering::RenderInstanceStore& contactPresentation = context.world.MutableRenderInstances();
         contactPresentation.TickContactFeedback( context.world.SceneEntityCount(), PHYSICS_FIXED_DT );
         const ScenePhysicsPostStepOutput postStep =
-            context.world.StepPhysics( PHYSICS_FIXED_DT, context.config, physicsWorldForces, context.workerPool );
+            context.world.StepPhysics( PHYSICS_FIXED_DT, physicsWorldForces, context.workerPool );
         // Replay target stepping consumes the same bounded presentation events
         // as the live frame so presentation hashes cannot drift by call path.
         for ( int modelIndex : postStep.fixedContactModelIndices )

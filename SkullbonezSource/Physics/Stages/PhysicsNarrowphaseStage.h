@@ -39,6 +39,7 @@ Related:
 #include "../PersistentContactSolver.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDebugData.h"
+#include "../PhysicsRuntimeSettings.h"
 #include "PhysicsSleepController.h"
 
 namespace SkullbonezCore
@@ -46,7 +47,6 @@ namespace SkullbonezCore
 namespace Core
 {
 class Profiler;
-struct PhysicsExecutionConfig;
 } // namespace Core
 
 namespace Threading
@@ -173,7 +173,7 @@ class PhysicsNarrowphaseStage
     bool TryRunParallel( const ObjectNarrowphasePairStageContext& context,
                          int candidatePairCount,
                          int modelCount,
-                         const Core::PhysicsExecutionConfig& execution,
+                         const PhysicsExecutionSettings& execution,
                          Threading::WorkerPool& workerPool );
     std::span<const ObjectNarrowphaseEvent> GetEvents() const;
     uint64_t CollectDynamicMemoryBytes() const;

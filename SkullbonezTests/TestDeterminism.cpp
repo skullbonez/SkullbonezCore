@@ -388,7 +388,6 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
 
 void StepMicroWorldWith( PhysicsEngine& engine,
                          int ticks,
-                         const SkullbonezCore::Core::EngineConfig& config,
                          const PhysicsWorldForces& forces,
                          int workerThreadCount = 0 )
 {
@@ -401,7 +400,6 @@ void StepMicroWorldWith( PhysicsEngine& engine,
     for ( int tick = 0; tick < ticks; ++tick )
     {
         engine.Step( PHYSICS_FIXED_DT,
-                     config,
                      forces,
                      workerPool,
                      nullptr,
@@ -412,9 +410,8 @@ void StepMicroWorldWith( PhysicsEngine& engine,
 
 void StepMicroWorld( PhysicsEngine& engine, int ticks )
 {
-    const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
-    StepMicroWorldWith( engine, ticks, config, forces );
+    StepMicroWorldWith( engine, ticks, forces );
 }
 
 void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs );
@@ -462,9 +459,9 @@ void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
     seedField( *fourWorkers );
     const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
 
-    StepMicroWorldWith( *serial, ticks, config, forces, 0 );
-    StepMicroWorldWith( *oneWorker, ticks, config, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, ticks, config, forces, 4 );
+    StepMicroWorldWith( *serial, ticks, forces, 0 );
+    StepMicroWorldWith( *oneWorker, ticks, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, ticks, forces, 4 );
 
     CheckEngineKinematicsEqual( *serial, *oneWorker );
     CheckEngineKinematicsEqual( *serial, *fourWorkers );
@@ -962,9 +959,9 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     SeedParallelContactSleepWorld( *fourWorkers, config );
     const PhysicsWorldForces forces = DeterministicForces();
 
-    StepMicroWorldWith( *serial, 1, config, forces, 0 );
-    StepMicroWorldWith( *oneWorker, 1, config, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, 1, config, forces, 4 );
+    StepMicroWorldWith( *serial, 1, forces, 0 );
+    StepMicroWorldWith( *oneWorker, 1, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, 1, forces, 4 );
     // Invariant: the fixture must keep the parallel-narrowphase threshold
     // active. A geometry/filter drift to 255 pairs would otherwise let every
     // worker-count comparison pass through the serial fallback.
@@ -973,9 +970,9 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
     CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
 
-    StepMicroWorldWith( *serial, 30, config, forces, 0 );
-    StepMicroWorldWith( *oneWorker, 30, config, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, 30, config, forces, 4 );
+    StepMicroWorldWith( *serial, 30, forces, 0 );
+    StepMicroWorldWith( *oneWorker, 30, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, 30, forces, 4 );
     CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
     CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
 
@@ -996,11 +993,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
                              5.0f,
                              0.5f );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 120.0f, 0.25f );
 
-    StepMicroWorldWith( pairWorld, 1, config, forces );
+    StepMicroWorldWith( pairWorld, 1, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( pairWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( pairWorld, 1 );
     CHECK( left.linearVelocity.x > 0.0f );
@@ -1023,11 +1018,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
                              3.0f,
                              0.01f );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 1000.0f, 5.0f );
 
-    StepMicroWorldWith( closeWorld, 1, config, forces );
+    StepMicroWorldWith( closeWorld, 1, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( closeWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( closeWorld, 1 );
     CHECK( std::isfinite( left.linearVelocity.x ) );
@@ -1059,11 +1052,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
                              mass,
                              0.5f );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( gravitationalConstant, softeningLength );
 
-    StepMicroWorldWith( orbitWorld, 300, config, forces );
+    StepMicroWorldWith( orbitWorld, 300, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( orbitWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( orbitWorld, 1 );
     const Vector3 barycenter = ( left.position + right.position ) * 0.5f;
@@ -1110,8 +1101,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
     seedTriple( first );
     seedTriple( second );
     const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
-    StepMicroWorldWith( first, 240, config, forces );
-    StepMicroWorldWith( second, 240, config, forces );
+    StepMicroWorldWith( first, 240, forces );
+    StepMicroWorldWith( second, 240, forces );
     CheckEngineKinematicsEqual( first, second );
 }
 
@@ -1143,13 +1134,11 @@ TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves clos
                              mass,
                              radius );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     PhysicsWorldForces forces = MutualGravityForces( 0.001f, 1.0f );
     REQUIRE( forces.mutualGravity.elasticCollisions );
 
     const float initialEnergy = TotalKineticEnergy( collisionWorld );
-    StepMicroWorldWith( collisionWorld, 1, config, forces );
+    StepMicroWorldWith( collisionWorld, 1, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( collisionWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( collisionWorld, 1 );
     const float finalEnergy = TotalKineticEnergy( collisionWorld );
@@ -1168,7 +1157,7 @@ TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetra
 
     const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
-    StepMicroWorldWith( settled, kPenetrationSettleTicks, config, forces );
+    StepMicroWorldWith( settled, kPenetrationSettleTicks, forces );
 
     CheckTerrainPenetrationWithinTolerance( settled, config );
 }
@@ -1180,10 +1169,6 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
     PhysicsEngine& damped = *dampedStorage;
     SeedMicroWorld( damped );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
-    config.worldForces.fluidDensity = 2.0f;
-    config.worldForces.fluidAngularDragMultiplier = 2.0f;
     const PhysicsWorldForces forces = DampingForces();
 
     const float initialEnergy = TotalKineticEnergy( damped );
@@ -1192,7 +1177,7 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
     float previousEnergy = initialEnergy;
     for ( int tick = 0; tick < 12; ++tick )
     {
-        StepMicroWorldWith( damped, 1, config, forces );
+        StepMicroWorldWith( damped, 1, forces );
         const float currentEnergy = TotalKineticEnergy( damped );
         CHECK( currentEnergy <= previousEnergy + kDampingEnergyTolerance );
         previousEnergy = currentEnergy;
@@ -1208,8 +1193,6 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
     SeedMicroWorld( sleepWorld );
     sleepWorld.SetSleepEnabled( true );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = NoGravityForces();
 
     const PhysicsBodyHandle body = RequireBodyHandle( sleepWorld, 0 );
@@ -1222,7 +1205,7 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
     CHECK( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
-    StepMicroWorldWith( sleepWorld, 1, config, forces );
+    StepMicroWorldWith( sleepWorld, 1, forces );
     CHECK( RequireBodyHotState( sleepWorld, 0 ).position.x > positionBeforeWake.x );
 }
 
@@ -1239,7 +1222,7 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
     const PhysicsWorldForces forces = DeterministicForces();
 
     SeedSupportedSleepWorld( sleepWorld, config );
-    StepMicroWorldWith( sleepWorld, config.physicsSleep.frames + 24, config, forces );
+    StepMicroWorldWith( sleepWorld, config.physicsSleep.frames + 24, forces );
 
     CHECK_FALSE( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
@@ -1250,7 +1233,7 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
     CHECK( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
-    StepMicroWorldWith( sleepWorld, 1, config, forces );
+    StepMicroWorldWith( sleepWorld, 1, forces );
     CHECK( RequireBodyHotState( sleepWorld, 0 ).position.x > positionBeforeWake.x );
 }
 

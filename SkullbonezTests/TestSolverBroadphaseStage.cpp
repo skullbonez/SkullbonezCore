@@ -206,7 +206,7 @@ TEST_CASE( "Physics force stage: mutual gravity respects fixed sleeping and mass
     worldForces.mutualGravity.enabled = true;
     worldForces.mutualGravity.gravitationalConstant = 1.0f;
     worldForces.mutualGravity.softeningLength = 0.1f;
-    SkullbonezCore::Core::PhysicsExecutionConfig execution;
+    SkullbonezCore::Physics::PhysicsExecutionSettings execution;
     execution.parallel = false;
     LockOrderValidator lockOrderValidator;
     WorkerPool inlinePool( lockOrderValidator );
@@ -237,7 +237,7 @@ TEST_CASE( "Property invariant: mutual gravity obeys Newton-pair antisymmetry [s
     PhysicsBodyStore& bodyStore = TestBodyStore();
     PhysicsForceStage stage;
     stage.ReserveBodyScratchCapacity( 2u );
-    SkullbonezCore::Core::PhysicsExecutionConfig execution;
+    SkullbonezCore::Physics::PhysicsExecutionSettings execution;
     execution.parallel = false;
     LockOrderValidator lockOrderValidator;
     WorkerPool inlinePool( lockOrderValidator );

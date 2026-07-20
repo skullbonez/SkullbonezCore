@@ -36,7 +36,6 @@ Related:
 #include "PhysicsBroadphaseStage.h"
 
 #include "../../Assets/AssetKeys.h"
-#include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/SceneCapacity.h"
@@ -421,9 +420,9 @@ PhysicsBroadphaseStage::PhysicsBroadphaseStage() : m_spatialGrid( DEFAULT_BROADP
 }
 
 
-void PhysicsBroadphaseStage::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
+void PhysicsBroadphaseStage::ApplyRuntimeSettings( const BroadphaseSettings& settings )
 {
-    const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, config.broadphase.cellSize );
+    const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, settings.cellSize );
     if ( configuredCell != m_spatialGrid.GetCellSize() )
     {
         m_gridMembershipSeeded = false;
@@ -520,7 +519,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
 
         // Why: a fixed 24m cell made the 200-brick wall share huge buckets.
         // Deterministic scene inputs choose a cell no larger than the config cap.
-        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, context.config.broadphase.cellSize );
+        const float configuredCell = (std::max)( BROADPHASE_MIN_CELL_SIZE, context.settings.broadphase.cellSize );
         const float sceneCell =
             (std::max)( BROADPHASE_MIN_CELL_SIZE, ( m_largestBroadphaseRadius + context.contactSkin ) * 2.0f );
         const float selectedCellSize = (std::min)( configuredCell, sceneCell );
@@ -637,7 +636,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                                                  context.hotFields,
                                                                  context.colliderRecords,
                                                                  context.awakeBodyIndices,
-                                                                 context.config.bodySimulation.contactEpsilon );
+                                                                 context.settings.body.contactEpsilon );
 #if defined( _DEBUG )
         if ( m_pairOracleEnabled )
         {
@@ -646,7 +645,7 @@ std::span<const std::pair<int, int>> PhysicsBroadphaseStage::Run( const PhysicsB
                                        context.hotFields,
                                        context.colliderRecords,
                                        context.awakeBodyIndices,
-                                       context.config.bodySimulation.contactEpsilon );
+                                       context.settings.body.contactEpsilon );
         }
 #endif
     }

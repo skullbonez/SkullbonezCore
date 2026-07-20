@@ -26,7 +26,6 @@ Related:
 */
 #include "PhysicsContactSolverStage.h"
 
-#include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
@@ -178,7 +177,7 @@ void PhysicsContactSolverStage::Solve( const PhysicsContactSolverStageContext& c
                                                   context.bodyStoreCount,
                                                   context.pipelineRecordCapacity,
                                                   elasticCollisions,
-                                                  context.config,
+                                                  context.settings,
                                                   context.profiler };
     m_contactSolver.Solve( solverContext, dt );
 }

@@ -40,6 +40,7 @@ Related:
 
 #include "../PersistentContactSolver.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsRuntimeSettings.h"
 #include "../PhysicsDebugData.h"
 #include "../TerrainContactManifold.h"
 #include "../PhysicsSolverSnapshot.h"
@@ -48,7 +49,6 @@ namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 class Profiler;
 } // namespace Core
 
@@ -147,7 +147,7 @@ struct PersistentContactSolverContext
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
     bool elasticCollisions = false;
-    const Core::EngineConfig& config;
+    const PhysicsRuntimeSettings& settings;
     Core::Profiler* profiler = nullptr;
 };
 
@@ -157,7 +157,7 @@ struct PhysicsContactSolverStageContext
     // borrowed owner state after Solve returns.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
-    const Core::EngineConfig& config;
+    const PhysicsRuntimeSettings& settings;
     const PhysicsWorldForces& worldForces;
     std::span<const std::pair<int, int>> candidatePairs;
     std::span<const uint8_t> sleepState;

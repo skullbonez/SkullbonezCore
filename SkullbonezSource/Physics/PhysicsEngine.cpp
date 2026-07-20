@@ -40,6 +40,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsEngine.h
 */
 #include "PhysicsEngine.h"
+#include "../Core/Config.h"
 #include "../Core/SceneCapacity.h"
 #include "PhysicsApi.h"
 
@@ -77,6 +78,7 @@ using SkullbonezCore::Physics::PhysicsDebugContact;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsPipelineRecord;
+using SkullbonezCore::Physics::PhysicsRuntimeSettings;
 using SkullbonezCore::Physics::PointJointConstraint;
 
 
@@ -149,15 +151,52 @@ void PhysicsEngine::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noe
 
 void PhysicsEngine::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
-    m_physicsMaterial = PhysicsMaterial::FromConfig( config );
-    m_bodySimulationLimits = BodySimulationLimits::FromConfig( config );
-    m_contactPolicy = ContactPolicy::FromConfig( config );
-    m_world.ApplyRuntimeConfig( config );
+    // Concept: this is the one process-config-to-Physics stamp boundary. Every
+    // fixed-step consumer below receives values owned by PhysicsEngine.
+    m_runtimeSettings = RuntimeSettingsFromConfig( config );
+    m_physicsMaterial = PhysicsMaterial::FromSettings( m_runtimeSettings.material );
+    m_bodySimulationLimits = BodySimulationLimits::FromSettings( m_runtimeSettings.body );
+    m_contactPolicy = ContactPolicy::FromSettings( m_runtimeSettings.body, m_runtimeSettings.terrain );
+    m_world.ApplyRuntimeSettings( m_runtimeSettings );
     m_colliderStore.ApplyPhysicsMaterial( m_physicsMaterial );
     for ( PhysicsBodyCreateDesc& desc : m_authoredBodyDescs )
     {
         ApplyAuthoredBodyPolicy( desc );
     }
+}
+
+
+PhysicsRuntimeSettings PhysicsEngine::RuntimeSettingsFromConfig( const SkullbonezCore::Core::EngineConfig& config )
+{
+    PhysicsRuntimeSettings settings;
+    settings.material.sphereDragCoefficient = config.physicsMaterial.sphereDragCoeff;
+    settings.material.terrainFrictionCoefficient = config.physicsMaterial.frictionCoeff;
+    settings.material.objectFrictionCoefficient = config.physicsMaterial.objectFrictionCoeff;
+    settings.material.rollingFrictionCoefficient = config.physicsMaterial.rollingFrictionCoeff;
+    settings.body.angularVelocityLimit = config.bodySimulation.velocityLimit;
+    settings.body.contactRestitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
+    settings.body.contactEpsilon = config.bodySimulation.contactEpsilon;
+    settings.solver.slop = config.persistentContactSolver.slop;
+    settings.solver.baumgarteBeta = config.persistentContactSolver.baumgarteBeta;
+    settings.solver.positionCorrectionPercent = config.persistentContactSolver.positionCorrectionPercent;
+    settings.solver.iterations = config.persistentContactSolver.iterations;
+    settings.terrain.threshold = config.terrainContact.threshold;
+    settings.terrain.slop = config.terrainContact.slop;
+    settings.terrain.baumgarteBeta = config.terrainContact.baumgarteBeta;
+    settings.terrain.maxBaumgarteBias = config.terrainContact.maxBaumgarteBias;
+    settings.sleep.linearSpeed = config.physicsSleep.linearSpeed;
+    settings.sleep.angularSpeed = config.physicsSleep.angularSpeed;
+    settings.sleep.frames = config.physicsSleep.frames;
+    settings.broadphase.cellSize = config.broadphase.cellSize;
+    settings.execution.parallel = config.physicsExecution.parallel;
+    settings.execution.parallelApplyForces = config.physicsExecution.parallelApplyForces;
+    settings.execution.parallelMutualGravity = config.physicsExecution.parallelMutualGravity;
+    settings.execution.parallelTornadoField = config.physicsExecution.parallelTornadoField;
+    settings.execution.parallelNarrowphase = config.physicsExecution.parallelNarrowphase;
+    settings.execution.parallelTerrainDetect = config.physicsExecution.parallelTerrainDetect;
+    settings.execution.parallelIntegrate = config.physicsExecution.parallelIntegrate;
+    settings.worldForces.gravity = config.worldForces.gravity;
+    return settings;
 }
 
 
@@ -543,7 +582,6 @@ void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
 
 
 void PhysicsEngine::Step( float fChangeInTime,
-                          const SkullbonezCore::Core::EngineConfig& config,
                           const PhysicsWorldForces& worldForces,
                           Threading::WorkerPool& workerPool,
                           const char* const* diagnosticNames,
@@ -553,7 +591,7 @@ void PhysicsEngine::Step( float fChangeInTime,
     m_lastWorldForces = worldForces;
     m_hasLastWorldForces = true;
 
-    m_world.RunPhysics( m_bodyStore, m_colliderStore, fChangeInTime, config, worldForces, workerPool );
+    m_world.RunPhysics( m_bodyStore, m_colliderStore, fChangeInTime, m_runtimeSettings, worldForces, workerPool );
 
     ApplyFixedTreeReleaseEvents( worldForces );
 

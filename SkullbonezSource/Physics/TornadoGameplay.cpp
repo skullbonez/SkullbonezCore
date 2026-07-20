@@ -30,7 +30,6 @@ Related:
 #include "TornadoGameplay.h"
 #include "Stages/PhysicsSleepController.h"
 
-#include "../Core/Config.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 #include "ColliderStore.h"
@@ -354,8 +353,7 @@ void TornadoGameplay::ApplyBodyForces( const TornadoGameplayStepState& stepState
         hotFields.linearVelocityZ[bodyIndex] = velocity.z;
     };
 
-    if ( context.runtimeConfig.physicsExecution.parallel &&
-         context.runtimeConfig.physicsExecution.parallelTornadoField )
+    if ( context.execution.parallel && context.execution.parallelTornadoField )
     {
         context.workerPool.ParallelForNoAlloc( 0,
                                                modelCount,

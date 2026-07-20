@@ -55,7 +55,6 @@
 #include <cmath>
 #include <vector>
 
-using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
@@ -120,7 +119,7 @@ struct SolverFixture
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;
     PersistentContactSolverSideEffects sideEffects;
-    SkullbonezCore::Core::EngineConfig config;
+    SkullbonezCore::Physics::PhysicsRuntimeSettings config;
     PersistentContactSolver solver;
 
     SolverFixture() : bodyStore( TestBodyStore() ), colliderRecords( TestColliderRecords() )
@@ -129,14 +128,14 @@ struct SolverFixture
         // mirror that owner precondition so focused solver tests cannot hide a
         // growth path behind their smaller fixture vector.
         sleepSupportEdges.reserve( MAX_SLEEP_SUPPORT_EDGES );
-        config.physicsExecution.parallel = false;
+        config.execution.parallel = false;
         config.worldForces.gravity = -30.0f;
-        config.physicsMaterial.frictionCoeff = 0.2f;
-        config.bodySimulation.contactRestitutionThreshold = 0.1f;
-        config.terrainContact.slop = 0.0f;
-        config.terrainContact.baumgarteBeta = 0.25f;
-        config.terrainContact.maxBaumgarteBias = 6.0f;
-        config.persistentContactSolver.iterations = 12;
+        config.material.terrainFrictionCoefficient = 0.2f;
+        config.body.contactRestitutionThreshold = 0.1f;
+        config.terrain.slop = 0.0f;
+        config.terrain.baumgarteBeta = 0.25f;
+        config.terrain.maxBaumgarteBias = 6.0f;
+        config.solver.iterations = 12;
     }
 
     void AddDynamicSphere( const Vector3& position, const Vector3& linearVelocity, float restitution = 0.0f )
@@ -160,7 +159,7 @@ struct SolverFixture
         collider.shapeKind = ColliderShapeKind::Sphere;
         collider.boundingRadius = radius;
         collider.restitution = restitution;
-        collider.friction = config.physicsMaterial.frictionCoeff;
+        collider.friction = config.material.terrainFrictionCoefficient;
         colliderRecords.push_back( collider );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -192,7 +191,7 @@ struct SolverFixture
         collider.shape = CollisionShape( BoundingBox( halfExtents, Vector3() ) );
         collider.shapeKind = ColliderShapeKind::Box;
         collider.boundingRadius = body.hot.boundingRadius;
-        collider.friction = config.physicsMaterial.frictionCoeff;
+        collider.friction = config.material.terrainFrictionCoefficient;
         colliderRecords.push_back( collider );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -303,7 +302,7 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
     const float terrainWarmStart =
         fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
-    const float frictionLimit = fixture.config.physicsMaterial.frictionCoeff *
+    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient *
                                 ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
     CHECK( tangentMagnitude > 0.0f );
     CHECK( tangentMagnitude <= frictionLimit + 0.0001f );
@@ -318,7 +317,7 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     fixture.Solve();
 
     REQUIRE( fixture.debugContacts.size() == 1u );
-    CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.bodySimulation.contactRestitutionThreshold );
+    CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.body.contactRestitutionThreshold );
     CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
@@ -346,7 +345,7 @@ TEST_CASE( "Property invariant: friction and restitution outputs stay bounded [s
         const float closingSpeed = random.Float( 0.5f, 12.0f );
         const float restitution = random.Float( 0.0f, 1.0f );
         SolverFixture fixture;
-        fixture.config.bodySimulation.contactRestitutionThreshold = 0.0f;
+        fixture.config.body.contactRestitutionThreshold = 0.0f;
         fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -closingSpeed, 0.0f ), restitution );
         fixture.AddTerrainContact( 0, static_cast<uint32_t>( sample + 1 ), 0.0f );
         fixture.Solve();
@@ -383,7 +382,7 @@ TEST_CASE( "Persistent contact solver: a box gains sleep support only after topp
                                          edge.colliderRecords[1].shape,
                                          0,
                                          1,
-                                         edge.config.bodySimulation.contactEpsilon,
+                                         edge.config.body.contactEpsilon,
                                          edgeManifold ) );
     REQUIRE( edgeManifold.pointCount <= 2u );
     CHECK( fabsf( edgeManifold.normal.y ) > 0.25f );

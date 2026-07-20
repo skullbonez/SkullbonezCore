@@ -40,6 +40,7 @@ Related:
 #include "ColliderStore.h"
 #include "PhysicsBodyStore.h"
 #include "PhysicsObjectPolicy.h"
+#include "PhysicsRuntimeSettings.h"
 #include "PhysicsWorld.h"
 #include "PhysicsWorldForces.h"
 
@@ -74,6 +75,9 @@ class PhysicsEngine
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+    // Cold conversion seam used by config stamping and field-faithfulness tests.
+    // Fixed-step code receives only the returned Physics-owned value snapshot.
+    static PhysicsRuntimeSettings RuntimeSettingsFromConfig( const SkullbonezCore::Core::EngineConfig& config );
     // Stamps the PhysicsEngine-owned runtime policy onto cold authoring
     // descriptors before they become store rows.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
@@ -123,7 +127,6 @@ class PhysicsEngine
     // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
     // authority instead of letting physics reach through global logging.
     void Step( float deltaSeconds,
-               const SkullbonezCore::Core::EngineConfig& config,
                const PhysicsWorldForces& worldForces,
                Threading::WorkerPool& workerPool,
                const char* const* diagnosticNames,
@@ -217,6 +220,7 @@ class PhysicsEngine
     PhysicsMaterial m_physicsMaterial;                      // Runtime material policy copied into body/collider descriptors.
     BodySimulationLimits m_bodySimulationLimits;            // Runtime body caps copied at authoring/import boundaries.
     ContactPolicy m_contactPolicy;                          // Runtime contact thresholds copied at authoring/import boundaries.
+    PhysicsRuntimeSettings m_runtimeSettings;               // Physics-owned process settings stamped before fixed stepping.
     PhysicsWorldForces m_lastWorldForces;                   // Last real step boundary forces used by explicit wake commands.
     bool m_hasLastWorldForces = false;                      // False until the first physics step supplies world forces.
     std::vector<int> m_fixedTreeReleaseWakeBodies;          // Reused owner-edge wake list; avoids release-time allocation churn.

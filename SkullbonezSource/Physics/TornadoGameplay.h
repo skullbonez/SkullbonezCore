@@ -34,6 +34,7 @@ Related:
 #pragma once
 
 #include "TornadoField.h"
+#include "PhysicsRuntimeSettings.h"
 #include "Stages/PhysicsSleepController.h"
 
 #include <cstdint>
@@ -42,10 +43,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Core
-{
-class EngineConfig;
-} // namespace Core
 namespace Runtime
 {
 } // namespace Runtime
@@ -80,7 +77,7 @@ struct TornadoBodyForceContext
     std::span<float> timeRemaining;
     std::span<const uint8_t> underwaterSleepLocked;
     float dt = 0.0f;
-    const SkullbonezCore::Core::EngineConfig& runtimeConfig;
+    const PhysicsExecutionSettings& execution;
     Threading::WorkerPool& workerPool;
     int minParallelBodies = 0;
     const char* workerMarkerPath = nullptr;

@@ -150,12 +150,11 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 // samples read the private engine's hot-field arrays directly.
 bool StepPredictionEngineTick( PhysicsEngine& engine,
                                float fixedDt,
-                               const SkullbonezCore::Core::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
                                SkullbonezCore::Threading::WorkerPool& workerPool )
 {
     CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    engine.Step( fixedDt, config, worldForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
+    engine.Step( fixedDt, worldForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
     return true;
 }
 
@@ -3082,7 +3081,6 @@ void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction,
         // reloaded, because this worker never borrows legacy object record rows.
         if ( !StepPredictionEngineTick( predictionEngine,
                                         PHYSICS_FIXED_DT,
-                                        config,
                                         prediction.simulation.predictionWorldForces,
                                         workerPool ) ||
              !CaptureReplayPredictionFrame( prediction,

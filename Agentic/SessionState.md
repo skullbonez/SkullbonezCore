@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency-direction restoration, allocation-namespace restoration, and physics-facade unification are closed with exact proofs and independent review clear. |
 | Current objective | Complete the six remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 18 / 44 live tasks; 41%. |
+| Active/future progress | 19 / 44 live tasks; 43%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | F2 closure-tip `validate_full` passes in 147.11s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | F2 exact facade proofs, 10/10 comment audit, independent review clear, final physics and full gates pass. |
+| Last broad local gate | C1 `validate_full` passes in 143.12s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | C1 settings snapshot: 33/33 touched-source/tool comment audit; physics, perf, one-generation replay visual fidelity, and full gates pass. |
 
 ## Live Queue
 
-NOW. Seven live plans, 44 tasks; 18 complete (41%). The remaining architecture-review campaign
+NOW. Seven live plans, 44 tasks; 19 complete (43%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: physics-settings-snapshot → run-execute-deaccretion → render-graph-completion →
@@ -35,9 +35,9 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-20/allocation-namespace-restoration-closure.md`.
 `physics-facade-unification` is closed 3/3 and archived in
 `Agentic/Reports/2026-07-20/physics-facade-unification-closure.md`.
-`physics-settings-snapshot` C0 is complete. C1 value/threading work is next with
-no blocker; the inventory records 27 exact Core fields across eight
-owner-specific Physics sub-values and every current clamp/use site.
+`physics-settings-snapshot` C0-C1 are complete. The 27-field value snapshot is
+stamped once by `PhysicsEngine`; fixed-step Physics no longer names Core config
+types. C2 field-faithfulness and clamp tests are next with no blocker.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -80,6 +80,10 @@ are not certified. Full evidence:
 | `tools\validate_full.bat` | 142.49 s | PASS |
 | `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` | 1.205 s | PASS; marker emission enabled |
 | `tools\validate_full.bat` (L5 closure tip) | 143.84 s | PASS |
+| `tools\validate_physics.bat` (C1) | 79.83 s | PASS; 44,401-line CSV byte-exact |
+| `tools\validate_perf.bat` (C1) | 109.20 s | PASS; zero allocation violations/regressions |
+| replay visual fidelity (C1, one engine generation) | 391.01 s | PASS; all positive/negative controls |
+| `tools\validate_full.bat` (C1) | 143.12 s | PASS |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -87,10 +91,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-settings-snapshot` C1 on `nightrunner-20th-july`.
-Introduce the eight inventoried Physics settings sub-values, stamp them once in
-`PhysicsEngine::ApplyRuntimeConfig`, and remove `EngineConfig`/Core config
-subrecords from every fixed-step signature. The Profiler semantic
+Continue `physics-settings-snapshot` C2 on `nightrunner-20th-july`.
+Add field-faithfulness tests for all 27 mappings plus default and existing
+clamp behavior, without moving or duplicating clamp semantics. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

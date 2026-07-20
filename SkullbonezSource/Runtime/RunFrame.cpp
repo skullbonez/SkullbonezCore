@@ -1392,7 +1392,7 @@ float Run::TickPhysics( double secondsPerFrame,
                 m_sceneController.Scene().MutableRenderInstances();
             contactPresentation.TickContactFeedback( m_sceneController.Scene().SceneEntityCount(), PHYSICS_FIXED_DT );
             const ScenePhysicsPostStepOutput postStep =
-                m_sceneController.Scene().StepPhysics( PHYSICS_FIXED_DT, m_config, physicsWorldForces, m_workerPool );
+                m_sceneController.Scene().StepPhysics( PHYSICS_FIXED_DT, physicsWorldForces, m_workerPool );
             // The physics owner publishes a bounded span; the presentation owner
             // consumes it before the next step can replace those dense-row facts.
             for ( int modelIndex : postStep.fixedContactModelIndices )

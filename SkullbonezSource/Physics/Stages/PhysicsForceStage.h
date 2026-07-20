@@ -45,13 +45,13 @@ Related:
 
 #include "../../Maths/Vector3.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsRuntimeSettings.h"
 
 namespace SkullbonezCore
 {
 namespace Core
 {
 class Profiler;
-struct PhysicsExecutionConfig;
 } // namespace Core
 
 namespace Threading
@@ -84,14 +84,14 @@ class PhysicsForceStage
                                                              std::span<const uint8_t> sleepState,
                                                              int modelCount,
                                                              const PhysicsWorldForces& worldForces,
-                                                             const Core::PhysicsExecutionConfig& execution,
+                                                             const PhysicsExecutionSettings& execution,
                                                              Threading::WorkerPool& workerPool );
     const Math::Vector::Vector3* PrepareMutualGravityForces( std::span<const PhysicsBodyRecord> bodyRecords,
                                                              const PhysicsBodyHotFieldsConstView& hotFields,
                                                              std::span<const uint8_t> sleepState,
                                                              int modelCount,
                                                              const PhysicsWorldForces& worldForces,
-                                                             const Core::PhysicsExecutionConfig& execution,
+                                                             const PhysicsExecutionSettings& execution,
                                                              Threading::WorkerPool& workerPool )
     {
         return PrepareMutualGravityForces( nullptr,
@@ -106,11 +106,11 @@ class PhysicsForceStage
     void ApplyForces( const ApplyForcesStageContext& context,
                       std::span<const int> awakeBodyIndices,
                       Threading::WorkerPool& workerPool,
-                      const Core::PhysicsExecutionConfig& execution ) const;
+                      const PhysicsExecutionSettings& execution ) const;
     void IntegrateRemaining( const IntegrateRemainingStageContext& context,
                              std::span<const int> awakeBodyIndices,
                              Threading::WorkerPool& workerPool,
-                             const Core::PhysicsExecutionConfig& execution ) const;
+                             const PhysicsExecutionSettings& execution ) const;
 
     uint64_t CollectDynamicMemoryBytes() const;
 };

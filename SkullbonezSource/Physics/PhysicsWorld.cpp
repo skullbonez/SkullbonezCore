@@ -54,7 +54,6 @@ Related:
 #include "PhysicsWorld.h"
 #include "../Assets/AssetKeys.h"
 
-#include "../Core/Config.h"
 #include "../Core/FatalError.h"
 #include "BuoyancySystem.h"
 #include "DisjointSet.h"
@@ -345,10 +344,10 @@ void PhysicsWorld::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noex
 }
 
 
-void PhysicsWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
+void PhysicsWorld::ApplyRuntimeSettings( const PhysicsRuntimeSettings& settings )
 {
-    m_broadphase.ApplyRuntimeConfig( config );
-    m_sleepController.ApplyRuntimeConfig( config );
+    m_broadphase.ApplyRuntimeSettings( settings.broadphase );
+    m_sleepController.ApplyRuntimeSettings( settings.sleep );
 }
 
 
@@ -528,7 +527,7 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                float fChangeInTime,
-                               const SkullbonezCore::Core::EngineConfig& config,
+                               const PhysicsRuntimeSettings& settings,
                                const PhysicsWorldForces& worldForces,
                                Threading::WorkerPool& workerPool )
 {
@@ -575,7 +574,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     RunSolverPhysics( bodyStore,
                       colliderStore,
                       fChangeInTime,
-                      config,
+                      settings,
                       worldForces,
                       workerPool,
                       probeDormantUnderwaterLocks );
@@ -643,7 +642,7 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
                                          const ColliderStore& colliderStore,
                                          const PhysicsWorldForces& worldForces,
                                          float dt,
-                                         const SkullbonezCore::Core::EngineConfig& runtimeConfig,
+                                         const PhysicsExecutionSettings& execution,
                                          Threading::WorkerPool& workerPool )
 {
     const TornadoGameplayStepState stepState = m_tornadoGameplay.BeginStep( dt );
@@ -674,7 +673,7 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
         m_timeRemaining,
         m_sleepController.GetUnderwaterSleepLocks(),
         dt,
-        runtimeConfig,
+        execution,
         workerPool,
         PHYSICS_PARALLEL_MIN_BODIES,
         "Frame/Physics/TornadoField/WorkerBodies",
@@ -748,7 +747,7 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
-                                     const SkullbonezCore::Core::EngineConfig& config,
+                                     const PhysicsRuntimeSettings& settings,
                                      const PhysicsWorldForces& worldForces,
                                      Threading::WorkerPool& workerPool,
                                      bool probeDormantUnderwaterLocks )
@@ -766,7 +765,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // Sleep owns threshold interpretation and returns the exact squared-speed
     // and counter values consumed by narrowphase and island transitions. The
     // facade only sequences that typed policy across the two consumers.
-    const PhysicsSleepStepPolicy sleepPolicy = m_sleepController.ResolveStepPolicy( config.physicsSleep );
+    const PhysicsSleepStepPolicy sleepPolicy = m_sleepController.ResolveStepPolicy( settings.sleep );
 
     if ( probeDormantUnderwaterLocks )
     {
@@ -793,7 +792,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                                   sleepStates,
                                                                                   modelCount,
                                                                                   worldForces,
-                                                                                  config.physicsExecution,
+                                                                                  settings.execution,
                                                                                   workerPool );
     ApplyForcesStageContext applyForcesStage{
         bodyStore,
@@ -810,20 +809,20 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #ifdef SKULLBONEZ_PROFILE_ENABLED
     const int forceAwakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
 #endif
-    m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, config.physicsExecution );
+    m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, settings.execution );
 
-    ApplyTornadoGameplay( bodyStore, colliderStore, worldForces, dt, config, workerPool );
+    ApplyTornadoGameplay( bodyStore, colliderStore, worldForces, dt, settings.execution, workerPool );
     m_sleepController.FlushPendingAwakeBodyIndices();
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
-    const float contactSkin = (std::max)( 0.0f, config.bodySimulation.contactEpsilon );
+    const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
     const PhysicsBroadphaseStageContext broadphaseContext{ bodyStore,
                                                            bodyRecords,
                                                            hotFields,
                                                            colliderRecords,
-                                                           config,
+                                                           settings,
                                                            m_pointJointConstraints,
                                                            sleepStates,
                                                            awakeBodyIndices,
@@ -863,7 +862,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         sleepPolicy.linearSpeedSquared,
         sleepPolicy.angularSpeedSquared,
         contactSkin,
-        config.bodySimulation.contactEpsilon,
+        settings.body.contactEpsilon,
         invCellSize,
         dt,
         m_profiler };
@@ -871,7 +870,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( objectNarrowphasePairContext,
                                                                       candidatePairCount,
                                                                       modelCount,
-                                                                      config.physicsExecution,
+                                                                      settings.execution,
                                                                       workerPool );
     if ( ranParallelNarrowphase )
     {
@@ -910,7 +909,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     TerrainDetectionStageContext terrainDetectionContext{ bodyRecords,
                                                           hotFields,
                                                           colliderRecords,
-                                                          config,
+                                                          settings,
                                                           sleepStates,
                                                           m_timeRemaining,
                                                           m_profiler };
@@ -919,11 +918,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                  bodyRecords,
                                                                  hotFields,
                                                                  colliderRecords,
-                                                                 config,
+                                                                 settings,
                                                                  m_sleepController.MutableSupportedStatesForTerrain(),
                                                                  m_sleepController.MutableInhibitedStatesForTerrain(),
                                                                  m_profiler };
-    m_terrain.Detect( terrainDetectionContext, modelCount, awakeBodyIndices, config.physicsExecution, workerPool );
+    m_terrain.Detect( terrainDetectionContext, modelCount, awakeBodyIndices, settings.execution, workerPool );
 
     const std::span<const TerrainDetectionCandidate> terrainCandidates = m_terrain.GetDetectionCandidates();
     for ( int x : awakeBodyIndices )
@@ -962,7 +961,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const PhysicsContactSolverStageContext contactSolverContext{
         bodyStore,
         colliderStore,
-        config,
+        settings,
         worldForces,
         candidatePairs,
         sleepStates,
@@ -1007,7 +1006,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #ifdef SKULLBONEZ_PROFILE_ENABLED
     const int integrateAwakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
 #endif
-    m_forceStage.IntegrateRemaining( integrateRemainingStage, awakeBodyIndices, workerPool, config.physicsExecution );
+    m_forceStage.IntegrateRemaining( integrateRemainingStage, awakeBodyIndices, workerPool, settings.execution );
 
     const PhysicsSleepIslandStageContext sleepIslandContext{ bodyStore,
                                                              colliderStore,

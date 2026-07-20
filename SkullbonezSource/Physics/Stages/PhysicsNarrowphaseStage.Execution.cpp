@@ -25,7 +25,6 @@ Related:
 */
 #include "PhysicsNarrowphaseStage.h"
 
-#include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
@@ -212,7 +211,7 @@ void PhysicsNarrowphaseStage::ObjectNarrowphaseIslandStage::operator()( int isla
 bool PhysicsNarrowphaseStage::TryRunParallel( const ObjectNarrowphasePairStageContext& context,
                                               int candidatePairCount,
                                               int modelCount,
-                                              const Core::PhysicsExecutionConfig& execution,
+                                              const PhysicsExecutionSettings& execution,
                                               Threading::WorkerPool& workerPool )
 {
     m_objectNarrowphaseIslands.clear();

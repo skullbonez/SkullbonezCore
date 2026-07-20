@@ -95,7 +95,7 @@ CollisionShape UnitSphere()
 TEST_CASE( "Physics sleep policy: thresholds square after clamp and frame count saturates at 255" )
 {
     PhysicsSleepController controller;
-    SkullbonezCore::Core::PhysicsSleepConfig config;
+    SkullbonezCore::Physics::SleepSettings config;
     config.linearSpeed = -2.0f;
     config.angularSpeed = 3.0f;
     config.frames = 999;
@@ -400,7 +400,7 @@ TEST_CASE( "Physics narrowphase islands: repeated parallel evaluation preserves 
                                                      0.05f,
                                                      1.0f / 24.0f,
                                                      1.0f / 120.0f };
-    SkullbonezCore::Core::PhysicsExecutionConfig execution;
+    SkullbonezCore::Physics::PhysicsExecutionSettings execution;
     execution.parallel = true;
     execution.parallelNarrowphase = true;
     LockOrderValidator lockOrderValidator;
