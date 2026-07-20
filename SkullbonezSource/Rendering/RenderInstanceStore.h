@@ -16,8 +16,7 @@ Glossary:
     copied from the model owner before physics/store projection.
   Material intent: Renderer-neutral description of surface style and texture
     selection.
-  Contact highlight: Render-only feedback alpha for red fixed-body hits or
-    white contact-audio flashes.
+  Contact highlight: Render-only feedback alpha for red fixed-body hits.
   Bounds radius: Conservative sphere radius used by shadow fitting and other
     render culling without borrowing the physics/model body stream.
   Shape kind: Cheap render-facing discriminator copied from collider metadata.
@@ -133,7 +132,6 @@ struct RenderInstanceRecord
     bool editorVisible = true;                                           // Session-only hierarchy visibility; false suppresses raster/shadow submission.
     bool isFixed = false;                                                // Fixed bodies can receive contact-highlight tinting.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
-    float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
     Math::Vector::Vector3 previousPosition =
         Math::Vector::ZERO_VECTOR;                                       // Solver pose before the latest completed fixed tick.
     Math::Vector::Vector3 currentPosition = Math::Vector::ZERO_VECTOR;   // Solver pose after the latest completed fixed tick.
@@ -152,9 +150,7 @@ struct RenderInstancePresentationRecord
     char displayName[64] = {};                                           // Presentation/debug label paired with the model slot.
     bool simpleRagdollPart = false;                                      // Replay ghost filter metadata copied from scene grouping.
     float fixedContactAlpha = 0.0f;                                      // Render-only red contact feedback strength.
-    float audioContactAlpha = 0.0f;                                      // Render-only white audio-emitter feedback strength.
     float fixedContactSeconds = 0.0f;                                    // Seconds remaining for fixed-body contact feedback.
-    float audioContactSeconds = 0.0f;                                    // Seconds remaining for contact-audio feedback.
 };
 
 class RenderInstanceStore
@@ -178,7 +174,6 @@ class RenderInstanceStore
     std::size_t PresentationCapacity() const;
     uint64_t PresentationCapacityBytes() const;
     void NotifyFixedContact( int modelIndex, float highlightSeconds );
-    void NotifyAudioContact( int modelIndex, float highlightSeconds );
     // Updates both paired presentation rows immediately; false means the dense
     // model row is stale or outside the active scene topology.
     bool SetEditorVisible( int modelIndex, bool visible );

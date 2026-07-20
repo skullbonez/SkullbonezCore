@@ -52,7 +52,7 @@ inline constexpr std::size_t IMGUI_EDITOR_PREFERENCES_TEXT_CAPACITY = 1024u;
 inline constexpr const char* IMGUI_EDITOR_DOCKSPACE_NAME = "SkoreEditorDockspaceV2";
 inline constexpr const char* IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR =
     "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
-    "right:inspector,world,render-audio,diagnostics,causality";
+    "right:inspector,world,rendering,diagnostics,causality";
 
 namespace ImGuiEditorPanel
 {
@@ -62,7 +62,7 @@ inline constexpr const char* AssetsCreate = "Assets / Create";
 inline constexpr const char* GameViewport = "Game Viewport";
 inline constexpr const char* Inspector = "Inspector";
 inline constexpr const char* WorldSimulation = "World / Simulation";
-inline constexpr const char* RenderingAudio = "Render###SkoreRenderAudio";
+inline constexpr const char* Rendering = "Render###SkoreRendering";
 inline constexpr const char* Diagnostics = "Diag###SkoreDiagnostics";
 inline constexpr const char* Causality = "Cause###SkoreCausality";
 inline constexpr const char* CausalityDetail = "Cause Detail###SkoreCausalityDetail";
@@ -78,7 +78,7 @@ enum class ImGuiEditorPanelId : uint8_t
     GameViewport,
     Inspector,
     WorldSimulation,
-    RenderingAudio,
+    Rendering,
     Diagnostics,
     Causality,
     CausalityDetail,

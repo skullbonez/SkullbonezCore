@@ -70,7 +70,6 @@ struct RunLaunchOptions
     unsigned int seedOverride = 0;                            // CLI --seed override applied after each scene load (0 = not set)
     bool noWater = false;                                     // CLI --no-water starts fluid below terrain
     bool noSleep = false;                                     // Startup CLI --no-sleep request; live policy can still be toggled from the Physics tab
-    bool noContactAudio = false;                              // CLI --no-contact-audio disables presentation-only impact playback
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;

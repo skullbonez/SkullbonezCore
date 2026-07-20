@@ -205,7 +205,6 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
     record.editorVisible = presentation.editorVisible;
     record.isFixed = hotState.fixed;
     record.fixedContactAlpha = presentation.fixedContactAlpha;
-    record.audioContactAlpha = presentation.audioContactAlpha;
     ResetPoseHistory( record, hotState.position, hotState.orientation );
 
     // Invariant: CanAppendCreationRow proves all three pushes reuse existing
@@ -293,16 +292,6 @@ void RenderInstanceStore::NotifyFixedContact( int modelIndex, float highlightSec
     }
 }
 
-void RenderInstanceStore::NotifyAudioContact( int modelIndex, float highlightSeconds )
-{
-    RenderInstancePresentationRecord* record = MutablePresentationRecordForModelIndex( modelIndex );
-    if ( record && highlightSeconds > record->audioContactSeconds )
-    {
-        record->audioContactSeconds = highlightSeconds;
-        record->audioContactAlpha = ContactAlpha( record->audioContactSeconds, 0.1f );
-    }
-}
-
 bool RenderInstanceStore::SetEditorVisible( int modelIndex, bool visible )
 {
     RenderInstancePresentationRecord* presentation = MutablePresentationRecordForModelIndex( modelIndex );
@@ -324,9 +313,7 @@ void RenderInstanceStore::TickContactFeedback( int modelCount, float deltaSecond
     {
         RenderInstancePresentationRecord& record = m_presentationRecords[static_cast<std::size_t>( index )];
         TickContactSeconds( record.fixedContactSeconds, deltaSeconds );
-        TickContactSeconds( record.audioContactSeconds, deltaSeconds );
         record.fixedContactAlpha = ContactAlpha( record.fixedContactSeconds, 0.5f );
-        record.audioContactAlpha = ContactAlpha( record.audioContactSeconds, 0.1f );
     }
 }
 
@@ -487,7 +474,6 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         record.editorVisible = presentationRecord.editorVisible;
         record.isFixed = hotFields.fixed[index] != 0u;
         record.fixedContactAlpha = presentationRecord.fixedContactAlpha;
-        record.audioContactAlpha = presentationRecord.audioContactAlpha;
         m_modelInstanceHandles[index] = record.handle;
     }
 }

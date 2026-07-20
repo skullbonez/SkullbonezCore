@@ -109,30 +109,6 @@ bool SameRenderingPayload( const OperatorEditorRenderingCommand& left, const Ope
     return left.parameter == right.parameter && left.value == right.value && left.phase == right.phase;
 }
 
-bool SameAudioIdentity( const OperatorEditorAudioCommand& left, const OperatorEditorAudioCommand& right )
-{
-    const auto isScalar = []( OperatorEditorAudioCommandType type )
-    {
-        return type == OperatorEditorAudioCommandType::SetGlobalParameter ||
-               type == OperatorEditorAudioCommandType::SetRecipeParameter ||
-               type == OperatorEditorAudioCommandType::SetBandParameter;
-    };
-    // Invariant: UISoundCommands has one requestedValue slot. A human can edit
-    // only one scalar at a time, and malformed multi-scalar packets must fail
-    // here instead of silently overwriting a value during projection.
-    if ( isScalar( left.type ) && isScalar( right.type ) )
-    {
-        return true;
-    }
-    return left.type == right.type;
-}
-
-bool SameAudioPayload( const OperatorEditorAudioCommand& left, const OperatorEditorAudioCommand& right )
-{
-    return left.parameter == right.parameter && left.setIndex == right.setIndex && left.bandIndex == right.bandIndex &&
-           left.sampleIndex == right.sampleIndex && left.value == right.value && left.phase == right.phase;
-}
-
 bool SameDiagnosticsIdentity( const OperatorEditorDiagnosticsCommand& left,
                               const OperatorEditorDiagnosticsCommand& right )
 {
@@ -353,70 +329,12 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRender
     return SubmitBounded( queue, command, SameRenderingIdentity, SameRenderingPayload, duplicate );
 }
 
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorAudioCommandQueue& queue,
-                                                            const OperatorEditorAudioCommand& command,
-                                                            bool* duplicate )
-{
-    switch ( command.type )
-    {
-    case OperatorEditorAudioCommandType::ToggleEnabled:
-    case OperatorEditorAudioCommandType::ToggleSimpleMode:
-        break;
-    case OperatorEditorAudioCommandType::SetGlobalParameter:
-        if ( command.parameter < 0 || command.parameter >= 13 )
-        {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio global parameter is out of range" );
-        }
-        break;
-    case OperatorEditorAudioCommandType::SetRecipeParameter:
-        if ( command.parameter < 13 || command.parameter >= static_cast<int>( UISoundParam::Count ) ||
-             command.setIndex < 0 || command.setIndex >= OPERATOR_EDITOR_AUDIO_SET_CAPACITY )
-        {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio recipe command has invalid indices" );
-        }
-        break;
-    case OperatorEditorAudioCommandType::SetBandParameter:
-        if ( command.parameter < 0 || command.parameter >= static_cast<int>( UISoundBandParam::Count ) ||
-             command.setIndex < 0 || command.setIndex >= OPERATOR_EDITOR_AUDIO_SET_CAPACITY || command.bandIndex < 0 ||
-             command.bandIndex >= OPERATOR_EDITOR_AUDIO_BAND_CAPACITY )
-        {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio band command has invalid indices" );
-        }
-        break;
-    case OperatorEditorAudioCommandType::PreviewSample:
-    case OperatorEditorAudioCommandType::SelectSample:
-        if ( command.sampleIndex < 0 || command.sampleIndex >= OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY )
-        {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio sample command has an invalid index" );
-        }
-        if ( command.type == OperatorEditorAudioCommandType::SelectSample &&
-             ( command.setIndex < 0 || command.setIndex >= OPERATOR_EDITOR_AUDIO_SET_CAPACITY ) )
-        {
-            return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio sample assignment has an invalid recipe" );
-        }
-        break;
-    default:
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio command has an unknown action type" );
-    }
-    if ( !std::isfinite( command.value ) )
-    {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio command requires a finite value" );
-    }
-    if ( command.phase != OperatorEditorEditPhase::Preview && command.phase != OperatorEditorEditPhase::Commit )
-    {
-        return SkullbonezCore::Core::SbResult::Failure( OWNER, "Audio command has an unknown edit phase" );
-    }
-    return SubmitBounded( queue, command, SameAudioIdentity, SameAudioPayload, duplicate );
-}
-
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagnosticsCommandQueue& queue,
                                                             const OperatorEditorDiagnosticsCommand& command,
                                                             bool* duplicate )
 {
     switch ( command.type )
     {
-    case OperatorEditorDiagnosticsCommandType::ToggleAudioCounters:
-    case OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode:
     case OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer:
     case OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugTransparent:
     case OperatorEditorDiagnosticsCommandType::ToggleBroadphaseOverlay:
@@ -711,61 +629,6 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                         static_cast<int>( commands.cinematic.requestedParam ),
                         commands.cinematic.requestedValue );
 
-    const auto normalizeAudio = [&]( bool requested,
-                                     OperatorEditorAudioCommandType type,
-                                     int parameter = -1,
-                                     int setIndex = -1,
-                                     int bandIndex = -1,
-                                     int sampleIndex = -1,
-                                     float value = 0.0f )
-    {
-        if ( result.ok && requested )
-        {
-            result = SubmitOperatorEditorCommand( normalized.audio,
-                                                  OperatorEditorAudioCommand{ type,
-                                                                              parameter,
-                                                                              setIndex,
-                                                                              bandIndex,
-                                                                              sampleIndex,
-                                                                              value,
-                                                                              OperatorEditorEditPhase::Commit } );
-        }
-    };
-    normalizeAudio( commands.sound.toggleEnabled, OperatorEditorAudioCommandType::ToggleEnabled );
-    normalizeAudio( commands.sound.toggleSimpleMode, OperatorEditorAudioCommandType::ToggleSimpleMode );
-    if ( commands.sound.requestedParam != UISoundParam::None )
-    {
-        const int parameter = static_cast<int>( commands.sound.requestedParam );
-        normalizeAudio( true,
-                        parameter < static_cast<int>( UISoundParam::SetMinImpulse )
-                            ? OperatorEditorAudioCommandType::SetGlobalParameter
-                            : OperatorEditorAudioCommandType::SetRecipeParameter,
-                        parameter,
-                        commands.sound.requestedSetIndex,
-                        -1,
-                        -1,
-                        commands.sound.requestedValue );
-    }
-    normalizeAudio( commands.sound.requestedBandParam != UISoundBandParam::None,
-                    OperatorEditorAudioCommandType::SetBandParameter,
-                    static_cast<int>( commands.sound.requestedBandParam ),
-                    commands.sound.requestedSetIndex,
-                    commands.sound.requestedBandIndex,
-                    -1,
-                    commands.sound.requestedValue );
-    normalizeAudio( commands.sound.previewSampleIndex >= 0,
-                    OperatorEditorAudioCommandType::PreviewSample,
-                    -1,
-                    -1,
-                    -1,
-                    commands.sound.previewSampleIndex );
-    normalizeAudio( commands.sound.selectSampleIndex >= 0,
-                    OperatorEditorAudioCommandType::SelectSample,
-                    -1,
-                    commands.sound.requestedSetIndex,
-                    -1,
-                    commands.sound.selectSampleIndex );
-
     const auto normalizeDiagnostics = [&]( bool requested,
                                            OperatorEditorDiagnosticsCommandType type,
                                            uint32_t flag = 0u,
@@ -779,9 +642,6 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
                 OperatorEditorDiagnosticsCommand{ type, flag, integerValue, value, OperatorEditorEditPhase::Commit } );
         }
     };
-    normalizeDiagnostics( commands.sound.toggleDebugCounters,
-                          OperatorEditorDiagnosticsCommandType::ToggleAudioCounters );
-    normalizeDiagnostics( commands.sound.cycleFlashMode, OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode );
     normalizeDiagnostics( commands.physics.toggleCollisionVisualizer,
                           OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer );
     normalizeDiagnostics( commands.physics.togglePhysicsDebugTransparent,
@@ -911,14 +771,6 @@ SkullbonezCore::Core::SbResult NormalizeLegacyOperatorEditorCommands( InGameUICo
     commands.cinematic.saveSkyDefaults = false;
     commands.cinematic.requestedFeature = UICinematicFeature::None;
     commands.cinematic.requestedParam = UICinematicParam::None;
-    commands.sound.toggleEnabled = false;
-    commands.sound.toggleSimpleMode = false;
-    commands.sound.requestedParam = UISoundParam::None;
-    commands.sound.requestedBandParam = UISoundBandParam::None;
-    commands.sound.previewSampleIndex = -1;
-    commands.sound.selectSampleIndex = -1;
-    commands.sound.toggleDebugCounters = false;
-    commands.sound.cycleFlashMode = false;
     commands.physics.toggleCollisionVisualizer = false;
     commands.physics.togglePhysicsDebugTransparent = false;
     commands.physics.toggleBroadphaseOverlay = false;
@@ -978,16 +830,6 @@ OperatorEditorArbitrationResult ArbitrateOperatorEditorCommands( const OperatorE
                 []( OperatorEditorRenderingCommandQueue& queue,
                     const OperatorEditorRenderingCommand& command,
                     bool* duplicate ) { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
-                accepted,
-                result.coalescedDuplicateCommands );
-        }
-        if ( status.ok )
-        {
-            status = MergeQueue(
-                result.commands.audio,
-                source.audio,
-                []( OperatorEditorAudioCommandQueue& queue, const OperatorEditorAudioCommand& command, bool* duplicate )
-                { return SubmitOperatorEditorCommand( queue, command, duplicate ); },
                 accepted,
                 result.coalescedDuplicateCommands );
         }
@@ -1088,14 +930,6 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
     commands.cinematic.saveSkyDefaults = false;
     commands.cinematic.requestedFeature = UICinematicFeature::None;
     commands.cinematic.requestedParam = UICinematicParam::None;
-    commands.sound.toggleEnabled = false;
-    commands.sound.toggleSimpleMode = false;
-    commands.sound.requestedParam = UISoundParam::None;
-    commands.sound.requestedBandParam = UISoundBandParam::None;
-    commands.sound.previewSampleIndex = -1;
-    commands.sound.selectSampleIndex = -1;
-    commands.sound.toggleDebugCounters = false;
-    commands.sound.cycleFlashMode = false;
     commands.physics.toggleCollisionVisualizer = false;
     commands.physics.togglePhysicsDebugTransparent = false;
     commands.physics.toggleBroadphaseOverlay = false;
@@ -1293,44 +1127,6 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
             break;
         }
     }
-    for ( uint32_t index = 0u; index < canonical.audio.count; ++index )
-    {
-        const OperatorEditorAudioCommand& command = canonical.audio.commands[index];
-        if ( command.phase == OperatorEditorEditPhase::Preview )
-        {
-            continue;
-        }
-        switch ( command.type )
-        {
-        case OperatorEditorAudioCommandType::ToggleEnabled:
-            commands.sound.toggleEnabled = true;
-            break;
-        case OperatorEditorAudioCommandType::ToggleSimpleMode:
-            commands.sound.toggleSimpleMode = true;
-            break;
-        case OperatorEditorAudioCommandType::SetGlobalParameter:
-        case OperatorEditorAudioCommandType::SetRecipeParameter:
-            commands.sound.requestedParam = static_cast<UISoundParam>( command.parameter );
-            commands.sound.requestedSetIndex = command.setIndex;
-            commands.sound.requestedValue = command.value;
-            break;
-        case OperatorEditorAudioCommandType::SetBandParameter:
-            commands.sound.requestedBandParam = static_cast<UISoundBandParam>( command.parameter );
-            commands.sound.requestedSetIndex = command.setIndex;
-            commands.sound.requestedBandIndex = command.bandIndex;
-            commands.sound.requestedValue = command.value;
-            break;
-        case OperatorEditorAudioCommandType::PreviewSample:
-            commands.sound.previewSampleIndex = command.sampleIndex;
-            break;
-        case OperatorEditorAudioCommandType::SelectSample:
-            commands.sound.requestedSetIndex = command.setIndex;
-            commands.sound.selectSampleIndex = command.sampleIndex;
-            break;
-        default:
-            break;
-        }
-    }
     for ( uint32_t index = 0u; index < canonical.diagnostics.count; ++index )
     {
         const OperatorEditorDiagnosticsCommand& command = canonical.diagnostics.commands[index];
@@ -1340,12 +1136,6 @@ SkullbonezCore::Core::SbResult ProjectOperatorEditorCommands( const OperatorEdit
         }
         switch ( command.type )
         {
-        case OperatorEditorDiagnosticsCommandType::ToggleAudioCounters:
-            commands.sound.toggleDebugCounters = true;
-            break;
-        case OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode:
-            commands.sound.cycleFlashMode = true;
-            break;
         case OperatorEditorDiagnosticsCommandType::ToggleCollisionVisualizer:
             commands.physics.toggleCollisionVisualizer = true;
             break;
@@ -1630,54 +1420,8 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.world.fixedStep );
     HashValue( hash, view.world.physicsSleepEnabled );
     HashValue( hash, view.world.tornadoEnabled );
-    HashValue( hash, view.audio.enabled );
-    HashValue( hash, view.audio.available );
-    HashValue( hash, view.audio.simpleMode );
-    HashValue( hash, view.audio.setCount );
-    HashValue( hash, view.audio.sampleCount );
-    for ( float value : view.audio.globalParameters )
-    {
-        HashValue( hash, value );
-    }
-    const int audioSetCount = view.audio.setCount < OPERATOR_EDITOR_AUDIO_SET_CAPACITY
-                                  ? view.audio.setCount
-                                  : OPERATOR_EDITOR_AUDIO_SET_CAPACITY;
-    for ( int setIndex = 0; setIndex < audioSetCount; ++setIndex )
-    {
-        const OperatorEditorAudioSetView& set = view.audio.sets[setIndex];
-        hashLabel( set.name );
-        HashValue( hash, set.materialA );
-        HashValue( hash, set.materialB );
-        HashValue( hash, set.sampleCount );
-        HashValue( hash, set.bandCount );
-        for ( float value : set.parameters )
-        {
-            HashValue( hash, value );
-        }
-        const uint32_t bandCount =
-            set.bandCount < OPERATOR_EDITOR_AUDIO_BAND_CAPACITY ? set.bandCount : OPERATOR_EDITOR_AUDIO_BAND_CAPACITY;
-        for ( uint32_t bandIndex = 0u; bandIndex < bandCount; ++bandIndex )
-        {
-            const OperatorEditorAudioBandView& band = set.bands[bandIndex];
-            hashLabel( band.name );
-            HashValue( hash, band.minImpulse );
-            HashValue( hash, band.impulseRange );
-            HashValue( hash, band.baseGain );
-            HashValue( hash, band.pitchMin );
-            HashValue( hash, band.pitchMax );
-            HashValue( hash, band.sampleCount );
-        }
-    }
-    const int audioSampleCount = view.audio.sampleCount < OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY
-                                     ? view.audio.sampleCount
-                                     : OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY;
-    for ( int sampleIndex = 0; sampleIndex < audioSampleCount; ++sampleIndex )
-    {
-        hashLabel( view.audio.samplePaths[sampleIndex] );
-    }
     hashLabel( view.diagnostics.rendererName );
     hashLabel( view.diagnostics.physicsPipelineStageName );
-    hashLabel( view.diagnostics.audioFlashModeLabel );
     HashValue( hash, view.diagnostics.renderTargetCount );
     HashValue( hash, view.diagnostics.drawCalls );
     HashValue( hash, view.diagnostics.uiDrawCalls );
@@ -1686,7 +1430,6 @@ uint64_t FingerprintOperatorEditorFrameView( const OperatorEditorFrameView& view
     HashValue( hash, view.diagnostics.trackedEngineBytes );
     HashValue( hash, view.diagnostics.uploadUsedBytes );
     HashValue( hash, view.diagnostics.replayReserveGrowthEvents );
-    HashValue( hash, view.diagnostics.audioEventsSeen );
     HashValue( hash, view.diagnostics.collisionVisualizer );
     HashValue( hash, view.diagnostics.physicsDebugTransparent );
     HashValue( hash, view.diagnostics.broadphaseOverlay );

@@ -71,13 +71,6 @@ namespace Threading
 {
 class WorkerPool;
 }
-namespace Runtime
-{
-namespace Audio
-{
-class ContactAudioService;
-}
-} // namespace Runtime
 namespace UI
 {
 class InGameUI;
@@ -129,7 +122,7 @@ struct SceneDefaultsSaveView
 // accepting the process shell's complete owner graph as one flat call. The
 // structs carry 18 concrete owners (6 policy, 3 host, 5 interaction, and 4
 // presentation); navigation crosses as a detached value snapshot. Window, UI,
-// audio, and validation effects return through SceneLoadConsumerOutputs and no
+// and validation effects return through SceneLoadConsumerOutputs and no
 // participant or output is retained by SceneController.
 struct SceneLoadPolicyInputs
 {
@@ -175,7 +168,6 @@ struct SceneLoadConsumerOutputs
     SceneLoadNavigationState navigation;
     char windowTitle[256] = {};
     bool hasWindowTitle = false;
-    bool resetContactAudioHistory = false;
     bool applyAutomationGates = false;
     bool applyNavigation = false;
     bool refreshSceneBrowser = false;
@@ -200,7 +192,6 @@ inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const
 void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                     Window& window,
                                     UI::InGameUI& operatorUi,
-                                    Audio::ContactAudioService& contactAudio,
                                     RuntimeValidationHarness& validationHarness,
                                     const RunLaunchOptions& launchOptions );
 

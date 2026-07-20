@@ -61,11 +61,6 @@ DROP_KEYS = {
 QUERIES = [
     ("summary", ["summary", "--limit", "8"]),
     ("events", ["events", "--limit", "20"]),
-    ("contact_audio_summary", ["contact-audio-summary", "--limit", "8"]),
-    ("contact_audio_events", ["contact-audio-events", "--limit", "8"]),
-    ("contact_audio_rejections_propagated", ["contact-audio-rejections", "--reason", "propagated_impulse", "--limit", "8"]),
-    ("contact_audio_body_roll_a", ["contact-audio-body", "--body", "roll_a", "--limit", "8"]),
-    ("contact_audio_timeline", ["contact-audio-timeline", "--limit", "8"]),
     ("frame_600", ["frame", "600", "--limit", "8"]),
     ("body_roll_a", ["body", "roll_a", "--frames", "0:1200", "--limit", "12"]),
     ("energy", ["energy", "--frames", "0:1200", "--limit", "12"]),

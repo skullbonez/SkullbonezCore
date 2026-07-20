@@ -13,7 +13,7 @@ Glossary:
   Material instance payload: Four float4 rows appended after each instance
   model matrix and consumed by lit_textured_instanced.hlsl.
   Contact flash alpha: Per-instance final-color blend toward white for short
-    hit or audio feedback that must be visible over any material branch.
+    hit feedback that must be visible over any material branch.
   Material table: Fixed t4 texture storing default material response values by
   material kind for the current object shader.
   Legacy tint bridge: Compatibility path that maps old tint/colorOverride scene
