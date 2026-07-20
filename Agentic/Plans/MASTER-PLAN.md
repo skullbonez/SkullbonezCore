@@ -274,13 +274,13 @@ shapes. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 0 | 4 | 0% |
+| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 1 | 4 | 25% |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 0 | 3 | 0% |
 | [render-graph-completion](TODO/render-graph-completion.md) | 0 | 6 | 0% |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **17** | **44** | **39%** |
+| **Active/future total** | **18** | **44** | **41%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1137,7 +1137,7 @@ inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Active | 0/4 | Start S0 ownership census; no blocker |
+| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Active | 1/4 | Start C1 settings value/threading; no blocker |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Registered | 0/3 | Independent; may run parallel to plans 2-3 |
 | [render-graph-completion](TODO/render-graph-completion.md) | Registered | 0/6 | Start G0 anytime; owner ruling to finish the migration is recorded |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
