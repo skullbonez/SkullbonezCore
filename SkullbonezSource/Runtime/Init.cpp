@@ -172,23 +172,6 @@ int RunApp( Window* window,
     {
         std::unique_ptr<Run> cRun =
             std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler, renderBackendView );
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-        struct ProfilerRenderDiagnosticsLifetime
-        {
-            SkullbonezCore::Core::Profiler* profiler = nullptr;
-            ~ProfilerRenderDiagnosticsLifetime()
-            {
-                if ( profiler )
-                {
-                    profiler->BindRenderDiagnostics( nullptr );
-                }
-            }
-        };
-        // Lifetime: this guard is declared after cRun, so it clears SkullbonezCore::Core::Profiler's
-        // renderer-diagnostics borrow before Run's destructor releases
-        // backend-owned resources through the still-live DX12 backend.
-        ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
-#endif
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
@@ -446,7 +429,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     // and physics owners receive only the stable borrow.
     auto profilerOwner = std::make_unique<SkullbonezCore::Core::Profiler>();
     profiler = profilerOwner.get();
-    profiler->BindRenderDiagnostics( renderBackendView.renderDiagnostics );
 #endif
     workerPool.BindProfiler( profiler );
 
@@ -454,9 +436,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-        profiler->BindRenderDiagnostics( nullptr );
-#endif
         workerPool.Shutdown();
 #if defined( TRACY_ENABLE )
         // Lifetime: no engine worker can publish another marker after this

@@ -81,6 +81,7 @@ class WorldEnvironment;
 
 namespace Rendering
 {
+class RenderGpuTimingOwner;
 class IRenderCommandContext;
 class IRenderDeviceLifecycle;
 class IRenderDiagnostics;
@@ -268,6 +269,9 @@ struct RenderFrameContext
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.
     Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    // Lifetime: RuntimeRenderer-owned concrete GPU timing boundary borrowed by
+    // pass recording for this frame only.
+    Rendering::RenderGpuTimingOwner* renderGpuTiming = nullptr;
     // Lifetime: owned by RuntimeRenderer for the active process. Passes borrow
     // it for primitive batch scratch and renderer-owned backend resource handles.
     Rendering::PrimitiveBatchRenderer* primitiveBatches = nullptr;

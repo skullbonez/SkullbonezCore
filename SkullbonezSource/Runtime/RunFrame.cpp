@@ -271,6 +271,9 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                             *m_validationHarness,
                                                             m_renderBackendView,
                                                             m_renderer };
+            // Frame boundary: read completed renderer timestamps and publish
+            // prior-frame render counters before resetting per-frame diagnostics.
+            m_renderer.BeginProfilerFrame();
             frameRenderDiagnostics.ResetFrameDrawCalls();
 
             PROFILE_BEGIN( m_profiler, "Frame/Input" );

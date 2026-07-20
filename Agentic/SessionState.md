@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-20
+Date: 2026-07-21
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -11,21 +11,21 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, and render-graph plans are closed with exact proofs and independent review clear. |
-| Current objective | Complete the three remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 22 / 31 live tasks; 71%. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, and Render HAL plans are closed with exact proofs and independent review clear. |
+| Current objective | Complete the two remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
+| Active/future progress | 17 / 25 live tasks; 68%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | M4 `validate_full` passes in 156.0s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | M4 DX12, stress, Debug DXR-capability probe, and full pass. DXR setup/dispatch/TLAS inputs are typed; dead clear/clip rows are removed; the machine reports DXR tier 11. |
+| Last broad local gate | M5 final `validate_full` passes in 149.05s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | M5 final full, performance, one-minute stress, and platform-profiler probes pass after independent-review remediation. Core Profiler owns values only; Rendering owns GPU timing and overlay presentation. |
 
 ## Live Queue
 
-NOW. Four live plans, 31 tasks; 22 complete (71%). The remaining architecture-review campaign
+NOW. Three live plans, 25 tasks; 17 complete (68%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
-binding order: render-hal-modernization → gameplay-module-extraction →
-replay-boundary-containment. Owner decisions at registration: the render-graph
-migration is complete; PhysicsEngine absorbs PhysicsScene; gameplay
+binding order: gameplay-module-extraction → replay-boundary-containment. Owner
+decisions at registration: the render-graph and Render HAL migrations are
+complete; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 
 `dependency-direction-restoration` is closed 6/6 and archived in
@@ -40,6 +40,8 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-20/run-execute-deaccretion-closure.md`.
 `render-graph-completion` is closed 6/6 and archived in
 `Agentic/Reports/2026-07-20/render-graph-completion-closure.md`.
+`render-hal-modernization` is closed 6/6 and archived in
+`Agentic/Reports/2026-07-21/render-hal-modernization-closure.md`.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -150,6 +152,10 @@ are not certified. Full evidence:
 | `tools\run_graphics_stress.bat 1` (M4) | 61.0 s | PASS; 12,663 frames, 348 scene loads, graceful PID-scoped stop, empty stderr |
 | Debug DXR-capability render-suite probe (M4) | 7.0 s | PASS; exit 0, empty stderr, `supported=1 tier=11` |
 | `tools\validate_full.bat` (M4) | 156.0 s | PASS; 329 cases/61,354 assertions, all CPU/coverage and five runtime lanes, 44,401-line physics CSV byte-exact |
+| `tools\validate_full.bat` (M5 final) | 149.05 s | PASS; 329 cases/61,354 assertions, all CPU/coverage and five runtime lanes, zero DX12 errors, 44,401-line physics CSV byte-exact |
+| `tools\validate_perf.bat` (M5 final) | 106.07 s | PASS; DX12 0.7245 ms average / 1.2042 ms P99, zero gameplay/reserve policy violations |
+| `tools\run_graphics_stress.bat 1` (M5 final) | 61.99 s | PASS; 12,239 frames, 336 scene loads, graceful PID-scoped stop, empty stderr, 19 PSO misses fixed |
+| platform-profiler 10-frame probe (M5 final) | 1.28 s | PASS; exit 0, marker emission requested/enabled, empty stderr |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -157,13 +163,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `render-hal-modernization` M5 on `nightrunner-20th-july`.
-M4 is complete: DXR setup, reflection dispatch, and TLAS rebuild use typed
-descriptions/spans; unused positional parameters and dead clear/clip interface
-rows are deleted with usage proof. The Debug suite records DXR tier 11 support,
-and DX12, bounded stress, and full gates pass; comment audit is 10/10. M5 moves
-the Profiler Rendering/Text dependency out of Core, pins the final architecture
-contract, records closure perf/PSO evidence, and requests the plan's single
-independent review. E17
-extended owner playtest remains parked; keep Legacy default until the owner
-explicitly authorizes a switch.
+Start `gameplay-module-extraction` T0 on `nightrunner-20th-july`.
+Render HAL modernization is closed 6/6: raster state and DXR surfaces are typed,
+Core Profiler owns fixed values only, Rendering owns the concrete GPU timing and
+overlay seams, final full/perf/stress/marker gates pass, and independent review
+is clear after the reflection early-return scope fix. T0 is documentation-only:
+complete the tornado census and bind the external-force/pass-registration seam
+before implementation. E17 extended owner playtest remains parked; keep Legacy
+default until the owner explicitly authorizes a switch.

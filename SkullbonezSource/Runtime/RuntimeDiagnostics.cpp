@@ -363,19 +363,6 @@ bool RuntimeDiagnostics::PerfTestActive( const RunPerfLogState& perfLog )
 }
 
 
-void RuntimeDiagnostics::InvalidateProfilerGpuQueries( SkullbonezCore::Core::Profiler* profiler )
-{
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( profiler )
-    {
-        profiler->InvalidateGpuQueries();
-    }
-#else
-    (void)profiler;
-#endif
-}
-
-
 RuntimeProfilerFrameTimes RuntimeDiagnostics::SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler )
 {
     RuntimeProfilerFrameTimes times;

@@ -62,6 +62,7 @@ Related:
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/RenderInstanceRenderer.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
+#include "../../Rendering/RenderGpuTimingOwner.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderRasterBindingContract.h"
@@ -1031,7 +1032,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
         // so ball-on-ball shadows have enough texel density.
         PROFILE_SCOPED( m_profiler, "Frame/Shadows" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Shadows" );
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Shadows/ShadowMap" );
+        PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Shadows/ShadowMap" );
         {
             DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Shadows/ShadowMap" );
             Vector3 lightDirection( inputs.frame.lightPosition[0],
@@ -1094,7 +1095,7 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  &objectCasters );
             }
         }
-        PROFILE_GPU_END( m_profiler, "Frame/Shadows/ShadowMap" );
+        PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Shadows/ShadowMap" );
     }
 
     ShadowPassOutput output;
@@ -1161,12 +1162,12 @@ void SceneTargetPass::Begin( const RenderFrameContext& frame, SkyPass& skyPass )
     renderCommands.SetViewport( 0, 0, m_resources.hdrTarget->GetWidth(), m_resources.hdrTarget->GetHeight() );
     renderCommands.Clear( {} );
 
-    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/CinematicSky" );
+    PROFILE_GPU_BEGIN( frame.renderGpuTiming, "Frame/Render/CinematicSky" );
     {
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/CinematicSky" );
         skyPass.Render( frame, frame.baseView, SkyPassMode::CinematicIfEnabled );
     }
-    PROFILE_GPU_END( m_profiler, "Frame/Render/CinematicSky" );
+    PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/CinematicSky" );
 }
 
 
@@ -1178,7 +1179,10 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     // renders the above-water scene from a mirrored camera into an FBO. The DXR
     // path rebuilds the raytracing TLAS and writes a screen-space reflection
     // texture directly. Both feed the same water shader later.
-    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Reflection" );
+    // Hazard: texture resolution and framebuffer creation have recoverable
+    // early returns. A lexical scope keeps both profiler stacks balanced on
+    // every exit instead of requiring each fallback to duplicate an end call.
+    PROFILE_GPU_SCOPED( inputs.frame.renderGpuTiming, "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection" );
     const auto renderCapabilities = RenderDiagnostics( inputs.frame ).GetCapabilities();
     Rendering::IRenderRayTracing* rayTracing = inputs.frame.renderRayTracing;
@@ -1256,7 +1260,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                                           "Frame/Render/Reflection/DXR",
                                           reflection.textures.skyBack ) )
         {
-            PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection" );
             return output;
         }
         rayTracing->DispatchReflectionRays( reflection );
@@ -1280,17 +1283,17 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         // Skybox reflected (XZ follows eye; Y anchored at runtime config).
         // Cinematic mode can reflect the generated sunset sky into the water
         // instead of the usual cube-map sky.
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Reflection/Skybox" );
+        PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/Reflection/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Skybox" );
             skyPass.Render( inputs.frame, inputs.frame.reflectionView, SkyPassMode::CinematicIfEnabled );
         }
-        PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection/Skybox" );
+        PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/Reflection/Skybox" );
 
         // Why: clip at the water surface so the reflection texture contains only
         // the above-water portion of models. The water shader supplies the
         // below-surface visual from the main scene.
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Balls" );
         PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
@@ -1343,14 +1346,13 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         }
         PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/Reflection/Balls" );
 
         m_resources.target->Unbind();
         renderCommands.SetViewport( 0, 0, inputs.frame.windowWidth, inputs.frame.windowHeight );
         output.reflectionTextureHandle = m_resources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }
-    PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection" );
     return output;
 }
 
@@ -1362,7 +1364,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     const uint32_t passHash =
         transparentPass ? HashStr( "Frame/Render/TransparentBalls" ) : HashStr( "Frame/Render/Balls" );
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    SkullbonezCore::Core::GpuProfilerScope profileScope( m_profiler, passName, passHash );
+    SkullbonezCore::Rendering::RenderGpuTimingScope profileScope( inputs.frame.renderGpuTiming, passName, passHash );
 #endif
     Rendering::DrawCallTraceScope drawTraceScope( RenderDiagnostics( inputs.frame ), passName, passHash );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
@@ -1434,7 +1436,7 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
         return;
     }
 
-    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Terrain" );
+    PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/Terrain" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Terrain" );
     // Pass contract: terrain reads ground albedo from t0, the broad shadow map
     // from t3, and the tight object-shadow map from t5. The material table stays
@@ -1456,7 +1458,7 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
                                  inputs.shadow,
                                  inputs.detailShadow );
     }
-    PROFILE_GPU_END( m_profiler, "Frame/Render/Terrain" );
+    PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/Terrain" );
 }
 
 
@@ -1498,7 +1500,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
         return;
     }
 
-    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Water" );
+    PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/Water" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Water" );
     // Pass contract: water samples only the reflection texture in slot 1.
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
@@ -1522,7 +1524,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
                          inputs.flatWater,
                          inputs.frame.cinematicEnabled,
                          inputs.cinematic );
-    PROFILE_GPU_END( m_profiler, "Frame/Render/Water" );
+    PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/Water" );
 }
 
 
@@ -1828,7 +1830,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
         return false;
     }
 
-    PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/TornadoVisual" );
+    PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/TornadoVisual" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/TornadoVisual" );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
     ClearAllRenderTextureSlots( renderCommands );
@@ -1836,7 +1838,7 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
                                                   inputs.frame.viewProjection,
                                                   Rendering::TransientTriangleStyle::Color,
                                                   TORNADO_RASTER );
-    PROFILE_GPU_END( m_profiler, "Frame/Render/TornadoVisual" );
+    PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/TornadoVisual" );
     return true;
 }
 
@@ -1854,7 +1856,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay" );
+        PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/DebugOverlay" );
     const DebugOverlaySnapshot& snapshot = inputs.snapshot;
@@ -1862,7 +1864,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay/Broadphase" );
+            PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay/Broadphase" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Broadphase" );
         // Pass contract: broadphase owns grid-line generation, while renderer
@@ -1873,7 +1875,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                        supportsDebugLines );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay/Broadphase" );
+            PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay/Broadphase" );
         }
     }
 
@@ -1881,13 +1883,13 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay/TornadoField" );
+            PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay/TornadoField" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "TornadoField" );
         RenderTornadoVectorOverlay( inputs );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay/TornadoField" );
+            PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay/TornadoField" );
         }
     }
 
@@ -1906,7 +1908,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/DebugOverlay/PhysicsDebug" );
+            PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay/PhysicsDebug" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "PhysicsDebug" );
         m_physicsDebugVisualizer.SetFlags( snapshot.physicsDebugFlags );
@@ -1925,12 +1927,12 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
         }
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay/PhysicsDebug" );
+            PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay/PhysicsDebug" );
         }
     }
     if ( detailMarkers )
     {
-        PROFILE_GPU_END( m_profiler, "Frame/Render/DebugOverlay" );
+        PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/DebugOverlay" );
     }
     return true;
 }
@@ -2142,13 +2144,17 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/VolumetricLight" );
+        PROFILE_GPU_BEGIN( frame.renderGpuTiming, "Frame/Render/VolumetricLight" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/VolumetricLight" );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
     const bool useGraphOutput = graphOutput && graphOutput->IsValid() && graphOutput->renderTarget;
     if ( !useGraphOutput )
     {
+        if ( detailMarkers )
+        {
+            PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/VolumetricLight" );
+        }
         return false;
     }
     renderCommands.BeginGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
@@ -2159,7 +2165,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/VolumetricLight/Draw" );
+            PROFILE_GPU_BEGIN( frame.renderGpuTiming, "Frame/Render/VolumetricLight/Draw" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Draw" );
         m_volumetricResources.shader->Use();
@@ -2180,7 +2186,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( m_profiler, "Frame/Render/VolumetricLight/Draw" );
+            PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/VolumetricLight/Draw" );
         }
     }
 
@@ -2188,7 +2194,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
     if ( detailMarkers )
     {
-        PROFILE_GPU_END( m_profiler, "Frame/Render/VolumetricLight" );
+        PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/VolumetricLight" );
     }
     return true;
 }
@@ -2230,7 +2236,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     const bool detailMarkers = SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled();
     if ( detailMarkers )
     {
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Tonemap" );
+        PROFILE_GPU_BEGIN( frame.renderGpuTiming, "Frame/Render/Tonemap" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/Tonemap" );
     if ( !sceneAlreadyUnbound )
@@ -2246,7 +2252,7 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     {
         if ( detailMarkers )
         {
-            PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Tonemap/Draw" );
+            PROFILE_GPU_BEGIN( frame.renderGpuTiming, "Frame/Render/Tonemap/Draw" );
         }
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Draw" );
         m_tonemapResources.shader->Use();
@@ -2274,12 +2280,12 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
         if ( detailMarkers )
         {
-            PROFILE_GPU_END( m_profiler, "Frame/Render/Tonemap/Draw" );
+            PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/Tonemap/Draw" );
         }
     }
 
     if ( detailMarkers )
     {
-        PROFILE_GPU_END( m_profiler, "Frame/Render/Tonemap" );
+        PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/Tonemap" );
     }
 }

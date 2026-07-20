@@ -1640,12 +1640,14 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( uiTextPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
 
+    UI::UIRenderContext profiledUiRender = uiRender;
+    profiledUiRender.gpuTiming = &m_renderGpuTiming;
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.profiler = m_profiler;
     callbackData.textBatch = &m_textBatch;
-    callbackData.uiRender = &uiRender;
+    callbackData.uiRender = &profiledUiRender;
     callbackData.state = &state;
     callbackData.timers = &timers;
     callbackData.ui = &ui;
@@ -1701,6 +1703,7 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
+    frame.renderGpuTiming = &m_renderGpuTiming;
     frame.primitiveBatches = &PrimitiveBatches();
     frame.renderRayTracing = services.renderRayTracing;
     frame.windowWidth = (std::max)( 1, m_window.ClientWidth() );
@@ -1758,6 +1761,7 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
+      m_renderGpuTiming( world.profiler, backend.renderDiagnostics ),
       m_fullscreenQuadPass( m_passResources.fullscreen ),
       m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config, m_profiler ),
       m_sceneTargetPass( m_passResources.cinematicScene, m_profiler ),
@@ -1791,6 +1795,12 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
 
 
 RuntimeRenderer::~RuntimeRenderer() = default;
+
+
+void RuntimeRenderer::BeginProfilerFrame()
+{
+    m_renderGpuTiming.BeginFrame();
+}
 
 
 void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
@@ -2079,12 +2089,12 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // stretch reflected geometry during camera transitions.
     if ( !cinematicRender )
     {
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Skybox" );
+        PROFILE_GPU_BEGIN( &m_renderGpuTiming, "Frame/Render/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( services.renderDiagnostics, "Frame/Render/Skybox" );
             ExecuteSkyboxThroughRenderGraph( frame );
         }
-        PROFILE_GPU_END( m_profiler, "Frame/Render/Skybox" );
+        PROFILE_GPU_END( &m_renderGpuTiming, "Frame/Render/Skybox" );
     }
 
     ReflectionPassOutput reflection;
@@ -2320,7 +2330,9 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-            RuntimeDiagnostics::InvalidateProfilerGpuQueries( m_profiler );
+            // Lifetime: invalidate backend queries while the diagnostics facet
+            // is live, then clear Core's value history through the owner seam.
+            m_renderGpuTiming.InvalidateDevice();
 #endif
             break;
         case BackendResourceStep::TextureCollection:

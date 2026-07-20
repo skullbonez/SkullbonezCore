@@ -26,6 +26,8 @@ Glossary:
     without calling a real command list.
   Platform profiler GPU stack: Nested marker depth suspended when one command
     list is submitted and restored on its replacement list.
+  Profiler value seam: Core-owned fixed spans consumed by concrete Rendering
+    timing and overlay owners without an upward renderer pointer.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
@@ -46,6 +48,8 @@ Related:
 #include "Rendering/DX12/RenderDeviceDX12.h"
 #include "Rendering/DX12/Dx12TextureRegistry.h"
 #include "Rendering/IRenderDeviceLifecycle.h"
+#include "Rendering/ProfilerOverlayPresenter.h"
+#include "Rendering/RenderGpuTimingOwner.h"
 #include "Rendering/RenderGraph.h"
 
 #include <cstdint>
@@ -72,6 +76,15 @@ static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().Dr
                "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
+static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, IRenderDiagnostics*>,
+               "Runtime rendering must own one explicit concrete GPU timing boundary." );
+static_assert( !std::is_polymorphic_v<RenderGpuTimingOwner>,
+               "GPU timing stays a concrete owner, not a new renderer callback interface." );
+static_assert( std::is_empty_v<ProfilerOverlayPresenter>,
+               "Profiler overlay presentation must not retain Core frame or command borrows." );
+static_assert( std::is_same_v<decltype( SkullbonezCore::Core::Profiler::ProfilerFrameView::markers ),
+                              std::span<const SkullbonezCore::Core::Profiler::Marker>>,
+               "Core publishes profiler markers as a fixed read-only span." );
 
 namespace
 {

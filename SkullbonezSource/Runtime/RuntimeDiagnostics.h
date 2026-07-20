@@ -114,7 +114,6 @@ class RuntimeDiagnostics
     static void TickPerfLog( RunPerfLogState& perfLog,
                              const RuntimePerfTickContext& context,
                              SkullbonezCore::Core::Profiler* profiler );
-    static void InvalidateProfilerGpuQueries( SkullbonezCore::Core::Profiler* profiler );
     static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler );
 
 #ifdef _DEBUG

@@ -42,6 +42,7 @@ Related:
 #include "RenderPresentationSettings.h"
 #include "../../Assets/TextureCollection.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
+#include "../../Rendering/RenderGpuTimingOwner.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/Text.h"
@@ -102,6 +103,10 @@ class RuntimeRenderer
 
     RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene );
     ~RuntimeRenderer();
+
+    // Runs after Core FrameBegin and before draw-call counters reset. This
+    // reads completed GPU samples and publishes the preceding render counters.
+    void BeginProfilerFrame();
 
     const RenderPresentationSettings& PresentationSettings() const
     {
@@ -342,6 +347,7 @@ class RuntimeRenderer
     Physics::BroadphaseVisualizer& m_broadphaseVisualizer;
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
+    Rendering::RenderGpuTimingOwner m_renderGpuTiming;    // Concrete renderer query/event owner; Core receives values only.
     float m_consequenceGradeStrength = 0.0f;              // Render-owned fade strength for the frame-local consequence grade.
     std::chrono::steady_clock::time_point
         m_consequenceGradeLastTick;                       // Wall-clock anchor for the grade crossfade; zero means uninitialized.

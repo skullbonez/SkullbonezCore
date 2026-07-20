@@ -93,6 +93,7 @@ namespace Rendering
 class IRenderCommandContext;
 class IRenderDiagnostics;
 class IRenderResourceFactory;
+class RenderGpuTimingOwner;
 } // namespace Rendering
 
 namespace UI
@@ -128,6 +129,7 @@ struct UIRenderContext
     Rendering::IRenderResourceFactory* resources = nullptr;
     Rendering::IRenderCommandContext* commands = nullptr;
     Rendering::IRenderDiagnostics* diagnostics = nullptr;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     // Lifetime: the late UI pass installs RuntimeRenderer's batch owner for
     // this synchronous draw only. Run's wider frame context leaves it null.
     Text::TextBatch* textBatch = nullptr;

@@ -706,6 +706,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />

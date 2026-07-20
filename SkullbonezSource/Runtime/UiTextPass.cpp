@@ -47,6 +47,7 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "../Physics/PhysicsDebugData.h"
 #include "../Core/Profiler.h"
+#include "../Rendering/ProfilerOverlayPresenter.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
 #include "../Rendering/Text.h"
@@ -193,6 +194,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     assert( inputs.profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
     const SkullbonezCore::Core::Profiler& profiler = *inputs.profiler;
+    const Rendering::ProfilerOverlayPresenter profilerOverlay;
 #endif
 
     // Invariant: rolling diagnostics update before any overlay early return so
@@ -1064,7 +1066,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
-        profiler.RenderBarOverlay( textBatch, renderCommands, panX, panY, panW, panH, absolute );
+        profilerOverlay
+            .RenderBarOverlay( profiler.FrameView(), textBatch, renderCommands, panX, panY, panW, panH, absolute );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
@@ -1181,13 +1184,14 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        profiler.RenderOverlay( textBatch,
-                                renderCommands,
-                                -( hw - mX ),
-                                -( hh - mY ) - padY,
-                                lineH,
-                                profFSz,
-                                inputs.timers.rollingFpsTime );
+        profilerOverlay.RenderOverlay( profiler.FrameView(),
+                                       textBatch,
+                                       renderCommands,
+                                       -( hw - mX ),
+                                       -( hh - mY ) - padY,
+                                       lineH,
+                                       profFSz,
+                                       inputs.timers.rollingFpsTime );
     }
 #endif
 

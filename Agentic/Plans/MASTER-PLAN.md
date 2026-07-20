@@ -291,13 +291,19 @@ normal frames retain only the declaration-only Present edge, while capture
 restart uses an explicit zero-declaration completion. Closure evidence is in
 `../Reports/2026-07-20/render-graph-completion-closure.md`.
 
+The active/future denominator returned 31 → 25 when
+`render-hal-modernization` closed M0-M5 and left the ledger under rule 4.
+Declared raster values now own PSO identity, the DXR facet is typed, and the
+Profiler semantic exception is resolved through a fixed Rendering-owned timing
+owner and Core-owned value history. Closure evidence is in
+`../Reports/2026-07-21/render-hal-modernization-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [render-hal-modernization](TODO/render-hal-modernization.md) | 5 | 6 | 83% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **22** | **31** | **71%** |
+| **Active/future total** | **17** | **25** | **68%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -361,11 +367,11 @@ smoke all pass. Closure evidence is in
 
 The architecture-review campaign registered 2026-07-20 is the active queue.
 Dependency-direction restoration, allocation-namespace restoration,
-physics-facade unification, physics-settings snapshot, and Run::Execute
-de-accretion, and render-graph completion are closed. Remaining execution order
-is binding and biggest-wins-first: 1 `render-hal-modernization`, 2
-`gameplay-module-extraction`, 3 `replay-boundary-containment`. Owner decisions ratified at
-registration: finish the render-graph migration (freezing rejected);
+physics-facade unification, physics-settings snapshot, Run::Execute
+de-accretion, render-graph completion, and Render HAL modernization are closed.
+Remaining execution order is binding and biggest-wins-first: 1
+`gameplay-module-extraction`, 2 `replay-boundary-containment`. Owner decisions
+ratified at registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
 a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
 below is a parked owner item and does not gate this campaign.
@@ -1146,14 +1152,13 @@ or hot-path inheritance/callback artifacts (existing review rules apply
 verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
 this campaign: it waits on the parked E17 owner verdict.
 
-Execution order is binding (biggest wins first). Render-graph completion is
-closed, so Render HAL modernization and gameplay T2 are unblocked. Replay
-boundary containment inherits the now-closed solver-snapshot move.
+Execution order is binding (biggest wins first). Render-graph completion and
+Render HAL modernization are closed, so every gameplay task is unblocked.
+Replay boundary containment inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-hal-modernization](TODO/render-hal-modernization.md) | Active | 5/6 | Start M5 closure, Profiler dependency restoration, and independent review |
-| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | All tasks unblocked; start after Render HAL in binding order |
+| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Active | 0/4 | Start T0 seam design and complete tornado census |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |
 
 ## Features

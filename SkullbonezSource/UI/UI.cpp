@@ -432,7 +432,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, data );
         FlushUIDrawList( m_histogramDrawList,
                          textBatch,
-                         m_profiler,
+                         render.gpuTiming,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -457,7 +457,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         MemoryTab::DrawOverlay( widgets.memoryOverlay, memoryDraw, data, memoryX, memoryY );
         FlushUIDrawList( m_memoryOverlayDrawList,
                          textBatch,
-                         m_profiler,
+                         render.gpuTiming,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -497,7 +497,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             if ( widgets.window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
-                FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+                FlushUIDrawList( drawList,
+                                 textBatch,
+                                 render.gpuTiming,
+                                 renderCommands,
+                                 renderDiagnostics,
+                                 screenW,
+                                 screenH );
                 drawStandaloneOverlays();
                 return;
             }
@@ -562,7 +568,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                                           cameraModeDisabledMask );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
-        FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+        FlushUIDrawList( drawList, textBatch, render.gpuTiming, renderCommands, renderDiagnostics, screenW, screenH );
         drawStandaloneOverlays();
         return;
     }
@@ -634,7 +640,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         const float replayOffsetY = widgets.cache.ReplayOffsetY( cacheKey );
         FlushUIDrawList( widgets.cache.DrawList(),
                          textBatch,
-                         m_profiler,
+                         render.gpuTiming,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -928,7 +934,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
         if ( selectedAvailable && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
         {
-            FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+            FlushUIDrawList( drawList,
+                             textBatch,
+                             render.gpuTiming,
+                             renderCommands,
+                             renderDiagnostics,
+                             screenW,
+                             screenH );
             drawList.Clear();
             DrawRenderTargetPreviewTexture( m_renderTargetPreviewShader,
                                             m_renderTargetPreviewVB,
@@ -1211,7 +1223,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                        { footerX, by + 16.0f, controlsW, 56.0f } );
 
     PROFILE_END( m_profiler, "Frame/UI/DrawBuild" );
-    FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+    FlushUIDrawList( drawList, textBatch, render.gpuTiming, renderCommands, renderDiagnostics, screenW, screenH );
     drawStandaloneOverlays();
     if ( drawsLiveRenderTargetPreview )
     {

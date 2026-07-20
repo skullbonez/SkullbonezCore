@@ -1234,6 +1234,12 @@
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>

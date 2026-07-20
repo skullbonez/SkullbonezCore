@@ -4,15 +4,13 @@ Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
 Summary:
-  The public profiler contract is Core infrastructure, while its implementation
-  integrates renderer timestamps, platform GPU ranges, text overlays, worker
-  samples, and Tracy plots. Locating that implementation in Rendering keeps the
-  Core API free of upward implementation includes.
+  Core owns fixed profiler marker/history values. Concrete Rendering owners in
+  this unit bracket GPU work, read completed timestamp values, publish renderer
+  counters, and present text overlays without storing renderer state in Core.
 
 Glossary:
-  Render diagnostics capability: Narrow renderer interface used here for GPU
-    timers and platform GPU marker events without depending on the wide backend
-    facade.
+  Render GPU timing owner: Concrete renderer lifecycle object that owns query
+    and platform-event interaction.
   Warmup frame: Completed frame intentionally excluded from profiler stats and
     perf CSV rows while a scene/pass settles.
   External owner zone: Tracy interval that mirrors an established engine
@@ -22,8 +20,8 @@ Glossary:
 Invariants:
   - Marker identity is the full path plus hash; hash collisions are Lane F
     failures because merged timings would corrupt diagnostics.
-  - Begin/end nesting must balance before frame end for both CPU and GPU marker
-    rings.
+  - Begin/end nesting must balance before frame end for both Core record ranges
+    and the renderer timing owner's fixed open stack.
 
 Related:
   - SkullbonezSource/Core/Profiler.h
@@ -35,6 +33,8 @@ Related:
 #include "../Core/Profiler.h"
 #include "../Core/FatalError.h"
 #include "IRenderDiagnostics.h"
+#include "ProfilerOverlayPresenter.h"
+#include "RenderGpuTimingOwner.h"
 #include "../Core/TracyClientOwner.h"
 #include "../Core/WorkerPool.h"
 
@@ -89,8 +89,7 @@ const char* FindLeafName( const char* fullPath )
 Profiler::Profiler()
     : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
       m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
-      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ),
-      m_renderDiagnostics( nullptr )
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ), m_markerEpoch( 1 )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -108,8 +107,7 @@ Profiler::Profiler()
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
-    std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
-    std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
+    std::memset( m_platformProfilerRenderRecordOpen, 0, sizeof( m_platformProfilerRenderRecordOpen ) );
     std::memset( m_tracyZoneIds, 0, sizeof( m_tracyZoneIds ) );
     std::memset( m_tracyZoneActive, 0, sizeof( m_tracyZoneActive ) );
     std::memset( m_tracyZoneConnectionIds, 0, sizeof( m_tracyZoneConnectionIds ) );
@@ -465,8 +463,7 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
     const int stackSlot = m_stackTop++;
     m_stackIndices[stackSlot] = idx;
     m_platformProfilerCpuOpen[stackSlot] = false;
-    m_platformProfilerGpuRecordOpen[stackSlot] = false;
-    m_platformProfilerGpuEventOpen[stackSlot] = false;
+    m_platformProfilerRenderRecordOpen[stackSlot] = false;
     m_tracyZoneIds[stackSlot] = 0u;
     m_tracyZoneActive[stackSlot] = 0;
     m_tracyZoneConnectionIds[stackSlot] = 0u;
@@ -535,17 +532,11 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
 }
 
 
-void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
+int Profiler::BeginRenderRecord( const char* fullPath, uint32_t hash )
 {
-    // Owner: Profiler with a startup-bound RenderDiagnostics borrow. Reason:
-    // GPU markers share Profiler's nesting stack, but Core must not reopen the
-    // renderer singleton while recording a scope. Deletion condition: if GPU
-    // scopes become owned by render passes directly, this borrow can disappear
-    // with the scope wrapper. Checker budget: ProfilerImplementation.cpp has
-    // zero renderer-service global accesses.
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
-        return;
+        return -1;
     }
     BeginInternal( fullPath, hash, false );
     const int stackSlot = m_stackTop - 1;
@@ -555,35 +546,23 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
         PlatformProfiler::CpuBegin(
             PlatformProfiler::DecorateMarkerName( fullPath, "_Record", markerName, sizeof( markerName ) ),
             hash );
-        m_platformProfilerGpuRecordOpen[stackSlot] = true;
+        m_platformProfilerRenderRecordOpen[stackSlot] = true;
     }
-    if ( PlatformProfiler::IsEnabled() && m_renderDiagnostics )
-    {
-        m_renderDiagnostics->PlatformProfilerGpuBegin( fullPath, hash );
-        m_platformProfilerGpuEventOpen[stackSlot] = true;
-    }
-    BeginGpuTimerInternal( fullPath, hash );
+    return m_stackIndices[stackSlot];
 }
 
 
-void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
+void Profiler::EndRenderRecord( const char* fullPath, uint32_t hash )
 {
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         return;
     }
     const int stackSlot = m_stackTop > 0 ? m_stackTop - 1 : -1;
-    const bool platformGpuOpen = stackSlot >= 0 ? m_platformProfilerGpuEventOpen[stackSlot] : false;
-    const bool platformRecordOpen = stackSlot >= 0 ? m_platformProfilerGpuRecordOpen[stackSlot] : false;
+    const bool platformRecordOpen = stackSlot >= 0 ? m_platformProfilerRenderRecordOpen[stackSlot] : false;
     if ( stackSlot >= 0 )
     {
-        m_platformProfilerGpuEventOpen[stackSlot] = false;
-        m_platformProfilerGpuRecordOpen[stackSlot] = false;
-    }
-    EndGpuTimerInternal( fullPath, hash );
-    if ( platformGpuOpen && m_renderDiagnostics )
-    {
-        m_renderDiagnostics->PlatformProfilerGpuEnd();
+        m_platformProfilerRenderRecordOpen[stackSlot] = false;
     }
     if ( platformRecordOpen )
     {
@@ -593,69 +572,44 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 }
 
 
-void Profiler::BeginGpuTimerInternal( const char* fullPath, uint32_t hash )
+void Profiler::MarkGpuMarkerWritten( int markerIndex )
 {
-    Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
-    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
+    if ( markerIndex < 0 || markerIndex >= m_markerCount )
     {
-        int idx = FindOrRegister( fullPath, hash );
-        Marker& m = m_markers[idx];
-        m.hasGpu = true;
-        m.gpuWrittenThisFrame = true;
-        renderDiagnostics->GpuTimerBegin( idx );
-        return;
+        SB_FATAL( "Profiler", "GPU marker index %d is outside [0,%d)", markerIndex, m_markerCount );
     }
+    Marker& marker = m_markers[markerIndex];
+    marker.hasGpu = true;
+    marker.gpuWrittenThisFrame = true;
 }
 
 
-void Profiler::EndGpuTimerInternal( const char* fullPath, uint32_t hash )
+void Profiler::ApplyGpuTimingSamples( std::span<const GpuTimingSample> samples )
 {
-    Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
-    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
+    for ( const GpuTimingSample& sample : samples )
     {
-        int idx = FindOrRegister( fullPath, hash );
-        Marker& m = m_markers[idx];
-        if ( m.gpuWrittenThisFrame )
+        for ( int markerIndex = 0; markerIndex < m_markerCount; ++markerIndex )
         {
-            renderDiagnostics->GpuTimerEnd( idx );
-        }
-        return;
-    }
-}
-
-
-void Profiler::ReadPendingGpuResults()
-{
-    Rendering::IRenderDiagnostics* renderDiagnostics = m_renderDiagnostics;
-    if ( renderDiagnostics && renderDiagnostics->GetCapabilities().supportsGpuTimers )
-    {
-        for ( int i = 0; i < m_markerCount; ++i )
-        {
-            Marker& m = m_markers[i];
-            if ( !m.hasGpu )
+            Marker& marker = m_markers[markerIndex];
+            if ( marker.hash != sample.markerHash )
             {
                 continue;
             }
-            float ms = 0.0f;
-            if ( renderDiagnostics->GpuTimerRead( i, ms ) )
+            const float milliseconds = (std::max)( 0.0f, sample.milliseconds );
+            marker.gpuLastFrameMs = milliseconds;
+            marker.gpuRingMs[marker.gpuRingHead] = milliseconds;
+            marker.gpuRingHead = ( marker.gpuRingHead + 1 ) % RING_SIZE;
+            if ( marker.gpuRingFilled < RING_SIZE )
             {
-                m.gpuLastFrameMs = ms;
-                m.gpuRingMs[m.gpuRingHead] = ms;
-                m.gpuRingHead = ( m.gpuRingHead + 1 ) % RING_SIZE;
-                if ( m.gpuRingFilled < RING_SIZE )
-                {
-                    ++m.gpuRingFilled;
-                }
-                // Recompute the running average here so the display column recovers
-                // immediately after a ScheduleReset() (e.g. P-key mode switch) without
-                // waiting for the 500ms moving-average refresh or the warmup window.
-                double gsum = 0.0;
-                for ( int k = 0; k < m.gpuRingFilled; ++k )
-                {
-                    gsum += m.gpuRingMs[k];
-                }
-                m.gpuAvgMs = static_cast<float>( gsum / m.gpuRingFilled );
+                ++marker.gpuRingFilled;
             }
+            double totalMilliseconds = 0.0;
+            for ( int sampleIndex = 0; sampleIndex < marker.gpuRingFilled; ++sampleIndex )
+            {
+                totalMilliseconds += marker.gpuRingMs[sampleIndex];
+            }
+            marker.gpuAvgMs = static_cast<float>( totalMilliseconds / marker.gpuRingFilled );
+            break;
         }
     }
 }
@@ -674,21 +628,7 @@ void Profiler::AdvanceGpuWriteCursors()
 }
 
 
-void Profiler::BindRenderDiagnostics( Rendering::IRenderDiagnostics* renderDiagnostics )
-{
-    if ( m_renderDiagnostics == renderDiagnostics )
-    {
-        return;
-    }
-
-    // Lifetime: invalidate against the old backend borrow before replacing it
-    // so stale timestamp queries cannot be read after a renderer reset/teardown.
-    InvalidateGpuQueries();
-    m_renderDiagnostics = renderDiagnostics;
-}
-
-
-void Profiler::InvalidateGpuQueries()
+void Profiler::InvalidateGpuSamples()
 {
     for ( int i = 0; i < m_markerCount; ++i )
     {
@@ -702,10 +642,171 @@ void Profiler::InvalidateGpuQueries()
         std::memset( m.gpuRingMs, 0, sizeof( m.gpuRingMs ) );
     }
     RestartWarmup();
+}
 
-    if ( m_renderDiagnostics )
+
+Profiler::ProfilerFrameView Profiler::FrameView() const
+{
+    return ProfilerFrameView{
+        std::span<const Marker>( m_markers, static_cast<std::size_t>( m_markerCount ) ),
+        std::span<const Counter>( m_counters, static_cast<std::size_t>( m_counterCount ) ),
+        std::span<const WorkerCoreSample>( m_workerCoreSamples, static_cast<std::size_t>( m_workerCoreSampleCount ) ) };
+}
+
+
+RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, IRenderDiagnostics* diagnostics )
+    : m_profiler( profiler ), m_diagnostics( diagnostics ), m_markerEpoch( profiler ? profiler->MarkerEpoch() : 0 )
+{
+}
+
+
+void RenderGpuTimingOwner::BeginFrame()
+{
+    if ( !m_profiler || !m_diagnostics )
     {
-        m_renderDiagnostics->GpuTimerInvalidate();
+        return;
+    }
+    if ( m_openDepth != 0 )
+    {
+        SB_FATAL( "RenderGpuTimingOwner", "frame boundary reached with %d open GPU range(s)", m_openDepth );
+    }
+
+    // Invariant: Core clears marker identities only at FrameBegin. Mirror that
+    // epoch before reading query slots so an old index can never populate a new
+    // marker row after a profiler reset.
+    if ( m_markerEpoch != m_profiler->MarkerEpoch() )
+    {
+        m_diagnostics->GpuTimerInvalidate();
+        m_markerEpoch = m_profiler->MarkerEpoch();
+    }
+
+    int completedCount = 0;
+    const Core::Profiler::ProfilerFrameView frame = m_profiler->FrameView();
+    if ( m_diagnostics->GetCapabilities().supportsGpuTimers )
+    {
+        for ( std::size_t markerIndex = 0; markerIndex < frame.markers.size(); ++markerIndex )
+        {
+            const Core::Profiler::Marker& marker = frame.markers[markerIndex];
+            if ( !marker.hasGpu )
+            {
+                continue;
+            }
+            float milliseconds = 0.0f;
+            if ( m_diagnostics->GpuTimerRead( static_cast<int>( markerIndex ), milliseconds ) )
+            {
+                m_completedSamples[completedCount++] = { marker.hash, milliseconds };
+            }
+        }
+    }
+    m_profiler->ApplyGpuTimingSamples(
+        std::span<const Core::Profiler::GpuTimingSample>( m_completedSamples,
+                                                          static_cast<std::size_t>( completedCount ) ) );
+
+#if defined( TRACY_ENABLE )
+    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
+    {
+        const RenderMemoryStats memory = m_diagnostics->GetRenderMemoryStats();
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/DrawCalls", m_diagnostics->GetFrameDrawCallCount() );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadUsedBytes", memory.uploadUsedBytes );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadPeakBytes", memory.uploadPeakBytes );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/RTVDescriptorsUsed", memory.rtvDescriptorsUsed );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/DSVDescriptorsUsed", memory.dsvDescriptorsUsed );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsUsed", memory.srvStaticDescriptorsUsed );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsHighWater", memory.srvStaticDescriptorsHighWater );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsUsed",
+                                memory.srvTransientDescriptorsUsedThisFrame );
+        SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak",
+                                memory.srvTransientDescriptorsPeakThisRun );
+        SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
+    }
+#endif
+}
+
+
+void RenderGpuTimingOwner::Begin( const char* fullPath, uint32_t hash )
+{
+    if ( !m_profiler )
+    {
+        return;
+    }
+    if ( m_openDepth >= Core::Profiler::MAX_DEPTH )
+    {
+        SB_FATAL( "RenderGpuTimingOwner", "GPU range stack overflow at %s", fullPath ? fullPath : "<null>" );
+    }
+
+    const int markerIndex = m_profiler->BeginRenderRecord( fullPath, hash );
+    if ( markerIndex < 0 )
+    {
+        return;
+    }
+    OpenScope& scope = m_openScopes[m_openDepth++];
+    scope = { fullPath, hash, markerIndex, false, false };
+
+    if ( m_diagnostics && PlatformProfiler::IsEnabled() )
+    {
+        m_diagnostics->PlatformProfilerGpuBegin( fullPath, hash );
+        scope.platformEventOpen = true;
+    }
+    if ( m_diagnostics && m_diagnostics->GetCapabilities().supportsGpuTimers )
+    {
+        m_profiler->MarkGpuMarkerWritten( markerIndex );
+        m_diagnostics->GpuTimerBegin( markerIndex );
+        scope.timerOpen = true;
+    }
+}
+
+
+void RenderGpuTimingOwner::End( const char* fullPath, uint32_t hash )
+{
+    if ( !m_profiler )
+    {
+        return;
+    }
+    if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
+    {
+        return;
+    }
+    if ( m_openDepth <= 0 )
+    {
+        SB_FATAL( "RenderGpuTimingOwner", "GPU range end without begin for %s", fullPath ? fullPath : "<null>" );
+    }
+
+    OpenScope& scope = m_openScopes[m_openDepth - 1];
+    if ( scope.hash != hash )
+    {
+        SB_FATAL( "RenderGpuTimingOwner",
+                  "GPU range mismatch: expected %s, received %s",
+                  scope.fullPath ? scope.fullPath : "<null>",
+                  fullPath ? fullPath : "<null>" );
+    }
+    if ( scope.timerOpen && m_diagnostics )
+    {
+        m_diagnostics->GpuTimerEnd( scope.markerIndex );
+    }
+    if ( scope.platformEventOpen && m_diagnostics )
+    {
+        m_diagnostics->PlatformProfilerGpuEnd();
+    }
+    scope = OpenScope();
+    --m_openDepth;
+    m_profiler->EndRenderRecord( fullPath, hash );
+}
+
+
+void RenderGpuTimingOwner::InvalidateDevice()
+{
+    if ( m_openDepth != 0 )
+    {
+        SB_FATAL( "RenderGpuTimingOwner", "device invalidation reached with %d open GPU range(s)", m_openDepth );
+    }
+    if ( m_diagnostics )
+    {
+        m_diagnostics->GpuTimerInvalidate();
+    }
+    if ( m_profiler )
+    {
+        m_profiler->InvalidateGpuSamples();
+        m_markerEpoch = m_profiler->MarkerEpoch();
     }
 }
 
@@ -728,14 +829,16 @@ void Profiler::FrameBegin()
 {
     if ( m_resetPending )
     {
-        // Wipe GPU query state on all current markers, then clear the registry.
-        // InvalidateGpuQueries also invalidates the bound renderer timers and resets warmup.
-        InvalidateGpuQueries();
+        // Clear Core values and advance the identity epoch. The concrete render
+        // timing owner observes the new epoch at this same frame boundary and
+        // invalidates its backend query slots before reading them.
+        InvalidateGpuSamples();
         m_markerCount = 0;
         m_counterCount = 0;
         m_lastPerfCSVColumnCount = -1;
         m_lastAvgTicks = 0;
         m_nextColorIndex = 0;
+        ++m_markerEpoch;
         m_resetPending = false;
         {
             std::lock_guard<std::mutex> lock( m_workerSampleMutex );
@@ -765,9 +868,6 @@ void Profiler::FrameBegin()
     {
         --m_warmupFrames;
     }
-
-    // Read any pending GPU results from previous frames (non-blocking)
-    ReadPendingGpuResults();
 
     for ( int i = 0; i < m_markerCount; ++i )
     {
@@ -1020,23 +1120,6 @@ void Profiler::FrameEnd()
         {
             SKORE_TRACY_PLOT_VALUE( m_counters[index].name, m_counters[index].lastFrameValue );
         }
-        if ( m_renderDiagnostics )
-        {
-            const RenderMemoryStats memory = m_renderDiagnostics->GetRenderMemoryStats();
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/DrawCalls", m_renderDiagnostics->GetFrameDrawCallCount() );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadUsedBytes", memory.uploadUsedBytes );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/UploadPeakBytes", memory.uploadPeakBytes );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/RTVDescriptorsUsed", memory.rtvDescriptorsUsed );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/DSVDescriptorsUsed", memory.dsvDescriptorsUsed );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsUsed", memory.srvStaticDescriptorsUsed );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/StaticSRVDescriptorsHighWater",
-                                    memory.srvStaticDescriptorsHighWater );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsUsed",
-                                    memory.srvTransientDescriptorsUsedThisFrame );
-            SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak",
-                                    memory.srvTransientDescriptorsPeakThisRun );
-        }
-        SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
     }
 #endif
 
@@ -1217,16 +1300,21 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 }
 
 
-void Profiler::RenderOverlay( Text::TextBatch& textBatch,
-                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
-                              float xLeft,
-                              float yAnchor,
-                              float lineHeight,
-                              float fSize,
-                              float fps,
-                              bool rightAnchored ) const
+void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView& frame,
+                                              Text::TextBatch& textBatch,
+                                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                              float xLeft,
+                                              float yAnchor,
+                                              float lineHeight,
+                                              float fSize,
+                                              float fps,
+                                              bool rightAnchored ) const
 {
     using SkullbonezCore::Text::Text2d;
+    using Marker = Core::Profiler::Marker;
+    constexpr int MAX_MARKERS = Core::Profiler::MAX_MARKERS;
+    const Marker* m_markers = frame.markers.data();
+    const int m_markerCount = static_cast<int>( frame.markers.size() );
 
     bool anyGpu = false;
     for ( int i = 0; i < m_markerCount; ++i )
@@ -1475,15 +1563,23 @@ void Profiler::RenderOverlay( Text::TextBatch& textBatch,
 
     The panel is designed with vertical headroom for future multi-core stacking (CPU bar per thread).
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void Profiler::RenderBarOverlay( Text::TextBatch& textBatch,
-                                 SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
-                                 float xLeft,
-                                 float yBottom,
-                                 float panelWidth,
-                                 float panelHeight,
-                                 bool absolute ) const
+void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
+                                                 Text::TextBatch& textBatch,
+                                                 SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                                 float xLeft,
+                                                 float yBottom,
+                                                 float panelWidth,
+                                                 float panelHeight,
+                                                 bool absolute ) const
 {
     using SkullbonezCore::Text::Text2d;
+    using Marker = Core::Profiler::Marker;
+    using BarColor = Core::Profiler::BarColor;
+    constexpr int MAX_MARKERS = Core::Profiler::MAX_MARKERS;
+    constexpr int BAR_PALETTE_SIZE = Core::Profiler::BAR_PALETTE_SIZE;
+    const auto& BAR_PALETTE = Core::Profiler::BAR_PALETTE;
+    const Marker* m_markers = frame.markers.data();
+    const int m_markerCount = static_cast<int>( frame.markers.size() );
 
     // Identify leaf markers: a marker is a leaf if no other marker has it as parentIndex.
     // Also skip "Frame" (top-level container) from appearing as a bar segment.
@@ -1823,8 +1919,7 @@ void Profiler::RenderBarOverlay( Text::TextBatch& textBatch,
 Profiler::Profiler()
     : m_markerCount( 0 ), m_counterCount( 0 ), m_lastPerfCSVColumnCount( -1 ), m_workerCoreSampleCount( 0 ),
       m_stackTop( 0 ), m_qpcFrequency( 1 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
-      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ),
-      m_renderDiagnostics( nullptr )
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 ), m_markerEpoch( 1 )
 {
     std::memset( m_markers, 0, sizeof( m_markers ) );
     std::memset( m_counters, 0, sizeof( m_counters ) );
@@ -1833,8 +1928,7 @@ Profiler::Profiler()
     std::memset( m_workerCoreSamples, 0, sizeof( m_workerCoreSamples ) );
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
     std::memset( m_platformProfilerCpuOpen, 0, sizeof( m_platformProfilerCpuOpen ) );
-    std::memset( m_platformProfilerGpuRecordOpen, 0, sizeof( m_platformProfilerGpuRecordOpen ) );
-    std::memset( m_platformProfilerGpuEventOpen, 0, sizeof( m_platformProfilerGpuEventOpen ) );
+    std::memset( m_platformProfilerRenderRecordOpen, 0, sizeof( m_platformProfilerRenderRecordOpen ) );
 }
 
 
@@ -1858,12 +1952,23 @@ void Profiler::RecordCounter( const char*, uint32_t, double )
 }
 
 
-void Profiler::GpuBegin( const char*, uint32_t )
+int Profiler::BeginRenderRecord( const char*, uint32_t )
+{
+    return -1;
+}
+
+
+void Profiler::EndRenderRecord( const char*, uint32_t )
 {
 }
 
 
-void Profiler::GpuEnd( const char*, uint32_t )
+void Profiler::MarkGpuMarkerWritten( int )
+{
+}
+
+
+void Profiler::ApplyGpuTimingSamples( std::span<const GpuTimingSample> )
 {
 }
 
@@ -1878,13 +1983,14 @@ void Profiler::FrameEnd()
 }
 
 
-void Profiler::BindRenderDiagnostics( Rendering::IRenderDiagnostics* )
+void Profiler::InvalidateGpuSamples()
 {
 }
 
 
-void Profiler::InvalidateGpuQueries()
+Profiler::ProfilerFrameView Profiler::FrameView() const
 {
+    return {};
 }
 
 
@@ -1915,20 +2021,53 @@ void Profiler::WritePerfCSVRow( FILE*, int, int ) const
 }
 
 
-void Profiler::RenderOverlay( Text::TextBatch&,
-                              Rendering::IRenderCommandContext&,
-                              float,
-                              float,
-                              float,
-                              float,
-                              float,
-                              bool ) const
+RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, IRenderDiagnostics* diagnostics )
+    : m_profiler( profiler ), m_diagnostics( diagnostics )
 {
 }
 
 
-void Profiler::RenderBarOverlay( Text::TextBatch&, Rendering::IRenderCommandContext&, float, float, float, float, bool )
-    const
+void RenderGpuTimingOwner::BeginFrame()
+{
+}
+
+
+void RenderGpuTimingOwner::InvalidateDevice()
+{
+}
+
+
+void RenderGpuTimingOwner::Begin( const char*, uint32_t )
+{
+}
+
+
+void RenderGpuTimingOwner::End( const char*, uint32_t )
+{
+}
+
+
+void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView&,
+                                              Text::TextBatch&,
+                                              Rendering::IRenderCommandContext&,
+                                              float,
+                                              float,
+                                              float,
+                                              float,
+                                              float,
+                                              bool ) const
+{
+}
+
+
+void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView&,
+                                                 Text::TextBatch&,
+                                                 Rendering::IRenderCommandContext&,
+                                                 float,
+                                                 float,
+                                                 float,
+                                                 float,
+                                                 bool ) const
 {
 }
 

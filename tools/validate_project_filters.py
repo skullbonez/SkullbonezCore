@@ -239,6 +239,7 @@ DX12_RENDERING_PREFIXES = (
 RENDERING_PREFIXES = (
     "DrawCallTrace",
     "ProfilerImplementation",
+    "ProfilerOverlayPresenter",
     "RenderInstanceRenderer",
     "Helper",
     "IFramebuffer",
@@ -261,6 +262,7 @@ RENDERING_PREFIXES = (
     "RenderSceneSnapshot",
     "RenderSceneView",
     "RenderMaterial",
+    "RenderGpuTimingOwner",
     "ShaderContracts",
     "ShaderReflectionContracts",
     "Shadow",
