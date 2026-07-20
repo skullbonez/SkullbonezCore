@@ -16,6 +16,8 @@ Glossary:
   Scene request: Deferred load, reset, create, or defaults-save owner intent.
   Scene world: Concrete owner for active-scene entities, physics, cameras,
     terrain, environment settings, and render presentation.
+  Proceed policy: Value packet that freezes the sampled step edge and
+    cross-scene pause decision for one frame.
 
 Invariants:
   - SceneController owns queue/index bookkeeping and composes exactly one
@@ -71,13 +73,6 @@ namespace Threading
 {
 class WorkerPool;
 }
-namespace Runtime
-{
-namespace Audio
-{
-class ContactAudioService;
-}
-} // namespace Runtime
 namespace UI
 {
 class InGameUI;
@@ -115,6 +110,19 @@ struct SceneFrameAdvanceResult
     // Value request only; validation retains diagnostic rows and printing.
     bool reportMissingRequirements = false;
 };
+// Value policy sampled once after input. Every late-frame consumer observes
+// the same step edge and cross-scene lock decision for the entire frame turn.
+struct SceneFrameProceedPolicy
+{
+    bool stepRequested = false;
+    bool crossScenePauseLocked = false;
+    bool proceedAllowed = true;
+};
+inline SceneFrameProceedPolicy ResolveSceneFrameProceedPolicy( bool crossScenePauseLocked, bool stepRequested )
+{
+    // Invariant: only the sampled step edge releases a locked scene turn.
+    return SceneFrameProceedPolicy{ stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
+}
 struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
@@ -129,7 +137,7 @@ struct SceneDefaultsSaveView
 // accepting the process shell's complete owner graph as one flat call. The
 // structs carry 18 concrete owners (6 policy, 3 host, 5 interaction, and 4
 // presentation); navigation crosses as a detached value snapshot. Window, UI,
-// audio, and validation effects return through SceneLoadConsumerOutputs and no
+// and validation effects return through SceneLoadConsumerOutputs and no
 // participant or output is retained by SceneController.
 struct SceneLoadPolicyInputs
 {
@@ -175,7 +183,6 @@ struct SceneLoadConsumerOutputs
     SceneLoadNavigationState navigation;
     char windowTitle[256] = {};
     bool hasWindowTitle = false;
-    bool resetContactAudioHistory = false;
     bool applyAutomationGates = false;
     bool applyNavigation = false;
     bool refreshSceneBrowser = false;
@@ -200,7 +207,6 @@ inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const
 void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                     Window& window,
                                     UI::InGameUI& operatorUi,
-                                    Audio::ContactAudioService& contactAudio,
                                     RuntimeValidationHarness& validationHarness,
                                     const RunLaunchOptions& launchOptions );
 
@@ -221,6 +227,7 @@ class SceneController
     void MarkInteractiveRunComplete();
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
+    SceneFrameProceedPolicy BuildFrameProceedPolicy( bool stepRequested ) const;
     SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates,
                                           bool proceedAllowed,
                                           bool perfTestActive,

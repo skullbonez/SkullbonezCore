@@ -17,8 +17,6 @@ Glossary:
   Back buffer: Swap-chain image that will be presented to the window.
   Convex hull: Immutable authored collision geometry rendered through dynamic
     hull vertices instead of the sphere or box instance streams.
-  Contact-audio flash: Short render-only white tint applied after a contact
-    sound actually submits, independent of physics state.
   Shadow caster stream: Owner-prepared opaque bin selecting one primitive
     submission path without inspecting material or asset content here.
 
@@ -292,7 +290,7 @@ bool BuildShadowCasterBatchesWithWorkers( SkullbonezCore::Core::Profiler* profil
 RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instance, bool box )
 {
     // Why: contact highlights are render-only feedback. They must not mutate
-    // the model's stored material, physics release policy, or audio decisions.
+    // the model's stored material or physics release policy.
     RenderMaterial material = instance.material;
     const float hit = instance.isFixed ? instance.fixedContactAlpha : 0.0f;
     if ( hit > 0.0f )
@@ -314,16 +312,6 @@ RenderMaterial MaterialWithContactHighlights( const RenderInstanceRecord& instan
         }
     }
 
-    const float audioHit = instance.audioContactAlpha;
-    if ( audioHit <= 0.0f )
-    {
-        return material;
-    }
-
-    // Concept: audio flash is a shader-side final-color blend, not a texture or
-    // material-mode replacement. That makes the object visibly white for the
-    // 100ms timer and then fades back to its normal material branch.
-    material.contactFlashAlpha = (std::max)( material.contactFlashAlpha, audioHit );
     return material;
 }
 } // namespace

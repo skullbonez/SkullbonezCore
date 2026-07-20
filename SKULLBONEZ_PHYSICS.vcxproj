@@ -180,9 +180,9 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Diagnostics\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsBroadphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsContactSolverStage.cpp" />
@@ -191,19 +191,17 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.Wake.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Stages\ExternalForceStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.Execution.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\SpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp">
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">false</WholeProgramOptimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\Physics\BoundingBox.h" />
@@ -221,17 +219,18 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Diagnostics\SkullScope.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsRuntimeSettings.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsSolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h" />
-    <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h" />
     <ClInclude Include="SkullbonezSource\Physics\SolverBroadphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\SpatialGrid.h" />
@@ -240,12 +239,11 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsSleepController.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStepDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Stages\ExternalForceStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsStageContexts.h" />
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsTerrainStage.h" />
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h" />
-    <ClInclude Include="SkullbonezSource\Physics\TornadoField.h" />
-    <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="SKULLBONEZ_MATHS.vcxproj">

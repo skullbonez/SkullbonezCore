@@ -49,8 +49,8 @@ Related:
 #include "ReplayRestoreTransactions.h"
 #include "ReplayV2Artifact.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
-#include "../DevelopmentTools/TracyClientOwner.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/TracyClientOwner.h"
 #include "../RuntimeFileWriter.h"
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
@@ -540,7 +540,8 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
 
     {
-        Allocation::RuntimeAllocationScope replayAllocationScope( Allocation::RuntimeAllocationPhase::Replay );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
         if ( predictionFrame )
         {
             m_visualPresentation.ApplyPredictionFrameForRender( renderInstances,
@@ -583,7 +584,8 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
     bool focusFadeActive = false;
     if ( !input.predictionEnabled && !collisionVisualizer && !debugTransparentBodyPass )
     {
-        Allocation::RuntimeAllocationScope replayAllocationScope( Allocation::RuntimeAllocationPhase::Replay );
+        SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
+            SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
         const std::span<const RunReplayPathTraceNode> focusNodes =
             prediction.enabled
                 ? prediction.futureNodes
@@ -1090,7 +1092,7 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtim
     }
 
 #if defined( TRACY_ENABLE )
-    if ( DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
+    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
     {
         // Why: recorder counts and reserve rows are already-owned fixed
         // snapshots. No-viewer runs skip even these value copies, and the
@@ -1115,8 +1117,8 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtim
                                                              "Counter/Replay/PredictionReserveHighWaterCapacity" };
             for ( std::size_t index = 0; index < REPLAY_GROWTH_OWNER_POLICIES.size(); ++index )
             {
-                Runtime::Allocation::RuntimeReserveOwnerStatsView reserveStats;
-                if ( Runtime::Allocation::RuntimeReserveAllocator::CopyOwnerStatsByName(
+                SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView reserveStats;
+                if ( SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CopyOwnerStatsByName(
                          REPLAY_GROWTH_OWNER_POLICIES[index].ownerName,
                          reserveStats ) )
                 {
@@ -1313,9 +1315,10 @@ SkullbonezCore::Core::MainMemoryReplayStats ReplayRuntime::CollectMemoryStats() 
         growth.ownerName = policy.ownerName;
         growth.hardBytes = policy.hardBytes;
         growth.measuredHighWaterBytes = policy.measuredHighWaterBytes;
-        Runtime::Allocation::RuntimeReserveOwnerStatsView ownerStats = {};
+        SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView ownerStats = {};
         growth.registered =
-            Runtime::Allocation::RuntimeReserveAllocator::CopyOwnerStatsByName( policy.ownerName, ownerStats );
+            SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CopyOwnerStatsByName( policy.ownerName,
+                                                                                             ownerStats );
         if ( growth.registered )
         {
             growth.allocatorHighWaterBytes = ownerStats.highWaterBytes;
@@ -1442,6 +1445,7 @@ bool ReplayRuntime::SavePresentationWithSolverHashes( const char* path,
 }
 
 void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
+                                      const Gameplay::TornadoGameplay& tornadoGameplay,
                                       const SceneEntityStore& entities,
                                       const SkullbonezCore::Core::EngineConfig& config,
                                       const Physics::PhysicsWorldForces& worldForces,
@@ -1457,6 +1461,7 @@ void ReplayRuntime::UpdatePrediction( PhysicsEngine& physics,
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
     ReplayPredictionUpdateResult result;
     m_predictionOwner.UpdateFrame( physics,
+                                   tornadoGameplay,
                                    entities,
                                    config,
                                    worldForces,

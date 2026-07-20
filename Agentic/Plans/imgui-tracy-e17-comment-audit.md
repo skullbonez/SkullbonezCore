@@ -16,7 +16,7 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 
 ## Core and physics
 
-- [x] `SkullbonezSource/Core/Profiler.cpp`
+- [x] `SkullbonezSource/Rendering/ProfilerImplementation.cpp`
 - [x] `SkullbonezSource/Core/Profiler.h`
 - [x] `SkullbonezSource/Core/WorkerPool.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsWorld.cpp`
@@ -39,20 +39,20 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 
 ## Allocation and development tools
 
-- [x] `SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.cpp`
-- [x] `SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h`
-- [x] `SkullbonezSource/Runtime/Allocation/DevelopmentToolsCapability.h`
-- [x] `SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp`
-- [x] `SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp`
-- [x] `SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h`
+- [x] `SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.cpp`
+- [x] `SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h`
+- [x] `SkullbonezSource/Core/Allocation/DevelopmentToolsCapability.h`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp`
+- [x] `SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.cpp`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h`
-- [x] `SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.cpp`
-- [x] `SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h`
+- [x] `SkullbonezSource/Core/TracyClientOwner.cpp`
+- [x] `SkullbonezSource/Core/TracyClientOwner.h`
 
 ## Runtime, input, and editor
 

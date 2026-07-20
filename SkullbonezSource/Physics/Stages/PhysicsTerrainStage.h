@@ -37,18 +37,17 @@ Related:
 #include <span>
 #include <vector>
 
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsRuntimeSettings.h"
 #include "../TerrainContactManifold.h"
 
 namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 class Profiler;
-struct PhysicsExecutionConfig;
 } // namespace Core
 
 namespace Threading
@@ -77,7 +76,7 @@ struct TerrainDetectionStageContext
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
-    const Core::EngineConfig& config;
+    const PhysicsRuntimeSettings& settings;
     std::span<const uint8_t> sleepState;
     std::span<const float> timeRemaining;
     Core::Profiler* profiler = nullptr;
@@ -92,7 +91,7 @@ struct TerrainCandidateCommitContext
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
-    const Core::EngineConfig& config;
+    const PhysicsRuntimeSettings& settings;
     std::span<uint8_t> sleepSupportedThisFrame;
     std::span<uint8_t> sleepInhibitedThisFrame;
     Core::Profiler* profiler = nullptr;
@@ -138,7 +137,7 @@ class PhysicsTerrainStage
     void Detect( const TerrainDetectionStageContext& context,
                  int modelCount,
                  std::span<const int> awakeBodyIndices,
-                 const Core::PhysicsExecutionConfig& execution,
+                 const PhysicsExecutionSettings& execution,
                  Threading::WorkerPool& workerPool );
     PreparedTerrainCandidateCommit PrepareCandidateCommit( const TerrainCandidateCommitContext& context,
                                                            int bodyIndex,

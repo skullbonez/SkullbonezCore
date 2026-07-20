@@ -15,10 +15,14 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
+  Step policy: Normalized scalar limits borrowed by every contact row in one
+    solver invocation.
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Raw runtime settings normalize once at the solve boundary; row loops must
+    not independently reinterpret authored lower or upper bounds.
 
 Related:
   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -37,6 +41,18 @@ namespace SkullbonezCore
 namespace Physics
 {
 struct PersistentContactSolverContext;
+struct PhysicsRuntimeSettings;
+
+struct PersistentContactSolverStepPolicy
+{
+    float objectSlop = 0.0f;
+    float objectBaumgarteBeta = 0.0f;
+    float objectPositionCorrectionPercent = 0.0f;
+    float terrainSlop = 0.0f;
+    float terrainBaumgarteBeta = 0.0f;
+    float maxBaumgarteBias = 0.0f;
+    int iterations = 1;
+};
 
 struct PersistentContactCacheEntry
 {
@@ -65,6 +81,9 @@ struct SolverBodyState
 class PersistentContactSolver
 {
   public:
+    // Returns the single per-solve normalization of raw stamped settings.
+    // Tests use this value seam to pin bounds without recreating solver math.
+    static PersistentContactSolverStepPolicy ResolveStepPolicy( const PhysicsRuntimeSettings& settings ) noexcept;
     void Solve( PersistentContactSolverContext& context, float dt );
 };
 } // namespace Physics

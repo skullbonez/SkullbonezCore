@@ -145,6 +145,7 @@ TEST_CASE( "Terrain: collapsed height-map posts publish world-up render normals"
 TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligibility" )
 {
     EngineConfig config;
+    SkullbonezCore::Physics::PhysicsRuntimeSettings physicsSettings;
     AssetSystem assets;
     SkullbonezTests::NullRenderResourceFactory resources;
     Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
@@ -168,10 +169,10 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
     const TerrainDetectionStageContext context{ bodies.Records(),
                                                 bodies.HotFields(),
                                                 colliders.Records(),
-                                                config,
+                                                physicsSettings,
                                                 sleepState,
                                                 timeRemaining };
-    SkullbonezCore::Core::PhysicsExecutionConfig execution;
+    SkullbonezCore::Physics::PhysicsExecutionSettings execution;
     execution.parallel = false;
     LockOrderValidator lockOrderValidator;
     WorkerPool inlinePool( lockOrderValidator );

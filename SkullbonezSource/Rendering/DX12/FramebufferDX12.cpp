@@ -24,7 +24,9 @@ Glossary:
 
 Invariants:
   - DX12 object lifetime, resource states, descriptor rows, and fence ordering
-  must stay explicit.
+    must stay explicit.
+  - Render-graph callbacks own every resource transition; Bind/Unbind changes
+    output descriptors only.
   - FramebufferDX12 is created from initialized concrete owners; missing device state
     means the render owner lifetime contract was broken before resource
     creation.
@@ -63,7 +65,7 @@ FramebufferDX12::FramebufferDX12( Dx12RenderDevice& device,
       m_drawGate( drawGate ), m_resourceRelease( resourceRelease ), m_colorTexture( nullptr ),
       m_depthTexture( nullptr ), m_rtvIndex( UINT_MAX ), m_dsvIndex( UINT_MAX ), m_srvIndex( UINT_MAX ),
       m_depthSrvIndex( UINT_MAX ), m_texHandle( 0 ), m_depthTexHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ),
-      m_height( 0 ), m_depthState( D3D12_RESOURCE_STATE_DEPTH_WRITE )
+      m_height( 0 )
 {
     m_rtvHandle = {};
     m_dsvHandle = {};
@@ -157,12 +159,13 @@ bool FramebufferDX12::Create( int width, int height )
 
     // Allocate GPU memory and create a committed resource for the depth/stencil texture.
     // This stores per-pixel depth values so the GPU knows which objects are in front of others.
-    // Initial state is DEPTH_WRITE because we clear and write depth whenever this FBO is bound.
+    // Initial state is shader-readable so the graph's first producer edge uses
+    // the same before-state as every later frame.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     const HRESULT depthResult = device->CreateCommittedResource( &defaultHeap,
                                                                  D3D12_HEAP_FLAG_NONE,
                                                                  &depthDesc,
-                                                                 D3D12_RESOURCE_STATE_DEPTH_WRITE,
+                                                                 D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                                                                  &depthClear,
                                                                  IID_PPV_ARGS( &m_depthTexture ) );
     if ( FAILED( depthResult ) )
@@ -220,7 +223,7 @@ bool FramebufferDX12::Create( int width, int height )
     // Register the SRV with the normal backend texture registry so renderer code
     // can bind this framebuffer with a texture handle instead of a raw descriptor
     // index.
-    m_texHandle = m_textures.RegisterSRV( m_srvIndex );
+    m_texHandle = m_textures.RegisterSRV( m_srvIndex, m_colorTexture );
 
     // Depth SRV: the tonemap/volumetric shaders sample this to know where solid
     // geometry blocks fog and rays. It reads only the 24-bit depth component.
@@ -234,8 +237,7 @@ bool FramebufferDX12::Create( int width, int height )
                                       &depthSrvDesc,
                                       m_descriptors.StagingCpuHandle( m_depthSrvIndex ) );
     m_descriptors.PublishStaticDescriptor( device, m_depthSrvIndex );
-    m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex );
-    m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    m_depthTexHandle = m_textures.RegisterSRV( m_depthSrvIndex, m_depthTexture );
     m_width = width;
     m_height = height;
     return true;
@@ -254,46 +256,10 @@ void FramebufferDX12::Bind() const
     m_savedRTV = m_pipeline.CurrentRTV();
     m_savedDSV = m_pipeline.CurrentDSV();
 
-    // Transition color texture from SRV to render target.
-    // In DX12, resources must be explicitly transitioned between states. The GPU needs to know
-    // when a texture switches from being read by a shader (SRV) to being written to (RENDER_TARGET).
-    // Failing to do this causes GPU corruption or validation errors — the driver does NOT track this for you.
-    // Docs:
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    // Hazard: Bind/Unbind own a symmetric resource-state pair. Emitting only
-    // one side would make later shader reads or target writes invalid.
-    D3D12_RESOURCE_BARRIER colorBarrier = {};
-    colorBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    colorBarrier.Transition.pResource = m_colorTexture;
-    colorBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    colorBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    colorBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    m_device.CommandList()->ResourceBarrier( 1, &colorBarrier );
+    // Invariant: the graph callback has already emitted every producer edge.
+    // Bind changes only descriptor/target state and must never duplicate it.
 
-    if ( m_depthState != D3D12_RESOURCE_STATE_DEPTH_WRITE )
-    {
-        // DX12 requires us to explicitly say when a texture stops being sampled
-        // by shaders and starts being written as a depth buffer.
-        const RenderGraphResourceAccess beforeDepthAccess = ( m_depthState == D3D12_RESOURCE_STATE_DEPTH_READ )
-                                                                ? RenderGraphResourceAccess::DepthRead
-                                                                : RenderGraphResourceAccess::PixelShaderResource;
-        D3D12_RESOURCE_STATES beforeDepthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        if ( beforeDepthAccess == RenderGraphResourceAccess::DepthRead )
-        {
-            beforeDepthState = D3D12_RESOURCE_STATE_DEPTH_READ;
-        }
-        D3D12_RESOURCE_BARRIER depthBarrier = {};
-        depthBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        depthBarrier.Transition.pResource = m_depthTexture;
-        depthBarrier.Transition.StateBefore = beforeDepthState;
-        depthBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-        depthBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        m_device.CommandList()->ResourceBarrier( 1, &depthBarrier );
-        m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-    }
-
-    // Clear stale texture bindings only after every required transition was
-    // recorded. A failed epoch must not publish the FBO as writable state.
+    // Clear stale reads before publishing the framebuffer as the active output.
     m_textures.ClearBoundSlotsForSrv( m_srvIndex );
     m_textures.ClearBoundSlotsForSrv( m_depthSrvIndex );
     m_pipeline.SetRenderingToFBO( true, ToDX12ColorFormat( m_colorFormat ) );
@@ -308,38 +274,8 @@ void FramebufferDX12::Unbind() const
         return;
     }
 
-    // Transition color texture back from RENDER_TARGET to PIXEL_SHADER_RESOURCE.
-    // Now that we're done drawing into this FBO, we transition it back so shaders can read it.
-    // This is the reverse of the Bind() transition — every state change must be paired.
-    // Docs:
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    D3D12_RESOURCE_BARRIER colorBarrier = {};
-    colorBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    colorBarrier.Transition.pResource = m_colorTexture;
-    colorBarrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-    colorBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    colorBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    m_device.CommandList()->ResourceBarrier( 1, &colorBarrier );
-
-    if ( m_depthState != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE )
-    {
-        // After rendering, flip depth back into a shader-readable state so the
-        // following full-screen post passes can sample it safely.
-        const RenderGraphResourceAccess beforeDepthAccess = ( m_depthState == D3D12_RESOURCE_STATE_DEPTH_READ )
-                                                                ? RenderGraphResourceAccess::DepthRead
-                                                                : RenderGraphResourceAccess::DepthWrite;
-        const D3D12_RESOURCE_STATES beforeDepthState = beforeDepthAccess == RenderGraphResourceAccess::DepthRead
-                                                           ? D3D12_RESOURCE_STATE_DEPTH_READ
-                                                           : D3D12_RESOURCE_STATE_DEPTH_WRITE;
-        D3D12_RESOURCE_BARRIER depthBarrier = {};
-        depthBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        depthBarrier.Transition.pResource = m_depthTexture;
-        depthBarrier.Transition.StateBefore = beforeDepthState;
-        depthBarrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        depthBarrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        m_device.CommandList()->ResourceBarrier( 1, &depthBarrier );
-        m_depthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    }
+    // The following graph consumer owns the state transition. Unbind restores
+    // only the output descriptors saved by Bind.
 
     m_pipeline.SetRenderingToFBO( false, DXGI_FORMAT_R8G8B8A8_UNORM );
     m_pipeline.SetCurrentTargets( m_savedRTV, m_savedDSV );
@@ -400,5 +336,4 @@ void FramebufferDX12::ResetResources()
     m_dsvIndex = UINT_MAX;
     m_srvIndex = UINT_MAX;
     m_depthSrvIndex = UINT_MAX;
-    m_depthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 }

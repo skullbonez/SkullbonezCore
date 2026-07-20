@@ -20,6 +20,8 @@ Glossary:
 Invariants:
   - Text and quad batches use fixed vertex layouts that must match their
     shaders and backend upload calls.
+  - Every text/quad draw carries the same depth-disabled alpha-blend bucket;
+    text never observes or restores another pass's raster state.
   - Font atlas resources are backend-owned and must be released before renderer
     teardown or rebuild.
 
@@ -29,7 +31,7 @@ Related:
 */
 #include "Text.h"
 #include "../Core/PlatformWin32.h"
-#include "../Runtime/WindowConstants.h"
+#include "../Core/WindowConstants.h"
 #include "../Assets/AssetSystem.h"
 #include "IRenderCommandContext.h"
 #include "IRenderResourceFactory.h"
@@ -74,6 +76,9 @@ static constexpr int QUAD_BATCH_VERTS_PER_TRIANGLE = TextBatch::QUAD_VERTICES_PE
 
 namespace
 {
+constexpr PassRasterStateBucket TEXT_RASTER_STATE =
+    MakePassRasterStateBucket( 0, false, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+
 struct FileCloser
 {
     void operator()( FILE* file ) const
@@ -793,22 +798,15 @@ void Text2d::FlushText( TextBatch& batch, IRenderCommandContext& renderCommands 
         return;
     }
 
-    bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    bool blendWasEnabled = renderCommands.IsBlendEnabled();
-
-    renderCommands.SetDepthTest( false );
-    renderCommands.SetBlend( true );
-    renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
-
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", batch.m_projection );
     renderCommands.BindTexture( Text2d::fontTexture, 0 );
 
     // One GPU upload + one draw call covers the entire frame's text at all colors.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::textBatchVB, batch.m_textVertices.data(), batch.m_textVertexCount );
-
-    renderCommands.SetDepthTest( depthWasEnabled );
-    renderCommands.SetBlend( blendWasEnabled );
+    renderCommands.UploadAndDrawDynamicVB(
+        Text2d::textBatchVB,
+        std::span<const float>( batch.m_textVertices.data(), batch.m_textVertexCount * TEXT_BATCH_FLOATS_PER_VERT ),
+        TEXT_RASTER_STATE );
 
     batch.m_textVertexCount = 0;
 }
@@ -877,21 +875,11 @@ void Text2d::Render2dQuad( TextBatch& batch,
     float quadVertices[6 * 4] = { x0, y0, 0.0f, 0.0f, x1, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f,
                                   x0, y0, 0.0f, 0.0f, x1, y1, 0.0f, 0.0f, x0, y1, 0.0f, 0.0f };
 
-    bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    bool blendWasEnabled = renderCommands.IsBlendEnabled();
-
-    renderCommands.SetDepthTest( false );
-    renderCommands.SetBlend( true );
-    renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
-
     Text2d::pSolidShader->Use();
     Text2d::pSolidShader->SetMat4( "uProjection", batch.m_projection );
     Text2d::pSolidShader->SetVec4( "uColor", r, g, b, a );
 
-    renderCommands.UploadAndDrawDynamicVB( Text2d::dynamicVB, quadVertices, 6 );
-
-    renderCommands.SetDepthTest( depthWasEnabled );
-    renderCommands.SetBlend( blendWasEnabled );
+    renderCommands.UploadAndDrawDynamicVB( Text2d::dynamicVB, quadVertices, TEXT_RASTER_STATE );
 }
 
 
@@ -1013,21 +1001,14 @@ void Text2d::FlushQuads( TextBatch& batch, IRenderCommandContext& renderCommands
         return;
     }
 
-    bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    bool blendWasEnabled = renderCommands.IsBlendEnabled();
-
-    renderCommands.SetDepthTest( false );
-    renderCommands.SetBlend( true );
-    renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
-
     Text2d::pSolidBatchShader->Use();
     Text2d::pSolidBatchShader->SetMat4( "uProjection", batch.m_projection );
 
     // One GPU upload + one draw call covers every quad batched this frame.
-    renderCommands.UploadAndDrawDynamicVB( Text2d::quadBatchVB, batch.m_quadVertices.data(), batch.m_quadVertexCount );
-
-    renderCommands.SetDepthTest( depthWasEnabled );
-    renderCommands.SetBlend( blendWasEnabled );
+    renderCommands.UploadAndDrawDynamicVB(
+        Text2d::quadBatchVB,
+        std::span<const float>( batch.m_quadVertices.data(), batch.m_quadVertexCount * QUAD_BATCH_FLOATS_PER_VERT ),
+        TEXT_RASTER_STATE );
 
     batch.m_quadVertexCount = 0;
 }

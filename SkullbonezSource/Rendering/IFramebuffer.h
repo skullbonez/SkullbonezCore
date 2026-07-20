@@ -24,6 +24,8 @@ Invariants:
     depth descriptors stay inside the backend implementation.
   - Width, height, and color format describe the active resources and must agree
     with any recreated backend attachments.
+  - Bind/Unbind changes output descriptors only; render-graph callbacks own
+    resource-state transitions before producer and consumer work.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
@@ -57,6 +59,8 @@ class IFramebuffer
   public:
     virtual ~IFramebuffer() = default;
 
+    // Binds/restores output descriptors after the graph has emitted the
+    // required resource-state edge. Neither call may emit a barrier.
     virtual void Bind() const = 0;
     virtual void Unbind() const = 0;
     virtual uint32_t GetColorTextureHandle() const = 0;

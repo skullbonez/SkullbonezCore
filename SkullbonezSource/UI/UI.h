@@ -13,14 +13,6 @@ Glossary:
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
   widget.
-  Sound sample path: Borrowed contact-audio asset path displayed by the Sound
-    tab for immediate-frame preview and selection.
-  Contact-audio flash mode: Frame-data label and value for the Sound tab's
-    render-only decision flash selector.
-  Contact-audio reducer counter: Runtime count showing how raw contact facts
-    were merged, silenced, budgeted, or submitted by the Sound tab model.
-  Simple contact audio: Optional linear-energy path for thuds, exposed as an
-    obvious Sound-tab section so the old contact-row classifier can be bypassed.
   Scene navigation model: UI-owned browser rows and generated-scene overrides
     borrowed synchronously by runtime navigation and load transactions.
   Interaction owner: Concrete owner of persistent UI controls and cross-frame
@@ -45,7 +37,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
-#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Runtime/Scene/SceneControllerState.h"
 #include "../Rendering/IShader.h"
 #include "../Rendering/IRenderDiagnostics.h"
@@ -68,7 +60,6 @@ Related:
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
-#include "UITabSound.h"
 #include "UITabSky.h"
 #include "UIWindowInteractionOwner.h"
 #include <cstdint>
@@ -102,6 +93,7 @@ namespace Rendering
 class IRenderCommandContext;
 class IRenderDiagnostics;
 class IRenderResourceFactory;
+class RenderGpuTimingOwner;
 } // namespace Rendering
 
 namespace UI
@@ -113,7 +105,6 @@ enum class InGameUITab
     Scene,
     Editor,
     Physics,
-    Sound,
     Options,
     Render,
     Targets,
@@ -127,7 +118,6 @@ enum class InGameUITab
 constexpr int UI_RENDER_TARGET_PREVIEW_MAX = 12;
 constexpr int UI_PROFILER_MARKER_OPTION_MAX = ProfilerTab::MAX_MARKERS + 1;
 constexpr uint32_t UI_PROFILER_FRAME_TOTAL_HASH = 0u;
-constexpr int UI_SOUND_SET_MAX = 16;
 constexpr int UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX = 64;
 
 struct UIRenderContext
@@ -139,6 +129,7 @@ struct UIRenderContext
     Rendering::IRenderResourceFactory* resources = nullptr;
     Rendering::IRenderCommandContext* commands = nullptr;
     Rendering::IRenderDiagnostics* diagnostics = nullptr;
+    Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     // Lifetime: the late UI pass installs RuntimeRenderer's batch owner for
     // this synchronous draw only. Run's wider frame context leaves it null.
     Text::TextBatch* textBatch = nullptr;
@@ -148,9 +139,6 @@ struct UIRenderContext
         return assets != nullptr && resources != nullptr && commands != nullptr && diagnostics != nullptr;
     }
 };
-constexpr int UI_SOUND_BAND_MAX = 4;
-constexpr int UI_SOUND_SAMPLE_MAX = 64;
-
 struct UIRenderTargetPreviewResource
 {
     const char* label = "";
@@ -168,44 +156,14 @@ struct UIProfilerMarkerOption
     const char* leafName = "";
     uint32_t hash = UI_PROFILER_FRAME_TOTAL_HASH;
     float cpuMs = 0.0f;
-    float cpuAverageMs = 0.0f;                     // Same 500 ms moving average used by the profiler table.
+    float cpuAverageMs = 0.0f;                 // Same 500 ms moving average used by the profiler table.
     float gpuMs = 0.0f;
-    float colorR = 0.0f;                           // RGB borrowed from the profiler row palette for chart overlays.
+    float colorR = 0.0f;                       // RGB borrowed from the profiler row palette for chart overlays.
     float colorG = 0.0f;
     float colorB = 0.0f;
     bool hasGpu = false;
     bool sampleValid = false;
     bool isFrameTotal = false;
-};
-
-struct UISoundBandFrameData
-{
-    const char* name = "";
-    float minImpulse = 0.0f;
-    float impulseRange = 0.0f;
-    float baseGain = 0.0f;
-    float pitchMin = 1.0f;
-    float pitchMax = 1.0f;
-    uint32_t sampleCount = 0;
-};
-
-struct UISoundSetFrameData
-{
-    const char* name = "";
-    uint32_t materialA = 0;
-    uint32_t materialB = 0;
-    float minImpulse = 0.0f;
-    float impulseRange = 0.0f;
-    float cooldownMs = 0.0f;
-    float overrideCooldownMs = 0.0f;
-    float maxDistance = 0.0f;
-    float baseGain = 0.0f;
-    float pitchMin = 1.0f;
-    float pitchMax = 1.0f;
-    uint32_t maxVoices = 0;
-    uint32_t sampleCount = 0;
-    uint32_t bandCount = 0;
-    UISoundBandFrameData bands[UI_SOUND_BAND_MAX];
 };
 
 // Snapshot of engine state needed to draw the UI for one frame.  The UI reads
@@ -232,20 +190,17 @@ struct InGameUIFrameData
     float physicsMs = 0.0f;
     float cpuFrameMs = 0.0f;
     float gpuFrameMs = 0.0f;
-    float workerCoreTotalMs = 0.0f;                // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
+    float workerCoreTotalMs = 0.0f;            // Sum of worker-pool CPU chunk time from the last committed frame, in ms.
     // Lifetime: profiler and draw-trace names are borrowed for this immediate UI
     // pass. The profiler tab caches only bounded values needed for next-frame
     // input/layout; drawing gets refreshed from this snapshot every frame.
     ProfilerTab::FrameSnapshot profiler;
     UIProfilerMarkerOption profilerMarkerOptions[UI_PROFILER_MARKER_OPTION_MAX];
     int profilerMarkerOptionCount = 0;
-    UISoundSetFrameData soundSets[UI_SOUND_SET_MAX];
-    int soundSetCount = 0;
-    const char* soundSamplePaths[UI_SOUND_SAMPLE_MAX] = {};
-    int soundSampleCount = 0;
     SkullbonezCore::Core::MainMemoryStats mainMemory;
-    Rendering::RenderMemoryStats renderMemory;     // Value snapshot for the Memory tab/overlay only.
-    Runtime::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
+    Rendering::RenderMemoryStats renderMemory; // Value snapshot for the Memory tab/overlay only.
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView
+        reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;
     uint64_t reserveGrowthEventTotalCount = 0;
     uint64_t reserveGrowthEventDroppedCount = 0;
@@ -277,37 +232,6 @@ struct InGameUIFrameData
     bool testComplete = false;
     bool vsyncEnabled = false;
     bool pipelineSyncEnabled = false;
-    bool contactAudioEnabled = false;
-    bool contactAudioAvailable = false;
-    bool contactAudioDebugCounters = false;
-    int contactAudioFlashMode = 1;
-    const char* contactAudioFlashModeLabel = "Flash: Emitted";
-    float contactAudioMasterGain = 0.0f;
-    float contactAudioMaxDistanceScale = 1.0f;
-    float contactAudioMinClosingSpeed = 0.0f;
-    float contactAudioMinImpactScore = 0.0f;
-    float contactAudioImpactScoreRangeSeconds = 1.0f;
-    bool contactAudioSimpleMode = true;
-    float contactAudioSimpleMinLinearEnergy = 270.0f;
-    float contactAudioSimpleMinLinearDeltaSpeed = 2.0f;
-    float contactAudioSimpleLinearEnergyRange = 320.0f;
-    uint32_t contactAudioBurstVoicesPerWindow = 0; // Max submitted sounds per 100 ms burst.
-    float contactAudioRollingLevelDb = -24.0f;
-    float contactAudioRollingMaxDistance = 24.0f;
-    float contactAudioRollingMinSlipSpeed = 0.65f;
-    uint32_t contactAudioRollingVoicesPerWindow = 4;
-    uint32_t contactAudioEventsSeen = 0;
-    uint32_t contactAudioPatchCandidates = 0;
-    uint32_t contactAudioMergedCandidates = 0;
-    uint32_t contactAudioCandidateOverflows = 0;
-    uint32_t contactAudioBurstWindowSkippedCandidates = 0;
-    uint32_t contactAudioBudgetRejectedCandidates = 0;
-    uint32_t contactAudioRejectedByThreshold = 0;
-    uint32_t contactAudioRejectedByCooldown = 0;
-    uint32_t contactAudioSubmittedVoices = 0;
-    uint32_t contactAudioDroppedVoices = 0;
-    uint32_t contactAudioRollingCandidates = 0;
-    uint32_t contactAudioRollingSubmittedVoices = 0;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
     bool presentationInterpolation = true;

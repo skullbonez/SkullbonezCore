@@ -7,7 +7,8 @@
 @rem Mental model:
 @rem   Automation is a Profile-equivalent executable with one extra compile-time
 @rem   diagnostics surface. This gate tests both sides of that boundary, then
-@rem   runs the short replay prediction interaction used by every broad commit.
+@rem   runs one combined replay-prediction and development-UI interaction used
+@rem   by every broad commit without adding another engine process.
 @rem
 @rem Glossary:
 @rem   Automation build: Dedicated executable containing interaction scripts and
@@ -17,7 +18,10 @@
 @rem
 @rem Invariants:
 @rem   - Profile must reject --interaction-script with a nonzero exit.
-@rem   - Automation must produce a successful replay prediction report.
+@rem   - Automation must produce one successful report covering replay
+@rem     prediction plus all development-UI command interpreter variants.
+@rem   - The positive lane remains one process so validate_full keeps its
+@rem     bounded five-engine-process contract.
 @rem   - This pre-commit smoke supplements, rather than replaces, the immutable
 @rem     200-box replay visual-fidelity oracle required for replay-facing edits.
 @rem
@@ -56,8 +60,8 @@ if not errorlevel 1 (
     goto fail
 )
 
-echo [automation] Running replay/prediction pre-commit smoke in Automation...
-Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_click.json --interaction-report "%REPORT%" --frames 150 --replay on --replay-seconds 2 --fixed-step > "%POSITIVE_LOG%" 2>&1
+echo [automation] Running replay/prediction and development-UI pre-commit smoke in Automation...
+Automation\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --shadows off --hide-top-text --automation-hidden-window --scene SkullbonezData\scenes\interaction_replay_prediction_harness.scene.json --interaction-script SkullbonezData\interaction\replay_prediction_development_ui_smoke.json --interaction-report "%REPORT%" --frames 150 --replay on --replay-seconds 2 --fixed-step > "%POSITIVE_LOG%" 2>&1
 if errorlevel 1 (
     echo FAIL: Automation replay/prediction launch failed. See %POSITIVE_LOG%.
     goto fail
@@ -72,7 +76,7 @@ if errorlevel 1 (
     goto fail
 )
 
-echo PASS: diagnostics excluded from Profile; Automation replay/prediction smoke passed.
+echo PASS: diagnostics excluded from Profile; Automation replay/prediction and development-UI smoke passed.
 popd >nul
 exit /b 0
 

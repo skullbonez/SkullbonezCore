@@ -251,10 +251,10 @@ void AuthoredSceneParser::ApplyTornadoFloat( const Json& source,
 
 void AuthoredSceneParser::ApplyTornadoVortex( const Json& object,
                                               const std::string& path,
-                                              Physics::TornadoSystemConfig& system )
+                                              AuthoredTornadoSystemConfig& system )
 {
     RequireObject( object, path, "tornadoSystem.vortices[]" );
-    Physics::TornadoVortexConfig vortex;
+    AuthoredTornadoVortexConfig vortex;
     vortex.field.enabled = true;
     if ( const Json* center = FindMember( object, "center" ) )
     {
@@ -333,7 +333,7 @@ void AuthoredSceneParser::ApplyTornadoVortex( const Json& object,
 void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const std::string& path )
 {
     RequireObject( tornadoSystem, path, "tornadoSystem" );
-    Physics::TornadoSystemConfig system;
+    AuthoredTornadoSystemConfig system;
     system.enabled = true;
     if ( const Json* enabled = FindMember( tornadoSystem, "enabled" ) )
     {
@@ -346,6 +346,14 @@ void AuthoredSceneParser::ApplyTornadoSystem( const Json& tornadoSystem, const s
 
     const Json& vortices = RequireMember( tornadoSystem, path, "tornadoSystem", "vortices" );
     RequireArray( vortices, path, "tornadoSystem.vortices" );
+    if ( vortices.size() > MAX_AUTHORED_TORNADO_VORTICES )
+    {
+        // Lane R: authored input must fail before TornadoGameplay sees a value
+        // that would exhaust its fixed steady-gameplay force-field storage.
+        Fail( path,
+              "Gameplay.TornadoGameplay tornadoSystem.vortices requested " + std::to_string( vortices.size() ) +
+                  ", capacity is " + std::to_string( MAX_AUTHORED_TORNADO_VORTICES ) );
+    }
     for ( const Json& vortex : vortices )
     {
         ApplyTornadoVortex( vortex, path, system );

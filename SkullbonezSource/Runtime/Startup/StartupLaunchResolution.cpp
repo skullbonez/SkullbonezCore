@@ -33,7 +33,7 @@ Related:
 #include "StartupCommandLine.h"
 #include "../../Core/Common.h"
 #include "../RunLaunchOptions.h"
-#include "../WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -42,7 +42,7 @@ Related:
 #include <string>
 #include <vector>
 using namespace SkullbonezCore::Physics;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 #pragma warning( push, 0 )
 #include "../../../ThirdPtySource/nlohmann/json.hpp"
 #pragma warning( pop )
@@ -626,7 +626,6 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.seedOverride = args.seedOverride;
     launch.noWater = args.noWater;
     launch.noSleep = args.noSleep;
-    launch.noContactAudio = args.noContactAudio;
     launch.hasTornadoOverride = args.hasTornadoOverride;
     launch.tornadoEnabled = args.tornadoEnabled;
     launch.tornadoVectors = args.tornadoVectors;
@@ -738,13 +737,13 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
           "--allocation_guard",
           []( const char* value, ParsedArgs& args ) -> bool
           {
-              RuntimeAllocation::RuntimeAllocationGuardMode mode = RuntimeAllocation::RuntimeAllocationGuardMode::Off;
+              CoreAllocation::RuntimeAllocationGuardMode mode = CoreAllocation::RuntimeAllocationGuardMode::Off;
               if ( !ParseAllocationGuardCommandLineToken( value, mode ) )
               {
                   return FailCommandLineParse( "--allocation-guard expects off|measure|gameplay." );
               }
               args.allocationGuardMode = mode;
-              fprintf( stdout, "[allocation-guard] Requested mode: %s\n", RuntimeAllocation::RuntimeAllocationGuardModeName( mode ) );
+              fprintf( stdout, "[allocation-guard] Requested mode: %s\n", CoreAllocation::RuntimeAllocationGuardModeName( mode ) );
               return true;
           } },
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )

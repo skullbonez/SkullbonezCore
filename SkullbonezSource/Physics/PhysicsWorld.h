@@ -52,11 +52,13 @@ Related:
 #include "PhysicsDiagnosticsSink.h"
 #include "PhysicsDebugData.h"
 #include "Ragdoll.h"
-#include "../Runtime/Replay/ReplaySolverSnapshot.h"
+#include "PhysicsSolverSnapshot.h"
+#include "PhysicsRuntimeSettings.h"
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "Stages/PhysicsBroadphaseStage.h"
 #include "Stages/PhysicsContactSolverStage.h"
+#include "Stages/ExternalForceStage.h"
 #include "Stages/PhysicsForceStage.h"
 #include "Stages/PhysicsNarrowphaseStage.h"
 #include "Stages/PhysicsStageContexts.h"
@@ -64,13 +66,11 @@ Related:
 #include "Stages/PhysicsSleepController.h"
 #include "Stages/PhysicsStepDiagnostics.h"
 #include "TerrainContactManifold.h"
-#include "TornadoGameplay.h"
 
 namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 class Profiler;
 } // namespace Core
 namespace Runtime
@@ -106,6 +106,9 @@ class PhysicsWorld
     // Lifetime: startup-bound diagnostics borrow; stage contexts never retain it.
     SkullbonezCore::Core::Profiler* m_profiler = nullptr;
     PhysicsForceStage m_forceStage;
+    // Gameplay force content crosses one bounded value lane; this stage owns
+    // only reusable physics-side release scratch and application policy.
+    ExternalForceStage m_externalForceStage;
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
     // cell keys. The facade borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
@@ -142,9 +145,6 @@ class PhysicsWorld
     // Stay-behind: point joints are a facade-owned top-level constraint lane;
     // the solver and sleep owner borrow the dense rows synchronously.
     std::vector<PointJointConstraint> m_pointJointConstraints;
-    // Stay-behind: tornado gameplay is already a cohesive sibling owner whose
-    // force application is sequenced alongside the extracted force stage.
-    TornadoGameplay m_tornadoGameplay;
 #ifdef _DEBUG
     // Stay-behind: scoped diagnostic suppression is a facade policy override,
     // while every diagnostic row and output sink belongs to its concrete owner.
@@ -154,25 +154,26 @@ class PhysicsWorld
     void RunSolverPhysics( PhysicsBodyStore& bodyStore,
                            const ColliderStore& colliderStore,
                            float dt,
-                           const SkullbonezCore::Core::EngineConfig& config,
+                           const PhysicsRuntimeSettings& settings,
                            const PhysicsWorldForces& worldForces,
+                           const ExternalForceFrameInput& externalForces,
                            Threading::WorkerPool& workerPool,
                            bool probeDormantUnderwaterLocks );
     void CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
                                           const ColliderStore& colliderStore,
                                           const PhysicsWorldForces& worldForces );
-    void ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
-                               const ColliderStore& colliderStore,
-                               const PhysicsWorldForces& worldForces,
-                               float dt,
-                               const SkullbonezCore::Core::EngineConfig& runtimeConfig,
-                               Threading::WorkerPool& workerPool );
+    void ApplyExternalForces( PhysicsBodyStore& bodyStore,
+                              const ColliderStore& colliderStore,
+                              const PhysicsWorldForces& worldForces,
+                              const ExternalForceFrameInput& input,
+                              const PhysicsExecutionSettings& execution,
+                              Threading::WorkerPool& workerPool );
 
   public:
     PhysicsWorld();
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
-    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+    void ApplyRuntimeSettings( const PhysicsRuntimeSettings& settings );
     void Clear();
     void ReserveBodyScratchCapacity( std::size_t capacity );
     // Runs one fixed world step over the stores. Collision diagnostics append
@@ -180,11 +181,12 @@ class PhysicsWorld
     void RunPhysics( PhysicsBodyStore& bodyStore,
                      const ColliderStore& colliderStore,
                      float fChangeInTime,
-                     const SkullbonezCore::Core::EngineConfig& config,
+                     const PhysicsRuntimeSettings& settings,
                      const PhysicsWorldForces& worldForces,
+                     const ExternalForceFrameInput& externalForces,
                      Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the
-    // caller passes in. PhysicsScene owns the cold presentation-name overlay and
+    // caller passes in. PhysicsEngine owns the cold presentation-name overlay and
     // runtime owns the CSV writer, so diagnostics do not borrow model or logging
     // globals from inside PhysicsWorld.
     bool ShouldEmitStepDiagnostics() const;
@@ -215,13 +217,8 @@ class PhysicsWorld
     void DestroyPointJointsForBody( PhysicsBodyHandle body );
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
-    void SetTornadoFieldConfig( const TornadoFieldConfig& config );
-    const TornadoFieldConfig& GetTornadoFieldConfig() const;
-    void SetTornadoSystemConfig( const TornadoSystemConfig& config );
-    const TornadoSystemConfig& GetTornadoSystemConfig() const;
-    float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
-    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, int modelCount );
+    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const;
+    bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;

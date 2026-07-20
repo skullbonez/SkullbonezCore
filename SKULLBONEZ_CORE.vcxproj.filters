@@ -35,6 +35,9 @@
     <Filter Include="Source Files\Assets">
       <UniqueIdentifier>{0C8A9D4B-751B-42A4-B88A-AE3370B5F0D2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Gameplay">
+      <UniqueIdentifier>{C3A7682C-D72C-4F53-9FB7-2ACCF3B08A18}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{D96252B2-F91C-4D79-B28C-66CB9E6E7C2B}</UniqueIdentifier>
     </Filter>
@@ -52,6 +55,9 @@
     </Filter>
     <Filter Include="Header Files\Assets">
       <UniqueIdentifier>{6A6E00A4-473F-4992-A78A-5B18F4D3E767}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Gameplay">
+      <UniqueIdentifier>{4A9534DF-911E-4F7B-B45F-B9CD3CCF54BA}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Rendering">
       <UniqueIdentifier>{1541386D-A2BA-4E01-92CF-2922814D47F4}</UniqueIdentifier>
@@ -74,10 +80,10 @@
     <Filter Include="Header Files\Runtime">
       <UniqueIdentifier>{31639C9E-0BD5-779D-C281-0DEC18B44398}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Runtime\Allocation">
+    <Filter Include="Source Files\Core\Allocation">
       <UniqueIdentifier>{6579C1A7-27A1-4F1F-9F07-8E26B0BC8F3E}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Runtime\Allocation">
+    <Filter Include="Header Files\Core\Allocation">
       <UniqueIdentifier>{9E0B1E54-2AA1-4C1C-8E4E-3C2E02E19A67}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Scene">
@@ -103,12 +109,6 @@
     </Filter>
     <Filter Include="Header Files\Runtime\Diagnostics">
       <UniqueIdentifier>{A55B726A-B5C3-408A-A364-7C84BEDE0B82}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Runtime\Audio">
-      <UniqueIdentifier>{0C0AC555-5CA6-40F7-BAB2-A4E19D366895}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Runtime\Audio">
-      <UniqueIdentifier>{0D08F4CF-1DAB-4E5B-B568-791394F4826E}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Render">
       <UniqueIdentifier>{D2F96B2C-591F-49D3-B4D7-1430E16449F1}</UniqueIdentifier>
@@ -221,6 +221,15 @@
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
       <Filter>Source Files\Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp">
+      <Filter>Source Files\Gameplay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
@@ -350,9 +359,6 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp">
-      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
@@ -489,6 +495,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
@@ -501,6 +510,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\UiTextPass.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.cpp">
+      <Filter>Source Files\Runtime\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
@@ -509,9 +521,6 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp">
-      <Filter>Source Files\Runtime\Audio</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp">
       <Filter>Source Files\Runtime\Interaction</Filter>
@@ -570,8 +579,8 @@
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Core\Profiler.cpp">
-      <Filter>Source Files\Core</Filter>
+    <ClCompile Include="SkullbonezSource\Rendering\ProfilerImplementation.cpp">
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp">
       <Filter>Source Files\Rendering</Filter>
@@ -654,17 +663,17 @@
     <ClCompile Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.cpp">
       <Filter>Source Files\Runtime\Debug</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
-        <Filter>Source Files\Runtime\Allocation</Filter>
+      <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
+        <Filter>Source Files\Core\Allocation</Filter>
       </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
-        <Filter>Source Files\Runtime\Diagnostics</Filter>
+      <ClCompile Include="SkullbonezSource\Core\TracyClientOwner.cpp">
+        <Filter>Source Files\Core</Filter>
       </ClCompile>
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
         <Filter>Source Files\Runtime\Diagnostics</Filter>
@@ -798,9 +807,6 @@
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\UI\UITabSound.cpp">
-      <Filter>Source Files\UI</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -822,6 +828,15 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h">
       <Filter>Header Files\Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoField.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoGameplay.h">
+      <Filter>Header Files\Gameplay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoVisualPass.h">
+      <Filter>Header Files\Gameplay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Camera.h">
       <Filter>Header Files\Runtime\Camera</Filter>
@@ -856,8 +871,8 @@
     <ClInclude Include="SkullbonezSource\Core\Fence.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCapacity.h">
-      <Filter>Header Files\Runtime\Scene</Filter>
+    <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h">
       <Filter>Header Files\Rendering</Filter>
@@ -865,7 +880,7 @@
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Core\SkullScope.h">
+    <ClInclude Include="SkullbonezSource\Core\StringHash.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h">
@@ -884,6 +899,9 @@
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h">
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\SimulationSystem.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h">
@@ -1009,9 +1027,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h">
       <Filter>Header Files\Runtime\Diagnostics</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h">
-      <Filter>Header Files\Runtime\Audio</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\OperatorCommandApplier.h">
       <Filter>Header Files\Runtime\Settings</Filter>
     </ClInclude>
@@ -1019,6 +1034,9 @@
       <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h">
+      <Filter>Header Files\Runtime\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.h">
       <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h">
@@ -1162,9 +1180,6 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacket.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h">
-      <Filter>Header Files\Runtime\Replay</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
@@ -1195,8 +1210,8 @@
     <ClInclude Include="SkullbonezSource\Core\Timer.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    <ClInclude Include="SkullbonezSource\Core\WindowConstants.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Window.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
@@ -1211,6 +1226,9 @@
       <Filter>Header Files\World</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\AuthoredScene.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Scene\AuthoredTornadoConfig.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Scene\AuthoredSceneParserSchema.h">
@@ -1243,6 +1261,12 @@
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
@@ -1256,6 +1280,9 @@
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h">
@@ -1336,20 +1363,20 @@
     <ClInclude Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.h">
       <Filter>Header Files\Runtime\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h">
-      <Filter>Header Files\Runtime\Allocation</Filter>
+    <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h">
+      <Filter>Header Files\Core\Allocation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h">
-      <Filter>Header Files\Runtime\Allocation</Filter>
+    <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.h">
+      <Filter>Header Files\Core\Allocation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h">
-      <Filter>Header Files\Runtime\Allocation</Filter>
+    <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.h">
+      <Filter>Header Files\Core\Allocation</Filter>
     </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h">
-        <Filter>Header Files\Runtime\Allocation</Filter>
+      <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h">
+        <Filter>Header Files\Core\Allocation</Filter>
       </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h">
-        <Filter>Header Files\Runtime\Diagnostics</Filter>
+      <ClInclude Include="SkullbonezSource\Core\TracyClientOwner.h">
+        <Filter>Header Files\Core</Filter>
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h">
         <Filter>Header Files\Runtime\Editor</Filter>
@@ -1486,9 +1513,6 @@
     <ClInclude Include="SkullbonezSource\UI\UITabScene.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\UI\UITabSound.h">
-      <Filter>Header Files\UI</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UITabSky.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
@@ -1515,7 +1539,7 @@
     <None Include="SkullbonezData\shaders\trajectory_ribbon.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\tornado_fx.hlsl">
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.hlsl">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\lit_textured.hlsl">
@@ -1617,10 +1641,10 @@
     <None Include="SkullbonezData\shaders\text.vs.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\tornado_fx.ps.dxil">
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.ps.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\tornado_fx.vs.dxil">
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.vs.dxil">
       <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\trajectory_ribbon.ps.dxil">
@@ -1751,129 +1775,6 @@
     </None>
     <None Include="SkullbonezData\engine.cfg">
       <Filter>Scene Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\contact_audio.materials.json">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\LICENSES.md">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_02.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_03.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_04.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_05.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_06.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_07.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_08.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_09.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_10.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_02.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_03.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_04.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_05.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_06.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_07.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_08.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_09.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_10.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_11.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_12.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_13.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_rock_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_02.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_03.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_02.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_03.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_02.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_03.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_02.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_01.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_02.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_03.ogg">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="ThirdPtySource\stb\stb_vorbis.c">
-      <Filter>External</Filter>
     </None>
     <None Include="SkullbonezData\hulls\diamond.hull">
       <Filter>Scene Files</Filter>

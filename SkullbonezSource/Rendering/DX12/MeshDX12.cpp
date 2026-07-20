@@ -159,53 +159,28 @@ bool MeshDX12::Create( ID3D12Device* device,
 }
 
 
-void MeshDX12::Draw() const
+bool MeshDX12::PrecompileRasterState( const PassRasterStateBucket& bucket ) const
 {
-    ID3D12GraphicsCommandList* commandList = m_device.CommandList();
-    if ( !commandList )
-    {
-        return;
-    }
-    if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr ) )
-    {
-        return;
-    }
-    // Bind the vertex buffer to input slot 0 of the Input Assembler (IA) stage.
-    // The IA is the very first stage of the GPU pipeline — it reads vertex data and feeds it
-    // to the vertex shader. The view tells the GPU where the buffer is, how big it is, and the
-    // stride (bytes per vertex).
-    // Docs:
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    commandList->IASetVertexBuffers( 0, 1, &m_vbView );
-
-    // Issue a non-indexed draw call. DrawInstanced draws all vertices sequentially from the bound
-    // vertex buffer. Parameters: (vertexCount, instanceCount=1, startVertex=0, startInstance=0).
-    // "Instanced" here means you *could* draw multiple copies, but we pass 1 for a single mesh.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "Mesh", m_vertexCount, 1 } );
-    commandList->DrawInstanced( (UINT)m_vertexCount, 1, 0, 0 );
+    return m_drawGate.PrecompilePipelineDraw( m_format, false, nullptr, nullptr, bucket.raster );
 }
 
 
-void MeshDX12::DrawInstanced( int instanceCount ) const
+void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
 {
     ID3D12GraphicsCommandList* commandList = m_device.CommandList();
     if ( !commandList )
     {
         return;
     }
-    if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr ) )
+    // Invariant: the pass bucket reaches PSO selection on the same call that
+    // submits the mesh. No ambient setter state participates in this draw.
+    if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr, bucket.raster ) )
     {
         return;
     }
-    // Instanced drawing renders many copies of one mesh with different
-    // per-instance data in a single GPU draw call.
-    // Docs:
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     commandList->IASetVertexBuffers( 0, 1, &m_vbView );
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "MeshInstanced", m_vertexCount, instanceCount } );
-    commandList->DrawInstanced( (UINT)m_vertexCount, (UINT)instanceCount, 0, 0 );
+    m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "MeshDeclaredRaster", m_vertexCount, 1 } );
+    commandList->DrawInstanced( static_cast<UINT>( m_vertexCount ), 1, 0, 0 );
 }
 
 

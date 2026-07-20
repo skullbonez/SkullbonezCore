@@ -12,31 +12,31 @@ Summary:
 
 Glossary:
   Physics material: Per-object friction and drag coefficients owned by
-    PhysicsScene and copied into authored descriptor rows at cold boundaries.
-  Body simulation limit: Scalar cap owned by PhysicsScene before authored
+    PhysicsEngine and copied into authored descriptor rows at cold boundaries.
+  Body simulation limit: Scalar cap owned by PhysicsEngine before authored
     descriptors create PhysicsBodyStore rows.
-  Contact policy: Terrain and contact thresholds owned by PhysicsScene so
+  Contact policy: Terrain and contact thresholds owned by PhysicsEngine so
     existing and newly added models receive the same physics policy.
-  Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
+  Body descriptor: PhysicsEngine-owned authoring value that can rebuild a live
     PhysicsBodyStore row without reading legacy object record physics fields.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
     and render-owned presentation rows before frame passes.
   Collider descriptor: Value packet containing shape/material facts that
-    PhysicsScene turns into a live ColliderStore row.
+    PhysicsEngine turns into a live ColliderStore row.
   Topology drift: A body/collider/model count mismatch that means stores must
     import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
     as ragdolls or releasable trees, to a stable root scene object id.
   Fixed-tree release: Authored scene rule that lets tree parts become dynamic
     when a related fixed part is hit strongly enough.
-  Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
+  Scene object id: PhysicsBodyStore-owned identity saved in replay samples so
     restore paths can reject stale model slots.
   Shadow caster stream: Opaque render bin resolved while scene material and
     collider facts are both available at the instance-build boundary.
 
 Invariants:
   - SceneEntityStore order remains the scene alignment key for physics stores,
-    render batches, and scene snapshots. Replay ids live in PhysicsBodyStore
+    render batches, and scene snapshots. Scene object ids live in PhysicsBodyStore
     rows after append.
   - SceneEntityStore owns behavior groups with stable root ids. Dense root rows
     are derived only when physics or a model-index compatibility API requires one.
@@ -56,7 +56,6 @@ Related:
 #include "../../Core/Config.h"
 
 #include "../../Core/FatalError.h"
-#include "../../Core/SkullScope.h"
 #include "../../Runtime/Debug/CollisionVisualizer.h"
 #include "../../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../../Physics/ColliderStore.h"
@@ -73,7 +72,6 @@ Related:
 #include <variant>
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -151,6 +149,8 @@ void SceneWorld::ReserveForActiveSceneObjectCapacity()
     // append paths discover the new capacity by reallocating.
     const std::size_t capacity = static_cast<std::size_t>( m_activeSceneObjectCapacity );
     m_physics.ReserveAuthoredBodyCapacity( capacity );
+    m_tornadoGameplay.ReserveBodyCapacity( m_activeSceneObjectCapacity );
+    m_tornadoGameplay.ReserveVisualCapacity();
     m_renderInstanceStore.ReservePresentationCapacity( capacity );
 }
 
@@ -182,12 +182,12 @@ std::vector<const char*> SceneWorld::BuildDiagnosticNamesForReload() const
 
 bool SceneWorld::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 {
-    const std::vector<uint32_t> replayBodyIds =
-        Physics::PhysicsEngine::ReadBodies( m_physics ).BuildReplayBodyIdsForReload( SceneEntityCount() );
+    const std::vector<PhysicsSceneObjectId> sceneObjectIds =
+        Physics::PhysicsEngine::ReadBodies( m_physics ).BuildSceneObjectIdsForReload( SceneEntityCount() );
     const std::vector<ModelRowHint> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
     const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
     PhysicsAuthoredBodyRefreshView refreshView;
-    refreshView.replayBodyIds = replayBodyIds.empty() ? nullptr : replayBodyIds.data();
+    refreshView.sceneObjectIds = sceneObjectIds.empty() ? nullptr : sceneObjectIds.data();
     refreshView.fixedTreeReleaseRoots = fixedTreeReleaseRoots.empty() ? nullptr : fixedTreeReleaseRoots.data();
     refreshView.diagnosticNames = diagnosticNames.empty() ? nullptr : diagnosticNames.data();
     refreshView.bodyCount = MakePhysicsAuthoredBodyCountFromNonNegativeInt( SceneEntityCount() );
@@ -277,17 +277,45 @@ const SkullbonezCore::Physics::PhysicsEngine& SceneWorld::Physics() const
 }
 
 
+SkullbonezCore::Gameplay::TornadoGameplay& SceneWorld::Tornado()
+{
+    return m_tornadoGameplay;
+}
+
+
+const SkullbonezCore::Gameplay::TornadoGameplay& SceneWorld::Tornado() const
+{
+    return m_tornadoGameplay;
+}
+
+uint64_t SceneWorld::CollectGameplayMemoryBytes() const
+{
+    return m_tornadoGameplay.CollectMemoryBytes();
+}
+
+uint64_t SceneWorld::CollectGameplayDebugMemoryBytes() const
+{
+    return m_tornadoGameplay.CollectDebugMemoryBytes();
+}
+
+
+std::span<const float> SceneWorld::BuildWorldExtensionDebugLines()
+{
+    return m_tornadoGameplay.BuildDebugLineVertices();
+}
+
+
 void SceneWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
 {
     m_activeSceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
     Entities().ConfigureCapacity( m_activeSceneObjectCapacity );
     ReserveForActiveSceneObjectCapacity();
+    m_tornadoGameplay.SetParallelForceEvaluation( config.physicsExecution.parallelExternalForceFields );
     m_physics.ApplyRuntimeConfig( config );
 }
 
 
 ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt,
-                                                    const SkullbonezCore::Core::EngineConfig& config,
                                                     const Physics::PhysicsWorldForces& worldForces,
                                                     Threading::WorkerPool& workerPool )
 {
@@ -311,8 +339,15 @@ ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt,
         diagnosticNameCount = static_cast<int>( physicsDiagnosticsModelNames.size() );
     }
 #endif
-    m_physics
-        .Step( fixedDt, config, worldForces, workerPool, diagnosticNames, diagnosticNameCount, diagnosticsCsvWriter );
+    const Physics::ExternalForceFrameInput externalForces =
+        m_tornadoGameplay.BuildForceFrame( fixedDt, Physics::PhysicsEngine::ReadBodies( m_physics ).Count() );
+    m_physics.Step( fixedDt,
+                    worldForces,
+                    externalForces,
+                    workerPool,
+                    diagnosticNames,
+                    diagnosticNameCount,
+                    diagnosticsCsvWriter );
 
     return ScenePhysicsPostStepOutput{ Physics::PhysicsEngine::ReadFixedContactHighlightBodies( m_physics ) };
 }
@@ -495,7 +530,7 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
                   entityRemoved ? 1 : 0,
                   renderRemoved ? 1 : 0 );
     }
-    // Invariant: PhysicsScene already compacted the live body/collider rows.
+    // Invariant: PhysicsEngine already compacted the live body/collider rows.
     // Reloading authored descriptors here would teleport every surviving body
     // whose solver/replay pose has diverged from its cold creation pose.
     RefreshRenderInstances();
@@ -538,6 +573,7 @@ void SceneWorld::Clear()
 {
     Entities().Clear();
     m_physics.Clear();
+    m_tornadoGameplay.Clear();
     m_renderInstanceStore.Clear();
     AssertSceneCreationTopology( 0 );
 }
@@ -564,7 +600,7 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
     // not a recoverable replay-file error because earlier owners may already
     // have retired handles.
     // Invariant: physics rows shrink before presentation and metadata rows.
-    // Every surviving handle was validated by replay id before this command,
+    // Every surviving handle was validated by scene object id before this command,
     // and PhysicsBodyStore retires removed handles.
     if ( !m_physics.TrimBodiesToCount( bodies ) ||
          ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
@@ -668,13 +704,13 @@ bool SceneWorld::TrimPresentationRowsForSceneRestore( int modelCount )
 }
 
 
-void SceneWorld::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const
+void SceneWorld::CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const
 {
     m_physics.CaptureReplaySolverSnapshot( outSnapshot, MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
 }
 
 
-bool SceneWorld::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
+bool SceneWorld::RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot )
 {
     return m_physics.RestoreReplaySolverSnapshot( snapshot,
                                                   MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
@@ -737,27 +773,6 @@ const SkullbonezCore::Rendering::RenderInstanceStore& SceneWorld::RenderInstance
 SkullbonezCore::Rendering::RenderInstanceStore& SceneWorld::MutableRenderInstances()
 {
     return m_renderInstanceStore;
-}
-
-
-bool SceneWorld::TryQueueReplayRenderPoseOverride( int modelIndex,
-                                                   uint32_t replayBodyId,
-                                                   const Math::Vector::Vector3& position,
-                                                   const Math::Orientation::Quaternion& orientation )
-{
-    const Physics::PhysicsBodyStore& bodyStore = BodyStore();
-    const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
-    const Physics::PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-    // Invariant: render-pose overrides are keyed by the physics-owned body id.
-    // Model-index hints can lag during scrub/prediction presentation, so they
-    // cannot approve which live render instance receives the pose.
-    if ( !bodyRecord || bodyStore.ModelIndexForHandle( body ) != modelIndex ||
-         bodyRecord->replayBodyId != replayBodyId )
-    {
-        return false;
-    }
-
-    return m_renderInstanceStore.OverridePose( modelIndex, replayBodyId, position, orientation, Colliders() );
 }
 
 

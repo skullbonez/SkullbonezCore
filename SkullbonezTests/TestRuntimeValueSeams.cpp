@@ -9,13 +9,16 @@
 //   engine loop and renderer so failures identify owner logic directly.
 //
 // Glossary:
-//   Frame policy: Value packet deciding physics advance and camera-look state.
+//   Frame policy: Value packet deciding physics advance, camera-look state, or
+//     whether a cross-scene-locked frame may proceed.
 //   Control surface: Fixed-capacity ordered table of replay controls and hit
 //     regions rebuilt for one frame.
 //   Historical sample: Retained replay state that must not advance live physics.
 //
 // Invariants:
 //   - Historical or disabled scenes always publish zero physics time scale.
+//   - Cross-scene pause policy outranks live tool owners and releases only for
+//     the sampled step input.
 //   - Replay hit regions and drawn rectangles come from the same layout helpers.
 //   - Disabled front-most controls consume the pointer without publishing an
 //     actionable hot control behind them.
@@ -30,6 +33,7 @@
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 
 #include <cmath>
 #include <cstring>
@@ -58,6 +62,24 @@ int RectCenterY( const SkullbonezCore::UI::UIRect& rect )
     return static_cast<int>( std::round( rect.y + rect.h * 0.5f ) );
 }
 } // namespace
+
+TEST_CASE( "Scene controller: one proceed policy governs the complete frame" )
+{
+    SceneFrameProceedPolicy policy = ResolveSceneFrameProceedPolicy( false, false );
+    CHECK_FALSE( policy.stepRequested );
+    CHECK_FALSE( policy.crossScenePauseLocked );
+    CHECK( policy.proceedAllowed );
+
+    policy = ResolveSceneFrameProceedPolicy( true, false );
+    CHECK_FALSE( policy.stepRequested );
+    CHECK( policy.crossScenePauseLocked );
+    CHECK_FALSE( policy.proceedAllowed );
+
+    policy = ResolveSceneFrameProceedPolicy( true, true );
+    CHECK( policy.stepRequested );
+    CHECK( policy.crossScenePauseLocked );
+    CHECK( policy.proceedAllowed );
+}
 
 TEST_CASE( "Runtime interaction: physics input matrix publishes one frame policy" )
 {
@@ -119,13 +141,26 @@ TEST_CASE( "Runtime interaction: physics input matrix publishes one frame policy
         pickup.kind = RuntimeInteractionGestureKind::MousePickupDrag;
         pickup.button = RuntimePointerButton::Left;
         pickup.body = SkullbonezCore::Physics::PhysicsBodyHandle{ 3u, 2u };
-        REQUIRE( controller.BeginOwnedToolGesture( RuntimeWorkspace::Live,
-                                                  WorldInteractionOwner::Manipulator,
-                                                  pickup ) );
+        REQUIRE(
+            controller.BeginOwnedToolGesture( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator, pickup ) );
         policy = controller.BuildFramePolicy( input );
         CHECK( policy.manipulatorActive );
         CHECK( policy.physicsAdvance == PhysicsAdvanceState::Running );
         CHECK( policy.pointerCapture == RuntimePointerCaptureOwner::ToolGesture );
+    }
+
+    SUBCASE( "cross-scene pause lock outranks live tool owners" )
+    {
+        controller.EnterLauncher();
+        input.crossScenePauseLocked = true;
+        RuntimeInteractionFramePolicy policy = controller.BuildFramePolicy( input );
+        CHECK( policy.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld );
+        CHECK( policy.physicsTimeScale == 0.0f );
+
+        input.stepHeld = true;
+        policy = controller.BuildFramePolicy( input );
+        CHECK( policy.physicsAdvance == PhysicsAdvanceState::RunWhileStepHeld );
+        CHECK( policy.physicsTimeScale == doctest::Approx( 1.5f ) );
     }
 
     SUBCASE( "negative scene scale clamps before policy publication" )
@@ -162,9 +197,7 @@ TEST_CASE( "Runtime interaction: camera policy follows owner precedence" )
     pickup.kind = RuntimeInteractionGestureKind::MousePickupDrag;
     pickup.button = RuntimePointerButton::Left;
     pickup.body = SkullbonezCore::Physics::PhysicsBodyHandle{ 4u, 1u };
-    REQUIRE( controller.BeginOwnedToolGesture( RuntimeWorkspace::Live,
-                                              WorldInteractionOwner::Manipulator,
-                                              pickup ) );
+    REQUIRE( controller.BeginOwnedToolGesture( RuntimeWorkspace::Live, WorldInteractionOwner::Manipulator, pickup ) );
     policy = controller.BuildFramePolicy( input );
     CHECK( policy.cameraLook == CameraLookState::Passive );
     CHECK_FALSE( policy.cameraMouseLookActive );
@@ -332,43 +365,39 @@ TEST_CASE( "Replay event commands: domain values encode bounded deterministic pa
     CHECK( std::strcmp( launcher.text, "launcher_config" ) == 0 );
 
     const ReplayEventCommand fire = BuildLauncherFire( Vector3( 1.0f, 2.0f, 3.0f ),
-                                                        Vector3( 0.0f, 0.0f, 1.0f ),
-                                                        Vector3( 0.0f, 1.0f, 0.0f ),
-                                                        true,
-                                                        50.0f,
-                                                        80.0f,
-                                                        12 );
+                                                       Vector3( 0.0f, 0.0f, 1.0f ),
+                                                       Vector3( 0.0f, 1.0f, 0.0f ),
+                                                       true,
+                                                       50.0f,
+                                                       80.0f,
+                                                       12 );
     CHECK( fire.kind == ReplayEventKind::LauncherFire );
     CHECK( fire.flags == 1u );
     CHECK( fire.value0 == 1 );
     CHECK( fire.value3 == 12 );
     CHECK( std::strncmp( fire.text, "ray9:", 5u ) == 0 );
 
-    const ReplayEventCommand place = BuildEditorPlace( 4,
-                                                       true,
-                                                       true,
-                                                       12,
-                                                       Vector3( 10.0f, 20.0f, 30.0f ),
-                                                       Vector3( 1.0f, 2.0f, 3.0f ),
-                                                       0.25f );
+    const ReplayEventCommand place =
+        BuildEditorPlace( 4, true, true, 12, Vector3( 10.0f, 20.0f, 30.0f ), Vector3( 1.0f, 2.0f, 3.0f ), 0.25f );
     CHECK( place.kind == ReplayEventKind::EditorPlace );
     CHECK( place.flags == 3u );
     CHECK( place.value0 == 4 );
     CHECK( std::strncmp( place.text, "place7:", 7u ) == 0 );
 
     const Quaternion orientation;
-    CHECK( BuildEditorTransform( 2, 0u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, -1, 1.0f ).kind ==
+    const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId{ 77u };
+    CHECK( BuildEditorTransform( 2, 0u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, -1, 1.0f ).kind ==
            ReplayEventKind::Unknown );
-    CHECK( BuildEditorTransform( 2, 4u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 4, 2.0f ).kind ==
+    CHECK( BuildEditorTransform( 2, 4u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 4, 2.0f ).kind ==
            ReplayEventKind::Unknown );
     const ReplayEventCommand translate =
-        BuildEditorTransform( 2, 1u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 2, 5.0f );
+        BuildEditorTransform( 2, 1u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 2, 5.0f );
     CHECK( translate.kind == ReplayEventKind::EditorTransform );
     CHECK( translate.flags == 1u );
     CHECK( translate.value3 == -1 );
     CHECK( std::strncmp( translate.text, "xform7:", 7u ) == 0 );
     const ReplayEventCommand scale =
-        BuildEditorTransform( 2, 7u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 1, 1.25f );
+        BuildEditorTransform( 2, 7u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 1, 1.25f );
     CHECK( scale.kind == ReplayEventKind::EditorTransform );
     CHECK( scale.flags == 7u );
     CHECK( scale.value3 == 1 );

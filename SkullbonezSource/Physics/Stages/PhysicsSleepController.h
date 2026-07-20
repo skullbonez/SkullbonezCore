@@ -45,18 +45,17 @@ Related:
 
 #include "../PhysicsDebugData.h"
 #include "../PhysicsFixedList.h"
+#include "../PhysicsRuntimeSettings.h"
 #include "../Ragdoll.h"
 #include "../SleepIslandSystem.h"
 #include "../PhysicsBodyStore.h"
 #include "PhysicsContactSolverStage.h"
-#include "../../Runtime/Replay/ReplaySolverSnapshot.h"
+#include "../PhysicsSolverSnapshot.h"
 
 namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
-struct PhysicsSleepConfig;
 } // namespace Core
 
 namespace Physics
@@ -219,8 +218,8 @@ class PhysicsSleepController
     PhysicsSleepController();
 
     void Clear();
-    void ApplyRuntimeConfig( const Core::EngineConfig& config );
-    PhysicsSleepStepPolicy ResolveStepPolicy( const Core::PhysicsSleepConfig& config ) const;
+    void ApplyRuntimeSettings( const SleepSettings& settings );
+    PhysicsSleepStepPolicy ResolveStepPolicy( const SleepSettings& settings ) const;
     // Returns true when a cold topology/replay/config boundary rebuilt the
     // derived awake index. Ordinary fixed steps preserve the controller-owned
     // sleep rows without rescanning the body-store flag array.
@@ -262,8 +261,8 @@ class PhysicsSleepController
                            int bodyA,
                            int bodyB ) const;
 
-    void CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const;
-    void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
+    void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
+    void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
 
     std::span<const uint8_t> GetSleepStates() const;
     std::span<const int> GetAwakeBodyIndices() const;

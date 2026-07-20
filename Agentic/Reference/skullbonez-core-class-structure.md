@@ -57,8 +57,8 @@ handles and dense arrays stay inside physics-facing operations after a scene id
 is resolved at the owner boundary.
 
 `RenderInstanceStore` owns render presentation rows and the prepared instance
-snapshot. Short fixed-contact and audio-contact timers live beside that
-presentation data; they are not durable scene or deterministic physics state.
+snapshot. Short fixed-contact timers live beside that presentation data; they
+are not durable scene or deterministic physics state.
 
 ## Coordinated scene operations
 
@@ -93,7 +93,7 @@ flowchart LR
 ```
 
 Physics hot loops consume compact store arrays and bounded scratch buffers.
-Owner-side UI, audio, diagnostics, and replay work happens before or after those
+Owner-side UI, diagnostics, and replay work happens before or after those
 loops through typed values or bounded side-effect queues.
 
 ## Rendering

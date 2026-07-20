@@ -5,7 +5,7 @@
 #   Query the versioned ReplayV2Artifact file family without loading the full
 #   binary artifact into GPT or validation output.
 #
-# Mental model:
+# Summary:
 #   Replay artifacts are chunked binary files. This script reads only the
 #   requested tables or ranges and emits bounded text/JSON summaries for
 #   validation, debugging, and agent analysis.
@@ -16,16 +16,21 @@
 #   Chunk table: Header directory that names each stored replay section.
 #   Visual-state row: Versioned per-body packet holding every replay-owned field
 #     needed to reproduce the saved presentation hash.
+#   Scene object id: Durable cross-system identity encoded as a fixed-width
+#     scalar at this cold artifact boundary.
 #   SkullScope slice: Bounded NDJSON export derived from selected replay frames.
 #
 # Invariants:
 #   - Binary struct layouts must match the runtime replay writer.
+#   - Decoded identity labels use the scene-owned name even though the artifact
+#     stores only the unchanged integer scalar.
 #   - Query commands must stay bounded; callers should not dump whole artifacts
 #     into model context.
 #
 # Related:
 #   - tools/replay_query.bat
 #   - tools/check_replay_v2_artifact.py
+#   - SkullbonezSource/Runtime/Replay/ReplayEventCommand.h
 """Query chunked Skullbonez replay v2 artifacts without loading them into GPT."""
 
 from __future__ import annotations
@@ -455,7 +460,7 @@ def decoded_event_payload(row: EventInfo) -> dict[str, object] | None:
         decoded.update(
             {
                 "modelIndex": row.values[0],
-                "replayBodyId": row.values[1],
+                "sceneObjectId": row.values[1],
                 "modelCountAtCommit": row.values[2],
                 "scaleAxis": row.values[3] if row.flags & 4 else None,
                 "translated": bool(row.flags & 1),

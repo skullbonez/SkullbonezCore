@@ -34,12 +34,13 @@ namespace SkullbonezCore::Runtime
 {
 namespace ReplayPredictionReserveOperations
 {
-Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
-bool RequestReplayPredictionReserveGrowth( const char* targetName,
-                                           int frameNumber,
-                                           int oldCapacityBytes,
-                                           int requestedCapacityBytes,
-                                           int elementSizeBytes,
-                                           Runtime::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept;
+SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept;
+bool RequestReplayPredictionReserveGrowth(
+    const char* targetName,
+    int frameNumber,
+    int oldCapacityBytes,
+    int requestedCapacityBytes,
+    int elementSizeBytes,
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept;
 } // namespace ReplayPredictionReserveOperations
 } // namespace SkullbonezCore::Runtime

@@ -2555,118 +2555,6 @@
       }
     },
     {
-      "source": "SkullbonezData/shaders/tornado_fx.hlsl",
-      "entry": "main_vs",
-      "stage": "vs",
-      "target": "vs_6_6",
-      "bytecode": "SkullbonezData/shaders/tornado_fx.vs.dxil",
-      "source_sha256": "17c4d93a5ece01e6637f8c33bddb49620ad40bb91c8a2c3d0219b3a30c78020d",
-      "compile_inputs_sha256": "836fa5c557e218f28f270f6a18fa082406f0fbaf971ec66c29195f78a3bbff14",
-      "bytecode_sha256": "739405799cae017c74e2da0899a645048643ea29a5d2d46dac79d7391abb545f",
-      "bytecode_size": 4756,
-      "reflection": {
-        "cbuffers": [
-          {
-            "name": "Uniforms",
-            "size": 64,
-            "fields": [
-              {
-                "type": "float4x4",
-                "name": "uViewProj",
-                "offset": 0,
-                "size": 64
-              }
-            ]
-          }
-        ],
-        "resources": [
-          {
-            "name": "Uniforms",
-            "register_class": "b",
-            "slot": 0,
-            "space": 0,
-            "count": 1,
-            "type": "cbuffer",
-            "format": "na",
-            "dimension": "na"
-          }
-        ],
-        "inputs": [
-          {
-            "semantic": "POSITION",
-            "index": 0,
-            "mask": "xyz",
-            "register": 0,
-            "system_value": "NONE",
-            "format": "float",
-            "used": "xyz"
-          },
-          {
-            "semantic": "TEXCOORD",
-            "index": 0,
-            "mask": "xyzw",
-            "register": 1,
-            "system_value": "NONE",
-            "format": "float",
-            "used": "xyzw"
-          },
-          {
-            "semantic": "TEXCOORD",
-            "index": 1,
-            "mask": "xyzw",
-            "register": 2,
-            "system_value": "NONE",
-            "format": "float",
-            "used": "xyzw"
-          }
-        ]
-      }
-    },
-    {
-      "source": "SkullbonezData/shaders/tornado_fx.hlsl",
-      "entry": "main_ps",
-      "stage": "ps",
-      "target": "ps_6_6",
-      "bytecode": "SkullbonezData/shaders/tornado_fx.ps.dxil",
-      "source_sha256": "17c4d93a5ece01e6637f8c33bddb49620ad40bb91c8a2c3d0219b3a30c78020d",
-      "compile_inputs_sha256": "0177c6fff1e934304bbe1fea29e3ad79e251386e54cbd311e9dc21500e6c2846",
-      "bytecode_sha256": "13587b477acc957680d93e5831eeb58cdf417c3cfadcebba1841a9a794a37cd6",
-      "bytecode_size": 4440,
-      "reflection": {
-        "cbuffers": [],
-        "resources": [],
-        "inputs": [
-          {
-            "semantic": "TEXCOORD",
-            "index": 0,
-            "mask": "xyz",
-            "register": 1,
-            "system_value": "NONE",
-            "format": "float",
-            "used": "xyz"
-          },
-          {
-            "semantic": "TEXCOORD",
-            "index": 1,
-            "mask": "xyzw",
-            "register": 2,
-            "system_value": "NONE",
-            "format": "float",
-            "used": "xyzw"
-          },
-          {
-            "semantic": "COLOR",
-            "index": 0,
-            "mask": "xyzw",
-            "register": 3,
-            "system_value": "NONE",
-            "format": "float",
-            "used": "xyzw"
-          }
-        ]
-      }
-    },
-    {
       "source": "SkullbonezData/shaders/trajectory_ribbon.hlsl",
       "entry": "main_vs",
       "stage": "vs",
@@ -2867,6 +2755,118 @@
             "system_value": "NONE",
             "format": "float",
             "used": "xy"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/transient_colored_triangles.hlsl",
+      "entry": "main_vs",
+      "stage": "vs",
+      "target": "vs_6_6",
+      "bytecode": "SkullbonezData/shaders/transient_colored_triangles.vs.dxil",
+      "source_sha256": "cacaa2ab928aa888971db98645eaa8937d2d270d86aff23028f735f061a29450",
+      "compile_inputs_sha256": "a9b709a393ea11d2cab1417979fbcd4ab0264fbb9030762281b74e4be1f0008c",
+      "bytecode_sha256": "739405799cae017c74e2da0899a645048643ea29a5d2d46dac79d7391abb545f",
+      "bytecode_size": 4756,
+      "reflection": {
+        "cbuffers": [
+          {
+            "name": "Uniforms",
+            "size": 64,
+            "fields": [
+              {
+                "type": "float4x4",
+                "name": "uViewProj",
+                "offset": 0,
+                "size": 64
+              }
+            ]
+          }
+        ],
+        "resources": [
+          {
+            "name": "Uniforms",
+            "register_class": "b",
+            "slot": 0,
+            "space": 0,
+            "count": 1,
+            "type": "cbuffer",
+            "format": "na",
+            "dimension": "na"
+          }
+        ],
+        "inputs": [
+          {
+            "semantic": "POSITION",
+            "index": 0,
+            "mask": "xyz",
+            "register": 0,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          }
+        ]
+      }
+    },
+    {
+      "source": "SkullbonezData/shaders/transient_colored_triangles.hlsl",
+      "entry": "main_ps",
+      "stage": "ps",
+      "target": "ps_6_6",
+      "bytecode": "SkullbonezData/shaders/transient_colored_triangles.ps.dxil",
+      "source_sha256": "cacaa2ab928aa888971db98645eaa8937d2d270d86aff23028f735f061a29450",
+      "compile_inputs_sha256": "b9d488c267aee3b3aeb6e8e716709d7d3831c73180b861827711c06d1d1a4fe3",
+      "bytecode_sha256": "13587b477acc957680d93e5831eeb58cdf417c3cfadcebba1841a9a794a37cd6",
+      "bytecode_size": 4440,
+      "reflection": {
+        "cbuffers": [],
+        "resources": [],
+        "inputs": [
+          {
+            "semantic": "TEXCOORD",
+            "index": 0,
+            "mask": "xyz",
+            "register": 1,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyz"
+          },
+          {
+            "semantic": "TEXCOORD",
+            "index": 1,
+            "mask": "xyzw",
+            "register": 2,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
+          },
+          {
+            "semantic": "COLOR",
+            "index": 0,
+            "mask": "xyzw",
+            "register": 3,
+            "system_value": "NONE",
+            "format": "float",
+            "used": "xyzw"
           }
         ]
       }

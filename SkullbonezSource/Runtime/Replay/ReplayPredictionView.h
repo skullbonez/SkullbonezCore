@@ -15,7 +15,7 @@ Glossary:
     path progress to the prediction owner.
 
 Invariants:
-  - ReplayBodyId is durable identity; ModelRowHint is only a staleable lookup hint.
+  - Physics::PhysicsSceneObjectId is durable identity; ModelRowHint is only a staleable lookup hint.
   - View spans borrow prediction storage and must not survive owner mutation.
   - This header contains values only: no mutable owner, service, or callback.
 
@@ -41,7 +41,7 @@ namespace SkullbonezCore::Runtime
 {
 struct RunReplayPredictionBodySample
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
@@ -65,7 +65,7 @@ struct RunReplayPredictionFrame
 
 struct ReplayPredictionBaselineBodyPose
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     bool hasEntryPose = false;
     bool hasRestPose = false;
@@ -82,9 +82,9 @@ struct ReplayPredictionPresentationView
     std::span<const ReplayTrajectoryRecord> trajectoryRecords;
     std::span<const ReplayPredictionRetainedMarker> retainedMarkers;
     std::span<const ReplayPredictionBaselineBodyPose> baselineBodyPoses;
-    ReplayBodyId targetId;
-    ReplayBodyId baselineRootId;
-    ReplayBodyId trajectoryBuildRootId;
+    Physics::PhysicsSceneObjectId targetId;
+    Physics::PhysicsSceneObjectId baselineRootId;
+    Physics::PhysicsSceneObjectId trajectoryBuildRootId;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex revealFrame = 0;
     uint32_t topologyVersion = 0;
@@ -115,8 +115,8 @@ struct ReplayPredictionPresentationView
 // owner's complete path state across the owner boundary.
 struct ReplayPastTrajectoryView
 {
-    ReplayBodyId targetId;
-    ReplayBodyId retainedTargetId;
+    Physics::PhysicsSceneObjectId targetId;
+    Physics::PhysicsSceneObjectId retainedTargetId;
     Physics::ModelRowHint targetModelRow;
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex builtThroughFrame = 0;

@@ -32,11 +32,10 @@ Related:
 
 #include "PhysicsStageContexts.h"
 #include "../../Assets/AssetKeys.h"
-#include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsWorldForces.h"
@@ -171,7 +170,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
                                                               std::span<const uint8_t> sleepState,
                                                               int modelCount,
                                                               const PhysicsWorldForces& worldForces,
-                                                              const Core::PhysicsExecutionConfig& execution,
+                                                              const PhysicsExecutionSettings& execution,
                                                               Threading::WorkerPool& workerPool )
 {
     const MutualGravitySettings& settings = worldForces.mutualGravity;
@@ -398,7 +397,7 @@ const Vector3* PhysicsForceStage::PrepareMutualGravityForces( Core::Profiler* pr
 void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
                                      std::span<const int> awakeBodyIndices,
                                      Threading::WorkerPool& workerPool,
-                                     const Core::PhysicsExecutionConfig& execution ) const
+                                     const PhysicsExecutionSettings& execution ) const
 {
     PROFILE_BEGIN( context.profiler, "Frame/Physics/ApplyForces" );
     const auto applyAwakeBody = [&]( int awakeSlot )
@@ -426,7 +425,7 @@ void PhysicsForceStage::ApplyForces( const ApplyForcesStageContext& context,
 void PhysicsForceStage::IntegrateRemaining( const IntegrateRemainingStageContext& context,
                                             std::span<const int> awakeBodyIndices,
                                             Threading::WorkerPool& workerPool,
-                                            const Core::PhysicsExecutionConfig& execution ) const
+                                            const PhysicsExecutionSettings& execution ) const
 {
     const auto integrateAwakeBody = [&]( int awakeSlot )
     { context( awakeBodyIndices[static_cast<std::size_t>( awakeSlot )] ); };

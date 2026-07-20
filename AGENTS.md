@@ -76,6 +76,57 @@ bypass it.
    `Invariant:`, `Lifetime:`, or `Hazard:` comments where the guide calls for
    them.
 
+## Dependency Direction Rule
+
+Dependency direction must remain visible from physical include paths. `Core/`
+is the infrastructure floor and must not include Assets, Gameplay, Physics,
+Rendering, Scene, World, Runtime, or UI. Physics and Rendering may include Core
+and Maths, but must not include Gameplay, Runtime, or UI. Gameplay may include
+Core, Maths, and stable Physics/Rendering value or registration seams, but must
+not include Assets, Scene, World, Runtime, or UI. Move a misplaced value or
+implementation to its owning layer instead of adding a forwarding header,
+compatibility alias, callback pack, service bag, or upward include.
+
+Before closing a dependency-direction change, run these exact review proofs;
+all commands must return no rows:
+
+```powershell
+rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Physics|Rendering|Scene|World|Runtime|UI)/' SkullbonezSource/Core
+rg -n '^#include[[:space:]]+.*(Gameplay|Runtime|UI)/' SkullbonezSource/Physics SkullbonezSource/Rendering
+rg -n '^#include[[:space:]]+.*(Assets|Scene|World|Runtime|UI)/' SkullbonezSource/Gameplay
+```
+
+If an edge cannot be inverted in the owning task, record it in that task's
+exception table with the owner, reason, and deletion condition. An unrecorded
+edge or a compatibility spelling that hides it is a closure failure.
+
+## Replay Boundary Rule
+
+Replay is an upper Runtime consumer, not a type provider to engine layers.
+`Physics/`, `Rendering/`, `Scene/`, `World/`, and `Core/` must not include
+`Runtime/Replay/*`. Replay reads Physics through `PhysicsApi.h`,
+`PhysicsEngine`, and Physics-owned value snapshots; render presentation crosses
+as value packets or bounded queues. Do not move a Replay type downward or hide
+one behind a forwarding header, alias, callback pack, or broad context object.
+
+Before closing replay-facing work, run this exact review proof; it must return
+no rows:
+
+```powershell
+rg -n '^#include[[:space:]]+.*Runtime/Replay/' SkullbonezSource/Physics SkullbonezSource/Rendering SkullbonezSource/Scene SkullbonezSource/World SkullbonezSource/Core
+```
+
+Replay retains the only post-gameplay growth privilege, and only through a
+`RuntimeReserveAllocator`-registered owner with a replay-phase check, hard cap,
+logged growth counter, and owner-specific policy comment. The authoritative
+replay-boundary plan or closure report carries the registration inventory:
+owner, phase gate, cap, high-water/growth counter, policy comment, and status.
+Adding a registration, increasing a cap, weakening a phase gate, or changing
+counter coverage must update that inventory in the same commit. Reviews of
+replay-touching work must answer both questions: did a downward Replay include
+appear, and did a growth privilege appear or expand outside the inventory?
+Either finding blocks the touching change.
+
 ## Comment Quality Gate
 
 Comment quality is part of completion, not a follow-up nicety.
@@ -344,7 +395,7 @@ render, or tool gate; it does not replace it.
 | `SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json`, `SkullbonezData/interaction/prediction_ragdoll_wall_200_*.json`, or `TestOutput/baselines/replay_visual_fidelity_200_box*.json` | `validate_replay_visual_fidelity.bat` |
 | `tools/check_replay_visual_fidelity.py`, `tools/replay_query.py`, `tools/validate_replay_visual_fidelity.bat`, or `tools/validate_replay_scrub.bat` | `validate_fast`, then `validate_replay_visual_fidelity.bat` |
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
-| `Runtime/Allocation/*` | `validate_perf` |
+| `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `Run*`, `Runtime/*` | `validate_full` |

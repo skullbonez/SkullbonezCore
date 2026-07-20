@@ -24,6 +24,7 @@ Invariants:
     must stay explicit.
   - The descriptor owner, texture, pipeline, recording, retirement, and device
     references outlive every framebuffer created for that device epoch.
+  - Bind/Unbind never emits a resource barrier; the render graph owns state.
 
 Related:
   - SkullbonezSource/Rendering/DX12/FramebufferDX12.cpp
@@ -90,8 +91,6 @@ class FramebufferDX12 : public IFramebuffer
     FramebufferColorFormat m_colorFormat;
     int m_width;
     int m_height;
-    mutable D3D12_RESOURCE_STATES m_depthState;
-
     // Saved main targets for restore on Unbind
     mutable D3D12_CPU_DESCRIPTOR_HANDLE m_savedRTV;
     mutable D3D12_CPU_DESCRIPTOR_HANDLE m_savedDSV;
@@ -108,6 +107,8 @@ class FramebufferDX12 : public IFramebuffer
 
     bool Create( int width, int height );
 
+    // The render graph owns resource states. These methods bind/restore output
+    // descriptors only and never emit barriers.
     void Bind() const override;
     void Unbind() const override;
     uint32_t GetColorTextureHandle() const override

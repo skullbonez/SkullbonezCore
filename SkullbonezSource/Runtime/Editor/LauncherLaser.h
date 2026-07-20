@@ -14,13 +14,15 @@ Glossary:
   Render resource factory: Renderer capability borrowed only while creating
     laser-owned shader resources.
   Render command context: Per-frame renderer capability borrowed only while
-    drawing laser vertices and temporarily changing draw state.
+    precompiling and drawing laser vertices with the pass-owned additive bucket.
   Snapshot: Compact replay record of visible launcher feedback.
   Shader handle: Runtime id that resolves to renderer-owned shader state.
 
 Invariants:
   - LauncherLaser owns only transient render feedback.
   - Replay snapshots must preserve enough state to restore visible shots.
+  - The additive PSO is precompiled once per laser resource lifetime; the draw
+    neither reads nor restores ambient raster state.
 
 Related:
   - SkullbonezSource/Runtime/Editor/LauncherLaser.cpp
@@ -86,6 +88,7 @@ class LauncherLaser
     std::vector<float> m_vertices;
     std::unique_ptr<Rendering::IShader> m_shader;
     uint32_t m_dynamicVB = 0;
+    bool m_rasterStatePrepared = false;
 
     void EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
     void EmitVertex( const Math::Vector::Vector3& p, float r, float g, float b, float a );

@@ -24,13 +24,13 @@ Related:
   - SkullbonezSource/Runtime/CaptureSystem.h
 */
 #include "CaptureController.h"
-#include "Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Core/FatalError.h"
 
 #include <cstdio>
 #include <cstring>
 
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace SkullbonezCore
 {
@@ -176,7 +176,7 @@ std::size_t CaptureController::PendingScreenshotCount() const
 SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::IRenderCaptureBackend& backend,
                                                                   const char* path )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Capture );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
     const SkullbonezCore::Core::SbResult captureResult = CaptureSystem::SaveBackbufferBmp( backend, path );
     if ( !captureResult.ok )
     {

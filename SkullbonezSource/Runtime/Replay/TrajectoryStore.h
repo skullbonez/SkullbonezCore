@@ -48,7 +48,7 @@ enum class ReplayTrajectoryLane : uint8_t
 
 struct ReplayTrajectoryRecordKey
 {
-    ReplayBodyId bodyId;
+    Physics::PhysicsSceneObjectId bodyId;
     ReplayTrajectoryLane lane = ReplayTrajectoryLane::PastRoot;
     uint16_t branchOrdinal = 0;
 };
@@ -65,7 +65,7 @@ struct ReplayTrajectoryRecord
     uint32_t version = 0;
     std::size_t publishedPointCount = 0;
     uint16_t styleId = 0;
-    ReplayBodyId parentId;
+    Physics::PhysicsSceneObjectId parentId;
     int depth = 0;
     ReplayFrameIndex firstFrame = 0;
     bool contactDerived = false;
@@ -82,7 +82,7 @@ struct ReplayTrajectoryStore
     const ReplayTrajectoryRecord* FindRecord( const ReplayTrajectoryRecordKey& key ) const noexcept;
     ReplayTrajectoryRecord* BeginReplaceRecord( const ReplayTrajectoryRecordKey& key,
                                                 uint16_t styleId,
-                                                ReplayBodyId parentId,
+                                                Physics::PhysicsSceneObjectId parentId,
                                                 int depth,
                                                 ReplayFrameIndex firstFrame,
                                                 bool contactDerived );

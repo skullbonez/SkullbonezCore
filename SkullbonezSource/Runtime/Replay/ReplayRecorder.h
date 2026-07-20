@@ -28,15 +28,19 @@ Glossary:
     replayed alongside solver state for authoritative rollback work.
   Wire code: Explicit serialized value whose meaning is independent of a C++
     domain enum's declaration order.
+  Recorder reserve owner: Aggregate replay-only byte budget shared by retained
+    presentation, solver, world-delta, and visual sample vectors.
 
 Invariants:
   - Capture order is chronological even though storage wraps internally.
   - Hash fields are compatibility surface for deterministic validation.
   - Owner-action wire values never serialize domain enum ordinals.
+  - Retained vector growth shares `replay_recorder_samples`; no record or vector
+    receives a private copy of the 32 MiB hard cap.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
-  - SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
+  - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
 */
 #pragma once
 
@@ -48,11 +52,12 @@ Related:
 #include <vector>
 
 #include "../../Core/MainMemoryStats.h"
+#include "../../Gameplay/TornadoGameplay.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Physics/PhysicsSolverSnapshot.h"
 #include "../Editor/LauncherLaser.h"
-#include "ReplaySolverSnapshot.h"
 #include "ReplayEventCommand.h"
 
 namespace SkullbonezCore
@@ -75,11 +80,6 @@ namespace Runtime
 class SceneEntityStore;
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
 inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
-
-struct ReplayBodyId
-{
-    uint32_t value = 0;
-};
 
 struct ReplayBranchInfo
 {
@@ -119,8 +119,8 @@ struct ReplayWorldPresentationSample
 
 struct ReplayBodyPresentationSample
 {
-    ReplayBodyId id;
-    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
+    Physics::PhysicsSceneObjectId id;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; Physics::PhysicsSceneObjectId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -141,7 +141,7 @@ struct ReplayBodyPresentationSample
 
 struct ReplayVisualBodyMetadata
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
@@ -209,8 +209,8 @@ uint64_t ComputePresentationStateHash( const ReplayPresentationSample& sample ) 
 
 struct ReplaySolverBodySample
 {
-    ReplayBodyId id;
-    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
+    Physics::PhysicsSceneObjectId id;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; Physics::PhysicsSceneObjectId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -237,7 +237,7 @@ struct ReplaySolverBodySample
 // them byte-for-byte when reconstructing the public sample.
 struct ReplaySolverBodyMetadata
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
@@ -280,10 +280,40 @@ struct ReplaySolverWorldScalarState
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
     bool collisionVisualFrameActive = false;
-    Physics::TornadoFieldConfig tornadoConfig;
-    Physics::TornadoSystemConfig tornadoSystemConfig;
+    Gameplay::TornadoFieldConfig tornadoConfig;
+    Gameplay::TornadoSystemConfig tornadoSystemConfig;
     float tornadoSystemElapsedSeconds = 0.0f;
-    ReplaySolverStatsSample solverStats;
+    Physics::PhysicsSolverStatsSample solverStats;
+};
+
+// Owner: Runtime/ReplaySolverRecorder. Reason: replay checkpoints must compose
+// Physics solver caches with Gameplay tornado state while preserving artifact
+// field order; neither lower module may include the other. Deletion condition:
+// none--this value-only composition is the end-state replay boundary. Review
+// evidence: validate_replay_visual_fidelity proves artifact bytes, restore,
+// prediction, and one-presentation behavior without inheritance or callbacks.
+struct ReplaySolverWorldSnapshot
+{
+    Physics::PhysicsSolverSnapshot physics;
+    Gameplay::TornadoFieldConfig tornadoConfig;
+    Gameplay::TornadoSystemConfig tornadoSystemConfig;
+    float tornadoSystemElapsedSeconds = 0.0f;
+    std::vector<float> tornadoCaptureSeconds;
+    std::vector<float> tornadoEjectCooldownSeconds;
+
+    void ClearPreservingCapacity() noexcept
+    {
+        // Lifetime: cancellation is a steady-runtime transition. Preserve all
+        // Physics and Gameplay vector storage allocated during reserve setup.
+        physics.ClearPreservingCapacity();
+        tornadoConfig = {};
+        tornadoSystemConfig.enabled = false;
+        tornadoSystemConfig.visualizeVelocityField = false;
+        tornadoSystemConfig.vortices.clear();
+        tornadoSystemElapsedSeconds = 0.0f;
+        tornadoCaptureSeconds.clear();
+        tornadoEjectCooldownSeconds.clear();
+    }
 };
 
 // Invariant: a full vector payload is used for keyframes and size changes.
@@ -301,7 +331,7 @@ template <typename T> struct ReplaySolverVectorDelta
     std::vector<ReplaySolverIndexedValue<T>> changedValues;
 };
 
-// Snapshot vectors mirror ReplaySolverWorldSnapshot field names so artifact
+// Snapshot vectors mirror PhysicsSolverSnapshot field names so artifact
 // save/load can still reconstruct the old dense checkpoint shape.
 struct ReplaySolverWorldDeltaFrame
 {
@@ -324,8 +354,8 @@ struct ReplaySolverWorldDeltaFrame
     ReplaySolverVectorDelta<uint8_t> sleepIslandHasSupportAnchor;
     ReplaySolverVectorDelta<uint8_t> sleepIslandEligible;
     ReplaySolverVectorDelta<uint8_t> sleepIslandCanSleep;
-    ReplaySolverVectorDelta<ReplaySolverPersistentContactSample> persistentContacts;
-    ReplaySolverVectorDelta<ReplaySolverContactCacheSample> persistentContactCache;
+    ReplaySolverVectorDelta<Physics::PhysicsSolverPersistentContactSample> persistentContacts;
+    ReplaySolverVectorDelta<Physics::PhysicsSolverContactCacheSample> persistentContactCache;
     ReplaySolverVectorDelta<uint16_t> persistentContactCounts;
     ReplaySolverVectorDelta<uint16_t> persistentRestingContactCounts;
     ReplaySolverVectorDelta<Physics::PhysicsDebugContact> debugContacts;
@@ -453,6 +483,7 @@ struct ReplayCaptureInput
     // and diagnostics. Body/collider stores remain explicit read views so the
     // recorder cannot recover presentation or scene authority through it.
     Physics::PhysicsEngine* physics = nullptr;
+    const Gameplay::TornadoGameplay* tornadoGameplay = nullptr;
     const SceneEntityStore* entities = nullptr;
     // Replay recorders borrow stores for physics state and the scene entity
     // owner for names, so capture does not depend on legacy object record writeback.
@@ -592,7 +623,8 @@ class ReplaySolverRecorder
     // Visits one body's compact position stream without reconstructing dense
     // solver frames or their world snapshots. Returns false when retained
     // delta data is internally inconsistent.
-    template <typename Visitor> bool ForEachBodyPositionChronological( ReplayBodyId targetId, Visitor visitor ) const
+    template <typename Visitor>
+    bool ForEachBodyPositionChronological( Physics::PhysicsSceneObjectId targetId, Visitor visitor ) const
     {
         if ( m_sampleCount == 0 || m_samples.empty() )
         {

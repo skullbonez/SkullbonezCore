@@ -20,13 +20,13 @@ Invariants:
   - Catch-up accounting drops whole ticks but retains fractional cadence.
 
 Related:
-  - SkullbonezSource/Physics/SimulationSystem.h
+  - SkullbonezSource/Runtime/SimulationSystem.h
   - Agentic/Reports/2026-07-12/sim-render-interpolation-closure.md
 */
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Physics/PhysicsTimestep.h"
-#include "../SkullbonezSource/Physics/SimulationSystem.h"
+#include "../SkullbonezSource/Runtime/SimulationSystem.h"
 
 using namespace SkullbonezCore::Runtime;
 

@@ -28,11 +28,11 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UITabMemory.cpp
-  - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
 */
 #pragma once
 
-#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "UIButton.h"
 #include "UISlider.h"
 
@@ -63,7 +63,7 @@ struct MemoryOverlaySample
 
 struct MemoryOverlayPinnedEvent
 {
-    Runtime::Allocation::RuntimeReserveGrowthEventView event;
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView event;
     uint64_t levelBytes = 0; // Process-memory level observed when the event first reached the UI.
     double firstSeenSeconds = 0.0;
     bool isFilled = false;

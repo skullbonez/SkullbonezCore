@@ -242,24 +242,25 @@
     <ClCompile Include="SkullbonezTests\TestTerrain.cpp" />
     <ClCompile Include="SkullbonezTests\TestVector3.cpp" />
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Config.cpp" />
     <ClCompile Include="SkullbonezSource\Core\FatalError.cpp" />
     <ClCompile Include="SkullbonezSource\Core\LockOrderValidator.cpp" />
     <ClCompile Include="SkullbonezSource\Core\Log.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\ProfilerImplementation.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp" />

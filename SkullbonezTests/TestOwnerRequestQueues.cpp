@@ -487,7 +487,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
-    CHECK( configText.find( "format_version = 4" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 5" ) != std::string::npos );
 
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
@@ -555,7 +555,7 @@ TEST_CASE( "RenderDefaultsStore v3 writers remove only the rejected SIMD row" )
         }
         CHECK( result.status.ok );
         CHECK( result.savedCount == 1 );
-        CHECK( configText.find( "format_version = 4" ) != std::string::npos );
+        CHECK( configText.find( "format_version = 5" ) != std::string::npos );
         CHECK( configText.find( "physics_simd_kernels" ) == std::string::npos );
         CHECK( configText.find( "owner_unknown_key = retain-me" ) != std::string::npos );
 
@@ -577,7 +577,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     const fs::path dataRoot = testRoot / "SkullbonezData";
     fs::create_directories( dataRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const std::string originalText = "format_version = 5\nordinary_sun_intensity = 1.00\n";
+    const std::string originalText = "format_version = 6\nordinary_sun_intensity = 1.00\n";
     {
         std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
         REQUIRE( configFile.is_open() );
@@ -626,7 +626,6 @@ TEST_CASE( "Operator editor queues coalesce identical frontend intent before pro
     static_assert( OperatorEditorSceneCommandQueue::capacity == 8u );
     static_assert( OperatorEditorPropertyCommandQueue::capacity == 24u );
     static_assert( OperatorEditorRenderingCommandQueue::capacity == 8u );
-    static_assert( OperatorEditorAudioCommandQueue::capacity == 4u );
     static_assert( OperatorEditorDiagnosticsCommandQueue::capacity == 8u );
     static_assert( OperatorEditorReplayCommandQueue::capacity == 8u );
     static_assert( OperatorEditorToolCommandQueue::capacity == 16u );
@@ -953,16 +952,9 @@ TEST_CASE( "Operator editor frame fingerprint follows semantic values only" )
     changed.rendering.cinematicParameters[static_cast<int>( UICinematicParam::Exposure )] = 1.25f;
     CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 
-    changed = first;
-    changed.audio.globalParameters[static_cast<int>( UISoundParam::MasterGain )] = 0.75f;
-    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
-
-    changed = first;
-    changed.diagnostics.audioEventsSeen = 9u;
-    CHECK( FingerprintOperatorEditorFrameView( first ) != FingerprintOperatorEditorFrameView( changed ) );
 }
 
-TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical owner projection" )
+TEST_CASE( "Operator editor rendering and diagnostics retain canonical owner projection" )
 {
     using namespace SkullbonezCore::UI;
     OperatorEditorCommandQueues preview;
@@ -970,15 +962,6 @@ TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical own
                                           { OperatorEditorRenderingCommandType::SetCinematicParameter,
                                             static_cast<int>( UICinematicParam::Exposure ),
                                             1.4f,
-                                            OperatorEditorEditPhase::Preview } )
-                 .ok );
-    REQUIRE( SubmitOperatorEditorCommand( preview.audio,
-                                          { OperatorEditorAudioCommandType::SetGlobalParameter,
-                                            static_cast<int>( UISoundParam::MasterGain ),
-                                            -1,
-                                            -1,
-                                            -1,
-                                            0.8f,
                                             OperatorEditorEditPhase::Preview } )
                  .ok );
     REQUIRE( SubmitOperatorEditorCommand( preview.diagnostics,
@@ -991,23 +974,7 @@ TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical own
     InGameUICommands previewPacket;
     REQUIRE( ProjectOperatorEditorCommands( preview, previewPacket ).ok );
     CHECK( previewPacket.cinematic.requestedParam == UICinematicParam::None );
-    CHECK( previewPacket.sound.requestedParam == UISoundParam::None );
     CHECK( previewPacket.physics.requestedPhysicsDebugAlpha < 0.0f );
-
-    OperatorEditorCommandQueues recipeCommit;
-    REQUIRE( SubmitOperatorEditorCommand( recipeCommit.audio,
-                                          { OperatorEditorAudioCommandType::SetRecipeParameter,
-                                            static_cast<int>( UISoundParam::SetBaseGain ),
-                                            2,
-                                            -1,
-                                            -1,
-                                            1.25f } )
-                 .ok );
-    InGameUICommands recipePacket;
-    REQUIRE( ProjectOperatorEditorCommands( recipeCommit, recipePacket ).ok );
-    CHECK( recipePacket.sound.requestedParam == UISoundParam::SetBaseGain );
-    CHECK( recipePacket.sound.requestedSetIndex == 2 );
-    CHECK( recipePacket.sound.requestedValue == doctest::Approx( 1.25f ) );
 
     OperatorEditorCommandQueues commits;
     REQUIRE( SubmitOperatorEditorCommand( commits.rendering,
@@ -1026,17 +993,6 @@ TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical own
                  .ok );
     REQUIRE( SubmitOperatorEditorCommand( commits.rendering, { OperatorEditorRenderingCommandType::ToggleWaterFreeze } )
                  .ok );
-    REQUIRE( SubmitOperatorEditorCommand( commits.audio,
-                                          { OperatorEditorAudioCommandType::SetBandParameter,
-                                            static_cast<int>( UISoundBandParam::PitchMax ),
-                                            2,
-                                            1,
-                                            -1,
-                                            1.1f } )
-                 .ok );
-    REQUIRE(
-        SubmitOperatorEditorCommand( commits.audio, { OperatorEditorAudioCommandType::PreviewSample, -1, -1, -1, 7 } )
-            .ok );
     REQUIRE( SubmitOperatorEditorCommand( commits.diagnostics,
                                           { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag,
                                             SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS } )
@@ -1057,9 +1013,6 @@ TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical own
     CHECK( projected.cinematic.requestedValue == doctest::Approx( 0.6f ) );
     CHECK( projected.cinematic.requestedFeature == UICinematicFeature::Bloom );
     CHECK( projected.sceneOptions.toggleWaterFreeze );
-    CHECK( projected.sound.requestedBandParam == UISoundBandParam::PitchMax );
-    CHECK( projected.sound.requestedBandIndex == 1 );
-    CHECK( projected.sound.previewSampleIndex == 7 );
     CHECK( projected.physics.togglePhysicsDebugFlags == SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS );
     CHECK( projected.profiler.requestedWorkerThreads == 4 );
     CHECK( projected.physics.requestRayCastImpulseStrength );
@@ -1072,11 +1025,6 @@ TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical own
     legacy.cinematic.requestedValue = 0.6f;
     legacy.cinematic.requestedFeature = UICinematicFeature::Bloom;
     legacy.sceneOptions.toggleWaterFreeze = true;
-    legacy.sound.requestedSetIndex = 2;
-    legacy.sound.requestedBandIndex = 1;
-    legacy.sound.requestedBandParam = UISoundBandParam::PitchMax;
-    legacy.sound.requestedValue = 1.1f;
-    legacy.sound.previewSampleIndex = 7;
     legacy.physics.togglePhysicsDebugFlags = SkullbonezCore::Physics::PHYSICS_DEBUG_CONTACTS;
     legacy.profiler.requestedWorkerThreads = 4;
     legacy.physics.requestRayCastImpulseStrength = true;
@@ -1084,18 +1032,12 @@ TEST_CASE( "Operator editor rendering audio and diagnostics retain canonical own
     REQUIRE( NormalizeLegacyOperatorEditorCommands( legacy ).ok );
     CHECK( legacy.renderTuning.requestedParam == UIRenderParam::None );
     CHECK( legacy.cinematic.requestedParam == UICinematicParam::None );
-    CHECK( legacy.sound.requestedBandParam == UISoundBandParam::None );
     CHECK( legacy.physics.togglePhysicsDebugFlags == 0u );
     CHECK( legacy.profiler.requestedWorkerThreads == -2 );
     const OperatorEditorArbitrationResult merged = ArbitrateOperatorEditorCommands( legacy.operatorEditor, commits );
     REQUIRE( merged.status.ok );
     CHECK( merged.acceptedSecondaryCommands == 0u );
-    CHECK( merged.coalescedDuplicateCommands == 9u );
-
-    OperatorEditorAudioCommandQueue malformedAudio;
-    CHECK_FALSE(
-        SubmitOperatorEditorCommand( malformedAudio, { OperatorEditorAudioCommandType::SetBandParameter, 99, 0, 0 } )
-            .ok );
+    CHECK( merged.coalescedDuplicateCommands == 7u );
     OperatorEditorDiagnosticsCommandQueue malformedDiagnostics;
     CHECK_FALSE( SubmitOperatorEditorCommand( malformedDiagnostics,
                                               { OperatorEditorDiagnosticsCommandType::TogglePhysicsDebugFlag, 0u } )
@@ -1237,10 +1179,10 @@ TEST_CASE( "Editor dock envelope preserves viewport across supported aspect rati
     CHECK( ultrawide.viewportWidth > widescreen.viewportWidth );
     CHECK( ultrawide.editorLeftWidth == 420 );
     CHECK( ultrawide.utilityRightWidth == 460 );
-    CHECK( FingerprintImGuiEditorDefaultTopology() == 9482475421528666861ull );
+    CHECK( FingerprintImGuiEditorDefaultTopology() == 12435707336326486392ull );
     CHECK( std::strcmp( IMGUI_EDITOR_TOPOLOGY_DESCRIPTOR,
                         "v2|status:bottommost|replay:bottom|left:scene,hierarchy,assets|center:game-viewport|"
-                        "right:inspector,world,render-audio,diagnostics,causality" ) == 0 );
+                        "right:inspector,world,rendering,diagnostics,causality" ) == 0 );
 }
 
 TEST_CASE( "Editor preferences round trip and recover stale layout identity" )

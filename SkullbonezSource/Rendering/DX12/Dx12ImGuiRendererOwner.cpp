@@ -38,7 +38,7 @@ Related:
 #include "Dx12FrameOwner.h"
 #include "RenderBackendDX12.h"
 #include "RenderDeviceDX12.h"
-#include "../../Runtime/Allocation/DevelopmentToolsCapability.h"
+#include "../../Core/Allocation/DevelopmentToolsCapability.h"
 #include "../../Core/FatalError.h"
 
 #include <imgui.h>
@@ -297,10 +297,14 @@ SkullbonezCore::Core::SbResult Dx12ImGuiRendererOwner::RenderDrawData( ImGuiCont
     {
         return result;
     }
-    if ( m_frame.BackBufferAccess() != RenderGraphResourceAccess::RenderTarget &&
-         !m_frame.TransitionBackbuffer( "DevelopmentUi", RenderGraphResourceAccess::RenderTarget ) )
+    if ( m_frame.BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
     {
-        return m_frame.CurrentResult();
+        // Invariant: RuntimeRenderer schedules UiTargetAcquire before either UI
+        // surface submits. The vendor renderer consumes that state and cannot
+        // become a second backbuffer barrier authority.
+        SB_FATAL( "Rendering/DX12/ImGui",
+                  "Development UI submission reached a non-render-target backbuffer. tracked=%s",
+                  ToString( m_frame.BackBufferAccess() ) );
     }
 
     ID3D12GraphicsCommandList* commandList = m_frame.CommandList();

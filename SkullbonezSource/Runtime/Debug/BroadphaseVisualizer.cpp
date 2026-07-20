@@ -57,6 +57,12 @@ using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 using SkullbonezCore::Math::Transformation::Matrix4;
 
+namespace
+{
+constexpr PassRasterStateBucket BROADPHASE_LINE_RASTER =
+    MakePassRasterStateBucket( 0, false, false, false, BlendFactor::One, BlendFactor::Zero, CullMode::None );
+}
+
 
 BroadphaseVisualizer::BroadphaseVisualizer()
 {
@@ -389,6 +395,5 @@ void BroadphaseVisualizer::Render( const Matrix4& viewProj,
     // Why: DebugOverlayPass owns renderer readiness for the frame; this module
     // owns only the physics overlay vertices, so it submits through the borrowed
     // command context instead of reopening the global renderer service.
-    int vertCount = static_cast<int>( m_lineData.size() / 6 );
-    renderCommands.DrawLinesColored( m_lineData.data(), vertCount, viewProj.Data() );
+    renderCommands.DrawLinesColored( m_lineData, viewProj, BROADPHASE_LINE_RASTER );
 }

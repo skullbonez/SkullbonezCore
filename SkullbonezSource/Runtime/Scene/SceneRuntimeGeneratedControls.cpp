@@ -28,7 +28,7 @@ Related:
 #include "SceneController.h"
 #include "../Tools/RuntimeTools.h"
 #include "SceneController.h"
-#include "../../Physics/SimulationSystem.h"
+#include "../SimulationSystem.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 
 #include <algorithm>

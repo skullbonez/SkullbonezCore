@@ -34,7 +34,7 @@ Related:
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../RunLaunchOptions.Renderer.h"
-#include "../WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include <cerrno>
 #include <climits>
 #include <cstdarg>
@@ -43,7 +43,7 @@ Related:
 #include <cstring>
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Threading;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace SkullbonezCore
 {
 namespace Runtime
@@ -289,18 +289,6 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           nullptr,
           []( ParsedArgs& args ) { args.noSleep = true; },
           "[physics] Sleep disabled via command line." },
-        { "--no-contact-audio",
-          "--mute-contact-audio",
-          []( ParsedArgs& args ) { args.noContactAudio = true; },
-          "[audio] Contact impact audio disabled." },
-        { "--contact-audio-smoke",
-          "--audio-smoke",
-          []( ParsedArgs& args )
-          {
-              args.contactAudioSmoke = true;
-              args.suppressExitDialog = true;
-          },
-          "[audio] Contact audio standalone smoke requested." },
         { "--scene-load-only",
           "--load-scenes-only",
           []( ParsedArgs& args )
@@ -697,21 +685,21 @@ bool ParseOptionalOnOffValue( const char* value, bool& out )
 }
 namespace
 {
-bool ParseAllocationGuardModeValue( const char* value, RuntimeAllocation::RuntimeAllocationGuardMode& out )
+bool ParseAllocationGuardModeValue( const char* value, CoreAllocation::RuntimeAllocationGuardMode& out )
 {
     if ( IsOptionValueMissing( value ) || _stricmp( value, "measure" ) == 0 )
     {
-        out = RuntimeAllocation::RuntimeAllocationGuardMode::Measure;
+        out = CoreAllocation::RuntimeAllocationGuardMode::Measure;
         return true;
     }
     if ( _stricmp( value, "off" ) == 0 || _stricmp( value, "none" ) == 0 )
     {
-        out = RuntimeAllocation::RuntimeAllocationGuardMode::Off;
+        out = CoreAllocation::RuntimeAllocationGuardMode::Off;
         return true;
     }
     if ( _stricmp( value, "gameplay" ) == 0 || _stricmp( value, "warn" ) == 0 || _stricmp( value, "warnings" ) == 0 )
     {
-        out = RuntimeAllocation::RuntimeAllocationGuardMode::Gameplay;
+        out = CoreAllocation::RuntimeAllocationGuardMode::Gameplay;
         return true;
     }
     return false;
@@ -895,7 +883,7 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine,
               }
               config.physicsExecution.parallel = enabled;
               config.physicsExecution.parallelApplyForces = enabled;
-              config.physicsExecution.parallelTornadoField = enabled;
+              config.physicsExecution.parallelExternalForceFields = enabled;
               config.physicsExecution.parallelNarrowphase = enabled;
               config.physicsExecution.parallelTerrainDetect = enabled;
               config.physicsExecution.parallelIntegrate = enabled;
@@ -980,7 +968,8 @@ bool ParseUnsignedCommandLineToken( const char* value, unsigned int& out )
 {
     return ParseUnsignedIntToken( value, out );
 }
-bool ParseAllocationGuardCommandLineToken( const char* value, Allocation::RuntimeAllocationGuardMode& out )
+bool ParseAllocationGuardCommandLineToken( const char* value,
+                                           SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode& out )
 {
     return ParseAllocationGuardModeValue( value, out );
 }

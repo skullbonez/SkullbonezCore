@@ -20,7 +20,8 @@ Glossary:
   Probe failure: CLI validation failure persisted as report `ok=false` and
     returned to the process boundary after the frame loop exits.
   Development UI command: Fixed-capacity presentation or native-window request
-    returned to the composition root; the sequencer retains no editor owner.
+    interpreted here against borrowed editor/window owners; a process-surface
+    selection is returned to the composition root as a typed value.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -29,7 +30,10 @@ Invariants:
     named owner commands and never a mutable prediction/recorder reference.
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
-  - Surface selection accepts Legacy or ImGui only; no action can request both.
+  - Surface selection accepts Legacy or ImGui only; one frame can publish at
+    most one process-surface request.
+  - Development UI application stops on the first recoverable command failure;
+    Run owns process exit policy and converts that result at its boundary.
 
 Related:
   - SkullbonezSource/Runtime/RuntimePickService.h
@@ -52,12 +56,15 @@ Related:
 #include "Scene/SceneController.h"
 #include "Scene/SceneRuntime.h"
 #include "InputFrame.h"
-#include "Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "DemoDirectorPlayback.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorOwner.h"
+#endif
 
 #include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -80,12 +87,11 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using SkullbonezCore::Hardware::Input;
 namespace Physics = SkullbonezCore::Physics;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -930,6 +936,11 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
         PublishReplayPredictionHorizon( replayIntent, horizonSeconds );
+        // Why: this text exists only in the machine-readable automation report.
+        // Keep stream/string formatting in Diagnostics even though the scripted
+        // action executes inside the steady-gameplay input phase.
+        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
         AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );
@@ -939,7 +950,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     {
         const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
         const Physics::PhysicsBodyHandle body =
-            bodyStore.HandleForReplayBodyId( replay.path.targetId.value, replay.path.targetModelRow.value );
+            bodyStore.HandleForSceneObjectId( replay.path.targetId, replay.path.targetModelRow.value );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const int bodyIndex = bodyStore.ModelIndexForHandle( body );
         const bool hasTarget = replay.path.hasTarget && replay.path.targetId.value != 0;
@@ -2425,8 +2436,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
 
 bool LoadScript( InteractionAutomationController& state )
 {
-    RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     state.scriptLoaded = true;
     std::ifstream input( state.scriptPath );
     if ( !input.is_open() )
@@ -2471,6 +2481,100 @@ bool LoadScript( InteractionAutomationController& state )
     return true;
 }
 } // namespace
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+InteractionAutomationDevelopmentUiApplyResult
+InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame,
+                                                             Window& window,
+                                                             DevelopmentTools::ImGuiEditorOwner& editor ) const
+{
+    InteractionAutomationDevelopmentUiApplyResult result;
+    for ( std::size_t commandIndex = 0u; commandIndex < frame.developmentUiCommandCount; ++commandIndex )
+    {
+        const InteractionAutomationDevelopmentUiCommand& command = frame.developmentUiCommands[commandIndex];
+        SkullbonezCore::Core::SbResult commandStatus = SkullbonezCore::Core::SbResult::Success();
+        switch ( command.type )
+        {
+        case InteractionAutomationDevelopmentUiCommandType::SelectSurface:
+            // Process selection remains Run-owned; publish the typed request
+            // after interpreting the script command alongside its peers.
+            result.selectSurface = true;
+            result.surface =
+                std::strcmp( command.target, "imgui" ) == 0 ? DevelopmentUiMode::ImGui : DevelopmentUiMode::Legacy;
+            break;
+        case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
+        case InteractionAutomationDevelopmentUiCommandType::FocusPanel:
+        {
+            DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
+            if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
+            {
+                commandStatus =
+                    SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
+                                                             "Interaction script names an unknown ImGui panel: %s",
+                                                             command.target );
+                break;
+            }
+            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+            editorCommand.type = command.type == InteractionAutomationDevelopmentUiCommandType::SetPanelVisible
+                                     ? DevelopmentTools::ImGuiEditorAutomationCommandType::SetPanelVisible
+                                     : DevelopmentTools::ImGuiEditorAutomationCommandType::FocusPanel;
+            editorCommand.panel = panel;
+            editorCommand.visible = command.boolValue;
+            commandStatus = editor.ApplyAutomationCommand( editorCommand );
+            break;
+        }
+        case InteractionAutomationDevelopmentUiCommandType::ResetLayout:
+        {
+            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+            editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::ResetLayout;
+            commandStatus = editor.ApplyAutomationCommand( editorCommand );
+            break;
+        }
+        case InteractionAutomationDevelopmentUiCommandType::SetDpiScale:
+        {
+            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+            editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::SetDpiScale;
+            editorCommand.dpiScale = command.numberValue;
+            commandStatus = editor.ApplyAutomationCommand( editorCommand );
+            break;
+        }
+        case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
+        {
+            // Why: scripts describe client pixels because those are the
+            // editor's layout coordinates. Win32 resizes the outer frame, so
+            // include the current style and monitor DPI exactly once.
+            RECT outer{ 0, 0, command.width, command.height };
+            const HWND nativeWindow = window.NativeWindowHandle();
+            const DWORD style = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_STYLE ) );
+            const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_EXSTYLE ) );
+            const UINT dpi = GetDpiForWindow( nativeWindow );
+            if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
+                 !SetWindowPos( nativeWindow,
+                                nullptr,
+                                0,
+                                0,
+                                outer.right - outer.left,
+                                outer.bottom - outer.top,
+                                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
+            {
+                commandStatus =
+                    SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
+                                                             "Failed to resize the automation client area to %dx%d",
+                                                             command.width,
+                                                             command.height );
+            }
+            break;
+        }
+        }
+        if ( !commandStatus.ok )
+        {
+            result.status = commandStatus;
+            break;
+        }
+    }
+    return result;
+}
+#endif
 
 bool TryFindInteractionAutomationModel( const SceneWorld& world, const char* name, int& outIndex )
 {
@@ -2700,12 +2804,12 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                     }
                     const Physics::PhysicsBodyRecord* body =
                         scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
-                    if ( !body || body->replayBodyId == 0 )
+                    if ( !body || !body->sceneObjectId.IsValid() )
                     {
                         return false;
                     }
                     result.replayIntent.setPathTarget = true;
-                    result.replayIntent.pathTargetId.value = body->replayBodyId;
+                    result.replayIntent.pathTargetId = body->sceneObjectId;
                     result.replayIntent.pathTargetModelRow.value = modelIndex;
                     strncpy_s( result.replayIntent.pathTargetName,
                                sizeof( result.replayIntent.pathTargetName ),
@@ -2811,7 +2915,21 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::ResizeWindow:
         {
             const bool hasCapacity = result.developmentUiCommandCount < result.developmentUiCommands.size();
-            if ( hasCapacity )
+            bool duplicateSurfaceSelection = false;
+            if ( action.type == RunInteractionAutomationActionType::SetDevelopmentUiSurface )
+            {
+                for ( std::size_t commandIndex = 0u; commandIndex < result.developmentUiCommandCount; ++commandIndex )
+                {
+                    duplicateSurfaceSelection = result.developmentUiCommands[commandIndex].type ==
+                                                InteractionAutomationDevelopmentUiCommandType::SelectSurface;
+                    if ( duplicateSurfaceSelection )
+                    {
+                        break;
+                    }
+                }
+            }
+            const bool published = hasCapacity && !duplicateSurfaceSelection;
+            if ( published )
             {
                 InteractionAutomationDevelopmentUiCommand& command =
                     result.developmentUiCommands[result.developmentUiCommandCount++];
@@ -2844,6 +2962,12 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                     break;
                 }
             }
+            else if ( duplicateSurfaceSelection )
+            {
+                // Invariant: Run receives at most one process-surface request
+                // per frame, so selection is never silently collapsed or reordered.
+                FailAutomation( state, "multiple development UI surface selections share one frame" );
+            }
             else
             {
                 FailAutomation( state, "development UI automation command capacity exceeded" );
@@ -2853,8 +2977,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                 action.type,
                                 action.text,
                                 nullptr,
-                                hasCapacity,
-                                hasCapacity ? "development UI command published" : "command capacity exceeded" );
+                                published,
+                                published ? "development UI command published"
+                                          : ( duplicateSurfaceSelection ? "duplicate frame surface selection"
+                                                                        : "command capacity exceeded" ) );
             action.processed = true;
             break;
         }
@@ -2983,8 +3109,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         return result;
     }
 
-    RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
+    CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+        CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     const int frame = scene.State().currentFrame;
     for ( RunInteractionAutomationAction& action : state.actions )
     {

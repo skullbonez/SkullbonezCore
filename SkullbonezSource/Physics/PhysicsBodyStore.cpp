@@ -17,7 +17,7 @@ Glossary:
     them.
   Underwater sleep lock: Sleep policy that keeps fully submerged balls dormant
     so buoyancy jitter does not repeatedly wake them.
-  Replay body id: Stable per-scene id used by replay and SkullScope traces.
+  Scene object id: Stable per-scene id used by replay and SkullScope traces.
   Model row hint: Caller-owned dense-row cache that can be stale after deletion
     compacts the store; resolver APIs repair or invalidate it.
 
@@ -995,7 +995,6 @@ PhysicsBodyCreateRecord MakeBodyRecord( const PhysicsBodyCreateDesc& desc, bool 
 {
     PhysicsBodyCreateRecord record;
     record.cold.sceneObjectId = desc.sceneObjectId;
-    record.cold.replayBodyId = desc.sceneObjectId.value;
     ApplyBodyDescriptorState( desc, record.cold, record.hot );
     record.hot.awake = !( sleepEnabled && desc.startsAsleep );
     return record;
@@ -1106,39 +1105,39 @@ void PhysicsBodyStore::StoreHotStateAt( int modelIndex, const PhysicsBodyHotStat
 }
 
 
-static uint32_t NextReplayBodyIdAfter( const PhysicsBodyRecordList& bodies )
+static uint32_t NextSceneObjectIdValueAfter( const PhysicsBodyRecordList& bodies )
 {
-    uint32_t nextReplayBodyId = 1;
-    const uint32_t maxReplayBodyId = ( std::numeric_limits<uint32_t>::max )();
+    uint32_t nextSceneObjectIdValue = 1;
+    const uint32_t maxSceneObjectIdValue = ( std::numeric_limits<uint32_t>::max )();
     for ( const PhysicsBodyRecord& body : bodies )
     {
-        if ( body.replayBodyId == maxReplayBodyId )
+        if ( body.sceneObjectId.value == maxSceneObjectIdValue )
         {
-            return maxReplayBodyId;
+            return maxSceneObjectIdValue;
         }
-        if ( body.replayBodyId != 0 )
+        if ( body.sceneObjectId.IsValid() )
         {
-            nextReplayBodyId = (std::max)( nextReplayBodyId, body.replayBodyId + 1u );
+            nextSceneObjectIdValue = (std::max)( nextSceneObjectIdValue, body.sceneObjectId.value + 1u );
         }
     }
-    return nextReplayBodyId;
+    return nextSceneObjectIdValue;
 }
 
 
-void ReportReplayBodyIdReloadCapacityExceeded( int requested, std::size_t capacity, int currentCount )
+void ReportSceneObjectIdReloadCapacityExceeded( int requested, std::size_t capacity, int currentCount )
 {
     std::fprintf( stderr,
-                  "FATAL: PhysicsBodyStore replay body id reload capacity exceeded owner=%s requested=%d "
+                  "FATAL: PhysicsBodyStore scene object id reload capacity exceeded owner=%s requested=%d "
                   "capacity=%zu count=%d phase=%s.\n",
-                  "PhysicsBodyStore.replayBodyIds",
+                  "PhysicsBodyStore.sceneObjectIds",
                   requested,
                   capacity,
                   currentCount,
                   "descriptor-reload" );
     std::fprintf( stdout,
-                  "FATAL: PhysicsBodyStore replay body id reload capacity exceeded owner=%s requested=%d "
+                  "FATAL: PhysicsBodyStore scene object id reload capacity exceeded owner=%s requested=%d "
                   "capacity=%zu count=%d phase=%s.\n",
-                  "PhysicsBodyStore.replayBodyIds",
+                  "PhysicsBodyStore.sceneObjectIds",
                   requested,
                   capacity,
                   currentCount,
@@ -1148,7 +1147,7 @@ void ReportReplayBodyIdReloadCapacityExceeded( int requested, std::size_t capaci
 }
 
 
-std::vector<uint32_t> PhysicsBodyStore::BuildReplayBodyIdsForReload( int sceneEntityCount ) const
+std::vector<PhysicsSceneObjectId> PhysicsBodyStore::BuildSceneObjectIdsForReload( int sceneEntityCount ) const
 {
     const std::size_t capacity = m_bodies.capacity();
     // Hazard: descriptor repair receives a scene-row count from the caller. Keep
@@ -1156,47 +1155,47 @@ std::vector<uint32_t> PhysicsBodyStore::BuildReplayBodyIdsForReload( int sceneEn
     // store, requested count, fixed capacity, live count, and cold repair phase.
     if ( sceneEntityCount < 0 || static_cast<std::size_t>( sceneEntityCount ) > capacity )
     {
-        ReportReplayBodyIdReloadCapacityExceeded( sceneEntityCount, capacity, Count() );
-        assert( false && "PhysicsBodyStore replay body id reload capacity exceeded" );
+        ReportSceneObjectIdReloadCapacityExceeded( sceneEntityCount, capacity, Count() );
+        assert( false && "PhysicsBodyStore scene object id reload capacity exceeded" );
         std::abort();
     }
 
-    std::vector<uint32_t> replayBodyIds;
-    replayBodyIds.reserve( static_cast<std::size_t>( sceneEntityCount ) );
-    uint32_t nextReplayBodyId = NextReplayBodyIdAfter( m_bodies );
+    std::vector<PhysicsSceneObjectId> sceneObjectIds;
+    sceneObjectIds.reserve( static_cast<std::size_t>( sceneEntityCount ) );
+    uint32_t nextSceneObjectIdValue = NextSceneObjectIdValueAfter( m_bodies );
     for ( int i = 0; i < sceneEntityCount; ++i )
     {
-        uint32_t replayBodyId = 0;
+        PhysicsSceneObjectId sceneObjectId;
         if ( const PhysicsBodyRecord* body = RecordForModelIndex( i ) )
         {
-            replayBodyId = body->replayBodyId;
+            sceneObjectId = body->sceneObjectId;
         }
         // Why: descriptor repair is cold. Existing rows preserve store-owned
-        // replay identity, while scene rows that do not have a body yet receive
+        // scene object identity, while scene rows that do not have a body yet receive
         // fresh ids from the same scanned range before handle reassignment.
-        if ( replayBodyId == 0 )
+        if ( !sceneObjectId.IsValid() )
         {
-            if ( nextReplayBodyId == ( std::numeric_limits<uint32_t>::max )() )
+            if ( nextSceneObjectIdValue == ( std::numeric_limits<uint32_t>::max )() )
             {
                 SB_FATAL( "PhysicsBodyStore",
-                          "Replay body id scratch range exhausted while rebuilding %d scene rows.",
+                          "Scene object id scratch range exhausted while rebuilding %d scene rows.",
                           sceneEntityCount );
             }
-            replayBodyId = nextReplayBodyId++;
+            sceneObjectId = MakePhysicsSceneObjectId( nextSceneObjectIdValue++ );
         }
-        replayBodyIds.push_back( replayBodyId );
+        sceneObjectIds.push_back( sceneObjectId );
     }
-    return replayBodyIds;
+    return sceneObjectIds;
 }
 
 
 // Concept: body handles identify allocator slots, not legacy model positions.
 //
-// Replay ids let the store preserve identity when a compatible scene refresh
+// Scene object ids let the store preserve identity when a compatible scene refresh
 // shifts a body to a different model slot. Retired slots bump generation before
 // reuse so stale handles fail Contains/ModelIndexForHandle deterministically.
 PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex,
-                                                                uint32_t replayBodyId,
+                                                                PhysicsSceneObjectId sceneObjectId,
                                                                 PhysicsHandleAssignmentMask& assignedHandleSlots )
 {
     auto assignSlot = [&]( uint32_t slot ) -> PhysicsBodyHandle
@@ -1208,7 +1207,7 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex,
         assignedHandleSlots[static_cast<std::size_t>( slot )] = 1;
         m_handleAlive[static_cast<std::size_t>( slot )] = 1;
         m_handleModelIndices[static_cast<std::size_t>( slot )] = modelIndex;
-        m_handleReplayBodyIds[static_cast<std::size_t>( slot )] = replayBodyId;
+        m_handleSceneObjectIds[static_cast<std::size_t>( slot )] = sceneObjectId;
 
         PhysicsBodyHandle handle;
         handle.index = slot;
@@ -1222,7 +1221,7 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex,
         if ( previous.IsValid() && previous.index < m_handleGenerations.size() &&
              previous.generation == m_handleGenerations[static_cast<std::size_t>( previous.index )] &&
              m_handleAlive[static_cast<std::size_t>( previous.index )] != 0 &&
-             m_handleReplayBodyIds[static_cast<std::size_t>( previous.index )] == replayBodyId &&
+             m_handleSceneObjectIds[static_cast<std::size_t>( previous.index )] == sceneObjectId &&
              ( previous.index >= assignedHandleSlots.size() ||
                assignedHandleSlots[static_cast<std::size_t>( previous.index )] == 0 ) )
         {
@@ -1230,11 +1229,11 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex,
         }
     }
 
-    if ( replayBodyId != 0 )
+    if ( sceneObjectId.IsValid() )
     {
-        for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleReplayBodyIds.size() ); ++slot )
+        for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleSceneObjectIds.size() ); ++slot )
         {
-            if ( m_handleAlive[slot] != 0 && m_handleReplayBodyIds[slot] == replayBodyId &&
+            if ( m_handleAlive[slot] != 0 && m_handleSceneObjectIds[slot] == sceneObjectId &&
                  slot < m_handleGenerations.size() &&
                  ( slot >= assignedHandleSlots.size() || assignedHandleSlots[slot] == 0 ) )
             {
@@ -1255,7 +1254,7 @@ PhysicsBodyHandle PhysicsBodyStore::ResolveHandleForModelIndex( int modelIndex,
         m_handleGenerations.push_back( PHYSICS_HANDLE_INITIAL_GENERATION );
         m_handleAlive.push_back( 0 );
         m_handleModelIndices.push_back( -1 );
-        m_handleReplayBodyIds.push_back( 0 );
+        m_handleSceneObjectIds.push_back( {} );
     }
 
     return assignSlot( slot );
@@ -1277,7 +1276,7 @@ void PhysicsBodyStore::RetireUnassignedHandles( const PhysicsHandleAssignmentMas
 
         m_handleAlive[slot] = 0;
         m_handleModelIndices[slot] = -1;
-        m_handleReplayBodyIds[slot] = 0;
+        m_handleSceneObjectIds[slot] = {};
         m_handleGenerations[slot] = NextHandleGeneration( m_handleGenerations[slot] );
         m_freeHandleSlots.push_back( slot );
     }
@@ -1297,7 +1296,7 @@ void PhysicsBodyStore::Clear()
         }
         m_handleAlive[slot] = 0;
         m_handleModelIndices[slot] = -1;
-        m_handleReplayBodyIds[slot] = 0;
+        m_handleSceneObjectIds[slot] = {};
     }
     m_freeHandleSlots.clear();
     // Invariant: CreateBodyRecord pops from the back of the free list. Push in
@@ -1326,18 +1325,16 @@ void PhysicsBodyStore::LoadFromDescriptors( std::span<const PhysicsBodyCreateDes
         const PhysicsBodyCreateDesc& desc = bodyDescs[i];
         PhysicsBodyRecord& record = m_bodies[i];
         PhysicsBodyHotState hot;
-        const uint32_t replayBodyId = desc.sceneObjectId.value;
+        const PhysicsSceneObjectId sceneObjectId = desc.sceneObjectId;
         const PhysicsBodyHandle handle =
-            ResolveHandleForModelIndex( static_cast<int>( i ), replayBodyId, assignedHandleSlots );
+            ResolveHandleForModelIndex( static_cast<int>( i ), sceneObjectId, assignedHandleSlots );
         // Why: refresh copies descriptor state at cold repair edges, but a
         // pending tool impulse and sleep seed are physics-owned one-shot state.
         // Preserve them by handle slot so allocator-owned identity survives a
         // same-scene reorder instead of accidentally following the model slot.
         const PreservedRefreshState* preservedState = PreservedStateForHandle( preservedStateByHandle, handle );
         record.handle = handle;
-        record.replayBodyId = replayBodyId;
-        record.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId
-                                                            : MakePhysicsSceneObjectIdFromReplayBodyId( replayBodyId );
+        record.sceneObjectId = sceneObjectId;
         ApplyBodyDescriptorState( desc, record, hot );
         if ( preservedState && preservedState->hasPendingImpulse )
         {
@@ -1374,7 +1371,7 @@ PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyCreateRec
         m_handleGenerations.push_back( PHYSICS_HANDLE_INITIAL_GENERATION );
         m_handleAlive.push_back( 0 );
         m_handleModelIndices.push_back( -1 );
-        m_handleReplayBodyIds.push_back( 0 );
+        m_handleSceneObjectIds.push_back( {} );
     }
 
     const int recordIndex = static_cast<int>( m_bodies.size() );
@@ -1391,7 +1388,7 @@ PhysicsBodyHandle PhysicsBodyStore::CreateBodyRecord( const PhysicsBodyCreateRec
 
     m_handleAlive[static_cast<std::size_t>( slot )] = 1;
     m_handleModelIndices[static_cast<std::size_t>( slot )] = recordIndex;
-    m_handleReplayBodyIds[static_cast<std::size_t>( slot )] = record.replayBodyId;
+    m_handleSceneObjectIds[static_cast<std::size_t>( slot )] = record.sceneObjectId;
     m_bodies.push_back( record );
     ResizeHotFields( m_bodies.size() );
     StoreHotStateAt( recordIndex, initialRecord.hot );
@@ -1443,7 +1440,7 @@ bool PhysicsBodyStore::DestroyBodyRecord( PhysicsBodyHandle handle )
     m_modelBodyHandles.pop_back();
     m_handleAlive[handleSlot] = 0;
     m_handleModelIndices[handleSlot] = -1;
-    m_handleReplayBodyIds[handleSlot] = 0;
+    m_handleSceneObjectIds[handleSlot] = {};
     m_handleGenerations[handleSlot] = NextHandleGeneration( m_handleGenerations[handleSlot] );
     m_freeHandleSlots.push_back( handle.index );
     return true;
@@ -1504,7 +1501,7 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
 // Presentation owners may cache draw-facing state, but the body record must not
 // reload pose, velocity, mass, or inertia from presentation rows.
 bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
-                                               uint32_t replayBodyId,
+                                               PhysicsSceneObjectId sceneObjectId,
                                                bool fixed,
                                                const Vector3& position,
                                                const Math::Orientation::Quaternion& orientation,
@@ -1516,7 +1513,7 @@ bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
                                                const Vector3& inverseRotationalInertia )
 {
     PhysicsBodyRecord* record = MutableRecordForHandle( body );
-    if ( !record || record->replayBodyId != replayBodyId )
+    if ( !record || record->sceneObjectId != sceneObjectId )
     {
         return false;
     }
@@ -1602,7 +1599,7 @@ bool PhysicsBodyStore::ReleaseFixedBody( int modelIndex,
 
 
 void PhysicsBodyStore::ReleaseAttachedFixedTreeParts( const PhysicsFixedTreeReleaseEvent& event,
-                                                      std::vector<int>& outReleasedBodyIndices )
+                                                      PhysicsBodyIndexList& outReleasedBodyIndices )
 {
     outReleasedBodyIndices.clear();
     const int sourceIndex = event.sourceIndex;
@@ -1684,9 +1681,10 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForModelIndex( int modelIndex ) const
 }
 
 
-PhysicsBodyHandle PhysicsBodyStore::HandleForReplayBodyId( uint32_t replayBodyId, int modelIndexHint ) const
+PhysicsBodyHandle PhysicsBodyStore::HandleForSceneObjectId( PhysicsSceneObjectId sceneObjectId,
+                                                            int modelIndexHint ) const
 {
-    if ( replayBodyId == 0 )
+    if ( !sceneObjectId.IsValid() )
     {
         return PhysicsBodyHandle{};
     }
@@ -1695,17 +1693,17 @@ PhysicsBodyHandle PhysicsBodyStore::HandleForReplayBodyId( uint32_t replayBodyId
     if ( Contains( hintedHandle ) )
     {
         const std::size_t hintedSlot = static_cast<std::size_t>( hintedHandle.index );
-        if ( hintedSlot < m_handleReplayBodyIds.size() && m_handleReplayBodyIds[hintedSlot] == replayBodyId )
+        if ( hintedSlot < m_handleSceneObjectIds.size() && m_handleSceneObjectIds[hintedSlot] == sceneObjectId )
         {
             return hintedHandle;
         }
     }
 
     const std::size_t slotCount =
-        (std::min)( m_handleGenerations.size(), (std::min)( m_handleAlive.size(), m_handleReplayBodyIds.size() ) );
+        (std::min)( m_handleGenerations.size(), (std::min)( m_handleAlive.size(), m_handleSceneObjectIds.size() ) );
     for ( std::size_t slot = 0; slot < slotCount; ++slot )
     {
-        if ( m_handleAlive[slot] == 0 || m_handleReplayBodyIds[slot] != replayBodyId )
+        if ( m_handleAlive[slot] == 0 || m_handleSceneObjectIds[slot] != sceneObjectId )
         {
             continue;
         }

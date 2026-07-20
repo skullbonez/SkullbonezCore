@@ -59,6 +59,6 @@ const Physics::PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneWorld&
 const Physics::ColliderRecord* TryGetEditorTransformColliderRecord( const SceneWorld& world,
                                                                     Physics::PhysicsColliderHandle colliderHandle,
                                                                     int modelIndex,
-                                                                    uint32_t replayBodyId );
+                                                                    Physics::PhysicsSceneObjectId sceneObjectId );
 } // namespace ReplayValidationInternal
 } // namespace SkullbonezCore::Runtime

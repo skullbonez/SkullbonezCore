@@ -18,6 +18,10 @@ Invariants:
   - Output is documentation only; it must not modify engine source or runtime data.
   - Figures and equations are generated assets owned by the manual folder.
   - The DOCX remains the editable master; the PDF is produced by the render QA step.
+
+Related:
+  - Agentic/Manuals/SkullbonezCoreManual/Skullbonez_Core_Technical_Manual.docx
+    is the generated editable artifact.
 """
 
 from __future__ import annotations
@@ -1329,7 +1333,8 @@ def add_appendix(doc: Document) -> None:
         ["Class structure", "Agentic/Reference/skullbonez-core-class-structure.md"],
         ["Physics overview", "Agentic/Reference/physics-overview.md"],
         ["Runtime frame/render", "SkullbonezSource/Runtime/RunFrame.cpp; SkullbonezSource/Runtime/RunRender.cpp"],
-        ["Physics", "SkullbonezSource/Physics/SimulationSystem.cpp; PhysicsEngine.*; PhysicsScene.cpp; PhysicsWorld.cpp; PersistentContactSolver.*; SpatialGrid.*"],
+        ["Physics", "PhysicsEngine.*; PhysicsScene.cpp; PhysicsWorld.cpp; PersistentContactSolver.*; SpatialGrid.*"],
+        ["Runtime", "SkullbonezSource/Runtime/SimulationSystem.cpp"],
         ["Rendering", "SkullbonezSource/Runtime/Render/*; SkullbonezSource/Rendering/RenderGraph.*; SkullbonezSource/Rendering/DX12/*"],
         ["Scene and assets", "SkullbonezSource/Scene/*; SkullbonezSource/Assets/AssetSystem.*; SkullbonezData/scenes/*; SkullbonezData/assets/*"],
     ]
@@ -1830,7 +1835,8 @@ def build_pdf(figures: dict[str, Path]) -> None:
             ["Class structure", "Agentic/Reference/skullbonez-core-class-structure.md"],
             ["Physics overview", "Agentic/Reference/physics-overview.md"],
             ["Runtime frame/render", "SkullbonezSource/Runtime/RunFrame.cpp; SkullbonezSource/Runtime/RunRender.cpp"],
-            ["Physics", "SkullbonezSource/Physics/SimulationSystem.cpp; PhysicsEngine.*; PhysicsScene.cpp; PhysicsWorld.cpp; PersistentContactSolver.*; SpatialGrid.*"],
+            ["Physics", "PhysicsEngine.*; PhysicsScene.cpp; PhysicsWorld.cpp; PersistentContactSolver.*; SpatialGrid.*"],
+            ["Runtime", "SkullbonezSource/Runtime/SimulationSystem.cpp"],
             ["Rendering", "SkullbonezSource/Runtime/Render/*; SkullbonezSource/Rendering/RenderGraph.*; SkullbonezSource/Rendering/DX12/*"],
             ["Scene and assets", "SkullbonezSource/Scene/*; SkullbonezSource/Assets/AssetSystem.*; SkullbonezData/scenes/*; SkullbonezData/assets/*"],
         ],

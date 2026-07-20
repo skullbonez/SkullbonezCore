@@ -43,9 +43,9 @@
 
 using SkullbonezCore::Core::ActiveSceneObjectCapacity;
 using SkullbonezCore::Core::EngineConfig;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
 using SkullbonezCore::Runtime::GeneratedObjectTypeOverride;
 using SkullbonezCore::Runtime::RunStartupOverrides;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
 using namespace SkullbonezCore::Runtime::Startup;
 
 namespace
@@ -410,7 +410,6 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     args.seedOverride = 99u;
     args.noWater = true;
     args.noSleep = true;
-    args.noContactAudio = true;
     args.hasTornadoOverride = true;
     args.tornadoEnabled = true;
     args.tornadoVectors = true;
@@ -454,7 +453,6 @@ TEST_CASE( "Startup launch packet: replay defaults and borrowed paths follow par
     CHECK( overrides.launch.seedOverride == 99u );
     CHECK( overrides.launch.noWater );
     CHECK( overrides.launch.noSleep );
-    CHECK( overrides.launch.noContactAudio );
     CHECK( overrides.launch.tornadoEnabled );
     CHECK( overrides.launch.tornadoVectors );
     CHECK( overrides.launch.cinematicRendering );
@@ -517,8 +515,7 @@ TEST_CASE( "Startup development UI: one startup-selected surface owns focus and 
         const RunStartupOverrides overrides = BuildRunStartupOverrides( args );
         CHECK( overrides.launch.developmentUiMode == modeCase.expected );
         CHECK( overrides.launch.developmentUiModeExplicit );
-        CHECK( DevelopmentUiModeShowsLegacy( modeCase.expected ) !=
-               DevelopmentUiModeShowsImGui( modeCase.expected ) );
+        CHECK( DevelopmentUiModeShowsLegacy( modeCase.expected ) != DevelopmentUiModeShowsImGui( modeCase.expected ) );
     }
 
     ParsedArgs omitted;
@@ -543,7 +540,7 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
                        "--cinematic-rendering off --shadow-maps off --workers 0 --model-capacity 32 "
                        "--physics-parallel off --parallel-shadow-prep on --hold=off "
                        "--seed 17 --frames 3 --all-boxes --physics-debug contacts --physics-debug-alpha .5 "
-                       "--fixed-step --no-water --no-sleep --mute-contact-audio --audio-smoke --load-scenes-only "
+                       "--fixed-step --no-water --no-sleep --load-scenes-only "
                        "--demo-hero --show-profiler --no-top-text --automation-hidden-window --broadphase-overlay "
                        "--dump-config --dump-assets --workers-self-test";
 #ifdef _DEBUG
@@ -558,8 +555,6 @@ TEST_CASE( "Startup full parse: config, flags, aliases, and launch values compos
     CHECK( args.fixedStep );
     CHECK( args.noWater );
     CHECK( args.noSleep );
-    CHECK( args.noContactAudio );
-    CHECK( args.contactAudioSmoke );
     CHECK( args.sceneLoadOnly );
     CHECK( args.demoHeroStyle );
     CHECK( args.showProfiler );

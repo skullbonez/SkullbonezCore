@@ -40,15 +40,15 @@ Related:
 
 #include "../PersistentContactSolver.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsRuntimeSettings.h"
 #include "../PhysicsDebugData.h"
 #include "../TerrainContactManifold.h"
-#include "../../Runtime/Replay/ReplaySolverSnapshot.h"
+#include "../PhysicsSolverSnapshot.h"
 
 namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 class Profiler;
 } // namespace Core
 
@@ -91,7 +91,7 @@ struct PersistentContact
     uint8_t manifoldPointCount = 1;
     Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
     float terrainWarmStart = 0.0f;
-    // Captured before impulses so audio/diagnostics can reject force-transfer
+    // Captured before impulses so diagnostics can reject force-transfer
     // rows that had no actual relative impact motion.
     float preSolveNormalSpeed = 0.0f;
     float preSolveClosingSpeed = 0.0f;
@@ -147,7 +147,7 @@ struct PersistentContactSolverContext
     int bodyStoreCount = 0;
     int pipelineRecordCapacity = 0;
     bool elasticCollisions = false;
-    const Core::EngineConfig& config;
+    const PhysicsRuntimeSettings& settings;
     Core::Profiler* profiler = nullptr;
 };
 
@@ -157,7 +157,7 @@ struct PhysicsContactSolverStageContext
     // borrowed owner state after Solve returns.
     PhysicsBodyStore& bodyStore;
     const ColliderStore& colliderStore;
-    const Core::EngineConfig& config;
+    const PhysicsRuntimeSettings& settings;
     const PhysicsWorldForces& worldForces;
     std::span<const std::pair<int, int>> candidatePairs;
     std::span<const uint8_t> sleepState;
@@ -209,8 +209,8 @@ class PhysicsContactSolverStage
     void Solve( const PhysicsContactSolverStageContext& context, float dt );
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 
-    void CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const;
-    void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
+    void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
+    void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
 
     const std::vector<PersistentContact>& GetPersistentContacts() const;
     const std::vector<PersistentContactCacheEntry>& GetPersistentContactCache() const;

@@ -26,6 +26,8 @@ Glossary:
     without calling a real command list.
   Platform profiler GPU stack: Nested marker depth suspended when one command
     list is submitted and restored on its replacement list.
+  Profiler value seam: Core-owned fixed spans consumed by concrete Rendering
+    timing and overlay owners without an upward renderer pointer.
 
 Invariants:
   Tests stay CPU-only and must not require a real D3D12 device or renderer launch.
@@ -46,6 +48,8 @@ Related:
 #include "Rendering/DX12/RenderDeviceDX12.h"
 #include "Rendering/DX12/Dx12TextureRegistry.h"
 #include "Rendering/IRenderDeviceLifecycle.h"
+#include "Rendering/ProfilerOverlayPresenter.h"
+#include "Rendering/RenderGpuTimingOwner.h"
 #include "Rendering/RenderGraph.h"
 
 #include <cstdint>
@@ -62,7 +66,7 @@ Related:
 
 using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Core::SbResult;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 
 static_assert(
     std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
@@ -72,6 +76,15 @@ static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().Dr
                "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
+static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, IRenderDiagnostics*>,
+               "Runtime rendering must own one explicit concrete GPU timing boundary." );
+static_assert( !std::is_polymorphic_v<RenderGpuTimingOwner>,
+               "GPU timing stays a concrete owner, not a new renderer callback interface." );
+static_assert( std::is_empty_v<ProfilerOverlayPresenter>,
+               "Profiler overlay presentation must not retain Core frame or command borrows." );
+static_assert( std::is_same_v<decltype( SkullbonezCore::Core::Profiler::ProfilerFrameView::markers ),
+                              std::span<const SkullbonezCore::Core::Profiler::Marker>>,
+               "Core publishes profiler markers as a fixed read-only span." );
 
 namespace
 {
@@ -879,6 +892,93 @@ void TestRenderGraphExecutesCallbacksInPassOrder()
     EXPECT_EQ( trace.labels[1], std::string( "second" ) );
 }
 
+void TestRenderGraphFrameEdgesKeepOnlyPresentDeclarationOnly()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle backbuffer =
+        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present );
+
+    RenderGraphCallbackTrace trace;
+    const uint32_t clearPass = graph.AddPass( "BackbufferClear" );
+    graph.AddWrite( clearPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<RecordRenderGraphCallback>( clearPass, trace, true, "clear" );
+    const RenderGraphCallbackExecutionResult worldResult =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, clearPass, 1u );
+
+    // Invariant: production wrappers rediscover the same named external
+    // resource while appending later pass ranges. Identity must remain stable
+    // so the compiler retains cross-pass state history.
+    const RenderGraphResourceHandle reboundBackbuffer =
+        graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::RenderTarget );
+    EXPECT_EQ( reboundBackbuffer.index, backbuffer.index );
+    const uint32_t uiPass = graph.AddPass( "UiTargetAcquire" );
+    graph.AddWrite( uiPass, reboundBackbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.SetPassCallback<RecordRenderGraphCallback>( uiPass, trace, true, "ui" );
+    const RenderGraphCallbackExecutionResult uiResult =
+        graph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, uiPass, 1u );
+
+    // Invariant: normal frame work is callback-owned. Present alone is a
+    // declaration-only frame edge because the swap-chain owner performs it
+    // after graph callback execution.
+    const uint32_t presentPass = graph.AddPass( "Present" );
+    graph.AddWrite( presentPass, backbuffer, RenderGraphResourceAccess::Present );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( compiled.transitions[0].passIndex, clearPass );
+    EXPECT_TRUE( compiled.transitions[0].before == RenderGraphResourceAccess::Present );
+    EXPECT_TRUE( compiled.transitions[0].after == RenderGraphResourceAccess::RenderTarget );
+    EXPECT_EQ( compiled.transitions[1].passIndex, presentPass );
+    EXPECT_TRUE( compiled.transitions[1].before == RenderGraphResourceAccess::RenderTarget );
+    EXPECT_TRUE( compiled.transitions[1].after == RenderGraphResourceAccess::Present );
+
+    EXPECT_TRUE( graph.Passes()[clearPass].executionOwner == RenderGraphPassExecutionOwner::Callback );
+    EXPECT_TRUE( graph.Passes()[uiPass].executionOwner == RenderGraphPassExecutionOwner::Callback );
+    EXPECT_TRUE( graph.Passes()[presentPass].executionOwner == RenderGraphPassExecutionOwner::DeclarationOnly );
+
+    const RenderGraphExecutionContractResult contract = graph.ValidateFrameExecutionContract( "Present" );
+    EXPECT_TRUE( contract.IsValid() );
+    EXPECT_EQ( contract.callbackPassCount, static_cast<size_t>( 2 ) );
+    EXPECT_EQ( contract.declarationOnlyPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( worldResult.executedPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( uiResult.executedPassCount, static_cast<size_t>( 1 ) );
+    EXPECT_EQ( trace.labels.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( trace.labels[0], std::string( "clear" ) );
+    EXPECT_EQ( trace.labels[1], std::string( "ui" ) );
+
+    // Capture-restart frames execute the same callback-owned UI/world ranges
+    // but intentionally leave before swap-chain Present. The production
+    // validator must accept exactly zero declaration-only rows for that edge.
+    RenderGraph captureGraph;
+    const RenderGraphResourceHandle captureBackbuffer =
+        captureGraph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::RenderTarget );
+    const uint32_t captureUiPass = captureGraph.AddPass( "UiTargetAcquire" );
+    captureGraph.AddWrite( captureUiPass, captureBackbuffer, RenderGraphResourceAccess::RenderTarget );
+    captureGraph.SetPassCallback<RecordRenderGraphCallback>( captureUiPass, trace, true, "capture-ui" );
+    const RenderGraphCallbackExecutionResult captureResult =
+        captureGraph.ExecuteCallbacks( RenderGraphCallbackExecutionMode::Execute, captureUiPass, 1u );
+    const RenderGraphExecutionContractResult captureContract = captureGraph.ValidateFrameExecutionContract( nullptr );
+    EXPECT_TRUE( captureContract.IsValid() );
+    EXPECT_EQ( captureContract.expectedDeclarationOnlyPassCount, static_cast<size_t>( 0 ) );
+    EXPECT_EQ( captureContract.declarationOnlyPassCount, static_cast<size_t>( 0 ) );
+    EXPECT_EQ( captureResult.executedPassCount, static_cast<size_t>( 1 ) );
+    captureGraph.ReleaseCallbackPayloadBorrows();
+
+    const uint32_t accidentalDeclaration = graph.AddPass( "AccidentalDirectPass" );
+    graph.AddWrite( accidentalDeclaration, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    EXPECT_TRUE( !graph.ValidateFrameExecutionContract( "Present" ).IsValid() );
+
+    RenderGraph disabledGraph;
+    const RenderGraphResourceHandle disabledBackbuffer =
+        disabledGraph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::RenderTarget );
+    const uint32_t disabledPass = disabledGraph.AddPass( "DisabledFramePass" );
+    disabledGraph.AddWrite( disabledPass, disabledBackbuffer, RenderGraphResourceAccess::RenderTarget );
+    disabledGraph.SetPassCallback<RecordRenderGraphCallback>( disabledPass, trace, false, "disabled" );
+    const uint32_t disabledPresent = disabledGraph.AddPass( "Present" );
+    disabledGraph.AddWrite( disabledPresent, disabledBackbuffer, RenderGraphResourceAccess::Present );
+    EXPECT_TRUE( !disabledGraph.ValidateFrameExecutionContract( "Present" ).IsValid() );
+}
+
 void TestRenderGraphDryRunValidatesCallbacksWithoutExecuting()
 {
     RenderGraph graph;
@@ -1192,27 +1292,18 @@ bool RunFatalCase( const char* caseName )
     return true;
 }
 
-void TestPipelineDesiredStateResetRestoresReusableDefaults()
+void TestPipelineCommandStateResetRestoresReusableDefaults()
 {
-    Dx12PipelineDesiredState state;
+    Dx12PipelineCommandState state;
     state.m_activeShader = reinterpret_cast<ShaderDX12*>( 1 );
     state.m_viewport.Width = 800.0f;
     state.m_scissorRect.right = 800;
     state.m_currentRTV.ptr = 11;
     state.m_currentDSV.ptr = 22;
     state.m_currentRTVFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-    state.m_depthTestEnabled = false;
-    state.m_depthWriteEnabled = false;
-    state.m_blendEnabled = true;
-    state.m_blendSrc = BlendFactor::SrcAlpha;
-    state.m_blendDst = BlendFactor::OneMinusSrcAlpha;
-    state.m_cullEnabled = false;
-    state.m_polyOffsetEnabled = true;
-    state.m_polyOffsetFactor = 3.0f;
-    state.m_polyOffsetUnits = 4.0f;
     state.m_renderingToFBO = true;
     state.m_lastPSOHash = 123;
-    state.m_psoDirty = false;
+    state.m_pipelineBindingDirty = false;
     state.m_targetsDirty = false;
 
     state.Reset();
@@ -1223,18 +1314,9 @@ void TestPipelineDesiredStateResetRestoresReusableDefaults()
     EXPECT_EQ( state.m_currentRTV.ptr, static_cast<SIZE_T>( 0 ) );
     EXPECT_EQ( state.m_currentDSV.ptr, static_cast<SIZE_T>( 0 ) );
     EXPECT_TRUE( state.m_currentRTVFormat == DXGI_FORMAT_R8G8B8A8_UNORM );
-    EXPECT_TRUE( state.m_depthTestEnabled );
-    EXPECT_TRUE( state.m_depthWriteEnabled );
-    EXPECT_TRUE( !state.m_blendEnabled );
-    EXPECT_TRUE( state.m_blendSrc == BlendFactor::One );
-    EXPECT_TRUE( state.m_blendDst == BlendFactor::Zero );
-    EXPECT_TRUE( state.m_cullEnabled );
-    EXPECT_TRUE( !state.m_polyOffsetEnabled );
-    EXPECT_EQ( state.m_polyOffsetFactor, 0.0f );
-    EXPECT_EQ( state.m_polyOffsetUnits, 0.0f );
     EXPECT_TRUE( !state.m_renderingToFBO );
     EXPECT_EQ( state.m_lastPSOHash, static_cast<size_t>( 0 ) );
-    EXPECT_TRUE( state.m_psoDirty );
+    EXPECT_TRUE( state.m_pipelineBindingDirty );
     EXPECT_TRUE( state.m_targetsDirty );
 }
 
@@ -1345,8 +1427,8 @@ const TestCase kTests[] = {
       TestPlatformProfilerGpuStackRejectsOverflowAndUnderflow },
     { "Platform profiler GPU stack reset clears stale device epoch",
       TestPlatformProfilerGpuStackResetClearsStaleDeviceEpoch },
-    { "Pipeline desired-state reset restores reusable defaults",
-      TestPipelineDesiredStateResetRestoresReusableDefaults },
+    { "Pipeline command-state reset restores reusable defaults",
+      TestPipelineCommandStateResetRestoresReusableDefaults },
     { "Command close failure does not commit closed state", TestCommandCloseFailureDoesNotCommitClosedState },
     { "Command close success commits closed state", TestCommandCloseSuccessCommitsClosedState },
     { "Allocator reset failure blocks list reset", TestAllocatorResetFailureBlocksListReset },
@@ -1394,6 +1476,8 @@ const TestCase kTests[] = {
       TestRenderGraphReusesCompatibleNonOverlappingTransientResources },
     { "Render graph rejects unused transient resource", TestRenderGraphRejectsUnusedTransientResource },
     { "Render graph executes callbacks in pass order", TestRenderGraphExecutesCallbacksInPassOrder },
+    { "Render graph frame edges keep only Present declaration-only",
+      TestRenderGraphFrameEdgesKeepOnlyPresentDeclarationOnly },
     { "Render graph dry-run validates callbacks without executing",
       TestRenderGraphDryRunValidatesCallbacksWithoutExecuting },
     { "Render graph disabled callback does not execute", TestRenderGraphDisabledCallbackDoesNotExecute },

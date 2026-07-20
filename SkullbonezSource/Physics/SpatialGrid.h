@@ -54,7 +54,7 @@ Related:
 #include <cmath>
 #include <cassert>
 #include "../Core/Common.h"
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 #include "../Maths/Vector3.h"
 
 namespace SkullbonezCore

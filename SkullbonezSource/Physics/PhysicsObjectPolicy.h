@@ -4,9 +4,8 @@ Purpose:
   Names the small physics policy values copied onto simulated objects.
 
 Summary:
-  Runtime config is process input. Physics object policy is the stable set of
-  scalar values a body or contact path reads after configuration has been
-  applied.
+  Physics runtime settings are stamped process input. Physics object policy is
+  the stable set of scalar values a body or contact path reads afterward.
 
 Glossary:
   Physics material: Per-object friction and drag coefficients consumed by the
@@ -17,9 +16,9 @@ Glossary:
     to count as contact and when bounce response may be applied.
 
 Invariants:
-  - Defaults must match SkullbonezCore::Core::EngineConfig defaults until config application replaces
-    them, because models can be constructed before the collection receives
-    runtime config.
+  - Defaults must match PhysicsRuntimeSettings defaults until settings
+    application replaces them, because models can be constructed before the
+    collection receives runtime settings.
   - These structs are value policy, not owners; copying them must not allocate or
     reach back into global configuration.
 
@@ -30,17 +29,10 @@ Related:
 */
 #pragma once
 
+#include "PhysicsRuntimeSettings.h"
 
 namespace SkullbonezCore
 {
-namespace Core
-{
-class EngineConfig;
-} // namespace Core
-namespace Runtime
-{
-} // namespace Runtime
-
 namespace Physics
 {
 struct PhysicsMaterial
@@ -48,14 +40,14 @@ struct PhysicsMaterial
     float frictionCoefficient = 0.1f;
     float sphereDragCoefficient = 0.4f;
 
-    static PhysicsMaterial FromConfig( const SkullbonezCore::Core::EngineConfig& config );
+    static PhysicsMaterial FromSettings( const PhysicsMaterialSettings& settings );
 };
 
 struct BodySimulationLimits
 {
     float angularVelocityLimit = 5.0f;
 
-    static BodySimulationLimits FromConfig( const SkullbonezCore::Core::EngineConfig& config );
+    static BodySimulationLimits FromSettings( const BodySimulationSettings& settings );
 };
 
 struct ContactPolicy
@@ -64,7 +56,8 @@ struct ContactPolicy
     float terrainContactThreshold = 0.15f;
     float restitutionThreshold = 2.0f;
 
-    static ContactPolicy FromConfig( const SkullbonezCore::Core::EngineConfig& config );
+    static ContactPolicy FromSettings( const BodySimulationSettings& bodySettings,
+                                       const TerrainContactSettings& terrainSettings );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

@@ -41,8 +41,6 @@ hints, not persisted identity.
 | `--replay-restore-failure-file-probe` | Debug path | Require `--physics-diag`, request an intentionally missing saved v2 target, emit a failed `replay_restore` SkullScope row with a reason, query it in validation, and exit before the frame loop. Alias: `--replay_restore_failure_file_probe`. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
-| `--no-contact-audio` | flag | Disable presentation-only material impact playback. Alias: `--mute-contact-audio`. |
-| `--contact-audio-smoke` | flag | Run the standalone contact-audio smoke, submit one synthetic earth impact without physics/window/renderer startup, write `TestOutput/contact_audio_smoke.json`, and exit. Alias: `--audio-smoke`. |
 | `--tornado` | optional `on`, `off` | Start with the generated-demo tornado force field enabled or disabled. Bare flag means `on`; the Physics tab can still toggle it live. |
 | `--tornado-vectors` | optional `on`, `off` | Start with tornado velocity-field vectors visible. Green vectors are slower; red vectors are faster. Alias: `--tornado-vector-field`. |
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
@@ -76,21 +74,6 @@ hints, not persisted identity.
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
 Physics debug command-line arguments also accept underscore spellings matching scene directives, for example `--physics_debug all` and `--physics_debug_contact_linger 0.75`.
-
-## Contact Audio
-
-Contact impact audio is configured from `SkullbonezData\audio\contact_audio.materials.json` and can be tuned at startup through `engine.cfg`:
-
-| Key | Description |
-|-----|-------------|
-| `contact_audio_enabled` | Master startup switch for contact impact playback. |
-| `contact_audio_master_gain` | Global gain multiplier applied after material and impulse-band gain. |
-| `contact_audio_max_distance_scale` | Multiplier applied to each sound set's authored max distance. |
-| `contact_audio_rolling_level_db` | Separate roll/slide playback level in dB. Defaults quiet so rolling is local texture, not a room-scale scrape. |
-| `contact_audio_rolling_max_distance` | Separate max distance for rolling sounds; impact distance scaling does not affect it. |
-| `contact_audio_rolling_min_slip_speed` | Tangential pre-solve speed required before roll/slide playback can emit. |
-| `contact_audio_rolling_voices_per_window` | Separate rolling voice cap per 100 ms window; set to `0` to disable rolling sounds. |
-| `contact_audio_debug_counters` | Print copied presentation counters once per simulated second: events seen, threshold rejects, cooldown rejects, submitted voices, and dropped voices. |
 
 ## Cinematic Rendering
 
@@ -246,7 +229,7 @@ The v2 artifact gate builds Debug, launches `replay_v2_solver_one.scene.json` wi
 
 ## Runtime Facades And Streams
 
-`SceneRuntime` lives in `SkullbonezSource/Runtime/Scene/SceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSource/Physics/SimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `ReplayRecorder` lives in `SkullbonezSource/Runtime/Replay/ReplayRecorder.h/.cpp` and owns the bounded presentation sample ring plus hash logging. `CaptureSystem` lives in `SkullbonezSource/Runtime/CaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezSource/Runtime/RuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezSource/Runtime/InputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `Run` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, replay capture/scrub callbacks, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
+`SceneRuntime` lives in `SkullbonezSource/Runtime/Scene/SceneRuntime.h/.cpp` and owns the active `RunSceneState` plus the scene queue. `SimulationSystem` lives in `SkullbonezSource/Runtime/SimulationSystem.h/.cpp` and owns timestep policy plus the fixed-step/variable-step physics accumulators. `ReplayRecorder` lives in `SkullbonezSource/Runtime/Replay/ReplayRecorder.h/.cpp` and owns the bounded presentation sample ring plus hash logging. `CaptureSystem` lives in `SkullbonezSource/Runtime/CaptureSystem.h/.cpp` and owns BMP readback plus scene screenshot/autocycle capture policy. `RuntimeDiagnostics` lives in `SkullbonezSource/Runtime/RuntimeDiagnostics.h/.cpp` and owns perf CSV, scene-finished, and SkullScope run logging policy. `InputController` lives in `SkullbonezSource/Runtime/InputController.h/.cpp` and owns runtime key-edge capture plus mouse-look reset/delta policy. `Run` still coordinates the broad scene load/reset side effects: object construction, terrain swaps, camera setup, UI override application, diagnostics context, input command application, capture completion actions, replay capture/scrub callbacks, and render/backend setup. Treat these as runtime subsystem extraction slices, not the final runtime split.
 
 The obsolete model wrappers have been deleted. `SceneController` coordinates
 scene-lifetime creation and prepares the physics-backed `RenderInstanceStore`

@@ -29,7 +29,6 @@ Related:
 #include "PhysicsTerrainStage.h"
 
 #include "../../Assets/AssetKeys.h"
-#include "../../Core/Config.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../ColliderStore.h"
@@ -59,7 +58,7 @@ bool IsSolverBodyFixed( const PhysicsBodyHotFieldsConstView& hotFields, int body
 
 TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBodyRecord> bodyRecords,
                                                        const PhysicsBodyHotFieldsConstView& hotFields,
-                                                       const SkullbonezCore::Core::EngineConfig& config,
+                                                       const PhysicsRuntimeSettings& settings,
                                                        int index )
 {
     const PhysicsBodyRecord& record = bodyRecords[static_cast<size_t>( index )];
@@ -71,8 +70,8 @@ TerrainContactBodyView TerrainContactBodyViewForIndex( std::span<const PhysicsBo
     body.terrain = record.terrain;
     body.boundingRadius = hotFields.boundingRadius[bodyIndex];
     body.contactEpsilon = record.contactEpsilon;
-    body.terrainContactThreshold = config.terrainContact.threshold;
-    body.restitutionThreshold = config.bodySimulation.contactRestitutionThreshold;
+    body.terrainContactThreshold = settings.terrain.threshold;
+    body.restitutionThreshold = settings.body.contactRestitutionThreshold;
     body.isFixed = hotFields.fixed[bodyIndex] != 0u;
     return body;
 }
@@ -115,7 +114,7 @@ void PhysicsTerrainStage::DetectTerrainAt( const TerrainDetectionStageContext& c
     candidate.availableTime = context.timeRemaining[bodyIndex];
     candidate.sweep = SweepTerrainContact(
         context.profiler,
-        TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.config, bodyIndex ),
+        TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.settings, bodyIndex ),
         context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
         candidate.availableTime );
     candidate.tested = 1;
@@ -129,7 +128,7 @@ void PhysicsTerrainStage::TerrainDetectionStage::operator()( int bodySlot ) cons
 void PhysicsTerrainStage::Detect( const TerrainDetectionStageContext& context,
                                   int modelCount,
                                   std::span<const int> awakeBodyIndices,
-                                  const Core::PhysicsExecutionConfig& execution,
+                                  const PhysicsExecutionSettings& execution,
                                   Threading::WorkerPool& workerPool )
 {
     m_detectionCandidates.assign( static_cast<size_t>( modelCount ), TerrainDetectionCandidate() );
@@ -167,7 +166,7 @@ PhysicsTerrainStage::PrepareCandidateCommit( const TerrainCandidateCommitContext
         const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
         const bool hasManifold = Physics::BuildTerrainContactManifold(
             context.profiler,
-            TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.config, bodyIndex ),
+            TerrainContactBodyViewForIndex( context.bodyRecords, context.hotFields, context.settings, bodyIndex ),
             context.colliderRecords[static_cast<size_t>( bodyIndex )].shape,
             bodyIndex,
             sweep,

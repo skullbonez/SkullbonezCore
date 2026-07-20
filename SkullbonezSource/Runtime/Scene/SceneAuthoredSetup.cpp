@@ -123,7 +123,7 @@ uint32_t SceneContactMaterialId( const char* materialName )
 PhysicsColliderCreateDesc MakeSceneColliderDesc( CollisionShape shape, float restitution, const char* materialName )
 {
     // Why: authored scene setup owns the parsed shape/material facts. Importing
-    // them as a collider descriptor keeps PhysicsScene/ColliderStore authoritative
+    // them as a collider descriptor keeps PhysicsEngine/ColliderStore authoritative
     // for row layout instead of asking SceneController to rediscover them.
     const char* safeName = ( materialName && materialName[0] != '\0' ) ? materialName : "default";
     return MakeColliderCreateDesc( std::move( shape ), restitution, SceneContactMaterialId( safeName ), safeName );

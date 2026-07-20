@@ -4,9 +4,9 @@ Purpose:
   Declares the renderer-neutral mesh interface.
 
 Summary:
-  IMesh.h declares the renderer-neutral mesh interface. As a public header,
-  keep edits anchored on render submission and resource lifetime and on the
-  glossary/invariants below.
+  IMesh.h declares the renderer-neutral mesh interface. Precompile and draw
+  accept the same pass-local raster bucket, so every mesh submission carries
+  the complete fixed-function recipe selected by its pass.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -19,11 +19,15 @@ Invariants:
   - Mesh implementations own GPU buffers; callers may draw or query metadata but
     must not assume native buffer layout.
   - Vertex-buffer GPU VA is exposed only for acceleration-structure builds.
+  - Precompile and draw consume the same pass-local bucket value; there is no
+    ambient raster-state draw overload.
 
 Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
+
+#include "IRenderCommandContext.h"
 
 
 #include <cstdint>
@@ -51,8 +55,8 @@ class IMesh
   public:
     virtual ~IMesh() = default;
 
-    virtual void Draw() const = 0;
-    virtual void DrawInstanced( int instanceCount ) const = 0;
+    virtual bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const = 0;
+    virtual void Draw( const PassRasterStateBucket& bucket ) const = 0;
     virtual int GetVertexCount() const = 0;
     virtual int GetStride() const = 0;
 

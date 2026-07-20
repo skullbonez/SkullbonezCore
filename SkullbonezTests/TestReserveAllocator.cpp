@@ -17,8 +17,8 @@
 //   Development tool owner: Thread-local ImGui or Tracy attribution that admits
 //     bounded vendor storage without changing the process gameplay phase.
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
-//   Lifecycle phase: Always-on process label used by allocation and upload
-//     policies even when allocation counting is disabled.
+//   Lifecycle phase: Always-on calling-thread label used by allocation and
+//     upload policies even when allocation counting is disabled.
 //   Allocation guard: Process-wide measurement mode that attributes global
 //     heap requests to lifecycle phases and flags steady-gameplay violations.
 //
@@ -26,63 +26,66 @@
 //   - Gameplay-phase owners never receive replay growth approval.
 //   - Denied growth increments policy violations and still records an event.
 //   - ResetCounters() clears counters/events without unregistering owners.
-//   - RuntimeAllocationScope publishes/restores phase independently of guard mode.
+//   - RuntimeAllocationScope publishes/restores calling-thread phase
+//     independently of guard mode and concurrent scopes.
 //   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
 //
 // Related:
-//   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
-//   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp
+//   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
+//   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h"
-#include "../SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h"
+#include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdio>
 #include <new>
 #include <string>
+#include <thread>
 
-using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationGuardMode;
-using SkullbonezCore::Runtime::Allocation::GetRuntimeAllocationPhase;
-using SkullbonezCore::Runtime::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
-using SkullbonezCore::Runtime::Allocation::PrintRuntimeAllocationSummary;
-using SkullbonezCore::Runtime::Allocation::ResetRuntimeAllocationCounters;
-using SkullbonezCore::Runtime::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardEnabled;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardHasGameplayViolations;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardModeName;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardViolationCount;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhaseName;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthRequest;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthResult;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthScope;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerDesc;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerStatsView;
-using SkullbonezCore::Runtime::Allocation::RuntimeReservePhase;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
-using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationGuardMode;
-using SkullbonezCore::Runtime::Allocation::SetRuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::GetRuntimeAllocationGuardMode;
+using SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::INVALID_RUNTIME_RESERVE_OWNER;
+using SkullbonezCore::Core::Allocation::PrintRuntimeAllocationSummary;
+using SkullbonezCore::Core::Allocation::ResetRuntimeAllocationCounters;
+using SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardEnabled;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardHasGameplayViolations;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardModeName;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardViolationCount;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationScope;
+using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
+using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest;
+using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult;
+using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerDesc;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
+using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
+using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
+using SkullbonezCore::Core::Allocation::SetRuntimeAllocationGuardMode;
+using SkullbonezCore::Core::Allocation::SetRuntimeAllocationPhase;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-using SkullbonezCore::Runtime::Allocation::CopyDevelopmentToolAllocationStats;
-using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationOwner;
-using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationScope;
-using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationStats;
-using SkullbonezCore::Runtime::Allocation::ReleaseDevelopmentToolBackingMemory;
-using SkullbonezCore::Runtime::Allocation::TryAccountDevelopmentToolBackingMemory;
+using SkullbonezCore::Core::Allocation::CopyDevelopmentToolAllocationStats;
+using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationOwner;
+using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationScope;
+using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationStats;
+using SkullbonezCore::Core::Allocation::ReleaseDevelopmentToolBackingMemory;
+using SkullbonezCore::Core::Allocation::TryAccountDevelopmentToolBackingMemory;
 #endif
 
 namespace
@@ -112,6 +115,46 @@ TEST_CASE( "RuntimeAllocationScope: lifecycle phase remains active when allocati
     SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
     {
         RuntimeAllocationScope renderScope( RuntimeAllocationPhase::Render );
+        CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
+    }
+    CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Startup );
+}
+
+TEST_CASE( "RuntimeAllocationScope: concurrent threads retain independent nested phases" )
+{
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+    std::atomic<bool> workerEnteredReplay{ false };
+    std::atomic<bool> mainObservedRender{ false };
+    std::atomic<bool> workerPhasesCorrect{ false };
+
+    {
+        RuntimeAllocationScope mainRenderScope( RuntimeAllocationPhase::Render );
+        std::thread worker( [&]() {
+            SetRuntimeAllocationPhase( RuntimeAllocationPhase::BackendInit );
+            bool phasesCorrect = GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
+            {
+                RuntimeAllocationScope workerReplayScope( RuntimeAllocationPhase::Replay );
+                phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
+                workerEnteredReplay.store( true, std::memory_order_release );
+                while ( !mainObservedRender.load( std::memory_order_acquire ) )
+                {
+                    std::this_thread::yield();
+                }
+                phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
+            }
+            phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
+            workerPhasesCorrect.store( phasesCorrect, std::memory_order_release );
+        } );
+
+        while ( !workerEnteredReplay.load( std::memory_order_acquire ) )
+        {
+            std::this_thread::yield();
+        }
+        CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
+        mainObservedRender.store( true, std::memory_order_release );
+        worker.join();
+        CHECK( workerPhasesCorrect.load( std::memory_order_acquire ) );
         CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
     }
     CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Startup );

@@ -22,6 +22,8 @@ Invariants:
   - Functions retain no UI owner pointer or mutable frame state.
   - Tracy status participates in the profiler signature so a viewer connection
     transition invalidates the cached draw without per-frame text allocation.
+  - Render-target previews use a declared depth-disabled opaque bucket and do
+    not query or restore the surrounding UI pass's raster state.
 
 Related:
   - UIFrameComposition.h declares value contracts and constants.
@@ -29,9 +31,16 @@ Related:
 */
 #include "UIFrameComposition.h"
 #include "../Assets/AssetKeys.h"
+#include "../Rendering/RenderGpuTimingOwner.h"
 
 namespace SkullbonezCore::UI::FrameComposition
 {
+namespace
+{
+constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE =
+    Rendering::MakePassRasterStateBucket( 0, false, false, false );
+}
+
 uint32_t HashCombine( uint32_t seed, uint32_t value )
 {
     seed ^= value;
@@ -231,7 +240,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
           eventIndex < data.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
           ++eventIndex )
     {
-        const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event =
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event =
             data.reserveGrowthEvents[eventIndex];
         hash = HashTextValue( hash, event.targetName );
         hash = HashInt( hash, event.frameNumber );
@@ -267,68 +276,6 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
     hash = HashBool( hash, data.testComplete );
     hash = HashBool( hash, data.vsyncEnabled );
     hash = HashBool( hash, data.pipelineSyncEnabled );
-    hash = HashBool( hash, data.contactAudioEnabled );
-    hash = HashBool( hash, data.contactAudioAvailable );
-    hash = HashBool( hash, data.contactAudioDebugCounters );
-    hash = HashInt( hash, data.contactAudioFlashMode );
-    hash = HashFloat( hash, data.contactAudioMasterGain, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioMaxDistanceScale, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioMinClosingSpeed, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioMinImpactScore, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioImpactScoreRangeSeconds, 1000.0f );
-    hash = HashBool( hash, data.contactAudioSimpleMode );
-    hash = HashFloat( hash, data.contactAudioSimpleMinLinearEnergy, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioSimpleMinLinearDeltaSpeed, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioSimpleLinearEnergyRange, 1000.0f );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioBurstVoicesPerWindow ) );
-    hash = HashFloat( hash, data.contactAudioRollingLevelDb, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioRollingMaxDistance, 1000.0f );
-    hash = HashFloat( hash, data.contactAudioRollingMinSlipSpeed, 1000.0f );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingVoicesPerWindow ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioEventsSeen ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioPatchCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioMergedCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioCandidateOverflows ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioBurstWindowSkippedCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioBudgetRejectedCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByThreshold ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRejectedByCooldown ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioSubmittedVoices ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioDroppedVoices ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingCandidates ) );
-    hash = HashInt( hash, static_cast<int>( data.contactAudioRollingSubmittedVoices ) );
-    const int soundSetCount = std::clamp( data.soundSetCount, 0, UI_SOUND_SET_MAX );
-    hash = HashInt( hash, soundSetCount );
-    for ( int setIndex = 0; setIndex < soundSetCount; ++setIndex )
-    {
-        const UISoundSetFrameData& set = data.soundSets[setIndex];
-        hash = HashTextValue( hash, set.name );
-        hash = HashInt( hash, static_cast<int>( set.materialA ) );
-        hash = HashInt( hash, static_cast<int>( set.materialB ) );
-        hash = HashFloat( hash, set.minImpulse, 1000.0f );
-        hash = HashFloat( hash, set.impulseRange, 1000.0f );
-        hash = HashFloat( hash, set.cooldownMs, 10.0f );
-        hash = HashFloat( hash, set.overrideCooldownMs, 10.0f );
-        hash = HashFloat( hash, set.maxDistance, 100.0f );
-        hash = HashFloat( hash, set.baseGain, 1000.0f );
-        hash = HashFloat( hash, set.pitchMin, 1000.0f );
-        hash = HashFloat( hash, set.pitchMax, 1000.0f );
-        hash = HashInt( hash, static_cast<int>( set.maxVoices ) );
-        hash = HashInt( hash, static_cast<int>( set.sampleCount ) );
-        const int bandCount = std::clamp( static_cast<int>( set.bandCount ), 0, UI_SOUND_BAND_MAX );
-        hash = HashInt( hash, bandCount );
-        for ( int bandIndex = 0; bandIndex < bandCount; ++bandIndex )
-        {
-            const UISoundBandFrameData& band = set.bands[bandIndex];
-            hash = HashTextValue( hash, band.name );
-            hash = HashFloat( hash, band.minImpulse, 1000.0f );
-            hash = HashFloat( hash, band.impulseRange, 1000.0f );
-            hash = HashFloat( hash, band.baseGain, 1000.0f );
-            hash = HashFloat( hash, band.pitchMin, 1000.0f );
-            hash = HashFloat( hash, band.pitchMax, 1000.0f );
-            hash = HashInt( hash, static_cast<int>( band.sampleCount ) );
-        }
-    }
     hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
     hash = HashFloat( hash, data.timeScale, 1000.0f );
     hash = HashBool( hash, data.presentationInterpolation );
@@ -513,7 +460,7 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 
 void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
-                      Core::Profiler* profiler,
+                      Rendering::RenderGpuTimingOwner* gpuTiming,
                       Rendering::IRenderCommandContext& renderCommands,
                       Rendering::IRenderDiagnostics& renderDiagnostics,
                       int screenW,
@@ -521,7 +468,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
                       float offsetX,
                       float offsetY )
 {
-    PROFILE_GPU_BEGIN( profiler, "Frame/UI/Draw" );
+    PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
     const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderCommands, &textBatch );
     drawList.Flush( immediateDraw, offsetX, offsetY );
     {
@@ -532,7 +479,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
         Text::Text2d::FlushText( textBatch, renderCommands );
     }
-    PROFILE_GPU_END( profiler, "Frame/UI/Draw" );
+    PROFILE_GPU_END( gpuTiming, "Frame/UI/Draw" );
 }
 
 
@@ -812,17 +759,7 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader
     const Math::Transformation::Matrix4 proj =
         Math::Transformation::Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
     Rendering::IRenderCommandContext& commands = *render.commands;
-    const bool depthTestWasEnabled = commands.IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = commands.IsDepthWriteEnabled();
-    const bool blendWasEnabled = commands.IsBlendEnabled();
-    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
-    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-    commands.GetBlendFunc( blendSrc, blendDst );
-
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
-    commands.SetDepthTest( false );
-    commands.SetDepthWrite( false );
-    commands.SetBlend( false );
     shader->Use();
     shader->SetMat4( "uProjection", proj );
     shader->SetInt( "uTexture", 0 );
@@ -830,13 +767,9 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader
     commands.BindTexture( resource.textureHandle, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( *render.diagnostics, "RenderTargetPreview" );
-        commands.UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
+        commands.UploadAndDrawDynamicVB( dynamicVB, verts, PREVIEW_RASTER_STATE );
     }
     commands.BindTexture( 0, 0 );
-    commands.SetDepthWrite( depthWriteWasEnabled );
-    commands.SetDepthTest( depthTestWasEnabled );
-    commands.SetBlendFunc( blendSrc, blendDst );
-    commands.SetBlend( blendWasEnabled );
 }
 
 

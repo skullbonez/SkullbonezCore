@@ -288,9 +288,6 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawHitboxRect( draw, widgets.physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, widgets.physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
         break;
-    case InGameUITab::Sound:
-        SoundTab::DrawHitboxes( widgets.soundTab, draw, data, contentR, contentG, contentB );
-        break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
         {
@@ -435,7 +432,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, data );
         FlushUIDrawList( m_histogramDrawList,
                          textBatch,
-                         m_profiler,
+                         render.gpuTiming,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -460,7 +457,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         MemoryTab::DrawOverlay( widgets.memoryOverlay, memoryDraw, data, memoryX, memoryY );
         FlushUIDrawList( m_memoryOverlayDrawList,
                          textBatch,
-                         m_profiler,
+                         render.gpuTiming,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -500,7 +497,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             if ( widgets.window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
-                FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+                FlushUIDrawList( drawList,
+                                 textBatch,
+                                 render.gpuTiming,
+                                 renderCommands,
+                                 renderDiagnostics,
+                                 screenW,
+                                 screenH );
                 drawStandaloneOverlays();
                 return;
             }
@@ -565,7 +568,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                                           cameraModeDisabledMask );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
-        FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+        FlushUIDrawList( drawList, textBatch, render.gpuTiming, renderCommands, renderDiagnostics, screenW, screenH );
         drawStandaloneOverlays();
         return;
     }
@@ -637,7 +640,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         const float replayOffsetY = widgets.cache.ReplayOffsetY( cacheKey );
         FlushUIDrawList( widgets.cache.DrawList(),
                          textBatch,
-                         m_profiler,
+                         render.gpuTiming,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -668,7 +671,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
     static const char* kTabs[] =
-        { "Prof", "Scene", "Edit", "Phys", "Sound", "Opt", "Render", "Targets", "Ctrl", "Sky", "Cine", "Mem" };
+        { "Prof", "Scene", "Edit", "Phys", "Opt", "Render", "Targets", "Ctrl", "Sky", "Cine", "Mem" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     widgets.tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -736,20 +739,6 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                           widgets.activeSlider,
                           widgets.mouseX,
                           widgets.mouseY );
-    }
-    else if ( widgets.activeTab == InGameUITab::Sound )
-    {
-        SoundTab::Draw( widgets.soundTab,
-                        draw,
-                        data,
-                        contentX,
-                        contentY,
-                        contentW,
-                        contentH,
-                        scrolledY,
-                        widgets.activeSlider,
-                        widgets.mouseX,
-                        widgets.mouseY );
     }
     else if ( widgets.activeTab == InGameUITab::Editor )
     {
@@ -945,7 +934,13 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
         if ( selectedAvailable && IsBlockVisible( contentY, contentH, previewImage.y, previewImage.h ) )
         {
-            FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+            FlushUIDrawList( drawList,
+                             textBatch,
+                             render.gpuTiming,
+                             renderCommands,
+                             renderDiagnostics,
+                             screenW,
+                             screenH );
             drawList.Clear();
             DrawRenderTargetPreviewTexture( m_renderTargetPreviewShader,
                                             m_renderTargetPreviewVB,
@@ -1228,7 +1223,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                        { footerX, by + 16.0f, controlsW, 56.0f } );
 
     PROFILE_END( m_profiler, "Frame/UI/DrawBuild" );
-    FlushUIDrawList( drawList, textBatch, m_profiler, renderCommands, renderDiagnostics, screenW, screenH );
+    FlushUIDrawList( drawList, textBatch, render.gpuTiming, renderCommands, renderDiagnostics, screenW, screenH );
     drawStandaloneOverlays();
     if ( drawsLiveRenderTargetPreview )
     {

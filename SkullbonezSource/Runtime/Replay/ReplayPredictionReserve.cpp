@@ -20,7 +20,7 @@ Invariants:
     partial UI data, retry later, or cancel the current prediction build.
 
 Related:
-  - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
   - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
 */
 #include "ReplayPredictionReserve.h"
@@ -34,18 +34,18 @@ namespace
 // theoretical element-count product; growth count is telemetry so interactive
 // replay does not trip a per-run count fuse.
 constexpr int REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT =
-    Runtime::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+    SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 } // namespace
 
 namespace ReplayPredictionReserveOperations
 {
-Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept
+SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() noexcept
 {
-    static const Runtime::Allocation::RuntimeReserveOwnerHandle owner =
-        Runtime::Allocation::RuntimeReserveAllocator::RegisterOwner(
+    static const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner =
+        SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RegisterOwner(
             { REPLAY_PREDICTION_RESERVE_OWNER,
-              Runtime::Allocation::RuntimeReserveSubsystem::Replay,
-              Runtime::Allocation::RuntimeReservePhase::Replay,
+              SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem::Replay,
+              SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
               0,
               REPLAY_PREDICTION_RESERVE_HARD_BYTES,
               REPLAY_PREDICTION_RESERVE_GROWTH_LIMIT,
@@ -54,12 +54,13 @@ Runtime::Allocation::RuntimeReserveOwnerHandle ReplayPredictionReserveOwner() no
     return owner;
 }
 
-bool RequestReplayPredictionReserveGrowth( const char* targetName,
-                                           int frameNumber,
-                                           int oldCapacityBytes,
-                                           int requestedCapacityBytes,
-                                           int elementSizeBytes,
-                                           Runtime::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept
+bool RequestReplayPredictionReserveGrowth(
+    const char* targetName,
+    int frameNumber,
+    int oldCapacityBytes,
+    int requestedCapacityBytes,
+    int elementSizeBytes,
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult& outResult ) noexcept
 {
     outResult = {};
     if ( !targetName || oldCapacityBytes < 0 || requestedCapacityBytes <= oldCapacityBytes ||
@@ -68,15 +69,16 @@ bool RequestReplayPredictionReserveGrowth( const char* targetName,
         return false;
     }
 
-    const Runtime::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    const Runtime::Allocation::RuntimeReserveGrowthRequest request = { REPLAY_PREDICTION_RESERVE_OWNER,
-                                                                       targetName,
-                                                                       Runtime::Allocation::RuntimeReservePhase::Replay,
-                                                                       frameNumber,
-                                                                       oldCapacityBytes,
-                                                                       requestedCapacityBytes,
-                                                                       elementSizeBytes };
-    outResult = Runtime::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest request = {
+        REPLAY_PREDICTION_RESERVE_OWNER,
+        targetName,
+        SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+        frameNumber,
+        oldCapacityBytes,
+        requestedCapacityBytes,
+        elementSizeBytes };
+    outResult = SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     return outResult.granted;
 }
 } // namespace ReplayPredictionReserveOperations

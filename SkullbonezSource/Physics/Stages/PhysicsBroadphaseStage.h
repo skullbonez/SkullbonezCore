@@ -49,6 +49,7 @@ Related:
 
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
+#include "../PhysicsRuntimeSettings.h"
 #include "../Ragdoll.h"
 #include "../SpatialGrid.h"
 
@@ -56,7 +57,6 @@ namespace SkullbonezCore
 {
 namespace Core
 {
-class EngineConfig;
 class Profiler;
 } // namespace Core
 
@@ -75,7 +75,7 @@ struct PhysicsBroadphaseStageContext
     std::span<const PhysicsBodyRecord> bodyRecords;
     PhysicsBodyHotFieldsConstView hotFields;
     std::span<const ColliderRecord> colliderRecords;
-    const SkullbonezCore::Core::EngineConfig& config;
+    const PhysicsRuntimeSettings& settings;
     const std::vector<PointJointConstraint>& pointJointConstraints;
     std::span<const uint8_t> sleepState;
     std::span<const int> awakeBodyIndices;
@@ -112,7 +112,7 @@ class PhysicsBroadphaseStage
   public:
     PhysicsBroadphaseStage();
 
-    void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+    void ApplyRuntimeSettings( const BroadphaseSettings& settings );
     void Clear();
     void InvalidateBodyTopology();
     void ResetTransientAfterReplayRestore();

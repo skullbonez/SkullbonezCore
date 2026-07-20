@@ -35,8 +35,8 @@ Related:
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
-#include "Allocation/RuntimeAllocationTracker.h"
-#include "DevelopmentTools/TracyClientOwner.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../Core/TracyClientOwner.h"
 #include "Input.h"
 #include "Run.h"
 #include "Startup/StartupCommandLine.h"
@@ -44,7 +44,7 @@ Related:
 #include "Startup/StartupLaunchResolution.h"
 #include "Startup/StartupProbeHarnesses.h"
 #include "Window.h"
-#include "WindowConstants.h"
+#include "../Core/WindowConstants.h"
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -59,7 +59,7 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::Startup;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Threading;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 
 namespace
@@ -128,7 +128,7 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
                                                   RuntimeRenderBackendView& renderBackendView,
                                                   std::unique_ptr<RenderBackendDX12>& outBackend )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     RenderBackendDX12* renderBackend = backend.get();
     const SkullbonezCore::Core::SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
@@ -167,7 +167,7 @@ int RunApp( Window* window,
             WorkerPool& workerPool,
             SkullbonezCore::Core::Profiler* profiler,
             RuntimeRenderBackendView renderBackendView,
-            DevelopmentTools::TracyClientOwner* tracyClientOwner )
+            SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
 {
     // Lifetime: Run releases all render-owned resources before its borrowed
     // DX12 backend and Win32 window are torn down by the process owner.
@@ -179,23 +179,6 @@ int RunApp( Window* window,
                                                            profiler,
                                                            renderBackendView,
                                                            tracyClientOwner );
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-        struct ProfilerRenderDiagnosticsLifetime
-        {
-            SkullbonezCore::Core::Profiler* profiler = nullptr;
-            ~ProfilerRenderDiagnosticsLifetime()
-            {
-                if ( profiler )
-                {
-                    profiler->BindRenderDiagnostics( nullptr );
-                }
-            }
-        };
-        // Lifetime: this guard is declared after cRun, so it clears SkullbonezCore::Core::Profiler's
-        // renderer-diagnostics borrow before Run's destructor releases
-        // backend-owned resources through the still-live DX12 backend.
-        ProfilerRenderDiagnosticsLifetime profilerRenderDiagnosticsLifetime{ profiler };
-#endif
         const RunStartupOverrides startupOverrides = BuildRunStartupOverrides( args );
         auto reportRunResult = [&]( const SkullbonezCore::Core::SbResult& result ) -> int
         {
@@ -359,20 +342,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
-    RuntimeAllocation::SetRuntimeAllocationGuardMode( args.allocationGuardMode );
-    if ( RuntimeAllocation::RuntimeAllocationGuardEnabled() )
+    CoreAllocation::SetRuntimeAllocationGuardMode( args.allocationGuardMode );
+    if ( CoreAllocation::RuntimeAllocationGuardEnabled() )
     {
         fprintf( stdout,
                  "[allocation-guard] Enabled mode=%s. Startup, scene, backend, gameplay, replay, capture, and shutdown "
                  "allocations will be summarized at process end.\n",
-                 RuntimeAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
-    }
-
-    int contactAudioSmokeExitCode = 0;
-    if ( HandleContactAudioSmoke( args, cfg, contactAudioSmokeExitCode ) )
-    {
-        CoUninitialize();
-        return contactAudioSmokeExitCode;
+                 CoreAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
     }
 
     int standalonePhysicsExitCode = 0;
@@ -382,11 +358,11 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
-    DevelopmentTools::TracyClientOwner* tracyClient = nullptr;
+    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClient = nullptr;
 #if defined( TRACY_ENABLE )
     // Lifetime: this owner starts before WorkerPool creates instrumentable
     // threads and is explicitly stopped after their joins on every exit path.
-    DevelopmentTools::TracyClientOwner tracyClientOwner;
+    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner tracyClientOwner;
     tracyClientOwner.Start();
     tracyClient = &tracyClientOwner;
 #endif
@@ -462,18 +438,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     // and physics owners receive only the stable borrow.
     auto profilerOwner = std::make_unique<SkullbonezCore::Core::Profiler>();
     profiler = profilerOwner.get();
-    profiler->BindRenderDiagnostics( renderBackendView.renderDiagnostics );
 #endif
     workerPool.BindProfiler( profiler );
 
     const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView, tracyClient );
 
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-        profiler->BindRenderDiagnostics( nullptr );
-#endif
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
         workerPool.Shutdown();
 #if defined( TRACY_ENABLE )
         // Lifetime: no engine worker can publish another marker after this
@@ -482,11 +453,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #endif
         CleanupWindow( window, hInstance, renderBackend );
     }
-    RuntimeAllocation::PrintRuntimeAllocationSummary( stdout );
+    CoreAllocation::PrintRuntimeAllocationSummary( stdout );
     int finalExitCode = runExitCode;
-    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() ==
-             RuntimeAllocation::RuntimeAllocationGuardMode::Gameplay &&
-         RuntimeAllocation::RuntimeAllocationGuardHasGameplayViolations() && finalExitCode == 0 )
+    if ( CoreAllocation::GetRuntimeAllocationGuardMode() == CoreAllocation::RuntimeAllocationGuardMode::Gameplay &&
+         CoreAllocation::RuntimeAllocationGuardHasGameplayViolations() && finalExitCode == 0 )
     {
         fprintf( stdout, "[allocation-guard] FAIL: gameplay allocation guard detected policy violations.\n" );
         finalExitCode = 9;

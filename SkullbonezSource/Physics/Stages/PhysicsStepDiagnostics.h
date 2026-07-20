@@ -28,7 +28,7 @@ Related:
 
 #include "../PhysicsDebugData.h"
 #include "../PhysicsDiagnosticsSink.h"
-#include "../../Runtime/Replay/ReplaySolverSnapshot.h"
+#include "../PhysicsSolverSnapshot.h"
 
 #include <cstdint>
 #include <vector>
@@ -86,8 +86,8 @@ class PhysicsStepDiagnostics
     void SetPhysicsDiagnosticsRunId( const char* runId );
 #endif
 
-    void CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& snapshot ) const;
-    void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
+    void CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const;
+    void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
     const std::vector<uint8_t>& GetCollisionVisualContacts() const;
     // Lifetime: these mutable buffers are borrowed only by the synchronous
     // producing stage and remain capacity-governed by this diagnostics owner.

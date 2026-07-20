@@ -37,6 +37,7 @@ Related:
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -80,7 +81,7 @@ using ReplayPredictionAmortizedTask = Threading::AmortizedTask<ReplayPredictionW
 
 struct RunReplayPredictionBodyBackup
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
     Math::Orientation::Quaternion orientation = Math::Orientation::IDENTITY_QUATERNION;
@@ -103,7 +104,7 @@ struct ReplayPredictionBaselineSnapshot
 {
     bool valid = false;
     bool comparisonActive = false;
-    ReplayBodyId rootId;
+    Physics::PhysicsSceneObjectId rootId;
     Physics::ModelRowHint rootModelRow;
     ReplayFrameIndex lastFrame = 0;
     // Runtime allocation policy: baseline vectors are captured only while replay
@@ -140,7 +141,7 @@ struct RunReplayPredictionFutureNodeCache
     std::vector<RunReplayPathTraceNode> futureNodeBuildScratch;
     std::size_t futureNodesBuiltFrameCount = 0;
     std::size_t futureNodesBuiltContactIndex = 0;
-    ReplayBodyId futureNodesBuiltTargetId;
+    Physics::PhysicsSceneObjectId futureNodesBuiltTargetId;
     // Invariant: topologyVersion identifies the published node set/order and
     // firstFrame values. The next counter survives cache clears so a same-root
     // rebuild cannot masquerade as an older child trajectory version.
@@ -161,7 +162,7 @@ struct RunReplayPredictionTrajectoryBuildState
     // Concept: prediction trajectory records follow the same published-prefix
     // contract as buildFrames. Root points are appended when frames publish;
     // child records catch up after the future-node cache publishes topology.
-    ReplayBodyId rootId;
+    Physics::PhysicsSceneObjectId rootId;
     bool usingBuildFrames = false;
     std::size_t rootFrameCount = 0;
     std::size_t childFrameCount = 0;
@@ -210,7 +211,9 @@ struct RunReplayPredictionBuildState
     // the frame loop only submits ticks and consumes the published prefix.
     // Hazard: cancellation must wait for an in-flight slice before clearing
     // buildFrames, trajectory records, or the private prediction engine.
-    std::unique_ptr<ReplayPredictionAmortizedTask> workerTask;
+    // Lifetime: optional owns one in-place worker task for an active build. Its
+    // reset waits for worker idleness first and releases no heap allocation.
+    std::optional<ReplayPredictionAmortizedTask> workerTask;
     std::atomic<bool> workerFailed{ false };
 };
 
@@ -218,7 +221,7 @@ struct RunReplayPredictionSimulationState
 {
     float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
     Physics::ModelRowHint targetModelRow;
-    ReplayBodyId targetId;
+    Physics::PhysicsSceneObjectId targetId;
     ReplayFrameIndex sourceFrameIndex = 0;
     uint64_t sourceSolverHash = 0;
     double sourceSimulationSeconds = 0.0;
@@ -240,6 +243,7 @@ struct RunReplayPredictionSimulationState
     // deletion condition: none, this is the end-state isolation boundary;
     // checker budget: 256 MB hard cap registered by ReplayPredictionReserveOwner().
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
+    Gameplay::TornadoGameplay predictionTornadoGameplay;
     Physics::PhysicsWorldForces predictionWorldForces;
     bool predictionEngineReady = false;
     ReplaySolverWorldSnapshot predictionWorld;
@@ -304,7 +308,7 @@ struct ReplayPredictionUpdateResult
 // retention window metadata that ReplayPresentation must retain.
 struct ReplayPastTrajectoryUpdate
 {
-    ReplayBodyId targetId;
+    Physics::PhysicsSceneObjectId targetId;
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex builtThroughFrame = 0;
     uint64_t totalFramesEvicted = 0;
@@ -459,12 +463,13 @@ class ReplayPrediction
                          int beginTickIndex,
                          int endTickIndex );
     void UpdateFrame( Physics::PhysicsEngine& physicsEngine,
+                      const Gameplay::TornadoGameplay& tornadoGameplay,
                       const SceneEntityStore& entities,
                       const SkullbonezCore::Core::EngineConfig& config,
                       const Physics::PhysicsWorldForces& worldForces,
                       Threading::WorkerPool& workerPool,
                       const ReplaySolverFrameSample* latestSolverSample,
-                      ReplayBodyId targetId,
+                      Physics::PhysicsSceneObjectId targetId,
                       Physics::ModelRowHint targetModelRow,
                       bool targetAvailable,
                       bool liveAdvanceHeld,
@@ -478,7 +483,7 @@ class ReplayPrediction
                       ReplayPredictionUpdateResult& result );
     void PreparePresentation( const SceneEntityStore& entities,
                               const Physics::ColliderStore& colliderStore,
-                              ReplayBodyId targetId,
+                              Physics::PhysicsSceneObjectId targetId,
                               Physics::ModelRowHint targetModelRow,
                               bool targetAvailable,
                               double budgetMilliseconds,

@@ -617,6 +617,7 @@ void Terrain::Render( const Matrix4& view,
                       IRenderCommandContext& commands,
                       const float* lightPosition,
                       const float* clipPlane,
+                      const Rendering::PassRasterStateBucket& rasterState,
                       const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride,
                       const ShadowFrameData* shadow,
                       const ShadowFrameData* detailShadow )
@@ -724,13 +725,14 @@ void Terrain::Render( const Matrix4& view,
                                        detailShadow,
                                        detailShadow ? detailShadow->objectsReceive : false );
 
-    m_terrainMesh->Draw();
+    m_terrainMesh->Draw( rasterState );
 }
 
 
 void Terrain::RenderShadowDepth( Core::Profiler* profiler,
                                  const Matrix4& lightView,
                                  const Matrix4& lightProjection,
+                                 const Rendering::PassRasterStateBucket& rasterState,
                                  const SkullbonezCore::Core::CinematicRenderConfig* cinematicOverride )
 {
     PROFILE_SCOPED( profiler, "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
@@ -782,7 +784,7 @@ void Terrain::RenderShadowDepth( Core::Profiler* profiler,
         m_shadowDepthShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
     }
 
-    m_terrainMesh->Draw();
+    m_terrainMesh->Draw( rasterState );
 }
 
 

@@ -327,7 +327,7 @@ int AllocatePinnedEventSlot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState
 }
 
 void RetainOverlayEvent( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                         const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event,
+                         const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event,
                          uint64_t levelBytes,
                          double now )
 {
@@ -430,7 +430,7 @@ void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
     state.axisMaxBytes = state.axisMinBytes + paddedSpan;
 }
 
-void MemoryEventColor( const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event,
+void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event,
                        float& r,
                        float& g,
                        float& b )
@@ -820,8 +820,8 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                           memory.gameObjects.renderStoreBytes;
     FormatMemoryMiB( memory.gameObjects.modelVectorBytes, a, sizeof( a ) );
     FormatMemoryMiB( gameObjectStoreBytes, b, sizeof( b ) );
-    FormatMemoryMiB( memory.gameObjects.physicsWorldBytes, c, sizeof( c ) );
-    snprintf( text, sizeof( text ), "Models %s  Stores %s  World %s", a, b, c );
+    FormatMemoryMiB( memory.gameObjects.physicsWorldBytes + memory.gameObjects.gameplayWorldBytes, c, sizeof( c ) );
+    snprintf( text, sizeof( text ), "Models %s  Stores %s  Worlds %s", a, b, c );
     draw.Text( subX, row0 + 50.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
     DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );
@@ -1123,7 +1123,7 @@ void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
 
     for ( int i = 0; i < eventCount; ++i )
     {
-        const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event = data.reserveGrowthEvents[i];
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event = data.reserveGrowthEvents[i];
         const float rowY = tableY + MEMORY_EVENT_HEADER_H + static_cast<float>( i ) * MEMORY_EVENT_ROW_H;
         if ( !IsMemoryRowVisible( contentY, contentH, rowY, MEMORY_EVENT_ROW_H ) )
         {

@@ -30,15 +30,15 @@ Related:
 #include "Run.h"
 #include "RuntimeOverlayDiagnostics.h"
 #include "../Core/Profiler.h"
-#include "Allocation/RuntimeAllocationTracker.h"
-#include "Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "OperatorCommandApplier.h"
 #include "../UI/UI.h"
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
@@ -119,7 +119,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                m_interaction.Gesture(),
                                                                toolOverlay.attachedTargetIndex,
                                                                toolOverlay.attachedFollow } );
-    const uint64_t replayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
+    const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
     const ReplayRenderFrameView replayFrame =
         m_replayRuntime.PrepareRenderFrame( m_sceneController.Scene().MutableRenderInstances(),
@@ -139,6 +139,30 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                             replayGrowthEventCount );
     const RenderReplayOverlayView replayOverlay{ replayFrame };
     const bool replayPredictionEnabled = replayFrame.predictionEnabled;
+    Gameplay::TornadoVisualTimeCandidates visualTime;
+    visualTime.simulationSourceSeconds = framePolicy.simulationSeconds;
+    visualTime.liveAdvanceHeld = replayFrame.liveAdvanceHeld;
+    if ( replayFrame.presentationSample )
+    {
+        visualTime.hasPresentation = true;
+        visualTime.presentationSeconds = replayFrame.presentationSample->simulationSeconds;
+    }
+    if ( replayFrame.solverSample )
+    {
+        visualTime.hasSolver = true;
+        visualTime.solverSeconds = replayFrame.solverSample->simulationSeconds;
+        visualTime.solverSystemSeconds = replayFrame.solverSample->worldSnapshot.tornadoSystemElapsedSeconds;
+    }
+    if ( replayFrame.predictionFrame )
+    {
+        visualTime.hasPrediction = true;
+        visualTime.predictionSeconds = replayFrame.predictionFrame->simulationSeconds;
+        visualTime.predictionSystemSeconds = replayFrame.predictionFrame->tornadoSystemElapsedSeconds;
+    }
+    Rendering::WorldRenderExtensionRegistration worldExtension;
+    // Invariant: Gameplay preallocates its bounded visual maximum during owner
+    // construction. Steady rendering receives no allocation-phase exemption.
+    worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                          renderModels,
@@ -146,6 +170,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                          framePolicy,
                                                                          replayOverlay,
                                                                          toolOverlay,
+                                                                         worldExtension,
                                                                          activeCinematic,
                                                                          presentationAlpha,
                                                                          cinematicRequested,

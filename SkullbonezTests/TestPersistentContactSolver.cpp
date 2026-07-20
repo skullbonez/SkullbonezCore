@@ -21,12 +21,16 @@
 //     writeback, matching the physics baseline contract.
 //   Sleep support edge: Directed relationship used later to propagate grounded
 //     sleep eligibility through an object stack.
+//   Solver step policy: Once-per-solve normalized contact limits shared by
+//     object and terrain rows.
 //
 // Invariants:
 //   - The fixture always bypasses broadphase. Terrain cases own their exact row;
 //     object cases deliberately use exact narrowphase before solver ingestion.
 //   - Static fixed lists mirror runtime storage and avoid allocating
 //     SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS records on the doctest stack.
+//   - Raw stamped settings normalize once at the solver boundary; direct value
+//     tests pin every lower and upper bound used by contact rows.
 //
 // Related:
 //   - SkullbonezSource/Physics/PersistentContactSolver.cpp
@@ -55,7 +59,6 @@
 #include <cmath>
 #include <vector>
 
-using SkullbonezCore::Core::EngineConfig;
 using SkullbonezCore::Math::CollisionDetection::BoundingBox;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::CollisionDetection::CollisionShape;
@@ -120,7 +123,7 @@ struct SolverFixture
     std::array<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS> terrainRestApplied = {};
     std::vector<uint8_t> sleepSupportedThisFrame;
     PersistentContactSolverSideEffects sideEffects;
-    SkullbonezCore::Core::EngineConfig config;
+    SkullbonezCore::Physics::PhysicsRuntimeSettings config;
     PersistentContactSolver solver;
 
     SolverFixture() : bodyStore( TestBodyStore() ), colliderRecords( TestColliderRecords() )
@@ -129,14 +132,14 @@ struct SolverFixture
         // mirror that owner precondition so focused solver tests cannot hide a
         // growth path behind their smaller fixture vector.
         sleepSupportEdges.reserve( MAX_SLEEP_SUPPORT_EDGES );
-        config.physicsExecution.parallel = false;
+        config.execution.parallel = false;
         config.worldForces.gravity = -30.0f;
-        config.physicsMaterial.frictionCoeff = 0.2f;
-        config.bodySimulation.contactRestitutionThreshold = 0.1f;
-        config.terrainContact.slop = 0.0f;
-        config.terrainContact.baumgarteBeta = 0.25f;
-        config.terrainContact.maxBaumgarteBias = 6.0f;
-        config.persistentContactSolver.iterations = 12;
+        config.material.terrainFrictionCoefficient = 0.2f;
+        config.body.contactRestitutionThreshold = 0.1f;
+        config.terrain.slop = 0.0f;
+        config.terrain.baumgarteBeta = 0.25f;
+        config.terrain.maxBaumgarteBias = 6.0f;
+        config.solver.iterations = 12;
     }
 
     void AddDynamicSphere( const Vector3& position, const Vector3& linearVelocity, float restitution = 0.0f )
@@ -160,7 +163,7 @@ struct SolverFixture
         collider.shapeKind = ColliderShapeKind::Sphere;
         collider.boundingRadius = radius;
         collider.restitution = restitution;
-        collider.friction = config.physicsMaterial.frictionCoeff;
+        collider.friction = config.material.terrainFrictionCoefficient;
         colliderRecords.push_back( collider );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -192,7 +195,7 @@ struct SolverFixture
         collider.shape = CollisionShape( BoundingBox( halfExtents, Vector3() ) );
         collider.shapeKind = ColliderShapeKind::Box;
         collider.boundingRadius = body.hot.boundingRadius;
-        collider.friction = config.physicsMaterial.frictionCoeff;
+        collider.friction = config.material.terrainFrictionCoefficient;
         colliderRecords.push_back( collider );
 
         sleepState.assign( static_cast<std::size_t>( bodyStore.Count() ), 0u );
@@ -251,7 +254,49 @@ struct SolverFixture
         solver.Solve( context, kSolverDt );
     }
 };
+
 } // namespace
+
+
+TEST_CASE( "Persistent contact solver: use-site guards clamp invalid stamped settings exactly once" )
+{
+    // Invariant: the cold config stamp does not normalize values. The solver's
+    // historical guards remain the one place that defines effective policy;
+    // drift here can change the byte-exact physics regression baseline.
+    SkullbonezCore::Physics::PhysicsRuntimeSettings settings;
+    settings.solver.slop = -0.25f;
+    settings.solver.baumgarteBeta = -0.5f;
+    settings.solver.positionCorrectionPercent = -1.5f;
+    settings.solver.iterations = -7;
+    settings.terrain.slop = -0.35f;
+    settings.terrain.baumgarteBeta = -0.6f;
+    settings.terrain.maxBaumgarteBias = -2.0f;
+
+    auto policy = PersistentContactSolver::ResolveStepPolicy( settings );
+    CHECK( policy.objectSlop == 0.0f );
+    CHECK( policy.objectBaumgarteBeta == 0.0f );
+    CHECK( policy.objectPositionCorrectionPercent == 0.0f );
+    CHECK( policy.terrainSlop == 0.0f );
+    CHECK( policy.terrainBaumgarteBeta == 0.0f );
+    CHECK( policy.maxBaumgarteBias == 0.0f );
+    CHECK( policy.iterations == 1 );
+
+    settings.solver.slop = 0.15f;
+    settings.solver.baumgarteBeta = 0.25f;
+    settings.solver.positionCorrectionPercent = 1.5f;
+    settings.solver.iterations = 19;
+    settings.terrain.slop = 0.45f;
+    settings.terrain.baumgarteBeta = 0.55f;
+    settings.terrain.maxBaumgarteBias = 3.0f;
+    policy = PersistentContactSolver::ResolveStepPolicy( settings );
+    CHECK( policy.objectSlop == settings.solver.slop );
+    CHECK( policy.objectBaumgarteBeta == settings.solver.baumgarteBeta );
+    CHECK( policy.objectPositionCorrectionPercent == 1.0f );
+    CHECK( policy.terrainSlop == settings.terrain.slop );
+    CHECK( policy.terrainBaumgarteBeta == settings.terrain.baumgarteBeta );
+    CHECK( policy.maxBaumgarteBias == settings.terrain.maxBaumgarteBias );
+    CHECK( policy.iterations == settings.solver.iterations );
+}
 
 
 TEST_CASE( "Persistent contact solver: warm-start cache is reused on a matching terrain row" )
@@ -303,7 +348,7 @@ TEST_CASE( "Persistent contact solver: friction cone clamps diagonal tangent imp
     const float tangentMagnitude = sqrtf( cached.accT1 * cached.accT1 + cached.accT2 * cached.accT2 );
     const float terrainWarmStart =
         fixture.bodyStore.Records()[0].mass * fabsf( fixture.config.worldForces.gravity ) * kSolverDt;
-    const float frictionLimit = fixture.config.physicsMaterial.frictionCoeff *
+    const float frictionLimit = fixture.config.material.terrainFrictionCoefficient *
                                 ( ( cached.accN > terrainWarmStart ) ? cached.accN : terrainWarmStart );
     CHECK( tangentMagnitude > 0.0f );
     CHECK( tangentMagnitude <= frictionLimit + 0.0001f );
@@ -318,7 +363,7 @@ TEST_CASE( "Persistent contact solver: restitution creates separating terrain ve
     fixture.Solve();
 
     REQUIRE( fixture.debugContacts.size() == 1u );
-    CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.bodySimulation.contactRestitutionThreshold );
+    CHECK( fixture.debugContacts[0].preSolveClosingSpeed > fixture.config.body.contactRestitutionThreshold );
     CHECK( fixture.debugContacts[0].normalImpulse > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] > 0.0f );
     CHECK( fixture.bodyStore.HotFields().linearVelocityY[0] <= 6.0f * 0.75f + 0.0001f );
@@ -346,7 +391,7 @@ TEST_CASE( "Property invariant: friction and restitution outputs stay bounded [s
         const float closingSpeed = random.Float( 0.5f, 12.0f );
         const float restitution = random.Float( 0.0f, 1.0f );
         SolverFixture fixture;
-        fixture.config.bodySimulation.contactRestitutionThreshold = 0.0f;
+        fixture.config.body.contactRestitutionThreshold = 0.0f;
         fixture.AddDynamicSphere( Vector3( 0.0f, 1.0f, 0.0f ), Vector3( 0.0f, -closingSpeed, 0.0f ), restitution );
         fixture.AddTerrainContact( 0, static_cast<uint32_t>( sample + 1 ), 0.0f );
         fixture.Solve();
@@ -383,7 +428,7 @@ TEST_CASE( "Persistent contact solver: a box gains sleep support only after topp
                                          edge.colliderRecords[1].shape,
                                          0,
                                          1,
-                                         edge.config.bodySimulation.contactEpsilon,
+                                         edge.config.body.contactEpsilon,
                                          edgeManifold ) );
     REQUIRE( edgeManifold.pointCount <= 2u );
     CHECK( fabsf( edgeManifold.normal.y ) > 0.25f );

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "actions": [
+    { "frame": 10, "showReplayScrubber": true },
+    { "frame": 20, "setReplayPathTarget": "garage_wall_back_00" },
+    { "frame": 25, "setReplayPredictionHorizonSeconds": 1.0 },
+    { "frame": 30, "clickReplayControl": "predict" },
+    { "frame": 70, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 70, "assert": { "replayPathTarget": "garage_wall_back_00" } },
+    { "frame": 90, "assert": { "predictionPathVisible": true } },
+    { "frame": 100, "clickReplayControl": "predict" },
+    { "frame": 110, "assert": { "replayPredictionEnabled": false } },
+    { "frame": 120, "clickReplayControl": "predict" },
+    { "frame": 165, "assert": { "replayPredictionEnabled": true } },
+    { "frame": 180, "assert": { "predictionPathVisible": true } }
+  ]
+}

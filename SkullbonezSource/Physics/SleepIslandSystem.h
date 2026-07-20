@@ -36,7 +36,7 @@ Related:
 #pragma once
 
 #include "PhysicsBodyStore.h"
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 
 #include <cstddef>
 #include <utility>

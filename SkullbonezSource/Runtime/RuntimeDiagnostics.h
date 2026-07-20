@@ -17,8 +17,6 @@ Glossary:
     matching it requires a page-level OS query.
   SkullScope: Queryable physics diagnostics trace workflow used instead of
     loading raw traces into model context.
-  Contact-audio frame aggregate: One diagnostic row summarizing how many raw
-    contact facts became reduced patch candidates and submitted voices.
 
 Invariants:
   - Diagnostic artifacts are side-channel output; enabling them must not change
@@ -47,15 +45,6 @@ namespace Physics
 {
 class PhysicsEngine;
 }
-namespace Runtime
-{
-namespace Audio
-{
-struct ContactAudioDecision;
-struct ContactAudioStats;
-} // namespace Audio
-} // namespace Runtime
-
 namespace Runtime
 {
 struct ReplayBodyPresentationSample;
@@ -87,7 +76,6 @@ struct RunPhysicsDiagnosticsState
     bool isRunActive = false;                       // True after a run row and before the matching end row
     bool fixedStepForcedByDiagnostics = false;      // True when --physics-diag forced fixed-step mode
     int runSequence = 0;                            // Incremented on every scene/generated load
-    uint32_t contactAudioEventSequence = 0;         // Unique event ids for runtime-side contact audio verdicts.
 };
 #endif
 
@@ -126,7 +114,6 @@ class RuntimeDiagnostics
     static void TickPerfLog( RunPerfLogState& perfLog,
                              const RuntimePerfTickContext& context,
                              SkullbonezCore::Core::Profiler* profiler );
-    static void InvalidateProfilerGpuQueries( SkullbonezCore::Core::Profiler* profiler );
     static RuntimeProfilerFrameTimes SampleProfilerFrameTimes( const SkullbonezCore::Core::Profiler* profiler );
 
 #ifdef _DEBUG
@@ -189,12 +176,6 @@ class RuntimeDiagnostics
                                         bool fallbackAttempted,
                                         bool fallbackRestored,
                                         const char* failureReason );
-    static void LogContactAudioDecision( RunPhysicsDiagnosticsState& diagnostics,
-                                         const RunSceneState& scene,
-                                         const Runtime::Audio::ContactAudioDecision& decision );
-    static void LogContactAudioStepStats( RunPhysicsDiagnosticsState& diagnostics,
-                                          const RunSceneState& scene,
-                                          const Runtime::Audio::ContactAudioStats& stats );
     static void
     EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics, const RunSceneState& scene, const char* status );
 #endif

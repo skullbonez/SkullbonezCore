@@ -10,7 +10,7 @@ Summary:
   and input owners without reaching back into controller state.
 
 Glossary:
-  Replay body id: Stable physics identity used to recover a followed body when
+  Scene object id: Stable physics identity used to recover a followed body when
     dense model rows are rebuilt.
   Ragdoll eyes: Attach submode that places the camera near a resolved head body
     and looks along that body's forward axis.
@@ -19,7 +19,7 @@ Glossary:
     cameras while target identity and selection remain physics-authoritative.
 
 Invariants:
-  - Duplicate replay ids invalidate the target instead of selecting an
+  - Duplicate scene object ids invalidate the target instead of selecting an
     arbitrary body.
   - Orbit pitch and distance are clamped before producing a camera pose.
   - Invalid or degenerate pose math fails closed without changing the camera.
@@ -42,7 +42,6 @@ Related:
 #include <cstddef>
 #include <cstring>
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
@@ -349,50 +348,6 @@ bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection,
 }
 
 
-bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime::SceneWorld& collection,
-                                                                   float presentationAlpha,
-                                                                   Vector3& outPosition ) const
-{
-    const Environment::CameraCollection& cameras = collection.Cameras();
-    if ( !m_state.activeFollow )
-    {
-        return false;
-    }
-    // Lifetime: pose solving updates orbit/entry bookkeeping, so audio uses a
-    // frame-local state copy and cannot consume camera controller transitions.
-    AttachedCameraState state = m_state;
-    int modelIndex = -1;
-    AttachedCameraPhysicsTarget target;
-    if ( !TryResolvePhysicsTarget( collection, state.target, target, &modelIndex ) )
-    {
-        return false;
-    }
-    Quaternion presentedOrientation;
-    if ( collection.TryGetPresentationPose( modelIndex, presentationAlpha, target.position, presentedOrientation ) )
-    {
-        target.rotation = BodyRotation( presentedOrientation );
-    }
-    const AttachedCameraPose currentPose{ cameras.GetRenderCameraTranslation(),
-                                          cameras.GetRenderCameraView(),
-                                          cameras.GetRenderCameraUp() };
-    AttachedCameraPoseCommand command;
-    if ( !BuildFollowPose( collection,
-                           state,
-                           target,
-                           modelIndex,
-                           currentPose,
-                           0.0f,
-                           0.0f,
-                           presentationAlpha,
-                           command ) )
-    {
-        return false;
-    }
-    outPosition = command.pose.eye;
-    return true;
-}
-
-
 bool AttachedCameraController::CycleMode( Runtime::SceneWorld& collection )
 {
     Environment::CameraCollection& cameras = collection.Cameras();
@@ -551,7 +506,7 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const Scene
     target.body = body->handle;
     target.collider = collider->handle;
     target.modelRow.value = modelIndex;
-    target.replayBodyId = body->replayBodyId;
+    target.sceneObjectId = body->sceneObjectId;
     return true;
 }
 
@@ -586,7 +541,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
             // handle proves which dense row currently owns the body.
             target.body = body->handle;
             target.modelRow.value = modelIndex;
-            target.replayBodyId = body->replayBodyId;
+            target.sceneObjectId = body->sceneObjectId;
             outModelIndex = modelIndex;
             return true;
         }
@@ -596,12 +551,12 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
     const int cachedIndex = target.modelRow.value;
     if ( cachedIndex >= 0 && cachedIndex < modelCount )
     {
-        const bool hasReplayId = target.replayBodyId != 0;
+        const bool hasSceneObjectId = target.sceneObjectId.IsValid();
         bool cachedIndexMatches = true;
-        if ( hasReplayId )
+        if ( hasSceneObjectId )
         {
             const PhysicsBodyRecord* cachedBody = bodyStore.RecordForModelIndex( cachedIndex );
-            cachedIndexMatches = cachedBody && cachedBody->replayBodyId == target.replayBodyId;
+            cachedIndexMatches = cachedBody && cachedBody->sceneObjectId == target.sceneObjectId;
         }
         if ( cachedIndexMatches && TryAttachTargetHandlesFromModelIndex( collection, cachedIndex, target ) )
         {
@@ -610,16 +565,16 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
         }
     }
 
-    if ( target.replayBodyId != 0 )
+    if ( target.sceneObjectId.IsValid() )
     {
         int match = -1;
         const auto bodyRecords = bodyStore.Records();
-        // Invariant: duplicate replay ids are corruption, not an arbitrary
+        // Invariant: duplicate scene object ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
         // closed without touching authoring/presentation data.
         for ( int i = 0; i < static_cast<int>( bodyRecords.size() ); ++i )
         {
-            if ( bodyRecords[static_cast<std::size_t>( i )].replayBodyId == target.replayBodyId )
+            if ( bodyRecords[static_cast<std::size_t>( i )].sceneObjectId == target.sceneObjectId )
             {
                 if ( match >= 0 )
                 {

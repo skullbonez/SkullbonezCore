@@ -20,9 +20,9 @@ Glossary:
     prediction engine.
   Future node: Body discovered by following contacts or predicted movement
     outward from a selected root body.
-  ReplayBodyId: Stable runtime id used across retained samples even when vector
+  Physics::PhysicsSceneObjectId: Stable runtime id used across retained samples even when vector
     indices are only local hints.
-  Model row hint: Cached live body row paired with ReplayBodyId; replay tools
+  Model row hint: Cached live body row paired with Physics::PhysicsSceneObjectId; replay tools
     may keep it only as a repairable lookup shortcut.
   Solver snapshot: Physics cache state that must be restored to make the next
     fixed step reproduce.
@@ -53,8 +53,8 @@ Related:
 #include "ReplayPredictionArchive.h"
 #include "ReplayPredictionReserve.h"
 #include "ReplayScrubber.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
-#include "../Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsBodyStore.h"
 #include "../../Physics/PhysicsApi.h"
@@ -63,6 +63,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Config.h"
+#include "../../Core/SceneCapacity.h"
 #include "../../Core/WorkerPool.h"
 
 #include <algorithm>
@@ -83,10 +84,12 @@ using namespace SkullbonezCore::Runtime::ReplayPredictionArchiveOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionReserveOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
+namespace Gameplay = SkullbonezCore::Gameplay;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+namespace Physics = SkullbonezCore::Physics;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSET_COUNT;
 using SkullbonezCore::Assets::EDITOR_HULL_ASSETS;
 using SkullbonezCore::Assets::EditorHullAsset;
@@ -94,7 +97,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -102,7 +105,7 @@ constexpr double REPLAY_PREDICTION_REFRESH_SECONDS = 0.35;
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
-                                     ReplayBodyId id,
+                                     Physics::PhysicsSceneObjectId id,
                                      int modelIndexHint,
                                      int modelCount,
                                      int& outModelIndex )
@@ -112,7 +115,7 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
         return false;
     }
 
-    const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, modelIndexHint );
+    const PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, modelIndexHint );
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
@@ -125,14 +128,14 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 
 
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
-                                     ReplayBodyId id,
+                                     Physics::PhysicsSceneObjectId id,
                                      ModelRowHint& hint,
                                      int modelCount,
                                      int& outModelIndex )
 {
     // Why: retained replay UI state still carries modelIndex integers until the
     // fable-06 conversion rows are complete. Naming the cache as ModelRowHint
-    // keeps stable replay identity in ReplayBodyId while this resolver heals or
+    // keeps stable scene object identity in Physics::PhysicsSceneObjectId while this resolver heals or
     // invalidates the dense-row guess.
     if ( !TryResolveReplayBodyModelIndex( bodyStore, id, hint.value, modelCount, outModelIndex ) )
     {
@@ -149,14 +152,16 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 // diagnostics-name presentation belongs to the live engine only; prediction
 // samples read the private engine's hot-field arrays directly.
 bool StepPredictionEngineTick( PhysicsEngine& engine,
+                               Gameplay::TornadoGameplay& tornadoGameplay,
                                float fixedDt,
-                               const SkullbonezCore::Core::EngineConfig& config,
                                const PhysicsWorldForces& worldForces,
                                SkullbonezCore::Threading::WorkerPool& workerPool )
 {
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    engine.Step( fixedDt, config, worldForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    const SkullbonezCore::Physics::ExternalForceFrameInput externalForces =
+        tornadoGameplay.BuildForceFrame( fixedDt,
+                                         SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).Count() );
+    engine.Step( fixedDt, worldForces, externalForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
     return true;
 }
 
@@ -312,7 +317,7 @@ ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& pre
 }
 
 std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
-                                                                   ReplayBodyId requestedTargetId )
+                                                                   Physics::PhysicsSceneObjectId requestedTargetId )
 {
     if ( requestedTargetId.value == 0 || prediction.simulation.targetId.value != requestedTargetId.value ||
          prediction.simulation.frames.size() < 2u )
@@ -353,34 +358,35 @@ template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::v
     return ReplayPredictionCapacityBytes<T>( values.capacity(), bytes ) ? bytes : 0;
 }
 
-uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
+uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
+    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
     uint64_t bytes = 0;
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.timeRemaining );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepSupportedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepInhibitedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepState );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepCounter );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.underwaterSleepLocked );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.timeRemaining );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportedThisFrame );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepInhibitedThisFrame );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepState );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepCounter );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.underwaterSleepLocked );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.collisionVisualContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandAssignedVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepSupportEdges );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandParent );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandRank );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandHasAwake );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandHasSupportAnchor );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandEligible );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.sleepIslandCanSleep );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContactCache );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.persistentRestingContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.debugContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.pipelineTrace );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.collisionCellKeys );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionVisualContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandVisualId );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandAssignedVisualId );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportEdges );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandParent );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandRank );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasAwake );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasSupportAnchor );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandEligible );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandCanSleep );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCache );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCounts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentRestingContactCounts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.debugContacts );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.pipelineTrace );
+    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionCellKeys );
     return bytes;
 }
 
@@ -487,7 +493,7 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
         return false;
     }
 
-    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    CoreAllocation::RuntimeReserveGrowthResult result = {};
     if ( !RequestReplayPredictionReserveGrowth( targetName,
                                                 frameNumber,
                                                 static_cast<int>( oldBytes ),
@@ -498,13 +504,10 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
         return false;
     }
 
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     values.reserve( requestedCapacity );
     return requestedCapacity <= values.capacity();
 }
@@ -550,7 +553,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
         return false;
     }
 
-    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    CoreAllocation::RuntimeReserveGrowthResult result = {};
     if ( !RequestReplayPredictionReserveGrowth( targetName,
                                                 frameNumber,
                                                 static_cast<int>( oldBytes ),
@@ -561,13 +564,10 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
         return false;
     }
 
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     for ( std::size_t i = 0; i < requestedFrameCount; ++i )
     {
         ( frames[i].*member ).reserve( requestedCapacityPerFrame );
@@ -586,7 +586,7 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
     prediction.futureNodeCache.futureNodeBuildScratch.clear();
     prediction.futureNodeCache.futureNodesBuiltFrameCount = 0;
     prediction.futureNodeCache.futureNodesBuiltContactIndex = 0;
-    prediction.futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
+    prediction.futureNodeCache.futureNodesBuiltTargetId = Physics::PhysicsSceneObjectId{};
     prediction.futureNodeCache.futureNodesTopologyVersion = 0;
     prediction.futureNodeCache.futureNodesBuiltRagdollVisuals = prediction.ragdollVisualsEnabled;
     prediction.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
@@ -600,11 +600,11 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
 
 // Concept: retained replay and prediction samples share body identity rules.
 //
-// ReplayBodyId is authority; modelIndex is a cache hint into the current sample.
+// Physics::PhysicsSceneObjectId is authority; modelIndex is a cache hint into the current sample.
 // Invariant: solver lookup preserves its legacy negative-sentinel scan, while
 // prediction lookup rejects negative hints before scanning.
 template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayBodyId id )
+const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
 {
     for ( const BodySample& body : sample.bodies )
     {
@@ -647,7 +647,7 @@ const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample,
 }
 
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
+Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
 {
     if ( const BodySample* body =
              FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>( sample,
@@ -655,16 +655,17 @@ ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int m
     {
         return body->id;
     }
-    return ReplayBodyId{};
+    return Physics::PhysicsSceneObjectId{};
 }
 
-const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
+const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
+                                                  Physics::PhysicsSceneObjectId id )
 {
     return FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, id );
 }
 
 const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
-                                                                   ReplayBodyId id )
+                                                                   Physics::PhysicsSceneObjectId id )
 {
     return FindReplayBodyByIdInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample>( frame, id );
 }
@@ -684,7 +685,7 @@ const ReplaySolverBodySample* FindReplayBodyByModelIndex( const ReplaySolverFram
 }
 
 const ReplaySolverBodySample*
-FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, ReplayBodyId id, int modelIndex )
+FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, Physics::PhysicsSceneObjectId id, int modelIndex )
 {
     if ( const ReplaySolverBodySample* hinted = FindReplayBodyByModelIndex( sample, modelIndex ) )
     {
@@ -696,9 +697,10 @@ FindReplayBodyByIdWithHint( const ReplaySolverFrameSample& sample, ReplayBodyId 
     return FindReplayBodyById( sample, id );
 }
 
-ReplayBodyId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame, int modelIndex )
+Physics::PhysicsSceneObjectId ReplayPredictionBodyIdForModelIndex( const RunReplayPredictionFrame& frame,
+                                                                   int modelIndex )
 {
-    return ReplayBodyIdForModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, false>(
+    return SceneObjectIdForModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, false>(
         frame,
         modelIndex );
 }
@@ -744,8 +746,9 @@ Quaternion ReplaySolverBodyOrientation( const ReplaySolverBodySample& body )
     return orientation;
 }
 
-const RunReplayPredictionBodySample*
-FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, ReplayBodyId id, int modelIndex )
+const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
+                                                                           Physics::PhysicsSceneObjectId id,
+                                                                           int modelIndex )
 {
     if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
     {
@@ -770,7 +773,8 @@ int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex )
         (std::min)( frameIndex, static_cast<ReplayFrameIndex>( ( std::numeric_limits<int>::max )() ) ) );
 }
 
-ReplayTrajectoryRecordKey ReplayTrajectoryKey( ReplayBodyId bodyId, ReplayTrajectoryLane lane, uint16_t branchOrdinal )
+ReplayTrajectoryRecordKey
+ReplayTrajectoryKey( Physics::PhysicsSceneObjectId bodyId, ReplayTrajectoryLane lane, uint16_t branchOrdinal )
 {
     ReplayTrajectoryRecordKey key;
     key.bodyId = bodyId;
@@ -789,7 +793,7 @@ bool ReserveReplayTrajectoryRecordSlot( ReplayTrajectoryStore& store,
 ReplayTrajectoryRecord* BeginReplayTrajectoryRecord( ReplayTrajectoryStore& store,
                                                      const ReplayTrajectoryRecordKey& key,
                                                      uint16_t styleId,
-                                                     ReplayBodyId parentId,
+                                                     Physics::PhysicsSceneObjectId parentId,
                                                      int depth,
                                                      ReplayFrameIndex firstFrame,
                                                      bool contactDerived,
@@ -833,20 +837,20 @@ ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats )
 // Concept: the past-root trajectory mirrors the solver recorder window. Rebuild
 // handles target changes and ring eviction; capture-time append handles the
 // ordinary newest-sample case without re-walking retained history.
-ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( ReplayBodyId targetId )
+ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( Physics::PhysicsSceneObjectId targetId )
 {
     return ReplayTrajectoryKey( targetId, ReplayTrajectoryLane::PastRoot, 0 );
 }
 
 ReplayTrajectoryRecord* BeginReplayPastRootTrajectoryRecord( ReplayTrajectoryStore& store,
-                                                             ReplayBodyId targetId,
+                                                             Physics::PhysicsSceneObjectId targetId,
                                                              std::size_t pointCapacity,
                                                              int frameNumber )
 {
     return BeginReplayTrajectoryRecord( store,
                                         ReplayPastRootTrajectoryKey( targetId ),
                                         0,
-                                        ReplayBodyId{},
+                                        Physics::PhysicsSceneObjectId{},
                                         0,
                                         static_cast<ReplayFrameIndex>( frameNumber ),
                                         false,
@@ -888,7 +892,7 @@ uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usin
 }
 
 bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& prediction,
-                                             ReplayBodyId rootId,
+                                             Physics::PhysicsSceneObjectId rootId,
                                              std::size_t frameCapacity )
 {
     prediction.trajectoryBuild = RunReplayPredictionTrajectoryBuildState{};
@@ -908,7 +912,7 @@ bool PrepareReplayPredictionTrajectoryBuild( RunReplayPredictionState& predictio
         prediction.trajectoryStore,
         ReplayTrajectoryKey( rootId, ReplayTrajectoryLane::FutureRoot, REPLAY_TRAJECTORY_BUILD_BRANCH ),
         0,
-        ReplayBodyId{},
+        Physics::PhysicsSceneObjectId{},
         0,
         0,
         false,
@@ -976,7 +980,7 @@ bool RebuildReplayPredictionCommittedRootTrajectory( RunReplayPredictionState& p
                                                           ReplayTrajectoryLane::FutureRoot,
                                                           REPLAY_TRAJECTORY_COMMITTED_BRANCH ),
                                      0,
-                                     ReplayBodyId{},
+                                     Physics::PhysicsSceneObjectId{},
                                      0,
                                      0,
                                      false,
@@ -1140,7 +1144,7 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                             const std::vector<RunReplayPredictionFrame>& frames,
                                             std::size_t frameCount,
                                             bool usingBuildFrames,
-                                            ReplayBodyId rootId )
+                                            Physics::PhysicsSceneObjectId rootId )
 {
     frameCount = (std::min)( frameCount, frames.size() );
     if ( rootId.value == 0 || frameCount < 2u )
@@ -1233,7 +1237,7 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
 }
 
 bool ReplayPredictionFutureTreeReadyForDraw( const RunReplayPredictionState& prediction,
-                                             ReplayBodyId rootId,
+                                             Physics::PhysicsSceneObjectId rootId,
                                              bool usingBuildFrames,
                                              std::size_t frameCount )
 {
@@ -1263,7 +1267,7 @@ bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySa
 // prefix has no authoritative final frame.
 bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames,
                                       std::size_t frameCount,
-                                      ReplayBodyId id,
+                                      Physics::PhysicsSceneObjectId id,
                                       int modelIndexHint,
                                       Vector3& outPosition,
                                       Quaternion& outOrientation )
@@ -1296,12 +1300,14 @@ bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame
     return true;
 }
 
-bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                 int modelIndex )
 {
     return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
 }
 
-int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                  int modelIndex )
 {
     if ( contact.bodyA == modelIndex )
     {
@@ -1314,7 +1320,8 @@ int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& con
     return -1;
 }
 
-Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplaySolverPersistentContactSample& contact )
+Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
+                            const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
     {
@@ -1327,7 +1334,8 @@ Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplayS
     return SkullbonezCore::Math::Vector::ZERO_VECTOR;
 }
 
-Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                     int modelIndex )
 {
     Vector3 normal = contact.normal;
     if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
@@ -1341,7 +1349,8 @@ Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& 
     return ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) );
 }
 
-Vector3 ReplayContactImpulseForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                      int modelIndex )
 {
     const Vector3 rowImpulse =
         contact.normal * contact.accN + contact.tangent1 * contact.accT1 + contact.tangent2 * contact.accT2;
@@ -1352,8 +1361,8 @@ Vector3 ReplayContactImpulseForModel( const ReplaySolverPersistentContactSample&
     return rowImpulse * -1.0f;
 }
 
-int ReplayFindPipelineIndexForContact( const ReplaySolverWorldSnapshot& snapshot,
-                                       const ReplaySolverPersistentContactSample& contact )
+int ReplayFindPipelineIndexForContact( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
+                                       const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
     {
@@ -1411,7 +1420,7 @@ void ClearReplayPredictionBaseline( ReplayPredictionBaselineSnapshot& baseline )
 {
     baseline.valid = false;
     baseline.comparisonActive = false;
-    baseline.rootId = ReplayBodyId{};
+    baseline.rootId = Physics::PhysicsSceneObjectId{};
     baseline.rootModelRow.value = -1;
     baseline.lastFrame = 0;
     baseline.rootPolyline.clear();
@@ -1423,7 +1432,7 @@ void ClearReplayPredictionBaseline( ReplayPredictionBaselineSnapshot& baseline )
 bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& prediction );
 std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& record );
 const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( const ReplayTrajectoryStore& store,
-                                                             ReplayBodyId id,
+                                                             Physics::PhysicsSceneObjectId id,
                                                              ReplayTrajectoryLane lane,
                                                              uint16_t branchOrdinal );
 
@@ -1433,7 +1442,7 @@ const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( const ReplayTraject
 bool CaptureReplayPredictionBaselineSnapshot( RunReplayPredictionState& prediction,
                                               const std::vector<RunReplayPredictionFrame>& frames,
                                               std::size_t frameCount,
-                                              ReplayBodyId rootId,
+                                              Physics::PhysicsSceneObjectId rootId,
                                               int rootModelIndex )
 {
     frameCount = (std::min)( frameCount, frames.size() );
@@ -1566,7 +1575,7 @@ bool PublishReplayPredictionBaselineRootTrajectory( RunReplayPredictionState& pr
         prediction.trajectoryStore,
         ReplayTrajectoryKey( baseline.rootId, ReplayTrajectoryLane::BaselineRoot, REPLAY_TRAJECTORY_COMMITTED_BRANCH ),
         0,
-        ReplayBodyId{},
+        Physics::PhysicsSceneObjectId{},
         0,
         0,
         false,
@@ -1656,10 +1665,10 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
 // edge instead of duplicating the contact traversal.
 template <typename NodeRange>
 bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes,
-                                     ReplayBodyId rootId,
+                                     Physics::PhysicsSceneObjectId rootId,
                                      ReplayFrameIndex rootFrame,
                                      bool requireRootFrame,
-                                     ReplayBodyId id,
+                                     Physics::PhysicsSceneObjectId id,
                                      ReplayFrameIndex frame,
                                      int& outDepth )
 {
@@ -1684,7 +1693,8 @@ bool TryGetReplayFutureDepthInNodes( const NodeRange& nodes,
     return false;
 }
 
-template <typename NodeRange> RunReplayPathTraceNode* FindReplayFutureNodeInNodes( NodeRange& nodes, ReplayBodyId id )
+template <typename NodeRange>
+RunReplayPathTraceNode* FindReplayFutureNodeInNodes( NodeRange& nodes, Physics::PhysicsSceneObjectId id )
 {
     for ( RunReplayPathTraceNode& node : nodes )
     {
@@ -1697,9 +1707,9 @@ template <typename NodeRange> RunReplayPathTraceNode* FindReplayFutureNodeInNode
 }
 
 void AssignReplayFutureNode( RunReplayPathTraceNode& node,
-                             ReplayBodyId parentId,
+                             Physics::PhysicsSceneObjectId parentId,
                              int parentModelIndex,
-                             ReplayBodyId id,
+                             Physics::PhysicsSceneObjectId id,
                              int modelIndex,
                              ReplayFrameIndex firstFrame,
                              const Vector3& contactPoint,
@@ -1722,10 +1732,10 @@ void AssignReplayFutureNode( RunReplayPathTraceNode& node,
 // operation-specific argument so this record cannot retain cache ownership.
 struct ReplayFutureNodeDesc
 {
-    ReplayBodyId rootId;
-    ReplayBodyId parentId;
+    Physics::PhysicsSceneObjectId rootId;
+    Physics::PhysicsSceneObjectId parentId;
     int parentModelIndex = -1;
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     int modelIndex = -1;
     ReplayFrameIndex firstFrame;
     const Vector3& contactPoint;
@@ -1738,10 +1748,10 @@ struct ReplayFutureNodeDesc
 template <typename NodeContainer>
 void AddReplayFutureNodeToNodes( NodeContainer& nodes, const ReplayFutureNodeDesc& desc )
 {
-    const ReplayBodyId rootId = desc.rootId;
-    const ReplayBodyId parentId = desc.parentId;
+    const Physics::PhysicsSceneObjectId rootId = desc.rootId;
+    const Physics::PhysicsSceneObjectId parentId = desc.parentId;
     const int parentModelIndex = desc.parentModelIndex;
-    const ReplayBodyId id = desc.id;
+    const Physics::PhysicsSceneObjectId id = desc.id;
     const int modelIndex = desc.modelIndex;
     const ReplayFrameIndex firstFrame = desc.firstFrame;
     const Vector3& contactPoint = desc.contactPoint;
@@ -1866,8 +1876,8 @@ bool BuildReplayFutureNodesFromContacts( const ContactRange& contacts,
             collection ? ReplayRagdollTorsoModelIndexForPart( *collection, contact.bodyA ) : contact.bodyA;
         const int modelIndexB =
             collection ? ReplayRagdollTorsoModelIndexForPart( *collection, contact.bodyB ) : contact.bodyB;
-        const ReplayBodyId idA = bodyIdForModelIndex( modelIndexA );
-        const ReplayBodyId idB = bodyIdForModelIndex( modelIndexB );
+        const Physics::PhysicsSceneObjectId idA = bodyIdForModelIndex( modelIndexA );
+        const Physics::PhysicsSceneObjectId idB = bodyIdForModelIndex( modelIndexB );
         int depthA = -1;
         int depthB = -1;
         const bool activeA = tryGetDepth( idA, frameIndex, depthA );
@@ -1940,8 +1950,9 @@ const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* co
     return collider;
 }
 
-ReplayPredictionRetainedMarker*
-FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction, ReplayBodyId id, int modelIndex )
+ReplayPredictionRetainedMarker* FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction,
+                                                                         Physics::PhysicsSceneObjectId id,
+                                                                         int modelIndex )
 {
     if ( id.value == 0 )
     {
@@ -1973,7 +1984,7 @@ FindOrAddReplayPredictionRetainedMarker( RunReplayPredictionState& prediction, R
 }
 
 void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction,
-                                        ReplayBodyId id,
+                                        Physics::PhysicsSceneObjectId id,
                                         int modelIndex,
                                         const Vector3& position,
                                         Quaternion orientation )
@@ -1989,7 +2000,7 @@ void RetainReplayPredictionEntryMarker( RunReplayPredictionState& prediction,
 }
 
 void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction,
-                                       ReplayBodyId id,
+                                       Physics::PhysicsSceneObjectId id,
                                        int modelIndex,
                                        const Vector3& position,
                                        Quaternion orientation )
@@ -2006,7 +2017,7 @@ void RetainReplayPredictionRestMarker( RunReplayPredictionState& prediction,
 }
 
 void RetainReplayPredictionHorizonMarker( RunReplayPredictionState& prediction,
-                                          ReplayBodyId id,
+                                          Physics::PhysicsSceneObjectId id,
                                           int modelIndex,
                                           const Vector3& position,
                                           Quaternion orientation )
@@ -2212,7 +2223,7 @@ void BuildReplayPredictionChildMarkerContext( ReplayPathChildDrawContext& contex
 ReplayFrameIndex ReplayPredictionVisibleRootMotionFrame( const std::vector<RunReplayPredictionFrame>& frames,
                                                          std::size_t frameCount,
                                                          ReplayFrameIndex revealFrame,
-                                                         ReplayBodyId rootId,
+                                                         Physics::PhysicsSceneObjectId rootId,
                                                          int rootModelIndex )
 {
     frameCount = (std::min)( frameCount, frames.size() );
@@ -2238,7 +2249,7 @@ void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
                                            const std::vector<RunReplayPredictionFrame>& frames,
                                            std::size_t frameCount,
                                            ReplayFrameIndex revealFrame,
-                                           ReplayBodyId rootId,
+                                           Physics::PhysicsSceneObjectId rootId,
                                            int rootModelIndex,
                                            const ColliderStore& colliderStore )
 {
@@ -2266,7 +2277,7 @@ void RetainReplayPredictionRootRestMarker( RunReplayPredictionState& prediction,
 
 struct ReplayPredictionAffectedBodyTrail
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     ModelRowHint modelRow;
     std::size_t firstFrameSlot = 0;
     ReplayFrameIndex firstFrame = 0;
@@ -2281,7 +2292,8 @@ struct ReplayPredictionAffectedBodyTrail
 };
 
 
-bool ReplayPredictionIdInFutureNodes( const std::vector<RunReplayPathTraceNode>& nodes, ReplayBodyId id )
+bool ReplayPredictionIdInFutureNodes( const std::vector<RunReplayPathTraceNode>& nodes,
+                                      Physics::PhysicsSceneObjectId id )
 {
     for ( const RunReplayPathTraceNode& node : nodes )
     {
@@ -2297,7 +2309,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
     const std::vector<RunReplayPredictionFrame>& frames,
     std::size_t frameCount,
     ReplayFrameIndex revealFrame,
-    ReplayBodyId rootId,
+    Physics::PhysicsSceneObjectId rootId,
     int rootModelIndex,
     const std::vector<RunReplayPathTraceNode>& futureNodes,
     const SceneEntityStore& collection,
@@ -2381,7 +2393,7 @@ void RetainReplayPredictionAffectedBodyMarkers( const std::vector<RunReplayPredi
                                                 RunReplayPredictionState& prediction,
                                                 ReplayFrameIndex revealFrame,
                                                 bool bufferComplete,
-                                                ReplayBodyId rootId,
+                                                Physics::PhysicsSceneObjectId rootId,
                                                 int rootModelIndex,
                                                 const std::vector<RunReplayPathTraceNode>& futureNodes,
                                                 const SceneEntityStore& collection,
@@ -2442,12 +2454,12 @@ struct ReplayPredictionFutureContext
     RunReplayPredictionState* prediction = nullptr;
     std::vector<RunReplayPathTraceNode>* nodes = nullptr;
     const SceneEntityStore* collection = nullptr;
-    ReplayBodyId rootId;
+    Physics::PhysicsSceneObjectId rootId;
     bool includeRagdollVisuals = true;
 };
 
 bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& context,
-                                        ReplayBodyId id,
+                                        Physics::PhysicsSceneObjectId id,
                                         ReplayFrameIndex frame,
                                         int& outDepth )
 {
@@ -2457,9 +2469,9 @@ bool TryGetReplayPredictionFutureDepth( const ReplayPredictionFutureContext& con
 }
 
 void AddReplayPredictionFutureNode( ReplayPredictionFutureContext& context,
-                                    ReplayBodyId parentId,
+                                    Physics::PhysicsSceneObjectId parentId,
                                     int parentModelIndex,
-                                    ReplayBodyId id,
+                                    Physics::PhysicsSceneObjectId id,
                                     int modelIndex,
                                     ReplayFrameIndex firstFrame,
                                     const Vector3& contactPoint,
@@ -2500,11 +2512,11 @@ bool BuildReplayPredictionFutureNodes( const RunReplayPredictionFrame& frame,
         context.collection,
         context.includeRagdollVisuals,
         [&]( int modelIndex ) { return ReplayPredictionBodyIdForModelIndex( frame, modelIndex ); },
-        [&]( ReplayBodyId id, ReplayFrameIndex frameIndex, int& outDepth )
+        [&]( Physics::PhysicsSceneObjectId id, ReplayFrameIndex frameIndex, int& outDepth )
         { return TryGetReplayPredictionFutureDepth( context, id, frameIndex, outDepth ); },
-        [&]( ReplayBodyId parentId,
+        [&]( Physics::PhysicsSceneObjectId parentId,
              int parentModelIndex,
-             ReplayBodyId id,
+             Physics::PhysicsSceneObjectId id,
              int modelIndex,
              ReplayFrameIndex firstFrame,
              const Vector3& contactPoint,
@@ -2632,7 +2644,7 @@ void UpdateReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction
                                             std::size_t frameCount,
                                             bool usingBuildFrames,
                                             const SceneEntityStore& collection,
-                                            ReplayBodyId rootId,
+                                            Physics::PhysicsSceneObjectId rootId,
                                             const std::chrono::steady_clock::time_point& budgetStart,
                                             double budgetMilliseconds )
 {
@@ -2785,12 +2797,11 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
 
     const auto captureBody = [&]( int i )
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         const PhysicsBodyRecord& body = bodyRecords[bodyIndex];
         RunReplayPredictionBodyBackup backup;
-        backup.id.value = body.replayBodyId;
+        backup.id = body.sceneObjectId;
         backup.modelRow.value = i;
         backup.position = PhysicsBodyPosition( hotFields, bodyIndex );
         backup.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
@@ -2843,12 +2854,12 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
         const PhysicsBodyHandle bodyHandle = bodyStore.HandleForModelIndex( backup.modelRow.value );
         const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( bodyHandle );
         if ( !bodyRecord || bodyStore.ModelIndexForHandle( bodyHandle ) != backup.modelRow.value ||
-             bodyRecord->replayBodyId != backup.id.value )
+             bodyRecord->sceneObjectId != backup.id )
         {
             return false;
         }
         if ( !physicsEngine.RestoreReplayBodyState( bodyHandle,
-                                                    backup.id.value,
+                                                    backup.id,
                                                     backup.fixed,
                                                     backup.position,
                                                     backup.orientation,
@@ -2874,7 +2885,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
                                  int modelCount )
 {
     PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/SeedPrivateEngine" );
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     const int requestedBytes = ReplayPredictionEngineReserveBytes( liveEngine );
     if ( requestedBytes <= 0 )
     {
@@ -2888,7 +2899,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
         return false;
     }
 
-    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    CoreAllocation::RuntimeReserveGrowthResult result = {};
     if ( requestedBytes > currentBytes )
     {
         // Why: the private engine is retained across prediction rebuilds. Only
@@ -2905,12 +2916,9 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
         }
     }
 
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     prediction.simulation.predictionEngineReady = false;
     if ( !prediction.simulation.predictionEngine )
     {
@@ -2926,7 +2934,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
     predictionEngine.ApplyRuntimeConfig( config );
     prediction.simulation.predictionWorldForces = worldForces;
     if ( !ApplyReplayPredictionBodyState( predictionEngine, profiler, prediction.simulation.predictionBodies ) ||
-         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld,
+         !predictionEngine.RestoreReplaySolverSnapshot( prediction.simulation.predictionWorld.physics,
                                                         MakePhysicsBodyCountFromNonNegativeInt( modelCount ) ) )
     {
         return false;
@@ -2962,7 +2970,7 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
     frame.frameIndex = frameIndex;
     frame.simulationSeconds = prediction.simulation.sourceSimulationSeconds +
                               static_cast<double>( frameIndex ) * static_cast<double>( PHYSICS_FIXED_DT );
-    frame.tornadoSystemElapsedSeconds = physicsEngine.GetTornadoSystemElapsedSeconds();
+    frame.tornadoSystemElapsedSeconds = prediction.simulation.predictionTornadoGameplay.GetSystemElapsedSeconds();
     frame.contactsIncomplete = false;
     if ( static_cast<std::size_t>( modelCount ) > frame.bodies.capacity() )
     {
@@ -2972,12 +2980,11 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
 
     const auto captureBody = [&]( int i )
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         const PhysicsBodyRecord& source = bodyRecords[bodyIndex];
         RunReplayPredictionBodySample body;
-        body.id.value = source.replayBodyId;
+        body.id = source.sceneObjectId;
         body.modelRow.value = i;
         body.position = PhysicsBodyPosition( hotFields, bodyIndex );
         body.orientation = PhysicsBodyOrientation( hotFields, bodyIndex );
@@ -3088,8 +3095,8 @@ void RunReplayPredictionWorkerRange( RunReplayPredictionState& prediction,
         // Scene mutation paths must cancel and wait before live stores are
         // reloaded, because this worker never borrows legacy object record rows.
         if ( !StepPredictionEngineTick( predictionEngine,
+                                        prediction.simulation.predictionTornadoGameplay,
                                         PHYSICS_FIXED_DT,
-                                        config,
                                         prediction.simulation.predictionWorldForces,
                                         workerPool ) ||
              !CaptureReplayPredictionFrame( prediction,
@@ -3170,10 +3177,16 @@ bool CompleteReplayPredictionJobOnFrameThread( ReplayPrediction& predictionOwner
     if ( prediction.simulation.predictionEngine )
     {
         prediction.simulation.predictionEngine->CaptureReplaySolverSnapshot(
-            prediction.simulation.predictionWorld,
+            prediction.simulation.predictionWorld.physics,
             MakePhysicsBodyCountFromNonNegativeInt(
                 SkullbonezCore::Physics::PhysicsEngine::ReadBodies( *prediction.simulation.predictionEngine )
                     .Count() ) );
+        const Gameplay::TornadoGameplay& tornadoGameplay = prediction.simulation.predictionTornadoGameplay;
+        prediction.simulation.predictionWorld.tornadoConfig = tornadoGameplay.GetFieldConfig();
+        prediction.simulation.predictionWorld.tornadoSystemConfig = tornadoGameplay.GetSystemConfig();
+        prediction.simulation.predictionWorld.tornadoSystemElapsedSeconds = tornadoGameplay.GetSystemElapsedSeconds();
+        prediction.simulation.predictionWorld.tornadoCaptureSeconds = tornadoGameplay.CaptureSeconds();
+        prediction.simulation.predictionWorld.tornadoEjectCooldownSeconds = tornadoGameplay.EjectCooldownSeconds();
     }
 
     const bool hadCommittedPredictionFrames = prediction.simulation.frames.size() >= 2;
@@ -3225,6 +3238,7 @@ struct ReplayPredictionJobDesc
     ReplayPrediction& predictionOwner;
     RunReplayPredictionState& prediction;
     PhysicsEngine& physicsEngine;
+    const Gameplay::TornadoGameplay& tornadoGameplay;
     const SceneEntityStore& entities;
     const SkullbonezCore::Core::EngineConfig& config;
     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces;
@@ -3233,7 +3247,7 @@ struct ReplayPredictionJobDesc
     double fallbackSourceSimulationSeconds = 0.0;
     double simulationTotalSeconds = 0.0;
     const ReplaySolverFrameSample* latestSolverSample = nullptr;
-    ReplayBodyId requestedTargetId;
+    Physics::PhysicsSceneObjectId requestedTargetId;
     ModelRowHint requestedTargetModelRow;
     bool targetAvailable = false;
     ReplayFrameIndex sourceFrameIndex;
@@ -3248,6 +3262,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     ReplayPrediction& predictionOwner = desc.predictionOwner;
     RunReplayPredictionState& prediction = desc.prediction;
     PhysicsEngine& physicsEngine = desc.physicsEngine;
+    const Gameplay::TornadoGameplay& tornadoGameplay = desc.tornadoGameplay;
     const SceneEntityStore& entities = desc.entities;
     const SkullbonezCore::Core::EngineConfig& config = desc.config;
     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces = desc.worldForces;
@@ -3256,7 +3271,7 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     const double fallbackSourceSimulationSeconds = desc.fallbackSourceSimulationSeconds;
     const double simulationTotalSeconds = desc.simulationTotalSeconds;
     const ReplaySolverFrameSample* latestSolverSample = desc.latestSolverSample;
-    const ReplayBodyId requestedTargetId = desc.requestedTargetId;
+    const Physics::PhysicsSceneObjectId requestedTargetId = desc.requestedTargetId;
     const ModelRowHint requestedTargetModelRow = desc.requestedTargetModelRow;
     const bool targetAvailable = desc.targetAvailable;
     const ReplayFrameIndex sourceFrameIndex = desc.sourceFrameIndex;
@@ -3436,8 +3451,20 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
         return false;
     }
 
-    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld,
+    physicsEngine.CaptureReplaySolverSnapshot( prediction.simulation.predictionWorld.physics,
                                                MakePhysicsBodyCountFromNonNegativeInt( modelCount ) );
+    prediction.simulation.predictionTornadoGameplay.SetReplayState( tornadoGameplay.CaptureSeconds(),
+                                                                    tornadoGameplay.EjectCooldownSeconds(),
+                                                                    tornadoGameplay.GetFieldConfig(),
+                                                                    tornadoGameplay.GetSystemConfig(),
+                                                                    tornadoGameplay.GetSystemElapsedSeconds() );
+    prediction.simulation.predictionTornadoGameplay.SetParallelForceEvaluation(
+        tornadoGameplay.ParallelForceEvaluation() );
+    prediction.simulation.predictionWorld.tornadoConfig = tornadoGameplay.GetFieldConfig();
+    prediction.simulation.predictionWorld.tornadoSystemConfig = tornadoGameplay.GetSystemConfig();
+    prediction.simulation.predictionWorld.tornadoSystemElapsedSeconds = tornadoGameplay.GetSystemElapsedSeconds();
+    prediction.simulation.predictionWorld.tornadoCaptureSeconds = tornadoGameplay.CaptureSeconds();
+    prediction.simulation.predictionWorld.tornadoEjectCooldownSeconds = tornadoGameplay.EjectCooldownSeconds();
 
     if ( !SeedReplayPredictionEngine( prediction,
                                       predictionOwner.ProfilerBorrow(),
@@ -3464,10 +3491,11 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
         return false;
     }
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
-        prediction.build.workerTask = std::make_unique<ReplayPredictionAmortizedTask>(
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
+        // Runtime allocation policy: the task lives in the build state's fixed
+        // optional slot; each generation reconstructs it without heap growth.
+        prediction.build.workerTask.emplace(
             prediction.build.targetTickCount,
             REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
             ReplayPredictionWorkerOperation{ &predictionOwner, &config, &workerPool, modelCount } );
@@ -3573,7 +3601,7 @@ bool StepReplayPredictionJob( ReplayPrediction& predictionOwner,
 
 void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredictionState& prediction,
                                                                 const SceneEntityStore& modelCollection,
-                                                                ReplayBodyId rootId )
+                                                                Physics::PhysicsSceneObjectId rootId )
 {
     if ( rootId.value == 0 || prediction.simulation.frames.size() < 2u )
     {
@@ -3605,7 +3633,7 @@ void RebuildReplayPredictionCommittedTreeAfterWorkerCompletion( RunReplayPredict
 void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
                                      const SceneEntityStore& modelCollection,
                                      const ColliderStore& colliderStore,
-                                     ReplayBodyId targetId,
+                                     Physics::PhysicsSceneObjectId targetId,
                                      ModelRowHint targetModelRow,
                                      bool targetAvailable,
                                      double budgetMilliseconds,
@@ -3706,12 +3734,13 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
 void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
                              RunReplayPredictionState& prediction,
                              PhysicsEngine& physicsEngine,
+                             const Gameplay::TornadoGameplay& tornadoGameplay,
                              const SceneEntityStore& entities,
                              const SkullbonezCore::Core::EngineConfig& config,
                              const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                              SkullbonezCore::Threading::WorkerPool& workerPool,
                              const ReplaySolverFrameSample* latestSolverSample,
-                             ReplayBodyId targetId,
+                             Physics::PhysicsSceneObjectId targetId,
                              ModelRowHint targetModelRow,
                              bool targetAvailable,
                              bool liveAdvanceHeld,
@@ -3818,6 +3847,7 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
             ReplayPredictionJobDesc{ .predictionOwner = predictionOwner,
                                      .prediction = prediction,
                                      .physicsEngine = physicsEngine,
+                                     .tornadoGameplay = tornadoGameplay,
                                      .entities = entities,
                                      .config = config,
                                      .worldForces = worldForces,
@@ -3901,12 +3931,13 @@ void UpdateReplayPrediction( ReplayPrediction& predictionOwner,
 } // namespace
 
 void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
+                                    const Gameplay::TornadoGameplay& tornadoGameplay,
                                     const SceneEntityStore& entities,
                                     const SkullbonezCore::Core::EngineConfig& config,
                                     const SkullbonezCore::Physics::PhysicsWorldForces& worldForces,
                                     SkullbonezCore::Threading::WorkerPool& workerPool,
                                     const ReplaySolverFrameSample* latestSolverSample,
-                                    ReplayBodyId targetId,
+                                    Physics::PhysicsSceneObjectId targetId,
                                     ModelRowHint targetModelRow,
                                     bool targetAvailable,
                                     bool liveAdvanceHeld,
@@ -3923,6 +3954,7 @@ void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
     UpdateReplayPrediction( *this,
                             m_state,
                             physicsEngine,
+                            tornadoGameplay,
                             entities,
                             config,
                             worldForces,
@@ -3946,7 +3978,7 @@ void ReplayPrediction::UpdateFrame( PhysicsEngine& physicsEngine,
 
 void ReplayPrediction::PreparePresentation( const SceneEntityStore& entities,
                                             const ColliderStore& colliderStore,
-                                            ReplayBodyId targetId,
+                                            Physics::PhysicsSceneObjectId targetId,
                                             ModelRowHint targetModelRow,
                                             bool targetAvailable,
                                             double budgetMilliseconds,
@@ -4130,7 +4162,17 @@ void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool rese
     }
 }
 
-RunReplayPredictionState::RunReplayPredictionState() = default;
+RunReplayPredictionState::RunReplayPredictionState()
+{
+    // Runtime allocation policy: prediction reuses this snapshot throughout
+    // the session. Reserve every Gameplay row at construction so per-build
+    // seeding and per-tick capture only change logical sizes.
+    simulation.predictionWorld.tornadoSystemConfig.vortices.reserve(
+        Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );
+    simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve(
+        SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+}
 
 RunReplayPredictionState::~RunReplayPredictionState()
 {
@@ -4145,7 +4187,7 @@ void ReplayPrediction::ClearFutureNodeCache()
     m_state.futureNodeCache.futureNodeBuildScratch.clear();
     m_state.futureNodeCache.futureNodesBuiltFrameCount = 0;
     m_state.futureNodeCache.futureNodesBuiltContactIndex = 0;
-    m_state.futureNodeCache.futureNodesBuiltTargetId = ReplayBodyId{};
+    m_state.futureNodeCache.futureNodesBuiltTargetId = Physics::PhysicsSceneObjectId{};
     m_state.futureNodeCache.futureNodesBuiltRagdollVisuals = m_state.ragdollVisualsEnabled;
     m_state.futureNodeCache.futureNodesBuiltFromBuildFrames = false;
     m_state.futureNodeCache.futureNodesCacheValid = false;
@@ -4186,7 +4228,8 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     }
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    m_state.simulation.predictionTornadoGameplay.Clear();
+    m_state.simulation.predictionWorld.ClearPreservingCapacity();
     return true;
 }
 
@@ -4203,7 +4246,8 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     m_state.build.targetTickCount = 0;
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    m_state.simulation.predictionTornadoGameplay.Clear();
+    m_state.simulation.predictionWorld.ClearPreservingCapacity();
     // Runtime allocation policy: cancellation invalidates publication but keeps
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();
@@ -4225,7 +4269,7 @@ void ReplayPrediction::CancelJob( bool clearSamples )
 void ReplayPrediction::ClearCache()
 {
     CancelJob( true );
-    m_state.simulation.targetId = ReplayBodyId{};
+    m_state.simulation.targetId = Physics::PhysicsSceneObjectId{};
     m_state.simulation.sourceFrameIndex = 0;
     m_state.simulation.sourceSolverHash = 0;
     m_state.simulation.sourceSimulationSeconds = 0.0;

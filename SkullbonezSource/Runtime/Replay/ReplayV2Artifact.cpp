@@ -101,7 +101,7 @@ struct BodyDictionaryEntry
     uint32_t id = 0;
     // Wire compatibility: v2 allocated these four bytes to a model index. V3
     // preserves the captured row only as a same-scene resolver hint;
-    // ReplayBodyId remains the sole durable identity.
+    // Physics::PhysicsSceneObjectId remains the sole durable identity.
     int32_t bodyOrder = -1;
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     float mass = 0.0f;
@@ -432,7 +432,7 @@ void AppendCountedPairVector( std::vector<uint8_t>& out, const std::vector<std::
     }
 }
 
-void AppendTornadoConfig( std::vector<uint8_t>& out, const SkullbonezCore::Physics::TornadoFieldConfig& config )
+void AppendTornadoConfig( std::vector<uint8_t>& out, const SkullbonezCore::Gameplay::TornadoFieldConfig& config )
 {
     const uint8_t enabled = config.enabled ? 1u : 0u;
     const uint8_t visualizeVelocityField = config.visualizeVelocityField ? 1u : 0u;
@@ -455,7 +455,7 @@ void AppendTornadoConfig( std::vector<uint8_t>& out, const SkullbonezCore::Physi
 }
 
 
-void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore::Physics::TornadoSystemConfig& config )
+void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore::Gameplay::TornadoSystemConfig& config )
 {
     const uint8_t enabled = config.enabled ? 1u : 0u;
     const uint8_t visualizeVelocityField = config.visualizeVelocityField ? 1u : 0u;
@@ -464,7 +464,7 @@ void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore:
     AppendPod( out, visualizeVelocityField );
     AppendBytes( out, reserved );
     AppendPod( out, CheckedU32( config.vortices.size() ) );
-    for ( const SkullbonezCore::Physics::TornadoVortexConfig& vortex : config.vortices )
+    for ( const SkullbonezCore::Gameplay::TornadoVortexConfig& vortex : config.vortices )
     {
         AppendTornadoConfig( out, vortex.field );
         AppendPod( out, vortex.spawnSeconds );
@@ -480,7 +480,7 @@ void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore:
 }
 
 
-void AppendSolverStats( std::vector<uint8_t>& out, const ReplaySolverStatsSample& stats )
+void AppendSolverStats( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsSolverStatsSample& stats )
 {
     AppendPod( out, static_cast<int32_t>( stats.rowCount ) );
     AppendPod( out, static_cast<int32_t>( stats.cachePreviousRows ) );
@@ -493,7 +493,8 @@ void AppendSolverStats( std::vector<uint8_t>& out, const ReplaySolverStatsSample
     AppendPod( out, stats.positionCorrectionMax );
 }
 
-void AppendPersistentContact( std::vector<uint8_t>& out, const ReplaySolverPersistentContactSample& contact )
+void AppendPersistentContact( std::vector<uint8_t>& out,
+                              const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     AppendPod( out, static_cast<int32_t>( contact.bodyA ) );
     AppendPod( out, static_cast<int32_t>( contact.bodyB ) );
@@ -529,7 +530,8 @@ void AppendPersistentContact( std::vector<uint8_t>& out, const ReplaySolverPersi
     AppendPod( out, contact.terrainWarmStart );
 }
 
-void AppendContactCache( std::vector<uint8_t>& out, const ReplaySolverContactCacheSample& cache )
+void AppendContactCache( std::vector<uint8_t>& out,
+                         const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache )
 {
     AppendPod( out, cache.key );
     AppendPod( out, cache.accN );
@@ -564,71 +566,73 @@ void AppendPipelineRecord( std::vector<uint8_t>& out, const SkullbonezCore::Phys
     AppendPod( out, record.scalarC );
 }
 
-void AppendSolverSnapshot( std::vector<uint8_t>& out, const ReplaySolverWorldSnapshot& snapshot )
+void AppendSolverSnapshot( std::vector<uint8_t>& out,
+                           const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
 {
-    const uint8_t sleepEnabled = snapshot.sleepEnabled ? 1u : 0u;
-    const uint8_t collisionVisualFrameActive = snapshot.collisionVisualFrameActive ? 1u : 0u;
+    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
+    const uint8_t sleepEnabled = physics.sleepEnabled ? 1u : 0u;
+    const uint8_t collisionVisualFrameActive = physics.collisionVisualFrameActive ? 1u : 0u;
     const uint8_t reserved[2] = {};
-    AppendPod( out, snapshot.version );
-    AppendPod( out, static_cast<int32_t>( snapshot.modelCount ) );
-    AppendPod( out, static_cast<int32_t>( snapshot.nextSleepIslandVisualId ) );
+    AppendPod( out, physics.version );
+    AppendPod( out, static_cast<int32_t>( physics.modelCount ) );
+    AppendPod( out, static_cast<int32_t>( physics.nextSleepIslandVisualId ) );
     AppendPod( out, sleepEnabled );
     AppendPod( out, collisionVisualFrameActive );
     AppendBytes( out, reserved );
     AppendTornadoConfig( out, snapshot.tornadoConfig );
-    if ( snapshot.version >= 2 )
+    if ( physics.version >= 2 )
     {
         AppendTornadoSystemConfig( out, snapshot.tornadoSystemConfig );
         AppendPod( out, snapshot.tornadoSystemElapsedSeconds );
     }
-    AppendCountedPodVector( out, snapshot.timeRemaining );
-    AppendCountedPodVector( out, snapshot.sleepSupportedThisFrame );
-    AppendCountedPodVector( out, snapshot.sleepInhibitedThisFrame );
-    AppendCountedPodVector( out, snapshot.sleepState );
-    AppendCountedPodVector( out, snapshot.sleepCounter );
-    AppendCountedPodVector( out, snapshot.underwaterSleepLocked );
+    AppendCountedPodVector( out, physics.timeRemaining );
+    AppendCountedPodVector( out, physics.sleepSupportedThisFrame );
+    AppendCountedPodVector( out, physics.sleepInhibitedThisFrame );
+    AppendCountedPodVector( out, physics.sleepState );
+    AppendCountedPodVector( out, physics.sleepCounter );
+    AppendCountedPodVector( out, physics.underwaterSleepLocked );
     AppendCountedPodVector( out, snapshot.tornadoCaptureSeconds );
     AppendCountedPodVector( out, snapshot.tornadoEjectCooldownSeconds );
-    AppendCountedPodVector( out, snapshot.collisionVisualContacts );
-    AppendCountedIntVector( out, snapshot.sleepIslandVisualId );
-    AppendCountedIntVector( out, snapshot.sleepIslandAssignedVisualId );
-    AppendCountedPairVector( out, snapshot.sleepSupportEdges );
-    AppendCountedIntVector( out, snapshot.sleepIslandParent );
-    AppendCountedPodVector( out, snapshot.sleepIslandRank );
-    AppendCountedPodVector( out, snapshot.sleepIslandHasAwake );
-    AppendCountedPodVector( out, snapshot.sleepIslandHasSupportAnchor );
-    AppendCountedPodVector( out, snapshot.sleepIslandEligible );
-    AppendCountedPodVector( out, snapshot.sleepIslandCanSleep );
+    AppendCountedPodVector( out, physics.collisionVisualContacts );
+    AppendCountedIntVector( out, physics.sleepIslandVisualId );
+    AppendCountedIntVector( out, physics.sleepIslandAssignedVisualId );
+    AppendCountedPairVector( out, physics.sleepSupportEdges );
+    AppendCountedIntVector( out, physics.sleepIslandParent );
+    AppendCountedPodVector( out, physics.sleepIslandRank );
+    AppendCountedPodVector( out, physics.sleepIslandHasAwake );
+    AppendCountedPodVector( out, physics.sleepIslandHasSupportAnchor );
+    AppendCountedPodVector( out, physics.sleepIslandEligible );
+    AppendCountedPodVector( out, physics.sleepIslandCanSleep );
 
-    AppendPod( out, CheckedU32( snapshot.persistentContacts.size() ) );
-    for ( const ReplaySolverPersistentContactSample& contact : snapshot.persistentContacts )
+    AppendPod( out, CheckedU32( physics.persistentContacts.size() ) );
+    for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact : physics.persistentContacts )
     {
         AppendPersistentContact( out, contact );
     }
 
-    AppendPod( out, CheckedU32( snapshot.persistentContactCache.size() ) );
-    for ( const ReplaySolverContactCacheSample& cache : snapshot.persistentContactCache )
+    AppendPod( out, CheckedU32( physics.persistentContactCache.size() ) );
+    for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : physics.persistentContactCache )
     {
         AppendContactCache( out, cache );
     }
 
-    AppendSolverStats( out, snapshot.solverStats );
-    AppendCountedPodVector( out, snapshot.persistentContactCounts );
-    AppendCountedPodVector( out, snapshot.persistentRestingContactCounts );
+    AppendSolverStats( out, physics.solverStats );
+    AppendCountedPodVector( out, physics.persistentContactCounts );
+    AppendCountedPodVector( out, physics.persistentRestingContactCounts );
 
-    AppendPod( out, CheckedU32( snapshot.debugContacts.size() ) );
-    for ( const SkullbonezCore::Physics::PhysicsDebugContact& contact : snapshot.debugContacts )
+    AppendPod( out, CheckedU32( physics.debugContacts.size() ) );
+    for ( const SkullbonezCore::Physics::PhysicsDebugContact& contact : physics.debugContacts )
     {
         AppendPhysicsDebugContact( out, contact );
     }
 
-    AppendPod( out, CheckedU32( snapshot.pipelineTrace.size() ) );
-    for ( const SkullbonezCore::Physics::PhysicsPipelineRecord& record : snapshot.pipelineTrace )
+    AppendPod( out, CheckedU32( physics.pipelineTrace.size() ) );
+    for ( const SkullbonezCore::Physics::PhysicsPipelineRecord& record : physics.pipelineTrace )
     {
         AppendPipelineRecord( out, record );
     }
 
-    AppendCountedPodVector( out, snapshot.collisionCellKeys );
+    AppendCountedPodVector( out, physics.collisionCellKeys );
 }
 
 bool AppendSolverBodyRecord( std::vector<uint8_t>& out,
@@ -1362,7 +1366,7 @@ bool ReadCountedStructVector( ByteCursor& cursor, std::vector<T>& outValues, Rea
     return true;
 }
 
-bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoFieldConfig& outConfig )
+bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoFieldConfig& outConfig )
 {
     uint8_t enabled = 0;
     uint8_t visualizeVelocityField = 0;
@@ -1383,7 +1387,7 @@ bool ReadTornadoConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoFiel
 }
 
 
-bool ReadTornadoVortexConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoVortexConfig& outConfig )
+bool ReadTornadoVortexConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoVortexConfig& outConfig )
 {
     if ( !ReadTornadoConfig( cursor, outConfig.field ) || !ReadPod( cursor, outConfig.spawnSeconds ) ||
          !ReadPod( cursor, outConfig.timeToLiveSeconds ) || !ReadPod( cursor, outConfig.growSeconds ) ||
@@ -1397,7 +1401,7 @@ bool ReadTornadoVortexConfig( ByteCursor& cursor, SkullbonezCore::Physics::Torna
 }
 
 
-bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Physics::TornadoSystemConfig& outConfig )
+bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Gameplay::TornadoSystemConfig& outConfig )
 {
     uint8_t enabled = 0;
     uint8_t visualizeVelocityField = 0;
@@ -1407,16 +1411,18 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Physics::Torna
     {
         return false;
     }
-    if ( count > 256u )
+    // Lane R: artifact input must fail before restore reaches Gameplay's fatal
+    // fixed-capacity invariant; replay files never receive a truncation path.
+    if ( count > SkullbonezCore::Gameplay::MAX_TORNADO_ACTIVE_FORCE_FIELDS )
     {
         return false;
     }
 
-    outConfig = SkullbonezCore::Physics::TornadoSystemConfig();
+    outConfig = SkullbonezCore::Gameplay::TornadoSystemConfig();
     outConfig.enabled = enabled != 0;
     outConfig.visualizeVelocityField = visualizeVelocityField != 0;
     outConfig.vortices.resize( count );
-    for ( SkullbonezCore::Physics::TornadoVortexConfig& vortex : outConfig.vortices )
+    for ( SkullbonezCore::Gameplay::TornadoVortexConfig& vortex : outConfig.vortices )
     {
         if ( !ReadTornadoVortexConfig( cursor, vortex ) )
         {
@@ -1427,7 +1433,7 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Physics::Torna
 }
 
 
-bool ReadSolverStats( ByteCursor& cursor, ReplaySolverStatsSample& outStats )
+bool ReadSolverStats( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverStatsSample& outStats )
 {
     int32_t rowCount = 0;
     int32_t cachePreviousRows = 0;
@@ -1454,7 +1460,8 @@ bool ReadSolverStats( ByteCursor& cursor, ReplaySolverStatsSample& outStats )
     return true;
 }
 
-bool ReadPersistentContact( ByteCursor& cursor, ReplaySolverPersistentContactSample& outContact )
+bool ReadPersistentContact( ByteCursor& cursor,
+                            SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& outContact )
 {
     int32_t bodyA = 0;
     int32_t bodyB = 0;
@@ -1494,7 +1501,7 @@ bool ReadPersistentContact( ByteCursor& cursor, ReplaySolverPersistentContactSam
     return true;
 }
 
-bool ReadContactCache( ByteCursor& cursor, ReplaySolverContactCacheSample& outCache )
+bool ReadContactCache( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverContactCacheSample& outCache )
 {
     return ReadPod( cursor, outCache.key ) && ReadPod( cursor, outCache.accN ) && ReadPod( cursor, outCache.accT1 ) &&
            ReadPod( cursor, outCache.accT2 );
@@ -1539,25 +1546,26 @@ bool ReadPipelineRecord( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsPip
     return true;
 }
 
-bool ReadSolverSnapshot( ByteCursor& cursor, ReplaySolverWorldSnapshot& outSnapshot )
+bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& outSnapshot )
 {
-    outSnapshot = ReplaySolverWorldSnapshot();
+    outSnapshot = SkullbonezCore::Runtime::ReplaySolverWorldSnapshot();
+    SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = outSnapshot.physics;
     int32_t modelCount = 0;
     int32_t nextSleepIslandVisualId = 0;
     uint8_t sleepEnabled = 0;
     uint8_t collisionVisualFrameActive = 0;
-    if ( !ReadPod( cursor, outSnapshot.version ) || !ReadPod( cursor, modelCount ) ||
+    if ( !ReadPod( cursor, physics.version ) || !ReadPod( cursor, modelCount ) ||
          !ReadPod( cursor, nextSleepIslandVisualId ) || !ReadPod( cursor, sleepEnabled ) ||
          !ReadPod( cursor, collisionVisualFrameActive ) || !SkipBytes( cursor, 2 ) ||
          !ReadTornadoConfig( cursor, outSnapshot.tornadoConfig ) )
     {
         return false;
     }
-    if ( outSnapshot.version < 1 || outSnapshot.version > 2 )
+    if ( physics.version < 1 || physics.version > 2 )
     {
         return false;
     }
-    if ( outSnapshot.version >= 2 )
+    if ( physics.version >= 2 )
     {
         if ( !ReadTornadoSystemConfig( cursor, outSnapshot.tornadoSystemConfig ) ||
              !ReadPod( cursor, outSnapshot.tornadoSystemElapsedSeconds ) )
@@ -1566,40 +1574,39 @@ bool ReadSolverSnapshot( ByteCursor& cursor, ReplaySolverWorldSnapshot& outSnaps
         }
     }
 
-    if ( !ReadCountedPodVector( cursor, outSnapshot.timeRemaining ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepSupportedThisFrame ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepInhibitedThisFrame ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepState ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepCounter ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.underwaterSleepLocked ) ||
+    if ( !ReadCountedPodVector( cursor, physics.timeRemaining ) ||
+         !ReadCountedPodVector( cursor, physics.sleepSupportedThisFrame ) ||
+         !ReadCountedPodVector( cursor, physics.sleepInhibitedThisFrame ) ||
+         !ReadCountedPodVector( cursor, physics.sleepState ) || !ReadCountedPodVector( cursor, physics.sleepCounter ) ||
+         !ReadCountedPodVector( cursor, physics.underwaterSleepLocked ) ||
          !ReadCountedPodVector( cursor, outSnapshot.tornadoCaptureSeconds ) ||
          !ReadCountedPodVector( cursor, outSnapshot.tornadoEjectCooldownSeconds ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.collisionVisualContacts ) ||
-         !ReadCountedIntVector( cursor, outSnapshot.sleepIslandVisualId ) ||
-         !ReadCountedIntVector( cursor, outSnapshot.sleepIslandAssignedVisualId ) ||
-         !ReadCountedPairVector( cursor, outSnapshot.sleepSupportEdges ) ||
-         !ReadCountedIntVector( cursor, outSnapshot.sleepIslandParent ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandRank ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandHasAwake ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandHasSupportAnchor ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandEligible ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.sleepIslandCanSleep ) ||
-         !ReadCountedStructVector( cursor, outSnapshot.persistentContacts, ReadPersistentContact ) ||
-         !ReadCountedStructVector( cursor, outSnapshot.persistentContactCache, ReadContactCache ) ||
-         !ReadSolverStats( cursor, outSnapshot.solverStats ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.persistentContactCounts ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.persistentRestingContactCounts ) ||
-         !ReadCountedStructVector( cursor, outSnapshot.debugContacts, ReadPhysicsDebugContact ) ||
-         !ReadCountedStructVector( cursor, outSnapshot.pipelineTrace, ReadPipelineRecord ) ||
-         !ReadCountedPodVector( cursor, outSnapshot.collisionCellKeys ) )
+         !ReadCountedPodVector( cursor, physics.collisionVisualContacts ) ||
+         !ReadCountedIntVector( cursor, physics.sleepIslandVisualId ) ||
+         !ReadCountedIntVector( cursor, physics.sleepIslandAssignedVisualId ) ||
+         !ReadCountedPairVector( cursor, physics.sleepSupportEdges ) ||
+         !ReadCountedIntVector( cursor, physics.sleepIslandParent ) ||
+         !ReadCountedPodVector( cursor, physics.sleepIslandRank ) ||
+         !ReadCountedPodVector( cursor, physics.sleepIslandHasAwake ) ||
+         !ReadCountedPodVector( cursor, physics.sleepIslandHasSupportAnchor ) ||
+         !ReadCountedPodVector( cursor, physics.sleepIslandEligible ) ||
+         !ReadCountedPodVector( cursor, physics.sleepIslandCanSleep ) ||
+         !ReadCountedStructVector( cursor, physics.persistentContacts, ReadPersistentContact ) ||
+         !ReadCountedStructVector( cursor, physics.persistentContactCache, ReadContactCache ) ||
+         !ReadSolverStats( cursor, physics.solverStats ) ||
+         !ReadCountedPodVector( cursor, physics.persistentContactCounts ) ||
+         !ReadCountedPodVector( cursor, physics.persistentRestingContactCounts ) ||
+         !ReadCountedStructVector( cursor, physics.debugContacts, ReadPhysicsDebugContact ) ||
+         !ReadCountedStructVector( cursor, physics.pipelineTrace, ReadPipelineRecord ) ||
+         !ReadCountedPodVector( cursor, physics.collisionCellKeys ) )
     {
         return false;
     }
 
-    outSnapshot.modelCount = modelCount;
-    outSnapshot.nextSleepIslandVisualId = nextSleepIslandVisualId;
-    outSnapshot.sleepEnabled = sleepEnabled != 0;
-    outSnapshot.collisionVisualFrameActive = collisionVisualFrameActive != 0;
+    physics.modelCount = modelCount;
+    physics.nextSleepIslandVisualId = nextSleepIslandVisualId;
+    physics.sleepEnabled = sleepEnabled != 0;
+    physics.collisionVisualFrameActive = collisionVisualFrameActive != 0;
     return true;
 }
 

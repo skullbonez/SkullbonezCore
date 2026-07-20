@@ -84,14 +84,14 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp">
       <Filter>Source Files\Diagnostics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Diagnostics\SkullScope.cpp">
+      <Filter>Source Files\Diagnostics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp">
       <Filter>Source Files\Bodies</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp">
-      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp">
       <Filter>Source Files\Core</Filter>
@@ -117,6 +117,9 @@
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.cpp">
       <Filter>Source Files\Stages</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Stages\ExternalForceStage.cpp">
+      <Filter>Source Files\Stages</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.cpp">
       <Filter>Source Files\Stages</Filter>
     </ClCompile>
@@ -129,9 +132,6 @@
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
       <Filter>Source Files\Bodies</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp">
       <Filter>Source Files\Solver</Filter>
     </ClCompile>
@@ -140,12 +140,6 @@
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\TerrainContactManifold.cpp">
       <Filter>Source Files\Collision</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\TornadoField.cpp">
-      <Filter>Source Files\Forces</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\TornadoGameplay.cpp">
-      <Filter>Source Files\Forces</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -194,7 +188,13 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h">
       <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Diagnostics\SkullScope.h">
+      <Filter>Header Files\Diagnostics</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsRuntimeSettings.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h">
@@ -209,7 +209,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h">
       <Filter>Header Files\Bodies</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsSolverSnapshot.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h">
@@ -223,9 +223,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h">
       <Filter>Header Files\Bodies</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h">
-      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h">
       <Filter>Header Files\Solver</Filter>
@@ -251,6 +248,9 @@
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsForceStage.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Stages\ExternalForceStage.h">
+      <Filter>Header Files\Stages</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Stages\PhysicsNarrowphaseStage.h">
       <Filter>Header Files\Stages</Filter>
     </ClInclude>
@@ -262,12 +262,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\TerrainContactManifold.h">
       <Filter>Header Files\Collision</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\TornadoField.h">
-      <Filter>Header Files\Forces</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\TornadoGameplay.h">
-      <Filter>Header Files\Forces</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

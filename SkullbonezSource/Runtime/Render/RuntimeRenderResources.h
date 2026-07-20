@@ -30,7 +30,7 @@ Related:
 #pragma once
 
 #include "../../Core/Common.h"
-#include "../Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../../Rendering/IFramebuffer.h"
 #include "../../Rendering/IShader.h"
 #include "../../Rendering/Shadow.h"
@@ -73,10 +73,8 @@ struct CinematicScenePassResources
 
 struct VolumetricLightPassResources
 {
-    // Half-resolution because light shafts are intentionally soft. The shader
-    // samples the HDR scene and depth, then writes a texture the tonemap pass can
-    // composite over the final image.
-    std::unique_ptr<Rendering::IFramebuffer> target;
+    // The shader writes the graph-managed half-resolution target materialized
+    // by the active post chain; this owner retains only device-epoch shader state.
     std::unique_ptr<Rendering::IShader> shader;
 };
 

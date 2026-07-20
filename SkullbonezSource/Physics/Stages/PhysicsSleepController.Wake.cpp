@@ -405,7 +405,7 @@ PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsBodyStore& bo
 
 void PhysicsNarrowphaseWakeAccess::WakeBody( int sleepingIndex ) const
 {
-    // Why: narrowphase and tornado wakeups must re-enter the body into this
+    // Why: narrowphase and external-force wakeups must re-enter the body into this
     // tick synchronously; deferring this mutation changes later pair reads.
     if ( sleepingIndex < 0 || sleepingIndex >= m_modelCount ||
          IsSolverBodyFixed( ConstPhysicsBodyHotFields( m_hotFields ), sleepingIndex ) ||

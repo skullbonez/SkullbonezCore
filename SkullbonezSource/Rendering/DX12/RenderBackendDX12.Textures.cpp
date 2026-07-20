@@ -33,7 +33,7 @@ Related:
 */
 #include "RenderBackendDX12.h"
 #include "Dx12RenderGraphExecutor.h"
-#include "../../Runtime/WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include "ShaderDX12.h"
 #include "ShaderBytecodeManifest.h"
 #include "MeshDX12.h"
@@ -813,10 +813,10 @@ void Dx12TextureOwner::DeleteTexture( Dx12TextureCommands& commands, uint32_t ha
 }
 
 
-UINT Dx12TextureOwner::RegisterSRV( UINT srvIndex )
+UINT Dx12TextureOwner::RegisterSRV( UINT srvIndex, ID3D12Resource* resource )
 {
     TextureEntryDX12 entry = {};
-    entry.resource = nullptr;
+    entry.resource = resource;
     entry.srvIndex = srvIndex;
     entry.owned = false;
     return ReuseOrAppend( entry );
@@ -907,6 +907,13 @@ UINT Dx12TextureOwner::ResolveSrv( uint32_t handle ) const
 {
     const TextureEntryDX12* entry = ResolveEntry( handle );
     return entry ? entry->srvIndex : UINT_MAX;
+}
+
+
+ID3D12Resource* Dx12TextureOwner::ResolveResource( uint32_t handle ) const
+{
+    const TextureEntryDX12* entry = ResolveEntry( handle );
+    return entry ? entry->resource : nullptr;
 }
 
 

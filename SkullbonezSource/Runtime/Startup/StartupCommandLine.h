@@ -65,8 +65,6 @@ struct ParsedArgs
     unsigned int seedOverride = 0;  // 0 = not set
     bool noWater = false;
     bool noSleep = false;
-    bool noContactAudio = false;
-    bool contactAudioSmoke = false;
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;
@@ -86,7 +84,8 @@ struct ParsedArgs
     int graphicsStressActions = 12;
     int graphicsStressSceneIntervalFrames = 45;
     int graphicsStressMemoryIntervalFrames = 1800;
-    Allocation::RuntimeAllocationGuardMode allocationGuardMode = Allocation::RuntimeAllocationGuardMode::Off;
+    SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode allocationGuardMode =
+        SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode::Off;
     bool replayRecording = true;
     bool replayExplicit = false;
     int replaySeconds = REPLAY_PAST_BUFFER_SECONDS;
@@ -172,7 +171,8 @@ bool ParseOptionalOnOffValue( const char* value, bool& out );
 bool CopyCommandLinePath( const char* value, const char* optionName, char* outPath, size_t outPathSize );
 bool ParseIntCommandLineToken( const char* value, int& out );
 bool ParseUnsignedCommandLineToken( const char* value, unsigned int& out );
-bool ParseAllocationGuardCommandLineToken( const char* value, Allocation::RuntimeAllocationGuardMode& out );
+bool ParseAllocationGuardCommandLineToken( const char* value,
+                                           SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode& out );
 
 // Fills caller-owned config/argument state synchronously. False means WinMain
 // must report GetCommandLineError and stop before constructing runtime owners.

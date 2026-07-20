@@ -32,14 +32,14 @@ Related:
 #include "RuntimeCameraMode.h"
 #include "InputFrame.h"
 #include "Window.h"
-#include "WindowConstants.h"
+#include "../Core/WindowConstants.h"
 #include "Replay/ReplayOverlayLayout.h"
 #include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
 #include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
-#include "Allocation/RuntimeAllocationTracker.h"
-#include "Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "Scene/SceneRuntimeLoad.h"
 #include "Diagnostics/SceneMemoryDiagnostics.h"
 #include "../Scene/SceneSnapshotWriter.h"
@@ -68,7 +68,7 @@ using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUITab;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -76,7 +76,7 @@ constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 
 std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( SkullbonezCore::Core::Profiler* profiler )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
     // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
     // the public composition-root header does not republish the UI graph.
     return std::make_unique<SkullbonezCore::UI::InGameUI>( profiler );
@@ -98,16 +98,14 @@ BuildCameraMovementSettings( const SkullbonezCore::Core::EngineConfig& cfg )
 // without turning launch-only details back into `Run` public or private methods.
 // They mutate the owner references that `Run` passes to them synchronously from
 // `ApplyStartupOverrides()`, preserving the original command-line apply order.
-void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
-                               RunLaunchOptions& target,
-                               RuntimeRenderer& renderer,
-                               PhysicsEngine& physics,
-                               SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
+void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch, RunLaunchOptions& target, SceneWorld& sceneWorld )
 {
+    PhysicsEngine& physics = sceneWorld.Physics();
+    SkullbonezCore::Gameplay::TornadoGameplay& tornadoGameplay = sceneWorld.Tornado();
     target.allocationGuardMode = launch.allocationGuardMode;
-    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
+    if ( CoreAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
     {
-        RuntimeAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
+        CoreAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
     }
     if ( launch.timeScaleOverride > 0.0f )
     {
@@ -130,29 +128,24 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
         target.noSleep = true;
         physics.SetSleepEnabled( false );
     }
-    if ( launch.noContactAudio )
-    {
-        target.noContactAudio = true;
-        contactAudio.SetEnabled( false );
-    }
     if ( launch.hasTornadoOverride )
     {
         target.hasTornadoOverride = true;
         target.tornadoEnabled = launch.tornadoEnabled;
-        TornadoFieldConfig tornadoField = physics.GetTornadoFieldConfig();
+        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = tornadoGameplay.GetFieldConfig();
         tornadoField.enabled = launch.tornadoEnabled;
-        physics.SetTornadoFieldConfig( tornadoField );
-        if ( renderer.TornadoVisualAutoEnableWithTornado() )
+        tornadoGameplay.SetFieldConfig( tornadoField );
+        if ( tornadoGameplay.VisualAutoEnableWithTornado() )
         {
-            renderer.SetTornadoVisualEnabled( launch.tornadoEnabled );
+            tornadoGameplay.SetVisualEnabled( launch.tornadoEnabled );
         }
     }
     if ( launch.tornadoVectors )
     {
         target.tornadoVectors = true;
-        TornadoFieldConfig tornadoField = physics.GetTornadoFieldConfig();
+        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = tornadoGameplay.GetFieldConfig();
         tornadoField.visualizeVelocityField = true;
-        physics.SetTornadoFieldConfig( tornadoField );
+        tornadoGameplay.SetFieldConfig( tornadoField );
     }
     if ( launch.hasCinematicRenderingOverride )
     {
@@ -263,7 +256,7 @@ Run::Run( Window& window,
           Threading::WorkerPool& workerPool,
           SkullbonezCore::Core::Profiler* profiler,
           RuntimeRenderBackendView renderBackendView,
-          DevelopmentTools::TracyClientOwner* tracyClientOwner )
+          SkullbonezCore::Core::DevelopmentTools::TracyClientOwner* tracyClientOwner )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_profiler( profiler ),
       m_tracyClientOwner( tracyClientOwner ), m_sceneController( std::move( sceneQueue ) ), m_replayRuntime( profiler ),
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
@@ -303,7 +296,6 @@ Run::Run( Window& window,
     m_sceneController.Scene().ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
-    m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
 }
@@ -311,21 +303,23 @@ Run::Run( Window& window,
 
 Run::~Run()
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
 #ifdef _DEBUG
     m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( m_sceneController.State(), "process_end" );
 #endif
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        m_diagnosticsRuntime.WriteMainMemoryDump(
-            m_replayRuntime.CollectMemoryStats(),
-            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ m_sceneController.Scene().Entities(),
-                                                                 m_sceneController.Scene().Physics(),
-                                                                 m_sceneController.Scene().RenderInstances() } ),
-            m_sceneController.State(),
-            "shutdown",
-            m_timers.simulationTimer.GetTotalTime() );
+        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
+                                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView{
+                                                      m_sceneController.Scene().Entities(),
+                                                      m_sceneController.Scene().CollectGameplayMemoryBytes(),
+                                                      m_sceneController.Scene().CollectGameplayDebugMemoryBytes(),
+                                                      m_sceneController.Scene().Physics(),
+                                                      m_sceneController.Scene().RenderInstances() } ),
+                                                  m_sceneController.State(),
+                                                  "shutdown",
+                                                  m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
     const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();
@@ -372,6 +366,10 @@ Run::~Run()
                   releaseResult.error.owner[0] != '\0' ? releaseResult.error.owner : "Rendering/DX12",
                   releaseResult.error.message[0] != '\0' ? releaseResult.error.message : "GPU drain failed" );
     }
+    // Lifetime: the renderer has now drained submitted GPU work. Gameplay can
+    // release its extension-owned transient storage without a renderer-side
+    // content branch or a retained backend pointer.
+    m_sceneController.Scene().Tornado().ReleaseVisualResources();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Lifetime: the preceding release path proved all submitted frames complete.
     // Destroy vendor GPU objects and return its descriptor rows while both the
@@ -391,11 +389,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch,
-                              m_launchOptions,
-                              m_renderer,
-                              m_sceneController.Scene().Physics(),
-                              m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_sceneController.Scene() );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     ApplyDevelopmentUiMode();
 #endif
@@ -551,24 +545,6 @@ void Run::Initialise()
         return;
     }
 
-    m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
-    m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
-    m_contactAudio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
-    m_contactAudio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
-    m_contactAudio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
-    m_contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
-    if ( !m_launchOptions.noContactAudio && cfg.contactAudio.enabled )
-    {
-        const bool audioReady =
-            m_contactAudio.Initialize() &&
-            m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
-        m_contactAudio.SetEnabled( audioReady );
-    }
-    else
-    {
-        m_contactAudio.SetEnabled( false );
-    }
-
     SceneLoadConsumerOutputs sceneLoadOutputs;
     m_lastSceneLoadResult = m_sceneController.Load(
         SceneLoadRequest::Load( 0, false, false, false ),
@@ -587,12 +563,7 @@ void Run::Initialise()
                                           CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
         SceneLoadPresentationParticipants{ m_replayRuntime, *m_overlayDiagnostics, m_renderBackendView, m_renderer },
         sceneLoadOutputs );
-    ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
-                                   m_window,
-                                   *m_operatorUi,
-                                   m_contactAudio,
-                                   *m_validationHarness,
-                                   m_launchOptions );
+    ApplySceneLoadConsumerOutputs( sceneLoadOutputs, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -799,7 +770,6 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        m_window,
                                        *m_operatorUi,
-                                       m_contactAudio,
                                        *m_validationHarness,
                                        m_launchOptions );
         if ( !loadResult.ok )

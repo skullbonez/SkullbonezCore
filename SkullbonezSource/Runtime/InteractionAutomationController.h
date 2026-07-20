@@ -14,7 +14,7 @@ Glossary:
   Input override: Scripted mouse/key snapshot forwarded through the normal
     runtime input bridge for a bounded frame window.
   Development UI command: Fixed presentation or native-window request emitted
-    by the sequencer and consumed once by the frame composition root.
+    by the sequencer and applied synchronously by this automation owner.
 
 Invariants:
   - Automation state is active only for CLI validation launches.
@@ -23,6 +23,9 @@ Invariants:
   - Synthetic input is cleared through `InteractionAutomationInputDriver` after
     actions complete or fail.
   - Development UI commands are fixed-capacity and select at most one surface.
+  - Editor and window owners are borrowed only while one command batch is
+    applied; automation stores neither owner after the synchronous call.
+  - Process-wide development-surface selection remains a typed request for Run.
 
 Related:
   - SkullbonezSource/Runtime/InteractionAutomationController.cpp
@@ -38,6 +41,7 @@ Related:
 #include "RuntimeFrameViews.h"
 #include "InteractionAutomationInputDriver.h"
 #include "InteractionAutomationReportWriter.h"
+#include "RunLaunchOptions.h"
 
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
@@ -68,6 +72,10 @@ class InGameUI;
 }
 namespace Runtime
 {
+namespace DevelopmentTools
+{
+class ImGuiEditorOwner;
+}
 class AttachedCameraController;
 class CaptureController;
 class InputRouter;
@@ -191,6 +199,15 @@ struct InteractionAutomationDevelopmentUiCommand
     int height = 0;
 };
 
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+struct InteractionAutomationDevelopmentUiApplyResult
+{
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+    bool selectSurface = false;
+    DevelopmentUiMode surface = DevelopmentUiMode::Legacy;
+};
+#endif
+
 // Immutable after-render evidence used by automation assertions. It exposes
 // resource counters and visibility facts, never mutable editor or renderer state.
 struct InteractionAutomationDevelopmentUiView
@@ -231,6 +248,8 @@ struct RunInteractionAutomationAction
     bool processed = false;
 };
 
+struct InteractionAutomationFrameResult;
+
 struct InteractionAutomationController
 {
     bool enabled = false;
@@ -241,6 +260,14 @@ struct InteractionAutomationController
     InteractionAutomationRunStatus status;
     InteractionAutomationInputDriver inputDriver;
     InteractionAutomationReportWriter reportWriter;
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+    // Applies the bounded editor/window commands for one automation turn. Run
+    // retains only the returned process-surface selection and failure boundary.
+    InteractionAutomationDevelopmentUiApplyResult
+    ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame,
+                                Window& window,
+                                DevelopmentTools::ImGuiEditorOwner& editor ) const;
+#endif
 };
 
 struct InteractionAutomationFrameResult

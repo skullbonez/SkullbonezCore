@@ -4,9 +4,9 @@ Purpose:
   Aggregates scene-owner memory capacity into one diagnostics value.
 
 Summary:
-  The diagnostics boundary reads the concrete entity, physics, and render
-  owners directly. It replaces SceneController memory forwarding without
-  granting diagnostics mutation authority over any owner.
+  The diagnostics boundary reads concrete entity, Physics, and render owners,
+  then joins Gameplay byte values projected by SceneWorld. It replaces
+  SceneController memory forwarding without granting mutation authority.
 
 Glossary:
   Metadata bytes: Reserved SceneEntityStore and presentation-record capacity.
@@ -55,9 +55,12 @@ SkullbonezCore::Core::MainMemoryGameObjectStats CollectSceneMemoryStats( const S
     stats.renderStoreBytes =
         static_cast<uint64_t>( view.renderInstances.RecordCapacity() ) * sizeof( Rendering::RenderInstanceRecord );
     stats.physicsWorldBytes = view.physics.CollectPhysicsWorldMemoryBytes();
-    stats.debugAndBroadphaseBytes = view.physics.CollectDebugAndBroadphaseMemoryBytes();
+    stats.gameplayWorldBytes = view.gameplayWorldBytes;
+    // Historical category semantics: debug capacity is an informational
+    // subset of its owning world totals, never an extra contribution to total.
+    stats.debugAndBroadphaseBytes = view.physics.CollectDebugAndBroadphaseMemoryBytes() + view.gameplayDebugBytes;
     stats.totalBytes = stats.modelVectorBytes + stats.physicsStoreBytes + stats.colliderStoreBytes +
-                       stats.renderStoreBytes + stats.physicsWorldBytes;
+                       stats.renderStoreBytes + stats.physicsWorldBytes + stats.gameplayWorldBytes;
     return stats;
 }
 } // namespace Runtime

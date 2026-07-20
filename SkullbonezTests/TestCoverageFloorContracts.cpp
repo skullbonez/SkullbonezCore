@@ -4,7 +4,7 @@
 //   Exercise high-value physics and replay owner contracts needed by the armed
 //   coverage gate.
 //
-// Mental model:
+// Summary:
 //   The fixtures drive production replay checkpoint/event serialization from a
 //   real one-body solver capture, exercise every object-manifold shape pair,
 //   and drive the retained timeline through its value API. Assertions validate
@@ -159,7 +159,6 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
 
     PhysicsBodyCreateRecord body;
     body.cold.sceneObjectId = PhysicsSceneObjectId{ sceneId };
-    body.cold.replayBodyId = sceneId;
     body.cold.mass = 4.0f;
     body.cold.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( shape );
     body.cold.projectedSurfaceArea =
@@ -181,7 +180,6 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     ColliderRecord collider;
     collider.body = handle;
     collider.sceneObjectId = body.cold.sceneObjectId;
-    collider.replayBodyId = sceneId;
     collider.shape = shape;
     collider.shapeKind = ShapeKind( shape );
     collider.boundingRadius = body.hot.boundingRadius;
@@ -276,6 +274,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     launcher.laserShots.push_back( shot );
 
     ReplayCaptureInput capture;
+    SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
     capture.branch.branchId = 9u;
     capture.branch.parentBranchId = 4u;
     capture.eventCursor = 3u;
@@ -283,6 +282,7 @@ TEST_CASE( "Coverage floor contract: full replay tracks round-trip owner values"
     capture.physicsDt = 1.0f / 120.0f;
     capture.fixedStep = true;
     capture.physics = &engine;
+    capture.tornadoGameplay = &tornadoGameplay;
     capture.entities = &entities;
     capture.bodyStore = &PhysicsEngine::ReadBodies( engine );
     capture.colliderStore = &PhysicsEngine::ReadColliders( engine );

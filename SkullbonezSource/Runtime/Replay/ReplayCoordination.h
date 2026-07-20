@@ -289,7 +289,7 @@ struct ReplayFrameIntent
     bool applyPredictionRevealRate = false;
     double predictionRevealRate = 1.0;
     bool setPathTarget = false;
-    ReplayBodyId pathTargetId;
+    Physics::PhysicsSceneObjectId pathTargetId;
     Physics::ModelRowHint pathTargetModelRow;
     char pathTargetName[64] = {};
 };

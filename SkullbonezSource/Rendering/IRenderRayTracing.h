@@ -5,9 +5,9 @@ Purpose:
 
 Summary:
   Most runtime rendering needs an ordinary raster device. DXR reflection is a
-  separate capability with its own acceleration structures, writeable reflection
-  texture, and mesh geometry addresses. Callers that only need reflection rays
-  should depend on this interface instead of the concrete render backend owner.
+  separate capability with its own acceleration structures, writable reflection
+  texture, and typed setup/dispatch values. Callers that only need reflection
+  rays should depend on this interface instead of the concrete backend owner.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and reflection dispatch.
@@ -22,6 +22,8 @@ Invariants:
   - The capability is borrowed from the active renderer; callers must not cache it across backend teardown.
   - Feature support is still queried through RenderCapabilities before dispatching reflection rays.
   - Texture handles returned here are engine texture handles, not native DX12 descriptors.
+  - Setup and dispatch are complete operation values; callers never rely on
+    positional geometry, matrix, vector, or environment-texture arguments.
 
 Related:
   - SkullbonezSource/Rendering/IRenderDiagnostics.h
@@ -31,14 +33,59 @@ Related:
 #pragma once
 
 #include "../Core/SbResult.h"
+#include "../Maths/Matrix4.h"
+#include "../Maths/Vector3.h"
 
 #include <cstdint>
+#include <span>
 
 
 namespace SkullbonezCore
 {
 namespace Rendering
 {
+
+struct RaytracingGeometryDesc
+{
+    // Lifetime: the borrowed GPU address must remain valid through cold setup;
+    // the backend copies it into an acceleration structure before returning.
+    uint64_t vertexBufferAddress = 0;
+    int vertexCount = 0;
+    int vertexStride = 0;
+};
+
+struct RaytracingSetupDesc
+{
+    RaytracingGeometryDesc terrain;
+    RaytracingGeometryDesc sphere;
+    int maxInstances = 0;
+};
+
+struct ReflectionEnvironmentTextures
+{
+    uint32_t sphere = 0;
+    uint32_t terrain = 0;
+    uint32_t skyUp = 0;
+    uint32_t skyDown = 0;
+    uint32_t skyRight = 0;
+    uint32_t skyLeft = 0;
+    uint32_t skyFront = 0;
+    uint32_t skyBack = 0;
+};
+
+struct WaterReflectionRayDesc
+{
+    // Invariant: every environment handle names a registered engine texture.
+    // The backend resolves all eight handles as one contiguous shader table.
+    Math::Transformation::Matrix4 inverseViewProjection;
+    Math::Vector::Vector3 cameraPosition;
+    Math::Vector::Vector3 lightPosition;
+    Math::Vector::Vector3 skyColorTop{ 0.4f, 0.6f, 0.9f };
+    Math::Vector::Vector3 skyColorBottom{ 0.7f, 0.8f, 0.95f };
+    float waterHeight = 0.0f;
+    float simulationTimeSeconds = 0.0f;
+    ReflectionEnvironmentTextures textures;
+};
 
 /* -- IRenderRayTracing
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -53,32 +100,15 @@ class IRenderRayTracing
   public:
     virtual ~IRenderRayTracing() = default;
 
-    virtual SkullbonezCore::Core::SbResult InitDXR( uint64_t terrainVBVA,
-                                                    int terrainVertCount,
-                                                    int terrainStride,
-                                                    uint64_t sphereVBVA,
-                                                    int sphereVertCount,
-                                                    int sphereStride,
-                                                    int maxInstances ) = 0;
-    virtual void DispatchReflectionRays( const float* invViewProj,
-                                         const float* cameraPos,
-                                         float waterY,
-                                         float time,
-                                         const float* lightPos,
-                                         const float* skyColorTop,
-                                         const float* skyColorBottom,
-                                         int width,
-                                         int height,
-                                         uint32_t sphereTexHandle,
-                                         uint32_t terrainTexHandle,
-                                         uint32_t skyUpHandle,
-                                         uint32_t skyDownHandle,
-                                         uint32_t skyRightHandle,
-                                         uint32_t skyLeftHandle,
-                                         uint32_t skyFrontHandle,
-                                         uint32_t skyBackHandle ) = 0;
-    virtual void
-    BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) = 0;
+    // Creates device-lifetime raytracing resources from one complete cold-setup
+    // value. Repeated calls after successful setup are harmless.
+    virtual SkullbonezCore::Core::SbResult InitDXR( const RaytracingSetupDesc& setup ) = 0;
+    // Records one water-reflection dispatch using current scene instances and
+    // the complete camera/light/environment description for this frame.
+    virtual void DispatchReflectionRays( const WaterReflectionRayDesc& reflection ) = 0;
+    // Rebuilds the scene instance table from bounded engine matrices. Terrain
+    // is backend-owned and inserted separately as instance zero.
+    virtual void BuildTLAS( std::span<const Math::Transformation::Matrix4> instanceTransforms ) = 0;
     virtual uint32_t GetReflectionUAVTexture() const = 0;
     virtual void ShutdownDXR() = 0;
     virtual uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const = 0;

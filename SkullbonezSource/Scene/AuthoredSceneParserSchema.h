@@ -826,11 +826,11 @@ inline int ParseUITab( const Json& value, const std::string& path )
     // tab names as authoring text, but the runtime state still consumes the enum
     // ordinal.
     static const SceneIntOption kTabs[] = {
-        { "profiler", 0 },       { "profile", 0 }, { "overview", 0 }, { "scene", 1 },   { "editor", 2 },
-        { "placement", 2 },      { "physics", 3 }, { "sound", 4 },    { "audio", 4 },   { "options", 5 },
-        { "params", 5 },         { "render", 6 },  { "renderer", 6 }, { "targets", 7 }, { "render_targets", 7 },
-        { "render-targets", 7 }, { "keys", 8 },    { "controls", 8 }, { "sky", 9 },     { "atmosphere", 9 },
-        { "cinematic", 10 },     { "cine", 10 },   { "look", 10 },
+        { "profiler", 0 },  { "profile", 0 }, { "overview", 0 },       { "scene", 1 },          { "editor", 2 },
+        { "placement", 2 }, { "physics", 3 }, { "options", 4 },        { "params", 4 },         { "render", 5 },
+        { "renderer", 5 },  { "targets", 6 }, { "render_targets", 6 }, { "render-targets", 6 }, { "keys", 7 },
+        { "controls", 7 },  { "sky", 8 },     { "atmosphere", 8 },     { "cinematic", 9 },      { "cine", 9 },
+        { "look", 9 },      { "memory", 10 }, { "allocations", 10 },
     };
 
     int parsed = 0;
@@ -1002,7 +1002,7 @@ inline std::string ReadInferredContactMaterial( const Json& object, const std::s
     if ( renderMaterial && renderMaterial->is_object() )
     {
         // Why: asset libraries already tag render materials by substance; using
-        // that token keeps contact audio material-aware without duplicating JSON.
+        // that token keeps gameplay contact policies material-aware without duplicating JSON.
         if ( const Json* mode = FindMember( *renderMaterial, "mode" ); mode && mode->is_string() )
         {
             return ReadContactMaterialToken( *mode, path, "asset.material.mode" );
@@ -1133,7 +1133,7 @@ class AuthoredSceneParser
                             const char* memberName,
                             float& target,
                             float minimum );
-    void ApplyTornadoVortex( const Json& object, const std::string& path, Physics::TornadoSystemConfig& system );
+    void ApplyTornadoVortex( const Json& object, const std::string& path, AuthoredTornadoSystemConfig& system );
     void ApplyTornadoSystem( const Json& tornadoSystem, const std::string& path );
     void ApplyRuntime( const Json& runtime, const std::string& path );
     void ApplyCapture( const Json& capture, const std::string& path );

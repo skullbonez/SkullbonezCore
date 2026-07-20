@@ -6,8 +6,8 @@ Purpose:
 Summary:
   The render graph compiler assigns logical lifetimes to reusable pool slots.
   This concrete owner materializes those slots, owns their descriptors and
-  logical bindings, and saves/restores raster output state while callbacks draw
-  into a graph texture.
+  logical bindings, emits only compiler-selected state transitions, and
+  saves/restores raster output state while callbacks draw into a graph texture.
 
 Glossary:
   Logical binding: Mapping from a graph resource handle to one physical slot.
@@ -18,6 +18,8 @@ Glossary:
 Invariants:
   - Pool state and the active target transaction live only in this owner.
   - Descriptor operations borrow Dx12DescriptorHeaps, never raw heap pointers.
+  - Target Begin/End changes bindings only; ExecuteTransitions is the sole
+    transient barrier authority.
   - A target transaction restores the exact RTV, DSV, and RTV format it saved.
   - Shutdown releases the pool only after the frame owner proves terminal drain.
 
@@ -55,6 +57,7 @@ class Dx12GraphTransientPool
     RenderGraphTransientMaterializationStats Materialize( const RenderGraph& graph,
                                                           const RenderGraphCompileResult& compiled );
     RenderGraphTextureBinding Resolve( RenderGraphResourceHandle resource ) const;
+    size_t ExecuteTransitions( const RenderGraph& graph, const RenderGraphCompileResult& compiled, uint32_t passIndex );
     void BeginRenderTarget( const RenderGraphTextureBinding& binding, const char* passName );
     void EndRenderTarget( const RenderGraphTextureBinding& binding, const char* passName );
     void ReleaseAfterTerminalDrain( const char* reason );
@@ -71,12 +74,6 @@ class Dx12GraphTransientPool
   private:
     GraphTransientResourceDX12* FindSlot( RenderGraphResourceHandle resource );
     const GraphTransientResourceDX12* FindSlot( RenderGraphResourceHandle resource ) const;
-    bool Transition( const char* passName,
-                     const char* resourceName,
-                     ID3D12Resource* resource,
-                     RenderGraphResourceAccess before,
-                     RenderGraphResourceAccess after );
-
     Dx12RenderDevice& m_device;
     Dx12DescriptorHeaps& m_descriptors;
     Dx12FrameOwner& m_frame;

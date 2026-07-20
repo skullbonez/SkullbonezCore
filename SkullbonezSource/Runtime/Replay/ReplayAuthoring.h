@@ -11,7 +11,7 @@ Glossary:
   Cause row: One replay explanation row.
 
 Invariants:
-  - Cause rows retain ReplayBodyId as identity and dense rows only as hints.
+  - Cause rows retain Physics::PhysicsSceneObjectId as identity and dense rows only as hints.
   - Authoring receives prediction only as a read-only frame-local publication;
     the composition root consumes queued mutation requests in frame order.
 
@@ -81,9 +81,9 @@ inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
 struct RunReplayCauseTreeRow
 {
     RunReplayCauseTreeRowKind kind = RunReplayCauseTreeRowKind::Body;
-    ReplayBodyId id;
-    ReplayBodyId parentId;
-    ReplayBodyId counterpartId;
+    Physics::PhysicsSceneObjectId id;
+    Physics::PhysicsSceneObjectId parentId;
+    Physics::PhysicsSceneObjectId counterpartId;
     ReplayFrameIndex firstFrame = 0;
     int depth = 0;
     Physics::ModelRowHint modelRow;
@@ -117,7 +117,7 @@ struct RunReplayCauseTreeState
     // and builders fail closed instead of growing on a frame.
     std::vector<RunReplayCauseTreeRow> rows;
     int selectedRow = -1;
-    ReplayBodyId focusedId;
+    Physics::PhysicsSceneObjectId focusedId;
     bool hasWindowPlacement = false;
     int x = 0;
     int y = 0;
@@ -208,7 +208,7 @@ class ReplayAuthoring
 
     void ClearCauseTreeFocus() noexcept
     {
-        m_causeTree.focusedId = ReplayBodyId{};
+        m_causeTree.focusedId = Physics::PhysicsSceneObjectId{};
         m_causeTree.selectedRow = -1;
     }
 
@@ -257,7 +257,7 @@ class ReplayAuthoring
     void BeginCauseTreeResize( int mouseX, int mouseY ) noexcept;
     void BeginCauseTreeMove( int mouseX, int mouseY ) noexcept;
     bool TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& outRow ) const noexcept;
-    void SetCauseTreeFocus( int rowIndex, ReplayBodyId focusedId ) noexcept;
+    void SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept;
     // Builds the bounded explanatory row publication from read-only owner
     // views. Camera synchronization is returned as a value so authoring never
     // reaches into presentation authority.
@@ -404,7 +404,7 @@ class ReplayAuthoring
 
     // Appends the authoring-owned velocity gizmo from value-selected replay
     // identity. Presentation supplies the target but cannot mutate edit state.
-    void AppendVelocityEditOverlay( ReplayBodyId targetId,
+    void AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId targetId,
                                     Physics::ModelRowHint targetModelRow,
                                     Physics::PhysicsEngine& physics,
                                     bool editorModeEnabled,

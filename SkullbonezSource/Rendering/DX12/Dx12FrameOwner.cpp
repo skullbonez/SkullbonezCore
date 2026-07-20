@@ -34,15 +34,14 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include "../../Runtime/DevelopmentTools/TracyClientOwner.h"
-#include "../../Runtime/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/TracyClientOwner.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 
 using namespace SkullbonezCore::Rendering;
-namespace Runtime = SkullbonezCore::Runtime;
 
 Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device,
                                 Dx12PipelineOwner& pipeline,
@@ -96,6 +95,9 @@ void Dx12FrameOwner::ResetAfterShutdown()
 
 bool Dx12FrameOwner::TransitionBackbuffer( const char* passName, RenderGraphResourceAccess after )
 {
+    // Exception boundary: this helper is reserved for Present, cold synchronous
+    // capture, the editor viewport copy/restore pair, and lifecycle
+    // reconciliation. Executable frame passes use compiled graph transitions.
     ID3D12Resource* backbuffer = RenderTarget( FrameIndex() );
     if ( !backbuffer || BackBufferAccess() == after )
     {
@@ -196,21 +198,12 @@ bool Dx12FrameOwner::PrepareDraw()
     }
     if ( !m_pipeline.RenderingToFramebuffer() && m_backBufferAccess != RenderGraphResourceAccess::RenderTarget )
     {
-        Dx12RenderGraphSingleTransitionDesc desc;
-        desc.commandList = m_device.CommandList();
-        desc.resource = m_renderTargets[m_frameIndex];
-        desc.before = m_backBufferAccess;
-        desc.after = RenderGraphResourceAccess::RenderTarget;
-        const Dx12RenderGraphBarrierRecord record = ExecuteDx12RenderGraphSingleTransition( "Dx12Explicit",
-                                                                                            "PrepareDrawBackbuffer",
-                                                                                            "SwapchainBackbuffer",
-                                                                                            desc );
-        if ( !record.emitted )
-        {
-            SB_FATAL( "Dx12FrameOwner", "Draw backbuffer transition did not emit." );
-        }
-        m_backBufferAccess = RenderGraphResourceAccess::RenderTarget;
-        m_pipeline.InvalidateTargets();
+        // Invariant: executable graph callbacks acquire the normal render
+        // target state. Draw submission is a consumer and must never recreate
+        // the retired implicit transition fallback.
+        SB_FATAL( "Dx12FrameOwner",
+                  "Backbuffer draw reached submission without graph acquisition. tracked=%s",
+                  ToString( m_backBufferAccess ) );
     }
     return !m_recording.HasFailure();
 }
@@ -526,7 +519,8 @@ static const char* Dx12UploadCategoryName( RenderUploadCategory category )
 bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category )
 {
     const bool fits = m_uploads.CanAllocate( m_allocatorIndex, size, alignment );
-    const Runtime::Allocation::RuntimeAllocationPhase phase = Runtime::Allocation::GetRuntimeAllocationPhase();
+    const SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase =
+        SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
     const Dx12UploadArenaStats stats = m_uploads.GetStats( m_allocatorIndex );
     const char* owner = Dx12UploadCategoryName( category );
     const Dx12UploadReservationResolution resolution = ResolveDx12UploadReservation(
@@ -539,7 +533,7 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
                 "dx12_upload_cold_flush owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
                 "capacity_bytes=%llu flushes=%llu",
                 owner,
-                Runtime::Allocation::RuntimeAllocationPhaseName( phase ),
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
                 static_cast<unsigned long long>( size ),
                 static_cast<unsigned long long>( stats.usedBytes ),
                 static_cast<unsigned long long>( stats.capacityBytes ),
@@ -563,7 +557,7 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
                 "dx12_upload_drop owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
                 "capacity_bytes=%llu owner_drops=%llu total_drops=%llu",
                 owner,
-                Runtime::Allocation::RuntimeAllocationPhaseName( phase ),
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
                 static_cast<unsigned long long>( size ),
                 static_cast<unsigned long long>( stats.usedBytes ),
                 static_cast<unsigned long long>( stats.capacityBytes ),
@@ -889,7 +883,8 @@ bool Dx12DrawGate::PrepareFramebufferBind()
 bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
                                           bool instanced,
                                           const InstancedMeshDX12* instancedMesh,
-                                          const DynamicVBDX12* dynamicVertexBuffer )
+                                          const DynamicVBDX12* dynamicVertexBuffer,
+                                          const RasterStateDesc& rasterState )
 {
     if ( !PrepareDraw() )
     {
@@ -902,16 +897,45 @@ bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
                                    format,
                                    instanced,
                                    instancedMesh,
-                                   dynamicVertexBuffer );
+                                   dynamicVertexBuffer,
+                                   rasterState );
+}
+
+
+bool Dx12FrameOwner::PrecompilePipelineDraw( VertexFormat12 format,
+                                             bool instanced,
+                                             const InstancedMeshDX12* instancedMesh,
+                                             const DynamicVBDX12* dynamicVertexBuffer,
+                                             const RasterStateDesc& declaredRasterState )
+{
+    if ( !PrepareDraw() )
+    {
+        return false;
+    }
+    // Why: pass preparation warms the exact declared recipe before the first
+    // submission. No command-list state is changed by this operation.
+    return m_pipeline
+        .PrecompileDraw( Device(), format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
 }
 
 
 bool Dx12DrawGate::PreparePipelineDraw( VertexFormat12 format,
                                         bool instanced,
                                         const InstancedMeshDX12* instancedMesh,
-                                        const DynamicVBDX12* dynamicVertexBuffer )
+                                        const DynamicVBDX12* dynamicVertexBuffer,
+                                        const RasterStateDesc& rasterState )
 {
-    return m_owner.PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer );
+    return m_owner.PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer, rasterState );
+}
+
+
+bool Dx12DrawGate::PrecompilePipelineDraw( VertexFormat12 format,
+                                           bool instanced,
+                                           const InstancedMeshDX12* instancedMesh,
+                                           const DynamicVBDX12* dynamicVertexBuffer,
+                                           const RasterStateDesc& declaredRasterState )
+{
+    return m_owner.PrecompilePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
 }
 
 

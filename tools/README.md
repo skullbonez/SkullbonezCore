@@ -16,7 +16,7 @@ validation.
 | `validate_tests.bat` | Build and run the doctest unit-test executable | build + console test runner |
 | `validate_coverage.bat` | Build the Debug doctest runner, export Cobertura product coverage, and report/check versioned subsystem floors | incremental Debug build + console test runner |
 | `validate_runtime_interaction_policy.bat` | Build/run Debug and Release interaction-policy tests | 2 console test launches |
-| `validate_automation.bat` | Prove Profile excludes scripted diagnostics and run the replay/prediction pre-commit smoke in Automation | build + 2 engine processes |
+| `validate_automation.bat` | Prove Profile excludes scripted diagnostics and run one combined replay/prediction plus development-UI command smoke in Automation | build + 2 engine processes |
 | `validate_scene_parser_tests.bat` | Build/run CPU-side scene/style parser contract tests | build + console test runner |
 | `validate_dx12_arch_tests.bat` | Build/run CPU-side renderer architecture tests; no device creation | build + console test runner |
 | `validate_dx12_fault_injection.bat` | Debug runtime proof that the first injected DX12 submission failure exits nonzero and issues zero submissions | build + one bounded engine launch |
@@ -36,6 +36,7 @@ validation.
 | `validate_physics_deep.bat` | Opt-in bullet sweep, shooting, known-issue, and SkullScope physics baselines | ~45s+ |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Hard gate for DX12, physics, and hot-path perf budgets/regressions | ~1 min |
+| `validate_replay_allocation_policy.bat` | Strict two-generation Replay allocation/owner probe | ~20 s |
 | `validate_full.bat` | Default broad PR gate: mandatory CPU, Automation replay smoke, DX12 renderer, and core physics | CPU tests + 5 engine processes |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
@@ -50,8 +51,8 @@ order and stops before any engine launch when a CPU target fails:
 2. `validate_all_cpu_tests.bat` runs the doctest, enforced coverage floors,
    runtime-interaction, scene parser, and DX12 architecture targets.
 3. `validate_automation.bat` proves Profile rejects diagnostic scripts, builds
-   the dedicated Automation executable, and runs the short replay/prediction
-   interaction smoke required on every broad pre-commit pass.
+   the dedicated Automation executable, and runs one combined replay/prediction
+   plus development-UI command smoke required on every broad pre-commit pass.
 4. The Debug build, DX12 renderer gate, and core physics determinism gate run
    only after the mandatory CPU and automation lanes pass. Automation launches
    two engine processes, rendering launches one, and physics launches its
@@ -170,8 +171,9 @@ tools\run_graphics_stress.bat overnight 3235774467 16 36 1800
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol, uniform, or resource coverage is reported as warnings |
 | `validate_project_filters.bat` | Check `.vcxproj` and `.vcxproj.filters` item coverage, exact path casing, source/header category pairing, scene/style/shader filters, declared filter names, and exact transitive JSON reachability for the ratified 19 cold-boundary translation units |
 | `validate_runtime_interaction_policy.bat` | CPU-only checks for runtime interaction ownership, pointer capture, camera-look, and physics-step policy |
-| `validate_automation.bat` | Pre-commit boundary check plus short replay/prediction interaction smoke in the diagnostics-only Automation build |
+| `validate_automation.bat` | Pre-commit boundary check plus one combined replay/prediction and development-UI command smoke in the diagnostics-only Automation build |
 | `validate_replay_visual_fidelity.bat` | Authoritative frame-exact 200-box replay gate: one hidden engine process, one prediction generation, immutable golden comparison, offline artifact round-trip, and false-pass controls |
+| `validate_replay_allocation_policy.bat` | Builds Automation, runs one hidden two-generation tornado prediction process, and requires zero gameplay/reserve violations plus a complete frame-180 interaction report |
 | `validate_replay_scrub.bat` | Historical replay-scrub entry point; delegates exclusively to `validate_replay_visual_fidelity.bat` and preserves its failure status |
 | `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Run the Legacy UI backdrop sweep, then an ImGui editor matrix covering exclusive hot swaps, exact scene transition, typed replay scrub, panel/layout churn, minimum/default/ultrawide captures, descriptor bounds, logs, and DX12 validation |

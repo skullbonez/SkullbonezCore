@@ -785,7 +785,7 @@ bool AuthoredScene::HasTornadoSystem() const
 }
 
 
-const SkullbonezCore::Physics::TornadoSystemConfig& AuthoredScene::GetTornadoSystemConfig() const
+const AuthoredTornadoSystemConfig& AuthoredScene::GetTornadoSystemConfig() const
 {
     return m_tornadoSystem.config;
 }

@@ -120,7 +120,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -146,7 +146,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -173,7 +173,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -199,7 +199,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -225,7 +225,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;xaudio2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -255,53 +255,56 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\imgui_draw.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\imgui_tables.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\imgui_widgets.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_win32.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\imgui\backends\imgui_impl_dx12.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\tracy\public\TracyClient.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h</ForcedIncludeFiles>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
-      <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp" />
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoVisualPass.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp" />
+      <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
+      <ClCompile Include="SkullbonezSource\Core\TracyClientOwner.cpp">
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
@@ -343,7 +346,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp" />
-    <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp" />
@@ -371,13 +373,13 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Audio\ContactAudioService.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickGeometry.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickService.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\OperatorCommandApplier.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp" />
@@ -430,6 +432,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeValidationHarness.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UiTextPass.cpp" />
@@ -472,7 +475,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabProfilerHistogram.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
-    <ClCompile Include="SkullbonezSource\UI\UITabSound.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabSky.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
@@ -483,7 +485,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\ProfilerImplementation.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />
@@ -517,13 +519,16 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Debug\PhysicsDebugVisualizer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoField.h" />
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoGameplay.h" />
+    <ClInclude Include="SkullbonezSource\Gameplay\TornadoVisualPass.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetKeys.h" />
     <ClInclude Include="SkullbonezSource\Assets\AssetSystem.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h" />
+    <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h" />
+    <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.h" />
+      <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.h" />
+      <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h" />
+      <ClInclude Include="SkullbonezSource\Core\TracyClientOwner.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h" />
@@ -551,16 +556,17 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\MainMemoryStats.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DrawCallTrace.h" />
     <ClInclude Include="SkullbonezSource\Core\Fence.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCapacity.h" />
+    <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
-    <ClInclude Include="SkullbonezSource\Core\SkullScope.h" />
+    <ClInclude Include="SkullbonezSource\Core\StringHash.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeValidationHarness.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.Bindings.h" />
@@ -597,10 +603,10 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\RunLaunchOptions.Renderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\DiagnosticsRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Diagnostics\SceneMemoryDiagnostics.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Audio\ContactAudioService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\OperatorCommandApplier.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />
@@ -648,7 +654,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacketFingerprint.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayVisualPacket.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplaySolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\TrajectoryStore.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Tools\RuntimeTools.h" />
@@ -659,7 +664,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\Text.h" />
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h" />
+    <ClInclude Include="SkullbonezSource\Core\WindowConstants.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />
@@ -693,11 +698,11 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabScene.h" />
-    <ClInclude Include="SkullbonezSource\UI\UITabSound.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabSky.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowInteractionOwner.h" />
     <ClInclude Include="SkullbonezSource\Scene\AuthoredScene.h" />
+    <ClInclude Include="SkullbonezSource\Scene\AuthoredTornadoConfig.h" />
     <ClInclude Include="SkullbonezSource\Scene\AuthoredSceneParserSchema.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h" />
     <ClInclude Include="SkullbonezSource\Core\Profiler.h" />
@@ -708,12 +713,15 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderPipeline.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderRasterBindingContract.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderSceneSnapshot.h" />
@@ -758,50 +766,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
-    <None Include="SkullbonezData\audio\contact_audio.materials.json" />
-    <None Include="SkullbonezData\audio\LICENSES.md" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_02.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_03.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_04.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_05.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_06.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_07.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_08.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_09.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_thwack_10.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_02.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_03.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_04.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_05.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_06.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_07.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_08.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_09.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_10.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_11.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_12.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_hit_13.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_rock_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_02.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_03.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_02.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_soft_03.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_02.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_stone_03.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_metal_02.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_01.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_02.ogg" />
-    <None Include="SkullbonezData\audio\impacts\impact_thud_wood_alt_03.ogg" />
-    <None Include="ThirdPtySource\stb\stb_vorbis.c" />
     <None Include="SkullbonezData\shaders\launcher_laser.hlsl" />
     <None Include="SkullbonezData\shaders\trajectory_ribbon.hlsl" />
-    <None Include="SkullbonezData\shaders\tornado_fx.hlsl" />
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.hlsl" />
     <None Include="SkullbonezData\hulls\diamond.hull" />
     <None Include="SkullbonezData\hulls\hex_prism.hull" />
     <None Include="SkullbonezData\hulls\pyramid.hull" />
@@ -953,8 +920,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\shaders\solid_color_batch.vs.dxil" />
     <None Include="SkullbonezData\shaders\text.ps.dxil" />
     <None Include="SkullbonezData\shaders\text.vs.dxil" />
-    <None Include="SkullbonezData\shaders\tornado_fx.ps.dxil" />
-    <None Include="SkullbonezData\shaders\tornado_fx.vs.dxil" />
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.ps.dxil" />
+    <None Include="SkullbonezData\shaders\transient_colored_triangles.vs.dxil" />
     <None Include="SkullbonezData\shaders\trajectory_ribbon.ps.dxil" />
     <None Include="SkullbonezData\shaders\trajectory_ribbon.vs.dxil" />
     <None Include="SkullbonezData\shaders\ui_render_target_preview.ps.dxil" />

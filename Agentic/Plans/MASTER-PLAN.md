@@ -237,10 +237,80 @@ physics body-count scale campaign closed P0-P7 and left the live ledger under
 rule 4. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
+The denominator grew 18 → 53 on 2026-07-20 when the owner registered the
+eight-plan architecture-review campaign from the same-day engine architecture
+review (`../Reports/2026-07-20/engine-architecture-review.md`). The campaign
+is the next active queue in plan order 1→8; E17 extended hands-on owner
+acceptance remains a parked owner item that does not block it.
+
+The denominator grew 53 → 54 on 2026-07-20 when the independent
+dependency-direction closure review identified the physically moved Core
+allocation policy's retained `Runtime::Allocation` namespace. The one-task
+`allocation-namespace-restoration` follow-up is sequenced immediately after
+dependency-direction closure and may not retain an alias or behavior change.
+
+The active/future denominator returned 54 → 48 when
+`dependency-direction-restoration` closed L0-L5 and left the ledger under rule
+4. Physical direction proofs are zero; the two independently reviewed semantic
+exceptions have concrete deletion conditions in
+`allocation-namespace-restoration` A0 and `render-hal-modernization` M0/M5.
+Closure evidence is in
+`../Reports/2026-07-20/dependency-direction-restoration-closure.md`.
+
+The active/future denominator returned 48 → 47 when
+`allocation-namespace-restoration` closed A0 and left the ledger under rule 4.
+The Core allocation namespace exception is resolved with zero compatibility
+rows; only the Profiler semantic seam remains deletion-bound to
+`render-hal-modernization` M0/M5. Closure evidence is in
+`../Reports/2026-07-20/allocation-namespace-restoration-closure.md`.
+
+The active/future denominator returned 47 → 44 when
+`physics-facade-unification` closed F0-F2 and left the ledger under rule 4.
+`PhysicsEngine` is the single cohesive owner; the standalone Scene facade,
+aggregate read view, files, and project rows are deleted with zero compatibility
+shapes. Closure evidence is in
+`../Reports/2026-07-20/physics-facade-unification-closure.md`.
+
+The active/future denominator returned 44 → 40 when
+`physics-settings-snapshot` closed C0-C3 and left the ledger under rule 4.
+The final 27-field Physics-owned value has one cold Core stamp, no fixed-step
+Core-config edge, exact default/custom/Boolean provenance tests, unchanged
+single-site clamps, and clear independent review. Closure evidence is in
+`../Reports/2026-07-20/physics-settings-snapshot-closure.md`.
+
+The active/future denominator returned 40 → 37 when
+`run-execute-deaccretion` closed X0-X2 and left the ledger under rule 4. Run
+now sequences one scene proceed policy and one concrete operator-editor
+composer call; the complete logical ownership review is clear. Closure evidence
+is in `../Reports/2026-07-20/run-execute-deaccretion-closure.md`.
+
+The active/future denominator returned 37 → 31 when
+`render-graph-completion` closed G0-G5 and left the ledger under rule 4. One
+live graph now owns world/UI callback order and compiled resource transitions;
+normal frames retain only the declaration-only Present edge, while capture
+restart uses an explicit zero-declaration completion. Closure evidence is in
+`../Reports/2026-07-20/render-graph-completion-closure.md`.
+
+The active/future denominator returned 31 → 25 when
+`render-hal-modernization` closed M0-M5 and left the ledger under rule 4.
+Declared raster values now own PSO identity, the DXR facet is typed, and the
+Profiler semantic exception is resolved through a fixed Rendering-owned timing
+owner and Core-owned value history. Closure evidence is in
+`../Reports/2026-07-21/render-hal-modernization-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
 | **Active/future total** | **17** | **18** | **94%** |
+
+The active/future denominator returned 22 → 18 when
+`replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
+Thread-local allocation attribution and a strict two-generation gate now prove
+zero gameplay/reserve-policy violations; Replay, Physics, Rendering, and
+Runtime share `PhysicsSceneObjectId`; the duplicate identities and dormant
+facades are gone; and cumulative allocation, physics, performance, full, replay,
+comment, and independent-review evidence is recorded in
+`../Reports/2026-07-21/replay-policy-debt-closure.md`.
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -301,6 +371,28 @@ are certified; cross-platform and rollback determinism are not. Full, deep
 physics, performance, replay fidelity, one-minute graphics stress, and marker
 smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
+
+The architecture-review campaign registered 2026-07-20 is the active queue.
+Dependency-direction restoration, allocation-namespace restoration,
+physics-facade unification, physics-settings snapshot, Run::Execute
+de-accretion, render-graph completion, Render HAL modernization, and gameplay
+module extraction are closed. Gameplay now owns tornado state, forces, and
+visuals above bounded Physics/Rendering value seams; final full, physics,
+performance, replay, DX12, and stress gates pass, and independent ownership
+review is clear. Closure evidence is in
+`../Reports/2026-07-21/gameplay-module-extraction-closure.md`.
+Replay boundary containment is closed with an enforceable zero-inbound rule,
+an exact three-owner privilege inventory, a complete surface census, and clear
+independent review. Closure evidence is in
+`../Reports/2026-07-21/replay-boundary-containment-closure.md`. Its audit-filed
+policy follow-up is also closed: strict allocation is zero/zero, identity is
+converged on `PhysicsSceneObjectId`, artifact bytes/schema are unchanged, and
+the final performance, physics, full, and visual-fidelity gates pass. Closure
+evidence is in `../Reports/2026-07-21/replay-policy-debt-closure.md`. Owner decisions
+ratified at registration: finish the render-graph migration (freezing rejected);
+`PhysicsEngine` survives the facade unification; extracted gameplay lives in
+a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
+below is a parked owner item and does not gate this campaign.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
 the accepted P1 one-process golden and their retained replay gates now pass
@@ -1048,6 +1140,40 @@ forbidden; no legacy deletion is authorized.
 |---|---|---:|---|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default; run separate Legacy/ImGui extended owner playtests and await acceptance |
 
+## Architecture Review Campaign (2026-07-20)
+
+Source: the owner-requested critical architecture review of 2026-07-20
+(`../Reports/2026-07-20/engine-architecture-review.md`), registered the same
+day as the next active queue. The review found the classic god objects
+closed but named five structural debts: unenforced dependency direction
+(Physics/Rendering/Core include Runtime), the surviving
+PhysicsEngine/PhysicsScene forwarding facade, `EngineConfig` threaded into
+the physics hot path, three half-finished dual architectures (physics
+facade, direct-vs-graph render paths, Legacy-vs-ImGui UI), and gameplay
+content (tornado) fused into Physics and Rendering.
+
+Owner decisions ratified at registration: finish the render-graph migration
+(RenderGraph owns barriers and pass scheduling; freezing as diagnostics was
+rejected); `PhysicsEngine` survives the facade unification and absorbs
+`PhysicsScene`; extracted gameplay content lives in a new top-level
+`SkullbonezSource/Gameplay/` module; the campaign starts immediately with
+E17 hands-on acceptance parked as a non-blocking owner item.
+
+Standing rules binding every plan in this campaign: zero behavioral
+baseline, golden, screenshot, replay, or physics CSV refresh — byte-exact
+and image-identical oracles prove each refactor, and divergence is reverted,
+never normalized; every DX12 slice runs the bounded graphics-stress proof
+per inventory rule 10; replay-facing slices run the one-invocation mega gate
+per inventory rule 11; one independent rubber-duck review per plan at
+closure, not per slice; no new compatibility spellings, forwarding wrappers,
+or hot-path inheritance/callback artifacts (existing review rules apply
+verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
+this campaign: it waits on the parked E17 owner verdict.
+
+Execution order was binding (biggest wins first). All eight architecture-review
+campaign plans are closed with exact evidence and independent review. No live
+execution row remains; E17 extended owner acceptance is parked and non-blocking.
+
 ## Features
 
 | Plan | State | Verified phase count | Start condition |
@@ -1061,8 +1187,10 @@ rule 9 applies — it is not live work and is not tracked here).
 
 Binding:
 
-- DX12 explicit helpers own live barriers; RenderGraph does not become a barrier
-  compiler.
+- Satisfied 2026-07-20 by the owner's render-graph decision: RenderGraph is the
+  owner of pass scheduling and ordinary frame-resource barrier emission.
+  Closure and bounded edge exceptions are recorded in
+  [`render-graph-completion-closure`](../Reports/2026-07-20/render-graph-completion-closure.md).
 - Any DX12 modification requires a crash-free graphics-stress run lasting at
   least 10 seconds; `tools\run_graphics_stress.bat 1` is the standard bounded
   proof.
@@ -1070,9 +1198,12 @@ Binding:
   disappear.
 - `Run` remains only process/frame composition after five named ownership
   extractions.
-- Scene-lifetime physics ownership is promoted through
-  `SceneController`/`PhysicsScene`; `Run` wires it and `GameModelCollection`
-  stops owning `PhysicsEngine`.
+- Scene-lifetime physics ownership is promoted through the scene controller and
+  surviving `PhysicsEngine`; `Run` wires it and `GameModelCollection` stops
+  owning physics. (Historical ruling, satisfied. The former `PhysicsScene` was
+  absorbed under
+  [`physics-facade-unification`](../Reports/2026-07-20/physics-facade-unification-closure.md);
+  the ownership promotion this ruling achieved is unchanged.)
 - Inspect and Editor share one stable selection identity; workspace-specific
   gesture/presentation state remains separate.
 - Completed files are deleted rather than archived in the tip tree, except for

@@ -47,8 +47,9 @@ SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot( const SceneControlle
     // runtime knob requires updating both sides of this snapshot contract.
     snapshot.renderPresentation = renderer.PresentationSettings();
     snapshot.physicsSleepEnabled = controller.Scene().Physics().IsSleepEnabled();
-    snapshot.tornadoField = controller.Scene().Physics().GetTornadoFieldConfig();
-    snapshot.tornadoSystem = controller.Scene().Physics().GetTornadoSystemConfig();
+    snapshot.tornadoField = controller.Scene().Tornado().GetFieldConfig();
+    snapshot.tornadoSystem = controller.Scene().Tornado().GetSystemConfig();
+    snapshot.tornadoVisual = controller.Scene().Tornado().VisualSettings();
     snapshot.debug = debug;
     snapshot.isScenePhysics = scene.isScenePhysics;
     snapshot.isSceneText = scene.isSceneText;
@@ -95,8 +96,9 @@ void RestoreSceneRuntimeResetSnapshot( SceneController& controller,
     // suppressing exit also forces automation-safe non-exit behavior.
     renderer.RestorePresentationSettings( snapshot.renderPresentation );
     controller.Scene().Physics().SetSleepEnabled( snapshot.physicsSleepEnabled );
-    controller.Scene().Physics().SetTornadoFieldConfig( snapshot.tornadoField );
-    controller.Scene().Physics().SetTornadoSystemConfig( snapshot.tornadoSystem );
+    controller.Scene().Tornado().SetFieldConfig( snapshot.tornadoField );
+    controller.Scene().Tornado().SetSystemConfig( snapshot.tornadoSystem );
+    controller.Scene().Tornado().SetVisualSettings( snapshot.tornadoVisual );
     debug = snapshot.debug;
     scene.isScenePhysics = snapshot.isScenePhysics;
     scene.isSceneText = snapshot.isSceneText;

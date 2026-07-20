@@ -12,11 +12,12 @@ Summary:
 Glossary:
   Materialization: Creating the native texture and view rows for a logical slot.
   Covering fence: Completion proof required before descriptor/resource reuse.
-  Current access: Last graph-level resource use represented by a DX12 state.
+  Current access: Last compiled graph use emitted for a physical texture slot.
 
 Invariants:
   - Slot reuse requires the compiler's pool id and descriptor shape to match.
-  - Every recorded transition emits exactly one concrete DX12 barrier.
+  - Only transitions from the current compiled graph may change a slot's state.
+  - Every required compiled transition emits exactly one concrete DX12 barrier.
   - Engine texture handles unregister before native resource release.
   - Descriptor retirement remains delegated to the frame/descriptor owners.
 
@@ -270,7 +271,7 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
                        ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
         if ( desc.descriptors.shaderResource && slot->textureHandle == 0 && slot->srvIndex != UINT_MAX )
         {
-            slot->textureHandle = m_textures.RegisterSRV( slot->srvIndex );
+            slot->textureHandle = m_textures.RegisterSRV( slot->srvIndex, slot->resource );
         }
         const bool firstUseThisCompile = !slot->usedThisCompile;
         slot->poolSlot = allocation.poolSlot;
@@ -346,36 +347,90 @@ RenderGraphTextureBinding Dx12GraphTransientPool::Resolve( RenderGraphResourceHa
     return binding;
 }
 
-bool Dx12GraphTransientPool::Transition( const char* passName,
-                                         const char* resourceName,
-                                         ID3D12Resource* resource,
-                                         RenderGraphResourceAccess before,
-                                         RenderGraphResourceAccess after )
+size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph,
+                                                   const RenderGraphCompileResult& compiled,
+                                                   uint32_t passIndex )
 {
-    if ( !resource || before == after )
-    {
-        return true;
-    }
-    if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
-    {
-        return false;
-    }
-    Dx12RenderGraphSingleTransitionDesc desc;
-    desc.commandList = m_frame.CommandList();
-    desc.resource = resource;
-    desc.before = before;
-    desc.after = after;
-    const Dx12RenderGraphBarrierRecord record =
-        ExecuteDx12RenderGraphSingleTransition( "Dx12GraphTransient", passName, resourceName, desc );
-    if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
-         record.beforeState == record.afterState || !record.emitted )
+    if ( passIndex >= graph.Passes().size() )
     {
         SB_FATAL( "Dx12GraphTransientPool",
-                  "Graph transition did not emit one concrete barrier. pass=%s resource=%s",
-                  passName ? passName : "unknown",
-                  resourceName ? resourceName : "unknown" );
+                  "Graph transient transition requested an invalid pass. pass=%u passCount=%zu",
+                  passIndex,
+                  graph.Passes().size() );
     }
-    return true;
+
+    size_t emittedCount = 0;
+    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
+    {
+        if ( transition.passIndex != passIndex )
+        {
+            continue;
+        }
+        if ( transition.resource.index >= graph.Resources().size() )
+        {
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Compiled transition references an invalid resource. resource=%u resourceCount=%zu",
+                      transition.resource.index,
+                      graph.Resources().size() );
+        }
+        const RenderGraphResourceDesc& graphResource = graph.Resources()[transition.resource.index];
+        if ( graphResource.external )
+        {
+            continue;
+        }
+
+        GraphTransientResourceDX12* slot = FindSlot( transition.resource );
+        if ( !slot || !slot->resource )
+        {
+            // Lane R: materialization already logged the allocation failure.
+            // The callback disables that optional effect, so there is no native
+            // resource and therefore no barrier to emit for this logical edge.
+            continue;
+        }
+        if ( slot->currentAccess != transition.before )
+        {
+            // Hazard: accepting a mismatch would make the graph's StateBefore
+            // claim disagree with the actual physical slot, which DX12 treats
+            // as undefined command-stream state rather than a recoverable miss.
+            SB_FATAL(
+                "Dx12GraphTransientPool",
+                "Compiled transient state disagrees with the physical slot. pass=%s resource=%s tracked=%s compiled=%s",
+                graph.Passes()[passIndex].name,
+                graphResource.name,
+                ToString( slot->currentAccess ),
+                ToString( transition.before ) );
+        }
+        if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
+        {
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Compiled transient transition could not open command recording. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      graphResource.name );
+        }
+
+        Dx12RenderGraphSingleTransitionDesc desc;
+        desc.commandList = m_frame.CommandList();
+        desc.resource = slot->resource;
+        desc.before = transition.before;
+        desc.after = transition.after;
+        desc.subresource = static_cast<UINT>( transition.subresource );
+        const Dx12RenderGraphBarrierRecord record =
+            ExecuteDx12RenderGraphSingleTransition( "Dx12GraphCompiledTransient",
+                                                    graph.Passes()[passIndex].name,
+                                                    graphResource.name,
+                                                    desc );
+        if ( !record.hasConcreteStates || !record.hasNativeResource || record.missingCommandList ||
+             record.beforeState == record.afterState || !record.emitted )
+        {
+            SB_FATAL( "Dx12GraphTransientPool",
+                      "Compiled graph transition did not emit one concrete barrier. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      graphResource.name );
+        }
+        slot->currentAccess = transition.after;
+        ++emittedCount;
+    }
+    return emittedCount;
 }
 
 void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
@@ -399,20 +454,21 @@ void Dx12GraphTransientPool::BeginRenderTarget( const RenderGraphTextureBinding&
 
     // Lifetime: one balanced callback interval borrows the current output state.
     // No saved target escapes this owner or survives the matching End call.
+    // Invariant: ExecuteTransitions must consume the compiled producer edge
+    // before binding. Begin only changes descriptors/targets; it emits no barrier.
+    if ( slot->currentAccess != RenderGraphResourceAccess::RenderTarget )
+    {
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient target bound before its compiled transition. pass=%s resource=%s access=%s",
+                  passName ? passName : "unknown",
+                  slot->resourceName,
+                  ToString( slot->currentAccess ) );
+    }
     m_savedRtv = m_pipeline.CurrentRTV();
     m_savedDsv = m_pipeline.CurrentDSV();
     m_savedRtvFormat = m_pipeline.RenderTargetFormat();
-    if ( !Transition( passName,
-                      slot->resourceName,
-                      slot->resource,
-                      slot->currentAccess,
-                      RenderGraphResourceAccess::RenderTarget ) )
-    {
-        return;
-    }
     m_pipeline.SetRenderingToFBO( true, ToColorFormat( slot->desc.format ) );
     m_textures.ClearBoundSlotsForSrv( slot->srvIndex );
-    slot->currentAccess = RenderGraphResourceAccess::RenderTarget;
     m_pipeline.SetCurrentTargets( slot->rtv, m_savedDsv );
     m_renderTargetActive = true;
     m_activeRenderTarget = binding.resource;
@@ -432,15 +488,17 @@ void Dx12GraphTransientPool::EndRenderTarget( const RenderGraphTextureBinding& b
     {
         SB_FATAL( "Dx12GraphTransientPool", "Graph transient render target was lost before unbind." );
     }
-    if ( !Transition( passName,
-                      slot->resourceName,
-                      slot->resource,
-                      slot->currentAccess,
-                      RenderGraphResourceAccess::PixelShaderResource ) )
+    // End restores the caller's target but deliberately leaves the texture in
+    // RenderTarget state. The next consuming graph pass owns the compiled
+    // RenderTarget -> PixelShaderResource transition immediately before use.
+    if ( slot->currentAccess != RenderGraphResourceAccess::RenderTarget )
     {
-        return;
+        SB_FATAL( "Dx12GraphTransientPool",
+                  "Graph transient target ended after an unexpected transition. pass=%s resource=%s access=%s",
+                  passName ? passName : "unknown",
+                  slot->resourceName,
+                  ToString( slot->currentAccess ) );
     }
-    slot->currentAccess = RenderGraphResourceAccess::PixelShaderResource;
     m_pipeline.SetRenderingToFBO( false, DXGI_FORMAT_R8G8B8A8_UNORM );
     m_pipeline.SetCurrentTargets( m_savedRtv, m_savedDsv );
     m_pipeline.RestoreRenderTargetFormat( m_savedRtvFormat );

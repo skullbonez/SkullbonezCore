@@ -14,7 +14,8 @@ Summary:
   targets and their balanced binding transaction, Dx12Diagnostics owns timing
   and draw evidence, Dx12ShaderDevelopment owns cold reload registration and
   adoption, and the private frame epoch and retirement owners live in
-  Dx12FrameOwner.h.
+  Dx12FrameOwner.h. Dx12PipelineOwner consumes each draw's declared raster
+  value directly while retaining only command bindings and output state.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -69,7 +70,7 @@ Related:
 
 
 #include "../IRenderCaptureBackend.h"
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../IRenderCommandContext.h"
 #include "../IRenderDeviceLifecycle.h"
 #include "../IRenderDiagnostics.h"
@@ -304,7 +305,7 @@ class Dx12TextureOwner
                               bool& graphicsStateInvalidated );
     void BindTexture( uint32_t handle, int slot );
     void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
-    UINT RegisterSRV( UINT srvIndex );
+    UINT RegisterSRV( UINT srvIndex, ID3D12Resource* resource );
     UINT UnregisterSRV( uint32_t handle );
     void ClearBoundSlotsForSrv( UINT srvIndex );
     UINT ResolveBoundSrv( int slot ) const;
@@ -315,6 +316,7 @@ class Dx12TextureOwner
     size_t RegistryCount() const;
     size_t RegistryCapacity() const;
     UINT ResolveSrv( uint32_t handle ) const;
+    ID3D12Resource* ResolveResource( uint32_t handle ) const;
     uint32_t FindHandleForSrv( UINT srvIndex ) const;
 
   private:
@@ -341,8 +343,8 @@ class Dx12TextureOwner
 };
 
 // Concept: a pipeline is the complete draw recipe, not a collection of backend
-// flags. This owner retains root-signature, fixed-state intent, target state,
-// PSO cache, and the dirty-state fast path as one coherent lifetime.
+// flags. This owner retains root-signature identity, command bindings, target
+// state, PSO cache, and the dirty-state fast path as one coherent lifetime.
 class Dx12PipelineOwner
 {
   public:
@@ -355,7 +357,14 @@ class Dx12PipelineOwner
                       VertexFormat12 format,
                       bool instanced,
                       const InstancedMeshDX12* instancedMesh,
-                      const DynamicVBDX12* dynamicVertexBuffer );
+                      const DynamicVBDX12* dynamicVertexBuffer,
+                      const RasterStateDesc& rasterState );
+    bool PrecompileDraw( ID3D12Device* device,
+                         VertexFormat12 format,
+                         bool instanced,
+                         const InstancedMeshDX12* instancedMesh,
+                         const DynamicVBDX12* dynamicVertexBuffer,
+                         const RasterStateDesc& declaredRasterState );
     void SetActiveShader( const ShaderDX12* shader );
     void ReleaseShaderPipelinesForReload();
     void RestoreShaderPipelinesAfterReload();
@@ -363,17 +372,6 @@ class Dx12PipelineOwner
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, DXGI_FORMAT rtvFormat );
     void SetViewport( const D3D12_VIEWPORT& viewport, const D3D12_RECT& scissor );
-    void SetDepthTest( bool enabled );
-    void SetDepthWrite( bool enabled );
-    void SetBlend( bool enabled );
-    void SetBlendFunc( BlendFactor src, BlendFactor dst );
-    void SetCullFace( bool enabled );
-    void SetPolygonOffset( bool enabled, float factor, float units );
-    bool DepthTestEnabled() const;
-    bool DepthWriteEnabled() const;
-    bool BlendEnabled() const;
-    bool CullEnabled() const;
-    void GetBlendFunc( BlendFactor& src, BlendFactor& dst ) const;
     void InvalidateCommandState();
     void InvalidateTargets();
     DXGI_FORMAT RenderTargetFormat() const;
@@ -384,11 +382,12 @@ class Dx12PipelineOwner
     void RestoreRenderTargetFormat( DXGI_FORMAT format );
     void SetCurrentColorTarget( D3D12_CPU_DESCRIPTOR_HANDLE rtv );
     void BindCurrentOutputs( ID3D12GraphicsCommandList* commandList ) const;
-    void SetClearColor( float r, float g, float b, float a );
-    void SetClearDepth( float depth );
-    void ClearCurrentColor( ID3D12GraphicsCommandList* commandList ) const;
-    void ClearCurrentDepth( ID3D12GraphicsCommandList* commandList ) const;
+    void ClearCurrentColor( ID3D12GraphicsCommandList* commandList, const float color[4] ) const;
+    void ClearCurrentDepth( ID3D12GraphicsCommandList* commandList, float depth ) const;
     size_t CacheCount() const;
+    uint64_t CacheHitCount() const;
+    uint64_t CacheMissCount() const;
+    uint64_t PrecompiledPsoCount() const;
 
   private:
     static size_t HashPSOKey( const PSOKey12& key );
@@ -400,14 +399,29 @@ class Dx12PipelineOwner
                                     VertexFormat12 format,
                                     bool instanced,
                                     const InstancedMeshDX12* instancedMesh,
-                                    const DynamicVBDX12* dynamicVertexBuffer );
-    void ResetDesiredState();
+                                    const DynamicVBDX12* dynamicVertexBuffer,
+                                    const RasterStateDesc& rasterState );
+    PSOKey12 BuildPSOKey( VertexFormat12 format, bool instanced, const RasterStateDesc& rasterState ) const;
+    static size_t BuildPSOHash( const PSOKey12& key, const DynamicVBDX12* dynamicVertexBuffer );
+    ID3D12PipelineState* FindOrCreatePSO( ID3D12Device* device,
+                                          const PSOKey12& key,
+                                          size_t psoHash,
+                                          VertexFormat12 format,
+                                          bool instanced,
+                                          const InstancedMeshDX12* instancedMesh,
+                                          const DynamicVBDX12* dynamicVertexBuffer,
+                                          const RasterStateDesc& rasterState,
+                                          bool precompile );
+    void ResetCommandState();
 
     static constexpr size_t CACHE_CAPACITY = 96;
     static constexpr size_t ROOT_SIGNATURE_SERIALIZED_CAPACITY = 4096;
     Dx12CachedPsoStore m_persistentPsoCache;
     std::array<CachedPSODX12, CACHE_CAPACITY> m_psoCache = {};
     size_t m_psoCacheCount = 0;
+    uint64_t m_psoCacheHitCount = 0;
+    uint64_t m_psoCacheMissCount = 0;
+    uint64_t m_precompiledPsoCount = 0;
     // Canonical UnifiedRaster bytes reopen the P4 cache after a changed manifest
     // without retaining the temporary root-signature serialization blob.
     std::array<std::uint8_t, ROOT_SIGNATURE_SERIALIZED_CAPACITY> m_rootSignatureSerialized = {};
@@ -424,22 +438,9 @@ class Dx12PipelineOwner
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
     DXGI_FORMAT m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-    bool m_depthTestEnabled = true;
-    bool m_depthWriteEnabled = true;
-    bool m_blendEnabled = false;
-    BlendFactor m_blendSrc = BlendFactor::One;
-    BlendFactor m_blendDst = BlendFactor::Zero;
-    bool m_cullEnabled = true;
-    bool m_polyOffsetEnabled = false;
-    float m_polyOffsetFactor = 0.0f;
-    float m_polyOffsetUnits = 0.0f;
     bool m_renderingToFBO = false;
-    // Concept: clear values are desired output state. They travel with the
-    // pipeline owner's current target recipe rather than the composition root.
-    float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    float m_clearDepth = 1.0f;
     size_t m_lastPSOHash = 0;
-    bool m_psoDirty = true;
+    bool m_pipelineBindingDirty = true;
     bool m_targetsDirty = true;
 };
 
@@ -451,15 +452,19 @@ class Dx12PipelineOwner
 class Dx12GeometryOwner
 {
   public:
+    Dx12GeometryOwner();
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices );
     void UploadAndDrawDynamicVB( uint32_t handle,
-                                 const float* data,
-                                 int vertexCount,
+                                 std::span<const float> packedVertices,
                                  D3D12_GPU_VIRTUAL_ADDRESS address,
                                  uint8_t* uploadPointer,
                                  ID3D12GraphicsCommandList* commandList,
                                  Dx12DrawGate& drawGate,
-                                 Dx12Diagnostics& diagnostics );
+                                 Dx12Diagnostics& diagnostics,
+                                 const RasterStateDesc& rasterState );
+    bool PrecompileDynamicVBRasterState( uint32_t handle,
+                                         Dx12DrawGate& drawGate,
+                                         const RasterStateDesc& declaredRasterState );
     void DestroyDynamicVB( uint32_t handle );
     void AdoptGridLineShader( std::unique_ptr<IShader> shader );
     bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat );
@@ -469,18 +474,17 @@ class Dx12GeometryOwner
     void InvalidateGridLinePipelinesForShaderReload();
     UINT GridLineConstantBytes() const;
     UINT TransientConstantBytes( TransientTriangleStyle style ) const;
-    void DrawLinesColored( const float* data,
-                           int vertexCount,
-                           const float* viewProjMatrix16,
+    void DrawLinesColored( std::span<const float> packedVertices,
+                           const Math::Transformation::Matrix4& viewProjection,
                            D3D12_GPU_VIRTUAL_ADDRESS vertexAddress,
                            uint8_t* uploadPointer,
                            ID3D12GraphicsCommandList* commandList,
                            Dx12PipelineOwner& pipeline,
                            Dx12DrawGate& drawGate,
-                           Dx12Diagnostics& diagnostics );
-    void DrawTransientColoredTriangles( const float* data,
-                                        int vertexCount,
-                                        const float* viewProjMatrix16,
+                           Dx12Diagnostics& diagnostics,
+                           const RasterStateDesc& rasterState );
+    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
+                                        const Math::Transformation::Matrix4& viewProjection,
                                         TransientTriangleStyle style,
                                         int viewportWidth,
                                         int viewportHeight,
@@ -488,7 +492,8 @@ class Dx12GeometryOwner
                                         uint8_t* uploadPointer,
                                         ID3D12GraphicsCommandList* commandList,
                                         Dx12DrawGate& drawGate,
-                                        Dx12Diagnostics& diagnostics );
+                                        Dx12Diagnostics& diagnostics,
+                                        const RasterStateDesc& rasterState );
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
                                   int staticFloatsPerVert,
@@ -504,13 +509,10 @@ class Dx12GeometryOwner
                                   D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
                                   uint8_t* uploadPointer );
     void UploadInstanceData( uint32_t handle,
-                             const float* data,
-                             int floatCount,
+                             std::span<const float> packedInstances,
                              D3D12_GPU_VIRTUAL_ADDRESS address,
                              uint8_t* uploadPointer );
-    void DrawInstancedMesh( uint32_t handle,
-                            int staticVertCount,
-                            int instanceCount,
+    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw,
                             ID3D12GraphicsCommandList* commandList,
                             Dx12DrawGate& drawGate,
                             Dx12Diagnostics& diagnostics );
@@ -519,12 +521,13 @@ class Dx12GeometryOwner
     int StaticVertexStride( uint32_t handle ) const;
     size_t DynamicCount() const;
     size_t DynamicCapacity() const;
-    UINT64 DynamicUploadBytes( uint32_t handle, int vertexCount ) const;
+    UINT64 DynamicUploadBytes( uint32_t handle, std::span<const float> packedVertices ) const;
     size_t InstancedCount() const;
     size_t InstancedCapacity() const;
     void Shutdown();
 
   private:
+    static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
     std::vector<DynamicVBDX12> m_dynamicVBs;
@@ -567,27 +570,16 @@ class Dx12RaytracingOwner
                                            Dx12DescriptorHeaps& descriptors,
                                            int renderWidth,
                                            int renderHeight,
-                                           uint64_t terrainVBVA,
-                                           int terrainVertCount,
-                                           int terrainStride,
-                                           uint64_t sphereVBVA,
-                                           int sphereVertCount,
-                                           int sphereStride );
+                                           const RaytracingSetupDesc& setup );
     SkullbonezCore::Core::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
     void AbortSetup( const SkullbonezCore::Core::SbResult& failure );
-    SkullbonezCore::Core::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
+    SkullbonezCore::Core::SbResult BuildScene( std::span<const Math::Transformation::Matrix4> instanceTransforms );
     Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device,
                                                        Dx12DescriptorHeaps& descriptors,
                                                        const Dx12TextureOwner& textures,
-                                                       const float* invViewProj,
-                                                       const float* cameraPos,
-                                                       float waterY,
-                                                       float time,
-                                                       const float* lightPos,
-                                                       const float* skyColorTop,
-                                                       const float* skyColorBottom,
-                                                       const uint32_t textureHandles[8] );
+                                                       const WaterReflectionRayDesc& reflection );
     UINT ReflectionSrvIndex() const;
+    ID3D12Resource* ReflectionResource() const;
     uint32_t ReflectionTextureHandle() const;
     void PublishReflectionTextureHandle( uint32_t handle );
     uint32_t TakeReflectionTextureHandle();
@@ -611,7 +603,6 @@ class Dx12RaytracingOwner
     uint32_t m_reflectionTextureHandle = 0;
     int m_reflectionWidth = 0;
     int m_reflectionHeight = 0;
-    bool m_reflectionInSrvState = false;
     ID3D12Resource* m_constantBuffer = nullptr;
     uint8_t* m_constantBufferMapped = nullptr;
     int m_maxInstances = 0;
@@ -723,17 +714,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     SkullbonezCore::Core::SbResult ReloadShadersFromSource() override;
 
     void SetViewport( int x, int y, int w, int h ) override;
-    void Clear( bool color, bool depth ) override;
-    void SetClearColor( float r, float g, float b, float a ) override;
-    void SetClearDepth( float depth ) override;
-
-    void SetDepthTest( bool enable ) override;
-    void SetDepthWrite( bool enable ) override;
-    void SetBlend( bool enable ) override;
-    void SetBlendFunc( BlendFactor src, BlendFactor dst ) override;
-    void SetCullFace( bool enable ) override;
-    void SetPolygonOffset( bool enable, float factor = 0.0f, float units = 0.0f ) override;
-    void SetClipPlane( int index, bool enable ) override;
+    void Clear( const ClearTargetDesc& target ) override;
 
     std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
     std::unique_ptr<IMesh>
@@ -750,6 +731,11 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     RenderGraphTransientMaterializationStats
     MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled ) override;
     RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const override;
+    RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const override;
+    RenderGraphBackbufferBinding ResolveGraphBackbufferBinding() const override;
+    size_t ExecuteGraphTransitions( const RenderGraph& graph,
+                                    const RenderGraphCompileResult& compiled,
+                                    uint32_t passIndex ) override;
     void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
     void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 
@@ -763,11 +749,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int GetWidth() const override;
     int GetHeight() const override;
 
-    bool IsDepthTestEnabled() const override;
-    bool IsDepthWriteEnabled() const override;
-    bool IsBlendEnabled() const override;
-    bool IsCullFaceEnabled() const override;
-    void GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const override;
     const char* GetRendererName() const override
     {
         return "DirectX 12";
@@ -820,32 +801,9 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         m_diagnostics.PopDrawCallTraceScope( hash );
     }
 
-    SkullbonezCore::Core::SbResult InitDXR( uint64_t terrainVBVA,
-                                            int terrainVertCount,
-                                            int terrainStride,
-                                            uint64_t sphereVBVA,
-                                            int sphereVertCount,
-                                            int sphereStride,
-                                            int maxInstances ) override;
-    void DispatchReflectionRays( const float* invViewProj,
-                                 const float* cameraPos,
-                                 float waterY,
-                                 float time,
-                                 const float* lightPos,
-                                 const float* skyColorTop,
-                                 const float* skyColorBottom,
-                                 int width,
-                                 int height,
-                                 uint32_t sphereTexHandle,
-                                 uint32_t terrainTexHandle,
-                                 uint32_t skyUpHandle,
-                                 uint32_t skyDownHandle,
-                                 uint32_t skyRightHandle,
-                                 uint32_t skyLeftHandle,
-                                 uint32_t skyFrontHandle,
-                                 uint32_t skyBackHandle ) override;
-    void
-    BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) override;
+    SkullbonezCore::Core::SbResult InitDXR( const RaytracingSetupDesc& setup ) override;
+    void DispatchReflectionRays( const WaterReflectionRayDesc& reflection ) override;
+    void BuildTLAS( std::span<const Math::Transformation::Matrix4> instanceTransforms ) override;
     uint32_t GetReflectionUAVTexture() const override;
     void ShutdownDXR() override;
     uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const override;
@@ -860,14 +818,19 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void PlatformProfilerGpuMarker( const char* name, uint32_t hash ) override;
 
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
-    void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
+    bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket ) override;
+    void UploadAndDrawDynamicVB( uint32_t handle,
+                                 std::span<const float> packedVertices,
+                                 const PassRasterStateBucket& bucket ) override;
     void DestroyDynamicVB( uint32_t handle ) override;
 
-    void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
-    void DrawTransientColoredTriangles( const float* data,
-                                        int vertexCount,
-                                        const float* viewProjMatrix16,
-                                        TransientTriangleStyle style ) override;
+    void DrawLinesColored( std::span<const float> packedVertices,
+                           const Math::Transformation::Matrix4& viewProjection,
+                           const PassRasterStateBucket& bucket ) override;
+    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
+                                        const Math::Transformation::Matrix4& viewProjection,
+                                        TransientTriangleStyle style,
+                                        const PassRasterStateBucket& bucket ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
@@ -879,8 +842,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                                   int numInstanceAttribs,
                                   const int* staticAttribSizes = nullptr,
                                   int numStaticAttribs = 0 ) override;
-    void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;
-    void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) override;
+    void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances ) override;
+    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw ) override;
     void DestroyInstancedMesh( uint32_t handle ) override;
 };
 } // namespace Rendering

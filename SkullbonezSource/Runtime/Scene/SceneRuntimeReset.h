@@ -30,7 +30,8 @@ Related:
 #include "../RunCameraState.h"
 #include "../RunDebugState.h"
 #include "../Render/RenderPresentationSettings.h"
-#include "../../Physics/TornadoField.h"
+#include "../../Gameplay/TornadoField.h"
+#include "../../Gameplay/TornadoVisualPass.h"
 #include "../../Core/Config.h"
 
 #include <cstdint>
@@ -53,8 +54,9 @@ struct SceneRuntimeResetSnapshot
 {
     RenderPresentationSettings renderPresentation; // Renderer-owned values restored after the new scene is populated.
     bool physicsSleepEnabled = true;
-    Physics::TornadoFieldConfig tornadoField;
-    Physics::TornadoSystemConfig tornadoSystem;
+    Gameplay::TornadoFieldConfig tornadoField;
+    Gameplay::TornadoSystemConfig tornadoSystem;
+    Gameplay::TornadoVisualSettings tornadoVisual;
     RunDebugState
         debug;                                     // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics =

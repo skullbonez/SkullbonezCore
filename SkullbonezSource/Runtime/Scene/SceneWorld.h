@@ -41,6 +41,7 @@ Related:
 #include "SceneEntityStore.h"
 #include "SceneTerrain.h"
 #include "../../Maths/Vector3.h"
+#include "../../Gameplay/TornadoGameplay.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/RenderInstanceStore.h"
@@ -102,10 +103,8 @@ class SceneWorld
     void CompletePhysicsStepPresentationCapture();
     // Executes the deterministic live/replay physics boundary. Returned dense
     // rows are valid only for the synchronous presentation handoff.
-    ScenePhysicsPostStepOutput StepPhysics( float fixedDt,
-                                            const SkullbonezCore::Core::EngineConfig& config,
-                                            const Physics::PhysicsWorldForces& worldForces,
-                                            Threading::WorkerPool& workerPool );
+    ScenePhysicsPostStepOutput
+    StepPhysics( float fixedDt, const Physics::PhysicsWorldForces& worldForces, Threading::WorkerPool& workerPool );
     void PrepareRenderInstances( float presentationAlpha = 1.0f );
     void BeginCollisionVisualFrame();
     void EndCollisionVisualFrame();
@@ -122,10 +121,6 @@ class SceneWorld
     const Physics::ColliderStore& Colliders() const;
     Rendering::RenderInstanceStore& MutableRenderInstances();
     const Rendering::RenderInstanceStore& RenderInstances() const;
-    bool TryQueueReplayRenderPoseOverride( int modelIndex,
-                                           uint32_t replayBodyId,
-                                           const Math::Vector::Vector3& position,
-                                           const Math::Orientation::Quaternion& orientation );
     // Cold callers that need a refreshed snapshot use this command; hot render
     // passes consume RenderInstances() after PrepareRenderInstances().
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();
@@ -136,8 +131,8 @@ class SceneWorld
                                         float releaseImpulseStrength,
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );
-    void CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const;
-    bool RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot );
+    void CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const;
+    bool RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot );
     // Explicit cold boundary used before tools borrow paired body/collider
     // handles. Hot passes must never trigger topology repair.
     bool RepairPhysicsBodyAndColliderTopology();
@@ -161,6 +156,15 @@ class SceneWorld
     const SceneTerrain& Terrain() const;
     Physics::PhysicsEngine& Physics();
     const Physics::PhysicsEngine& Physics() const;
+    Gameplay::TornadoGameplay& Tornado();
+    const Gameplay::TornadoGameplay& Tornado() const;
+    // Projects content-neutral byte totals so diagnostics and renderer-facing
+    // composition never need to name or borrow the concrete Gameplay owner.
+    uint64_t CollectGameplayMemoryBytes() const;
+    uint64_t CollectGameplayDebugMemoryBytes() const;
+    // Content-neutral publication consumed by the late debug render pass. The
+    // span aliases scene-owned gameplay scratch for this frame only.
+    std::span<const float> BuildWorldExtensionDebugLines();
 
   private:
     void ReserveForActiveSceneObjectCapacity();
@@ -180,6 +184,9 @@ class SceneWorld
     Environment::WorldEnvironment m_world;
     SceneTerrain m_terrain;
     Physics::PhysicsEngine m_physics;
+    // Scene-lifetime gameplay state is a sibling of Physics; only its bounded
+    // value frame crosses the fixed-step boundary.
+    Gameplay::TornadoGameplay m_tornadoGameplay;
     Rendering::RenderInstanceStore m_renderInstanceStore;
 };
 } // namespace Runtime

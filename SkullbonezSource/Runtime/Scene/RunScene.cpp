@@ -20,6 +20,8 @@ Glossary:
     owner/message diagnostics so load stops before unsafe resource replacement.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
+  Authored projection: Cold-load, field-by-field copy from parser DTOs into an
+    owning subsystem's runtime values.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -29,6 +31,8 @@ Invariants:
     backend.
   - Scene/model/terrain destruction starts only after a successful GPU drain.
   - Load orchestration retains no caller pointer, callback, or mutable owner bag.
+  - Tornado projection copies every authored field here so Gameplay never
+    depends upward on Scene or parser vocabulary.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -36,21 +40,20 @@ Related:
 #include "SceneController.h"
 #include "../RuntimeOverlayDiagnostics.h"
 #include "../RuntimeValidationHarness.h"
-#include "../WindowConstants.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/WindowConstants.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../OperatorCommandApplier.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../AttachedCameraController.h"
 #include "../InputRouter.h"
 #include "../Replay/ReplayRuntime.h"
-#include "../Audio/ContactAudioService.h"
 #include "../RunStartupState.h"
 #include "../RunTimerState.h"
 #include "../Window.h"
 #include "../Render/RuntimeRenderHost.h"
 #include "../Render/RuntimeRenderer.h"
 #include "SceneRuntimeCoordinator.h"
-#include "../../Physics/SimulationSystem.h"
+#include "../SimulationSystem.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
@@ -90,18 +93,66 @@ using SkullbonezCore::Environment::WorldEnvironment;
 using SkullbonezCore::GameObjects::SceneSaveRequest;
 using SkullbonezCore::GameObjects::SceneSaveView;
 using SkullbonezCore::GameObjects::SceneSnapshotWriter;
+using SkullbonezCore::Gameplay::TornadoFieldConfig;
+using SkullbonezCore::Gameplay::TornadoSystemConfig;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::IMesh;
 using namespace SkullbonezCore::Runtime::RunInternal;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
 using Json = nlohmann::ordered_json;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
+
+TornadoFieldConfig ProjectAuthoredTornadoField( const AuthoredTornadoFieldConfig& authored )
+{
+    TornadoFieldConfig projected;
+    projected.enabled = authored.enabled;
+    projected.visualizeVelocityField = authored.visualizeVelocityField;
+    projected.center = authored.center;
+    projected.radius = authored.radius;
+    projected.height = authored.height;
+    projected.inwardAcceleration = authored.inwardAcceleration;
+    projected.swirlAcceleration = authored.swirlAcceleration;
+    projected.liftAcceleration = authored.liftAcceleration;
+    projected.ejectAcceleration = authored.ejectAcceleration;
+    projected.ejectUpAcceleration = authored.ejectUpAcceleration;
+    projected.ejectBand = authored.ejectBand;
+    projected.minCaptureSeconds = authored.minCaptureSeconds;
+    projected.ejectCooldownSeconds = authored.ejectCooldownSeconds;
+    projected.maxDeltaVelocity = authored.maxDeltaVelocity;
+    return projected;
+}
+
+TornadoSystemConfig ProjectAuthoredTornadoSystem( const AuthoredTornadoSystemConfig& authored )
+{
+    // Boundary: Scene owns cold authored DTOs. Runtime performs the exhaustive
+    // copy so Gameplay never depends upward on Scene or parser vocabulary.
+    TornadoSystemConfig projected;
+    projected.enabled = authored.enabled;
+    projected.visualizeVelocityField = authored.visualizeVelocityField;
+    projected.vortices.reserve( authored.vortices.size() );
+    for ( const AuthoredTornadoVortexConfig& authoredVortex : authored.vortices )
+    {
+        SkullbonezCore::Gameplay::TornadoVortexConfig vortex;
+        vortex.field = ProjectAuthoredTornadoField( authoredVortex.field );
+        vortex.spawnSeconds = authoredVortex.spawnSeconds;
+        vortex.timeToLiveSeconds = authoredVortex.timeToLiveSeconds;
+        vortex.growSeconds = authoredVortex.growSeconds;
+        vortex.shrinkSeconds = authoredVortex.shrinkSeconds;
+        vortex.driftRadius = authoredVortex.driftRadius;
+        vortex.driftSpeed = authoredVortex.driftSpeed;
+        vortex.driftPhase = authoredVortex.driftPhase;
+        vortex.repulsionRadius = authoredVortex.repulsionRadius;
+        vortex.repulsionStrength = authoredVortex.repulsionStrength;
+        projected.vortices.push_back( vortex );
+    }
+    return projected;
+}
 
 void ApplySceneWorkerThreadSetting( SkullbonezCore::Core::EngineConfig& config,
                                     SkullbonezCore::Threading::WorkerPool& workerPool,
@@ -509,7 +560,6 @@ void SceneLoadConsumerOutputs::ResetForLoad()
     navigation = SceneLoadNavigationState{};
     windowTitle[0] = '\0';
     hasWindowTitle = false;
-    resetContactAudioHistory = false;
     applyAutomationGates = false;
     applyNavigation = false;
     refreshSceneBrowser = false;
@@ -520,16 +570,11 @@ void SceneLoadConsumerOutputs::ResetForLoad()
 void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                                              Window& window,
                                                              UI::InGameUI& operatorUi,
-                                                             Audio::ContactAudioService& contactAudio,
                                                              RuntimeValidationHarness& validationHarness,
                                                              const RunLaunchOptions& launchOptions )
 {
     // Invariant: preserve the former synchronous consumer order while keeping
-    // all four process owners outside SceneController's load participant graph.
-    if ( outputs.resetContactAudioHistory )
-    {
-        contactAudio.ResetSimpleLinearHistory();
-    }
+    // all three process owners outside SceneController's load participant graph.
     if ( outputs.applyAutomationGates )
     {
         validationHarness.SceneGates().ApplyConfiguration( std::move( outputs.automationGates ) );
@@ -585,7 +630,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const RuntimeRenderBackendView& renderBackendView = presentation.renderBackendView;
     RuntimeRenderer& renderer = presentation.renderer;
 
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
     consumerOutputs.ResetForLoad();
     consumerOutputs.navigation = interactionParticipants.navigation;
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
@@ -688,7 +733,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     simulation.Reset();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
-    consumerOutputs.resetContactAudioHistory = true;
     renderer.ResetSceneRuntimePolicyFromConfig();
     consumerOutputs.applyAutomationGates = true;
 
@@ -732,7 +776,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     }
     bool hasSceneTornadoSystem = false;
     bool sceneMutualGravityEnabled = false;
-    TornadoSystemConfig sceneTornadoSystem;
+    AuthoredTornadoSystemConfig sceneTornadoSystem;
 
     // Each bit is attached to its concrete call above. SceneRuntime rejects the
     // phase if a future edit drops an owner receipt without updating policy.
@@ -1131,22 +1175,22 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     }
     if ( !shouldPreserveRuntimeState )
     {
-        Physics::TornadoFieldConfig tornadoField;
-        Physics::TornadoSystemConfig tornadoSystem;
+        Gameplay::TornadoFieldConfig tornadoField;
+        Gameplay::TornadoSystemConfig tornadoSystem;
         ApplyTornadoDefaultsForActiveScene( tornadoField,
                                             m_sceneController.Scene().Environment(),
                                             ActiveSceneCinematicConfig( SceneState(), config ) );
         if ( hasSceneTornadoSystem )
         {
-            tornadoSystem = sceneTornadoSystem;
+            tornadoSystem = ProjectAuthoredTornadoSystem( sceneTornadoSystem );
             tornadoField.enabled = false;
-            renderer.SetTornadoVisualEnabled( true );
+            m_sceneController.Scene().Tornado().SetVisualEnabled( true );
         }
-        m_sceneController.Scene().Physics().SetTornadoFieldConfig( tornadoField );
-        m_sceneController.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
+        m_sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
+        m_sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
     }
-    Physics::TornadoFieldConfig tornadoField = m_sceneController.Scene().Physics().GetTornadoFieldConfig();
-    Physics::TornadoSystemConfig tornadoSystem = m_sceneController.Scene().Physics().GetTornadoSystemConfig();
+    Gameplay::TornadoFieldConfig tornadoField = m_sceneController.Scene().Tornado().GetFieldConfig();
+    Gameplay::TornadoSystemConfig tornadoSystem = m_sceneController.Scene().Tornado().GetSystemConfig();
     if ( launchOptions.hasTornadoOverride )
     {
         if ( tornadoSystem.enabled || !tornadoSystem.vortices.empty() )
@@ -1158,9 +1202,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         {
             tornadoField.enabled = launchOptions.tornadoEnabled;
         }
-        if ( renderer.TornadoVisualAutoEnableWithTornado() )
+        if ( m_sceneController.Scene().Tornado().VisualAutoEnableWithTornado() )
         {
-            renderer.SetTornadoVisualEnabled( launchOptions.tornadoEnabled );
+            m_sceneController.Scene().Tornado().SetVisualEnabled( launchOptions.tornadoEnabled );
         }
     }
     if ( launchOptions.tornadoVectors )
@@ -1168,8 +1212,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         tornadoField.visualizeVelocityField = true;
         tornadoSystem.visualizeVelocityField = true;
     }
-    m_sceneController.Scene().Physics().SetTornadoFieldConfig( tornadoField );
-    m_sceneController.Scene().Physics().SetTornadoSystemConfig( tornadoSystem );
+    m_sceneController.Scene().Tornado().SetFieldConfig( tornadoField );
+    m_sceneController.Scene().Tornado().SetSystemConfig( tornadoSystem );
     if ( sceneMutualGravityEnabled )
     {
         // Why: n-body space scenes have no contacts to wake quiet bodies later;

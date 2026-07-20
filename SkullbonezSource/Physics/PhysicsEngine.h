@@ -1,40 +1,48 @@
 /*
 File: SkullbonezSource/Physics/PhysicsEngine.h
 Purpose:
-  Exposes the public physics facade while preserving the existing PhysicsScene implementation.
+  Owns deterministic physics state, stores, solver coordination, and public commands.
 
 Summary:
-  PhysicsEngine is the runtime-facing physics boundary. It owns PhysicsScene and
-  forwards store/descriptor operations in a fixed order so scene, tool, and
-  replay callers use named physics commands without touching solver internals.
+  PhysicsEngine is the single runtime-facing physics owner. It coordinates cold
+  authored descriptors, dense body/collider stores, PhysicsWorld stepping, replay
+  restore, and immutable diagnostics queries without a second forwarding facade.
 
 Glossary:
-  Facade: Narrow public boundary that forwards commands while hiding solver
-  internals.
+  Owner boundary: Public command/query surface that retains the state and
+    sequencing authority behind it.
   Fixed-tree release: Store-owned command that turns authored fixed props into
     dynamic bodies and wakes same-tree parts after an accepted impulse.
   Physics material: Runtime policy for collider friction and sphere drag.
   Diagnostics view: Borrowed read-only solver/debug state exposed for tooling.
-  Scene read view: Exact immutable store and diagnostic projection supplied by
-    PhysicsScene without granting the facade private access.
+  Immutable projection: Field-specific borrowed store or diagnostic read whose
+    lifetime remains tied to PhysicsEngine.
   Descriptor refresh: Cold authoring edge that replaces body rows from explicit
     values supplied by the model collection owner.
 
 Invariants:
-  - Forwarders must not reorder solver, store-refresh, replay, or diagnostics calls.
-  - PhysicsScene and PhysicsWorld remain implementation details behind this facade.
+  - Solver, store-refresh, replay, and diagnostics call order remains deterministic.
+  - PhysicsWorld is the cohesive solver implementation owned by PhysicsEngine;
+    callers receive no mutable-store or solver authority.
 
 Related:
   - SkullbonezSource/Physics/PhysicsEngine.cpp
   - SkullbonezSource/Physics/PhysicsApi.h
-  - SkullbonezSource/Physics/PhysicsScene.h
+  - SkullbonezSource/Physics/PhysicsWorld.h
 */
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include "PhysicsScene.h"
+#include <vector>
+
+#include "ColliderStore.h"
+#include "PhysicsBodyStore.h"
+#include "PhysicsObjectPolicy.h"
+#include "PhysicsRuntimeSettings.h"
+#include "PhysicsWorld.h"
+#include "PhysicsWorldForces.h"
 
 namespace SkullbonezCore
 {
@@ -63,11 +71,14 @@ struct PhysicsMaterial;
 class PhysicsEngine
 {
   public:
-    PhysicsEngine() = default;
+    PhysicsEngine();
     void BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept;
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
-    // Stamps the PhysicsScene-owned runtime policy onto cold authoring
+    // Cold conversion seam used by config stamping and field-faithfulness tests.
+    // Fixed-step code receives only the returned Physics-owned value snapshot.
+    static PhysicsRuntimeSettings RuntimeSettingsFromConfig( const SkullbonezCore::Core::EngineConfig& config );
+    // Stamps the PhysicsEngine-owned runtime policy onto cold authoring
     // descriptors before they become store rows.
     void ApplyAuthoredBodyPolicy( PhysicsBodyCreateDesc& desc ) const;
     void ApplyAuthoredColliderPolicy( PhysicsColliderCreateDesc& desc ) const;
@@ -95,10 +106,10 @@ class PhysicsEngine
     // not force a model-to-store refresh after this succeeds.
     bool TrimBodiesToCount( PhysicsBodyCount bodyCount );
     bool TrimCollidersToCount( PhysicsColliderCount colliderCount );
-    // Store-owned replay restore facade. Callers resolve a body handle at the
+    // Store-owned replay restore command. Callers resolve a body handle at the
     // owner edge so physics does not accept transient model slots as authority.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
-                                 uint32_t replayBodyId,
+                                 PhysicsSceneObjectId sceneObjectId,
                                  bool fixed,
                                  const Math::Vector::Vector3& position,
                                  const Math::Orientation::Quaternion& orientation,
@@ -116,8 +127,14 @@ class PhysicsEngine
     // collection owner, and diagnosticsCsvWriter carries cold Debug CSV output
     // authority instead of letting physics reach through global logging.
     void Step( float deltaSeconds,
-               const SkullbonezCore::Core::EngineConfig& config,
                const PhysicsWorldForces& worldForces,
+               Threading::WorkerPool& workerPool,
+               const char* const* diagnosticNames,
+               int diagnosticNameCount,
+               const PhysicsDiagnosticsCsvWriter& diagnosticsCsvWriter );
+    void Step( float deltaSeconds,
+               const PhysicsWorldForces& worldForces,
+               const ExternalForceFrameInput& externalForces,
                Threading::WorkerPool& workerPool,
                const char* const* diagnosticNames,
                int diagnosticNameCount,
@@ -158,14 +175,8 @@ class PhysicsEngine
     // Creates a point joint from physics body handles and rejects stale or
     // same-body endpoints before the solver stores its internal row.
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
-    void SetTornadoFieldConfig( const TornadoFieldConfig& config );
-    const TornadoFieldConfig& GetTornadoFieldConfig() const;
-    void SetTornadoSystemConfig( const TornadoSystemConfig& config );
-    const TornadoSystemConfig& GetTornadoSystemConfig() const;
-    float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot,
-                                      PhysicsBodyCount bodyCount ) const;
-    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount );
+    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const;
+    bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectPhysicsWorldMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;
@@ -173,8 +184,8 @@ class PhysicsEngine
     bool ShouldEmitCollisionTimeDiagnostics() const;
 
     // Immutable dense views are an explicit PhysicsEngine query contract for
-    // renderer, replay, diagnostics, and cold tools. Each is projected from
-    // PhysicsSceneReadView without friendship or mutable-store authority.
+    // renderer, replay, diagnostics, and cold tools. Each aliases one owned
+    // field directly without friendship or mutable-store authority.
     static const PhysicsBodyStore& ReadBodies( const PhysicsEngine& engine );
     static const ColliderStore& ReadColliders( const PhysicsEngine& engine );
     static const Math::CollisionDetection::SpatialGrid& ReadSpatialGrid( const PhysicsEngine& engine );
@@ -198,7 +209,24 @@ class PhysicsEngine
 #endif
 
   private:
-    PhysicsScene m_scene;
+    void LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc>& bodyDescs );
+    void ApplyFixedTreeReleaseEvents( const PhysicsWorldForces& worldForces );
+#ifdef _DEBUG
+    void ValidatePhysicsStoreMappings( int modelCount ) const;
+#endif
+
+    PhysicsWorld m_world;                                   // Deterministic solver and debug state over body-store records.
+    std::vector<PhysicsBodyCreateDesc> m_authoredBodyDescs; // Cold body authoring descriptors keyed by scene/model order.
+    PhysicsBodyStore m_bodyStore;                           // Mutable body state in model/replay order.
+    ColliderStore m_colliderStore;                          // Collider snapshot in model/replay order.
+    PhysicsMaterial m_physicsMaterial;                      // Runtime material policy copied into body/collider descriptors.
+    BodySimulationLimits m_bodySimulationLimits;            // Runtime body caps copied at authoring/import boundaries.
+    ContactPolicy m_contactPolicy;                          // Runtime contact thresholds copied at authoring/import boundaries.
+    PhysicsRuntimeSettings m_runtimeSettings;               // Physics-owned process settings stamped before fixed stepping.
+    PhysicsWorldForces m_lastWorldForces;                   // Last real step boundary forces used by explicit wake commands.
+    bool m_hasLastWorldForces = false;                      // False until the first physics step supplies world forces.
+    PhysicsBodyIndexList m_fixedTreeReleaseWakeBodies{      // Fixed owner-edge wake list; never grows during release.
+                                                       "PhysicsEngine fixed-tree release output" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

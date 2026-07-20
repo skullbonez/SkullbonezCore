@@ -27,7 +27,7 @@ Glossary:
     so buoyancy jitter does not repeatedly wake them.
   X-macro field list: Preprocessor list invoked by several tiny visitors so
     replay capture and restore use the same ordered state inventory.
-  PhysicsScene: Step owner that supplies stores and handles model-order
+  PhysicsEngine: Step owner that supplies stores and handles model-order
     writeback after compact physics work finishes.
   Lane F: Fatal invariant lane for should-never-happen engine state.
   Mutual-gravity pair scratch: Triangular array with one force value for every
@@ -53,9 +53,7 @@ Related:
 */
 #include "PhysicsWorld.h"
 #include "../Assets/AssetKeys.h"
-#include "../Runtime/Replay/ReplayRetainedMemory.h"
 
-#include "../Core/Config.h"
 #include "../Core/FatalError.h"
 #include "BuoyancySystem.h"
 #include "DisjointSet.h"
@@ -67,8 +65,8 @@ Related:
 #include "ObjectContactManifold.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
-#include "../Runtime/Allocation/RuntimeAllocationTracker.h"
-#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 
 #include <algorithm>
 #include <cassert>
@@ -81,16 +79,12 @@ Related:
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
-using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
-using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER;
-using SkullbonezCore::Runtime::ReplaySolverContactCacheSample;
-using SkullbonezCore::Runtime::ReplaySolverPersistentContactSample;
-using SkullbonezCore::Runtime::ReplaySolverStatsSample;
-using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
+using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -106,8 +100,8 @@ constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
 // larger solver snapshots interactively. The hard byte cap is the memory bound;
 // growth count remains diagnostic instead of being a fatal budget.
 constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT =
-    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
-constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
+    CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+constexpr uint32_t PHYSICS_EXTERNAL_FORCE_WORKER_HASH = HashStr( "Frame/Physics/ExternalForceField/WorkerBodies" );
 
 #ifdef SKULLBONEZ_PROFILE_ENABLED
 constexpr uint64_t LogicalStreamBytes( std::size_t elementBytes, uint64_t elementOperations )
@@ -205,15 +199,15 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore,
 }
 
 
-RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
+CoreAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
-    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
-        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
-            { REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
-              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
-              RuntimeAllocation::RuntimeReservePhase::Replay,
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner =
+        CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
+            { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+              CoreAllocation::RuntimeReserveSubsystem::Replay,
+              CoreAllocation::RuntimeReservePhase::Replay,
               0,
-              REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+              PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
               REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT,
               true,
               "solver replay snapshots reserve vector payload bytes through replay-only growth approval" } );
@@ -224,12 +218,12 @@ void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t re
 {
     // Lane F: a partial solver snapshot cannot support deterministic replay
     // restore. Report the shared owner and cap before terminating.
-    SB_FATAL( "Runtime/Replay/SolverSnapshot",
+    SB_FATAL( "Physics/SolverSnapshot",
               "Replay solver snapshot reserve denied. owner=%s target=%s requested_capacity=%llu hard_bytes=%d",
-              REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+              PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
               label ? label : "unknown",
               static_cast<unsigned long long>( requestedCapacity ),
-              REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES );
+              PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES );
 }
 
 template <typename T>
@@ -318,10 +312,6 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     VISIT( sleepIslandEligible, m_sleepController.GetSleepIslandEligible(), "sleepIslandEligible" )                    \
     VISIT( sleepIslandCanSleep, m_sleepController.GetSleepIslandCanSleep(), "sleepIslandCanSleep" )
 
-#define SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                \
-    VISIT( tornadoCaptureSeconds, m_tornadoGameplay.CaptureSeconds(), "tornadoCaptureSeconds" )                        \
-    VISIT( tornadoEjectCooldownSeconds, m_tornadoGameplay.EjectCooldownSeconds(), "tornadoEjectCooldownSeconds" )
-
 #define SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )                                                          \
     VISIT( persistentContactCounts, m_contactSolverStage.GetPersistentContactCounts(), "persistentContactCounts" )     \
     VISIT( persistentRestingContactCounts,                                                                             \
@@ -334,7 +324,6 @@ void ReserveReplaySolverSnapshotVector( std::vector<T>& values, std::size_t requ
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( VISIT )                                                                     \
     SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS( VISIT )                                                                      \
     SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS( VISIT )                                                                 \
-    SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( VISIT )                                                                    \
     SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS( VISIT )
 
 
@@ -350,10 +339,10 @@ void PhysicsWorld::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noex
 }
 
 
-void PhysicsWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config )
+void PhysicsWorld::ApplyRuntimeSettings( const PhysicsRuntimeSettings& settings )
 {
-    m_broadphase.ApplyRuntimeConfig( config );
-    m_sleepController.ApplyRuntimeConfig( config );
+    m_broadphase.ApplyRuntimeSettings( settings.broadphase );
+    m_sleepController.ApplyRuntimeSettings( settings.sleep );
 }
 
 
@@ -366,9 +355,9 @@ void PhysicsWorld::Clear()
     m_lastUnderwaterProbeFluidSurfaceHeight = 0.0f;
     m_lastUnderwaterProbeFluidSurfaceHeightValid = false;
     m_forceStage.Clear();
+    m_externalForceStage.Clear();
     m_broadphase.Clear();
     m_sleepController.Clear();
-    m_tornadoGameplay.Clear();
     m_stepDiagnostics.Clear();
     m_contactSolverStage.Clear();
     m_terrain.Clear();
@@ -393,7 +382,7 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t capacity )
 }
 
 
-void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
+void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const
 {
     // Runtime allocation policy: replay recorder slots pre-reserve these
     // payload vectors outside gameplay. Capture clears the retained slot in
@@ -401,13 +390,10 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 #define CLEAR_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField.clear();
     SB_REPLAY_SOLVER_VECTOR_FIELDS( CLEAR_REPLAY_SOLVER_VECTOR_FIELD )
 #undef CLEAR_REPLAY_SOLVER_VECTOR_FIELD
-    outSnapshot.solverStats = ReplaySolverStatsSample();
+    outSnapshot.solverStats = PhysicsSolverStatsSample();
 
     outSnapshot.version = 2;
     outSnapshot.modelCount = modelCount;
-    outSnapshot.tornadoConfig = m_tornadoGameplay.GetFieldConfig();
-    outSnapshot.tornadoSystemConfig = m_tornadoGameplay.GetSystemConfig();
-    outSnapshot.tornadoSystemElapsedSeconds = m_tornadoGameplay.GetSystemElapsedSeconds();
     // Runtime allocation policy: a solver snapshot owns many typed vectors.
     // Batch their byte budget into one replay approval, then reserve individual
     // vectors inside that owner scope so replay diagnostics stay readable.
@@ -434,32 +420,31 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     };
     if ( snapshotNeedsGrowth )
     {
-        if ( requestedSnapshotBytes > static_cast<uint64_t>( REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) )
+        if ( requestedSnapshotBytes > static_cast<uint64_t>( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) )
         {
             ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
                                                       static_cast<std::size_t>( requestedSnapshotBytes ) );
         }
-        const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplaySolverSnapshotReserveOwner();
-        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
-                                                                         "ReplaySolverWorldSnapshot",
-                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                         modelCount,
-                                                                         static_cast<int>( oldSnapshotBytes ),
-                                                                         static_cast<int>( requestedSnapshotBytes ),
-                                                                         1 };
-        const RuntimeAllocation::RuntimeReserveGrowthResult result =
-            RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+        const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplaySolverSnapshotReserveOwner();
+        const CoreAllocation::RuntimeReserveGrowthRequest request = { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                                                                      "PhysicsSolverSnapshot",
+                                                                      CoreAllocation::RuntimeReservePhase::Replay,
+                                                                      modelCount,
+                                                                      static_cast<int>( oldSnapshotBytes ),
+                                                                      static_cast<int>( requestedSnapshotBytes ),
+                                                                      1 };
+        const CoreAllocation::RuntimeReserveGrowthResult result =
+            CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
         if ( !result.granted )
         {
             ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
                                                       static_cast<std::size_t>( requestedSnapshotBytes ) );
         }
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-        RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                                  RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                  result );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+        CoreAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                               CoreAllocation::RuntimeReservePhase::Replay,
+                                                               result );
         reserveSnapshotVectors();
     }
     else
@@ -468,7 +453,6 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     }
 #define CAPTURE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField = worldValues;
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
-    SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS( CAPTURE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef CAPTURE_REPLAY_SOLVER_VECTOR_FIELD
 
     m_sleepController.CaptureReplayState( outSnapshot );
@@ -477,7 +461,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 }
 
 
-bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, int modelCount )
+bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount )
 {
     if ( snapshot.version < 1 || snapshot.version > 2 || snapshot.modelCount != modelCount )
     {
@@ -487,11 +471,6 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 #define RESTORE_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) worldValues = snapshot.snapshotField;
     SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS( RESTORE_REPLAY_SOLVER_VECTOR_FIELD )
 #undef RESTORE_REPLAY_SOLVER_VECTOR_FIELD
-    m_tornadoGameplay.SetReplayState( snapshot.tornadoCaptureSeconds,
-                                      snapshot.tornadoEjectCooldownSeconds,
-                                      snapshot.tornadoConfig,
-                                      snapshot.tornadoSystemConfig,
-                                      snapshot.tornadoSystemElapsedSeconds );
 
     m_sleepController.RestoreReplayState( snapshot );
     m_stepDiagnostics.RestoreReplayState( snapshot );
@@ -505,7 +484,6 @@ bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot&
 #undef SB_REPLAY_SOLVER_DIRECT_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_SLEEP_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_DIAGNOSTIC_VECTOR_FIELDS
-#undef SB_REPLAY_SOLVER_TORNADO_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_CONTACT_STAGE_VECTOR_FIELDS
 #undef SB_REPLAY_SOLVER_VECTOR_FIELDS
 
@@ -534,8 +512,9 @@ void PhysicsWorld::CommitContactSolverConsequences( PhysicsBodyStore& bodyStore,
 void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
                                const ColliderStore& colliderStore,
                                float fChangeInTime,
-                               const SkullbonezCore::Core::EngineConfig& config,
+                               const PhysicsRuntimeSettings& settings,
                                const PhysicsWorldForces& worldForces,
+                               const ExternalForceFrameInput& externalForces,
                                Threading::WorkerPool& workerPool )
 {
     // Concept: one fixed physics tick has a predictable data flow.
@@ -544,7 +523,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // 2. Reset debug, sleep-support, pipeline, and terrain-manifold output.
     // 3. Run broadphase, swept movement, terrain manifold generation, and the
     //    persistent Catto-style contact solver.
-    // 4. Emit bounded Debug diagnostics before PhysicsScene copies solved state
+    // 4. Emit bounded Debug diagnostics before PhysicsEngine copies solved state
     //    into PhysicsBodyStore and invalidates cached model-order data at the
     //    scene owner boundary.
     //
@@ -581,8 +560,9 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     RunSolverPhysics( bodyStore,
                       colliderStore,
                       fChangeInTime,
-                      config,
+                      settings,
                       worldForces,
+                      externalForces,
                       workerPool,
                       probeDormantUnderwaterLocks );
 }
@@ -645,27 +625,26 @@ bool PhysicsWorld::IsPhysicsSleepEnabled() const
 }
 
 
-void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
-                                         const ColliderStore& colliderStore,
-                                         const PhysicsWorldForces& worldForces,
-                                         float dt,
-                                         const SkullbonezCore::Core::EngineConfig& runtimeConfig,
-                                         Threading::WorkerPool& workerPool )
+void PhysicsWorld::ApplyExternalForces( PhysicsBodyStore& bodyStore,
+                                        const ColliderStore& colliderStore,
+                                        const PhysicsWorldForces& worldForces,
+                                        const ExternalForceFrameInput& input,
+                                        const PhysicsExecutionSettings& execution,
+                                        Threading::WorkerPool& workerPool )
 {
-    const TornadoGameplayStepState stepState = m_tornadoGameplay.BeginStep( dt );
-    if ( !stepState.active )
+    if ( !input.Active() )
     {
         return;
     }
 
-    PROFILE_SCOPED( m_profiler, "Frame/Physics/TornadoField" );
-    const std::vector<int>& releaseWakeBodies = m_tornadoGameplay.ReleaseFixedBodies( stepState, bodyStore );
+    PROFILE_SCOPED( m_profiler, "Frame/Physics/ExternalForceField" );
+    const std::span<const int> releaseWakeBodies = m_externalForceStage.ReleaseFixedBodies( input, bodyStore );
     for ( int releasedIndex : releaseWakeBodies )
     {
         WakeModel( bodyStore, colliderStore, worldForces, releasedIndex );
     }
 
-    TornadoBodyForceContext tornadoBodyForceContext{
+    ExternalForceBodyContext bodyForceContext{
         bodyStore,
         colliderStore,
         worldForces,
@@ -675,47 +654,15 @@ void PhysicsWorld::ApplyTornadoGameplay( PhysicsBodyStore& bodyStore,
                                                        bodyStore.MutableRecords(),
                                                        m_timeRemaining,
                                                        bodyStore.Count(),
-                                                       dt ),
+                                                       input.stepSeconds ),
         m_sleepController.GetSleepStates(),
-        m_timeRemaining,
         m_sleepController.GetUnderwaterSleepLocks(),
-        dt,
-        runtimeConfig,
+        execution,
         workerPool,
         PHYSICS_PARALLEL_MIN_BODIES,
-        "Frame/Physics/TornadoField/WorkerBodies",
-        PHYSICS_TORNADO_WORKER_HASH };
-    m_tornadoGameplay.ApplyBodyForces( stepState, tornadoBodyForceContext );
-}
-
-
-void PhysicsWorld::SetTornadoFieldConfig( const TornadoFieldConfig& config )
-{
-    m_tornadoGameplay.SetFieldConfig( config );
-}
-
-
-const TornadoFieldConfig& PhysicsWorld::GetTornadoFieldConfig() const
-{
-    return m_tornadoGameplay.GetFieldConfig();
-}
-
-
-void PhysicsWorld::SetTornadoSystemConfig( const TornadoSystemConfig& config )
-{
-    m_tornadoGameplay.SetSystemConfig( config );
-}
-
-
-const TornadoSystemConfig& PhysicsWorld::GetTornadoSystemConfig() const
-{
-    return m_tornadoGameplay.GetSystemConfig();
-}
-
-
-float PhysicsWorld::GetTornadoSystemElapsedSeconds() const
-{
-    return m_tornadoGameplay.GetSystemElapsedSeconds();
+        "Frame/Physics/ExternalForceField/WorkerBodies",
+        PHYSICS_EXTERNAL_FORCE_WORKER_HASH };
+    m_externalForceStage.ApplyBodyForces( input, bodyForceContext );
 }
 
 
@@ -754,8 +701,9 @@ void PhysicsWorld::CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& e
 void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                      const ColliderStore& colliderStore,
                                      float dt,
-                                     const SkullbonezCore::Core::EngineConfig& config,
+                                     const PhysicsRuntimeSettings& settings,
                                      const PhysicsWorldForces& worldForces,
+                                     const ExternalForceFrameInput& externalForces,
                                      Threading::WorkerPool& workerPool,
                                      bool probeDormantUnderwaterLocks )
 {
@@ -772,7 +720,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     // Sleep owns threshold interpretation and returns the exact squared-speed
     // and counter values consumed by narrowphase and island transitions. The
     // facade only sequences that typed policy across the two consumers.
-    const PhysicsSleepStepPolicy sleepPolicy = m_sleepController.ResolveStepPolicy( config.physicsSleep );
+    const PhysicsSleepStepPolicy sleepPolicy = m_sleepController.ResolveStepPolicy( settings.sleep );
 
     if ( probeDormantUnderwaterLocks )
     {
@@ -799,7 +747,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                                   sleepStates,
                                                                                   modelCount,
                                                                                   worldForces,
-                                                                                  config.physicsExecution,
+                                                                                  settings.execution,
                                                                                   workerPool );
     ApplyForcesStageContext applyForcesStage{
         bodyStore,
@@ -816,20 +764,20 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #ifdef SKULLBONEZ_PROFILE_ENABLED
     const int forceAwakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
 #endif
-    m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, config.physicsExecution );
+    m_forceStage.ApplyForces( applyForcesStage, awakeBodyIndices, workerPool, settings.execution );
 
-    ApplyTornadoGameplay( bodyStore, colliderStore, worldForces, dt, config, workerPool );
+    ApplyExternalForces( bodyStore, colliderStore, worldForces, externalForces, settings.execution, workerPool );
     m_sleepController.FlushPendingAwakeBodyIndices();
     awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Broadphase: sleeping membership remains resident, while awake rows update
     // their ranges and source awake-to-sleep wake-detection pairs.
-    const float contactSkin = (std::max)( 0.0f, config.bodySimulation.contactEpsilon );
+    const float contactSkin = (std::max)( 0.0f, settings.body.contactEpsilon );
     const PhysicsBroadphaseStageContext broadphaseContext{ bodyStore,
                                                            bodyRecords,
                                                            hotFields,
                                                            colliderRecords,
-                                                           config,
+                                                           settings,
                                                            m_pointJointConstraints,
                                                            sleepStates,
                                                            awakeBodyIndices,
@@ -869,7 +817,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
         sleepPolicy.linearSpeedSquared,
         sleepPolicy.angularSpeedSquared,
         contactSkin,
-        config.bodySimulation.contactEpsilon,
+        settings.body.contactEpsilon,
         invCellSize,
         dt,
         m_profiler };
@@ -877,7 +825,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const bool ranParallelNarrowphase = m_narrowphase.TryRunParallel( objectNarrowphasePairContext,
                                                                       candidatePairCount,
                                                                       modelCount,
-                                                                      config.physicsExecution,
+                                                                      settings.execution,
                                                                       workerPool );
     if ( ranParallelNarrowphase )
     {
@@ -916,7 +864,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     TerrainDetectionStageContext terrainDetectionContext{ bodyRecords,
                                                           hotFields,
                                                           colliderRecords,
-                                                          config,
+                                                          settings,
                                                           sleepStates,
                                                           m_timeRemaining,
                                                           m_profiler };
@@ -925,11 +873,11 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
                                                                  bodyRecords,
                                                                  hotFields,
                                                                  colliderRecords,
-                                                                 config,
+                                                                 settings,
                                                                  m_sleepController.MutableSupportedStatesForTerrain(),
                                                                  m_sleepController.MutableInhibitedStatesForTerrain(),
                                                                  m_profiler };
-    m_terrain.Detect( terrainDetectionContext, modelCount, awakeBodyIndices, config.physicsExecution, workerPool );
+    m_terrain.Detect( terrainDetectionContext, modelCount, awakeBodyIndices, settings.execution, workerPool );
 
     const std::span<const TerrainDetectionCandidate> terrainCandidates = m_terrain.GetDetectionCandidates();
     for ( int x : awakeBodyIndices )
@@ -968,7 +916,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     const PhysicsContactSolverStageContext contactSolverContext{
         bodyStore,
         colliderStore,
-        config,
+        settings,
         worldForces,
         candidatePairs,
         sleepStates,
@@ -1013,7 +961,7 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
 #ifdef SKULLBONEZ_PROFILE_ENABLED
     const int integrateAwakeBodyCount = static_cast<int>( awakeBodyIndices.size() );
 #endif
-    m_forceStage.IntegrateRemaining( integrateRemainingStage, awakeBodyIndices, workerPool, config.physicsExecution );
+    m_forceStage.IntegrateRemaining( integrateRemainingStage, awakeBodyIndices, workerPool, settings.execution );
 
     const PhysicsSleepIslandStageContext sleepIslandContext{ bodyStore,
                                                              colliderStore,
@@ -1248,7 +1196,7 @@ uint64_t PhysicsWorld::CollectMemoryBytes() const
     bytes += m_terrain.CollectDynamicMemoryBytes();
     bytes += m_narrowphase.CollectDynamicMemoryBytes();
     bytes += VectorCapacityBytes( m_pointJointConstraints );
-    bytes += m_tornadoGameplay.CollectMemoryBytes();
+    bytes += m_externalForceStage.CollectMemoryBytes();
     return bytes;
 }
 
@@ -1257,7 +1205,6 @@ uint64_t PhysicsWorld::CollectDebugAndBroadphaseMemoryBytes() const
     uint64_t bytes = m_broadphase.CollectDebugAndBroadphaseMemoryBytes();
     bytes += m_stepDiagnostics.CollectDebugMemoryBytes();
     bytes += VectorCapacityBytes( m_sleepController.GetSleepIslandVisualIdVector() );
-    bytes += m_tornadoGameplay.CollectDebugMemoryBytes();
     return bytes;
 }
 

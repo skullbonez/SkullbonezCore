@@ -263,6 +263,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     const Vector3& cameraWorld,
                                     IRenderCommandContext& commands,
                                     const WaterReflectionInput& reflection,
+                                    const PassRasterStateBucket& rasterState,
                                     float time,
                                     bool flatWater,
                                     bool cinematic,
@@ -295,7 +296,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     m_calmShader->SetMat4( "uProjection", proj );
     BindCommonWaterStyle( *m_calmShader, calmStyle, cameraWorld, reflection );
     BindCalmWaterStyle( *m_calmShader, calmStyle );
-    m_calmMesh->Draw();
+    m_calmMesh->Draw( rasterState );
 
     if ( cinematic && !WaterModeIncludesOuterOcean( waterMode ) )
     {
@@ -311,7 +312,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     m_oceanShader->SetMat4( "uProjection", proj );
     BindCommonWaterStyle( *m_oceanShader, oceanStyle, cameraWorld, reflection );
     BindOceanWaterStyle( *m_oceanShader, oceanStyle, time, flatWater );
-    m_oceanMesh->Draw();
+    m_oceanMesh->Draw( rasterState );
 }
 
 

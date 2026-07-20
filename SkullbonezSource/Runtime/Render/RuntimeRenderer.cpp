@@ -4,8 +4,8 @@ Purpose:
   Coordinates render passes for the active scene.
 
 Summary:
-  Renderer-facing code builds one frame context and runs named passes in
-  the same order the image is produced.
+  Renderer-facing code builds one frame context and appends named pass
+  callbacks to one live graph in the order the image is produced.
 
 Glossary:
   Render pass: Named slice of RuntimeRenderer::RenderFrame() with explicit
@@ -20,11 +20,12 @@ Glossary:
   mesh or procedural object owned by the DX12 backend.
   TLAS (Top-Level Acceleration Structure): Raytracing scene-instance table built
   before reflection rays are dispatched.
+  Compiled transition: Render-graph resource-state edge emitted immediately
+    before its callback records commands.
 
 Invariants:
-  - RuntimeRenderer::RenderFrameEntry() owns pass order. Pass classes may bind
-    targets and restore local render state, but they must not present or advance
-    the frame.
+  - The live RenderGraph owns pass order from world clear through late UI;
+    FinalizeFrameGraph adds the sole declaration-only Present edge.
   - Pass resource reset hooks run while the renderer backend is alive, because
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
   - Pass input/output structs borrow data for one frame only. Do not cache
@@ -33,7 +34,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h declares the render owner.
-  - SkullbonezSource/Rendering/RenderPipeline.h owns executed frame graph diagnostics.
+  - SkullbonezSource/Rendering/RenderPipeline.h formats the live graph diagnostics.
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeRenderer.h"
@@ -51,8 +52,8 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "../Debug/CollisionVisualizer.h"
 #include "../Scene/SceneTerrain.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
-#include "../Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Replay/ReplayOverlayRenderer.h"
 #include "../OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
@@ -70,7 +71,11 @@ Related:
 #include "../../Rendering/RenderPipeline.h"
 #include "../../UI/UI.h"
 #include "../../World/SkyBox.h"
+#include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "../DevelopmentTools/ImGuiEditorOwner.h"
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -92,11 +97,16 @@ using namespace SkullbonezCore::Runtime::RunInternal;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Rendering = SkullbonezCore::Rendering;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
 {
+float SampleWorldSurfaceHeight( SkullbonezCore::Geometry::Terrain& surface, float x, float z, float fallback )
+{
+    return surface.IsInBounds( x, z ) ? surface.GetTerrainHeightAt( x, z ) : fallback;
+}
+
 float LerpFloat( float from, float to, float t )
 {
     return from + ( to - from ) * t;
@@ -192,8 +202,13 @@ struct CinematicPostGraphCallbackData
     VolumetricPass* volumetricPass = nullptr;
     TonemapPass* tonemapPass = nullptr;
     const RenderFrameContext* frame = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    SkullbonezCore::Rendering::IFramebuffer* sceneTarget = nullptr;
     SkullbonezCore::Rendering::RenderGraphTextureBinding volumetricLight;
+    size_t volumetricTransitionCount = 0;
+    size_t tonemapTransitionCount = 0;
     bool volumetricRendered = false;
+    bool sceneTargetUnbound = false;
 };
 
 struct ShadowGraphCallbackData
@@ -203,6 +218,8 @@ struct ShadowGraphCallbackData
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     bool terrainHidden = false;
     bool collisionVisualizerVisible = false;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
     ShadowPassOutput output;
 };
 
@@ -220,6 +237,8 @@ struct ReflectionGraphCallbackData
     float collisionVisualizerAlphaOverride = -1.0f;
     float bodyAlpha = 1.0f;
     float simulationTimeSeconds = 0.0f;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
     ReflectionPassOutput output;
 };
 
@@ -276,6 +295,23 @@ struct SceneTargetGraphCallbackData
     SceneTargetPass* sceneTargetPass = nullptr;
     SkyPass* skyPass = nullptr;
     const RenderFrameContext* frame = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+struct GraphTransitionCallbackData
+{
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+};
+
+struct BackbufferAcquireGraphCallbackData
+{
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+    bool clearFrameTargets = false;
 };
 
 struct SkyboxGraphCallbackData
@@ -302,14 +338,8 @@ struct UiTextGraphCallbackData
     bool cinematicRendering = false;
     SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
-};
-
-struct TornadoVisualGraphCallbackData
-{
-    TornadoVisualPass* tornadoVisualPass = nullptr;
-    const RenderFrameContext* frame = nullptr;
-    const TornadoVisualSnapshot* snapshot = nullptr;
-    bool rendered = false;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
 };
 
 struct ReplayGhostGraphCallbackData
@@ -322,24 +352,87 @@ struct ReplayGhostGraphCallbackData
     const SkullbonezCore::Rendering::ShadowFrameData* shadow = nullptr;
 };
 
-void ExecuteShadowGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+struct DevelopmentUiGraphCallbackData
+{
+    SkullbonezCore::Runtime::DevelopmentTools::ImGuiEditorOwner* editor = nullptr;
+    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
+    size_t expectedTransitionCount = 0;
+    SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
+};
+#endif
+
+size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
+                                        uint32_t passIndex );
+
+size_t ExecuteRequiredGraphTransitions( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                        SkullbonezCore::Rendering::IRenderCommandContext* renderCommands,
+                                        const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled,
+                                        size_t expectedTransitionCount )
+{
+    if ( expectedTransitionCount == 0 )
+    {
+        return 0;
+    }
+    if ( !renderCommands || !compiled || !context.graph )
+    {
+        SB_FATAL( "RunRender", "Graph callback missing transition execution data." );
+    }
+    const size_t emitted = renderCommands->ExecuteGraphTransitions( *context.graph, *compiled, context.passIndex );
+    if ( emitted != expectedTransitionCount )
+    {
+        SB_FATAL( "RunRender",
+                  "Graph callback emitted the wrong transition count. pass=%s expected=%zu actual=%zu",
+                  context.pass ? context.pass->name : "unknown",
+                  expectedTransitionCount,
+                  emitted );
+    }
+    return emitted;
+}
+
+void ExecuteGraphTransitionCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                     GraphTransitionCallbackData& data )
+{
+    (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
+}
+
+void ExecuteBackbufferAcquireGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                            BackbufferAcquireGraphCallbackData& data )
+{
+    (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
+    if ( data.clearFrameTargets )
+    {
+        data.renderCommands->Clear( {} );
+    }
+}
+
+void ExecuteShadowGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                  ShadowGraphCallbackData& data )
 {
     if ( !data.shadowPass || !data.frame )
     {
         SB_FATAL( "RunRender", "ShadowMapPass graph callback missing execution data." );
     }
+    (void)ExecuteRequiredGraphTransitions( context,
+                                           data.frame->renderCommands,
+                                           data.compiled,
+                                           data.expectedTransitionCount );
     data.output =
         data.shadowPass->Render( { *data.frame, data.cinematic, data.terrainHidden, data.collisionVisualizerVisible } );
 }
 
-void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                      ReflectionGraphCallbackData& data )
 {
     if ( !data.reflectionPass || !data.skyPass || !data.frame )
     {
         SB_FATAL( "RunRender", "ReflectionPass graph callback missing execution data." );
     }
+    (void)ExecuteRequiredGraphTransitions( context,
+                                           data.frame->renderCommands,
+                                           data.compiled,
+                                           data.expectedTransitionCount );
     data.output = data.reflectionPass->Render( { *data.frame,
                                                  data.cinematic,
                                                  data.objectShadow,
@@ -399,16 +492,6 @@ void ExecuteWaterGraphCallback( const SkullbonezCore::Rendering::RenderGraphPass
                               data.freezeTime,
                               data.frozenTime,
                               data.liveWaterTime } );
-}
-
-void ExecuteTornadoVisualGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
-                                        TornadoVisualGraphCallbackData& data )
-{
-    if ( !data.tornadoVisualPass || !data.frame || !data.snapshot )
-    {
-        SB_FATAL( "RunRender", "TornadoVisualPass graph callback missing execution data." );
-    }
-    data.rendered = data.tornadoVisualPass->Render( { *data.frame, *data.snapshot } );
 }
 
 void ExecuteDebugOverlayGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
@@ -523,13 +606,30 @@ void ExecuteReplayGhostGraphCallback( const SkullbonezCore::Rendering::RenderGra
                                   data.shadow );
 }
 
-void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+void ExecuteDevelopmentUiGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
+                                        DevelopmentUiGraphCallbackData& data )
+{
+    if ( !data.editor )
+    {
+        SB_FATAL( "RunRender", "ImGuiEditorPass graph callback missing its presentation owner." );
+    }
+    (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
+    data.status = data.editor->RenderPreparedDrawData();
+}
+#endif
+
+void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                       SceneTargetGraphCallbackData& data )
 {
     if ( !data.sceneTargetPass || !data.skyPass || !data.frame )
     {
         SB_FATAL( "RunRender", "CinematicSceneBegin graph callback missing execution data." );
     }
+    (void)ExecuteRequiredGraphTransitions( context,
+                                           data.frame->renderCommands,
+                                           data.compiled,
+                                           data.expectedTransitionCount );
     data.sceneTargetPass->Begin( *data.frame, *data.skyPass );
 }
 
@@ -543,7 +643,7 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     data.skyPass->Render( *data.frame, data.frame->baseView, SkyPassMode::CubemapOnly );
 }
 
-void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                  UiTextGraphCallbackData& data )
 {
     if ( !data.uiTextPass || !data.renderDiagnostics || !data.textBatch || !data.uiRender || !data.state ||
@@ -552,6 +652,10 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
+    (void)ExecuteRequiredGraphTransitions( context,
+                                           data.uiRender->commands,
+                                           data.compiled,
+                                           data.expectedTransitionCount );
     data.uiTextPass->Render( { *data.state,
                                *data.timers,
                                *data.ui,
@@ -569,28 +673,79 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                                data.secondsPerFrame } );
 }
 
-void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                      CinematicPostGraphCallbackData& data )
 {
-    if ( !data.volumetricPass || !data.frame )
+    if ( !data.volumetricPass || !data.frame || !data.compiled || !context.graph )
     {
         SB_FATAL( "RunRender", "VolumetricLightPass graph callback missing execution data." );
     }
     const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphOutput =
         data.volumetricLight.IsValid() ? &data.volumetricLight : nullptr;
+    if ( !data.sceneTarget || !data.frame->renderCommands )
+    {
+        SB_FATAL( "RunRender", "VolumetricLightPass missing the cinematic target binding." );
+    }
+    data.sceneTarget->Unbind();
+    data.sceneTargetUnbound = true;
+    const size_t expectedTransitions = graphOutput ? 3u : 2u;
+    data.volumetricTransitionCount =
+        data.frame->renderCommands->ExecuteGraphTransitions( *context.graph, *data.compiled, context.passIndex );
+    if ( data.volumetricTransitionCount != expectedTransitions )
+    {
+        // Hazard: sampling the cinematic scene or binding the transient without
+        // all compiled producer edges would record an invalid command stream.
+        SB_FATAL( "RunRender",
+                  "VolumetricLightPass compiled transition count mismatch. expected=%zu actual=%zu",
+                  expectedTransitions,
+                  data.volumetricTransitionCount );
+    }
     data.volumetricRendered = data.volumetricPass->Render( *data.frame, graphOutput );
 }
 
-void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                   CinematicPostGraphCallbackData& data )
 {
-    if ( !data.tonemapPass || !data.frame )
+    if ( !data.tonemapPass || !data.frame || !data.compiled || !context.graph )
     {
         SB_FATAL( "RunRender", "ToneMapPass graph callback missing execution data." );
     }
     const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphVolumetric =
         ( data.volumetricRendered && data.volumetricLight.IsValid() ) ? &data.volumetricLight : nullptr;
-    data.tonemapPass->Render( *data.frame, data.volumetricRendered, data.volumetricRendered, graphVolumetric );
+    const bool sceneNeedsPublish = !data.sceneTargetUnbound;
+    if ( sceneNeedsPublish )
+    {
+        if ( !data.sceneTarget )
+        {
+            SB_FATAL( "RunRender", "ToneMapPass missing the cinematic target binding." );
+        }
+        data.sceneTarget->Unbind();
+        data.sceneTargetUnbound = true;
+    }
+    const size_t requiredSceneTransitions = ( graphVolumetric ? 1u : 0u ) + ( sceneNeedsPublish ? 2u : 0u );
+    const size_t expectedTransitions = CountCompiledTransitionsForPass( *data.compiled, context.passIndex );
+    if ( expectedTransitions < requiredSceneTransitions )
+    {
+        SB_FATAL( "RunRender",
+                  "ToneMapPass omitted a required scene transition. required=%zu compiled=%zu",
+                  requiredSceneTransitions,
+                  expectedTransitions );
+    }
+    if ( expectedTransitions > 0 )
+    {
+        data.tonemapTransitionCount =
+            data.frame->renderCommands->ExecuteGraphTransitions( *context.graph, *data.compiled, context.passIndex );
+        if ( data.tonemapTransitionCount != expectedTransitions )
+        {
+            // Hazard: tonemap must not sample until the compiler-selected
+            // consumer edge changes the transient from output to shader read.
+            SB_FATAL( "RunRender",
+                      "ToneMapPass compiled transition count mismatch. expected=%zu actual=%zu",
+                      expectedTransitions,
+                      data.tonemapTransitionCount );
+        }
+    }
+    data.tonemapPass->Render( *data.frame, true, data.volumetricRendered, graphVolumetric );
 }
 
 void WriteCinematicPostGraphEvidence(
@@ -598,8 +753,15 @@ void WriteCinematicPostGraphEvidence(
     const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
     const SkullbonezCore::Rendering::RenderGraphTransientMaterializationStats& materialization,
     const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding,
-    bool volumetricDeclared )
+    bool volumetricDeclared,
+    size_t volumetricTransitionCount,
+    size_t tonemapTransitionCount )
 {
+    // Why: this human-readable file is diagnostic evidence, not frame storage.
+    // The allocation phase must match that policy even when the cinematic post
+    // graph is emitted from inside the Render frame scope.
+    CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+        CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     std::ofstream out( "Debug/dx12_cinematic_post_graph.txt", std::ios::trunc );
     if ( !out.is_open() )
     {
@@ -617,6 +779,8 @@ void WriteCinematicPostGraphEvidence(
     out << "  reused_this_compile=" << materialization.reusedThisCompile << "\n";
     out << "  descriptor_rows_owned=" << materialization.descriptorRowsOwned << "\n";
     out << "  released_at_frame_end=" << materialization.releasedAtFrameEnd << "\n";
+    out << "  volumetric_compiled_transitions_emitted=" << volumetricTransitionCount << "\n";
+    out << "  tonemap_compiled_transitions_emitted=" << tonemapTransitionCount << "\n";
     out << "  materialization_failed=" << ( materialization.failed ? "true" : "false" ) << "\n";
     out << "  materialization_failure_stage=" << materialization.failureStage << "\n";
     out << "  materialization_failure_resource=" << materialization.failureResource << "\n";
@@ -630,6 +794,64 @@ void WriteCinematicPostGraphEvidence(
             graph.Resources()[allocation.resource.index];
         out << "  [" << i << "] resource=" << resource.name << " pool_slot=" << allocation.poolSlot
             << " first_pass=" << allocation.firstPass << " last_pass=" << allocation.lastPass << "\n";
+    }
+}
+
+SkullbonezCore::Rendering::RenderGraphResourceHandle
+AddBackbufferResource( SkullbonezCore::Rendering::RenderGraph& graph,
+                       SkullbonezCore::Rendering::IRenderCommandContext& renderCommands )
+{
+    const SkullbonezCore::Rendering::RenderGraphBackbufferBinding binding =
+        renderCommands.ResolveGraphBackbufferBinding();
+    if ( !binding.IsValid() )
+    {
+        SB_FATAL( "RunRender", "Executable backbuffer graph pass has no current backend binding." );
+    }
+    return graph.AddExternalResource( "SwapchainBackbuffer", binding.currentAccess, binding.nativeResource );
+}
+
+size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
+                                        uint32_t passIndex )
+{
+    size_t count = 0;
+    for ( const SkullbonezCore::Rendering::RenderGraphTransitionDesc& transition : compiled.transitions )
+    {
+        if ( transition.passIndex == passIndex )
+        {
+            ++count;
+        }
+    }
+    return count;
+}
+
+void ExecuteGraphCallbacksOrFatal( const SkullbonezCore::Rendering::RenderGraph& graph,
+                                   uint32_t expectedPassCount,
+                                   const char* owner )
+{
+    const size_t passCount = graph.Passes().size();
+    if ( expectedPassCount > passCount )
+    {
+        SB_FATAL( "RunRender",
+                  "Executable graph callback range underflow. owner=%s expected=%u passes=%zu",
+                  owner ? owner : "unknown",
+                  expectedPassCount,
+                  passCount );
+    }
+    const uint32_t firstPass = static_cast<uint32_t>( passCount - expectedPassCount );
+    graph.ExecuteCallbacks( SkullbonezCore::Rendering::RenderGraphCallbackExecutionMode::DryRun,
+                            firstPass,
+                            expectedPassCount );
+    const SkullbonezCore::Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( SkullbonezCore::Rendering::RenderGraphCallbackExecutionMode::Execute,
+                                firstPass,
+                                expectedPassCount );
+    if ( executed.executedPassCount != expectedPassCount )
+    {
+        SB_FATAL( "RunRender",
+                  "Executable graph omitted a callback. owner=%s expected=%u actual=%u",
+                  owner ? owner : "unknown",
+                  expectedPassCount,
+                  executed.executedPassCount );
     }
 }
 
@@ -657,73 +879,156 @@ void AddFrameTargetWrites( SkullbonezCore::Rendering::RenderGraph& graph, uint32
     graph.AddWrite( pass, depthTarget, SkullbonezCore::Rendering::RenderGraphResourceAccess::DepthWrite );
 }
 
-bool TornadoSystemVectorsVisible( const Physics::TornadoSystemConfig& config )
+struct GraphFramebufferResources
 {
-    if ( config.visualizeVelocityField )
+    SkullbonezCore::Rendering::RenderGraphResourceHandle color;
+    SkullbonezCore::Rendering::RenderGraphResourceHandle depth;
+    size_t transitionCount = 0;
+};
+
+GraphFramebufferResources AddGraphFramebuffer( SkullbonezCore::Rendering::RenderGraph& graph,
+                                               const RenderFrameContext& frame,
+                                               const Rendering::IFramebuffer* target,
+                                               const char* colorName,
+                                               const char* depthName )
+{
+    GraphFramebufferResources resources;
+    if ( !target || !frame.renderCommands )
     {
-        return true;
+        return resources;
     }
-    for ( const Physics::TornadoVortexConfig& vortex : config.vortices )
+    resources.color =
+        graph.AddExternalResource( colorName,
+                                   Rendering::RenderGraphResourceAccess::PixelShaderResource,
+                                   frame.renderCommands->ResolveGraphResourceToken( target->GetColorTextureHandle() ) );
+    resources.depth =
+        graph.AddExternalResource( depthName,
+                                   Rendering::RenderGraphResourceAccess::PixelShaderResource,
+                                   frame.renderCommands->ResolveGraphResourceToken( target->GetDepthTextureHandle() ) );
+    resources.transitionCount = 2;
+    return resources;
+}
+
+void AddFramebufferWrites( Rendering::RenderGraph& graph, uint32_t pass, const GraphFramebufferResources& resources )
+{
+    if ( resources.transitionCount == 0 )
     {
-        if ( vortex.field.visualizeVelocityField )
-        {
-            return true;
-        }
+        return;
     }
-    return false;
+    graph.AddWrite( pass, resources.color, Rendering::RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( pass, resources.depth, Rendering::RenderGraphResourceAccess::DepthWrite );
+}
+
+void AddFramebufferReads( Rendering::RenderGraph& graph, uint32_t pass, const GraphFramebufferResources& resources )
+{
+    if ( resources.transitionCount == 0 )
+    {
+        return;
+    }
+    graph.AddRead( pass, resources.color, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, resources.depth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
 }
 
 } // namespace
 
-RuntimeRenderer::ShadowGraphResult
-RuntimeRenderer::ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
-                                                  const SkullbonezCore::Core::CinematicRenderConfig* activeShadowConfig,
-                                                  bool terrainHidden,
-                                                  bool collisionVisualizerVisible )
+void RuntimeRenderer::ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle terrainShadow =
-        graph.AddExternalResource( "TerrainShadowMapDepth", Rendering::RenderGraphResourceAccess::PixelShaderResource );
-    const Rendering::RenderGraphResourceHandle objectShadow =
-        graph.AddExternalResource( "ObjectShadowMapDepth", Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, inputs.renderCommands );
+    const uint32_t acquirePass = graph.AddPass( inputs.clearFrameTargets ? "BackbufferClear" : "UiTargetAcquire" );
+    graph.AddWrite( acquirePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+    if ( inputs.clearFrameTargets )
+    {
+        const Rendering::RenderGraphResourceHandle mainDepth =
+            graph.AddExternalResource( "MainDepthStencil", Rendering::RenderGraphResourceAccess::DepthWrite );
+        graph.AddWrite( acquirePass, mainDepth, Rendering::RenderGraphResourceAccess::DepthWrite );
+    }
 
-    const uint32_t shadowPass = graph.AddPass( "ShadowMapPass",
-                                               Rendering::RenderGraphQueueType::Graphics,
-                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
-    graph.AddWrite( shadowPass, terrainShadow, Rendering::RenderGraphResourceAccess::DepthWrite );
-    graph.AddWrite( shadowPass, objectShadow, Rendering::RenderGraphResourceAccess::DepthWrite );
+    BackbufferAcquireGraphCallbackData callbackData;
+    callbackData.renderCommands = &inputs.renderCommands;
+    callbackData.clearFrameTargets = inputs.clearFrameTargets;
+    graph.SetPassCallback<ExecuteBackbufferAcquireGraphCallback>(
+        acquirePass,
+        callbackData,
+        true,
+        inputs.clearFrameTargets ? "Frame/BackbufferClear" : "Frame/UI/TargetAcquire" );
+
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
+    callbackData.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, acquirePass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, inputs.clearFrameTargets ? "BackbufferClear" : "UiTargetAcquire" );
+}
+
+ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs )
+{
+    const RenderFrameContext& frame = inputs.frame;
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const GraphFramebufferResources terrainShadow = AddGraphFramebuffer( graph,
+                                                                         frame,
+                                                                         m_passResources.shadows.terrainTarget.get(),
+                                                                         "TerrainShadowMapColor",
+                                                                         "TerrainShadowMapDepth" );
+    const GraphFramebufferResources objectShadow = AddGraphFramebuffer( graph,
+                                                                        frame,
+                                                                        m_passResources.shadows.objectTarget.get(),
+                                                                        "ObjectShadowMapColor",
+                                                                        "ObjectShadowMapDepth" );
+    const size_t targetTransitionCount = terrainShadow.transitionCount + objectShadow.transitionCount;
+
+    const uint32_t shadowPass = graph.AddPass( "ShadowMapPass", Rendering::RenderGraphQueueType::Graphics );
+    AddFramebufferWrites( graph, shadowPass, terrainShadow );
+    AddFramebufferWrites( graph, shadowPass, objectShadow );
+    if ( targetTransitionCount == 0 )
+    {
+        // Disabled shadows still schedule the callback that clears stale CPU
+        // receiver payloads; this stable no-transition row satisfies the graph
+        // callback resource contract without pretending a GPU target exists.
+        const Rendering::RenderGraphResourceHandle inactive =
+            graph.AddExternalResource( "ShadowPassInactive",
+                                       Rendering::RenderGraphResourceAccess::PixelShaderResource );
+        graph.AddRead( shadowPass, inactive, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+    }
 
     ShadowGraphCallbackData callbackData;
     callbackData.shadowPass = &m_shadowPass;
     callbackData.frame = &frame;
-    callbackData.cinematic = activeShadowConfig;
-    callbackData.terrainHidden = terrainHidden;
-    callbackData.collisionVisualizerVisible = collisionVisualizerVisible;
+    callbackData.cinematic = inputs.cinematic;
+    callbackData.terrainHidden = inputs.terrainHidden;
+    callbackData.collisionVisualizerVisible = inputs.collisionVisualizerVisible;
+    callbackData.expectedTransitionCount = targetTransitionCount;
     graph.SetPassCallback<ExecuteShadowGraphCallback>( shadowPass, callbackData, true, "Frame/Shadows/ShadowMap" );
+
+    GraphTransitionCallbackData publishData;
+    uint32_t publishPass = 0;
+    if ( targetTransitionCount > 0 )
+    {
+        publishPass = graph.AddPass( "ShadowMapPublishPass", Rendering::RenderGraphQueueType::Graphics );
+        AddFramebufferReads( graph, publishPass, terrainShadow );
+        AddFramebufferReads( graph, publishPass, objectShadow );
+        publishData.renderCommands = frame.renderCommands;
+        publishData.expectedTransitionCount = targetTransitionCount;
+        graph.SetPassCallback<ExecuteGraphTransitionCallback>( publishPass,
+                                                               publishData,
+                                                               true,
+                                                               "Frame/Shadows/ShadowMapPublish" );
+    }
 
     // Invariant: even when activeShadowConfig is null, ShadowPass::Render clears
     // stale receiver payloads. The graph owns that reset scheduling point and
     // declares the stable shadow-map resources produced when shadows are active.
-    CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-
-    ShadowGraphResult result;
-    result.output = callbackData.output;
-    result.callbackOwned = executed.executedPassCount == 1u;
-    return result;
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
+    publishData.compiled = &compiled;
+    ExecuteGraphCallbacksOrFatal( graph, targetTransitionCount > 0 ? 2u : 1u, "ShadowMap" );
+    return callbackData.output;
 }
 
-bool RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame )
+void RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle backbuffer =
-        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *frame.renderCommands );
 
-    const uint32_t skyboxPass = graph.AddPass( "SkyboxPass",
-                                               Rendering::RenderGraphQueueType::Graphics,
-                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    const uint32_t skyboxPass = graph.AddPass( "SkyboxPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( skyboxPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
 
     SkyboxGraphCallbackData callbackData;
@@ -734,33 +1039,21 @@ bool RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderFrameContext&
     // Invariant: the ordinary skybox still draws through SkyPass; the graph now
     // owns the scheduling point and resource declaration before live execution.
     CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "Skybox" );
 }
 
 
-RuntimeRenderer::ReflectionGraphResult RuntimeRenderer::ExecuteReflectionThroughRenderGraph(
-    const RenderFrameContext& frame,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    const Rendering::ShadowFrameData* objectShadow,
-    bool collisionStateColorsVisible,
-    bool debugTransparentBodyPass,
-    float collisionVisualizerAlphaOverride,
-    float bodyAlpha,
-    bool waterRayTracingReflection,
-    bool waterNoReflection,
-    float simulationTimeSeconds )
+ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const bool useDxrCandidate = frame.renderDiagnostics && frame.renderRayTracing &&
                                  frame.renderDiagnostics->GetCapabilities().supportsDxrReflection &&
-                                 waterRayTracingReflection && !waterNoReflection && !collisionStateColorsVisible &&
-                                 !debugTransparentBodyPass;
+                                 inputs.waterRayTracingReflection && !inputs.waterNoReflection &&
+                                 !inputs.collisionStateColorsVisible && !inputs.transparentBodyPass;
 
     Rendering::RenderGraphResourceHandle objectShadowResource;
-    if ( objectShadow && objectShadow->valid )
+    if ( inputs.objectShadow && inputs.objectShadow->valid )
     {
         objectShadowResource = graph.AddExternalResource( "ObjectShadowMapDepth",
                                                           Rendering::RenderGraphResourceAccess::PixelShaderResource );
@@ -768,117 +1061,130 @@ RuntimeRenderer::ReflectionGraphResult RuntimeRenderer::ExecuteReflectionThrough
 
     const uint32_t reflectionPass = graph.AddPass(
         useDxrCandidate ? "DxrReflectionPass" : "RasterReflectionPass",
-        useDxrCandidate ? Rendering::RenderGraphQueueType::Compute : Rendering::RenderGraphQueueType::Graphics,
-        Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+        useDxrCandidate ? Rendering::RenderGraphQueueType::Compute : Rendering::RenderGraphQueueType::Graphics );
     if ( objectShadowResource.IsValid() )
     {
         graph.AddRead( reflectionPass,
                        objectShadowResource,
                        Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
+    GraphFramebufferResources rasterReflection;
+    Rendering::RenderGraphResourceHandle producedReflection;
+    size_t targetTransitionCount = 0;
     if ( useDxrCandidate )
     {
-        const Rendering::RenderGraphResourceHandle dxrReflection =
+        const uint32_t reflectionHandle = frame.renderRayTracing->GetReflectionUAVTexture();
+        producedReflection =
             graph.AddExternalResource( "DxrReflectionTexture",
-                                       Rendering::RenderGraphResourceAccess::PixelShaderResource );
-        graph.AddWrite( reflectionPass, dxrReflection, Rendering::RenderGraphResourceAccess::UnorderedAccess );
+                                       Rendering::RenderGraphResourceAccess::PixelShaderResource,
+                                       frame.renderCommands->ResolveGraphResourceToken( reflectionHandle ) );
+        graph.AddWrite( reflectionPass, producedReflection, Rendering::RenderGraphResourceAccess::UnorderedAccess );
+        targetTransitionCount = 1;
     }
     else
     {
-        const Rendering::RenderGraphResourceHandle reflectionColor =
-            graph.AddExternalResource( "RasterReflectionColor",
+        rasterReflection = AddGraphFramebuffer( graph,
+                                                frame,
+                                                m_passResources.reflection.target.get(),
+                                                "RasterReflectionColor",
+                                                "RasterReflectionDepth" );
+        AddFramebufferWrites( graph, reflectionPass, rasterReflection );
+        targetTransitionCount = rasterReflection.transitionCount;
+    }
+    if ( targetTransitionCount == 0 && !objectShadowResource.IsValid() )
+    {
+        const Rendering::RenderGraphResourceHandle inactive =
+            graph.AddExternalResource( "ReflectionPassInactive",
                                        Rendering::RenderGraphResourceAccess::PixelShaderResource );
-        const Rendering::RenderGraphResourceHandle reflectionDepth =
-            graph.AddExternalResource( "RasterReflectionDepth",
-                                       Rendering::RenderGraphResourceAccess::PixelShaderResource );
-        graph.AddWrite( reflectionPass, reflectionColor, Rendering::RenderGraphResourceAccess::RenderTarget );
-        graph.AddWrite( reflectionPass, reflectionDepth, Rendering::RenderGraphResourceAccess::DepthWrite );
+        graph.AddRead( reflectionPass, inactive, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
 
     ReflectionGraphCallbackData callbackData;
     callbackData.reflectionPass = &m_reflectionPass;
     callbackData.skyPass = &m_skyPass;
     callbackData.frame = &frame;
-    callbackData.cinematic = activeCinematic;
-    callbackData.objectShadow = objectShadow;
-    callbackData.waterRayTracingReflection = waterRayTracingReflection;
-    callbackData.waterNoReflection = waterNoReflection;
-    callbackData.collisionStateColorsVisible = collisionStateColorsVisible;
-    callbackData.transparentBodyPass = debugTransparentBodyPass;
-    callbackData.collisionVisualizerAlphaOverride = collisionVisualizerAlphaOverride;
-    callbackData.bodyAlpha = bodyAlpha;
-    callbackData.simulationTimeSeconds = simulationTimeSeconds;
+    callbackData.cinematic = inputs.cinematic;
+    callbackData.objectShadow = inputs.objectShadow;
+    callbackData.waterRayTracingReflection = inputs.waterRayTracingReflection;
+    callbackData.waterNoReflection = inputs.waterNoReflection;
+    callbackData.collisionStateColorsVisible = inputs.collisionStateColorsVisible;
+    callbackData.transparentBodyPass = inputs.transparentBodyPass;
+    callbackData.collisionVisualizerAlphaOverride = inputs.collisionVisualizerAlphaOverride;
+    callbackData.bodyAlpha = inputs.bodyAlpha;
+    callbackData.simulationTimeSeconds = inputs.simulationTimeSeconds;
+    callbackData.expectedTransitionCount = targetTransitionCount;
     graph.SetPassCallback<ExecuteReflectionGraphCallback>(
         reflectionPass,
         callbackData,
         true,
         useDxrCandidate ? "Frame/Render/Reflection/DXR" : "Frame/Render/Reflection/Raster" );
 
+    GraphTransitionCallbackData publishData;
+    if ( targetTransitionCount > 0 )
+    {
+        const uint32_t publishPass =
+            graph.AddPass( "ReflectionPublishPass", Rendering::RenderGraphQueueType::Graphics );
+        if ( useDxrCandidate )
+        {
+            graph.AddRead( publishPass, producedReflection, Rendering::RenderGraphResourceAccess::PixelShaderResource );
+        }
+        else
+        {
+            AddFramebufferReads( graph, publishPass, rasterReflection );
+        }
+        publishData.renderCommands = frame.renderCommands;
+        publishData.expectedTransitionCount = targetTransitionCount;
+        graph.SetPassCallback<ExecuteGraphTransitionCallback>( publishPass,
+                                                               publishData,
+                                                               true,
+                                                               "Frame/Render/ReflectionPublish" );
+    }
+
     // Invariant: reflection still chooses DXR or raster in ReflectionPass using
     // the same runtime conditions. The graph now owns the scheduling point and
     // declares the texture family that WaterPass samples later.
-    CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-
-    ReflectionGraphResult result;
-    result.output = callbackData.output;
-    result.callbackOwned = executed.executedPassCount == 1u;
-    return result;
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
+    publishData.compiled = &compiled;
+    ExecuteGraphCallbacksOrFatal( graph, targetTransitionCount > 0 ? 2u : 1u, "Reflection" );
+    return callbackData.output;
 }
 
 
-bool RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame )
+void RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle sceneColor =
-        graph.AddExternalResource( "CinematicSceneColor", Rendering::RenderGraphResourceAccess::PixelShaderResource );
-    // Handoff: FramebufferDX12 tracks whether depth starts this pass as a fresh
-    // DepthWrite texture or a shader-readable texture from the previous post
-    // chain. Keep the initial graph state unknown until the graph owns FBO state.
-    const Rendering::RenderGraphResourceHandle sceneDepth =
-        graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::Unknown );
+    const GraphFramebufferResources sceneTarget = AddGraphFramebuffer( graph,
+                                                                       frame,
+                                                                       m_passResources.cinematicScene.hdrTarget.get(),
+                                                                       "CinematicSceneColor",
+                                                                       "CinematicSceneDepth" );
 
-    const uint32_t sceneBeginPass = graph.AddPass( "CinematicSceneBegin",
-                                                   Rendering::RenderGraphQueueType::Graphics,
-                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
-    graph.AddWrite( sceneBeginPass, sceneColor, Rendering::RenderGraphResourceAccess::RenderTarget );
-    graph.AddWrite( sceneBeginPass, sceneDepth, Rendering::RenderGraphResourceAccess::DepthWrite );
+    const uint32_t sceneBeginPass = graph.AddPass( "CinematicSceneBegin", Rendering::RenderGraphQueueType::Graphics );
+    AddFramebufferWrites( graph, sceneBeginPass, sceneTarget );
 
     SceneTargetGraphCallbackData callbackData;
     callbackData.sceneTargetPass = &m_sceneTargetPass;
     callbackData.skyPass = &m_skyPass;
     callbackData.frame = &frame;
+    callbackData.expectedTransitionCount = sceneTarget.transitionCount;
     graph.SetPassCallback<ExecuteSceneTargetGraphCallback>( sceneBeginPass,
                                                             callbackData,
                                                             true,
                                                             "Frame/Render/CinematicSceneBegin" );
 
-    // Invariant: cinematic scene targets rest as shader resources after the
-    // post chain consumes them. SceneTargetPass::Begin still performs the live
-    // bind/clear handoff, while this graph records the transition intent and
-    // owns the callback scheduling point.
-    CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    // Invariant: the producer callback consumes both compiled edges before
+    // binding; the cinematic post graph later publishes both resources for reads.
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "CinematicSceneBegin" );
 }
 
 
-bool RuntimeRenderer::ExecuteObjectThroughRenderGraph(
-    const RenderFrameContext& frame,
-    ObjectPassMode mode,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    const Rendering::ShadowFrameData* objectShadow,
-    bool collisionStateColorsVisible,
-    float collisionVisualizerAlphaOverride,
-    float bodyAlpha,
-    const std::vector<uint8_t>* replayFocusModelMask,
-    bool drawMaskedModels )
+void RuntimeRenderer::ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::ShadowFrameData* objectShadow = inputs.shadow;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle objectShadowResource;
     if ( objectShadow && objectShadow->valid )
@@ -887,52 +1193,45 @@ bool RuntimeRenderer::ExecuteObjectThroughRenderGraph(
                                                           Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
 
-    const char* passName = mode == ObjectPassMode::Transparent ? "ObjectTransparentPass" : "ObjectOpaquePass";
-    const uint32_t objectPass = graph.AddPass( passName,
-                                               Rendering::RenderGraphQueueType::Graphics,
-                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    const char* passName = inputs.mode == ObjectPassMode::Transparent ? "ObjectTransparentPass" : "ObjectOpaquePass";
+    const uint32_t objectPass = graph.AddPass( passName, Rendering::RenderGraphQueueType::Graphics );
     if ( objectShadowResource.IsValid() )
     {
         graph.AddRead( objectPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
-    AddFrameTargetWrites( graph, objectPass, useCinematicTarget );
+    AddFrameTargetWrites( graph, objectPass, inputs.useCinematicTarget );
 
     ObjectGraphCallbackData callbackData;
     callbackData.objectPass = &m_objectPass;
     callbackData.frame = &frame;
-    callbackData.mode = mode;
-    callbackData.cinematic = activeCinematic;
+    callbackData.mode = inputs.mode;
+    callbackData.cinematic = inputs.cinematic;
     callbackData.shadow = objectShadow;
-    callbackData.collisionStateColorsVisible = collisionStateColorsVisible;
-    callbackData.collisionVisualizerAlphaOverride = collisionVisualizerAlphaOverride;
-    callbackData.bodyAlpha = bodyAlpha;
-    callbackData.modelMask = replayFocusModelMask;
-    callbackData.drawMaskedModels = drawMaskedModels;
-    graph.SetPassCallback<ExecuteObjectGraphCallback>(
-        objectPass,
-        callbackData,
-        true,
-        mode == ObjectPassMode::Transparent ? "Frame/Render/Objects/Transparent" : "Frame/Render/Objects/Opaque" );
+    callbackData.collisionStateColorsVisible = inputs.collisionStateColorsVisible;
+    callbackData.collisionVisualizerAlphaOverride = inputs.collisionVisualizerAlphaOverride;
+    callbackData.bodyAlpha = inputs.bodyAlpha;
+    callbackData.modelMask = inputs.modelMask;
+    callbackData.drawMaskedModels = inputs.drawMaskedModels;
+    graph.SetPassCallback<ExecuteObjectGraphCallback>( objectPass,
+                                                       callbackData,
+                                                       true,
+                                                       inputs.mode == ObjectPassMode::Transparent
+                                                           ? "Frame/Render/Objects/Transparent"
+                                                           : "Frame/Render/Objects/Opaque" );
 
     // Concept: object draw selection still lives in ObjectPassInputs. The graph
     // owns when that selection is scheduled and which frame target/shadow map
     // resources the selected object pass reads and writes.
     CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    ExecuteGraphCallbacksOrFatal( graph, 1u, passName );
 }
 
 
-bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph(
-    const RenderFrameContext& frame,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    const Rendering::ShadowFrameData* terrainShadow,
-    const Rendering::ShadowFrameData* objectShadow,
-    bool terrainHidden )
+void RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::ShadowFrameData* terrainShadow = inputs.shadow;
+    const Rendering::ShadowFrameData* objectShadow = inputs.detailShadow;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle terrainShadowResource;
     if ( terrainShadow && terrainShadow->valid )
@@ -947,9 +1246,7 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph(
                                                           Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
 
-    const uint32_t terrainPass = graph.AddPass( "TerrainPass",
-                                                Rendering::RenderGraphQueueType::Graphics,
-                                                Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    const uint32_t terrainPass = graph.AddPass( "TerrainPass", Rendering::RenderGraphQueueType::Graphics );
     if ( terrainShadowResource.IsValid() )
     {
         graph.AddRead( terrainPass, terrainShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
@@ -958,168 +1255,114 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph(
     {
         graph.AddRead( terrainPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
-    AddFrameTargetWrites( graph, terrainPass, useCinematicTarget );
+    AddFrameTargetWrites( graph, terrainPass, inputs.useCinematicTarget );
 
     TerrainGraphCallbackData callbackData;
     callbackData.terrainPass = &m_terrainPass;
     callbackData.frame = &frame;
-    callbackData.cinematic = activeCinematic;
+    callbackData.cinematic = inputs.cinematic;
     callbackData.shadow = terrainShadow;
     callbackData.detailShadow = objectShadow;
-    callbackData.terrainHidden = terrainHidden;
+    callbackData.terrainHidden = inputs.terrainHidden;
     graph.SetPassCallback<ExecuteTerrainGraphCallback>( terrainPass, callbackData, true, "Frame/Render/Terrain" );
 
     // Invariant: terrain visibility is snapshotted before graph execution, while
     // the graph owns its frame target and shadow-map declaration.
     CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "Terrain" );
 }
 
 
-bool RuntimeRenderer::ExecuteWaterThroughRenderGraph(
-    const RenderFrameContext& frame,
-    const ReflectionPassOutput& reflection,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    bool waterHidden,
-    bool flatWater,
-    bool noReflection,
-    bool freezeTime,
-    float frozenTime,
-    float liveWaterTime )
+void RuntimeRenderer::ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const ReflectionPassOutput& reflection = inputs.reflection;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    if ( reflection.reflectionTextureHandle != 0u && !noReflection )
+    if ( reflection.reflectionTextureHandle != 0u && !inputs.noReflection )
     {
         const Rendering::RenderGraphResourceHandle reflectionTexture =
             graph.AddExternalResource( reflection.usedDxr ? "DxrReflectionTexture" : "RasterReflectionColor",
                                        Rendering::RenderGraphResourceAccess::PixelShaderResource );
-        const uint32_t waterPass = graph.AddPass( "WaterPass",
-                                                  Rendering::RenderGraphQueueType::Graphics,
-                                                  Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+        const uint32_t waterPass = graph.AddPass( "WaterPass", Rendering::RenderGraphQueueType::Graphics );
         graph.AddRead( waterPass, reflectionTexture, Rendering::RenderGraphResourceAccess::PixelShaderResource );
-        AddFrameTargetWrites( graph, waterPass, useCinematicTarget );
+        AddFrameTargetWrites( graph, waterPass, inputs.useCinematicTarget );
 
         WaterGraphCallbackData callbackData;
         callbackData.waterPass = &m_waterPass;
         callbackData.frame = &frame;
         callbackData.reflection = &reflection;
-        callbackData.cinematic = activeCinematic;
-        callbackData.waterHidden = waterHidden;
-        callbackData.flatWater = flatWater;
-        callbackData.noReflection = noReflection;
-        callbackData.freezeTime = freezeTime;
-        callbackData.frozenTime = frozenTime;
-        callbackData.liveWaterTime = liveWaterTime;
+        callbackData.cinematic = inputs.cinematic;
+        callbackData.waterHidden = inputs.waterHidden;
+        callbackData.flatWater = inputs.flatWater;
+        callbackData.noReflection = inputs.noReflection;
+        callbackData.freezeTime = inputs.freezeTime;
+        callbackData.frozenTime = inputs.frozenTime;
+        callbackData.liveWaterTime = inputs.liveWaterTime;
         graph.SetPassCallback<ExecuteWaterGraphCallback>( waterPass, callbackData, true, "Frame/Render/Water" );
 
         CompileRenderPassGraph( graph );
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-        const Rendering::RenderGraphCallbackExecutionResult executed =
-            graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-        return executed.executedPassCount == 1u;
+        ExecuteGraphCallbacksOrFatal( graph, 1u, "Water" );
+        return;
     }
 
-    const uint32_t waterPass = graph.AddPass( "WaterPass",
-                                              Rendering::RenderGraphQueueType::Graphics,
-                                              Rendering::RenderGraphBarrierPolicy::HandoffValidated );
-    AddFrameTargetWrites( graph, waterPass, useCinematicTarget );
+    const uint32_t waterPass = graph.AddPass( "WaterPass", Rendering::RenderGraphQueueType::Graphics );
+    AddFrameTargetWrites( graph, waterPass, inputs.useCinematicTarget );
 
     WaterGraphCallbackData callbackData;
     callbackData.waterPass = &m_waterPass;
     callbackData.frame = &frame;
     callbackData.reflection = &reflection;
-    callbackData.cinematic = activeCinematic;
-    callbackData.waterHidden = waterHidden;
-    callbackData.flatWater = flatWater;
-    callbackData.noReflection = noReflection;
-    callbackData.freezeTime = freezeTime;
-    callbackData.frozenTime = frozenTime;
-    callbackData.liveWaterTime = liveWaterTime;
+    callbackData.cinematic = inputs.cinematic;
+    callbackData.waterHidden = inputs.waterHidden;
+    callbackData.flatWater = inputs.flatWater;
+    callbackData.noReflection = inputs.noReflection;
+    callbackData.freezeTime = inputs.freezeTime;
+    callbackData.frozenTime = inputs.frozenTime;
+    callbackData.liveWaterTime = inputs.liveWaterTime;
     graph.SetPassCallback<ExecuteWaterGraphCallback>( waterPass, callbackData, true, "Frame/Render/Water" );
 
     // Invariant: WaterPass may decide to draw the no-reflection shader path or
     // skip hidden water, but the graph owns that decision point and target
     // declaration every frame.
     CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "Water" );
 }
 
 
-RuntimeRenderer::GraphPassResult
-RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame,
-                                                         bool useCinematicTarget,
-                                                         const TornadoVisualSnapshot& snapshot )
+bool RuntimeRenderer::ExecuteWorldExtensionThroughRenderGraph( const WorldExtensionGraphInputs& inputs )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle colorTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
                                    Rendering::RenderGraphResourceAccess::RenderTarget );
     const Rendering::RenderGraphResourceHandle depthTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
                                    Rendering::RenderGraphResourceAccess::DepthWrite );
 
-    const uint32_t tornadoPass = graph.AddPass( "TornadoVisualPass",
-                                                Rendering::RenderGraphQueueType::Graphics,
-                                                Rendering::RenderGraphBarrierPolicy::HandoffValidated );
-    graph.AddWrite( tornadoPass, colorTarget, Rendering::RenderGraphResourceAccess::RenderTarget );
-    graph.AddWrite( tornadoPass, depthTarget, Rendering::RenderGraphResourceAccess::DepthWrite );
-
-    TornadoVisualGraphCallbackData callbackData;
-    callbackData.tornadoVisualPass = &m_tornadoVisualPass;
-    callbackData.frame = &frame;
-    callbackData.snapshot = &snapshot;
-    graph.SetPassCallback<ExecuteTornadoVisualGraphCallback>( tornadoPass,
-                                                              callbackData,
-                                                              true,
-                                                              "Frame/Render/TornadoVisual" );
-
-    // Invariant: TornadoVisualPass may skip drawing after rebuilding its
-    // transient vertex list. Callback ownership is still true when the graph
-    // schedules that decision point in frame order.
-    CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-
-    GraphPassResult result;
-    result.rendered = callbackData.rendered;
-    result.callbackOwned = executed.executedPassCount == 1u;
-    return result;
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::WorldSurfaceHeightView surfaceHeight =
+        m_terrain.Get()
+            ? Rendering::WorldSurfaceHeightView::Bind<Geometry::Terrain, &SampleWorldSurfaceHeight>( *m_terrain.Get() )
+            : Rendering::WorldSurfaceHeightView();
+    const Rendering::WorldRenderExtensionFrameView frameView{ frame.viewProjection,
+                                                              frame.eye,
+                                                              frame.viewCenter,
+                                                              frame.up,
+                                                              *frame.renderCommands,
+                                                              *frame.renderDiagnostics,
+                                                              *frame.renderGpuTiming,
+                                                              surfaceHeight };
+    Rendering::WorldRenderExtensionScope scope( graph,
+                                                m_renderPassCompileScratch,
+                                                colorTarget,
+                                                depthTarget,
+                                                frameView );
+    return inputs.registration.Register( scope );
 }
-
-
-TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot( const RenderFrameContext& frame,
-                                                                   const RuntimeRenderServices& services ) const
+void RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs )
 {
-    const ReplayRenderFrameView& replayFrame = services.replayFrame;
-
-    TornadoVisualSnapshot snapshot;
-    snapshot.visual = &m_presentationSettings.tornadoVisual;
-    snapshot.tornadoSystem = frame.physicsEngine ? &frame.physicsEngine->GetTornadoSystemConfig() : nullptr;
-    snapshot.tornadoField = frame.physicsEngine ? &frame.physicsEngine->GetTornadoFieldConfig() : nullptr;
-    snapshot.replaySample = replayFrame.presentationSample;
-    snapshot.solverSample = replayFrame.solverSample;
-    snapshot.predictionFrame = replayFrame.predictionFrame;
-    snapshot.replayLiveAdvanceHeld = replayFrame.liveAdvanceHeld;
-    snapshot.simulationSourceSeconds = services.framePolicy.simulationSeconds;
-    return snapshot;
-}
-
-
-bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
-    const RenderFrameContext& frame,
-    const ReplayVisualPacket& replayVisualPacket,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    const Rendering::ShadowFrameData* objectShadow )
-{
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::ShadowFrameData* objectShadow = inputs.shadow;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle objectShadowResource;
     if ( objectShadow && objectShadow->valid )
@@ -1128,21 +1371,19 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
                                                           Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
 
-    const uint32_t replayPass = graph.AddPass( "ReplayPredictionGhostPass",
-                                               Rendering::RenderGraphQueueType::Graphics,
-                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    const uint32_t replayPass = graph.AddPass( "ReplayPredictionGhostPass", Rendering::RenderGraphQueueType::Graphics );
     if ( objectShadowResource.IsValid() )
     {
         graph.AddRead( replayPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
-    AddFrameTargetWrites( graph, replayPass, useCinematicTarget );
+    AddFrameTargetWrites( graph, replayPass, inputs.useCinematicTarget );
 
     ReplayGhostGraphCallbackData callbackData;
     callbackData.profiler = m_profiler;
-    callbackData.replayVisualPacket = &replayVisualPacket;
+    callbackData.replayVisualPacket = &inputs.replayVisualPacket;
     callbackData.frame = &frame;
     callbackData.config = &m_config;
-    callbackData.cinematic = activeCinematic;
+    callbackData.cinematic = inputs.cinematic;
     callbackData.shadow = objectShadow;
     graph.SetPassCallback<ExecuteReplayGhostGraphCallback>( replayPass,
                                                             callbackData,
@@ -1154,30 +1395,24 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
     // The graph now owns that scheduling point instead of leaving it as an
     // ad hoc host call between migrated pass families.
     CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "ReplayPredictionGhost" );
 }
 
 
-RuntimeRenderer::GraphPassResult
-RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
-                                                        const RuntimeRenderServices& services,
-                                                        bool useCinematicTarget )
+bool RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const RuntimeRenderServices& services = inputs.services;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( frame, services );
+    const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( services );
     const Rendering::RenderGraphResourceHandle colorTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
                                    Rendering::RenderGraphResourceAccess::RenderTarget );
     const Rendering::RenderGraphResourceHandle depthTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
                                    Rendering::RenderGraphResourceAccess::DepthWrite );
 
-    const uint32_t debugPass = graph.AddPass( "DebugOverlayPass",
-                                              Rendering::RenderGraphQueueType::Graphics,
-                                              Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    const uint32_t debugPass = graph.AddPass( "DebugOverlayPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( debugPass, colorTarget, Rendering::RenderGraphResourceAccess::RenderTarget );
     graph.AddWrite( debugPass, depthTarget, Rendering::RenderGraphResourceAccess::DepthWrite );
 
@@ -1196,34 +1431,17 @@ RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext
     // scheduling itself is now graph-scheduled every frame so direct runtime calls
     // cannot creep back beside post-processing callbacks.
     CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    GraphPassResult result;
-    result.rendered = callbackData.rendered;
-    result.callbackOwned = executed.executedPassCount == 1u;
-    return result;
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "DebugOverlay" );
+    return callbackData.rendered;
 }
 
 
-DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFrameContext& frame,
-                                                                 const RuntimeRenderServices& services ) const
+DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RuntimeRenderServices& services ) const
 {
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     DebugOverlaySnapshot snapshot;
     snapshot.broadphaseOverlayVisible = policy.broadphaseOverlay;
-    const Physics::TornadoFieldConfig* tornadoField =
-        frame.physicsEngine ? &frame.physicsEngine->GetTornadoFieldConfig() : nullptr;
-    const Physics::TornadoSystemConfig* tornadoSystem =
-        frame.physicsEngine ? &frame.physicsEngine->GetTornadoSystemConfig() : nullptr;
-    snapshot.tornadoVectorsVisible =
-        tornadoField && tornadoSystem &&
-        ( tornadoField->visualizeVelocityField || TornadoSystemVectorsVisible( *tornadoSystem ) );
-    snapshot.tornadoOverlayWorkVisible =
-        tornadoField && tornadoSystem &&
-        ( tornadoField->visualizeVelocityField || tornadoSystem->visualizeVelocityField );
-    snapshot.tornadoSystem = tornadoSystem;
-    snapshot.tornadoField = tornadoField;
+    snapshot.worldExtensionDebugLines = services.models.worldExtensionDebugLines;
     snapshot.physicsDebugFlags = policy.physicsDebugFlags;
     snapshot.physicsDebugPipelineStageCursor = policy.physicsDebugPipelineStageCursor;
     snapshot.editorOverlayWorkVisible = services.toolOverlay.editorOverlayWorkVisible;
@@ -1231,16 +1449,21 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
 }
 
 
-RuntimeRenderer::CinematicPostGraphResult
-RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame )
+RuntimeRenderer::CinematicPostFrameOutput
+RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle sceneColor =
-        graph.AddExternalResource( "CinematicSceneColor", Rendering::RenderGraphResourceAccess::PixelShaderResource );
-    const Rendering::RenderGraphResourceHandle sceneDepth =
-        graph.AddExternalResource( "CinematicSceneDepth", Rendering::RenderGraphResourceAccess::PixelShaderResource );
-    const Rendering::RenderGraphResourceHandle backbuffer =
-        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+    Rendering::IFramebuffer* sceneTarget = m_passResources.cinematicScene.hdrTarget.get();
+    const Rendering::RenderGraphResourceHandle sceneColor = graph.AddExternalResource(
+        "CinematicSceneColor",
+        Rendering::RenderGraphResourceAccess::RenderTarget,
+        frame.renderCommands->ResolveGraphResourceToken( sceneTarget->GetColorTextureHandle() ) );
+    const Rendering::RenderGraphResourceHandle sceneDepth = graph.AddExternalResource(
+        "CinematicSceneDepth",
+        Rendering::RenderGraphResourceAccess::DepthWrite,
+        frame.renderCommands->ResolveGraphResourceToken( sceneTarget->GetDepthTextureHandle() ) );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *frame.renderCommands );
     Rendering::RenderGraphResourceHandle volumetricLight;
     const bool volumetricDeclared = m_volumetricPass.CanRender( frame );
     uint32_t expectedCallbacks = 1u;
@@ -1248,14 +1471,11 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 
     if ( volumetricDeclared )
     {
-        const VolumetricLightPassResources& volumetric = m_passResources.volumetricLight;
         Rendering::RenderGraphTransientResourceDesc volumetricDesc;
         volumetricDesc.kind = Rendering::RenderGraphResourceKind::Texture2D;
         volumetricDesc.format = Rendering::RenderGraphResourceFormat::RGBA16F;
-        volumetricDesc.width =
-            static_cast<uint32_t>( volumetric.target->GetWidth() > 0 ? volumetric.target->GetWidth() : 1 );
-        volumetricDesc.height =
-            static_cast<uint32_t>( volumetric.target->GetHeight() > 0 ? volumetric.target->GetHeight() : 1 );
+        volumetricDesc.width = static_cast<uint32_t>( (std::max)( 1, frame.windowWidth / 2 ) );
+        volumetricDesc.height = static_cast<uint32_t>( (std::max)( 1, frame.windowHeight / 2 ) );
         volumetricDesc.mipLevels = 1;
         volumetricDesc.descriptors.renderTarget = true;
         volumetricDesc.descriptors.shaderResource = true;
@@ -1263,18 +1483,14 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
                                                       volumetricDesc,
                                                       Rendering::RenderGraphResourceAccess::PixelShaderResource );
 
-        volumetricPass = graph.AddPass( "VolumetricLightPass",
-                                        Rendering::RenderGraphQueueType::Graphics,
-                                        Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+        volumetricPass = graph.AddPass( "VolumetricLightPass", Rendering::RenderGraphQueueType::Graphics );
         graph.AddRead( volumetricPass, sceneColor, Rendering::RenderGraphResourceAccess::PixelShaderResource );
         graph.AddRead( volumetricPass, sceneDepth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
         graph.AddWrite( volumetricPass, volumetricLight, Rendering::RenderGraphResourceAccess::RenderTarget );
         ++expectedCallbacks;
     }
 
-    const uint32_t tonemapPass = graph.AddPass( "ToneMapPass",
-                                                Rendering::RenderGraphQueueType::Graphics,
-                                                Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    const uint32_t tonemapPass = graph.AddPass( "ToneMapPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddRead( tonemapPass, sceneColor, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     graph.AddRead( tonemapPass, sceneDepth, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     if ( volumetricDeclared )
@@ -1287,6 +1503,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
     callbackData.volumetricPass = &m_volumetricPass;
     callbackData.tonemapPass = &m_tonemapPass;
     callbackData.frame = &frame;
+    callbackData.sceneTarget = sceneTarget;
     if ( volumetricDeclared )
     {
         graph.SetPassCallback<ExecuteVolumetricGraphCallback>( volumetricPass,
@@ -1300,6 +1517,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
     // post passes have resource declarations before live callbacks record
     // commands, and the execute path records them in graph order.
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
     Rendering::RenderGraphTransientMaterializationStats transientMaterialization;
     if ( frame.renderCommands )
     {
@@ -1309,9 +1527,9 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
             callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
             if ( !callbackData.volumetricLight.IsValid() )
             {
-                // Lane R: if the graph-managed texture allocation fails, the
-                // volumetric callback can still render through its legacy
-                // framebuffer target. Keep the failure visible in logs/evidence.
+                // Lane R: if graph-managed texture allocation fails, the
+                // optional volumetric callback records no draw and tonemap
+                // proceeds without its sample. Keep the failure visible.
                 SkullbonezCore::Core::Log().WriteEventf(
                     "render_graph_volumetric_transient_unavailable materialization_failed=%d "
                     "hresult=0x%08X resource=%s",
@@ -1322,19 +1540,18 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
             }
         }
     }
+    ExecuteGraphCallbacksOrFatal( graph, expectedCallbacks, "CinematicPost" );
     WriteCinematicPostGraphEvidence( graph,
                                      compiled,
                                      transientMaterialization,
                                      callbackData.volumetricLight,
-                                     volumetricDeclared );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+                                     volumetricDeclared,
+                                     callbackData.volumetricTransitionCount,
+                                     callbackData.tonemapTransitionCount );
 
-    CinematicPostGraphResult result;
+    CinematicPostFrameOutput result;
+    result.volumetricPassExecuted = volumetricDeclared;
     result.volumetricReady = volumetricDeclared && callbackData.volumetricRendered;
-    result.volumetricCallbackOwned = result.volumetricReady;
-    result.tonemapCallbackOwned = executed.executedPassCount == expectedCallbacks;
     result.volumetricTextureHandle = callbackData.volumetricLight.textureHandle;
     result.volumetricWidth = callbackData.volumetricLight.width;
     result.volumetricHeight = callbackData.volumetricLight.height;
@@ -1342,7 +1559,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
 }
 
 
-bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
+void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     Rendering::IRenderDiagnostics& renderDiagnostics,
     const UI::UIRenderContext& uiRender,
     const UiTextPassState& state,
@@ -1358,20 +1575,23 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     double secondsPerFrame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle backbuffer =
-        graph.AddExternalResource( "SwapchainBackbuffer", Rendering::RenderGraphResourceAccess::RenderTarget );
+    if ( !uiRender.commands )
+    {
+        SB_FATAL( "RunRender", "UiTextPass graph has no render command context." );
+    }
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *uiRender.commands );
 
-    const uint32_t uiTextPass = graph.AddPass( "UiTextPass",
-                                               Rendering::RenderGraphQueueType::Graphics,
-                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
+    const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( uiTextPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
 
+    UI::UIRenderContext profiledUiRender = uiRender;
+    profiledUiRender.gpuTiming = &m_renderGpuTiming;
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.profiler = m_profiler;
     callbackData.textBatch = &m_textBatch;
-    callbackData.uiRender = &uiRender;
+    callbackData.uiRender = &profiledUiRender;
     callbackData.state = &state;
     callbackData.timers = &timers;
     callbackData.ui = &ui;
@@ -1388,11 +1608,10 @@ bool RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     // Invariant: UI/text always lands on the presentable backbuffer. Text-only
     // mode skips world rendering before this point but still uses this callback
     // path so the late overlay pass has one scheduling owner.
-    CompileRenderPassGraph( graph );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
-    return executed.executedPassCount == 1u;
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
+    callbackData.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, uiTextPass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "UiText" );
 }
 
 
@@ -1422,12 +1641,12 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.renderCollisionVolumes = services.models.renderCollisionVolumes;
     frame.shadowParallelPrep = services.models.shadowParallelPrep;
     frame.sceneKineticEnergy = services.models.sceneKineticEnergy;
-    frame.tornadoElapsedSeconds = services.models.tornadoElapsedSeconds;
     frame.assets = &services.assets;
     frame.textures = &services.textures;
     frame.renderResources = &services.renderResources;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
+    frame.renderGpuTiming = &m_renderGpuTiming;
     frame.primitiveBatches = &PrimitiveBatches();
     frame.renderRayTracing = services.renderRayTracing;
     frame.windowWidth = (std::max)( 1, m_window.ClientWidth() );
@@ -1485,6 +1704,7 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
+      m_renderGpuTiming( world.profiler, backend.renderDiagnostics ),
       m_fullscreenQuadPass( m_passResources.fullscreen ),
       m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config, m_profiler ),
       m_sceneTargetPass( m_passResources.cinematicScene, m_profiler ),
@@ -1493,11 +1713,11 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
                         m_collisionVisualizer,
                         m_config,
                         m_dxrReflectionTransforms.data(),
-                        static_cast<int>( m_dxrReflectionTransforms.size() / 16 ),
+                        static_cast<int>( m_dxrReflectionTransforms.size() ),
                         m_lifecycleLog,
                         m_profiler ),
       m_objectPass( m_collisionVisualizer, m_config, m_profiler ), m_terrainPass( m_terrain, m_config, m_profiler ),
-      m_waterPass( m_world, m_config, m_profiler ), m_tornadoVisualPass( m_terrain, m_profiler ),
+      m_waterPass( m_world, m_config, m_profiler ),
       m_debugOverlayPass( m_broadphaseVisualizer, m_physicsDebugVisualizer, m_terrain, m_assets, m_profiler ),
       m_volumetricPass( m_passResources.cinematicScene,
                         m_passResources.volumetricLight,
@@ -1518,6 +1738,12 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
 
 
 RuntimeRenderer::~RuntimeRenderer() = default;
+
+
+void RuntimeRenderer::BeginProfilerFrame()
+{
+    m_renderGpuTiming.BeginFrame();
+}
 
 
 void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
@@ -1577,13 +1803,12 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
 
     // Lane R: device resource creation and shader bytecode failures remain a
     // recoverable renderer result reported through the scene-load transaction.
-    return rayTracing->InitDXR( terrainVBVA,
-                                terrainMesh->GetVertexCount(),
-                                terrainMesh->GetStride(),
-                                sphereVBVA,
-                                sphereGeometry.vertexCount,
-                                rayTracing->GetInstancedMeshStaticStride( sphereHandle ),
-                                modelCapacity );
+    const Rendering::RaytracingSetupDesc setup{
+        { terrainVBVA, terrainMesh->GetVertexCount(), terrainMesh->GetStride() },
+        { sphereVBVA, sphereGeometry.vertexCount, rayTracing->GetInstancedMeshStaticStride( sphereHandle ) },
+        modelCapacity,
+    };
+    return rayTracing->InitDXR( setup );
 }
 
 
@@ -1617,30 +1842,6 @@ void RuntimeRenderer::SetPipelineSyncEnabled( bool enabled )
 }
 
 
-const TornadoVisualSettings& RuntimeRenderer::TornadoVisualSettingsSnapshot() const
-{
-    return m_presentationSettings.tornadoVisual;
-}
-
-
-void RuntimeRenderer::SetTornadoVisualSettings( const TornadoVisualSettings& settings )
-{
-    m_presentationSettings.tornadoVisual = settings;
-}
-
-
-bool RuntimeRenderer::TornadoVisualAutoEnableWithTornado() const
-{
-    return m_presentationSettings.tornadoVisual.autoEnableWithTornado;
-}
-
-
-void RuntimeRenderer::SetTornadoVisualEnabled( bool enabled )
-{
-    m_presentationSettings.tornadoVisual.enabled = enabled;
-}
-
-
 RuntimeRenderTargetPreviewSnapshot RuntimeRenderer::BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
                                                                                       bool cinematicTargetsAvailable,
                                                                                       bool volumetricAvailable ) const
@@ -1668,15 +1869,14 @@ RuntimeRenderTargetPreviewSnapshot RuntimeRenderer::BuildRenderTargetPreviewSnap
     append( "Object Shadow Color", m_passResources.shadows.objectTarget.get(), false, shadowsAvailable );
     append( "Cinematic Scene Color", m_passResources.cinematicScene.hdrTarget.get(), false, cinematicTargetsAvailable );
     append( "Cinematic Scene Depth", m_passResources.cinematicScene.hdrTarget.get(), true, cinematicTargetsAvailable );
-    append( "Volumetric Color", m_passResources.volumetricLight.target.get(), false, volumetricAvailable );
-    append( "Volumetric Depth", m_passResources.volumetricLight.target.get(), true, volumetricAvailable );
+    append( "Volumetric Color", nullptr, false, volumetricAvailable );
+    append( "Volumetric Depth", nullptr, true, volumetricAvailable );
     return snapshot;
 }
 
 
 SkullbonezCore::Rendering::RenderGraph& RuntimeRenderer::BeginRenderPassGraph()
 {
-    m_renderPassGraphScratch.Clear();
     return m_renderPassGraphScratch;
 }
 
@@ -1707,6 +1907,14 @@ void RuntimeRenderer::EnsureFrameResources( const RenderResourceContext& resourc
 
 bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 {
+    // Invariant: Run opens graph ownership before choosing a world or text-only
+    // path. RenderFrame may only append to that active frame and may never
+    // replace the graph after earlier frame work has been recorded.
+    if ( m_frameGraphFinalized || m_frameGraphRenderCommands != &renderInputs.services.renderCommands )
+    {
+        SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
+    }
+
     const RuntimeRenderServices& services = renderInputs.services;
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     const ReplayRenderFrameView& replayFrame = services.replayFrame;
@@ -1722,42 +1930,35 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         EnsureFrameResources( resourceContext );
     }
 
     const bool useCinematicTarget = cinematicRender && m_sceneTargetPass.IsReady();
-    if ( cinematicRender && !useCinematicTarget )
-    {
-        // If the cinematic target could not be created, fall back to the normal
-        // backbuffer clear so the frame still renders instead of showing stale data.
-        services.renderCommands.Clear( true, true );
-    }
 
     // Build the shared pass contract once, after camera update and before any
     // pass can bind targets. All extracted passes consume this same frame view.
     RenderFrameContext frame = BuildRenderFrameContext( renderInputs, cinematicRender, renderConfig );
-    const TornadoVisualSnapshot tornadoVisual = BuildTornadoVisualSnapshot( frame, services );
 
     // These passes currently borrow subsystem-owned mesh/material resources,
     // but keeping the ensure calls in the frame story gives future extraction
     // work an obvious place to move those GPU resources.
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         m_objectPass.EnsureGpuResources( resourceContext );
         m_terrainPass.EnsureGpuResources( resourceContext );
         m_waterPass.EnsureGpuResources( resourceContext );
-        m_tornadoVisualPass.EnsureGpuResources( resourceContext, tornadoVisual );
         m_debugOverlayPass.EnsureGpuResources( resourceContext );
     }
 
     // Defer the first DX12 command-list open until after CPU-side model prep so
     // allocator waits do not block work that can overlap the previous frame.
-    if ( !cinematicRender )
+    if ( !useCinematicTarget )
     {
-        services.renderCommands.Clear( true, true );
+        // If the cinematic target could not be created, this same graph-owned
+        // frame edge clears the fallback backbuffer instead of reviving a
+        // direct backend transition path.
+        ExecuteBackbufferAcquireThroughRenderGraph( { services.renderCommands, true } );
     }
 
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = frame.cinematic;
@@ -1765,8 +1966,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         shadowMapsEnabled ? &activeShadowStyle : nullptr;
     if ( activeShadowConfig )
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         PrimitiveRenderContext primitiveContext{ services.renderResources,
                                                  services.renderCommands,
                                                  services.renderDiagnostics,
@@ -1780,10 +1980,8 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         }
         m_shadowPass.EnsureGpuResources( resourceContext, *activeShadowConfig );
     }
-    const ShadowGraphResult shadowGraph =
-        ExecuteShadowThroughRenderGraph( frame, activeShadowConfig, policy.terrainHidden, policy.collisionVisualizer );
-    ShadowPassOutput shadowPass = shadowGraph.output;
-    const bool shadowCallbackOwned = shadowGraph.callbackOwned;
+    ShadowPassOutput shadowPass = ExecuteShadowThroughRenderGraph(
+        { frame, activeShadowConfig, policy.terrainHidden, policy.collisionVisualizer } );
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
     // The object receiver falls back to the broad map when no tight map was
@@ -1806,142 +2004,124 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // Invariant: sky and reflection both consume the interpolated render camera
     // from RenderFrameContext. Using the selected destination camera here would
     // stretch reflected geometry during camera transitions.
-    bool skyboxCallbackOwned = false;
     if ( !cinematicRender )
     {
-        PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Skybox" );
+        PROFILE_GPU_BEGIN( &m_renderGpuTiming, "Frame/Render/Skybox" );
         {
             DRAW_CALL_TRACE_SCOPE( services.renderDiagnostics, "Frame/Render/Skybox" );
-            skyboxCallbackOwned = ExecuteSkyboxThroughRenderGraph( frame );
+            ExecuteSkyboxThroughRenderGraph( frame );
         }
-        PROFILE_GPU_END( m_profiler, "Frame/Render/Skybox" );
+        PROFILE_GPU_END( &m_renderGpuTiming, "Frame/Render/Skybox" );
     }
 
     ReflectionPassOutput reflection;
     reflection.reflectionSampleViewProjection = frame.reflectionViewProjection;
-    bool reflectionCallbackOwned = false;
     if ( reflectionPassNeeded )
     {
         {
-            RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+            CoreAllocation::RuntimeAllocationScope allocationScope(
+                CoreAllocation::RuntimeAllocationPhase::BackendInit );
             m_reflectionPass.EnsureGpuResources( resourceContext );
         }
-        const ReflectionGraphResult reflectionGraph =
-            ExecuteReflectionThroughRenderGraph( frame,
-                                                 activeCinematic,
-                                                 objectShadowFrame,
-                                                 collisionStateColorsVisible,
-                                                 debugTransparentBodyPass,
-                                                 collisionVisualizerAlphaOverride,
-                                                 bodyRenderAlpha,
-                                                 policy.waterRTReflect,
-                                                 policy.waterNoReflect,
-                                                 static_cast<float>( policy.totalSimulationSeconds ) );
-        reflection = reflectionGraph.output;
-        reflectionCallbackOwned = reflectionGraph.callbackOwned;
+        reflection = ExecuteReflectionThroughRenderGraph( { frame,
+                                                            activeCinematic,
+                                                            objectShadowFrame,
+                                                            collisionStateColorsVisible,
+                                                            debugTransparentBodyPass,
+                                                            collisionVisualizerAlphaOverride,
+                                                            bodyRenderAlpha,
+                                                            policy.waterRTReflect,
+                                                            policy.waterNoReflect,
+                                                            static_cast<float>( policy.totalSimulationSeconds ) } );
     }
 
-    bool sceneTargetCallbackOwned = false;
     if ( useCinematicTarget )
     {
-        sceneTargetCallbackOwned = ExecuteSceneTargetBeginThroughRenderGraph( frame );
+        ExecuteSceneTargetBeginThroughRenderGraph( frame );
     }
 
     // Opaque bodies render before terrain/water unless debug transparency asks
     // for a late transparent body pass.
-    bool objectOpaqueCallbackOwned = false;
-    bool objectTransparentCallbackOwned = false;
     if ( !debugTransparentBodyPass )
     {
-        objectOpaqueCallbackOwned = ExecuteObjectThroughRenderGraph( frame,
-                                                                     ObjectPassMode::Opaque,
-                                                                     useCinematicTarget,
-                                                                     activeCinematic,
-                                                                     objectShadowFrame,
-                                                                     collisionStateColorsVisible,
-                                                                     collisionVisualizerAlphaOverride,
-                                                                     1.0f,
-                                                                     replayFocusModelMask,
-                                                                     true );
+        ExecuteObjectThroughRenderGraph( { frame,
+                                           ObjectPassMode::Opaque,
+                                           useCinematicTarget,
+                                           activeCinematic,
+                                           objectShadowFrame,
+                                           collisionStateColorsVisible,
+                                           collisionVisualizerAlphaOverride,
+                                           1.0f,
+                                           replayFocusModelMask,
+                                           true } );
     }
 
     // Terrain receives the broad shadow frame and provides the main world depth
     // that cinematic post passes read later.
-    const bool terrainCallbackOwned = ExecuteTerrainThroughRenderGraph( frame,
-                                                                        useCinematicTarget,
-                                                                        activeCinematic,
-                                                                        terrainShadowFrame,
-                                                                        terrainDetailShadowFrame,
-                                                                        policy.terrainHidden );
+    ExecuteTerrainThroughRenderGraph( { frame,
+                                        useCinematicTarget,
+                                        activeCinematic,
+                                        terrainShadowFrame,
+                                        terrainDetailShadowFrame,
+                                        policy.terrainHidden } );
 
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.
-    const bool waterCallbackOwned = ExecuteWaterThroughRenderGraph( frame,
-                                                                    reflection,
-                                                                    useCinematicTarget,
-                                                                    activeCinematic,
-                                                                    policy.waterHidden,
-                                                                    policy.waterFlatDebug,
-                                                                    policy.waterNoReflect,
-                                                                    policy.waterFreezeDebug,
-                                                                    policy.frozenWaterTime,
-                                                                    static_cast<float>( policy.simulationSeconds ) );
+    ExecuteWaterThroughRenderGraph( { frame,
+                                      reflection,
+                                      useCinematicTarget,
+                                      activeCinematic,
+                                      policy.waterHidden,
+                                      policy.waterFlatDebug,
+                                      policy.waterNoReflect,
+                                      policy.waterFreezeDebug,
+                                      policy.frozenWaterTime,
+                                      static_cast<float>( policy.simulationSeconds ) } );
 
-    const GraphPassResult tornadoVisualGraph =
-        ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget, tornadoVisual );
+    const bool worldExtensionRendered =
+        ExecuteWorldExtensionThroughRenderGraph( { frame, services.worldExtension, useCinematicTarget } );
 
     if ( debugTransparentBodyPass )
     {
-        objectTransparentCallbackOwned = ExecuteObjectThroughRenderGraph( frame,
-                                                                          ObjectPassMode::Transparent,
-                                                                          useCinematicTarget,
-                                                                          activeCinematic,
-                                                                          objectShadowFrame,
-                                                                          collisionStateColorsVisible,
-                                                                          collisionVisualizerAlphaOverride,
-                                                                          bodyRenderAlpha,
-                                                                          nullptr,
-                                                                          true );
+        ExecuteObjectThroughRenderGraph( { frame,
+                                           ObjectPassMode::Transparent,
+                                           useCinematicTarget,
+                                           activeCinematic,
+                                           objectShadowFrame,
+                                           collisionStateColorsVisible,
+                                           collisionVisualizerAlphaOverride,
+                                           bodyRenderAlpha,
+                                           nullptr,
+                                           true } );
     }
     else if ( replayFocusFadeActive )
     {
-        objectTransparentCallbackOwned = ExecuteObjectThroughRenderGraph( frame,
-                                                                          ObjectPassMode::Transparent,
-                                                                          useCinematicTarget,
-                                                                          activeCinematic,
-                                                                          objectShadowFrame,
-                                                                          collisionStateColorsVisible,
-                                                                          collisionVisualizerAlphaOverride,
-                                                                          0.5f,
-                                                                          replayFocusModelMask,
-                                                                          false );
+        ExecuteObjectThroughRenderGraph( { frame,
+                                           ObjectPassMode::Transparent,
+                                           useCinematicTarget,
+                                           activeCinematic,
+                                           objectShadowFrame,
+                                           collisionStateColorsVisible,
+                                           collisionVisualizerAlphaOverride,
+                                           0.5f,
+                                           replayFocusModelMask,
+                                           false } );
     }
 
-    bool replayGhostCallbackOwned = false;
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        replayGhostCallbackOwned = ExecuteReplayGhostsThroughRenderGraph( frame,
-                                                                          *replayFrame.visualPacket,
-                                                                          useCinematicTarget,
-                                                                          activeCinematic,
-                                                                          objectShadowFrame );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+        ExecuteReplayGhostsThroughRenderGraph(
+            { frame, *replayFrame.visualPacket, useCinematicTarget, activeCinematic, objectShadowFrame } );
     }
 
-    const GraphPassResult debugOverlayGraph =
-        ExecuteDebugOverlayThroughRenderGraph( frame, services, useCinematicTarget );
+    const bool debugOverlayRendered = ExecuteDebugOverlayThroughRenderGraph( { frame, services, useCinematicTarget } );
 
     bool volumetricReady = false;
-    bool volumetricCallbackOwned = false;
-    bool tonemapCallbackOwned = false;
-    CinematicPostGraphResult cinematicPostGraph;
+    CinematicPostFrameOutput cinematicPostOutput;
     if ( useCinematicTarget )
     {
-        cinematicPostGraph = ExecuteCinematicPostThroughRenderGraph( frame );
-        volumetricReady = cinematicPostGraph.volumetricReady;
-        volumetricCallbackOwned = cinematicPostGraph.volumetricCallbackOwned;
-        tonemapCallbackOwned = cinematicPostGraph.tonemapCallbackOwned;
+        cinematicPostOutput = ExecuteCinematicPostThroughRenderGraph( { frame } );
+        volumetricReady = cinematicPostOutput.volumetricReady;
     }
 
     Rendering::RenderSceneSnapshot frameSnapshot;
@@ -1949,6 +2129,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.useCinematicTarget = useCinematicTarget;
     frameSnapshot.terrainShadowValid = terrainShadowFrame && terrainShadowFrame->valid;
     frameSnapshot.objectShadowValid = objectShadowFrame && objectShadowFrame->valid;
+    frameSnapshot.reflectionPassExecuted = reflectionPassNeeded;
     frameSnapshot.reflectionUsedDxr = reflection.usedDxr;
     frameSnapshot.objectOpaquePass = !debugTransparentBodyPass;
     frameSnapshot.objectTransparentPass = transparentBodyPass;
@@ -1957,33 +2138,17 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     frameSnapshot.waterPassRendered = waterDebug.rendered;
     frameSnapshot.waterSamplesReflection =
         waterDebug.rendered && !waterDebug.noReflection && waterDebug.reflectionValid;
-    frameSnapshot.shadowCallbackOwned = shadowCallbackOwned;
-    frameSnapshot.skyboxCallbackOwned = skyboxCallbackOwned;
-    frameSnapshot.reflectionCallbackOwned = reflectionCallbackOwned;
-    frameSnapshot.sceneTargetCallbackOwned = sceneTargetCallbackOwned;
-    frameSnapshot.objectOpaqueCallbackOwned = objectOpaqueCallbackOwned;
-    frameSnapshot.objectTransparentCallbackOwned = objectTransparentCallbackOwned;
-    frameSnapshot.terrainCallbackOwned = terrainCallbackOwned;
-    frameSnapshot.waterCallbackOwned = waterCallbackOwned;
-    frameSnapshot.tornadoVisualRendered = tornadoVisualGraph.rendered;
-    frameSnapshot.tornadoVisualCallbackOwned = tornadoVisualGraph.callbackOwned;
-    frameSnapshot.replayGhostCallbackOwned = replayGhostCallbackOwned;
-    frameSnapshot.debugOverlayCallbackOwned = debugOverlayGraph.callbackOwned;
-    frameSnapshot.volumetricCallbackOwned = volumetricCallbackOwned;
+    frameSnapshot.worldExtensionRendered = worldExtensionRendered;
+    frameSnapshot.volumetricPassExecuted = cinematicPostOutput.volumetricPassExecuted;
     frameSnapshot.volumetricReady = volumetricReady;
-    frameSnapshot.tonemapCallbackOwned = tonemapCallbackOwned;
     if ( volumetricReady )
     {
-        frameSnapshot.volumetricTextureHandle = cinematicPostGraph.volumetricTextureHandle;
-        frameSnapshot.volumetricWidth = cinematicPostGraph.volumetricWidth;
-        frameSnapshot.volumetricHeight = cinematicPostGraph.volumetricHeight;
+        frameSnapshot.volumetricTextureHandle = cinematicPostOutput.volumetricTextureHandle;
+        frameSnapshot.volumetricWidth = cinematicPostOutput.volumetricWidth;
+        frameSnapshot.volumetricHeight = cinematicPostOutput.volumetricHeight;
     }
-    {
-        RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
-        Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
-    }
-    return debugOverlayGraph.rendered;
+    m_frameGraphSnapshot = frameSnapshot;
+    return debugOverlayRendered;
 }
 
 
@@ -1994,7 +2159,6 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     // handles are invalidated before targets die.
     m_tonemapPass.ReleaseGpuResources();
     m_volumetricPass.ReleaseGpuResources();
-    m_tornadoVisualPass.ReleaseGpuResources();
     m_sceneTargetPass.ReleaseGpuResources();
     m_shadowPass.ReleaseGpuResources();
     m_reflectionPass.ReleaseGpuResources();
@@ -2082,7 +2246,9 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-            RuntimeDiagnostics::InvalidateProfilerGpuQueries( m_profiler );
+            // Lifetime: invalidate backend queries while the diagnostics facet
+            // is live, then clear Core's value history through the owner seam.
+            m_renderGpuTiming.InvalidateDevice();
 #endif
             break;
         case BackendResourceStep::TextureCollection:
@@ -2184,7 +2350,7 @@ RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& rende
                                         int screenW,
                                         int screenH )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     return m_uiTextPass.EnsureGpuResources( m_textBatch, renderResources, assets, screenW, screenH );
 }
 
@@ -2198,6 +2364,127 @@ bool RuntimeRenderer::ShouldRenderUiText( const UiTextPassState& state, const UI
 void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing )
 {
     m_uiTextRayTracing = renderRayTracing;
+}
+
+
+void RuntimeRenderer::BeginFrameGraph( Rendering::IRenderCommandContext& renderCommands )
+{
+    if ( m_frameGraphRenderCommands && !m_frameGraphFinalized )
+    {
+        SB_FATAL( "RunRender", "A new frame cannot replace an unfinished frame graph." );
+    }
+
+    // Concept: one graph instance accumulates every production pass for this
+    // frame. World and UI wrappers append and synchronously execute only their
+    // new callback ranges while resource identity and transition history remain
+    // shared until Present or an explicit capture-only completion.
+    m_renderPassGraphScratch.Clear();
+    m_frameGraphSnapshot = Rendering::RenderSceneSnapshot();
+    m_frameGraphRenderCommands = &renderCommands;
+    m_frameGraphFinalized = false;
+}
+
+
+void RuntimeRenderer::PrepareUiFrameTarget( Rendering::IRenderCommandContext& renderCommands )
+{
+    // Text-only and ImGui-only frames do not necessarily execute a world or
+    // tonemap pass. This graph callback is their normal backbuffer acquisition;
+    // on ordinary frames it validates the already-render-target state.
+    ExecuteBackbufferAcquireThroughRenderGraph( { renderCommands, false } );
+}
+
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor )
+{
+    if ( !m_frameGraphRenderCommands )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
+    }
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *m_frameGraphRenderCommands );
+    const uint32_t pass = graph.AddPass( "ImGuiEditorPass" );
+    graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
+
+    DevelopmentUiGraphCallbackData callbackData;
+    callbackData.editor = &editor;
+    callbackData.renderCommands = m_frameGraphRenderCommands;
+    graph.SetPassCallback<ExecuteDevelopmentUiGraphCallback>( pass, callbackData, true, "Frame/UI/ImGuiEditor" );
+    const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
+    callbackData.expectedTransitionCount = CountCompiledTransitionsForPass( compiled, pass );
+    ExecuteGraphCallbacksOrFatal( graph, 1u, "ImGuiEditor" );
+    return callbackData.status;
+}
+#endif
+
+
+void RuntimeRenderer::FinalizeFrameGraph()
+{
+    FinalizeFrameGraphInternal( "Present", true, false );
+}
+
+
+void RuntimeRenderer::FinalizeCaptureOnlyFrameGraph()
+{
+    // Capture restart frames intentionally do not reach swap-chain Present.
+    // Validate that every recorded pass was callback-owned, then release all
+    // scene/resource payload borrows before capture automation can load a new
+    // scene in the same Run::TickScreenshots call.
+    FinalizeFrameGraphInternal( nullptr, false, true );
+}
+
+
+void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPassName,
+                                                  bool appendPresent,
+                                                  bool releaseGraphStorage )
+{
+    if ( m_frameGraphFinalized || !m_frameGraphRenderCommands )
+    {
+        SB_FATAL( "RunRender", "Frame graph finalization requires one active, unfinished frame graph." );
+    }
+
+    Rendering::RenderGraph& graph = BeginRenderPassGraph();
+    if ( appendPresent )
+    {
+        const Rendering::RenderGraphResourceHandle backbuffer =
+            AddBackbufferResource( graph, *m_frameGraphRenderCommands );
+        // Declaration-only exception: Present is the external swap-chain/fence
+        // boundary after command recording. The backend consumes this final edge.
+        const uint32_t presentPass = graph.AddPass( "Present" );
+        graph.AddWrite( presentPass, backbuffer, Rendering::RenderGraphResourceAccess::Present );
+    }
+    CompileRenderPassGraph( graph );
+
+    const Rendering::RenderGraphExecutionContractResult contract =
+        graph.ValidateFrameExecutionContract( declarationOnlyPassName );
+    if ( !contract.IsValid() ||
+         contract.callbackPassCount + contract.declarationOnlyPassCount != graph.Passes().size() )
+    {
+        SB_FATAL( "RunRender",
+                  "Production frame graph violates callback ownership. callbacks=%zu declarations=%zu expected=%zu "
+                  "name_match=%d enabled=%d passes=%zu",
+                  contract.callbackPassCount,
+                  contract.declarationOnlyPassCount,
+                  contract.expectedDeclarationOnlyPassCount,
+                  contract.declarationOnlyNameMatches ? 1 : 0,
+                  contract.allCallbacksEnabled ? 1 : 0,
+                  graph.Passes().size() );
+    }
+
+    {
+        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
+        Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( graph, m_frameGraphSnapshot );
+    }
+    graph.ReleaseCallbackPayloadBorrows();
+    m_frameGraphFinalized = true;
+    if ( releaseGraphStorage )
+    {
+        graph.Clear();
+        m_frameGraphSnapshot = Rendering::RenderSceneSnapshot();
+        m_frameGraphRenderCommands = nullptr;
+    }
 }
 
 
@@ -2241,6 +2528,7 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
         SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
         SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
         physics,
+        scene.BuildWorldExtensionDebugLines(),
         scene.RenderPresentationRecords(),
         SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
         SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
@@ -2254,8 +2542,11 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
         config.runtimeRender.renderCollisionVolumes,
         config.runtimeRender.shadowParallelPrep,
         scene.GetSceneKineticEnergy(),
-        physics.GetTornadoSystemElapsedSeconds(),
-        CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(), physics, scene.RenderInstances() } ) };
+        CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(),
+                                                             scene.CollectGameplayMemoryBytes(),
+                                                             scene.CollectGameplayDebugMemoryBytes(),
+                                                             physics,
+                                                             scene.RenderInstances() } ) };
 }
 
 
@@ -2301,24 +2592,26 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     // Why: this call constructs the one-frame render record directly. Field
     // labels keep every live borrow visible and prevent positional drift when
     // RuntimeRenderServices changes; RenderFrame does not retain the record.
-    return RenderFrame( RuntimeRenderInputs{ .services = RuntimeRenderServices{ .assets = m_assets,
-                                                                                .textures = m_textures,
-                                                                                .models = context.renderModels,
-                                                                                .world = m_world,
-                                                                                .terrain = m_terrain.Get(),
-                                                                                .cameras = m_cameras,
-                                                                                .window = m_window,
-                                                                                .ui = context.ui,
-                                                                                .runtimeTools = runtimeTools,
-                                                                                .replayFrame = replayFrame,
-                                                                                .toolOverlay = context.toolOverlay,
-                                                                                .framePolicy = policy,
-                                                                                .skyBox = m_skyBox.get(),
-                                                                                .cinematic = frameCinematic,
-                                                                                .cinematicEnabled = cinematicRender,
-                                                                                .renderCommands = *renderCommands,
-                                                                                .renderResources = *renderResources,
-                                                                                .renderDiagnostics = *renderDiagnostics,
-                                                                                .renderRayTracing = renderRayTracing,
-                                                                                .renderReady = renderReady } } );
+    return RenderFrame(
+        RuntimeRenderInputs{ .services = RuntimeRenderServices{ .assets = m_assets,
+                                                                .textures = m_textures,
+                                                                .models = context.renderModels,
+                                                                .world = m_world,
+                                                                .terrain = m_terrain.Get(),
+                                                                .cameras = m_cameras,
+                                                                .window = m_window,
+                                                                .ui = context.ui,
+                                                                .runtimeTools = runtimeTools,
+                                                                .replayFrame = replayFrame,
+                                                                .toolOverlay = context.toolOverlay,
+                                                                .worldExtension = context.worldExtension,
+                                                                .framePolicy = policy,
+                                                                .skyBox = m_skyBox.get(),
+                                                                .cinematic = frameCinematic,
+                                                                .cinematicEnabled = cinematicRender,
+                                                                .renderCommands = *renderCommands,
+                                                                .renderResources = *renderResources,
+                                                                .renderDiagnostics = *renderDiagnostics,
+                                                                .renderRayTracing = renderRayTracing,
+                                                                .renderReady = renderReady } } );
 }

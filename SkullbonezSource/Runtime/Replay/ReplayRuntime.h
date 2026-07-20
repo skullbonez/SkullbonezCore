@@ -42,7 +42,7 @@ Glossary:
 Invariants:
   - Full timeline, scrubber, presentation, prediction, and authoring state is
     private; external callers cannot recover mutable owner authority.
-  - Stored dense rows use ModelRowHint; ReplayBodyId remains the identity check.
+  - Stored dense rows use ModelRowHint; Physics::PhysicsSceneObjectId remains the identity check.
   - Scrub/prediction draw poses are presentation-only value overrides; replay
     must not backup or mutate live legacy object record pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or
@@ -72,7 +72,7 @@ Related:
 #include "ReplayVisualPacket.h"
 #include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
-#include "../Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
@@ -308,6 +308,7 @@ class ReplayRuntime
     // Advances and publishes the private prediction during frame update.
     // Callers must complete this before any replay overlay traversal begins.
     void UpdatePrediction( Physics::PhysicsEngine& physics,
+                           const Gameplay::TornadoGameplay& tornadoGameplay,
                            const SceneEntityStore& entities,
                            const SkullbonezCore::Core::EngineConfig& config,
                            const Physics::PhysicsWorldForces& worldForces,

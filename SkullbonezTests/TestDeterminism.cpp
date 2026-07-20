@@ -61,6 +61,7 @@
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/PhysicsEngine.h"
 #include "../SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"
+#include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
 #include "../SkullbonezSource/Rendering/IRenderResourceFactory.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -91,14 +92,14 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
+using SkullbonezCore::Physics::PhysicsSolverSnapshot;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
-using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
-using SkullbonezCore::Threading::WorkerPool;
 using SkullbonezCore::Threading::LockOrderValidator;
+using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
@@ -117,7 +118,7 @@ constexpr float kDampingEnergyTolerance = 0.0001f;
 struct BodyReplayState
 {
     PhysicsBodyHandle handle;
-    uint32_t replayBodyId = 0;
+    PhysicsSceneObjectId sceneObjectId;
     bool fixed = false;
     Vector3 position;
     Quaternion orientation;
@@ -131,7 +132,7 @@ struct BodyReplayState
 
 struct MicroWorldSnapshot
 {
-    ReplaySolverWorldSnapshot solver;
+    PhysicsSolverSnapshot solver;
     std::array<BodyReplayState, kMicroBodyCount> bodies;
 };
 
@@ -141,7 +142,7 @@ SkullbonezCore::Core::EngineConfig MakeDeterministicConfig()
     config.physicsExecution.parallel = false;
     config.physicsExecution.parallelApplyForces = false;
     config.physicsExecution.parallelMutualGravity = false;
-    config.physicsExecution.parallelTornadoField = false;
+    config.physicsExecution.parallelExternalForceFields = false;
     config.physicsExecution.parallelNarrowphase = false;
     config.physicsExecution.parallelTerrainDetect = false;
     config.physicsExecution.parallelIntegrate = false;
@@ -208,7 +209,7 @@ CollisionShape MakeSphereShape( float radius )
 }
 
 void AddMicroBody( PhysicsEngine& engine,
-                   uint32_t sceneObjectId,
+                   uint32_t sceneObjectIdValue,
                    const Vector3& position,
                    const Vector3& linearVelocity )
 {
@@ -216,12 +217,12 @@ void AddMicroBody( PhysicsEngine& engine,
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
-    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectIdValue },
                                                shape,
                                                position,
                                                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
                                                linearVelocity,
-                                               Vector3( 0.03f * static_cast<float>( sceneObjectId ), 0.0f, 0.0f ),
+                                               Vector3( 0.03f * static_cast<float>( sceneObjectIdValue ), 0.0f, 0.0f ),
                                                Vector3( inertia, inertia, inertia ),
                                                mass,
                                                0.0f,
@@ -234,13 +235,13 @@ void AddMicroBody( PhysicsEngine& engine,
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
-void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const Vector3& position )
+void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vector3& position )
 {
     const float radius = 1.0f;
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
-    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectIdValue },
                                                shape,
                                                position,
                                                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
@@ -326,8 +327,141 @@ TEST_CASE( "PhysicsEngine exposes its owned sleep policy" )
     CHECK_FALSE( engine.IsSleepEnabled() );
 }
 
+TEST_CASE( "Tornado force witness preserves exact one-step body state" )
+{
+    // Why: the varied-scene CSV gate does not contain tornado content. This
+    // focused byte witness pins the field arithmetic and its exact force-stage
+    // scheduling point before gameplay ownership moves out of Physics.
+    auto engineStorage = std::make_unique<PhysicsEngine>();
+    PhysicsEngine& engine = *engineStorage;
+    EngineConfig config = MakeDeterministicConfig();
+    config.worldForces.gravity = 0.0f;
+    engine.Clear();
+    engine.ApplyRuntimeConfig( config );
+    engine.SetSleepEnabled( false );
+    AddMicroBody( engine, 901u, Vector3( 100.0f, 50.0f, 0.0f ), Vector3( 0.0f, 0.0f, 0.0f ) );
+
+    SkullbonezCore::Gameplay::TornadoGameplay tornadoGameplay;
+    SkullbonezCore::Gameplay::TornadoFieldConfig field;
+    field.enabled = true;
+    field.center = Vector3( 0.0f, 0.0f, 0.0f );
+    field.radius = 200.0f;
+    field.height = 100.0f;
+    field.minCaptureSeconds = 1000.0f;
+    field.maxDeltaVelocity = 1000.0f;
+    tornadoGameplay.SetFieldConfig( field );
+
+    LockOrderValidator lockOrderValidator;
+    WorkerPool workers( lockOrderValidator );
+    engine.Step( PHYSICS_FIXED_DT,
+                 NoGravityForces(),
+                 tornadoGameplay.BuildForceFrame( PHYSICS_FIXED_DT, 1 ),
+                 workers,
+                 nullptr,
+                 0,
+                 SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+
+    const PhysicsBodyHotState hot = LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies( engine ).HotFields(), 0u );
+    uint32_t velocityXBits = 0;
+    uint32_t velocityYBits = 0;
+    uint32_t velocityZBits = 0;
+    uint32_t positionXBits = 0;
+    uint32_t positionYBits = 0;
+    uint32_t positionZBits = 0;
+    std::memcpy( &velocityXBits, &hot.linearVelocity.x, sizeof( velocityXBits ) );
+    std::memcpy( &velocityYBits, &hot.linearVelocity.y, sizeof( velocityYBits ) );
+    std::memcpy( &velocityZBits, &hot.linearVelocity.z, sizeof( velocityZBits ) );
+    std::memcpy( &positionXBits, &hot.position.x, sizeof( positionXBits ) );
+    std::memcpy( &positionYBits, &hot.position.y, sizeof( positionYBits ) );
+    std::memcpy( &positionZBits, &hot.position.z, sizeof( positionZBits ) );
+    CHECK( velocityXBits == 3208432847u );
+    CHECK( velocityYBits == 1057523849u );
+    CHECK( velocityZBits == 3214464429u );
+    CHECK( positionXBits == 1120402650u );
+    CHECK( positionYBits == 1112016013u );
+    CHECK( positionZBits == 3156411918u );
+}
+
+TEST_CASE( "Tornado execution config is published by the Gameplay force frame" )
+{
+    SkullbonezCore::Gameplay::TornadoGameplay gameplay;
+    gameplay.SetParallelForceEvaluation( false );
+    CHECK_FALSE( gameplay.BuildForceFrame( PHYSICS_FIXED_DT, 0 ).parallelEvaluation );
+
+    // Invariant: the authored compatibility key projects into Gameplay. The
+    // Physics settings snapshot must not regain content-specific execution
+    // authority merely because the generic stage consumes this value.
+    gameplay.SetParallelForceEvaluation( true );
+    CHECK( gameplay.BuildForceFrame( PHYSICS_FIXED_DT, 0 ).parallelEvaluation );
+
+    SkullbonezCore::Gameplay::TornadoGameplay predictionGameplay;
+    predictionGameplay.SetParallelForceEvaluation( gameplay.ParallelForceEvaluation() );
+    CHECK( predictionGameplay.BuildForceFrame( PHYSICS_FIXED_DT, 0 ).parallelEvaluation );
+}
+
+TEST_CASE( "Tornado owner edits and replay restore reuse bounded vortex storage" )
+{
+    SkullbonezCore::Gameplay::TornadoGameplay gameplay;
+    const uint64_t memoryBeforeVisualReserve = gameplay.CollectMemoryBytes();
+    gameplay.ReserveVisualCapacity();
+    CHECK( gameplay.CollectMemoryBytes() > memoryBeforeVisualReserve + 30u * 1024u * 1024u );
+
+    SkullbonezCore::Gameplay::TornadoSystemConfig system;
+    system.enabled = true;
+    system.vortices.resize( 3u );
+    gameplay.SetSystemConfig( system );
+
+    const auto* storage = gameplay.GetSystemConfig().vortices.data();
+    const std::size_t capacity = gameplay.GetSystemConfig().vortices.capacity();
+    gameplay.ToggleEnabled();
+    gameplay.ToggleFieldVectors();
+    gameplay.SetFieldRadius( 180.0f );
+    gameplay.SetFieldHeight( 120.0f );
+    gameplay.SetFieldInwardAcceleration( 140.0f );
+    gameplay.SetFieldSwirlAcceleration( 175.0f );
+    gameplay.SetFieldLiftAcceleration( 60.0f );
+
+    CHECK( gameplay.GetSystemConfig().vortices.data() == storage );
+    CHECK( gameplay.GetSystemConfig().vortices.capacity() == capacity );
+
+    std::vector<float> captureSeconds( 3u, 0.25f );
+    std::vector<float> cooldownSeconds( 3u, 0.50f );
+    gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, system, 2.0f );
+    CHECK( gameplay.GetSystemConfig().vortices.data() == storage );
+    CHECK( gameplay.GetSystemConfig().vortices.capacity() == capacity );
+}
+
+TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot storage" )
+{
+    SkullbonezCore::Runtime::ReplaySolverWorldSnapshot world;
+    world.tornadoSystemConfig.vortices.reserve( 64u );
+    world.tornadoCaptureSeconds.reserve( 1024u );
+    world.tornadoEjectCooldownSeconds.reserve( 1024u );
+    const auto* vortexStorage = world.tornadoSystemConfig.vortices.data();
+    const auto* captureStorage = world.tornadoCaptureSeconds.data();
+    const auto* cooldownStorage = world.tornadoEjectCooldownSeconds.data();
+    const std::size_t vortexCapacity = world.tornadoSystemConfig.vortices.capacity();
+    const std::size_t captureCapacity = world.tornadoCaptureSeconds.capacity();
+    const std::size_t cooldownCapacity = world.tornadoEjectCooldownSeconds.capacity();
+
+    world.ClearPreservingCapacity();
+    CHECK( world.tornadoSystemConfig.vortices.data() == vortexStorage );
+    CHECK( world.tornadoCaptureSeconds.data() == captureStorage );
+    CHECK( world.tornadoEjectCooldownSeconds.data() == cooldownStorage );
+    CHECK( world.tornadoSystemConfig.vortices.capacity() == vortexCapacity );
+    CHECK( world.tornadoCaptureSeconds.capacity() == captureCapacity );
+    CHECK( world.tornadoEjectCooldownSeconds.capacity() == cooldownCapacity );
+
+    // Invariant: repeated cancellation invalidation remains allocation-free;
+    // the first reset must not merely leave a fresh snapshot with zero reserve.
+    world.ClearPreservingCapacity();
+    CHECK( world.tornadoSystemConfig.vortices.data() == vortexStorage );
+    CHECK( world.tornadoCaptureSeconds.data() == captureStorage );
+    CHECK( world.tornadoEjectCooldownSeconds.data() == cooldownStorage );
+}
+
 void AddMutualGravityBody( PhysicsEngine& engine,
-                           uint32_t sceneObjectId,
+                           uint32_t sceneObjectIdValue,
                            const Vector3& position,
                            const Vector3& linearVelocity,
                            float mass,
@@ -335,7 +469,7 @@ void AddMutualGravityBody( PhysicsEngine& engine,
 {
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
-    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectIdValue },
                                                shape,
                                                position,
                                                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
@@ -386,11 +520,7 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == 2 );
 }
 
-void StepMicroWorldWith( PhysicsEngine& engine,
-                         int ticks,
-                         const SkullbonezCore::Core::EngineConfig& config,
-                         const PhysicsWorldForces& forces,
-                         int workerThreadCount = 0 )
+void StepMicroWorldWith( PhysicsEngine& engine, int ticks, const PhysicsWorldForces& forces, int workerThreadCount = 0 )
 {
     LockOrderValidator lockOrderValidator;
     WorkerPool workerPool( lockOrderValidator );
@@ -401,7 +531,6 @@ void StepMicroWorldWith( PhysicsEngine& engine,
     for ( int tick = 0; tick < ticks; ++tick )
     {
         engine.Step( PHYSICS_FIXED_DT,
-                     config,
                      forces,
                      workerPool,
                      nullptr,
@@ -412,9 +541,8 @@ void StepMicroWorldWith( PhysicsEngine& engine,
 
 void StepMicroWorld( PhysicsEngine& engine, int ticks )
 {
-    const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
-    StepMicroWorldWith( engine, ticks, config, forces );
+    StepMicroWorldWith( engine, ticks, forces );
 }
 
 void CheckEngineKinematicsEqual( const PhysicsEngine& lhs, const PhysicsEngine& rhs );
@@ -462,9 +590,9 @@ void CheckMutualGravityFieldExactAcrossWorkerCounts( int bodyCount, int ticks )
     seedField( *fourWorkers );
     const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
 
-    StepMicroWorldWith( *serial, ticks, config, forces, 0 );
-    StepMicroWorldWith( *oneWorker, ticks, config, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, ticks, config, forces, 4 );
+    StepMicroWorldWith( *serial, ticks, forces, 0 );
+    StepMicroWorldWith( *oneWorker, ticks, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, ticks, forces, 4 );
 
     CheckEngineKinematicsEqual( *serial, *oneWorker );
     CheckEngineKinematicsEqual( *serial, *fourWorkers );
@@ -551,7 +679,7 @@ BodyReplayState CaptureBodyReplayState( const PhysicsBodyRecord& record, const P
 {
     BodyReplayState state;
     state.handle = record.handle;
-    state.replayBodyId = record.replayBodyId;
+    state.sceneObjectId = record.sceneObjectId;
     state.fixed = hotState.fixed;
     state.position = hotState.position;
     state.orientation = hotState.orientation;
@@ -631,15 +759,15 @@ uint64_t HashReplaySampleForTest( const ReplaySolverFrameSample& sample )
     HashValueForReplayTest( hash, sample.world.fixedStep );
     HashValueForReplayTest( hash, sample.world.scenePhysicsEnabled );
     HashValueForReplayTest( hash, sample.world.sceneTextEnabled );
-    HashValueForReplayTest( hash, sample.worldSnapshot.version );
-    HashValueForReplayTest( hash, sample.worldSnapshot.modelCount );
-    HashValueForReplayTest( hash, sample.worldSnapshot.sleepEnabled );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.timeRemaining );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepState );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepCounter );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.collisionVisualContacts );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepIslandParent );
-    HashVectorForReplayTest( hash, sample.worldSnapshot.sleepIslandRank );
+    HashValueForReplayTest( hash, sample.worldSnapshot.physics.version );
+    HashValueForReplayTest( hash, sample.worldSnapshot.physics.modelCount );
+    HashValueForReplayTest( hash, sample.worldSnapshot.physics.sleepEnabled );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.timeRemaining );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepState );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepCounter );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.collisionVisualContacts );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepIslandParent );
+    HashVectorForReplayTest( hash, sample.worldSnapshot.physics.sleepIslandRank );
     HashValueForReplayTest( hash, sample.contactCount );
     HashValueForReplayTest( hash, sample.pipelineRecordCount );
     const std::size_t bodyCount = sample.bodies.size();
@@ -674,7 +802,7 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
 
     ReplaySolverBodySample body;
     const PhysicsBodyHotState hotState = RequireBodyHotState( engine, modelIndex );
-    body.id.value = record->replayBodyId;
+    body.id = record->sceneObjectId;
     body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( modelIndex );
     body.shapeKind = ReplayBodyShapeKind::Sphere;
     body.position = hotState.position;
@@ -725,7 +853,7 @@ ReplaySolverFrameSample CaptureMicroWorldReplaySample( const PhysicsEngine& engi
         static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( engine ).size() );
     sample.pipelineRecordCount =
         static_cast<uint16_t>( SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( engine ).size() );
-    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot,
+    engine.CaptureReplaySolverSnapshot( sample.worldSnapshot.physics,
                                         MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) );
 
     sample.bodies.reserve( kMicroBodyCount );
@@ -745,7 +873,7 @@ void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot&
     for ( const BodyReplayState& state : snapshot.bodies )
     {
         REQUIRE( engine.RestoreReplayBodyState( state.handle,
-                                                state.replayBodyId,
+                                                state.sceneObjectId,
                                                 state.fixed,
                                                 state.position,
                                                 state.orientation,
@@ -762,9 +890,9 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
 {
     // Why: replay restore applies solver cache first, then body rows. The test
     // mirrors that order so a future mismatch points at the same boundary Run uses.
-    REQUIRE( sample.worldSnapshot.modelCount == static_cast<int>( sample.bodies.size() ) );
+    REQUIRE( sample.worldSnapshot.physics.modelCount == static_cast<int>( sample.bodies.size() ) );
     REQUIRE( engine.RestoreReplaySolverSnapshot(
-        sample.worldSnapshot,
+        sample.worldSnapshot.physics,
         MakePhysicsBodyCountFromNonNegativeInt( static_cast<int>( sample.bodies.size() ) ) ) );
     for ( const ReplaySolverBodySample& body : sample.bodies )
     {
@@ -776,7 +904,7 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( body.modelRow.value );
         REQUIRE( record != nullptr );
         REQUIRE( engine.RestoreReplayBodyState( record->handle,
-                                                body.id.value,
+                                                body.id,
                                                 body.fixed,
                                                 body.position,
                                                 orientation,
@@ -850,15 +978,17 @@ void CheckReplaySamplesEqual( const ReplaySolverFrameSample& lhs, const ReplaySo
     CHECK( lhs.world.fixedStep == rhs.world.fixedStep );
     CHECK( lhs.world.scenePhysicsEnabled == rhs.world.scenePhysicsEnabled );
     CHECK( lhs.world.sceneTextEnabled == rhs.world.sceneTextEnabled );
-    CHECK( lhs.worldSnapshot.version == rhs.worldSnapshot.version );
-    CHECK( lhs.worldSnapshot.modelCount == rhs.worldSnapshot.modelCount );
-    CHECK( lhs.worldSnapshot.sleepEnabled == rhs.worldSnapshot.sleepEnabled );
-    CheckVectorContentsEqual( lhs.worldSnapshot.timeRemaining, rhs.worldSnapshot.timeRemaining );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepState, rhs.worldSnapshot.sleepState );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepCounter, rhs.worldSnapshot.sleepCounter );
-    CheckVectorContentsEqual( lhs.worldSnapshot.collisionVisualContacts, rhs.worldSnapshot.collisionVisualContacts );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepIslandParent, rhs.worldSnapshot.sleepIslandParent );
-    CheckVectorContentsEqual( lhs.worldSnapshot.sleepIslandRank, rhs.worldSnapshot.sleepIslandRank );
+    CHECK( lhs.worldSnapshot.physics.version == rhs.worldSnapshot.physics.version );
+    CHECK( lhs.worldSnapshot.physics.modelCount == rhs.worldSnapshot.physics.modelCount );
+    CHECK( lhs.worldSnapshot.physics.sleepEnabled == rhs.worldSnapshot.physics.sleepEnabled );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.timeRemaining, rhs.worldSnapshot.physics.timeRemaining );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepState, rhs.worldSnapshot.physics.sleepState );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepCounter, rhs.worldSnapshot.physics.sleepCounter );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.collisionVisualContacts,
+                              rhs.worldSnapshot.physics.collisionVisualContacts );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepIslandParent,
+                              rhs.worldSnapshot.physics.sleepIslandParent );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepIslandRank, rhs.worldSnapshot.physics.sleepIslandRank );
     CHECK( lhs.contactCount == rhs.contactCount );
     CHECK( lhs.pipelineRecordCount == rhs.pipelineRecordCount );
     CHECK( lhs.solverHash != 0u );
@@ -962,9 +1092,9 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     SeedParallelContactSleepWorld( *fourWorkers, config );
     const PhysicsWorldForces forces = DeterministicForces();
 
-    StepMicroWorldWith( *serial, 1, config, forces, 0 );
-    StepMicroWorldWith( *oneWorker, 1, config, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, 1, config, forces, 4 );
+    StepMicroWorldWith( *serial, 1, forces, 0 );
+    StepMicroWorldWith( *oneWorker, 1, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, 1, forces, 4 );
     // Invariant: the fixture must keep the parallel-narrowphase threshold
     // active. A geometry/filter drift to 255 pairs would otherwise let every
     // worker-count comparison pass through the serial fallback.
@@ -973,14 +1103,76 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
     CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
     CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
 
-    StepMicroWorldWith( *serial, 30, config, forces, 0 );
-    StepMicroWorldWith( *oneWorker, 30, config, forces, 1 );
-    StepMicroWorldWith( *fourWorkers, 30, config, forces, 4 );
+    StepMicroWorldWith( *serial, 30, forces, 0 );
+    StepMicroWorldWith( *oneWorker, 30, forces, 1 );
+    StepMicroWorldWith( *fourWorkers, 30, forces, 4 );
     CheckEngineWorkerDeterministicStateEqual( *serial, *oneWorker );
     CheckEngineWorkerDeterministicStateEqual( *serial, *fourWorkers );
 
     const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( *serial );
     CHECK( std::any_of( sleepStates.begin(), sleepStates.end(), []( uint8_t sleeping ) { return sleeping != 0; } ) );
+}
+
+
+TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel body partitions" )
+{
+    constexpr int bodyCount = kParallelContactBodyCount;
+    auto serial = std::make_unique<PhysicsEngine>();
+    auto parallel = std::make_unique<PhysicsEngine>();
+    EngineConfig config = MakeDeterministicConfig();
+    config.physicsExecution.parallel = true;
+    serial->ApplyRuntimeConfig( config );
+    parallel->ApplyRuntimeConfig( config );
+    serial->SetSleepEnabled( false );
+    parallel->SetSleepEnabled( false );
+    for ( int index = 0; index < bodyCount; ++index )
+    {
+        const Vector3 position( -95.0f + static_cast<float>( index % 20 ) * 10.0f,
+                                20.0f + static_cast<float>( index / 20 ) * 5.0f,
+                                -40.0f + static_cast<float>( index % 9 ) * 10.0f );
+        const Vector3 zeroVelocity( 0.0f, 0.0f, 0.0f );
+        AddMicroBody( *serial, 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
+        AddMicroBody( *parallel, 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
+    }
+
+    SkullbonezCore::Gameplay::TornadoFieldConfig field;
+    field.enabled = true;
+    field.center = Vector3( 0.0f, 0.0f, 0.0f );
+    field.radius = 500.0f;
+    field.height = 500.0f;
+    field.minCaptureSeconds = 1000.0f;
+    field.maxDeltaVelocity = 1000.0f;
+    SkullbonezCore::Gameplay::TornadoGameplay serialGameplay;
+    SkullbonezCore::Gameplay::TornadoGameplay parallelGameplay;
+    serialGameplay.SetFieldConfig( field );
+    parallelGameplay.SetFieldConfig( field );
+    serialGameplay.SetParallelForceEvaluation( false );
+    parallelGameplay.SetParallelForceEvaluation( true );
+
+    LockOrderValidator serialLockOrder;
+    LockOrderValidator parallelLockOrder;
+    WorkerPool serialWorkers( serialLockOrder );
+    WorkerPool parallelWorkers( parallelLockOrder );
+    serialWorkers.Initialise( 4 );
+    parallelWorkers.Initialise( 4 );
+    serial->Step( PHYSICS_FIXED_DT,
+                  NoGravityForces(),
+                  serialGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
+                  serialWorkers,
+                  nullptr,
+                  0,
+                  SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+    parallel->Step( PHYSICS_FIXED_DT,
+                    NoGravityForces(),
+                    parallelGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
+                    parallelWorkers,
+                    nullptr,
+                    0,
+                    SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+
+    CheckEngineKinematicsEqual( *serial, *parallel );
+    CheckVectorContentsEqual( serialGameplay.CaptureSeconds(), parallelGameplay.CaptureSeconds() );
+    CheckVectorContentsEqual( serialGameplay.EjectCooldownSeconds(), parallelGameplay.EjectCooldownSeconds() );
 }
 
 
@@ -996,11 +1188,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: pair force is antisymmetric" )
                              5.0f,
                              0.5f );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 120.0f, 0.25f );
 
-    StepMicroWorldWith( pairWorld, 1, config, forces );
+    StepMicroWorldWith( pairWorld, 1, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( pairWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( pairWorld, 1 );
     CHECK( left.linearVelocity.x > 0.0f );
@@ -1023,11 +1213,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: softening keeps near pairs finite" )
                              3.0f,
                              0.01f );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( 1000.0f, 5.0f );
 
-    StepMicroWorldWith( closeWorld, 1, config, forces );
+    StepMicroWorldWith( closeWorld, 1, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( closeWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( closeWorld, 1 );
     CHECK( std::isfinite( left.linearVelocity.x ) );
@@ -1059,11 +1247,9 @@ TEST_CASE( "PhysicsEngine mutual gravity: equal-mass two-body orbit stays bounde
                              mass,
                              0.5f );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = MutualGravityForces( gravitationalConstant, softeningLength );
 
-    StepMicroWorldWith( orbitWorld, 300, config, forces );
+    StepMicroWorldWith( orbitWorld, 300, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( orbitWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( orbitWorld, 1 );
     const Vector3 barycenter = ( left.position + right.position ) * 0.5f;
@@ -1110,8 +1296,8 @@ TEST_CASE( "PhysicsEngine mutual gravity: chaotic triple is deterministic" )
     seedTriple( first );
     seedTriple( second );
     const PhysicsWorldForces forces = MutualGravityForces( 45.0f, 0.35f );
-    StepMicroWorldWith( first, 240, config, forces );
-    StepMicroWorldWith( second, 240, config, forces );
+    StepMicroWorldWith( first, 240, forces );
+    StepMicroWorldWith( second, 240, forces );
     CheckEngineKinematicsEqual( first, second );
 }
 
@@ -1143,13 +1329,11 @@ TEST_CASE( "PhysicsEngine mutual gravity: elastic space collision preserves clos
                              mass,
                              radius );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     PhysicsWorldForces forces = MutualGravityForces( 0.001f, 1.0f );
     REQUIRE( forces.mutualGravity.elasticCollisions );
 
     const float initialEnergy = TotalKineticEnergy( collisionWorld );
-    StepMicroWorldWith( collisionWorld, 1, config, forces );
+    StepMicroWorldWith( collisionWorld, 1, forces );
     const PhysicsBodyHotState left = RequireBodyHotState( collisionWorld, 0 );
     const PhysicsBodyHotState right = RequireBodyHotState( collisionWorld, 1 );
     const float finalEnergy = TotalKineticEnergy( collisionWorld );
@@ -1168,7 +1352,7 @@ TEST_CASE( "PhysicsEngine invariants: settled bodies stay within terrain penetra
 
     const SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
     const PhysicsWorldForces forces = DeterministicForces();
-    StepMicroWorldWith( settled, kPenetrationSettleTicks, config, forces );
+    StepMicroWorldWith( settled, kPenetrationSettleTicks, forces );
 
     CheckTerrainPenetrationWithinTolerance( settled, config );
 }
@@ -1180,10 +1364,6 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
     PhysicsEngine& damped = *dampedStorage;
     SeedMicroWorld( damped );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
-    config.worldForces.fluidDensity = 2.0f;
-    config.worldForces.fluidAngularDragMultiplier = 2.0f;
     const PhysicsWorldForces forces = DampingForces();
 
     const float initialEnergy = TotalKineticEnergy( damped );
@@ -1192,7 +1372,7 @@ TEST_CASE( "PhysicsEngine invariants: fluid damping does not add kinetic energy"
     float previousEnergy = initialEnergy;
     for ( int tick = 0; tick < 12; ++tick )
     {
-        StepMicroWorldWith( damped, 1, config, forces );
+        StepMicroWorldWith( damped, 1, forces );
         const float currentEnergy = TotalKineticEnergy( damped );
         CHECK( currentEnergy <= previousEnergy + kDampingEnergyTolerance );
         previousEnergy = currentEnergy;
@@ -1208,8 +1388,6 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
     SeedMicroWorld( sleepWorld );
     sleepWorld.SetSleepEnabled( true );
 
-    SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    config.worldForces.gravity = 0.0f;
     const PhysicsWorldForces forces = NoGravityForces();
 
     const PhysicsBodyHandle body = RequireBodyHandle( sleepWorld, 0 );
@@ -1222,7 +1400,7 @@ TEST_CASE( "PhysicsEngine invariants: authored velocity wakes a sleeping body" )
     CHECK( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
-    StepMicroWorldWith( sleepWorld, 1, config, forces );
+    StepMicroWorldWith( sleepWorld, 1, forces );
     CHECK( RequireBodyHotState( sleepWorld, 0 ).position.x > positionBeforeWake.x );
 }
 
@@ -1239,7 +1417,7 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
     const PhysicsWorldForces forces = DeterministicForces();
 
     SeedSupportedSleepWorld( sleepWorld, config );
-    StepMicroWorldWith( sleepWorld, config.physicsSleep.frames + 24, config, forces );
+    StepMicroWorldWith( sleepWorld, config.physicsSleep.frames + 24, forces );
 
     CHECK_FALSE( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
@@ -1250,7 +1428,7 @@ TEST_CASE( "PhysicsEngine sleep policy: quiet supported body sleeps after thresh
     CHECK( RequireBodyHotState( sleepWorld, 0 ).awake );
     CHECK_FALSE( DiagnosticsSleepStateAt( sleepWorld, 0 ) );
 
-    StepMicroWorldWith( sleepWorld, 1, config, forces );
+    StepMicroWorldWith( sleepWorld, 1, forces );
     CHECK( RequireBodyHotState( sleepWorld, 0 ).position.x > positionBeforeWake.x );
 }
 

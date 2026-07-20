@@ -39,14 +39,15 @@ Related:
 #include "RuntimeFrameViews.h"
 #include "RuntimeViewModel.h"
 #include "Scene/SceneRuntime.h"
-#include "Allocation/RuntimeReserveAllocator.h"
-#include "DevelopmentTools/TracyClientOwner.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
+#include "../Core/TracyClientOwner.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayPresentation.h"
 #include "../Core/WorkerPool.h"
 #include "../Physics/PhysicsDebugData.h"
 #include "../Core/Profiler.h"
+#include "../Rendering/ProfilerOverlayPresenter.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderRayTracing.h"
 #include "../Rendering/Text.h"
@@ -193,6 +194,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     assert( inputs.profiler && "UiTextPass requires a startup-bound profiler in profile builds." );
     const SkullbonezCore::Core::Profiler& profiler = *inputs.profiler;
+    const Rendering::ProfilerOverlayPresenter profilerOverlay;
 #endif
 
     // Invariant: rolling diagnostics update before any overlay early return so
@@ -641,7 +643,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #endif
 #if defined( TRACY_ENABLE )
         {
-            const DevelopmentTools::TracyClientStatus tracyStatus = DevelopmentTools::TracyClientOwner::CopyStatus();
+            const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus tracyStatus =
+                SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus();
             UIData.profiler.tracyBuildEnabled = tracyStatus.buildEnabled;
             UIData.profiler.tracyInitialized = tracyStatus.initialized;
             UIData.profiler.tracyViewerConnected = tracyStatus.viewerConnected;
@@ -807,11 +810,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             // process memory sampling, it is safe to refresh for the F6 overlay.
             UIData.renderMemory = inputs.renderDiagnostics.GetRenderMemoryStats();
             UIData.reserveGrowthEventTotalCount =
-                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+                SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
             UIData.reserveGrowthEventDroppedCount =
-                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventDroppedCount();
+                SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventDroppedCount();
             UIData.reserveGrowthEventCount =
-                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::CopyRecentGrowthEvents(
+                SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CopyRecentGrowthEvents(
                     UIData.reserveGrowthEvents,
                     SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
         }
@@ -824,77 +827,6 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.testComplete = state.scene.isTestComplete;
         UIData.vsyncEnabled = state.renderPresentation.vsyncEnabled;
         UIData.pipelineSyncEnabled = state.renderPresentation.pipelineSyncEnabled;
-        const RuntimeContactAudioSnapshot& contactAudio = state.runtimeViewModel.contactAudio;
-        UIData.contactAudioEnabled = contactAudio.enabled;
-        UIData.contactAudioAvailable = contactAudio.available;
-        UIData.contactAudioDebugCounters = contactAudio.debugCounters;
-        UIData.contactAudioFlashMode = contactAudio.flashMode;
-        UIData.contactAudioFlashModeLabel = contactAudio.flashModeLabel;
-        UIData.contactAudioMasterGain = contactAudio.masterGain;
-        UIData.contactAudioMaxDistanceScale = contactAudio.maxDistanceScale;
-        UIData.contactAudioMinClosingSpeed = contactAudio.minClosingSpeed;
-        UIData.contactAudioMinImpactScore = contactAudio.minImpactScore;
-        UIData.contactAudioImpactScoreRangeSeconds = contactAudio.impactScoreRangeSeconds;
-        UIData.contactAudioSimpleMode = contactAudio.simpleMode;
-        UIData.contactAudioSimpleMinLinearEnergy = contactAudio.simpleMinLinearEnergy;
-        UIData.contactAudioSimpleMinLinearDeltaSpeed = contactAudio.simpleMinLinearDeltaSpeed;
-        UIData.contactAudioSimpleLinearEnergyRange = contactAudio.simpleLinearEnergyRange;
-        UIData.contactAudioBurstVoicesPerWindow = contactAudio.burstVoicesPerWindow;
-        UIData.contactAudioRollingLevelDb = contactAudio.rollingLevelDb;
-        UIData.contactAudioRollingMaxDistance = contactAudio.rollingMaxDistance;
-        UIData.contactAudioRollingMinSlipSpeed = contactAudio.rollingMinSlipSpeed;
-        UIData.contactAudioRollingVoicesPerWindow = contactAudio.rollingVoicesPerWindow;
-        UIData.contactAudioEventsSeen = contactAudio.stats.eventsSeen;
-        UIData.contactAudioPatchCandidates = contactAudio.stats.patchCandidates;
-        UIData.contactAudioMergedCandidates = contactAudio.stats.mergedCandidates;
-        UIData.contactAudioCandidateOverflows = contactAudio.stats.candidateOverflows;
-        UIData.contactAudioBurstWindowSkippedCandidates = contactAudio.stats.burstWindowSkippedCandidates;
-        UIData.contactAudioBudgetRejectedCandidates = contactAudio.stats.budgetRejectedCandidates;
-        UIData.contactAudioRejectedByThreshold = contactAudio.stats.rejectedByThreshold;
-        UIData.contactAudioRejectedByCooldown = contactAudio.stats.rejectedByCooldown;
-        UIData.contactAudioSubmittedVoices = contactAudio.stats.submittedVoices;
-        UIData.contactAudioDroppedVoices = contactAudio.stats.droppedVoices;
-        UIData.contactAudioRollingCandidates = contactAudio.stats.rollingCandidates;
-        UIData.contactAudioRollingSubmittedVoices = contactAudio.stats.rollingSubmittedVoices;
-        // Lifetime: names copied into UIData are borrowed from ContactAudioService
-        // through the runtime view model for this immediate draw pass.
-        UIData.soundSetCount = (std::min)( contactAudio.soundSetCount, SkullbonezCore::UI::UI_SOUND_SET_MAX );
-        UIData.soundSampleCount = (std::min)( contactAudio.soundSampleCount, SkullbonezCore::UI::UI_SOUND_SAMPLE_MAX );
-        for ( int sampleIndex = 0; sampleIndex < UIData.soundSampleCount; ++sampleIndex )
-        {
-            UIData.soundSamplePaths[sampleIndex] = contactAudio.soundSamplePaths[sampleIndex];
-        }
-        for ( int setIndex = 0; setIndex < UIData.soundSetCount; ++setIndex )
-        {
-            const SkullbonezCore::Runtime::Audio::ContactAudioSetTuning& tuning = contactAudio.soundSets[setIndex];
-            SkullbonezCore::UI::UISoundSetFrameData& set = UIData.soundSets[setIndex];
-            set.name = tuning.name;
-            set.materialA = tuning.materialA;
-            set.materialB = tuning.materialB;
-            set.minImpulse = tuning.minImpulse;
-            set.impulseRange = tuning.impulseRange;
-            set.cooldownMs = tuning.cooldownMs;
-            set.overrideCooldownMs = tuning.overrideCooldownMs;
-            set.maxDistance = tuning.maxDistance;
-            set.baseGain = tuning.baseGain;
-            set.pitchMin = tuning.pitchMin;
-            set.pitchMax = tuning.pitchMax;
-            set.maxVoices = tuning.maxVoices;
-            set.sampleCount = tuning.sampleCount;
-            set.bandCount =
-                (std::min)( tuning.bandCount, static_cast<uint32_t>( SkullbonezCore::UI::UI_SOUND_BAND_MAX ) );
-            for ( uint32_t bandIndex = 0; bandIndex < set.bandCount; ++bandIndex )
-            {
-                SkullbonezCore::UI::UISoundBandFrameData& band = set.bands[bandIndex];
-                band.name = tuning.bands[bandIndex].name;
-                band.minImpulse = tuning.bands[bandIndex].minImpulse;
-                band.impulseRange = tuning.bands[bandIndex].impulseRange;
-                band.baseGain = tuning.bands[bandIndex].baseGain;
-                band.pitchMin = tuning.bands[bandIndex].pitchMin;
-                band.pitchMax = tuning.bands[bandIndex].pitchMax;
-                band.sampleCount = tuning.bands[bandIndex].sampleCount;
-            }
-        }
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = view.timeScale;
         UIData.presentationInterpolation = view.presentationInterpolation;
@@ -924,9 +856,9 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.collisionVisualizer = state.debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = state.debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = state.debug.isBroadphaseOverlay;
-        const Physics::TornadoFieldConfig& tornadoField = state.world.Physics().GetTornadoFieldConfig();
+        const Gameplay::TornadoFieldConfig& tornadoField = state.world.Tornado().GetFieldConfig();
         UIData.tornadoEnabled = tornadoField.enabled;
-        UIData.tornadoVisualShell = state.renderPresentation.tornadoVisual.enabled && tornadoField.enabled;
+        UIData.tornadoVisualShell = state.world.Tornado().VisualSettings().enabled && tornadoField.enabled;
         UIData.tornadoFieldVectors = tornadoField.visualizeVelocityField;
         UIData.tornadoRadius = tornadoField.radius;
         UIData.tornadoHeight = tornadoField.height;
@@ -1134,7 +1066,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
         const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( state.debug.overlayMode == OverlayMode::BarsAbsolute );
-        profiler.RenderBarOverlay( textBatch, renderCommands, panX, panY, panW, panH, absolute );
+        profilerOverlay
+            .RenderBarOverlay( profiler.FrameView(), textBatch, renderCommands, panX, panY, panW, panH, absolute );
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
@@ -1251,13 +1184,14 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        profiler.RenderOverlay( textBatch,
-                                renderCommands,
-                                -( hw - mX ),
-                                -( hh - mY ) - padY,
-                                lineH,
-                                profFSz,
-                                inputs.timers.rollingFpsTime );
+        profilerOverlay.RenderOverlay( profiler.FrameView(),
+                                       textBatch,
+                                       renderCommands,
+                                       -( hw - mX ),
+                                       -( hh - mY ) - padY,
+                                       lineH,
+                                       profFSz,
+                                       inputs.timers.rollingFpsTime );
     }
 #endif
 

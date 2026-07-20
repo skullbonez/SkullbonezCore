@@ -12,7 +12,7 @@ Glossary:
   Live advance: Replay scrubber mode that lets edited live physics advance while tools stay active.
   Replay velocity body view: Local value view resolved from PhysicsBodyStore and
     ColliderStore for one replay target; model index is a UI/presentation hint
-    after replay identity resolves to a PhysicsBodyHandle.
+    after scene object identity resolves to a PhysicsBodyHandle.
 
 Invariants:
   - Pointer capture must end whenever the drag exits or the edited target becomes invalid.
@@ -50,6 +50,7 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Physics;
+namespace Physics = SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -254,7 +255,7 @@ struct ReplayVelocityBodyView
 };
 
 
-static bool TryResolveReplayVelocityBodyView( ReplayBodyId targetId,
+static bool TryResolveReplayVelocityBodyView( Physics::PhysicsSceneObjectId targetId,
                                               ModelRowHint targetModelRow,
                                               const PhysicsBodyStore& bodyStore,
                                               const ColliderStore& colliderStore,
@@ -265,7 +266,7 @@ static bool TryResolveReplayVelocityBodyView( ReplayBodyId targetId,
     {
         return false;
     }
-    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForReplayBodyId( targetId.value, targetModelRow.value );
+    const PhysicsBodyHandle bodyHandle = bodyStore.HandleForSceneObjectId( targetId, targetModelRow.value );
     const int modelIndex = bodyStore.ModelIndexForHandle( bodyHandle );
     if ( !bodyHandle.IsValid() || modelIndex < 0 )
     {
@@ -855,7 +856,7 @@ bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwn
 }
 
 
-void ReplayAuthoring::AppendVelocityEditOverlay( ReplayBodyId targetId,
+void ReplayAuthoring::AppendVelocityEditOverlay( Physics::PhysicsSceneObjectId targetId,
                                                  ModelRowHint targetModelRow,
                                                  PhysicsEngine& velocityPhysics,
                                                  bool editorModeEnabled,

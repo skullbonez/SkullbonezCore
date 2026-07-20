@@ -191,8 +191,8 @@ const char* ImGuiEditorPanelName( ImGuiEditorPanelId panel ) noexcept
         return ImGuiEditorPanel::Inspector;
     case ImGuiEditorPanelId::WorldSimulation:
         return ImGuiEditorPanel::WorldSimulation;
-    case ImGuiEditorPanelId::RenderingAudio:
-        return ImGuiEditorPanel::RenderingAudio;
+    case ImGuiEditorPanelId::Rendering:
+        return ImGuiEditorPanel::Rendering;
     case ImGuiEditorPanelId::Diagnostics:
         return ImGuiEditorPanel::Diagnostics;
     case ImGuiEditorPanelId::Causality:

@@ -31,11 +31,10 @@ Related:
 */
 
 #pragma once
-#include "../Assets/AssetKeys.h"
-
 #include "Fence.h"
 #include "LockOrderValidator.h"
 #include "Profiler.h"
+#include "StringHash.h"
 
 #include <cstdio>
 #include <condition_variable>

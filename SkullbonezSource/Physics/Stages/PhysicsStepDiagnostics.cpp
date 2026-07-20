@@ -24,7 +24,7 @@ Related:
 */
 #include "PhysicsStepDiagnostics.h"
 
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDiagnosticsModel.h"
@@ -215,7 +215,7 @@ void PhysicsStepDiagnostics::SetPhysicsDiagnosticsRunId( const char* runId )
 }
 #endif
 
-void PhysicsStepDiagnostics::CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& snapshot ) const
+void PhysicsStepDiagnostics::CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const
 {
     snapshot.collisionVisualContacts = m_collisionVisualContacts;
     snapshot.debugContacts = m_physicsDebugContacts;
@@ -223,7 +223,7 @@ void PhysicsStepDiagnostics::CaptureReplayState( Runtime::ReplaySolverWorldSnaps
     snapshot.collisionVisualFrameActive = m_collisionVisualFrameActive;
 }
 
-void PhysicsStepDiagnostics::RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot )
+void PhysicsStepDiagnostics::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
     m_collisionVisualContacts = snapshot.collisionVisualContacts;
     m_physicsDebugContacts = snapshot.debugContacts;

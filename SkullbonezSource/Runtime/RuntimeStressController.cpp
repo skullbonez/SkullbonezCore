@@ -49,7 +49,7 @@ Related:
 #include "Tools/RuntimeTools.h"
 #include "Window.h"
 #include "../Assets/AssetSystem.h"
-#include "../Physics/SimulationSystem.h"
+#include "SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderResourceFactory.h"
@@ -491,22 +491,22 @@ void ApplyGraphicsStressAction( RuntimeFrameHostView& host,
         break;
     case 19:
     {
-        TornadoFieldConfig tornadoField = models.Scene().Physics().GetTornadoFieldConfig();
+        SkullbonezCore::Gameplay::TornadoFieldConfig tornadoField = models.Scene().Tornado().GetFieldConfig();
         tornadoField.enabled = stress.NextInt( 2 ) != 0;
         tornadoField.visualizeVelocityField = stress.NextInt( 2 ) != 0;
-        renderer.SetTornadoVisualEnabled( stress.NextInt( 2 ) != 0 );
-        models.Scene().Physics().SetTornadoFieldConfig( tornadoField );
+        models.Scene().Tornado().SetVisualEnabled( stress.NextInt( 2 ) != 0 );
+        models.Scene().Tornado().SetFieldConfig( tornadoField );
         break;
     }
     case 20:
     {
-        TornadoVisualSettings tornadoVisual = renderer.TornadoVisualSettingsSnapshot();
+        SkullbonezCore::Gameplay::TornadoVisualSettings tornadoVisual = models.Scene().Tornado().VisualSettings();
         tornadoVisual.shellAlpha = stress.NextFloat( 0.02f, 0.40f );
         tornadoVisual.dustAlpha = stress.NextFloat( 0.02f, 0.55f );
         tornadoVisual.ribbonWidth = stress.NextFloat( 1.0f, 12.0f );
         tornadoVisual.ribbonCount = 1 + stress.NextInt( 10 );
         tornadoVisual.particleCount = 16 + stress.NextInt( 240 );
-        renderer.SetTornadoVisualSettings( tornadoVisual );
+        models.Scene().Tornado().SetVisualSettings( tornadoVisual );
         break;
     }
     case 21:
@@ -1038,7 +1038,6 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
     RunCameraState& camera = interactionOwners.camera;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SimulationSystem& simulation = sceneOwners.simulation;
-    Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
@@ -1099,7 +1098,6 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        *window,
                                        ui,
-                                       contactAudio,
                                        presentationOwners.validationHarness,
                                        launchOptions );
         return loaded;
@@ -1241,13 +1239,16 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         // Why: long stress runs need memory attribution before shutdown. If the
         // process is killed after a climb, this stdout line survives with the
         // same seed/frame/scene-load position as the repro log.
-        const SkullbonezCore::Core::MainMemoryStats& memoryStats = diagnosticsRuntime.RefreshMainMemoryStats(
-            replayRuntime.CollectMemoryStats(),
-            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ sceneController.Scene().Entities(),
-                                                                 sceneController.Scene().Physics(),
-                                                                 sceneController.Scene().RenderInstances() } ),
-            timers.simulationTimer.GetTotalTime(),
-            true );
+        const SkullbonezCore::Core::MainMemoryStats& memoryStats =
+            diagnosticsRuntime.RefreshMainMemoryStats( replayRuntime.CollectMemoryStats(),
+                                                       CollectSceneMemoryStats( SceneMemoryDiagnosticsView{
+                                                           sceneController.Scene().Entities(),
+                                                           sceneController.Scene().CollectGameplayMemoryBytes(),
+                                                           sceneController.Scene().CollectGameplayDebugMemoryBytes(),
+                                                           sceneController.Scene().Physics(),
+                                                           sceneController.Scene().RenderInstances() } ),
+                                                       timers.simulationTimer.GetTotalTime(),
+                                                       true );
         const SkullbonezCore::Rendering::RenderMemoryStats renderStats = renderDiagnostics.GetRenderMemoryStats();
         printf( "[graphics-stress-memory] frame=%d scene_loads=%d task_manager_bytes=%llu "
                 "working_set_bytes=%llu private_working_set_bytes=%llu private_commit_bytes=%llu pagefile_bytes=%llu "
@@ -1257,7 +1258,8 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                 "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
                 "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
                 "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
-                "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
+                "textures=%zu texture_capacity=%zu psos=%zu pso_hits=%llu pso_misses=%llu "
+                "pso_precompiled=%llu graph_transients=%zu graph_transient_capacity=%zu "
                 "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
                 "srv_static_high_water=%u "
                 "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
@@ -1297,6 +1299,9 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                 renderStats.textureRegistryCount,
                 renderStats.textureRegistryCapacity,
                 renderStats.psoCacheCount,
+                static_cast<unsigned long long>( renderStats.psoCacheHitCount ),
+                static_cast<unsigned long long>( renderStats.psoCacheMissCount ),
+                static_cast<unsigned long long>( renderStats.precompiledPsoCount ),
                 renderStats.graphTransientCount,
                 renderStats.graphTransientCapacity,
                 renderStats.rtvDescriptorsUsed,

@@ -45,7 +45,6 @@ Related:
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
-#include "UITabSound.h"
 #include "UITabSky.h"
 #include "UILayout.h"
 #include "../Runtime/Scene/SceneControllerState.h"
@@ -119,7 +118,6 @@ class UIWindowInteractionOwner
         ProfilerTab::UIProfilerTabState& profilerTab;
         MemoryTab::UIMemoryOverlayState& memoryOverlay;
         SceneTab::UISceneTabState& sceneTab;
-        SoundTab::UISoundTabState& soundTab;
         SkyTab::UISkyTabState& skyTab;
         CinematicTab::UICinematicTabState& cinematicTab;
         float& scrollY;
@@ -240,7 +238,6 @@ class UIWindowInteractionOwner
     ProfilerTab::UIProfilerTabState m_profilerTab;
     MemoryTab::UIMemoryOverlayState m_memoryOverlay;
     SceneTab::UISceneTabState m_sceneTab;
-    SoundTab::UISoundTabState m_soundTab;
     SkyTab::UISkyTabState m_skyTab;
     CinematicTab::UICinematicTabState m_cinematicTab;
     float m_scrollY = 0.0f;

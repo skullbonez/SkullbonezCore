@@ -117,7 +117,7 @@ Related:
 #include "Dx12RenderGraphExecutor.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include "../../Runtime/DevelopmentTools/TracyClientOwner.h"
+#include "../../Core/TracyClientOwner.h"
 #include "../../Core/FatalError.h"
 #include <cstdio>
 #include <algorithm>
@@ -128,7 +128,6 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
-namespace Runtime = SkullbonezCore::Runtime;
 
 
 // --- Helpers ---
@@ -253,6 +252,9 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
     stats.instancedMeshCount = m_geometryOwner.InstancedCount();
     stats.instancedMeshCapacity = m_geometryOwner.InstancedCapacity();
     stats.psoCacheCount = m_pipelineOwner.CacheCount();
+    stats.psoCacheHitCount = m_pipelineOwner.CacheHitCount();
+    stats.psoCacheMissCount = m_pipelineOwner.CacheMissCount();
+    stats.precompiledPsoCount = m_pipelineOwner.PrecompiledPsoCount();
     stats.graphTransientCount = m_graphTransientPool.Size();
     stats.graphTransientCapacity = m_graphTransientPool.Capacity();
 
@@ -329,6 +331,122 @@ RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
 RenderGraphTextureBinding RenderBackendDX12::ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const
 {
     return m_graphTransientPool.Resolve( resource );
+}
+
+
+RenderGraphNativeResourceToken RenderBackendDX12::ResolveGraphResourceToken( uint32_t textureHandle ) const
+{
+    return RenderGraphNativeResourceToken::From( m_textureOwner.ResolveResource( textureHandle ) );
+}
+
+
+RenderGraphBackbufferBinding RenderBackendDX12::ResolveGraphBackbufferBinding() const
+{
+    RenderGraphBackbufferBinding binding;
+    binding.nativeResource =
+        RenderGraphNativeResourceToken::From( m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() ) );
+    binding.currentAccess = m_frameOwner.BackBufferAccess();
+    return binding;
+}
+
+
+size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
+                                                   const RenderGraphCompileResult& compiled,
+                                                   uint32_t passIndex )
+{
+    size_t emittedCount = m_graphTransientPool.ExecuteTransitions( graph, compiled, passIndex );
+    if ( passIndex >= graph.Passes().size() )
+    {
+        SB_FATAL( "RenderBackendDX12", "Graph transition requested an invalid pass. pass=%u", passIndex );
+    }
+
+    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
+    {
+        if ( transition.passIndex != passIndex )
+        {
+            continue;
+        }
+        const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
+        if ( !resource.external )
+        {
+            continue;
+        }
+        ID3D12Resource* nativeResource = transition.nativeResource.As<ID3D12Resource>();
+        if ( !nativeResource )
+        {
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled external transition has no native resource. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      resource.name );
+        }
+        if ( !m_frameOwner.CanRecord() && !m_frameOwner.EnsureOpen().ok )
+        {
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled external transition could not open command recording. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      resource.name );
+        }
+
+        const bool isCurrentBackbuffer = nativeResource == m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() );
+        if ( isCurrentBackbuffer && transition.before != m_frameOwner.BackBufferAccess() )
+        {
+            // Hazard: graph compilation uses the tracked access sampled by the
+            // wrapper. A mismatch means an untracked frame-edge transition ran
+            // between declaration and callback execution.
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled backbuffer transition has stale before-state. pass=%s tracked=%s compiled=%s",
+                      graph.Passes()[passIndex].name,
+                      ToString( m_frameOwner.BackBufferAccess() ),
+                      ToString( transition.before ) );
+        }
+
+        // Hazard: leaving UAV writes unordered before the compiled consumer
+        // transition can expose partially written reflection pixels to water.
+        if ( transition.before == RenderGraphResourceAccess::UnorderedAccess )
+        {
+            Dx12RenderGraphUavBarrierDesc uavDesc;
+            uavDesc.commandList = m_frameOwner.CommandList();
+            uavDesc.resource = nativeResource;
+            const Dx12RenderGraphUavBarrierRecord uavRecord =
+                ExecuteDx12RenderGraphUavBarrier( "Dx12GraphCompiledExternal",
+                                                  graph.Passes()[passIndex].name,
+                                                  resource.name,
+                                                  uavDesc );
+            if ( !uavRecord.emitted )
+            {
+                SB_FATAL( "RenderBackendDX12",
+                          "Compiled graph UAV ordering barrier was not emitted. pass=%s resource=%s",
+                          graph.Passes()[passIndex].name,
+                          resource.name );
+            }
+        }
+
+        Dx12RenderGraphSingleTransitionDesc transitionDesc;
+        transitionDesc.commandList = m_frameOwner.CommandList();
+        transitionDesc.resource = nativeResource;
+        transitionDesc.before = transition.before;
+        transitionDesc.after = transition.after;
+        transitionDesc.subresource = static_cast<UINT>( transition.subresource );
+        const Dx12RenderGraphBarrierRecord record =
+            ExecuteDx12RenderGraphSingleTransition( "Dx12GraphCompiledExternal",
+                                                    graph.Passes()[passIndex].name,
+                                                    resource.name,
+                                                    transitionDesc );
+        if ( !record.emitted )
+        {
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled graph external transition was not emitted. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      resource.name );
+        }
+        if ( isCurrentBackbuffer )
+        {
+            m_frameOwner.SetBackBufferAccess( transition.after );
+            m_pipelineOwner.InvalidateTargets();
+        }
+        ++emittedCount;
+    }
+    return emittedCount;
 }
 
 
@@ -564,9 +682,9 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
 SkullbonezCore::Core::SbResult Dx12PipelineOwner::Initialize( ID3D12Device* device )
 {
     // Lifetime: initialization is reusable after a prior Shutdown or partial
-    // startup failure. Desired state returns to cold defaults before publishing
+    // startup failure. Command bindings return to cold defaults before publishing
     // a new root signature.
-    ResetDesiredState();
+    ResetCommandState();
     std::string reflectedContractError;
     if ( !ValidateGeneratedUnifiedRasterRootSignature( reflectedContractError ) )
     {
@@ -971,6 +1089,10 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // had EndQuery recorded this frame. Resolving unwritten slots triggers D3D12 error 1319.
     const bool resolvedTimerSlotsThisFrame = m_diagnostics.ResolveWrittenGpuTimers( m_frameOwner.DiagnosticsFrame() );
 
+    // Frame-edge exception: Present coordinates command-list close, submission,
+    // swap-chain flip, and fence advancement after all executable graph passes.
+    // It is not command-recording frame work and therefore retains this one
+    // explicit RenderTarget -> Present transition.
     m_frameOwner.TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
     if ( m_frameOwner.HasFailure() )
     {
@@ -1378,7 +1500,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
     // back buffer and the depth candidate exists.
     m_frameOwner.RefreshFrameIndex();
     // ResizeBuffers puts all back buffers into PRESENT state, so the next
-    // Clear()/PrepareDraw() must transition from that concrete state.
+    // executable backbuffer graph pass compiles from that concrete state.
     m_frameOwner.SetBackBufferAccess( RenderGraphResourceAccess::Present );
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
@@ -1421,20 +1543,21 @@ void RenderBackendDX12::SetViewport( int x, int y, int w, int h )
 }
 
 
-void RenderBackendDX12::Clear( bool color, bool depth )
+void RenderBackendDX12::Clear( const ClearTargetDesc& target )
 {
     if ( !m_frameOwner.EnsureOpen().ok )
     {
         return;
     }
 
-    if ( !m_pipelineOwner.RenderingToFramebuffer() )
+    if ( !m_pipelineOwner.RenderingToFramebuffer() &&
+         m_frameOwner.BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
     {
-        m_frameOwner.TransitionBackbuffer( "ClearBackbuffer", RenderGraphResourceAccess::RenderTarget );
-        if ( m_frameOwner.HasFailure() )
-        {
-            return;
-        }
+        // Invariant: BackbufferClear is an executable graph pass. Clear only
+        // records the operation after that pass has acquired RenderTarget.
+        SB_FATAL( "RenderBackendDX12",
+                  "Backbuffer clear reached the backend without graph acquisition. tracked=%s",
+                  ToString( m_frameOwner.BackBufferAccess() ) );
     }
     // Bind the render target and depth buffer to the Output Merger (OM) stage — this tells the
     // GPU where to write pixel colors and depth values for subsequent draw calls.
@@ -1447,78 +1570,21 @@ void RenderBackendDX12::Clear( bool color, bool depth )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetviewports
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects
-    if ( color )
+    if ( target.color )
     {
         // Clear the render target to a solid color (wipes the entire back buffer).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-clearrendertargetview
-        m_pipelineOwner.ClearCurrentColor( CommandList() );
+        m_pipelineOwner.ClearCurrentColor( CommandList(), target.colorValue );
     }
-    if ( depth )
+    if ( target.depth )
     {
         // Clear the depth buffer to 1.0 (maximum distance), so all subsequent draws will pass
         // the depth test. This is done at the start of each frame or when switching render targets.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-cleardepthstencilview
-        m_pipelineOwner.ClearCurrentDepth( CommandList() );
+        m_pipelineOwner.ClearCurrentDepth( CommandList(), target.depthValue );
     }
-}
-
-
-void RenderBackendDX12::SetClearColor( float r, float g, float b, float a )
-{
-    m_pipelineOwner.SetClearColor( r, g, b, a );
-}
-
-
-void RenderBackendDX12::SetClearDepth( float depth )
-{
-    m_pipelineOwner.SetClearDepth( depth );
-}
-
-
-// --- Render State ---
-
-
-void RenderBackendDX12::SetDepthTest( bool enable )
-{
-    m_pipelineOwner.SetDepthTest( enable );
-}
-
-
-void RenderBackendDX12::SetDepthWrite( bool enable )
-{
-    m_pipelineOwner.SetDepthWrite( enable );
-}
-
-
-void RenderBackendDX12::SetBlend( bool enable )
-{
-    m_pipelineOwner.SetBlend( enable );
-}
-
-
-void RenderBackendDX12::SetBlendFunc( BlendFactor src, BlendFactor dst )
-{
-    m_pipelineOwner.SetBlendFunc( src, dst );
-}
-
-
-void RenderBackendDX12::SetCullFace( bool enable )
-{
-    m_pipelineOwner.SetCullFace( enable );
-}
-
-
-void RenderBackendDX12::SetPolygonOffset( bool enable, float factor, float units )
-{
-    m_pipelineOwner.SetPolygonOffset( enable, factor, units );
-}
-
-
-void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
-{
-    // Clip planes are handled through shader constants.
 }
 
 
@@ -1585,36 +1651,6 @@ int RenderBackendDX12::GetWidth() const
 int RenderBackendDX12::GetHeight() const
 {
     return m_renderDevice.Height();
-}
-
-
-bool RenderBackendDX12::IsDepthTestEnabled() const
-{
-    return m_pipelineOwner.DepthTestEnabled();
-}
-
-
-bool RenderBackendDX12::IsDepthWriteEnabled() const
-{
-    return m_pipelineOwner.DepthWriteEnabled();
-}
-
-
-bool RenderBackendDX12::IsBlendEnabled() const
-{
-    return m_pipelineOwner.BlendEnabled();
-}
-
-
-bool RenderBackendDX12::IsCullFaceEnabled() const
-{
-    return m_pipelineOwner.CullEnabled();
-}
-
-
-void RenderBackendDX12::GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const
-{
-    m_pipelineOwner.GetBlendFunc( outSrc, outDst );
 }
 
 

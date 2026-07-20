@@ -36,7 +36,7 @@ Related:
 #include <cstring>
 #include <utility>
 
-#include "Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "CaptureController.h"
 #include "RunLaunchOptions.h"
 #include "../Physics/ColliderStore.h"
@@ -46,7 +46,7 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -315,7 +315,7 @@ void SceneAutomationGateTracker::PrintMissingRequirements() const
 
 std::unique_ptr<RuntimeValidationHarness> RuntimeValidationHarness::CreateForStartup()
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
     // Allocation policy: keep both cold harness implementations out of Run.h.
     // The single owner allocation is bounded to process startup.
     return std::make_unique<RuntimeValidationHarness>();

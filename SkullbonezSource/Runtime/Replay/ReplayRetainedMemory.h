@@ -33,11 +33,13 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
-  - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
 */
 #pragma once
 
-#include "../Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
+#include "../../Physics/PhysicsSolverSnapshot.h"
 
 #include <array>
 #include <cstddef>
@@ -93,38 +95,36 @@ enum class ReplayGrowthExhaustionRule : uint8_t
 struct ReplayGrowthOwnerPolicy
 {
     const char* ownerName;
-    Runtime::Allocation::RuntimeReservePhase phase;
+    SkullbonezCore::Core::Allocation::RuntimeReservePhase phase;
     int hardBytes;
     uint64_t measuredHighWaterBytes;
     ReplayGrowthExhaustionRule exhaustion;
 };
 
 inline constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_recorder_samples";
-// Guarded 60-frame capture measured 6,206,626 bytes. Thirty-two MiB preserves
-// more than 5x headroom for denser retained scenes.
+// The strict two-generation prediction probe measured 17,737,640 aggregate
+// recorder bytes. Thirty-two MiB preserves 1.89x measured headroom.
 inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = 32 * 1024 * 1024;
-inline constexpr const char* REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-// Measured high-water is 1,437,696 bytes. Eight MiB leaves more than 5x
-// headroom while deleting the unmeasured 64 MiB ceiling.
-inline constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 8 * 1024 * 1024;
 inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
+// The same strict probe measured 110,979,828 prediction bytes. The 256 MiB cap
+// preserves 2.42x headroom for larger retained path/cause-tree generations.
 inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
 
 inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLICIES = {
     ReplayGrowthOwnerPolicy{ REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                             Runtime::Allocation::RuntimeReservePhase::Replay,
+                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                              REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
-                             6206626u,
+                             17737640u,
                              ReplayGrowthExhaustionRule::FatalRetainedState },
-    ReplayGrowthOwnerPolicy{ REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
-                             Runtime::Allocation::RuntimeReservePhase::Replay,
-                             REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
-                             1437696u,
+    ReplayGrowthOwnerPolicy{ Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+                             Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+                             2877186u,
                              ReplayGrowthExhaustionRule::FatalRetainedState },
     ReplayGrowthOwnerPolicy{ REPLAY_PREDICTION_RESERVE_OWNER,
-                             Runtime::Allocation::RuntimeReservePhase::Replay,
+                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                              REPLAY_PREDICTION_RESERVE_HARD_BYTES,
-                             211376304u,
+                             110979828u,
                              ReplayGrowthExhaustionRule::CancelPredictionBuild } };
 
 inline const ReplayGrowthOwnerPolicy* FindReplayGrowthOwnerPolicy( const char* ownerName ) noexcept

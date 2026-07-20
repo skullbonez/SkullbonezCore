@@ -21,7 +21,7 @@ Related:
 */
 #pragma once
 
-#include "../Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -28,13 +28,13 @@
     <Filter Include="Source Files\Assets">
       <UniqueIdentifier>{6A96B565-85DF-4E09-8F65-E5556EE490C5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Physics">
-      <UniqueIdentifier>{BB54C591-485D-4831-95BE-EC866F8F14C3}</UniqueIdentifier>
+    <Filter Include="Source Files\Gameplay">
+      <UniqueIdentifier>{E8169022-7C7B-49E2-91F6-3B7909D35F5E}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime">
       <UniqueIdentifier>{B1E9B95C-2E68-4B0F-8EE6-EC0F5529E0BA}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Runtime\Allocation">
+    <Filter Include="Source Files\Core\Allocation">
       <UniqueIdentifier>{D8F59F97-F421-4B8B-AD58-274C63075BB0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Camera">
@@ -60,9 +60,6 @@
     </Filter>
     <Filter Include="Source Files\Runtime\Tools">
       <UniqueIdentifier>{3182C7E3-3124-4D9E-9160-F5D082491CF0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Physics\Core">
-      <UniqueIdentifier>{D22051DA-1CAC-4D89-95BC-FD3C606A4664}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Replay">
       <UniqueIdentifier>{B75CFE80-5DE1-4FA6-B50A-6450A7E0A819}</UniqueIdentifier>
@@ -237,6 +234,12 @@
     <ClCompile Include="SkullbonezSource\Assets\AssetSystem.cpp">
       <Filter>Source Files\Assets</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoField.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Gameplay\TornadoGameplay.cpp">
+      <Filter>Source Files\Gameplay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\Config.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -249,11 +252,8 @@
     <ClCompile Include="SkullbonezSource\Core\Log.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Core\Profiler.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp">
-      <Filter>Source Files\Core</Filter>
+    <ClCompile Include="SkullbonezSource\Rendering\ProfilerImplementation.cpp">
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp">
       <Filter>Source Files\Core</Filter>
@@ -261,14 +261,14 @@
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>
@@ -279,8 +279,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
-      <Filter>Source Files\Physics\Core</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>

@@ -76,7 +76,6 @@ JSON_HEADER = "ThirdPtySource/nlohmann/json.hpp"
 JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
     {
         "Rendering/DX12/ShaderBytecodeManifest.cpp",
-        "Runtime/Audio/ContactAudioService.cpp",
         "Runtime/DemoDirector.cpp",
         "Runtime/Editor/RunEditorObjectPlacement.cpp",
         "Runtime/Editor/RunEditorPlacementAssets.cpp",
@@ -140,9 +139,9 @@ ASSET_PREFIXES = (
 PHYSICS_CORE_PREFIXES = (
     "PhysicsApi",
     "PhysicsEngine",
-    "PhysicsScene",
+    "PhysicsRuntimeSettings",
+    "PhysicsSolverSnapshot",
     "PhysicsWorld",
-    "SimulationSystem",
 )
 
 PHYSICS_BODY_PREFIXES = (
@@ -167,8 +166,6 @@ PHYSICS_COLLISION_PREFIXES = (
 PHYSICS_FORCE_PREFIXES = (
     "BuoyancySystem",
     "PhysicsWorldForces",
-    "TornadoField",
-    "TornadoGameplay",
 )
 
 PHYSICS_SOLVER_PREFIXES = (
@@ -180,6 +177,7 @@ PHYSICS_SOLVER_PREFIXES = (
 )
 
 PHYSICS_STAGE_PREFIXES = (
+    "ExternalForceStage",
     "PhysicsBroadphaseStage",
     "PhysicsContactSolverStage",
     "PhysicsForceStage",
@@ -190,10 +188,17 @@ PHYSICS_STAGE_PREFIXES = (
     "PhysicsTerrainStage",
 )
 
+GAMEPLAY_PREFIXES = (
+    "TornadoField",
+    "TornadoGameplay",
+    "TornadoVisualPass",
+)
+
 PHYSICS_DIAGNOSTICS_PREFIXES = (
     "PhysicsDebugData",
     "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
+    "SkullScope",
 )
 
 PHYSICS_SUPPORT_PREFIXES = (
@@ -238,6 +243,8 @@ DX12_RENDERING_PREFIXES = (
 
 RENDERING_PREFIXES = (
     "DrawCallTrace",
+    "ProfilerImplementation",
+    "ProfilerOverlayPresenter",
     "RenderInstanceRenderer",
     "Helper",
     "IFramebuffer",
@@ -260,6 +267,8 @@ RENDERING_PREFIXES = (
     "RenderSceneSnapshot",
     "RenderSceneView",
     "RenderMaterial",
+    "RenderGpuTimingOwner",
+    "WorldRenderExtension",
     "ShaderContracts",
     "ShaderReflectionContracts",
     "Shadow",
@@ -270,6 +279,7 @@ SCENE_PREFIXES = (
     "SceneRequestExecution",
     "SceneSnapshotWriter",
     "AuthoredScene",
+    "AuthoredTornadoConfig",
     "AuthoredSceneParser",
     "AuthoredSceneParserAssets",
     "AuthoredSceneParserBodies",
@@ -296,8 +306,8 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "RunTimerState",
     "RuntimeFrameViews",
     "RuntimeOverlayDiagnostics",
+    "SimulationSystem",
     "Window",
-    "WindowConstants",
 )
 
 # Startup units are process-entry policy owners rather than Run lifecycle
@@ -360,7 +370,6 @@ RUNTIME_SETTINGS_PREFIXES = (
 
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
-    "SceneCapacity",
     "SceneAutomationGateConfiguration",
     "SceneController",
     "SceneControllerState",
@@ -382,11 +391,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeUiOptions",
 )
 
-RUNTIME_AUDIO_PREFIXES = (
-    "ContactAudioService",
-)
-
-RUNTIME_ALLOCATION_PREFIXES = (
+CORE_ALLOCATION_PREFIXES = (
     "DevelopmentToolAllocation",
     "DevelopmentToolsCapability",
     "RuntimeAllocationTracker",
@@ -421,7 +426,6 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayTimeline",
     "ReplayVisualPacket",
     "ReplayVisualPacketFingerprint",
-    "ReplaySolverSnapshot",
     "ReplayV2Artifact",
     "ReplayValidation",
     "TrajectoryStore",
@@ -470,12 +474,12 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "ImGuiEditorOwner",
     "RuntimeDiagnostics",
     "SceneMemoryDiagnostics",
-    "TracyClientOwner",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution
 # Explorer filter; keeping this explicit prevents them drifting into Runtime.
 RUNTIME_UI_PREFIXES = (
+    "OperatorEditorFrameComposer",
     "UiTextPass",
     "RuntimeViewModel",
     "RuntimeUiSurface",
@@ -496,13 +500,17 @@ CORE_PREFIXES = (
     "PlatformWin32",
     "Profiler",
     "SbResult",
-    "SkullScope",
+    "SceneCapacity",
+    "StringHash",
     "Timer",
+    "TracyClientOwner",
     "WorkerPool",
+    "WindowConstants",
 )
 
 AREA_PREFIXES = (
     ("Rendering\\DX12", DX12_RENDERING_PREFIXES),
+    ("Gameplay", GAMEPLAY_PREFIXES),
     ("Physics\\Core", PHYSICS_CORE_PREFIXES),
     ("Physics\\Bodies", PHYSICS_BODY_PREFIXES),
     ("Physics\\Collision", PHYSICS_COLLISION_PREFIXES),
@@ -512,8 +520,7 @@ AREA_PREFIXES = (
     ("Physics\\Diagnostics", PHYSICS_DIAGNOSTICS_PREFIXES),
     ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
-    ("Runtime\\Allocation", RUNTIME_ALLOCATION_PREFIXES),
-    ("Runtime\\Audio", RUNTIME_AUDIO_PREFIXES),
+    ("Core\\Allocation", CORE_ALLOCATION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
@@ -850,8 +857,6 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
             return PROJECT_FILTER
         if lower.startswith("thirdptysource\\"):
             return EXTERNAL_FILTER
-        if lower.startswith("skullbonezdata\\audio\\") and suffix in {".json", ".md", ".ogg"}:
-            return RESOURCE_FILTER
         if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil", ".json"}:
             return SHADER_FILTER
         if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):

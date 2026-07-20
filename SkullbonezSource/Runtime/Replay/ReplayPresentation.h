@@ -15,7 +15,7 @@ Glossary:
     late UI/text pass.
 
 Invariants:
-  - ReplayBodyId is identity; ModelRowHint is only a dense-row hint.
+  - Physics::PhysicsSceneObjectId is identity; ModelRowHint is only a dense-row hint.
   - Published packet spans are frame-local borrows into the submitted tracer.
   - Render-pose matching uses a fixed model-capacity mask and never allocates.
   - ReplayHudStatus borrows no owner and is coherent for one UI frame.
@@ -35,7 +35,7 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Physics/PhysicsHandles.h"
-#include "../Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 
 #include <array>
 #include <cstdint>
@@ -213,7 +213,7 @@ struct ReplayWorldPointerInput
 
 struct RunReplayPathTarget
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     char name[64] = {};
 };
@@ -223,7 +223,7 @@ struct RunReplayPastTrajectoryBuildState
     // Concept: retained solver paths are built from the bounded solver ring and
     // then appended as new samples arrive. The eviction counter keeps the store
     // from outliving the recorder window it represents.
-    ReplayBodyId targetId;
+    Physics::PhysicsSceneObjectId targetId;
     ReplayFrameIndex firstFrame = 0;
     ReplayFrameIndex builtThroughFrame = 0;
     uint64_t totalFramesEvicted = 0;
@@ -255,8 +255,8 @@ struct RunReplayCameraState
     Math::Vector::Vector3 restoreView = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 restoreUp = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
     RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::None;
-    ReplayBodyId focusedId;
-    ReplayBodyId counterpartId;
+    Physics::PhysicsSceneObjectId focusedId;
+    Physics::PhysicsSceneObjectId counterpartId;
     int focusedRow = -1;
     Math::Vector::Vector3 targetPoint = Math::Vector::ZERO_VECTOR;
     Math::Vector::Vector3 targetNormal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
@@ -293,7 +293,7 @@ struct RunReplayPathVisualizerState
     // Invariant: the presentation owner retains a deterministic value-only
     // mode. Draw code reads it without mutating trajectory capture or storage.
     ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
-    ReplayBodyId targetId;
+    Physics::PhysicsSceneObjectId targetId;
     Physics::ModelRowHint targetModelRow;
     char targetName[64] = {};
     std::vector<RunReplayPathTraceNode> futureNodes;
@@ -325,8 +325,8 @@ struct ReplayTrajectorySubmissionProbeStats
 struct ReplayCameraFocusRequest
 {
     RunReplayCameraFocusKind focusKind = RunReplayCameraFocusKind::None;
-    ReplayBodyId focusedId;
-    ReplayBodyId counterpartId;
+    Physics::PhysicsSceneObjectId focusedId;
+    Physics::PhysicsSceneObjectId counterpartId;
     int focusedRow = -1;
     RunReplayCauseTreeRowKind focusRowKind = RunReplayCauseTreeRowKind::Body;
     Physics::ModelRowHint focusModelRow;
@@ -392,11 +392,11 @@ class ReplayPresentation
     bool ClearCameraFocus() noexcept;
     void ClearPathState();
     // Publishes the selected-target rows needed by read-only path drawing.
-    // Model rows are repairable hints; stable ReplayBodyId remains authority.
+    // Model rows are repairable hints; stable Physics::PhysicsSceneObjectId remains authority.
     void PreparePathDrawing( const Physics::PhysicsBodyStore& bodyStore );
     void SetPathTargetModelRow( Physics::ModelRowHint modelRow ) noexcept;
     void ApplyArchivePathState( const RunReplayPathVisualizerState& archiveState );
-    void ApplyPastTrajectoryUpdate( ReplayBodyId targetId,
+    void ApplyPastTrajectoryUpdate( Physics::PhysicsSceneObjectId targetId,
                                     ReplayFrameIndex firstFrame,
                                     ReplayFrameIndex builtThroughFrame,
                                     uint64_t totalFramesEvicted,
@@ -410,7 +410,7 @@ class ReplayPresentation
     // trajectory records remain unchanged and are recolored on the next draw.
     ReplayPathColorMode CyclePathColorMode() noexcept;
     bool SetPathTarget( const char* name, int modelIndex, const Physics::PhysicsBodyStore& bodyStore );
-    bool SetPathTarget( ReplayBodyId id, Physics::ModelRowHint modelRow, const char* name );
+    bool SetPathTarget( Physics::PhysicsSceneObjectId id, Physics::ModelRowHint modelRow, const char* name );
     ReplayPathPickResult
     TryPickPathTarget( const ReplayPathPickInput& input,
                        const SceneEntityStore& entities,

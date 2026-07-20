@@ -255,7 +255,8 @@ struct MainMemoryGameObjectStats
     uint64_t colliderStoreBytes = 0;                        // Collider-store vector capacity.
     uint64_t renderStoreBytes = 0;                          // Render-instance vector capacity.
     uint64_t physicsWorldBytes = 0;                         // PhysicsWorld fixed state plus retained dynamic solver memory.
-    uint64_t debugAndBroadphaseBytes = 0;                   // Informational subset already included in physicsWorldBytes.
+    uint64_t gameplayWorldBytes = 0;                        // Scene-lifetime Gameplay state, visual arena, and scratch capacity.
+    uint64_t debugAndBroadphaseBytes = 0;                   // Informational subset already included in owning world totals.
     uint64_t totalBytes = 0;
     std::size_t modelCount = 0;
     std::size_t modelCapacity = 0;

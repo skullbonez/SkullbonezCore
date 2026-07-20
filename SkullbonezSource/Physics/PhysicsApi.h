@@ -57,7 +57,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsHandles.h
-  - SkullbonezSource/Physics/PhysicsScene.h
+  - SkullbonezSource/Physics/PhysicsEngine.h
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #pragma once
@@ -77,15 +77,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-struct ReplaySolverWorldSnapshot;
-}
-
 namespace Physics
 {
 struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
+struct PhysicsSolverSnapshot;
 
 enum class PhysicsBodyMotionKind : uint8_t
 {
@@ -251,7 +247,7 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetectio
                                                          const char* contactMaterialName = nullptr )
 {
     // Why: creation paths already know the exact primitive facts. Build the
-    // collider import packet once there so PhysicsScene owns the live row and
+    // collider import packet once there so PhysicsEngine owns the live row and
     // collection owners do not rediscover shape metrics on append.
     PhysicsColliderCreateDesc desc;
     desc.shape = std::move( shape );
@@ -470,7 +466,7 @@ struct PhysicsIslandCollectionView
 // physics facade reads these spans only for the duration of the refresh call.
 struct PhysicsAuthoredBodyRefreshView
 {
-    const uint32_t* replayBodyIds = nullptr;
+    const PhysicsSceneObjectId* sceneObjectIds = nullptr;
     const ModelRowHint* fixedTreeReleaseRoots = nullptr;
     const char* const* diagnosticNames = nullptr;
     PhysicsAuthoredBodyCount bodyCount;
@@ -494,12 +490,6 @@ struct PhysicsDiagnosticsSnapshot
     uint32_t debugContactCount = 0;
     const PhysicsPipelineRecord* pipelineRecords = nullptr;
     uint32_t pipelineRecordCount = 0;
-};
-
-struct PhysicsReplaySolverSnapshotView
-{
-    const Runtime::ReplaySolverWorldSnapshot* snapshot = nullptr;
-    PhysicsBodyCount bodyCount;
 };
 
 struct PhysicsStandaloneSmokeResult

@@ -30,9 +30,8 @@ Related:
 #include "PhysicsSleepController.h"
 
 #include "PhysicsContactSolverStage.h"
-#include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../DisjointSet.h"
 #include "../PhysicsBodyStore.h"
@@ -165,20 +164,20 @@ void PhysicsSleepController::Clear()
     m_awakeBodyCount = 0;
 }
 
-void PhysicsSleepController::ApplyRuntimeConfig( const Core::EngineConfig& config )
+void PhysicsSleepController::ApplyRuntimeSettings( const SleepSettings& settings )
 {
-    m_seedSleepFrameCount = static_cast<uint8_t>( (std::max)( 0, (std::min)( config.physicsSleep.frames, 255 ) ) );
+    m_seedSleepFrameCount = static_cast<uint8_t>( (std::max)( 0, (std::min)( settings.frames, 255 ) ) );
 }
 
-PhysicsSleepStepPolicy PhysicsSleepController::ResolveStepPolicy( const Core::PhysicsSleepConfig& config ) const
+PhysicsSleepStepPolicy PhysicsSleepController::ResolveStepPolicy( const SleepSettings& settings ) const
 {
     // Why: sleep eligibility and wake-energy thresholds are sleep-domain
     // policy. The facade sequences the resulting value without re-deciding it.
-    const float linearSpeed = (std::max)( 0.0f, config.linearSpeed );
-    const float angularSpeed = (std::max)( 0.0f, config.angularSpeed );
+    const float linearSpeed = (std::max)( 0.0f, settings.linearSpeed );
+    const float angularSpeed = (std::max)( 0.0f, settings.angularSpeed );
     return PhysicsSleepStepPolicy{ linearSpeed * linearSpeed,
                                    angularSpeed * angularSpeed,
-                                   static_cast<uint8_t>( (std::max)( 1, (std::min)( config.frames, 255 ) ) ) };
+                                   static_cast<uint8_t>( (std::max)( 1, (std::min)( settings.frames, 255 ) ) ) };
 }
 
 void PhysicsSleepController::EnsureUnderwaterSleepLockBuffer( int modelCount )

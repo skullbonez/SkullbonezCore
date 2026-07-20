@@ -20,7 +20,6 @@ Glossary:
   Scene fixed-step command: One-frame UI packet that changes physics tick cadence.
   Run simulation command: One-frame UI packet that edits time scale, random seed,
     or worker-thread count.
-  Sound command: One-frame UI packet that edits contact-audio presentation state.
   Physics friction command: One-frame Physics-tab packet that edits live friction config.
   Physics sleep command: One-frame Physics-tab packet that toggles sleep policy.
   Run camera command: One-frame Run-tab packet that requests an operator camera mode.
@@ -32,12 +31,11 @@ Glossary:
 Invariants:
   - Render and cinematic helpers clamp raw UI values before writing runtime config.
   - Scene override bits and the changed value must stay paired.
-  - Sound commands delegate value limits to ContactAudioService setters.
   - Physics config edits are mirrored into SceneWorld immediately so
     existing and newly added bodies share the same runtime policy.
-  - Tornado commands commit copied field/system values back to the physics owner.
+  - Tornado commands mutate Gameplay-owned field/system/visual values in place.
   - This module owns command validation and application only; subsystem state
-    remains with the explicitly borrowed render, audio, physics, scene, and
+    remains with the explicitly borrowed render, physics, scene, and
     worker owners.
 
 Related:
@@ -64,14 +62,6 @@ class IRenderDeviceLifecycle;
 }
 namespace Runtime
 {
-namespace Audio
-{
-class ContactAudioService;
-}
-} // namespace Runtime
-
-namespace Runtime
-{
 class SceneWorld;
 class SimulationSystem;
 class RuntimeRenderer;
@@ -79,29 +69,17 @@ using Environment::WorldEnvironment;
 using UI::UICinematicFeature;
 using UI::UICinematicParam;
 using UI::UIRenderParam;
-using UI::UISoundBandParam;
-using UI::UISoundParam;
 
 namespace RunInternal
 {
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param );
 uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature );
 Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::CinematicRenderConfig& cinematic );
-struct SoundUICommandContext
-{
-    // Lifetime: borrowed only while one Sound-tab command packet is applied.
-    // The helper may lazily initialize contact audio, but it does not store any
-    // service or settings references after returning.
-    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio;
-    bool contactAudioDisabledByLaunch = false;
-};
-
 struct TornadoUICommandContext
 {
     // Lifetime: borrowed only while one Physics-tab tornado command packet is applied.
-    // The helper copies, edits, and commits deterministic field config through
-    // the scene-world physics owner; render-only art stays with RuntimeRenderer.
-    RuntimeRenderer& renderer;
+    // The helper applies bounded edits through the SceneWorld-owned Gameplay
+    // module; it copies no authored vector and borrows no renderer authority.
     SceneWorld& world;
 };
 
@@ -263,7 +241,6 @@ void SetCinematicShadowsEnabledFromUI( SkullbonezCore::Core::CinematicRenderConf
 void ApplyOrdinaryRenderUIParam( SkullbonezCore::Core::OrdinaryRenderConfig& ordinary,
                                  UIRenderParam param,
                                  float rawValue );
-bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundCommands& commands );
 bool ApplyRuntimeTextOnlyUICommand( RunDebugState& debug, const UI::UISceneOptionCommands& commands );
 RuntimePresentationUICommandResult ApplyRuntimePresentationUICommands( RuntimePresentationUICommandContext context,
                                                                        const UI::UISceneOptionCommands& sceneOptions,
