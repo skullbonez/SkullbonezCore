@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, Render HAL, and gameplay extraction are closed with exact proofs and independent review clear. |
 | Current objective | Close replay boundary's filed allocation/identity defects without stopping at the findings. |
-| Active/future progress | 17 / 22 live tasks; 77%. |
+| Active/future progress | 18 / 22 live tasks; 82%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Gameplay T3 final `validate_full` passes in 145.4 s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | Replay RB2 is documentation-only: final inbound proof is zero, registration census is three, and independent follow-up review is clear; no repository validation required. |
+| Validation for current edits | Replay RP0 is documentation-only. Its targeted Automation strict probes and symbolized source attribution are recorded in the plan; no repository validation script is required. |
 
 ## Live Queue
 
-NOW. Two live plans, 22 tasks; 17 complete (77%). The remaining architecture-review campaign
+NOW. Two live plans, 22 tasks; 18 complete (82%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: replay-boundary-containment → replay-policy-debt-closure. Owner
@@ -181,10 +181,13 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `replay-policy-debt-closure` RP0 on `nightrunner-20th-july`. Replay
-boundary containment is closed 3/3: the exact inbound include proof returns
-zero, exactly three reserve registrations are reconciled, every solver/pose/
-presentation/raw-id surface is inventoried, and the follow-up independent
-review is clear. RP0 must attribute every material owner-zero callsite from the
-strict two-generation probe before RP1 changes allocation ownership. E17 extended owner
-playtest remains parked; keep Legacy default until explicit owner authorization.
+Continue `replay-policy-debt-closure` RP1 on `nightrunner-20th-july`. RP0
+reproduced the strict two-generation failure (40,353 gameplay / 40,350 policy
+violations; valid `ok=true` report), symbolized every material top-24 site, and
+source-proved that the process-global allocation phase races the thread-local
+reserve owner. The apparent Replay JSON family is DX12 shader-manifest loading;
+the Render/Replay stringstream family is RenderGraph diagnostics. RP1 must make
+phase state thread-local with a cross-thread regression, rerun strict
+attribution, and only then bind genuine live growth to the existing three
+Replay owners or fixed capacity. E17 extended owner playtest remains parked;
+keep Legacy default until explicit owner authorization.
