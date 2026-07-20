@@ -668,13 +668,13 @@ bool SceneWorld::TrimPresentationRowsForSceneRestore( int modelCount )
 }
 
 
-void SceneWorld::CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const
+void SceneWorld::CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const
 {
     m_physics.CaptureReplaySolverSnapshot( outSnapshot, MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );
 }
 
 
-bool SceneWorld::RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot )
+bool SceneWorld::RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot )
 {
     return m_physics.RestoreReplaySolverSnapshot( snapshot,
                                                   MakePhysicsBodyCountFromNonNegativeInt( SceneEntityCount() ) );

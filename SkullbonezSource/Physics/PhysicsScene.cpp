@@ -76,7 +76,6 @@ using SkullbonezCore::Physics::PhysicsConstraintHandle;
 using SkullbonezCore::Physics::PhysicsMaterial;
 using SkullbonezCore::Physics::PhysicsScene;
 using SkullbonezCore::Physics::PhysicsSceneReadView;
-using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 
 
 namespace
@@ -827,14 +826,13 @@ float PhysicsScene::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsScene::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot,
-                                                PhysicsBodyCount bodyCount ) const
+void PhysicsScene::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const
 {
     m_world.CaptureReplaySolverSnapshot( outSnapshot, CountAsInt( bodyCount ) );
 }
 
 
-bool PhysicsScene::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount )
+bool PhysicsScene::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount )
 {
     const bool restored = m_world.RestoreReplaySolverSnapshot( snapshot, CountAsInt( bodyCount ) );
     if ( restored )

@@ -480,7 +480,7 @@ void AppendTornadoSystemConfig( std::vector<uint8_t>& out, const SkullbonezCore:
 }
 
 
-void AppendSolverStats( std::vector<uint8_t>& out, const ReplaySolverStatsSample& stats )
+void AppendSolverStats( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsSolverStatsSample& stats )
 {
     AppendPod( out, static_cast<int32_t>( stats.rowCount ) );
     AppendPod( out, static_cast<int32_t>( stats.cachePreviousRows ) );
@@ -493,7 +493,8 @@ void AppendSolverStats( std::vector<uint8_t>& out, const ReplaySolverStatsSample
     AppendPod( out, stats.positionCorrectionMax );
 }
 
-void AppendPersistentContact( std::vector<uint8_t>& out, const ReplaySolverPersistentContactSample& contact )
+void AppendPersistentContact( std::vector<uint8_t>& out,
+                              const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     AppendPod( out, static_cast<int32_t>( contact.bodyA ) );
     AppendPod( out, static_cast<int32_t>( contact.bodyB ) );
@@ -529,7 +530,8 @@ void AppendPersistentContact( std::vector<uint8_t>& out, const ReplaySolverPersi
     AppendPod( out, contact.terrainWarmStart );
 }
 
-void AppendContactCache( std::vector<uint8_t>& out, const ReplaySolverContactCacheSample& cache )
+void AppendContactCache( std::vector<uint8_t>& out,
+                         const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache )
 {
     AppendPod( out, cache.key );
     AppendPod( out, cache.accN );
@@ -564,7 +566,7 @@ void AppendPipelineRecord( std::vector<uint8_t>& out, const SkullbonezCore::Phys
     AppendPod( out, record.scalarC );
 }
 
-void AppendSolverSnapshot( std::vector<uint8_t>& out, const ReplaySolverWorldSnapshot& snapshot )
+void AppendSolverSnapshot( std::vector<uint8_t>& out, const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
 {
     const uint8_t sleepEnabled = snapshot.sleepEnabled ? 1u : 0u;
     const uint8_t collisionVisualFrameActive = snapshot.collisionVisualFrameActive ? 1u : 0u;
@@ -601,13 +603,13 @@ void AppendSolverSnapshot( std::vector<uint8_t>& out, const ReplaySolverWorldSna
     AppendCountedPodVector( out, snapshot.sleepIslandCanSleep );
 
     AppendPod( out, CheckedU32( snapshot.persistentContacts.size() ) );
-    for ( const ReplaySolverPersistentContactSample& contact : snapshot.persistentContacts )
+    for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact : snapshot.persistentContacts )
     {
         AppendPersistentContact( out, contact );
     }
 
     AppendPod( out, CheckedU32( snapshot.persistentContactCache.size() ) );
-    for ( const ReplaySolverContactCacheSample& cache : snapshot.persistentContactCache )
+    for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : snapshot.persistentContactCache )
     {
         AppendContactCache( out, cache );
     }
@@ -1427,7 +1429,7 @@ bool ReadTornadoSystemConfig( ByteCursor& cursor, SkullbonezCore::Physics::Torna
 }
 
 
-bool ReadSolverStats( ByteCursor& cursor, ReplaySolverStatsSample& outStats )
+bool ReadSolverStats( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverStatsSample& outStats )
 {
     int32_t rowCount = 0;
     int32_t cachePreviousRows = 0;
@@ -1454,7 +1456,8 @@ bool ReadSolverStats( ByteCursor& cursor, ReplaySolverStatsSample& outStats )
     return true;
 }
 
-bool ReadPersistentContact( ByteCursor& cursor, ReplaySolverPersistentContactSample& outContact )
+bool ReadPersistentContact( ByteCursor& cursor,
+                            SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& outContact )
 {
     int32_t bodyA = 0;
     int32_t bodyB = 0;
@@ -1494,7 +1497,7 @@ bool ReadPersistentContact( ByteCursor& cursor, ReplaySolverPersistentContactSam
     return true;
 }
 
-bool ReadContactCache( ByteCursor& cursor, ReplaySolverContactCacheSample& outCache )
+bool ReadContactCache( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverContactCacheSample& outCache )
 {
     return ReadPod( cursor, outCache.key ) && ReadPod( cursor, outCache.accN ) && ReadPod( cursor, outCache.accT1 ) &&
            ReadPod( cursor, outCache.accT2 );
@@ -1539,9 +1542,9 @@ bool ReadPipelineRecord( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsPip
     return true;
 }
 
-bool ReadSolverSnapshot( ByteCursor& cursor, ReplaySolverWorldSnapshot& outSnapshot )
+bool ReadSolverSnapshot( ByteCursor& cursor, SkullbonezCore::Physics::PhysicsSolverSnapshot& outSnapshot )
 {
-    outSnapshot = ReplaySolverWorldSnapshot();
+    outSnapshot = SkullbonezCore::Physics::PhysicsSolverSnapshot();
     int32_t modelCount = 0;
     int32_t nextSleepIslandVisualId = 0;
     uint8_t sleepEnabled = 0;

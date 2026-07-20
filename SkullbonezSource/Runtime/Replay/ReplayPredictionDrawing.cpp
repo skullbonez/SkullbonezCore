@@ -1739,12 +1739,14 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
     return value;
 }
 
-bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                 int modelIndex )
 {
     return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
 }
 
-int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                  int modelIndex )
 {
     if ( contact.bodyA == modelIndex )
     {
@@ -1757,7 +1759,8 @@ int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& con
     return -1;
 }
 
-Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplaySolverPersistentContactSample& contact )
+Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
+                            const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
     {
@@ -1770,7 +1773,8 @@ Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplayS
     return SkullbonezCore::Math::Vector::ZERO_VECTOR;
 }
 
-Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                     int modelIndex )
 {
     Vector3 normal = contact.normal;
     if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
@@ -1954,7 +1958,7 @@ void ReplayPresentation::RenderCauseFocusOverlay( const RunReplayCauseTreeState&
                 if ( focusedBody )
                 {
                     bool drewContact = false;
-                    for ( const ReplaySolverPersistentContactSample& contact :
+                    for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact :
                           sample->worldSnapshot.persistentContacts )
                     {
                         if ( !ReplayContactHasModelIndex( contact, focusedBody->modelRow.value ) )

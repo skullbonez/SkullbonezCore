@@ -283,12 +283,14 @@ ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int m
     return ReplayBodyId{};
 }
 
-bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                 int modelIndex )
 {
     return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
 }
 
-int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                  int modelIndex )
 {
     if ( contact.bodyA == modelIndex )
     {
@@ -301,7 +303,8 @@ int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& con
     return -1;
 }
 
-Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplaySolverPersistentContactSample& contact )
+Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
+                            const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
     {
@@ -314,7 +317,8 @@ Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplayS
     return SkullbonezCore::Math::Vector::ZERO_VECTOR;
 }
 
-Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                     int modelIndex )
 {
     Vector3 normal = contact.normal;
     if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
@@ -328,7 +332,8 @@ Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& 
     return ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) );
 }
 
-Vector3 ReplayContactImpulseForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                      int modelIndex )
 {
     const Vector3 rowImpulse =
         contact.normal * contact.accN + contact.tangent1 * contact.accT1 + contact.tangent2 * contact.accT2;
@@ -339,8 +344,8 @@ Vector3 ReplayContactImpulseForModel( const ReplaySolverPersistentContactSample&
     return rowImpulse * -1.0f;
 }
 
-int ReplayFindPipelineIndexForContact( const ReplaySolverWorldSnapshot& snapshot,
-                                       const ReplaySolverPersistentContactSample& contact )
+int ReplayFindPipelineIndexForContact( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
+                                       const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
     {
@@ -549,7 +554,8 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         };
         std::array<ManifoldGroup, REPLAY_CAUSE_TREE_CONTACT_CAPACITY> groups = {};
         std::size_t groupCount = 0;
-        for ( const ReplaySolverPersistentContactSample& contact : solverSample->worldSnapshot.persistentContacts )
+        for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact :
+              solverSample->worldSnapshot.persistentContacts )
         {
             if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
             {
@@ -590,7 +596,7 @@ bool ReplayAuthoring::BuildCauseTreeRows(
             uint32_t firstFeatureId = 0;
             for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
             {
-                const ReplaySolverPersistentContactSample& contact =
+                const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact =
                     solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
                 if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
                 {
@@ -659,7 +665,7 @@ bool ReplayAuthoring::BuildCauseTreeRows(
 
             for ( int i = 0; i < static_cast<int>( solverSample->worldSnapshot.persistentContacts.size() ); ++i )
             {
-                const ReplaySolverPersistentContactSample& contact =
+                const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact =
                     solverSample->worldSnapshot.persistentContacts[static_cast<std::size_t>( i )];
                 if ( !ReplayContactHasModelIndex( contact, bodyRow.modelRow.value ) )
                 {

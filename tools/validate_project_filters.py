@@ -140,6 +140,7 @@ PHYSICS_CORE_PREFIXES = (
     "PhysicsApi",
     "PhysicsEngine",
     "PhysicsScene",
+    "PhysicsSolverSnapshot",
     "PhysicsWorld",
     "SimulationSystem",
 )
@@ -415,7 +416,6 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayTimeline",
     "ReplayVisualPacket",
     "ReplayVisualPacketFingerprint",
-    "ReplaySolverSnapshot",
     "ReplayV2Artifact",
     "ReplayValidation",
     "TrajectoryStore",

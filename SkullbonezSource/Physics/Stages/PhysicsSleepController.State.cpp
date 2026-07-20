@@ -37,7 +37,7 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 } // namespace
 
-void PhysicsSleepController::CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& snapshot ) const
+void PhysicsSleepController::CaptureReplayState( PhysicsSolverSnapshot& snapshot ) const
 {
     snapshot.sleepSupportedThisFrame = m_sleepSupportedThisFrame;
     snapshot.sleepInhibitedThisFrame = m_sleepInhibitedThisFrame;
@@ -57,7 +57,7 @@ void PhysicsSleepController::CaptureReplayState( Runtime::ReplaySolverWorldSnaps
     snapshot.sleepEnabled = m_sleepEnabled;
 }
 
-void PhysicsSleepController::RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot )
+void PhysicsSleepController::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
     m_sleepSupportedThisFrame = snapshot.sleepSupportedThisFrame;
     m_sleepInhibitedThisFrame = snapshot.sleepInhibitedThisFrame;

@@ -212,6 +212,9 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsSolverSnapshot.h">
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h">
       <Filter>Header Files\Support</Filter>
     </ClInclude>

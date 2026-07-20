@@ -42,7 +42,7 @@ Related:
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDebugData.h"
 #include "../TerrainContactManifold.h"
-#include "../../Runtime/Replay/ReplaySolverSnapshot.h"
+#include "../PhysicsSolverSnapshot.h"
 
 namespace SkullbonezCore
 {
@@ -209,8 +209,8 @@ class PhysicsContactSolverStage
     void Solve( const PhysicsContactSolverStageContext& context, float dt );
     PhysicsContactCacheWakeAccess CreateWakeAccess();
 
-    void CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const;
-    void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
+    void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
+    void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
 
     const std::vector<PersistentContact>& GetPersistentContacts() const;
     const std::vector<PersistentContactCacheEntry>& GetPersistentContactCache() const;

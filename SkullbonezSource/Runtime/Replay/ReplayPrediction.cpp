@@ -353,7 +353,7 @@ template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::v
     return ReplayPredictionCapacityBytes<T>( values.capacity(), bytes ) ? bytes : 0;
 }
 
-uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
+uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
 {
     uint64_t bytes = 0;
     bytes += ReplayPredictionVectorCapacityBytes( snapshot.timeRemaining );
@@ -1296,12 +1296,14 @@ bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame
     return true;
 }
 
-bool ReplayContactHasModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                 int modelIndex )
 {
     return modelIndex >= 0 && ( contact.bodyA == modelIndex || contact.bodyB == modelIndex );
 }
 
-int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+int ReplayContactOtherModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                  int modelIndex )
 {
     if ( contact.bodyA == modelIndex )
     {
@@ -1314,7 +1316,8 @@ int ReplayContactOtherModelIndex( const ReplaySolverPersistentContactSample& con
     return -1;
 }
 
-Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplaySolverPersistentContactSample& contact )
+Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample,
+                            const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     if ( const ReplaySolverBodySample* bodyA = FindReplayBodyByModelIndex( sample, contact.bodyA ) )
     {
@@ -1327,7 +1330,8 @@ Vector3 ReplayContactPoint( const ReplaySolverFrameSample& sample, const ReplayS
     return SkullbonezCore::Math::Vector::ZERO_VECTOR;
 }
 
-Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+Vector3 ReplayContactNormalForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                     int modelIndex )
 {
     Vector3 normal = contact.normal;
     if ( contact.isTerrain && VectorMagSquared( contact.terrainNormal ) > TOLERANCE * TOLERANCE )
@@ -1341,7 +1345,8 @@ Vector3 ReplayContactNormalForModel( const ReplaySolverPersistentContactSample& 
     return ReplayNormalizeOr( normal, Vector3( 0.0f, 1.0f, 0.0f ) );
 }
 
-Vector3 ReplayContactImpulseForModel( const ReplaySolverPersistentContactSample& contact, int modelIndex )
+Vector3 ReplayContactImpulseForModel( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
+                                      int modelIndex )
 {
     const Vector3 rowImpulse =
         contact.normal * contact.accN + contact.tangent1 * contact.accT1 + contact.tangent2 * contact.accT2;
@@ -1352,8 +1357,8 @@ Vector3 ReplayContactImpulseForModel( const ReplaySolverPersistentContactSample&
     return rowImpulse * -1.0f;
 }
 
-int ReplayFindPipelineIndexForContact( const ReplaySolverWorldSnapshot& snapshot,
-                                       const ReplaySolverPersistentContactSample& contact )
+int ReplayFindPipelineIndexForContact( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
+                                       const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     for ( int i = 0; i < static_cast<int>( snapshot.pipelineTrace.size() ); ++i )
     {
@@ -4186,7 +4191,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     }
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    m_state.simulation.predictionWorld = SkullbonezCore::Physics::PhysicsSolverSnapshot();
     return true;
 }
 
@@ -4203,7 +4208,7 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     m_state.build.targetTickCount = 0;
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
-    m_state.simulation.predictionWorld = ReplaySolverWorldSnapshot();
+    m_state.simulation.predictionWorld = SkullbonezCore::Physics::PhysicsSolverSnapshot();
     // Runtime allocation policy: cancellation invalidates publication but keeps
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();

@@ -136,8 +136,8 @@ class SceneWorld
                                         float releaseImpulseStrength,
                                         const Math::Vector::Vector3& seedLinearVelocity,
                                         const Math::Vector::Vector3& seedAngularVelocity );
-    void CaptureReplaySolverWorldSnapshot( ReplaySolverWorldSnapshot& outSnapshot ) const;
-    bool RestoreReplaySolverWorldSnapshot( const ReplaySolverWorldSnapshot& snapshot );
+    void CaptureReplaySolverWorldSnapshot( Physics::PhysicsSolverSnapshot& outSnapshot ) const;
+    bool RestoreReplaySolverWorldSnapshot( const Physics::PhysicsSolverSnapshot& snapshot );
     // Explicit cold boundary used before tools borrow paired body/collider
     // handles. Hot passes must never trigger topology repair.
     bool RepairPhysicsBodyAndColliderTopology();

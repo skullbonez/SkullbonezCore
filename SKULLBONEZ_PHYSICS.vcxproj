@@ -227,6 +227,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsMass.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h" />
+    <ClInclude Include="SkullbonezSource\Physics\PhysicsSolverSnapshot.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsTimestep.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorld.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsWorldForces.h" />

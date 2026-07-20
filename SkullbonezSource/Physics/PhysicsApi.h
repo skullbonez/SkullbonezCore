@@ -77,15 +77,11 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-struct ReplaySolverWorldSnapshot;
-}
-
 namespace Physics
 {
 struct PhysicsDebugContact;
 struct PhysicsPipelineRecord;
+struct PhysicsSolverSnapshot;
 
 enum class PhysicsBodyMotionKind : uint8_t
 {
@@ -498,7 +494,7 @@ struct PhysicsDiagnosticsSnapshot
 
 struct PhysicsReplaySolverSnapshotView
 {
-    const Runtime::ReplaySolverWorldSnapshot* snapshot = nullptr;
+    const PhysicsSolverSnapshot* snapshot = nullptr;
     PhysicsBodyCount bodyCount;
 };
 

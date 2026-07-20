@@ -53,7 +53,6 @@ Related:
 */
 #include "PhysicsWorld.h"
 #include "../Assets/AssetKeys.h"
-#include "../Runtime/Replay/ReplayRetainedMemory.h"
 
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
@@ -81,12 +80,8 @@ Related:
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
-using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
-using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER;
-using SkullbonezCore::Runtime::ReplaySolverContactCacheSample;
-using SkullbonezCore::Runtime::ReplaySolverPersistentContactSample;
-using SkullbonezCore::Runtime::ReplaySolverStatsSample;
-using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
+using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
@@ -209,11 +204,11 @@ RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
     static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
         RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
-            { REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+            { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
               RuntimeAllocation::RuntimeReserveSubsystem::Replay,
               RuntimeAllocation::RuntimeReservePhase::Replay,
               0,
-              REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+              PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
               REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT,
               true,
               "solver replay snapshots reserve vector payload bytes through replay-only growth approval" } );
@@ -224,12 +219,12 @@ void ReportReplaySolverSnapshotReserveFailure( const char* label, std::size_t re
 {
     // Lane F: a partial solver snapshot cannot support deterministic replay
     // restore. Report the shared owner and cap before terminating.
-    SB_FATAL( "Runtime/Replay/SolverSnapshot",
+    SB_FATAL( "Physics/SolverSnapshot",
               "Replay solver snapshot reserve denied. owner=%s target=%s requested_capacity=%llu hard_bytes=%d",
-              REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+              PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
               label ? label : "unknown",
               static_cast<unsigned long long>( requestedCapacity ),
-              REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES );
+              PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES );
 }
 
 template <typename T>
@@ -393,7 +388,7 @@ void PhysicsWorld::ReserveBodyScratchCapacity( std::size_t capacity )
 }
 
 
-void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const
+void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const
 {
     // Runtime allocation policy: replay recorder slots pre-reserve these
     // payload vectors outside gameplay. Capture clears the retained slot in
@@ -401,7 +396,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 #define CLEAR_REPLAY_SOLVER_VECTOR_FIELD( snapshotField, worldValues, label ) outSnapshot.snapshotField.clear();
     SB_REPLAY_SOLVER_VECTOR_FIELDS( CLEAR_REPLAY_SOLVER_VECTOR_FIELD )
 #undef CLEAR_REPLAY_SOLVER_VECTOR_FIELD
-    outSnapshot.solverStats = ReplaySolverStatsSample();
+    outSnapshot.solverStats = PhysicsSolverStatsSample();
 
     outSnapshot.version = 2;
     outSnapshot.modelCount = modelCount;
@@ -434,14 +429,14 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
     };
     if ( snapshotNeedsGrowth )
     {
-        if ( requestedSnapshotBytes > static_cast<uint64_t>( REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) )
+        if ( requestedSnapshotBytes > static_cast<uint64_t>( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) )
         {
             ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
                                                       static_cast<std::size_t>( requestedSnapshotBytes ) );
         }
         const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplaySolverSnapshotReserveOwner();
-        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
-                                                                         "ReplaySolverWorldSnapshot",
+        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                                                                         "PhysicsSolverSnapshot",
                                                                          RuntimeAllocation::RuntimeReservePhase::Replay,
                                                                          modelCount,
                                                                          static_cast<int>( oldSnapshotBytes ),
@@ -477,7 +472,7 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSn
 }
 
 
-bool PhysicsWorld::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, int modelCount )
+bool PhysicsWorld::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount )
 {
     if ( snapshot.version < 1 || snapshot.version > 2 || snapshot.modelCount != modelCount )
     {

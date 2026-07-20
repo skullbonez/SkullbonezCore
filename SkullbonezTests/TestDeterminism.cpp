@@ -96,7 +96,7 @@ using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
-using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
+using SkullbonezCore::Physics::PhysicsSolverSnapshot;
 using SkullbonezCore::Threading::WorkerPool;
 using SkullbonezCore::Threading::LockOrderValidator;
 
@@ -131,7 +131,7 @@ struct BodyReplayState
 
 struct MicroWorldSnapshot
 {
-    ReplaySolverWorldSnapshot solver;
+    PhysicsSolverSnapshot solver;
     std::array<BodyReplayState, kMicroBodyCount> bodies;
 };
 

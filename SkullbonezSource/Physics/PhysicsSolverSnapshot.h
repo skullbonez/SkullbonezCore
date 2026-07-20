@@ -1,43 +1,51 @@
 /*
-File: SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
+File: SkullbonezSource/Physics/PhysicsSolverSnapshot.h
 Purpose:
-  Defines retained solver-state snapshots used by replay rollback.
+  Defines physics-owned solver-state snapshots consumed by replay rollback.
 
 Summary:
-  Solver replay samples are not just render poses. A restorable replay tick also
-  needs the persistent contact cache and sleep/tornado state that affect the
-  next fixed physics step.
+  Solver snapshots are not render poses. A restorable replay tick also needs
+  the persistent contact cache, sleep state, diagnostics, and tornado state
+  that determine the next fixed physics step. Physics owns this value contract;
+  Runtime replay may retain and serialize it without defining solver state.
 
 Glossary:
-  Solver sample: Physics-facing state retained for rollback and diagnostics.
+  Solver snapshot: Physics state retained at a tick boundary for deterministic
+    restore and diagnostic comparison.
   Contact cache: Persistent contact rows and accumulated impulses reused by the
     solver for stability.
   Sleep state: Per-body flag that lets stable bodies skip simulation until woken.
-  Tornado field: Runtime force field whose state affects future physics ticks.
+  Tornado field: Gameplay force field whose state affects future physics ticks.
 
 Invariants:
-  - Snapshot field order should stay stable for replay artifact compatibility.
-  - Restored samples must contain enough state for the next fixed step to match.
+  - Snapshot field order stays stable for replay artifact compatibility.
+  - Restored snapshots contain enough state for the next fixed step to match.
+  - Replay-only vector growth is registered under one fixed owner and cannot
+    exceed the measured 8 MiB hard cap.
 
 Related:
-  - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-  - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
+  - SkullbonezSource/Physics/PhysicsWorld.cpp
+  - ReplayRecorder.h (Runtime retention consumer)
+  - ReplayPrediction.cpp (Runtime prediction consumer)
 */
 #pragma once
+
+#include "PhysicsDebugData.h"
+#include "TornadoField.h"
+#include "../Maths/Vector3.h"
 
 #include <cstdint>
 #include <utility>
 #include <vector>
 
-#include "../../Physics/PhysicsDebugData.h"
-#include "../../Physics/TornadoField.h"
-#include "../../Maths/Vector3.h"
+namespace SkullbonezCore::Physics
+{
+inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
+// Measured high-water is 1,437,696 bytes. Eight MiB leaves more than 5x
+// headroom while deleting the old unmeasured 64 MiB ceiling.
+inline constexpr int PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 8 * 1024 * 1024;
 
-namespace SkullbonezCore
-{
-namespace Runtime
-{
-struct ReplaySolverContactCacheSample
+struct PhysicsSolverContactCacheSample
 {
     int64_t key = 0;
     float accN = 0.0f;
@@ -45,7 +53,7 @@ struct ReplaySolverContactCacheSample
     float accT2 = 0.0f;
 };
 
-struct ReplaySolverPersistentContactSample
+struct PhysicsSolverPersistentContactSample
 {
     // Persistent contacts are solver rows, not just debug visuals. The cached
     // impulses below are warm-start inputs for deterministic next-frame replay.
@@ -78,7 +86,7 @@ struct ReplaySolverPersistentContactSample
     float terrainWarmStart = 0.0f;
 };
 
-struct ReplaySolverStatsSample
+struct PhysicsSolverStatsSample
 {
     int rowCount = 0;
     int cachePreviousRows = 0;
@@ -91,7 +99,7 @@ struct ReplaySolverStatsSample
     float positionCorrectionMax = 0.0f;
 };
 
-struct ReplaySolverWorldSnapshot
+struct PhysicsSolverSnapshot
 {
     // Snapshot payload for hidden physics state. Body poses live in
     // ReplaySolverBodySample; this struct stores the caches that make the next
@@ -101,8 +109,8 @@ struct ReplaySolverWorldSnapshot
     int nextSleepIslandVisualId = 1;
     bool sleepEnabled = true;
     bool collisionVisualFrameActive = false;
-    Physics::TornadoFieldConfig tornadoConfig;
-    Physics::TornadoSystemConfig tornadoSystemConfig;
+    TornadoFieldConfig tornadoConfig;
+    TornadoSystemConfig tornadoSystemConfig;
     float tornadoSystemElapsedSeconds = 0.0f;
     std::vector<float> timeRemaining;
     std::vector<uint8_t> sleepSupportedThisFrame;
@@ -122,14 +130,13 @@ struct ReplaySolverWorldSnapshot
     std::vector<uint8_t> sleepIslandHasSupportAnchor;
     std::vector<uint8_t> sleepIslandEligible;
     std::vector<uint8_t> sleepIslandCanSleep;
-    std::vector<ReplaySolverPersistentContactSample> persistentContacts;
-    std::vector<ReplaySolverContactCacheSample> persistentContactCache;
-    ReplaySolverStatsSample solverStats;
+    std::vector<PhysicsSolverPersistentContactSample> persistentContacts;
+    std::vector<PhysicsSolverContactCacheSample> persistentContactCache;
+    PhysicsSolverStatsSample solverStats;
     std::vector<uint16_t> persistentContactCounts;
     std::vector<uint16_t> persistentRestingContactCounts;
-    std::vector<Physics::PhysicsDebugContact> debugContacts;
-    std::vector<Physics::PhysicsPipelineRecord> pipelineTrace;
+    std::vector<PhysicsDebugContact> debugContacts;
+    std::vector<PhysicsPipelineRecord> pipelineTrace;
     std::vector<int64_t> collisionCellKeys;
 };
-} // namespace Runtime
-} // namespace SkullbonezCore
+} // namespace SkullbonezCore::Physics

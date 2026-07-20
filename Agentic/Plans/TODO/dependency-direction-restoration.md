@@ -1,6 +1,6 @@
 # Dependency Direction Restoration
 
-Status: Active — 2/6 tasks (L0-L1 complete; L2-L5 pending)
+Status: Active — 3/6 tasks (L0-L2 complete; L3-L5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 1 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding A)
 Ledger: L0-L5
@@ -132,7 +132,7 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
     The existing generated report then passed the primary checker and all nine
     offline negative/determinism control groups in 31.6s; no second engine
     process or prediction generation was launched.
-- [ ] L2 — Move `Runtime/Replay/ReplaySolverSnapshot.h` to
+- [x] L2 — Move `Runtime/Replay/ReplaySolverSnapshot.h` to
   `Physics/PhysicsSolverSnapshot.h` with namespace/type rename per binding
   decision 4; investigate and resolve the `PhysicsWorld.cpp` include of
   `ReplayRetainedMemory.h` (either it moves with the reserve-allocator
@@ -142,6 +142,34 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
   `tools\validate_replay_visual_fidelity.bat` (Replay-facing edit; one engine
   process, one generation, zero golden refresh per MASTER rule 11), then
   `tools\validate_full.bat`.
+  - Evidence (2026-07-20): the retained solver contract is now
+    `Physics/PhysicsSolverSnapshot.h` in `SkullbonezCore::Physics`. The four
+    public value names are `PhysicsSolverSnapshot`,
+    `PhysicsSolverStatsSample`, `PhysicsSolverPersistentContactSample`, and
+    `PhysicsSolverContactCacheSample`. Every Physics, Runtime replay,
+    SceneWorld, artifact, and test caller uses the owning namespace directly;
+    there is no forwarding header, alias, or `using` compatibility shim. The
+    old path and all five old contract names return zero exact-token rows.
+  - `PhysicsWorld.cpp` no longer includes `ReplayRetainedMemory.h`. The fixed
+    `replay_solver_snapshot` owner name and measured 8 MiB hard cap moved with
+    the Physics snapshot contract; Runtime's replay policy table consumes those
+    Physics constants for reporting. This preserves one registered replay-only
+    growth policy without making Physics depend on Runtime. The final exact
+    `Runtime/Replay` proof across `SkullbonezSource/Physics` returns zero rows.
+  - Validation: an initial focused Profile build exposed only missing fully
+    qualified Physics names in global-scope replay TUs; the corrected build
+    passed in 16.8s with zero warnings/errors. Final
+    `tools\validate_fast.bat` passed in 1m21.5s after exact formatter/header
+    pipeline corrections, and the changed project-filter validator independently
+    reported 718/718 items with zero errors. `tools\validate_physics.bat`
+    passed in 53.4s, including the 44,401-line byte-exact regression CSV.
+    `tools\validate_replay_visual_fidelity.bat` passed in 7m24.2s with exactly
+    one engine process, one prediction start/generation, 2,401 ticks, 200 moved
+    and 175 toppled bricks, one presented cascade, and all false-pass controls.
+    Final `tools\validate_full.bat` passed in 2m24.2s with zero warnings/errors,
+    all CPU/coverage/runtime lanes, zero DX12 validation errors, three passing
+    image baselines, and byte-exact physics. No tracked behavioral artifact or
+    golden changed.
 - [ ] L3 — Move `SimulationSystem.{h,cpp}` to `Runtime/`; fix the
   Rendering→`Runtime/WindowConstants.h` edges (move the constants to `Core/`
   or pass the values at the three DX12 call sites plus `Rendering/Text.cpp`;

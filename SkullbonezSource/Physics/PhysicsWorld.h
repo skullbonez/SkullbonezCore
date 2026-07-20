@@ -52,7 +52,7 @@ Related:
 #include "PhysicsDiagnosticsSink.h"
 #include "PhysicsDebugData.h"
 #include "Ragdoll.h"
-#include "../Runtime/Replay/ReplaySolverSnapshot.h"
+#include "PhysicsSolverSnapshot.h"
 #include "SleepIslandSystem.h"
 #include "SpatialGrid.h"
 #include "Stages/PhysicsBroadphaseStage.h"
@@ -220,8 +220,8 @@ class PhysicsWorld
     void SetTornadoSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetTornadoSystemConfig() const;
     float GetTornadoSystemElapsedSeconds() const;
-    void CaptureReplaySolverSnapshot( Runtime::ReplaySolverWorldSnapshot& outSnapshot, int modelCount ) const;
-    bool RestoreReplaySolverSnapshot( const Runtime::ReplaySolverWorldSnapshot& snapshot, int modelCount );
+    void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const;
+    bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
     uint64_t CollectMemoryBytes() const;
     uint64_t CollectDebugAndBroadphaseMemoryBytes() const;

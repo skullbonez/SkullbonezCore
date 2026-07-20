@@ -33,11 +33,13 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
+  - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
 */
 #pragma once
 
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
+#include "../../Physics/PhysicsSolverSnapshot.h"
 
 #include <array>
 #include <cstddef>
@@ -103,10 +105,6 @@ inline constexpr const char* REPLAY_RECORDER_SAMPLE_RESERVE_OWNER = "replay_reco
 // Guarded 60-frame capture measured 6,206,626 bytes. Thirty-two MiB preserves
 // more than 5x headroom for denser retained scenes.
 inline constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES = 32 * 1024 * 1024;
-inline constexpr const char* REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-// Measured high-water is 1,437,696 bytes. Eight MiB leaves more than 5x
-// headroom while deleting the unmeasured 64 MiB ceiling.
-inline constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 8 * 1024 * 1024;
 inline constexpr const char* REPLAY_PREDICTION_RESERVE_OWNER = "replay_prediction_working_set";
 inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
 
@@ -116,9 +114,9 @@ inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLI
                              REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
                              6206626u,
                              ReplayGrowthExhaustionRule::FatalRetainedState },
-    ReplayGrowthOwnerPolicy{ REPLAY_SOLVER_SNAPSHOT_RESERVE_OWNER,
+    ReplayGrowthOwnerPolicy{ Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
                              Runtime::Allocation::RuntimeReservePhase::Replay,
-                             REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
+                             Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
                              1437696u,
                              ReplayGrowthExhaustionRule::FatalRetainedState },
     ReplayGrowthOwnerPolicy{ REPLAY_PREDICTION_RESERVE_OWNER,

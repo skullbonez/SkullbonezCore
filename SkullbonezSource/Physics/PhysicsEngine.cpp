@@ -48,7 +48,6 @@ using SkullbonezCore::Physics::PhysicsDebugContact;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsPipelineRecord;
 using SkullbonezCore::Physics::PointJointConstraint;
-using SkullbonezCore::Runtime::ReplaySolverWorldSnapshot;
 void PhysicsEngine::BindProfiler( SkullbonezCore::Core::Profiler* profiler ) noexcept
 {
     m_scene.BindProfiler( profiler );
@@ -316,14 +315,13 @@ float PhysicsEngine::GetTornadoSystemElapsedSeconds() const
 }
 
 
-void PhysicsEngine::CaptureReplaySolverSnapshot( ReplaySolverWorldSnapshot& outSnapshot,
-                                                 PhysicsBodyCount bodyCount ) const
+void PhysicsEngine::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const
 {
     m_scene.CaptureReplaySolverSnapshot( outSnapshot, bodyCount );
 }
 
 
-bool PhysicsEngine::RestoreReplaySolverSnapshot( const ReplaySolverWorldSnapshot& snapshot, PhysicsBodyCount bodyCount )
+bool PhysicsEngine::RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount )
 {
     return m_scene.RestoreReplaySolverSnapshot( snapshot, bodyCount );
 }

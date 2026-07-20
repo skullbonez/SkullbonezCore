@@ -36,7 +36,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp
-  - SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
+  - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
 */
 #pragma once
 
@@ -51,8 +51,8 @@ Related:
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
 #include "../../Physics/PhysicsHandles.h"
+#include "../../Physics/PhysicsSolverSnapshot.h"
 #include "../Editor/LauncherLaser.h"
-#include "ReplaySolverSnapshot.h"
 #include "ReplayEventCommand.h"
 
 namespace SkullbonezCore
@@ -283,7 +283,7 @@ struct ReplaySolverWorldScalarState
     Physics::TornadoFieldConfig tornadoConfig;
     Physics::TornadoSystemConfig tornadoSystemConfig;
     float tornadoSystemElapsedSeconds = 0.0f;
-    ReplaySolverStatsSample solverStats;
+    Physics::PhysicsSolverStatsSample solverStats;
 };
 
 // Invariant: a full vector payload is used for keyframes and size changes.
@@ -301,7 +301,7 @@ template <typename T> struct ReplaySolverVectorDelta
     std::vector<ReplaySolverIndexedValue<T>> changedValues;
 };
 
-// Snapshot vectors mirror ReplaySolverWorldSnapshot field names so artifact
+// Snapshot vectors mirror PhysicsSolverSnapshot field names so artifact
 // save/load can still reconstruct the old dense checkpoint shape.
 struct ReplaySolverWorldDeltaFrame
 {
@@ -324,8 +324,8 @@ struct ReplaySolverWorldDeltaFrame
     ReplaySolverVectorDelta<uint8_t> sleepIslandHasSupportAnchor;
     ReplaySolverVectorDelta<uint8_t> sleepIslandEligible;
     ReplaySolverVectorDelta<uint8_t> sleepIslandCanSleep;
-    ReplaySolverVectorDelta<ReplaySolverPersistentContactSample> persistentContacts;
-    ReplaySolverVectorDelta<ReplaySolverContactCacheSample> persistentContactCache;
+    ReplaySolverVectorDelta<Physics::PhysicsSolverPersistentContactSample> persistentContacts;
+    ReplaySolverVectorDelta<Physics::PhysicsSolverContactCacheSample> persistentContactCache;
     ReplaySolverVectorDelta<uint16_t> persistentContactCounts;
     ReplaySolverVectorDelta<uint16_t> persistentRestingContactCounts;
     ReplaySolverVectorDelta<Physics::PhysicsDebugContact> debugContacts;
@@ -385,7 +385,7 @@ struct ReplaySolverFrameSample
     ReplayCameraSample camera;
     ReplayWorldPresentationSample world;
     ReplayLauncherVisualSample launcherVisual;
-    ReplaySolverWorldSnapshot worldSnapshot;
+    Physics::PhysicsSolverSnapshot worldSnapshot;
     std::vector<ReplaySolverBodySample> bodies;
     uint64_t solverHash = 0;
     uint64_t presentationHash = 0;
@@ -665,7 +665,7 @@ class ReplaySolverRecorder
     void StoreSolverFramePayload( std::size_t slotIndex,
                                   const ReplaySolverFrameSample& sample,
                                   const std::vector<ReplaySolverBodySample>& bodies,
-                                  const ReplaySolverWorldSnapshot& worldSnapshot,
+                                  const Physics::PhysicsSolverSnapshot& worldSnapshot,
                                   bool forceKeyframe,
                                   bool updateCarry );
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
@@ -689,8 +689,8 @@ class ReplaySolverRecorder
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
     std::ofstream m_hashLog;
-    ReplaySolverWorldSnapshot m_solverCaptureWorldSnapshot;
-    ReplaySolverWorldSnapshot m_solverWorldCarrySnapshot;
+    Physics::PhysicsSolverSnapshot m_solverCaptureWorldSnapshot;
+    Physics::PhysicsSolverSnapshot m_solverWorldCarrySnapshot;
     bool m_solverWorldCarryActive = false;
     // Lifetime: historical scrub reads and "latest" reads can be compared by
     // pointer-owning callers in the same tick, so they need separate dense
@@ -700,7 +700,7 @@ class ReplaySolverRecorder
     mutable ReplaySolverFrameSample m_promotedSolverSample;
     mutable std::vector<ReplaySolverBodyState> m_solverResolveStateScratch;
     mutable std::vector<uint8_t> m_solverResolveActiveScratch;
-    mutable ReplaySolverWorldSnapshot m_solverResolveWorldScratch;
+    mutable Physics::PhysicsSolverSnapshot m_solverResolveWorldScratch;
     std::size_t m_sampleHead = 0;
     std::size_t m_sampleCount = 0;
     std::size_t m_checkpointHead = 0;

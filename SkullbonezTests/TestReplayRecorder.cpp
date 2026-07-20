@@ -40,7 +40,7 @@ using SkullbonezCore::Runtime::REPLAY_GROWTH_OWNER_POLICIES;
 using SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::REPLAY_RETAINED_OWNERSHIP_RULES;
-using SkullbonezCore::Runtime::REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
+using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
 using SkullbonezCore::Runtime::ReplayGrowthExhaustionRule;
@@ -240,9 +240,9 @@ TEST_CASE( "ReplayRuntime: retained ownership and growth policies are complete a
     CHECK( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES == 32 * 1024 * 1024 );
     CHECK( REPLAY_GROWTH_OWNER_POLICIES[0].measuredHighWaterBytes * 5u <
            static_cast<uint64_t>( REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES ) );
-    CHECK( REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES == 8 * 1024 * 1024 );
+    CHECK( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES == 8 * 1024 * 1024 );
     CHECK( REPLAY_GROWTH_OWNER_POLICIES[1].measuredHighWaterBytes * 5u <
-           static_cast<uint64_t>( REPLAY_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) );
+           static_cast<uint64_t>( PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES ) );
     CHECK( REPLAY_GROWTH_OWNER_POLICIES[2].measuredHighWaterBytes <
            static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) );
     CHECK( static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) -

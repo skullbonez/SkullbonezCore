@@ -242,7 +242,7 @@ struct RunReplayPredictionSimulationState
     std::unique_ptr<Physics::PhysicsEngine> predictionEngine;
     Physics::PhysicsWorldForces predictionWorldForces;
     bool predictionEngineReady = false;
-    ReplaySolverWorldSnapshot predictionWorld;
+    Physics::PhysicsSolverSnapshot predictionWorld;
     std::vector<RunReplayPredictionBodyBackup> predictionBodies;
     std::vector<RunReplayPredictionFrame> frames;
 };

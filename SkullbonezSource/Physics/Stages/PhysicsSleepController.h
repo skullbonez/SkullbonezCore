@@ -49,7 +49,7 @@ Related:
 #include "../SleepIslandSystem.h"
 #include "../PhysicsBodyStore.h"
 #include "PhysicsContactSolverStage.h"
-#include "../../Runtime/Replay/ReplaySolverSnapshot.h"
+#include "../PhysicsSolverSnapshot.h"
 
 namespace SkullbonezCore
 {
@@ -262,8 +262,8 @@ class PhysicsSleepController
                            int bodyA,
                            int bodyB ) const;
 
-    void CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const;
-    void RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot );
+    void CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const;
+    void RestoreReplayState( const PhysicsSolverSnapshot& snapshot );
 
     std::span<const uint8_t> GetSleepStates() const;
     std::span<const int> GetAwakeBodyIndices() const;

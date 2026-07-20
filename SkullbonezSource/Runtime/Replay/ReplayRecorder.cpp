@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
-  - SkullbonezSource/Runtime/Replay/ReplaySolverSnapshot.h
+  - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
 */
 #include "ReplayRecorder.h"
 #include "ReplayRetainedMemory.h"
@@ -314,7 +314,7 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-// Invariant: this list mirrors ReplaySolverWorldSnapshot vector fields. Dense
+// Invariant: this list mirrors PhysicsSolverSnapshot vector fields. Dense
 // artifact reconstruction, delta storage, and memory accounting all iterate the
 // same list so adding solver state cannot silently miss one path.
 #define REPLAY_SOLVER_WORLD_VECTOR_FIELDS( VISIT )                                                                     \
@@ -357,7 +357,7 @@ uint64_t LauncherVisualMemoryBytes( const ReplayLauncherVisualSample& visual )
     return VectorCapacityBytes( visual.rayLines ) + VectorCapacityBytes( visual.laserShots );
 }
 
-uint64_t SolverWorldSnapshotMemoryBytes( const ReplaySolverWorldSnapshot& snapshot )
+uint64_t SolverWorldSnapshotMemoryBytes( const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
 {
     uint64_t bytes = 0;
     bytes += VectorCapacityBytes( snapshot.tornadoSystemConfig.vortices );
@@ -707,7 +707,7 @@ void CopyTornadoSystemConfigWithReserve( Physics::TornadoSystemConfig& target,
 }
 
 void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target,
-                                         const ReplaySolverWorldSnapshot& source,
+                                         const SkullbonezCore::Physics::PhysicsSolverSnapshot& source,
                                          ReplayFrameIndex frameIndex,
                                          const char* targetName )
 {
@@ -726,7 +726,7 @@ void CopySolverWorldScalarsFromSnapshot( ReplaySolverWorldScalarState& target,
 }
 
 void ApplySolverWorldScalarsToSnapshot( const ReplaySolverWorldScalarState& source,
-                                        ReplaySolverWorldSnapshot& target,
+                                        SkullbonezCore::Physics::PhysicsSolverSnapshot& target,
                                         ReplayFrameIndex frameIndex,
                                         const char* targetName )
 {
@@ -771,7 +771,7 @@ void ClearSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame )
     frame.scalarState.tornadoSystemConfig.visualizeVelocityField = false;
     frame.scalarState.tornadoSystemConfig.vortices.clear();
     frame.scalarState.tornadoSystemElapsedSeconds = 0.0f;
-    frame.scalarState.solverStats = ReplaySolverStatsSample{};
+    frame.scalarState.solverStats = SkullbonezCore::Physics::PhysicsSolverStatsSample{};
 #define CLEAR_SOLVER_WORLD_DELTA_FIELD( field ) ClearSolverVectorDelta( frame.field );
     REPLAY_SOLVER_WORLD_VECTOR_FIELDS( CLEAR_SOLVER_WORLD_DELTA_FIELD )
 #undef CLEAR_SOLVER_WORLD_DELTA_FIELD
@@ -836,8 +836,8 @@ bool ApplySolverVectorDelta( const ReplaySolverVectorDelta<T>& delta,
     return true;
 }
 
-void CopySolverWorldSnapshotWithReserve( ReplaySolverWorldSnapshot& target,
-                                         const ReplaySolverWorldSnapshot& source,
+void CopySolverWorldSnapshotWithReserve( SkullbonezCore::Physics::PhysicsSolverSnapshot& target,
+                                         const SkullbonezCore::Physics::PhysicsSolverSnapshot& source,
                                          ReplayFrameIndex frameIndex,
                                          const char* targetName )
 {
@@ -860,7 +860,7 @@ void CopySolverWorldSnapshotWithReserve( ReplaySolverWorldSnapshot& target,
 #undef COPY_SOLVER_WORLD_VECTOR_FIELD
 }
 
-void ClearSolverWorldSnapshotValues( ReplaySolverWorldSnapshot& snapshot )
+void ClearSolverWorldSnapshotValues( SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
 {
     snapshot.version = 2;
     snapshot.modelCount = 0;
@@ -872,15 +872,15 @@ void ClearSolverWorldSnapshotValues( ReplaySolverWorldSnapshot& snapshot )
     snapshot.tornadoSystemConfig.visualizeVelocityField = false;
     snapshot.tornadoSystemConfig.vortices.clear();
     snapshot.tornadoSystemElapsedSeconds = 0.0f;
-    snapshot.solverStats = ReplaySolverStatsSample{};
+    snapshot.solverStats = SkullbonezCore::Physics::PhysicsSolverStatsSample{};
 #define CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD( field ) snapshot.field.clear();
     REPLAY_SOLVER_WORLD_VECTOR_FIELDS( CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD )
 #undef CLEAR_SOLVER_WORLD_SNAPSHOT_FIELD
 }
 
 void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
-                                 const ReplaySolverWorldSnapshot& snapshot,
-                                 const ReplaySolverWorldSnapshot& previous,
+                                 const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
+                                 const SkullbonezCore::Physics::PhysicsSolverSnapshot& previous,
                                  bool forceKeyframe,
                                  ReplayFrameIndex frameIndex )
 {
@@ -901,7 +901,7 @@ void StoreSolverWorldDeltaFrame( ReplaySolverWorldDeltaFrame& frame,
 }
 
 bool ApplySolverWorldDeltaFrame( const ReplaySolverWorldDeltaFrame& frame,
-                                 ReplaySolverWorldSnapshot& snapshot,
+                                 SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot,
                                  ReplayFrameIndex frameIndex )
 {
     ApplySolverWorldScalarsToSnapshot( frame.scalarState, snapshot, frameIndex, "ReplaySolverWorldResolve::scalar" );
@@ -1283,7 +1283,8 @@ uint64_t HashSolverBodySample( uint64_t hash, const ReplaySolverBodySample& body
     return hash;
 }
 
-uint64_t HashPersistentContact( uint64_t hash, const ReplaySolverPersistentContactSample& contact )
+uint64_t HashPersistentContact( uint64_t hash,
+                                const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact )
 {
     hash = HashInt( hash, contact.bodyA );
     hash = HashInt( hash, contact.bodyB );
@@ -1398,7 +1399,7 @@ bool BuildReplaySolverBodySample( int modelIndex,
     return true;
 }
 
-uint64_t HashContactCache( uint64_t hash, const ReplaySolverContactCacheSample& cache )
+uint64_t HashContactCache( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache )
 {
     hash = HashInt64( hash, cache.key );
     hash = HashFloat( hash, cache.accN );
@@ -1407,7 +1408,7 @@ uint64_t HashContactCache( uint64_t hash, const ReplaySolverContactCacheSample& 
     return hash;
 }
 
-uint64_t HashSolverStats( uint64_t hash, const ReplaySolverStatsSample& stats )
+uint64_t HashSolverStats( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverStatsSample& stats )
 {
     hash = HashInt( hash, stats.rowCount );
     hash = HashInt( hash, stats.cachePreviousRows );
@@ -1450,7 +1451,7 @@ uint64_t HashPhysicsPipelineRecord( uint64_t hash, const Physics::PhysicsPipelin
     return hash;
 }
 
-uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot& snapshot )
+uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Physics::PhysicsSolverSnapshot& snapshot )
 {
     hash = HashUint32( hash, snapshot.version );
     hash = HashInt( hash, snapshot.modelCount );
@@ -1483,13 +1484,13 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const ReplaySolverWorldSnapshot
     hash = HashUint8Vector( hash, snapshot.sleepIslandCanSleep );
 
     hash = HashSize( hash, snapshot.persistentContacts.size() );
-    for ( const ReplaySolverPersistentContactSample& contact : snapshot.persistentContacts )
+    for ( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact : snapshot.persistentContacts )
     {
         hash = HashPersistentContact( hash, contact );
     }
 
     hash = HashSize( hash, snapshot.persistentContactCache.size() );
-    for ( const ReplaySolverContactCacheSample& cache : snapshot.persistentContactCache )
+    for ( const SkullbonezCore::Physics::PhysicsSolverContactCacheSample& cache : snapshot.persistentContactCache )
     {
         hash = HashContactCache( hash, cache );
     }
@@ -3078,7 +3079,7 @@ std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolve
 void ReplaySolverRecorder::StoreSolverFramePayload( std::size_t slotIndex,
                                                     const ReplaySolverFrameSample& sample,
                                                     const std::vector<ReplaySolverBodySample>& bodies,
-                                                    const ReplaySolverWorldSnapshot& worldSnapshot,
+                                                    const SkullbonezCore::Physics::PhysicsSolverSnapshot& worldSnapshot,
                                                     bool forceKeyframe,
                                                     bool updateCarry )
 {

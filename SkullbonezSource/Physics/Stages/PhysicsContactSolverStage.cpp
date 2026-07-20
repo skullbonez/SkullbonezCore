@@ -37,8 +37,6 @@ Related:
 #include <cassert>
 
 using namespace SkullbonezCore::Physics;
-using SkullbonezCore::Runtime::ReplaySolverContactCacheSample;
-using SkullbonezCore::Runtime::ReplaySolverPersistentContactSample;
 
 namespace
 {
@@ -214,13 +212,13 @@ PhysicsContactCacheWakeAccess PhysicsContactSolverStage::CreateWakeAccess()
     return PhysicsContactCacheWakeAccess( m_persistentContactCache );
 }
 
-void PhysicsContactSolverStage::CaptureReplayState( Runtime::ReplaySolverWorldSnapshot& outSnapshot ) const
+void PhysicsContactSolverStage::CaptureReplayState( PhysicsSolverSnapshot& outSnapshot ) const
 {
     outSnapshot.persistentContactCounts = m_persistentContactCounts;
     outSnapshot.persistentRestingContactCounts = m_persistentRestingContactCounts;
     for ( const PersistentContact& contact : m_persistentContacts )
     {
-        ReplaySolverPersistentContactSample sample;
+        PhysicsSolverPersistentContactSample sample;
 #define CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD( field ) sample.field = contact.field;
         SB_REPLAY_PERSISTENT_CONTACT_SAMPLE_FIELDS( CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD )
 #undef CAPTURE_REPLAY_CONTACT_SAMPLE_FIELD
@@ -228,7 +226,7 @@ void PhysicsContactSolverStage::CaptureReplayState( Runtime::ReplaySolverWorldSn
     }
     for ( const PersistentContactCacheEntry& cache : m_persistentContactCache )
     {
-        ReplaySolverContactCacheSample sample;
+        PhysicsSolverContactCacheSample sample;
 #define CAPTURE_REPLAY_CONTACT_CACHE_FIELD( field ) sample.field = cache.field;
         SB_REPLAY_CONTACT_CACHE_SAMPLE_FIELDS( CAPTURE_REPLAY_CONTACT_CACHE_FIELD )
 #undef CAPTURE_REPLAY_CONTACT_CACHE_FIELD
@@ -239,13 +237,13 @@ void PhysicsContactSolverStage::CaptureReplayState( Runtime::ReplaySolverWorldSn
 #undef CAPTURE_REPLAY_SOLVER_STAT_FIELD
 }
 
-void PhysicsContactSolverStage::RestoreReplayState( const Runtime::ReplaySolverWorldSnapshot& snapshot )
+void PhysicsContactSolverStage::RestoreReplayState( const PhysicsSolverSnapshot& snapshot )
 {
     m_persistentContactCounts = snapshot.persistentContactCounts;
     m_persistentRestingContactCounts = snapshot.persistentRestingContactCounts;
     m_persistentContacts.clear();
     m_persistentContacts.reserve( snapshot.persistentContacts.size() );
-    for ( const ReplaySolverPersistentContactSample& sample : snapshot.persistentContacts )
+    for ( const PhysicsSolverPersistentContactSample& sample : snapshot.persistentContacts )
     {
         PersistentContact contact;
 #define RESTORE_REPLAY_CONTACT_SAMPLE_FIELD( field ) contact.field = sample.field;
@@ -256,7 +254,7 @@ void PhysicsContactSolverStage::RestoreReplayState( const Runtime::ReplaySolverW
 
     m_persistentContactCache.clear();
     m_persistentContactCache.reserve( snapshot.persistentContactCache.size() );
-    for ( const ReplaySolverContactCacheSample& sample : snapshot.persistentContactCache )
+    for ( const PhysicsSolverContactCacheSample& sample : snapshot.persistentContactCache )
     {
         PersistentContactCacheEntry cache;
 #define RESTORE_REPLAY_CONTACT_CACHE_FIELD( field ) cache.field = sample.field;
