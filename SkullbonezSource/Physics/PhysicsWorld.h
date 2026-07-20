@@ -184,7 +184,7 @@ class PhysicsWorld
                      const PhysicsWorldForces& worldForces,
                      Threading::WorkerPool& workerPool );
     // Emits Debug-only regression and SkullScope records from the stores the
-    // caller passes in. PhysicsScene owns the cold presentation-name overlay and
+    // caller passes in. PhysicsEngine owns the cold presentation-name overlay and
     // runtime owns the CSV writer, so diagnostics do not borrow model or logging
     // globals from inside PhysicsWorld.
     bool ShouldEmitStepDiagnostics() const;

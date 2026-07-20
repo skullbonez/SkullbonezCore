@@ -1,6 +1,6 @@
 # Physics Facade Unification
 
-Status: In progress — 1/3 tasks (F0-F2)
+Status: In progress — 2/3 tasks (F0-F2)
 Owner: repository owner; registered 2026-07-20 as campaign plan 2 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding C)
 Ledger: F0-F2
@@ -123,6 +123,28 @@ body/collider stores, physics material, body limits, contact policy, last world
 forces/validity, and the reused fixed-tree wake list all remain together on the
 single `PhysicsEngine` owner.
 
+## F1 Result
+
+Completed 2026-07-20. `PhysicsScene.h/.cpp` and their four project/filter rows
+are deleted. Their three private helpers, cohesive state, and method bodies now
+live directly on `PhysicsEngine`; the public Engine names `Step`,
+`SetSleepEnabled`, and `IsSleepEnabled` remain unchanged, and the thirteen
+immutable readers project the same owned fields directly instead of building an
+aggregate read view.
+
+The only diagnostic-text mechanic is the fatal owner label moving from
+`Physics/PhysicsScene` to `Physics/PhysicsEngine`, matching the surviving owner.
+The first targeted compile exposed an over-broad comment replacement that had
+also changed the policy-mandated `PhysicsSceneObjectId` token; the exact identity
+name was restored before successful builds or formal validation. Final Profile
+and Debug targeted builds passed in 48.03s with zero warnings/errors.
+
+Comment audit checked all 10 surviving touched source-bearing files with zero
+deferred. No test names the standalone facade, so F1's conditional
+`validate_tests` lane was not required. `tools\validate_physics.bat` passed in
+81.55s with a byte-exact 44,401-line regression baseline and zero build
+warnings/errors. No baseline or artifact changed.
+
 ## Tasks
 
 - [x] F0 — Inventory: enumerate both public surfaces, map every forwarder to
@@ -130,22 +152,25 @@ single `PhysicsEngine` owner.
   record any forwarder that is not a pure relay (extra logic must be
   preserved and named). Output: inventory table in this plan or the closure
   report. No validation (documentation).
-- [ ] F1 — Absorb and delete: move PhysicsScene implementation into
+- [x] F1 — Absorb and delete: move PhysicsScene implementation into
   PhysicsEngine, delete `PhysicsScene.h/.cpp`, update includes and project
   files, migrate any direct callers, keep call order verbatim. Apply the
   comment standard to the touched files (facade vocabulary now lives on
   PhysicsEngine). Validation: `tools\validate_physics.bat` (byte-exact CSV)
   and `tools\validate_tests.bat` if any test names PhysicsScene.
-- [ ] F2 — Closure: grep proof that `PhysicsScene` appears nowhere in source
-  or project files; independent rubber-duck review confirming no authority
-  moved anywhere except into PhysicsEngine and no compatibility spelling
-  survives; final gates. Validation: `tools\validate_physics.bat` plus
-  `tools\validate_full.bat` at closure tip.
+- [ ] F2 — Closure: grep proof that the standalone `PhysicsScene` type,
+  `PhysicsSceneReadView`, and `PhysicsScene.h/.cpp` appear nowhere in source or
+  project files; `PhysicsSceneObjectId` remains required by the repository's
+  stable identity policy and is explicitly excluded. Independent rubber-duck
+  review confirms no authority moved anywhere except into PhysicsEngine and no
+  compatibility spelling survives; final gates. Validation:
+  `tools\validate_physics.bat` plus `tools\validate_full.bat` at closure tip.
 
 ## Acceptance
 
 - Exactly one concrete public physics owner (`PhysicsEngine`) remains behind
-  `PhysicsApi.h`; `PhysicsScene` is deleted with zero aliases.
+  `PhysicsApi.h`; the standalone `PhysicsScene` type is deleted with zero
+  aliases while the policy-mandated `PhysicsSceneObjectId` identity remains.
 - Physics regression CSV is byte-exact against committed baselines.
 - Independent review is clear; a credible forwarding/authority finding
   reopens F1.

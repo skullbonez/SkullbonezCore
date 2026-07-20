@@ -26,7 +26,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/ColliderStore.cpp
-  - SkullbonezSource/Physics/PhysicsScene.h
+  - SkullbonezSource/Physics/PhysicsEngine.h
 */
 #pragma once
 

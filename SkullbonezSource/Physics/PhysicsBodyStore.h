@@ -38,7 +38,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsBodyStore.cpp
-  - SkullbonezSource/Physics/PhysicsScene.h
+  - SkullbonezSource/Physics/PhysicsEngine.h
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #pragma once

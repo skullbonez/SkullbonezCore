@@ -12,17 +12,17 @@ Summary:
 
 Glossary:
   Physics material: Per-object friction and drag coefficients owned by
-    PhysicsScene and copied into authored descriptor rows at cold boundaries.
-  Body simulation limit: Scalar cap owned by PhysicsScene before authored
+    PhysicsEngine and copied into authored descriptor rows at cold boundaries.
+  Body simulation limit: Scalar cap owned by PhysicsEngine before authored
     descriptors create PhysicsBodyStore rows.
-  Contact policy: Terrain and contact thresholds owned by PhysicsScene so
+  Contact policy: Terrain and contact thresholds owned by PhysicsEngine so
     existing and newly added models receive the same physics policy.
-  Body descriptor: PhysicsScene-owned authoring value that can rebuild a live
+  Body descriptor: PhysicsEngine-owned authoring value that can rebuild a live
     PhysicsBodyStore row without reading legacy object record physics fields.
   Render instance store: Renderer-facing snapshot built from physics-owned pose
     and render-owned presentation rows before frame passes.
   Collider descriptor: Value packet containing shape/material facts that
-    PhysicsScene turns into a live ColliderStore row.
+    PhysicsEngine turns into a live ColliderStore row.
   Topology drift: A body/collider/model count mismatch that means stores must
     import explicit construction descriptors before stepping.
   Scene-object group: Cold metadata that maps multi-part authored objects, such
@@ -493,7 +493,7 @@ bool SceneWorld::DestroySceneEntity( PhysicsBodyHandle body )
                   entityRemoved ? 1 : 0,
                   renderRemoved ? 1 : 0 );
     }
-    // Invariant: PhysicsScene already compacted the live body/collider rows.
+    // Invariant: PhysicsEngine already compacted the live body/collider rows.
     // Reloading authored descriptors here would teleport every surviving body
     // whose solver/replay pose has diverged from its cold creation pose.
     RefreshRenderInstances();

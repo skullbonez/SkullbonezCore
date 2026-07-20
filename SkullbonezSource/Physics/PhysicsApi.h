@@ -57,7 +57,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsHandles.h
-  - SkullbonezSource/Physics/PhysicsScene.h
+  - SkullbonezSource/Physics/PhysicsEngine.h
   - Agentic/Reports/2026-07-11/physics-authority-and-identity-closure-review.md
 */
 #pragma once
@@ -247,7 +247,7 @@ inline PhysicsColliderCreateDesc MakeColliderCreateDesc( Math::CollisionDetectio
                                                          const char* contactMaterialName = nullptr )
 {
     // Why: creation paths already know the exact primitive facts. Build the
-    // collider import packet once there so PhysicsScene owns the live row and
+    // collider import packet once there so PhysicsEngine owns the live row and
     // collection owners do not rediscover shape metrics on append.
     PhysicsColliderCreateDesc desc;
     desc.shape = std::move( shape );

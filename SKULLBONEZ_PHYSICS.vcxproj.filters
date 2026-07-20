@@ -93,9 +93,6 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp">
       <Filter>Source Files\Bodies</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsWorld.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -211,9 +208,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsObjectPolicy.h">
       <Filter>Header Files\Bodies</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\PhysicsScene.h">
-      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsSolverSnapshot.h">
       <Filter>Header Files\Core</Filter>

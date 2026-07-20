@@ -38,7 +38,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/RenderInstanceStore.cpp
-  - SkullbonezSource/Physics/PhysicsScene.h
+  - SkullbonezSource/Physics/PhysicsEngine.h
 */
 #pragma once
 

@@ -27,7 +27,7 @@ Glossary:
     so buoyancy jitter does not repeatedly wake them.
   X-macro field list: Preprocessor list invoked by several tiny visitors so
     replay capture and restore use the same ordered state inventory.
-  PhysicsScene: Step owner that supplies stores and handles model-order
+  PhysicsEngine: Step owner that supplies stores and handles model-order
     writeback after compact physics work finishes.
   Lane F: Fatal invariant lane for should-never-happen engine state.
   Mutual-gravity pair scratch: Triangular array with one force value for every
@@ -538,7 +538,7 @@ void PhysicsWorld::RunPhysics( PhysicsBodyStore& bodyStore,
     // 2. Reset debug, sleep-support, pipeline, and terrain-manifold output.
     // 3. Run broadphase, swept movement, terrain manifold generation, and the
     //    persistent Catto-style contact solver.
-    // 4. Emit bounded Debug diagnostics before PhysicsScene copies solved state
+    // 4. Emit bounded Debug diagnostics before PhysicsEngine copies solved state
     //    into PhysicsBodyStore and invalidates cached model-order data at the
     //    scene owner boundary.
     //
