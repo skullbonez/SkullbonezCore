@@ -10,7 +10,7 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `codex/remove-audio` |
+| Branch | `codex/remove-audio-pr` |
 | Current baseline | The audio subsystem, its UI, diagnostics, startup controls, decoder, linkage, authored lab scene, and shipped samples are removed. |
 | Current objective | Audio removal is implemented and validated; the branch is ready for review or merge. |
 | Active/future progress | 17 / 18 live tasks; 94%. |
@@ -28,7 +28,7 @@ explicit opt-in, and only one UI surface owns focus/input at a time.
 
 ## Audio Removal
 
-The `codex/remove-audio` branch removes runtime audio ownership and contact
+The `codex/remove-audio-pr` branch removes runtime audio ownership and contact
 processing, both UI surfaces, operator commands and diagnostics, startup flags
 and probes, XAudio linkage, `stb_vorbis`, the contact-audio scene, and all shipped
 audio data. Config format v5 deterministically strips legacy
@@ -65,6 +65,5 @@ the touched files were formatted before every final-source pass above.
 
 ## Next Handoff
 
-Review or merge `codex/remove-audio`. No pull request has been opened. The
-separate E17 owner playtest remains the live portfolio follow-up after this
-branch is integrated.
+Review draft PR #127 from `codex/remove-audio-pr`. The separate E17 owner
+playtest remains the live portfolio follow-up after this branch is integrated.
