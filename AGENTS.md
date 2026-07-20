@@ -76,6 +76,27 @@ bypass it.
    `Invariant:`, `Lifetime:`, or `Hazard:` comments where the guide calls for
    them.
 
+## Dependency Direction Rule
+
+Dependency direction must remain visible from physical include paths. `Core/`
+is the infrastructure floor and must not include Assets, Physics, Rendering,
+Scene, World, Runtime, or UI. Physics and Rendering may include Core and Maths,
+but must not include Runtime or UI. Move a misplaced value or implementation to
+its owning layer instead of adding a forwarding header, compatibility alias,
+callback pack, service bag, or upward include.
+
+Before closing a dependency-direction change, run these exact review proofs;
+both commands must return no rows:
+
+```powershell
+rg -n '^#include[[:space:]]+.*(Assets|Physics|Rendering|Scene|World|Runtime|UI)/' SkullbonezSource/Core
+rg -n '^#include[[:space:]]+.*(Runtime|UI)/' SkullbonezSource/Physics SkullbonezSource/Rendering
+```
+
+If an edge cannot be inverted in the owning task, record it in that task's
+exception table with the owner, reason, and deletion condition. An unrecorded
+edge or a compatibility spelling that hides it is a closure failure.
+
 ## Comment Quality Gate
 
 Comment quality is part of completion, not a follow-up nicety.

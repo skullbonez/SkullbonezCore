@@ -11,19 +11,19 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0-L4 also places SkullScope in Physics diagnostics, the renderer-integrated profiler implementation in Rendering, and generic string hashing in Core. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency-direction restoration L0-L5 is closed with physical proofs at zero and two bounded semantic follow-ups. |
 | Current objective | Complete the eight-plan architecture-review campaign in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 22 / 53 live tasks; 42%. |
+| Active/future progress | 17 / 48 live tasks; 35%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | L4 `validate_full` passes from final source in 142.49s: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
-| Validation for current edits | Fast, allocation policy, physics deep, targeted Automation, and full pass; no tracked behavioral artifact, baseline, or golden changed. |
+| Last broad local gate | L5 closure-tip `validate_full` passes in 143.84s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | All L0-L4 mapped gates, L5 marker smoke, 12 zero-row physical proofs, independent review, and final closure-tip full pass. |
 
 ## Live Queue
 
-NOW. Nine live plans, 53 tasks. The eight-plan architecture-review campaign
+NOW. Nine live plans, 48 tasks. The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
-binding order: dependency-direction-restoration →
+binding order: allocation-namespace-restoration →
 physics-facade-unification → physics-settings-snapshot →
 run-execute-deaccretion → render-graph-completion →
 render-hal-modernization → gameplay-module-extraction →
@@ -31,9 +31,10 @@ replay-boundary-containment. Owner decisions at registration: finish the
 render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 
-`dependency-direction-restoration` is 5/6: L0-L4 are complete and L5
-(direction-rule enforcement, final proofs, surviving-exception table, and one
-independent whole-plan review) is next with no blocker.
+`dependency-direction-restoration` is closed 6/6 and archived in
+`Agentic/Reports/2026-07-20/dependency-direction-restoration-closure.md`.
+`allocation-namespace-restoration` A0 is next with no blocker; it deletes the
+review-filed `Runtime::Allocation` ownership spelling without an alias.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -74,6 +75,8 @@ are not certified. Full evidence:
 | `tools\validate_physics_deep.bat` | 128.05 s | PASS |
 | `tools\validate_build.bat Automation` | 14.40 s | PASS; zero warnings/errors |
 | `tools\validate_full.bat` | 142.49 s | PASS |
+| `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` | 1.205 s | PASS; marker emission enabled |
+| `tools\validate_full.bat` (L5 closure tip) | 143.84 s | PASS |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -81,9 +84,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `dependency-direction-restoration` L5 on `nightrunner-20th-july`.
-Write the enforceable direction rule and exact proofs into `AGENTS.md`, rerun
-the L0-L4 closure inventory, record the empty-or-bounded exception table, and
-obtain one independent whole-plan review before the final full gate. The E17
+Continue `allocation-namespace-restoration` A0 on `nightrunner-20th-july`.
+Rename the moved Core policy from `Runtime::Allocation` to `Core::Allocation`
+across all consumers with no alias, then run its cumulative mapped gates. The
+Profiler semantic exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

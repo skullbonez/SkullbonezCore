@@ -243,10 +243,24 @@ review (`../Reports/2026-07-20/engine-architecture-review.md`). The campaign
 is the next active queue in plan order 1→8; E17 extended hands-on owner
 acceptance remains a parked owner item that does not block it.
 
+The denominator grew 53 → 54 on 2026-07-20 when the independent
+dependency-direction closure review identified the physically moved Core
+allocation policy's retained `Runtime::Allocation` namespace. The one-task
+`allocation-namespace-restoration` follow-up is sequenced immediately after
+dependency-direction closure and may not retain an alias or behavior change.
+
+The active/future denominator returned 54 → 48 when
+`dependency-direction-restoration` closed L0-L5 and left the ledger under rule
+4. Physical direction proofs are zero; the two independently reviewed semantic
+exceptions have concrete deletion conditions in
+`allocation-namespace-restoration` A0 and `render-hal-modernization` M0/M5.
+Closure evidence is in
+`../Reports/2026-07-20/dependency-direction-restoration-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | 5 | 6 | 83% |
+| [allocation-namespace-restoration](TODO/allocation-namespace-restoration.md) | 0 | 1 | 0% |
 | [physics-facade-unification](TODO/physics-facade-unification.md) | 0 | 3 | 0% |
 | [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 0 | 4 | 0% |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 0 | 3 | 0% |
@@ -254,7 +268,7 @@ acceptance remains a parked owner item that does not block it.
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **22** | **53** | **42%** |
+| **Active/future total** | **17** | **48** | **35%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -317,12 +331,13 @@ smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 The architecture-review campaign registered 2026-07-20 is the active queue.
-Execution order is binding and biggest-wins-first: 1
-`dependency-direction-restoration`, 2 `physics-facade-unification`, 3
-`physics-settings-snapshot`, 4 `run-execute-deaccretion`, 5
-`render-graph-completion`, 6 `render-hal-modernization` (hard-blocked on 5),
-7 `gameplay-module-extraction` (T0-T1 after 3; T2 after 5), 8
-`replay-boundary-containment` (after plan 1 L2). Owner decisions ratified at
+Dependency-direction restoration is closed. Remaining execution order is
+binding and biggest-wins-first: 1 `allocation-namespace-restoration`, 2
+`physics-facade-unification`, 3 `physics-settings-snapshot`, 4
+`run-execute-deaccretion`, 5 `render-graph-completion`, 6
+`render-hal-modernization` (hard-blocked on 5), 7
+`gameplay-module-extraction` (T0-T1 after 3; T2 after 5), 8
+`replay-boundary-containment`. Owner decisions ratified at
 registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
 a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
@@ -1105,12 +1120,12 @@ verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
 this campaign: it waits on the parked E17 owner verdict.
 
 Execution order is binding (biggest wins first): plans 1-4 are the cheap
-compounding tranche; plan 5 gates plans 6 and 7-T2; plan 8 follows plan 1's
-L2 snapshot move.
+compounding tranche; plan 5 gates plan 6 and 7-T2. Replay boundary containment
+inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | Active — L0-L4 complete | 5/6 | Start L5 enforcement and independent closure review; no blocker |
+| [allocation-namespace-restoration](TODO/allocation-namespace-restoration.md) | Active | 0/1 | Start A0 namespace migration; no blocker |
 | [physics-facade-unification](TODO/physics-facade-unification.md) | Registered | 0/3 | Start after plan 1 L0-L2 (soft); F0 inventory may run anytime |
 | [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Registered | 0/4 | Start after facade unification lands the surviving PhysicsEngine |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Registered | 0/3 | Independent; may run parallel to plans 2-3 |

@@ -68,6 +68,11 @@ parallel recording readiness, bindless) while protecting nothing.
 7. Every slice: DX12 gate + bounded stress; slices touching upload/frame
    allocator or PSO/root-signature lifetime run the renderer gate three
    consecutive times (Danger Zones).
+8. The dependency-direction closure's bounded Profiler exception is owned here:
+   Rendering takes the overlay presenter and GPU-diagnostics binding while Core
+   retains marker identity/history as typed read-only views. Do not solve this
+   with new inheritance, a callback pack, service bag, global lookup, or host
+   pointer.
 
 ## Tasks
 
@@ -75,7 +80,9 @@ parallel recording readiness, bindless) while protecting nothing.
   member with its callers; classify keep-as-is / migrate-to-state-desc /
   delete-with-proof; define `RasterStateDesc` and the per-pass state-bucket
   shape; record the PSO cache baseline (entry count, hit behavior) for the
-  render test suite. Output: inventory + contract committed into this plan.
+  render test suite. Inventory the `Core/Profiler.h` Rendering/Text seam and
+  define its Rendering-owned presenter/GPU-timing boundary per binding decision
+  8. Output: inventory + contract committed into this plan.
   No validation (documentation).
 - [ ] M1 — State-desc pilot: migrate two structurally different passes
   (one opaque world pass, one blended overlay/UI pass) to declared state
@@ -98,6 +105,8 @@ parallel recording readiness, bindless) while protecting nothing.
   oracle).
 - [ ] M5 — Closure: grep proofs (no raster setters on the interface, no
   setter calls in passes, no `float*` matrices on migrated surfaces);
+  `Core/Profiler.h` has no `Rendering` or `Text` types and no hidden renderer
+  callback/global lookup;
   before/after PSO cache and perf numbers recorded; DX12-architecture CPU
   test target updated to pin the new contract; independent rubber-duck
   review (single end-of-plan). Validation: `tools\validate_full.bat` +
