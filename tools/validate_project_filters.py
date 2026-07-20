@@ -76,7 +76,6 @@ JSON_HEADER = "ThirdPtySource/nlohmann/json.hpp"
 JSON_COLD_BOUNDARY_TRANSLATION_UNITS = frozenset(
     {
         "Rendering/DX12/ShaderBytecodeManifest.cpp",
-        "Runtime/Audio/ContactAudioService.cpp",
         "Runtime/DemoDirector.cpp",
         "Runtime/Editor/RunEditorObjectPlacement.cpp",
         "Runtime/Editor/RunEditorPlacementAssets.cpp",
@@ -382,10 +381,6 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeUiOptions",
 )
 
-RUNTIME_AUDIO_PREFIXES = (
-    "ContactAudioService",
-)
-
 RUNTIME_ALLOCATION_PREFIXES = (
     "DevelopmentToolAllocation",
     "DevelopmentToolsCapability",
@@ -513,7 +508,6 @@ AREA_PREFIXES = (
     ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
     ("Runtime\\Allocation", RUNTIME_ALLOCATION_PREFIXES),
-    ("Runtime\\Audio", RUNTIME_AUDIO_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),
@@ -850,8 +844,6 @@ def expected_filter_for(item: ProjectItem, project_flat_area: str | None = None)
             return PROJECT_FILTER
         if lower.startswith("thirdptysource\\"):
             return EXTERNAL_FILTER
-        if lower.startswith("skullbonezdata\\audio\\") and suffix in {".json", ".md", ".ogg"}:
-            return RESOURCE_FILTER
         if lower.startswith("skullbonezdata\\shaders\\") and suffix in {".hlsl", ".dxil", ".json"}:
             return SHADER_FILTER
         if lower.startswith("skullbonezdata\\scenes\\") and (lower.endswith(".scene.json") or lower.endswith(".suite.json")):

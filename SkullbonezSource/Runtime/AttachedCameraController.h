@@ -144,9 +144,6 @@ class AttachedCameraController
     // camera collection locally, preventing callers from pairing mismatched owners.
     bool
     TickFollow( Runtime::SceneWorld& collection, float orbitYawDelta, float orbitPitchDelta, float presentationAlpha );
-    bool TryGetPresentationListenerPosition( const Runtime::SceneWorld& collection,
-                                             float presentationAlpha,
-                                             Math::Vector::Vector3& outPosition ) const;
     bool CycleMode( Runtime::SceneWorld& collection );
     bool TogglePin( Runtime::SceneWorld& collection );
     bool ApplyOrbitInput( Runtime::SceneWorld& collection,

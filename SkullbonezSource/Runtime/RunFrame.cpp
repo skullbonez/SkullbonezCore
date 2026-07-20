@@ -11,10 +11,6 @@ Summary:
 Glossary:
   Simulation tick: One runtime decision about whether to advance logic, camera,
     and zero or more fixed physics steps this frame.
-  Contact-audio flash mode: Render-only diagnostic selector that decides which
-    completed audio decisions paint body flashes after a fixed physics step.
-  Contact-audio simple mode: Presentation-only path that emits from body linear
-    velocity changes rather than solver contact rows.
   Fixed-step edge: Runtime-owned code that repairs model/body topology before
     PhysicsEngine::Step and applies presentation-only refresh work after it.
   PhysicsBodyStore: Physics-owned body rows for live pose, velocity, fixed
@@ -105,7 +101,6 @@ using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
 namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
-using SkullbonezCore::Runtime::Audio::ContactAudioFlashMode;
 
 namespace
 {
@@ -127,24 +122,6 @@ float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config
         return 1.0f;
     }
     return std::clamp( simulationPresentationAlpha, 0.0f, 1.0f );
-}
-
-bool ShouldFlashContactAudioDecision( ContactAudioFlashMode mode,
-                                      const SkullbonezCore::Runtime::Audio::ContactAudioDecision& decision )
-{
-    switch ( mode )
-    {
-    case ContactAudioFlashMode::Off:
-        return false;
-    case ContactAudioFlashMode::Emitted:
-        return decision.submitted && decision.flashEligible;
-    case ContactAudioFlashMode::Candidates:
-        return true;
-    case ContactAudioFlashMode::Rejected:
-        return !decision.submitted;
-    default:
-        return decision.submitted && decision.flashEligible;
-    }
 }
 
 void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderingView& view,
@@ -269,69 +246,6 @@ void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorRenderin
     view.cinematicFeatures[static_cast<int>( UICinematicFeature::Shadows )] = cinematic.shadow.enabled;
 }
 
-void FillOperatorAudioView( SkullbonezCore::UI::OperatorEditorAudioView& view,
-                            const RuntimeContactAudioSnapshot& audio )
-{
-    // Lifetime: names and paths borrow the startup-loaded audio catalog only
-    // for this synchronous frame; counts clamp every borrowed array boundary.
-    view.enabled = audio.enabled;
-    view.available = audio.available;
-    view.simpleMode = audio.simpleMode;
-    view.globalParameters[0] = audio.simpleMinLinearEnergy;
-    view.globalParameters[1] = audio.simpleMinLinearDeltaSpeed;
-    view.globalParameters[2] = audio.simpleLinearEnergyRange;
-    view.globalParameters[3] = audio.masterGain;
-    view.globalParameters[4] = audio.maxDistanceScale;
-    view.globalParameters[5] = audio.minClosingSpeed;
-    view.globalParameters[6] = audio.minImpactScore;
-    view.globalParameters[7] = audio.impactScoreRangeSeconds;
-    view.globalParameters[8] = static_cast<float>( audio.burstVoicesPerWindow );
-    view.globalParameters[9] = audio.rollingLevelDb;
-    view.globalParameters[10] = audio.rollingMaxDistance;
-    view.globalParameters[11] = audio.rollingMinSlipSpeed;
-    view.globalParameters[12] = static_cast<float>( audio.rollingVoicesPerWindow );
-    view.setCount = (std::min)( audio.soundSetCount, SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_SET_CAPACITY );
-    view.sampleCount = (std::min)( audio.soundSampleCount, SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY );
-    for ( int sampleIndex = 0; sampleIndex < view.sampleCount; ++sampleIndex )
-    {
-        view.samplePaths[sampleIndex] = audio.soundSamplePaths[sampleIndex];
-    }
-    for ( int setIndex = 0; setIndex < view.setCount; ++setIndex )
-    {
-        const Audio::ContactAudioSetTuning& source = audio.soundSets[setIndex];
-        SkullbonezCore::UI::OperatorEditorAudioSetView& target = view.sets[setIndex];
-        target.name = source.name;
-        target.materialA = source.materialA;
-        target.materialB = source.materialB;
-        target.parameters[0] = source.minImpulse;
-        target.parameters[1] = source.impulseRange;
-        target.parameters[2] = source.cooldownMs;
-        target.parameters[3] = source.overrideCooldownMs;
-        target.parameters[4] = source.maxDistance;
-        target.parameters[5] = source.baseGain;
-        target.parameters[6] = source.pitchMin;
-        target.parameters[7] = source.pitchMax;
-        target.parameters[8] = static_cast<float>( source.maxVoices );
-        target.sampleCount = source.sampleCount;
-        target.bandCount =
-            (std::min)( source.bandCount,
-                        static_cast<uint32_t>( SkullbonezCore::UI::OPERATOR_EDITOR_AUDIO_BAND_CAPACITY ) );
-        for ( uint32_t bandIndex = 0u; bandIndex < target.bandCount; ++bandIndex )
-        {
-            const Audio::ContactAudioBandTuning& sourceBand = source.bands[bandIndex];
-            SkullbonezCore::UI::OperatorEditorAudioBandView& targetBand = target.bands[bandIndex];
-            targetBand.name = sourceBand.name;
-            targetBand.minImpulse = sourceBand.minImpulse;
-            targetBand.impulseRange = sourceBand.impulseRange;
-            targetBand.baseGain = sourceBand.baseGain;
-            targetBand.pitchMin = sourceBand.pitchMin;
-            targetBand.pitchMax = sourceBand.pitchMax;
-            targetBand.sampleCount = sourceBand.sampleCount;
-        }
-    }
-}
-
-
 void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                RuntimeFrameInteractionView& interactionOwners,
                                RuntimeFrameSceneView& sceneOwners,
@@ -355,7 +269,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeInputContext& runtimeInput = interactionOwners.inputRouter.RuntimeContext();
     RunCameraState& camera = interactionOwners.camera;
-    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
     SkullbonezCore::Threading::WorkerPool& workerPool = host.workerPool;
     Window& window = host.window;
     RunLaunchOptions& launchOptions = sceneOwners.launchOptions;
@@ -579,14 +492,11 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                                      diagnosticsRuntime.Capture(),
                                                                      config.runtimeRender.presentationInterpolation,
                                                                      facts.presentationPinned,
-                                                                     facts.presentationAlpha },
-                                            contactAudio );
+                                                                     facts.presentationAlpha } );
         renderTargetPreviews = renderer.BuildRenderTargetPreviewSnapshot(
             sharedShadows,
             sharedCinematicRendering,
             sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
-        FillOperatorAudioView( facts.operatorEditorView.audio, runtimeViewModel.contactAudio );
-
         SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = facts.operatorEditorView.diagnostics;
         // Invariant: the right rail reads fixed snapshots and cached counters;
         // opening Diagnostics must not trigger an allocation scan or grow data.
@@ -626,12 +536,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
         diagnostics.tornadoFieldVectors =
             sceneController.Scene().Physics().GetTornadoFieldConfig().visualizeVelocityField;
         diagnostics.rayCastVisualization = runtimeTools.RayCastTest().visualizeRays;
-        diagnostics.audioDebugCounters = runtimeViewModel.contactAudio.debugCounters;
-        diagnostics.audioFlashModeLabel = runtimeViewModel.contactAudio.flashModeLabel;
-        diagnostics.audioEventsSeen = runtimeViewModel.contactAudio.stats.eventsSeen;
-        diagnostics.audioCandidates = runtimeViewModel.contactAudio.stats.patchCandidates;
-        diagnostics.audioSubmittedVoices = runtimeViewModel.contactAudio.stats.submittedVoices;
-        diagnostics.audioDroppedVoices = runtimeViewModel.contactAudio.stats.droppedVoices;
         diagnostics.trackedEngineBytes = mainMemory.trackedEngineBytes;
         diagnostics.reconciledTotalBytes = mainMemory.reconciledTotalBytes;
         diagnostics.uploadUsedBytes = renderMemory.uploadUsedBytes;
@@ -688,8 +592,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
                                                                      diagnosticsRuntime.Capture(),
                                                                      config.runtimeRender.presentationInterpolation,
                                                                      facts.presentationPinned,
-                                                                     facts.presentationAlpha },
-                                            contactAudio );
+                                                                     facts.presentationAlpha } );
         const SkullbonezCore::Core::CinematicRenderConfig& uiCinematic = ActiveSceneCinematicConfig( scene, config );
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
         const bool shadowsAvailable =
@@ -763,152 +666,6 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
 
 namespace
 {
-
-void ExecuteContactAudioPostStep( SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio,
-                                  RunTimerState& timers,
-                                  DiagnosticsRuntime& diagnosticsRuntime,
-                                  RunSceneState& scene,
-                                  const Vector3& listenerPosition,
-                                  SceneWorld& world,
-                                  SkullbonezCore::Core::Profiler* profiler )
-{
-#ifndef _DEBUG
-    (void)diagnosticsRuntime;
-    (void)scene;
-#endif
-    PROFILE_SCOPED( profiler, "Frame/Physics/Step/ContactAudio" );
-
-    contactAudio.BeginPhysicsStep( PHYSICS_FIXED_DT, listenerPosition );
-
-    const auto colliderRecords = world.Colliders().Records();
-    auto materialForBody = [&]( int bodyIndex ) -> uint32_t
-    {
-        if ( bodyIndex >= 0 && bodyIndex < static_cast<int>( colliderRecords.size() ) )
-        {
-            return colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId;
-        }
-        return HashStr( "default" );
-    };
-
-    if ( contactAudio.SimpleModeEnabled() )
-    {
-        // Why: Simple Mode answers the practical sound question directly:
-        // did a dynamic body experience enough mass-scaled linear velocity
-        // change to be heard? Motion comes from PhysicsBodyStore and contact
-        // material comes from the paired ColliderStore row.
-        const PhysicsBodyStore& bodyStore = world.BodyStore();
-        const auto bodyRecords = bodyStore.Records();
-        const auto hotFields = bodyStore.HotFields();
-        const int simpleBodyCount = static_cast<int>(
-            bodyRecords.size() < colliderRecords.size() ? bodyRecords.size() : colliderRecords.size() );
-        contactAudio.BeginSimpleLinearStep( simpleBodyCount );
-        for ( int bodyIndex = 0; bodyIndex < simpleBodyCount; ++bodyIndex )
-        {
-            const PhysicsBodyRecord& body = bodyRecords[static_cast<std::size_t>( bodyIndex )];
-            const std::size_t hotIndex = static_cast<std::size_t>( bodyIndex );
-            if ( hotFields.fixed[hotIndex] != 0u )
-            {
-                continue;
-            }
-            contactAudio.SubmitLinearMotion( bodyIndex,
-                                             colliderRecords[static_cast<std::size_t>( bodyIndex )].contactMaterialId,
-                                             PhysicsBodyPosition( hotFields, hotIndex ),
-                                             PhysicsBodyLinearVelocity( hotFields, hotIndex ),
-                                             body.mass );
-        }
-    }
-    else
-    {
-        // Why: PhysicsDebugContact rows are emitted after accumulated normal
-        // impulses are known. Audio can consume those facts without entering
-        // solver math or changing deterministic physics state.
-        const std::vector<PhysicsDebugContact>& contacts = PhysicsEngine::ReadDebugContacts( world.Physics() );
-        for ( const PhysicsDebugContact& contact : contacts )
-        {
-            if ( contact.bodyA < 0 || contact.normalImpulse <= 0.0f )
-            {
-                continue;
-            }
-
-            SkullbonezCore::Runtime::Audio::ContactAudioEvent event;
-            event.bodyA = contact.bodyA;
-            event.bodyB = contact.bodyB;
-            event.featureId = contact.featureId;
-            event.materialA = materialForBody( contact.bodyA );
-            event.materialB = materialForBody( contact.bodyB );
-            event.point = contact.point;
-            event.normal = contact.normal;
-            event.normalImpulse = contact.normalImpulse;
-            // Why: sound uses pre-solve relative motion so stationary wall bricks
-            // receiving propagated constraint force do not all become emitters.
-            event.normalClosingSpeed = contact.preSolveClosingSpeed;
-            event.tangentSlipSpeed = contact.preSolveSlipSpeed;
-            event.isTerrain = contact.bodyB < 0;
-            event.hasMotionData = true;
-            contactAudio.SubmitContact( event );
-        }
-    }
-
-    contactAudio.EndPhysicsStep();
-#ifdef _DEBUG
-    if ( diagnosticsRuntime.PhysicsDiagnosticsEnabled() )
-    {
-        RuntimeDiagnostics::LogContactAudioStepStats( diagnosticsRuntime.PhysicsDiagnostics(),
-                                                      scene,
-                                                      contactAudio.StepStats() );
-        const int decisionCount = contactAudio.DecisionCount();
-        for ( int i = 0; i < decisionCount; ++i )
-        {
-            SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
-            if ( contactAudio.GetDecision( i, decision ) )
-            {
-                RuntimeDiagnostics::LogContactAudioDecision( diagnosticsRuntime.PhysicsDiagnostics(), scene, decision );
-            }
-        }
-    }
-#endif
-    if ( contactAudio.FlashMode() != ContactAudioFlashMode::Off )
-    {
-        // Why: Sound-tab diagnostics can visualize emitted sounds, all
-        // candidates, or rejected candidates without touching physics state.
-        constexpr float CONTACT_AUDIO_FLASH_SECONDS = 0.1f;
-        const int decisionCount = contactAudio.DecisionCount();
-        for ( int i = 0; i < decisionCount; ++i )
-        {
-            SkullbonezCore::Runtime::Audio::ContactAudioDecision decision;
-            if ( !contactAudio.GetDecision( i, decision ) ||
-                 !ShouldFlashContactAudioDecision( contactAudio.FlashMode(), decision ) )
-            {
-                continue;
-            }
-
-            world.MutableRenderInstances().NotifyAudioContact( decision.event.bodyA, CONTACT_AUDIO_FLASH_SECONDS );
-            world.MutableRenderInstances().NotifyAudioContact( decision.event.bodyB, CONTACT_AUDIO_FLASH_SECONDS );
-        }
-    }
-    if ( contactAudio.DebugCountersEnabled() )
-    {
-        timers.contactAudioStatsLogTime += PHYSICS_FIXED_DT;
-        if ( timers.contactAudioStatsLogTime >= 1.0f )
-        {
-            const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = contactAudio.Stats();
-            printf( "[audio] contact stats facts=%u patches=%u merged=%u threshold=%u cooldown=%u "
-                    "submitted=%u rolling=%u/%u budget=%u dropped=%u\n",
-                    stats.eventsSeen,
-                    stats.patchCandidates,
-                    stats.mergedCandidates,
-                    stats.rejectedByThreshold,
-                    stats.rejectedByCooldown,
-                    stats.submittedVoices,
-                    stats.rollingSubmittedVoices,
-                    stats.rollingCandidates,
-                    stats.candidateOverflows + stats.burstWindowSkippedCandidates + stats.budgetRejectedCandidates,
-                    stats.droppedVoices );
-            contactAudio.ResetFrameStats();
-            timers.contactAudioStatsLogTime = 0.0f;
-        }
-    }
-}
 
 void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
                             RuntimeFrameSceneView& sceneOwners,
@@ -1037,7 +794,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                               m_timers,
                                               *m_overlayDiagnostics,
                                               m_simulation,
-                                              m_contactAudio,
                                               m_sceneController };
             RuntimeFramePresentationView framePresentation{ m_renderDefaults,
                                                             *m_validationHarness,
@@ -1602,7 +1358,6 @@ float Run::TickPhysics( double secondsPerFrame,
         }
     }
     const bool manipulatorPhysics = policy.manipulatorActive;
-    const bool contactAudioStep = m_contactAudio.IsEnabled();
     const auto physicsWorldForces = m_sceneController.Scene().Environment().GetPhysicsWorldForces();
     constexpr bool canStepPhysics = true;
     const SimulationTickResult tick = m_simulation.Tick( SimulationTickInput{ secondsPerFrame,
@@ -1649,9 +1404,9 @@ float Run::TickPhysics( double secondsPerFrame,
                 m_sceneController.Scene().CompletePhysicsStepPresentationCapture();
             }
 
-            if ( manipulatorPhysics || replayCapture || contactAudioStep )
+            if ( manipulatorPhysics || replayCapture )
             {
-                AfterPhysicsStep( interactionOwners, sceneOwners, presentationAlpha );
+                AfterPhysicsStep( interactionOwners, sceneOwners );
             }
         }
         PROFILE_END( m_profiler, "Frame/Physics" );
@@ -1694,31 +1449,9 @@ float Run::TickPhysics( double secondsPerFrame,
 }
 
 
-void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
-                            RuntimeFrameSceneView& sceneOwners,
-                            float presentationAlpha )
+void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
 {
     m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController.Scene(), m_inputRouter, m_interaction );
-    if ( m_contactAudio.IsEnabled() )
-    {
-        Vector3 listenerPosition = m_sceneController.Scene().Cameras().GetRenderCameraTranslation();
-        // Why: audio distance/pan decisions for an attached camera must use the
-        // same interpolated target endpoint as the upcoming rendered camera,
-        // not the previous frame's cached render pose.
-        if ( RunCameraModeIsAttached( m_camera.mode ) )
-        {
-            (void)m_attachedCamera.TryGetPresentationListenerPosition( m_sceneController.Scene(),
-                                                                       presentationAlpha,
-                                                                       listenerPosition );
-        }
-        ExecuteContactAudioPostStep( m_contactAudio,
-                                     m_timers,
-                                     m_diagnosticsRuntime,
-                                     m_sceneController.State(),
-                                     listenerPosition,
-                                     m_sceneController.Scene(),
-                                     m_profiler );
-    }
     const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
     if ( replayCaptured )
     {
@@ -1882,7 +1615,6 @@ bool Run::TickScreenshots()
             ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                            m_window,
                                            *m_operatorUi,
-                                           m_contactAudio,
                                            *m_validationHarness,
                                            m_launchOptions );
         }
@@ -2022,7 +1754,6 @@ bool Run::TickSceneAdvance()
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        m_window,
                                        *m_operatorUi,
-                                       m_contactAudio,
                                        *m_validationHarness,
                                        m_launchOptions );
     }

@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `main` |
-| Current baseline | Physics body-count scale P0-P7 is complete. P6 graph coloring is evidence-deferred; P7 retains deterministic sleeper/canonical behavior and accepted baseline updates. |
+| Current baseline | Physics body-count scale P0-P7 is complete (P6 evidence-deferred; P7 sleeper/canonical behavior and baselines accepted). The audio subsystem, its UI, diagnostics, startup controls, decoder, linkage, authored lab scene, and shipped samples are removed (PR #127 merged). |
 | Current objective | Architecture-review campaign (8 plans, registered 2026-07-20) is the active queue, starting with `dependency-direction-restoration` L0. ImGui/Tracy E17 hands-on owner acceptance is parked and non-blocking. |
 | Active/future progress | 17 / 53 live tasks; 32%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Final P7 `validate_full` passes: 323/323 cases, 61,096 assertions, every coverage floor, Automation replay/prediction smoke, zero DX12 validation errors, three image baselines, and byte-exact physics. |
-| Validation for current edits | Final-source full, deep physics, performance, authoritative replay fidelity, one-minute graphics stress, and platform-profiler-marker smoke all pass. |
+| Last broad local gate | Audio-removal `validate_full` passes: 323/323 cases, 61,057 assertions, every coverage floor, Automation replay/prediction smoke, zero DX12 validation errors, three image baselines, and byte-exact physics. |
+| Validation for current edits | Fast, performance, deep physics, full, allocation-policy, config-migration, project-filter, and physics-query regression gates all pass. |
 
 ## Live Queue
 
@@ -35,6 +35,15 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 extended hands-on owner acceptance, now parked and non-blocking. Do not
 change the default during that evaluation: Legacy is default, ImGui is
 explicit opt-in, and only one UI surface owns focus/input at a time.
+
+## Audio Removal
+
+The `codex/remove-audio-pr` branch removes runtime audio ownership and contact
+processing, both UI surfaces, operator commands and diagnostics, startup flags
+and probes, XAudio linkage, `stb_vorbis`, the contact-audio scene, and all shipped
+audio data. Config format v5 deterministically strips legacy
+`contact_audio_*` settings. The only remaining audio spellings in live code and
+tools are that v4-to-v5 migration and its fixtures.
 
 ## Physics Closure
 
@@ -55,20 +64,22 @@ are not certified. Full evidence:
 
 | Command | Time | Result |
 |---|---:|---|
-| `tools\validate_full.bat` | 174.573 s | PASS |
-| `tools\validate_physics_deep.bat` | 138.033 s | PASS |
-| `tools\validate_perf.bat` | 104.668 s | PASS |
-| `tools\validate_replay_visual_fidelity.bat` | 438.261 s | PASS |
-| `tools\run_graphics_stress.bat 1` | 61.808 s | PASS |
-| one-frame `--platform-profiler-markers` | 1.391 s | PASS |
+| `tools\validate_fast.bat` | ~55 s | PASS |
+| `tools\validate_perf.bat` | ~118 s | PASS |
+| `tools\validate_physics_deep.bat` | ~132 s | PASS |
+| `tools\validate_full.bat` | ~183 s | PASS |
+| config migration, allocation policy, project filters, and physics-query regression | ~45 s combined | PASS |
 
-The initial broad-gate attempt failed only on two mechanical format findings;
-both were corrected before these final-source passes.
+The initial fast-gate attempt found only mechanical formatting differences;
+the touched files were formatted before every final-source pass above.
 
 ## Next Handoff
 
 Begin the architecture-review campaign at
 `Plans/TODO/dependency-direction-restoration.md` task L0 through the
-orchestrator skill. The E17 extended owner playtest (separate Legacy and
-ImGui modes, atomic hot swap only when desired) remains parked with the
-owner; keep Legacy default until the owner explicitly authorizes a switch.
+orchestrator skill. PR #127 (audio removal) is merged; when campaign tasks
+touch surfaces the removal deleted (contact-audio service, Sound tab, audio
+frame views), reconcile the task's census against post-removal source first.
+The E17 extended owner playtest (separate Legacy and ImGui modes, atomic hot
+swap only when desired) remains parked with the owner; keep Legacy default
+until the owner explicitly authorizes a switch.

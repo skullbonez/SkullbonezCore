@@ -33,9 +33,10 @@ automation/ImGui-owner business, not frame sequencing. The closure review of
   (`Window&`, `ImGuiEditorOwner&`), consistent with the Run member-shrink
   campaign's recorded rulings.
 - No frame-view (`RuntimeFrame*View`) redesign; the borrow-map pattern stays.
-- `FillOperatorRenderingParameters`/`FillOperatorAudioView` reduction is
-  explicitly out of scope (owned by the UI cleanup that follows the E17
-  verdict), unless X1 finds a trivially deletable field.
+- `FillOperatorRenderingParameters` reduction is explicitly out of scope
+  (owned by the UI cleanup that follows the E17 verdict), unless X1 finds a
+  trivially deletable field. (`FillOperatorAudioView` was deleted with the
+  audio subsystem in PR #127; X1's sweep runs against post-removal source.)
 
 ## Binding Decisions
 

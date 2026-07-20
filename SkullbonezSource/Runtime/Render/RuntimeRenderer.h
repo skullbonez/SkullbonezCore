@@ -294,7 +294,7 @@ class RuntimeRenderer
     RuntimeRenderPassResources m_passResources;           // GPU objects owned by named RuntimeRenderer passes.
     SkullbonezCore::Core::EngineConfig& m_config;         // Process config that owns ordinary render style.
     // Owner: render presentation policy survives backend rebuilds here; physics
-    // and audio state remain in their respective owners.
+    // state remains in its respective owner.
     RenderPresentationSettings m_presentationSettings;
     Environment::WorldEnvironment& m_world;               // Fluid surface and gravity owner for pass contexts.
     std::optional<Rendering::PrimitiveBatchRenderer>

@@ -11,10 +11,6 @@ Summary:
 Glossary:
   Attach return pose: The visible camera pose captured before Attach takes over
     so the operator can return to the same view later.
-  Contact-audio flash command: One-frame UI request that cycles a render-only
-    diagnostic selector; it does not change audio classification policy.
-  Contact-audio simple command: One-frame UI request that switches audio to the
-    body-linear-energy path instead of the solver contact-row classifier.
   UI frame result: Bounded facts produced while applying one UI command batch;
     later input phases use them without reaching back into UI widget state.
   Lane R result: Recoverable scene-control or capture failure reported without
@@ -623,7 +619,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     Assets::AssetSystem& assets = host.assets;
     Threading::WorkerPool& workerPool = host.workerPool;
     SimulationSystem& simulation = sceneOwners.simulation;
-    SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
     RenderDefaultsStore& renderDefaults = presentationOwners.renderDefaults;
     RuntimeRenderer& renderer = presentationOwners.renderer;
@@ -1023,10 +1018,6 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         uiCommands.renderTuning,
         uiCommands.water );
     RecordRuntimePresentationUIActions( presentationCommands, recordUIAction );
-    if ( ApplySoundUICommands( SoundUICommandContext{ contactAudio, launchOptions.noContactAudio }, uiCommands.sound ) )
-    {
-        recordUIAction( RuntimeInputAction::ApplySoundTuning );
-    }
     if ( uiCommands.replayMemory.requestPolicy )
     {
         // Invariant: Memory-tab controls only request policy changes. ReplayRuntime

@@ -91,7 +91,7 @@ struct PersistentContact
     uint8_t manifoldPointCount = 1;
     Math::Vector::Vector3 terrainNormal = Math::Vector::ZERO_VECTOR;
     float terrainWarmStart = 0.0f;
-    // Captured before impulses so audio/diagnostics can reject force-transfer
+    // Captured before impulses so diagnostics can reject force-transfer
     // rows that had no actual relative impact motion.
     float preSolveNormalSpeed = 0.0f;
     float preSolveClosingSpeed = 0.0f;

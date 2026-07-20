@@ -65,7 +65,6 @@ Related:
 #include "Scene/SceneRuntimeLoad.h"
 #include "Scene/SceneRuntimeStyle.h"
 #include "Scene/SceneController.h"
-#include "Audio/ContactAudioService.h"
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
@@ -126,7 +125,6 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     AttachedCameraController& m_attachedCamera = interactionOwners.attachedCamera;
     SimulationSystem& m_simulation = sceneOwners.simulation;
     ReplayRuntime& m_replayRuntime = replayRuntime;
-    SkullbonezCore::Runtime::Audio::ContactAudioService& m_contactAudio = sceneOwners.contactAudio;
     SkullbonezCore::UI::InGameUI& m_UI = interactionOwners.operatorUi;
     RuntimeValidationHarness& m_validationHarness = presentationOwners.validationHarness;
     RuntimeTools& m_runtimeTools = interactionOwners.runtimeTools;
@@ -447,7 +445,6 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        m_window,
                                        interactionOwners.operatorUi,
-                                       m_contactAudio,
                                        m_validationHarness,
                                        m_launchOptions );
         presentationEdit.Refresh();
@@ -1138,7 +1135,6 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                    m_window,
                                    interactionOwners.operatorUi,
-                                   m_contactAudio,
                                    m_validationHarness,
                                    m_launchOptions );
     presentationEdit.Refresh();

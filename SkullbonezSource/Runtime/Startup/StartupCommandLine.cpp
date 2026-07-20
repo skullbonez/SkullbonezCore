@@ -289,18 +289,6 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           nullptr,
           []( ParsedArgs& args ) { args.noSleep = true; },
           "[physics] Sleep disabled via command line." },
-        { "--no-contact-audio",
-          "--mute-contact-audio",
-          []( ParsedArgs& args ) { args.noContactAudio = true; },
-          "[audio] Contact impact audio disabled." },
-        { "--contact-audio-smoke",
-          "--audio-smoke",
-          []( ParsedArgs& args )
-          {
-              args.contactAudioSmoke = true;
-              args.suppressExitDialog = true;
-          },
-          "[audio] Contact audio standalone smoke requested." },
         { "--scene-load-only",
           "--load-scenes-only",
           []( ParsedArgs& args )

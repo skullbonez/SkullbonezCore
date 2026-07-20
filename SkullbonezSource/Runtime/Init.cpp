@@ -361,13 +361,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
                  RuntimeAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
     }
 
-    int contactAudioSmokeExitCode = 0;
-    if ( HandleContactAudioSmoke( args, cfg, contactAudioSmokeExitCode ) )
-    {
-        CoUninitialize();
-        return contactAudioSmokeExitCode;
-    }
-
     int standalonePhysicsExitCode = 0;
     if ( HandlePhysicsStandaloneSmoke( commandLine, standalonePhysicsExitCode ) )
     {

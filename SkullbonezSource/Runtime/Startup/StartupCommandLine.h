@@ -65,8 +65,6 @@ struct ParsedArgs
     unsigned int seedOverride = 0;  // 0 = not set
     bool noWater = false;
     bool noSleep = false;
-    bool noContactAudio = false;
-    bool contactAudioSmoke = false;
     bool hasTornadoOverride = false;
     bool tornadoEnabled = false;
     bool tornadoVectors = false;
