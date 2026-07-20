@@ -88,8 +88,8 @@ output was mirrored under `TestOutput/logs/a0_*.log`.
 
 ## Handoff
 
-The completed one-task plan leaves the active/future ledger under inventory
-rule 4, reducing the denominator from 48 to 47. Start
-`physics-facade-unification` F0 next. The only remaining semantic exception
-from dependency-direction closure is the `Core/Profiler.h` Rendering/Text seam,
-whose deletion condition remains bound to Render HAL M0/M5.
+The completed one-task plan left the active/future ledger under inventory rule
+4, reducing the denominator from 48 to 47. `physics-facade-unification`
+subsequently closed; continue `physics-settings-snapshot` S0. The only remaining
+semantic exception from dependency-direction closure is the `Core/Profiler.h`
+Rendering/Text seam, whose deletion condition remains bound to Render HAL M0/M5.

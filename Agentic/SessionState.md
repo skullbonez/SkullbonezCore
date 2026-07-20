@@ -11,20 +11,19 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency-direction restoration L0-L5 and allocation-namespace restoration A0 are closed, with physical and allocation namespace proofs at zero. |
-| Current objective | Complete the seven remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 19 / 47 live tasks; 40%. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency-direction restoration, allocation-namespace restoration, and physics-facade unification are closed with exact proofs and independent review clear. |
+| Current objective | Complete the six remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
+| Active/future progress | 17 / 44 live tasks; 39%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | A0 closure-tip `validate_full` passes in 148.04s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | A0 exact namespace proofs; 47/47 comment audit; allocation, physics, single-invocation replay, perf, DX12, stress, and final full gates all pass. |
+| Last broad local gate | F2 closure-tip `validate_full` passes in 147.11s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | F2 exact facade proofs, 10/10 comment audit, independent review clear, final physics and full gates pass. |
 
 ## Live Queue
 
-NOW. Eight live plans, 47 tasks; 19 complete (40%). The remaining architecture-review campaign
+NOW. Seven live plans, 44 tasks; 17 complete (39%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
-binding order: physics-facade-unification → physics-settings-snapshot →
-run-execute-deaccretion → render-graph-completion →
+binding order: physics-settings-snapshot → run-execute-deaccretion → render-graph-completion →
 render-hal-modernization → gameplay-module-extraction →
 replay-boundary-containment. Owner decisions at registration: finish the
 render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
@@ -34,9 +33,9 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-20/dependency-direction-restoration-closure.md`.
 `allocation-namespace-restoration` is closed 1/1 and archived in
 `Agentic/Reports/2026-07-20/allocation-namespace-restoration-closure.md`.
-`physics-facade-unification` F0-F1 are complete. F2 review/closure is next with
-no blocker. The standalone facade/files/project rows are deleted, while the
-policy-mandated `PhysicsSceneObjectId` identity remains unchanged.
+`physics-facade-unification` is closed 3/3 and archived in
+`Agentic/Reports/2026-07-20/physics-facade-unification-closure.md`.
+`physics-settings-snapshot` S0 is next with no blocker.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -86,10 +85,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-facade-unification` F2 on `nightrunner-20th-july`.
-Run the independent ownership/compatibility review, exact standalone-facade
-proofs, final `validate_physics`, and `validate_full`; then archive the plan if
-the review is clear. The Profiler semantic
+Continue `physics-settings-snapshot` S0 on `nightrunner-20th-july`.
+Inventory the surviving Engine physics runtime setters, configs, and read sites
+before introducing the immutable snapshot boundary. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

@@ -101,6 +101,6 @@ mirrored to `TestOutput/logs/l5_validate_full.log`.
 ## Handoff
 
 The completed plan left the active/future ledger under inventory rule 4.
-`allocation-namespace-restoration` A0 subsequently closed; continue
-`physics-facade-unification` F0. The Profiler exception remains bound to Render
-HAL M0/M5.
+`allocation-namespace-restoration` A0 and `physics-facade-unification` F0-F2
+subsequently closed; continue `physics-settings-snapshot` S0. The Profiler
+exception remains bound to Render HAL M0/M5.

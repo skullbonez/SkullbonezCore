@@ -264,17 +264,23 @@ rows; only the Profiler semantic seam remains deletion-bound to
 `render-hal-modernization` M0/M5. Closure evidence is in
 `../Reports/2026-07-20/allocation-namespace-restoration-closure.md`.
 
+The active/future denominator returned 47 → 44 when
+`physics-facade-unification` closed F0-F2 and left the ledger under rule 4.
+`PhysicsEngine` is the single cohesive owner; the standalone Scene facade,
+aggregate read view, files, and project rows are deleted with zero compatibility
+shapes. Closure evidence is in
+`../Reports/2026-07-20/physics-facade-unification-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [physics-facade-unification](TODO/physics-facade-unification.md) | 2 | 3 | 67% |
 | [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 0 | 4 | 0% |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 0 | 3 | 0% |
 | [render-graph-completion](TODO/render-graph-completion.md) | 0 | 6 | 0% |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **19** | **47** | **40%** |
+| **Active/future total** | **17** | **44** | **39%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -337,12 +343,12 @@ smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 The architecture-review campaign registered 2026-07-20 is the active queue.
-Dependency-direction restoration and allocation-namespace restoration are
-closed. Remaining execution order is binding and biggest-wins-first: 1
-`physics-facade-unification`, 2 `physics-settings-snapshot`, 3
-`run-execute-deaccretion`, 4 `render-graph-completion`, 5
-`render-hal-modernization` (hard-blocked on 4), 6
-`gameplay-module-extraction` (T0-T1 after 2; T2 after 4), 7
+Dependency-direction restoration, allocation-namespace restoration, and
+physics-facade unification are closed. Remaining execution order is binding and
+biggest-wins-first: 1 `physics-settings-snapshot`, 2
+`run-execute-deaccretion`, 3 `render-graph-completion`, 4
+`render-hal-modernization` (hard-blocked on 3), 5
+`gameplay-module-extraction` (T0-T1 after 1; T2 after 3), 6
 `replay-boundary-containment`. Owner decisions ratified at
 registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
@@ -1131,8 +1137,7 @@ inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-facade-unification](TODO/physics-facade-unification.md) | Active | 2/3 | Start F2 independent review and closure gates; no blocker |
-| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Registered | 0/4 | Start after facade unification lands the surviving PhysicsEngine |
+| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Active | 0/4 | Start S0 ownership census; no blocker |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Registered | 0/3 | Independent; may run parallel to plans 2-3 |
 | [render-graph-completion](TODO/render-graph-completion.md) | Registered | 0/6 | Start G0 anytime; owner ruling to finish the migration is recorded |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
@@ -1165,12 +1170,12 @@ Binding:
   disappear.
 - `Run` remains only process/frame composition after five named ownership
   extractions.
-- Scene-lifetime physics ownership is promoted through
-  `SceneController`/`PhysicsScene`; `Run` wires it and `GameModelCollection`
-  stops owning `PhysicsEngine`. (Historical ruling, satisfied. 2026-07-20:
-  the owner ruled `PhysicsEngine` absorbs `PhysicsScene` via
-  [`physics-facade-unification`](TODO/physics-facade-unification.md); the
-  ownership promotion this ruling achieved is unchanged by that rename.)
+- Scene-lifetime physics ownership is promoted through the scene controller and
+  surviving `PhysicsEngine`; `Run` wires it and `GameModelCollection` stops
+  owning physics. (Historical ruling, satisfied. The former `PhysicsScene` was
+  absorbed under
+  [`physics-facade-unification`](../Reports/2026-07-20/physics-facade-unification-closure.md);
+  the ownership promotion this ruling achieved is unchanged.)
 - Inspect and Editor share one stable selection identity; workspace-specific
   gesture/presentation state remains separate.
 - Completed files are deleted rather than archived in the tip tree, except for
