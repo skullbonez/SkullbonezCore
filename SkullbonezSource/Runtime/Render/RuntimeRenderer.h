@@ -192,6 +192,26 @@ class RuntimeRenderer
     {
         const RenderFrameContext& frame;                  // Complete immutable render facts borrowed for this post chain.
     };
+    struct ShadowGraphInputs
+    {
+        const RenderFrameContext& frame;
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+        bool terrainHidden = false;
+        bool collisionVisualizerVisible = false;
+    };
+    struct ReflectionGraphInputs
+    {
+        const RenderFrameContext& frame;
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+        const Rendering::ShadowFrameData* objectShadow = nullptr;
+        bool collisionStateColorsVisible = false;
+        bool transparentBodyPass = false;
+        float collisionVisualizerAlphaOverride = -1.0f;
+        float bodyAlpha = 1.0f;
+        bool waterRayTracingReflection = false;
+        bool waterNoReflection = false;
+        float simulationTimeSeconds = 0.0f;
+    };
     struct GraphPassResult
     {
         bool rendered = false;                            // Pass body produced visible output.
@@ -215,23 +235,9 @@ class RuntimeRenderer
                                                       bool cinematicRender ) const;
     Rendering::RenderGraph& BeginRenderPassGraph();
     const Rendering::RenderGraphCompileResult& CompileRenderPassGraph( Rendering::RenderGraph& graph );
-    ShadowGraphResult
-    ExecuteShadowThroughRenderGraph( const RenderFrameContext& frame,
-                                     const SkullbonezCore::Core::CinematicRenderConfig* activeShadowConfig,
-                                     bool terrainHidden,
-                                     bool collisionVisualizerVisible );
+    ShadowGraphResult ExecuteShadowThroughRenderGraph( const ShadowGraphInputs& inputs );
     bool ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
-    ReflectionGraphResult
-    ExecuteReflectionThroughRenderGraph( const RenderFrameContext& frame,
-                                         const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-                                         const Rendering::ShadowFrameData* objectShadow,
-                                         bool collisionStateColorsVisible,
-                                         bool debugTransparentBodyPass,
-                                         float collisionVisualizerAlphaOverride,
-                                         float bodyAlpha,
-                                         bool waterRayTracingReflection,
-                                         bool waterNoReflection,
-                                         float simulationTimeSeconds );
+    ReflectionGraphResult ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs );
     bool ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
     bool ExecuteObjectThroughRenderGraph( const RenderFrameContext& frame,
                                           ObjectPassMode mode,

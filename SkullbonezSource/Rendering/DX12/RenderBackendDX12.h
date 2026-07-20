@@ -304,7 +304,7 @@ class Dx12TextureOwner
                               bool& graphicsStateInvalidated );
     void BindTexture( uint32_t handle, int slot );
     void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
-    UINT RegisterSRV( UINT srvIndex );
+    UINT RegisterSRV( UINT srvIndex, ID3D12Resource* resource );
     UINT UnregisterSRV( uint32_t handle );
     void ClearBoundSlotsForSrv( UINT srvIndex );
     UINT ResolveBoundSrv( int slot ) const;
@@ -315,6 +315,7 @@ class Dx12TextureOwner
     size_t RegistryCount() const;
     size_t RegistryCapacity() const;
     UINT ResolveSrv( uint32_t handle ) const;
+    ID3D12Resource* ResolveResource( uint32_t handle ) const;
     uint32_t FindHandleForSrv( UINT srvIndex ) const;
 
   private:
@@ -588,6 +589,7 @@ class Dx12RaytracingOwner
                                                        const float* skyColorBottom,
                                                        const uint32_t textureHandles[8] );
     UINT ReflectionSrvIndex() const;
+    ID3D12Resource* ReflectionResource() const;
     uint32_t ReflectionTextureHandle() const;
     void PublishReflectionTextureHandle( uint32_t handle );
     uint32_t TakeReflectionTextureHandle();
@@ -611,7 +613,6 @@ class Dx12RaytracingOwner
     uint32_t m_reflectionTextureHandle = 0;
     int m_reflectionWidth = 0;
     int m_reflectionHeight = 0;
-    bool m_reflectionInSrvState = false;
     ID3D12Resource* m_constantBuffer = nullptr;
     uint8_t* m_constantBufferMapped = nullptr;
     int m_maxInstances = 0;
@@ -750,9 +751,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     RenderGraphTransientMaterializationStats
     MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled ) override;
     RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const override;
-    size_t ExecuteGraphTransientTransitions( const RenderGraph& graph,
-                                             const RenderGraphCompileResult& compiled,
-                                             uint32_t passIndex ) override;
+    RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const override;
+    size_t ExecuteGraphTransitions( const RenderGraph& graph,
+                                    const RenderGraphCompileResult& compiled,
+                                    uint32_t passIndex ) override;
     void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
     void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 

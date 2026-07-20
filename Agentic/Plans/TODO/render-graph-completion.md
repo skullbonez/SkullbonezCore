@@ -1,6 +1,6 @@
 # Render Graph Completion
 
-Status: Active — 2/6 tasks (G0-G1 complete; G2-G5 pending)
+Status: Active — 3/6 tasks (G0-G2 complete; G3-G5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 5 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding E)
 Ledger: G0-G5
@@ -174,6 +174,40 @@ Validation at the unchanged G1 tip:
   file has the required learning header and the new barrier/state hazards are
   documented beside the authority checks.
 
+## G2 Producer Target Transfer Evidence
+
+Shadow, raster/DXR reflection, and cinematic scene resources now publish exact
+native tokens through opaque engine texture handles. Producer callbacks execute
+compiled SRV -> output transitions; callback-owned publish nodes execute the
+matching output -> SRV edges. The DXR publish edge also emits the required UAV
+ordering barrier before its compiled UAV -> SRV transition. Hand authority is
+deleted: `FramebufferDX12::Bind`/`Unbind` changes descriptors only,
+`DispatchReflections` contains no barrier, and both former local state trackers
+are gone. Framebuffer depth and DXR reflection textures start shader-readable,
+so first-frame and steady-frame graph before-states are identical.
+
+The cinematic post graph recorded three emitted transitions before volumetric
+(scene color, scene depth, transient producer) and one before tonemap (transient
+consumer), with materialization successful. The redundant legacy volumetric
+framebuffer/fallback was removed; allocation failure now disables the optional
+effect after its Lane R diagnostic while the graph still publishes scene inputs.
+`ShadowGraphInputs` and `ReflectionGraphInputs` replace the touched wrappers'
+positional parameter sets.
+
+Validation at the unchanged G2 tip:
+
+- Direct Automation build: PASS in 19.2 s, zero warnings/errors.
+- `tools\validate_dx12_renderer.bat` runs 1-3: PASS in 79.7 s, 55.1 s,
+  and 55.7 s; every run reported zero DX12 validation errors and matched all
+  three committed screenshot baselines.
+- `tools\run_graphics_stress.bat 1`: PASS in 61.96 s; PID 42632 completed the
+  bounded minute and closed by PID-scoped timeout without a crash.
+- Static retirement proof: no `ResourceBarrier`, framebuffer depth-state
+  tracker, or DXR reflection-state tracker remains in the retired hand paths.
+- Touched-source comment audit: 14/14 checked, 0 deferred; barrier ownership,
+  native-token lifetime, UAV ordering, and bind-only framebuffer invariants are
+  documented beside the relevant code.
+
 ## Tasks
 
 - [x] G0 — Authority inventory and migration map: for every pass, record
@@ -188,7 +222,7 @@ Validation at the unchanged G1 tip:
   structs for the touched wrappers. Validation:
   `tools\validate_dx12_renderer.bat` ×3 consecutive +
   `tools\run_graphics_stress.bat 1`.
-- [ ] G2 — Producer target class: shadow, reflection, scene/cinematic
+- [x] G2 — Producer target class: shadow, reflection, scene/cinematic
   targets move to graph-owned transitions and callback execution; delete
   the hand path per class. Typed input structs for touched wrappers.
   Validation: `tools\validate_dx12_renderer.bat` ×3 +

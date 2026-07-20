@@ -96,12 +96,17 @@ class IRenderCommandContext
         (void)resource;
         return {};
     }
-    // Executes the compiled transitions assigned to one callback pass for
-    // graph-managed transient resources. The returned count lets the callback
-    // prove that its declared producer/consumer edge became a live barrier.
-    virtual size_t ExecuteGraphTransientTransitions( const RenderGraph& graph,
-                                                     const RenderGraphCompileResult& compiled,
-                                                     uint32_t passIndex )
+    // Resolves an opaque engine texture handle to a non-owning token that the
+    // graph transports back to the concrete backend executor.
+    virtual RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const
+    {
+        (void)textureHandle;
+        return {};
+    }
+    // Executes every compiled transition assigned to one callback pass. The
+    // returned count proves that declared producer/consumer edges became live.
+    virtual size_t
+    ExecuteGraphTransitions( const RenderGraph& graph, const RenderGraphCompileResult& compiled, uint32_t passIndex )
     {
         (void)graph;
         (void)compiled;

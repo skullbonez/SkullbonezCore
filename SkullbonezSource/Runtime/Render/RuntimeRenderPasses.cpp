@@ -2138,27 +2138,6 @@ void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources 
         return;
     }
 
-    const int w = resources.windowWidth;
-    const int h = resources.windowHeight;
-    const int volW = (std::max)( 1, w / 2 );
-    const int volH = (std::max)( 1, h / 2 );
-    const bool needsVolumetricTarget =
-        !m_volumetricResources.target || m_volumetricResources.target->GetWidth() != volW ||
-        m_volumetricResources.target->GetHeight() != volH ||
-        m_volumetricResources.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
-    if ( needsVolumetricTarget )
-    {
-        // Light shafts are soft, so this pass intentionally renders at half
-        // resolution before TonemapPass composites the result over the scene.
-        if ( m_volumetricResources.target )
-        {
-            m_volumetricResources.target->ResetResources();
-        }
-        m_volumetricResources.target.reset();
-        m_volumetricResources.target =
-            RenderResources( resources )
-                .CreateFramebuffer( volW, volH, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
-    }
     if ( !m_volumetricResources.shader )
     {
         // Half-resolution pass: creates warm light shafts that tonemap can add
@@ -2171,11 +2150,6 @@ void VolumetricPass::EnsureGpuResources( const RenderResourceContext& resources 
 
 void VolumetricPass::ReleaseGpuResources()
 {
-    if ( m_volumetricResources.target )
-    {
-        m_volumetricResources.target->ResetResources();
-    }
-    m_volumetricResources.target.reset();
     m_volumetricResources.shader.reset();
 }
 
@@ -2184,7 +2158,7 @@ bool VolumetricPass::CanRender( const RenderFrameContext& frame ) const
 {
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = frame.cinematic;
     return frame.cinematicEnabled && cinematic && cinematic->volumetricLightingEnabled && m_sceneResources.hdrTarget &&
-           m_volumetricResources.target && m_volumetricResources.shader && m_fullscreenResources.quadVB != 0;
+           m_volumetricResources.shader && m_fullscreenResources.quadVB != 0;
 }
 
 
@@ -2204,27 +2178,14 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/VolumetricLight" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/VolumetricLight" );
-    // Invariant: unbind the full-size scene target before sampling it. The
-    // volumetric pass reads scene color/depth and writes a separate soft light
-    // texture, so read and write targets must be different resources.
-    m_sceneResources.hdrTarget->Unbind();
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
     const bool useGraphOutput = graphOutput && graphOutput->IsValid() && graphOutput->renderTarget;
-    // Why: Phase 5 moves the live volumetric output into the render graph, but
-    // the framebuffer path stays as a fallback until every post target migrates.
-    if ( useGraphOutput )
+    if ( !useGraphOutput )
     {
-        renderCommands.BeginGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
-        renderCommands.SetViewport( 0, 0, graphOutput->width, graphOutput->height );
+        return false;
     }
-    else
-    {
-        m_volumetricResources.target->Bind();
-        renderCommands.SetViewport( 0,
-                                    0,
-                                    m_volumetricResources.target->GetWidth(),
-                                    m_volumetricResources.target->GetHeight() );
-    }
+    renderCommands.BeginGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
+    renderCommands.SetViewport( 0, 0, graphOutput->width, graphOutput->height );
 
     // This is another screen-space effect, so depth testing and blending are
     // disabled while the full-screen quad is generated.
@@ -2265,14 +2226,7 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
     renderCommands.SetDepthTest( depthWasEnabled );
     renderCommands.SetDepthWrite( depthWasEnabled );
     renderCommands.SetBlend( blendWasEnabled );
-    if ( useGraphOutput )
-    {
-        renderCommands.EndGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
-    }
-    else
-    {
-        m_volumetricResources.target->Unbind();
-    }
+    renderCommands.EndGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
     renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
     if ( detailMarkers )
     {
@@ -2355,11 +2309,8 @@ void TonemapPass::Render( const RenderFrameContext& frame,
                                volumetricReady );
         const bool useGraphVolumetric =
             volumetricReady && graphVolumetric && graphVolumetric->IsValid() && graphVolumetric->shaderResource;
-        const uint32_t volumetricTexture = useGraphVolumetric
-                                               ? graphVolumetric->textureHandle
-                                               : ( volumetricReady && m_volumetricResources.target
-                                                       ? m_volumetricResources.target->GetColorTextureHandle()
-                                                       : m_sceneResources.hdrTarget->GetColorTextureHandle() );
+        const uint32_t volumetricTexture =
+            useGraphVolumetric ? graphVolumetric->textureHandle : m_sceneResources.hdrTarget->GetColorTextureHandle();
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth
         // buffer for fog, and slot 2 is the sole completed shaft texture or a
         // harmless fallback when the volumetric pass is disabled.

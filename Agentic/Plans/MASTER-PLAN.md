@@ -287,11 +287,11 @@ is in `../Reports/2026-07-20/run-execute-deaccretion-closure.md`.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [render-graph-completion](TODO/render-graph-completion.md) | 2 | 6 | 33% |
+| [render-graph-completion](TODO/render-graph-completion.md) | 3 | 6 | 50% |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **19** | **37** | **51%** |
+| **Active/future total** | **20** | **37** | **54%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1148,7 +1148,7 @@ the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-graph-completion](TODO/render-graph-completion.md) | Active | 2/6 | G1 transient barriers transferred; start G2 producer-target authority |
+| [render-graph-completion](TODO/render-graph-completion.md) | Active | 3/6 | G2 producer targets transferred; start G3 world-pass consolidation |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | T0-T1 unblocked; T2 after render-graph-completion |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |

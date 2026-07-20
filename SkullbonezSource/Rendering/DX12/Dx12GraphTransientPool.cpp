@@ -271,7 +271,7 @@ RenderGraphTransientMaterializationStats Dx12GraphTransientPool::Materialize( co
                        ( resource.name && resource.name[0] != '\0' ) ? resource.name : "UnnamedGraphTransient" );
         if ( desc.descriptors.shaderResource && slot->textureHandle == 0 && slot->srvIndex != UINT_MAX )
         {
-            slot->textureHandle = m_textures.RegisterSRV( slot->srvIndex );
+            slot->textureHandle = m_textures.RegisterSRV( slot->srvIndex, slot->resource );
         }
         const bool firstUseThisCompile = !slot->usedThisCompile;
         slot->poolSlot = allocation.poolSlot;
@@ -382,10 +382,10 @@ size_t Dx12GraphTransientPool::ExecuteTransitions( const RenderGraph& graph,
         GraphTransientResourceDX12* slot = FindSlot( transition.resource );
         if ( !slot || !slot->resource )
         {
-            SB_FATAL( "Dx12GraphTransientPool",
-                      "Compiled transient transition has no materialized texture. pass=%s resource=%s",
-                      graph.Passes()[passIndex].name,
-                      graphResource.name );
+            // Lane R: materialization already logged the allocation failure.
+            // The callback disables that optional effect, so there is no native
+            // resource and therefore no barrier to emit for this logical edge.
+            continue;
         }
         if ( slot->currentAccess != transition.before )
         {

@@ -331,11 +331,91 @@ RenderGraphTextureBinding RenderBackendDX12::ResolveGraphTextureBinding( RenderG
 }
 
 
-size_t RenderBackendDX12::ExecuteGraphTransientTransitions( const RenderGraph& graph,
-                                                            const RenderGraphCompileResult& compiled,
-                                                            uint32_t passIndex )
+RenderGraphNativeResourceToken RenderBackendDX12::ResolveGraphResourceToken( uint32_t textureHandle ) const
 {
-    return m_graphTransientPool.ExecuteTransitions( graph, compiled, passIndex );
+    return RenderGraphNativeResourceToken::From( m_textureOwner.ResolveResource( textureHandle ) );
+}
+
+
+size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
+                                                   const RenderGraphCompileResult& compiled,
+                                                   uint32_t passIndex )
+{
+    size_t emittedCount = m_graphTransientPool.ExecuteTransitions( graph, compiled, passIndex );
+    if ( passIndex >= graph.Passes().size() )
+    {
+        SB_FATAL( "RenderBackendDX12", "Graph transition requested an invalid pass. pass=%u", passIndex );
+    }
+
+    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
+    {
+        if ( transition.passIndex != passIndex )
+        {
+            continue;
+        }
+        const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
+        if ( !resource.external )
+        {
+            continue;
+        }
+        ID3D12Resource* nativeResource = transition.nativeResource.As<ID3D12Resource>();
+        if ( !nativeResource )
+        {
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled external transition has no native resource. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      resource.name );
+        }
+        if ( !m_frameOwner.CanRecord() && !m_frameOwner.EnsureOpen().ok )
+        {
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled external transition could not open command recording. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      resource.name );
+        }
+
+        // Hazard: leaving UAV writes unordered before the compiled consumer
+        // transition can expose partially written reflection pixels to water.
+        if ( transition.before == RenderGraphResourceAccess::UnorderedAccess )
+        {
+            Dx12RenderGraphUavBarrierDesc uavDesc;
+            uavDesc.commandList = m_frameOwner.CommandList();
+            uavDesc.resource = nativeResource;
+            const Dx12RenderGraphUavBarrierRecord uavRecord =
+                ExecuteDx12RenderGraphUavBarrier( "Dx12GraphCompiledExternal",
+                                                  graph.Passes()[passIndex].name,
+                                                  resource.name,
+                                                  uavDesc );
+            if ( !uavRecord.emitted )
+            {
+                SB_FATAL( "RenderBackendDX12",
+                          "Compiled graph UAV ordering barrier was not emitted. pass=%s resource=%s",
+                          graph.Passes()[passIndex].name,
+                          resource.name );
+            }
+        }
+
+        Dx12RenderGraphSingleTransitionDesc transitionDesc;
+        transitionDesc.commandList = m_frameOwner.CommandList();
+        transitionDesc.resource = nativeResource;
+        transitionDesc.before = transition.before;
+        transitionDesc.after = transition.after;
+        transitionDesc.subresource = static_cast<UINT>( transition.subresource );
+        const Dx12RenderGraphBarrierRecord record =
+            ExecuteDx12RenderGraphSingleTransition( "Dx12GraphCompiledExternal",
+                                                    graph.Passes()[passIndex].name,
+                                                    resource.name,
+                                                    transitionDesc );
+        if ( !record.emitted )
+        {
+            SB_FATAL( "RenderBackendDX12",
+                      "Compiled graph external transition was not emitted. pass=%s resource=%s",
+                      graph.Passes()[passIndex].name,
+                      resource.name );
+        }
+        ++emittedCount;
+    }
+    return emittedCount;
 }
 
 

@@ -36,6 +36,8 @@ Invariants:
     must stay explicit.
   - TLAS rebuilds may only consume the terrain instance plus the active model
     instance capacity reserved during DXR initialization.
+  - Reflection dispatch records rays only; graph producer/publish callbacks own
+    SRV/UAV transitions and the post-dispatch UAV ordering barrier.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -344,10 +346,9 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3
 {
     m_reflectionWidth = width;
     m_reflectionHeight = height;
-    m_reflectionInSrvState = false;
-
     // The reflection texture is the off-screen image written by DXR. It starts
-    // in UAV state because the ray-generation shader writes pixels into it.
+    // shader-readable so the graph's first producer edge has one stable before
+    // state on the first frame and every later frame.
     D3D12_HEAP_PROPERTIES heapProps = {};
     heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
@@ -368,7 +369,7 @@ SkullbonezCore::Core::SbResult Dx12RaytracingOwner::CreateReflectionTexture( ID3
     if ( FAILED( device->CreateCommittedResource( &heapProps,
                                                   D3D12_HEAP_FLAG_NONE,
                                                   &texDesc,
-                                                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                                                  D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                                                   nullptr,
                                                   IID_PPV_ARGS( &m_reflectionTexture ) ) ) )
     {
@@ -673,7 +674,8 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( uint64_t terrainVBVA,
     const UINT reflectionSrvIndex = m_raytracingOwner.ReflectionSrvIndex();
     if ( reflectionSrvIndex != 0 )
     {
-        m_raytracingOwner.PublishReflectionTextureHandle( m_textureOwner.RegisterSRV( reflectionSrvIndex ) );
+        m_raytracingOwner.PublishReflectionTextureHandle(
+            m_textureOwner.RegisterSRV( reflectionSrvIndex, m_raytracingOwner.ReflectionResource() ) );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -785,21 +787,6 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
     if ( !m_supported || !m_commandList4 || !m_pipeline )
     {
         return outcome;
-    }
-
-    // Hazard: the reflection texture alternates between a writable UAV during
-    // DispatchRays and a readable SRV while the water shader samples it. DX12
-    // will not infer that transition for us; record it explicitly each frame.
-    if ( m_reflectionInSrvState )
-    {
-        D3D12_RESOURCE_BARRIER transition = {};
-        transition.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        transition.Transition.pResource = m_reflectionTexture;
-        transition.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        transition.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        transition.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        m_commandList4->ResourceBarrier( 1, &transition );
-        m_reflectionInSrvState = false;
     }
 
     // Layout mirrors reflect.rt.hlsl: invVP, camera/water, light/time, and sky
@@ -914,27 +901,6 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 
     m_commandList4->DispatchRays( &dispatchDesc );
 
-    // Hazard: a UAV barrier is an ordering point, not a layout transition. It
-    // makes every raytracing write visible before the next pass samples the
-    // reflection texture through its SRV descriptor.
-    // Docs:
-    // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    D3D12_RESOURCE_BARRIER uavBarrier = {};
-    uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-    uavBarrier.UAV.pResource = m_reflectionTexture;
-    m_commandList4->ResourceBarrier( 1, &uavBarrier );
-
-    // After ordering the writes, transition the texture into SRV state so the
-    // raster water shader can read it.
-    D3D12_RESOURCE_BARRIER transition = {};
-    transition.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    transition.Transition.pResource = m_reflectionTexture;
-    transition.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    transition.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-    transition.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    m_commandList4->ResourceBarrier( 1, &transition );
-    m_reflectionInSrvState = true;
-
     // DXR uses the compute root signature/pipeline path. Mark raster state
     // dirty so the next draw restores graphics bindings instead of inheriting
     // raytracing state.
@@ -1006,6 +972,12 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj,
 UINT Dx12RaytracingOwner::ReflectionSrvIndex() const
 {
     return m_reflectionSrvIndex;
+}
+
+
+ID3D12Resource* Dx12RaytracingOwner::ReflectionResource() const
+{
+    return m_reflectionTexture;
 }
 
 
@@ -1106,7 +1078,6 @@ void Dx12RaytracingOwner::Shutdown()
     m_reflectionSrvIndex = 0;
     m_reflectionWidth = 0;
     m_reflectionHeight = 0;
-    m_reflectionInSrvState = false;
     m_maxInstances = 0;
 }
 

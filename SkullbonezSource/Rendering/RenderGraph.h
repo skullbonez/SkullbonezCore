@@ -274,8 +274,8 @@ struct RenderGraphTextureBinding
     }
 };
 
-// Typed token for optional native resource identity. The graph compares and
-// transports the token but cannot dereference it or assume a graphics API.
+// Typed token for optional native resource identity. The graph transports the
+// token to the backend executor but cannot dereference it or assume an API.
 struct RenderGraphNativeResourceToken
 {
     template <typename T> static RenderGraphNativeResourceToken From( T* resource ) noexcept
@@ -305,9 +305,8 @@ struct RenderGraphNativeResourceToken
 // back buffer or an existing backend texture. Later graph-declared transient
 // resources can use the same declaration shape but set external=false.
 //
-// Lifetime: nativeResource is optional diagnostic identity only. It is a typed
-// non-owning token used to match graph transitions against live backend barrier
-// logs; the graph must never dereference or release the underlying object.
+// Lifetime: nativeResource is a typed non-owning token used by the backend to
+// emit compiled transitions. The graph must never dereference or release it.
 struct RenderGraphResourceDesc
 {
     const char* name = "UnnamedResource";
@@ -390,8 +389,8 @@ struct RenderGraphPassDesc
 // it from state A to state B." This struct avoids D3D12_RESOURCE_STATES on
 // purpose. The render graph should speak in engine access concepts; the DX12
 // backend can translate those concepts into concrete D3D12 barrier flags later.
-// nativeResource is copied from the resource declaration only so diagnostics can
-// prefer exact pointer identity over name-only matching.
+// nativeResource is copied from the declaration so the backend executor can
+// bind the compiled edge to the exact physical resource.
 struct RenderGraphTransitionDesc
 {
     uint32_t passIndex = 0;
@@ -561,11 +560,9 @@ template <typename T, size_t Capacity> struct RenderGraphFixedList
 
 // Result of the first simple graph compile step.
 //
-// This is intentionally only a transition list for now. The DX12 graph executor
-// can translate these records into barrier candidates, while direct live helper
-// calls emit production barriers for current pass code. Later compile output can
-// add transient texture allocation, queue ownership, and callback execution
-// order without changing the pass/resource declarations.
+// The transition list is the live barrier authority consumed immediately before
+// each callback pass. Compile output also carries transient allocation/lifetime
+// facts; future queue ownership can extend the same declarations.
 struct RenderGraphCompileResult
 {
     void Clear();
