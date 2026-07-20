@@ -46,10 +46,6 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode );
 // ordinary owner construction must not continue.
 bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outExitCode );
 
-// Uses already-loaded config values without retaining either input. True means
-// contact-audio smoke claimed startup and outExitCode is final.
-bool HandleContactAudioSmoke( const ParsedArgs& args, const Core::EngineConfig& config, int& outExitCode );
-
 } // namespace Startup
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -55,10 +55,6 @@ namespace Physics
 {
 class PhysicsDebugVisualizer;
 }
-namespace Runtime::Audio
-{
-class ContactAudioService;
-}
 namespace Runtime
 {
 class AttachedCameraController;

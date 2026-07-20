@@ -310,7 +310,6 @@ enum class ConfigSettingDomain
     GeneratedScene,
     AssetPaths,
     WaterRenderStyle,
-    ContactAudio,
     Count
 };
 
@@ -621,18 +620,7 @@ static const ConfigSetting kWaterRenderStyleSettings[] = {
     CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ),
 };
 
-static const ConfigSetting kContactAudioSettings[] = {
-    CONFIG_BOOL( "contact_audio_enabled", contactAudio.enabled ),
-    CONFIG_FLOAT( "contact_audio_master_gain", contactAudio.masterGain, 0.0, 4.0 ),
-    CONFIG_FLOAT( "contact_audio_max_distance_scale", contactAudio.maxDistanceScale, 0.01, 16.0 ),
-    CONFIG_FLOAT( "contact_audio_rolling_level_db", contactAudio.rollingLevelDb, -60.0, 0.0 ),
-    CONFIG_FLOAT( "contact_audio_rolling_max_distance", contactAudio.rollingMaxDistance, 1.0, 200.0 ),
-    CONFIG_FLOAT( "contact_audio_rolling_min_slip_speed", contactAudio.rollingMinSlipSpeed, 0.1, 20.0 ),
-    CONFIG_INT( "contact_audio_rolling_voices_per_window", contactAudio.rollingVoicesPerWindow, 0, 12 ),
-    CONFIG_BOOL( "contact_audio_debug_counters", contactAudio.debugCounters ),
-};
-
-constexpr size_t kExpectedConfigSettingCount = 220;
+constexpr size_t kExpectedConfigSettingCount = 212;
 static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
                        ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
                        ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
@@ -643,7 +631,7 @@ static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + A
                        ArrayCount( kPersistentContactSolverSettings ) + ArrayCount( kTerrainContactSettings ) +
                        ArrayCount( kPhysicsSleepSettings ) + ArrayCount( kBlobShadowSettings ) +
                        ArrayCount( kGeneratedSceneSettings ) + ArrayCount( kAssetPathsSettings ) +
-                       ArrayCount( kWaterRenderStyleSettings ) + ArrayCount( kContactAudioSettings ) ==
+                       ArrayCount( kWaterRenderStyleSettings ) ==
                    kExpectedConfigSettingCount,
                "Every engine config key must belong to exactly one domain table." );
 
@@ -673,7 +661,6 @@ static constexpr ConfigSettingTable kConfigSettingTables[] = {
     { kGeneratedSceneSettings, ArrayCount( kGeneratedSceneSettings ) },
     { kAssetPathsSettings, ArrayCount( kAssetPathsSettings ) },
     { kWaterRenderStyleSettings, ArrayCount( kWaterRenderStyleSettings ) },
-    { kContactAudioSettings, ArrayCount( kContactAudioSettings ) },
 };
 static_assert( ArrayCount( kConfigSettingTables ) == static_cast<size_t>( ConfigSettingDomain::Count ),
                "Every config domain must have exactly one table descriptor." );
@@ -708,7 +695,6 @@ static constexpr ConfigSettingRange kConfigSettingOrder[] = {
     FullConfigRange( ConfigSettingDomain::AssetPaths, kAssetPathsSettings ),
     FullConfigRange( ConfigSettingDomain::WaterRenderStyle, kWaterRenderStyleSettings ),
     { ConfigSettingDomain::RuntimeRender, 1, 4 },
-    FullConfigRange( ConfigSettingDomain::ContactAudio, kContactAudioSettings ),
 };
 
 // Invariant: every row of every domain appears in exactly one ordered slice.
@@ -867,7 +853,7 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
                                   ENGINE_CONFIG_FORMAT_VERSION,
                                   path );
     }
-    // Versions 0-4 share the key/value grammar. Versioned execution rows are
+    // Versions 0-5 share the key/value grammar. Versioned execution rows are
     // optional, so absence selects built-in defaults; the cold migration tool
     // materializes the retained v2 row and removes the rejected v3 SIMD row.
     return SbResult::Success();

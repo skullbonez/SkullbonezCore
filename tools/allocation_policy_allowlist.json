@@ -185,29 +185,6 @@
       "removal_or_wrapper_plan": "If environment parsing grows, route it through a startup-only platform helper that owns the CRT cleanup."
     },
     {
-      "path": "SkullbonezSource/Runtime/Audio/ContactAudioService.cpp",
-      "patterns": [
-        "free( output )"
-      ],
-      "owner": "Contact audio sample decoder",
-      "phase": "startup_scene_load",
-      "reason": "stb_vorbis_decode_filename returns a decoder-owned PCM buffer that is copied into the startup/scene-load audio cache and then released.",
-      "cap": "One decoder buffer per configured contact-audio sample while audio maps are loaded.",
-      "removal_or_wrapper_plan": "If contact-audio decoding moves onto a gameplay path, route decoded samples through a preallocated audio asset cache."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Audio/ContactAudioService.cpp",
-      "patterns": [
-        "new Impl()",
-        "delete m_impl"
-      ],
-      "owner": "Contact audio service lifetime",
-      "phase": "startup_shutdown",
-      "reason": "The pimpl object hides platform audio headers and is created/destroyed with the service, outside classification and mixing hot paths.",
-      "cap": "Exactly one Impl allocation for the ContactAudioService instance.",
-      "removal_or_wrapper_plan": "Replace with inline storage if contact-audio platform headers become acceptable in the public header."
-    },
-    {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.cpp",
       "patterns": [
         "malloc( msgLen )",
@@ -856,20 +833,6 @@
       "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
       "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
-    },
-    {
-      "path": "SkullbonezSource/Runtime/Audio/ContactAudioService.cpp",
-      "patterns": [
-        ".assign(",
-        ".push_back(",
-        ".reserve(",
-        ".resize("
-      ],
-      "owner": "Runtime audio asset-load storage surface",
-      "phase": "startup_scene_load",
-      "reason": "Contact audio sample buffers grow while decoding/loading audio assets, before steady contact classification and mixing paths.",
-      "cap": "Bounded by configured contact audio samples and decoded sample lengths.",
-      "removal_or_wrapper_plan": "Move decoded audio storage to a preallocated audio asset cache if audio loading becomes runtime-mutable."
     },
     {
       "path": "SkullbonezSource/Runtime/Debug/BroadphaseVisualizer.cpp",

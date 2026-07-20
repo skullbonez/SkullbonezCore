@@ -19,12 +19,6 @@ Glossary:
   widget.
   Command struct: One-frame request packet emitted by UI code and consumed by
   the run loop.
-  Sound sample request: One-frame Sound-tab command to preview a decoded impact
-    candidate or assign it to the selected material set.
-  Flash mode request: One-frame Sound-tab command to cycle emitted, candidate,
-    rejected, or hidden contact-audio body flashes.
-  Simple mode request: One-frame Sound-tab command to use linear velocity energy
-    instead of solver contact rows for impact audio.
   Shared editor exchange: Fixed-capacity domain queues through which both
     operator front ends request the same existing owner operations.
 
@@ -164,45 +158,6 @@ enum class UIRenderParam
     BallSpecular,
     BoxRoughness,
     BoxSpecular,
-    Count
-};
-
-enum class UISoundParam
-{
-    None = -1,
-    SimpleMinLinearEnergy,
-    SimpleMinLinearDeltaSpeed,
-    SimpleLinearEnergyRange,
-    MasterGain,
-    MaxDistanceScale,
-    MinClosingSpeed,
-    MinImpactScore,
-    ImpactScoreRangeSeconds,
-    BurstVoicesPerWindow,
-    RollingLevelDb,
-    RollingMaxDistance,
-    RollingMinSlipSpeed,
-    RollingVoicesPerWindow,
-    SetMinImpulse,
-    SetImpulseRange,
-    SetCooldownMs,
-    SetOverrideCooldownMs,
-    SetMaxDistance,
-    SetBaseGain,
-    SetPitchMin,
-    SetPitchMax,
-    SetMaxVoices,
-    Count
-};
-
-enum class UISoundBandParam
-{
-    None = -1,
-    MinImpulse,
-    ImpulseRange,
-    BaseGain,
-    PitchMin,
-    PitchMax,
     Count
 };
 
@@ -356,23 +311,6 @@ struct UIRenderCommands
     float requestedValue = 0.0f;
 };
 
-struct UISoundCommands
-{
-    // Sound-tab output is a one-frame request. Set and band indices come from
-    // the current UI snapshot; Run validates them before touching audio data.
-    bool toggleEnabled = false;
-    bool toggleDebugCounters = false;
-    bool cycleFlashMode = false;
-    bool toggleSimpleMode = false;
-    int requestedSetIndex = -1;
-    int requestedBandIndex = -1;
-    UISoundParam requestedParam = UISoundParam::None;
-    UISoundBandParam requestedBandParam = UISoundBandParam::None;
-    float requestedValue = 0.0f;
-    int previewSampleIndex = -1;
-    int selectSampleIndex = -1;
-};
-
 struct UIReplayMemoryCommands
 {
     // One-frame replay policy request from the Memory tab. RunInput translates
@@ -396,7 +334,6 @@ struct InGameUICommands
     UIRunCommands run;
     UIProfilerCommands profiler;
     UIRenderCommands renderTuning;
-    UISoundCommands sound;
     UICinematicCommands cinematic;
     UIReplayMemoryCommands replayMemory;
 };

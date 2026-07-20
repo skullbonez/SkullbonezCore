@@ -101,8 +101,7 @@ BuildCameraMovementSettings( const SkullbonezCore::Core::EngineConfig& cfg )
 void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                RunLaunchOptions& target,
                                RuntimeRenderer& renderer,
-                               PhysicsEngine& physics,
-                               SkullbonezCore::Runtime::Audio::ContactAudioService& contactAudio )
+                               PhysicsEngine& physics )
 {
     target.allocationGuardMode = launch.allocationGuardMode;
     if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
@@ -129,11 +128,6 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
     {
         target.noSleep = true;
         physics.SetSleepEnabled( false );
-    }
-    if ( launch.noContactAudio )
-    {
-        target.noContactAudio = true;
-        contactAudio.SetEnabled( false );
     }
     if ( launch.hasTornadoOverride )
     {
@@ -303,7 +297,6 @@ Run::Run( Window& window,
     m_sceneController.Scene().ApplyRuntimeConfig( cfg );
     m_renderer.SetVsyncEnabled( cfg.runtimeRender.vsyncEnabled );
     m_renderer.SetPipelineSyncEnabled( cfg.runtimeRender.forcePipelineSync );
-    m_contactAudio.SetDebugCountersEnabled( cfg.contactAudio.debugCounters );
     m_renderDefaults.CaptureStartupCinematicBaseline( cfg.cinematicRender );
     m_startup.ApplyStartupConfig( cfg );
 }
@@ -391,11 +384,7 @@ SkullbonezCore::Core::SbResult Run::ApplyStartupOverrides( const RunStartupOverr
     // runtime services.
     const RunLaunchOptions& launch = overrides.launch;
 
-    ApplyRuntimeLaunchPolicy( launch,
-                              m_launchOptions,
-                              m_renderer,
-                              m_sceneController.Scene().Physics(),
-                              m_contactAudio );
+    ApplyRuntimeLaunchPolicy( launch, m_launchOptions, m_renderer, m_sceneController.Scene().Physics() );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     ApplyDevelopmentUiMode();
 #endif
@@ -551,24 +540,6 @@ void Run::Initialise()
         return;
     }
 
-    m_contactAudio.SetMasterGain( cfg.contactAudio.masterGain );
-    m_contactAudio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
-    m_contactAudio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
-    m_contactAudio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
-    m_contactAudio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
-    m_contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
-    if ( !m_launchOptions.noContactAudio && cfg.contactAudio.enabled )
-    {
-        const bool audioReady =
-            m_contactAudio.Initialize() &&
-            m_contactAudio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
-        m_contactAudio.SetEnabled( audioReady );
-    }
-    else
-    {
-        m_contactAudio.SetEnabled( false );
-    }
-
     SceneLoadConsumerOutputs sceneLoadOutputs;
     m_lastSceneLoadResult = m_sceneController.Load(
         SceneLoadRequest::Load( 0, false, false, false ),
@@ -587,12 +558,7 @@ void Run::Initialise()
                                           CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
         SceneLoadPresentationParticipants{ m_replayRuntime, *m_overlayDiagnostics, m_renderBackendView, m_renderer },
         sceneLoadOutputs );
-    ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
-                                   m_window,
-                                   *m_operatorUi,
-                                   m_contactAudio,
-                                   *m_validationHarness,
-                                   m_launchOptions );
+    ApplySceneLoadConsumerOutputs( sceneLoadOutputs, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -799,7 +765,6 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        m_window,
                                        *m_operatorUi,
-                                       m_contactAudio,
                                        *m_validationHarness,
                                        m_launchOptions );
         if ( !loadResult.ok )

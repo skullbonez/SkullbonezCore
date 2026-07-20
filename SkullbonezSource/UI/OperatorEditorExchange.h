@@ -11,7 +11,7 @@ Summary:
 
 Glossary:
   Surface: One operator presentation front end, currently Legacy or ImGui.
-  Domain view: Read-only scene, property, rendering, audio, diagnostics,
+  Domain view: Read-only scene, property, rendering, diagnostics,
     replay, or tool values
     copied for one presentation frame.
   Tool command: One-frame edit-mode, history, pause, or step intent applied by
@@ -194,46 +194,6 @@ struct OperatorEditorRenderingView
     int waterReflectionMode = 0;
 };
 
-inline constexpr int OPERATOR_EDITOR_AUDIO_SET_CAPACITY = 16;
-inline constexpr int OPERATOR_EDITOR_AUDIO_BAND_CAPACITY = 4;
-inline constexpr int OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY = 64;
-
-struct OperatorEditorAudioBandView
-{
-    const char* name = "";
-    float minImpulse = 0.0f;
-    float impulseRange = 0.0f;
-    float baseGain = 0.0f;
-    float pitchMin = 1.0f;
-    float pitchMax = 1.0f;
-    uint32_t sampleCount = 0u;
-};
-
-struct OperatorEditorAudioSetView
-{
-    const char* name = "";
-    uint32_t materialA = 0u;
-    uint32_t materialB = 0u;
-    float parameters[9] = {};
-    uint32_t sampleCount = 0u;
-    uint32_t bandCount = 0u;
-    OperatorEditorAudioBandView bands[OPERATOR_EDITOR_AUDIO_BAND_CAPACITY] = {};
-};
-
-struct OperatorEditorAudioView
-{
-    // Lifetime: recipe names and sample paths borrow the audio service's
-    // startup-loaded catalog for this synchronous presentation frame.
-    const char* samplePaths[OPERATOR_EDITOR_AUDIO_SAMPLE_CAPACITY] = {};
-    OperatorEditorAudioSetView sets[OPERATOR_EDITOR_AUDIO_SET_CAPACITY] = {};
-    float globalParameters[13] = {};
-    int setCount = 0;
-    int sampleCount = 0;
-    bool enabled = false;
-    bool available = false;
-    bool simpleMode = true;
-};
-
 inline constexpr int OPERATOR_EDITOR_RENDER_TARGET_CAPACITY = 12;
 
 struct OperatorEditorRenderTargetView
@@ -251,7 +211,6 @@ struct OperatorEditorDiagnosticsView
     OperatorEditorRenderTargetView renderTargets[OPERATOR_EDITOR_RENDER_TARGET_CAPACITY] = {};
     const char* rendererName = "";
     const char* physicsPipelineStageName = "";
-    const char* audioFlashModeLabel = "";
     int renderTargetCount = 0;
     int drawCalls = 0;
     int uiDrawCalls = 0;
@@ -274,10 +233,6 @@ struct OperatorEditorDiagnosticsView
     uint64_t uploadUsedBytes = 0u;
     uint64_t uploadCapacityBytes = 0u;
     uint64_t replayReserveGrowthEvents = 0u;
-    uint64_t audioEventsSeen = 0u;
-    uint64_t audioCandidates = 0u;
-    uint64_t audioSubmittedVoices = 0u;
-    uint64_t audioDroppedVoices = 0u;
     uint32_t physicsDebugFlags = 0u;
     bool collisionVisualizer = false;
     bool physicsDebugTransparent = false;
@@ -286,7 +241,6 @@ struct OperatorEditorDiagnosticsView
     bool tornadoVisualShell = false;
     bool tornadoFieldVectors = false;
     bool rayCastVisualization = false;
-    bool audioDebugCounters = false;
 };
 
 struct OperatorEditorViewportView
@@ -340,7 +294,6 @@ struct OperatorEditorFrameView
     OperatorEditorAssetView assets;
     OperatorEditorInspectorView inspector;
     OperatorEditorWorldView world;
-    OperatorEditorAudioView audio;
     OperatorEditorDiagnosticsView diagnostics;
 };
 
@@ -423,32 +376,8 @@ struct OperatorEditorRenderingCommand
     OperatorEditorEditPhase phase = OperatorEditorEditPhase::Commit;
 };
 
-enum class OperatorEditorAudioCommandType : uint8_t
-{
-    ToggleEnabled,
-    ToggleSimpleMode,
-    SetGlobalParameter,
-    SetRecipeParameter,
-    SetBandParameter,
-    PreviewSample,
-    SelectSample
-};
-
-struct OperatorEditorAudioCommand
-{
-    OperatorEditorAudioCommandType type = OperatorEditorAudioCommandType::ToggleEnabled;
-    int parameter = -1;
-    int setIndex = -1;
-    int bandIndex = -1;
-    int sampleIndex = -1;
-    float value = 0.0f;
-    OperatorEditorEditPhase phase = OperatorEditorEditPhase::Commit;
-};
-
 enum class OperatorEditorDiagnosticsCommandType : uint8_t
 {
-    ToggleAudioCounters,
-    CycleAudioFlashMode,
     ToggleCollisionVisualizer,
     TogglePhysicsDebugTransparent,
     ToggleBroadphaseOverlay,
@@ -547,7 +476,6 @@ template <typename Command, uint32_t Capacity> struct OperatorEditorCommandQueue
 using OperatorEditorSceneCommandQueue = OperatorEditorCommandQueue<OperatorEditorSceneCommand, 8u>;
 using OperatorEditorPropertyCommandQueue = OperatorEditorCommandQueue<OperatorEditorPropertyCommand, 24u>;
 using OperatorEditorRenderingCommandQueue = OperatorEditorCommandQueue<OperatorEditorRenderingCommand, 8u>;
-using OperatorEditorAudioCommandQueue = OperatorEditorCommandQueue<OperatorEditorAudioCommand, 4u>;
 using OperatorEditorDiagnosticsCommandQueue = OperatorEditorCommandQueue<OperatorEditorDiagnosticsCommand, 8u>;
 using OperatorEditorReplayCommandQueue = OperatorEditorCommandQueue<OperatorEditorReplayCommand, 8u>;
 using OperatorEditorToolCommandQueue = OperatorEditorCommandQueue<OperatorEditorToolCommand, 16u>;
@@ -557,15 +485,14 @@ struct OperatorEditorCommandQueues
     OperatorEditorSceneCommandQueue scene;
     OperatorEditorPropertyCommandQueue property;
     OperatorEditorRenderingCommandQueue rendering;
-    OperatorEditorAudioCommandQueue audio;
     OperatorEditorDiagnosticsCommandQueue diagnostics;
     OperatorEditorReplayCommandQueue replay;
     OperatorEditorToolCommandQueue tools;
 
     [[nodiscard]] bool Empty() const noexcept
     {
-        return scene.Empty() && property.Empty() && rendering.Empty() && audio.Empty() && diagnostics.Empty() &&
-               replay.Empty() && tools.Empty();
+        return scene.Empty() && property.Empty() && rendering.Empty() && diagnostics.Empty() && replay.Empty() &&
+               tools.Empty();
     }
 };
 
@@ -586,9 +513,6 @@ SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorProper
                                                             bool* duplicate = nullptr );
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorRenderingCommandQueue& queue,
                                                             const OperatorEditorRenderingCommand& command,
-                                                            bool* duplicate = nullptr );
-SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorAudioCommandQueue& queue,
-                                                            const OperatorEditorAudioCommand& command,
                                                             bool* duplicate = nullptr );
 SkullbonezCore::Core::SbResult SubmitOperatorEditorCommand( OperatorEditorDiagnosticsCommandQueue& queue,
                                                             const OperatorEditorDiagnosticsCommand& command,

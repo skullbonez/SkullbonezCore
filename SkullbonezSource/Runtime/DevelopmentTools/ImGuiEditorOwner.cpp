@@ -261,98 +261,6 @@ const char* AssetCategoryForObjectType( int objectType ) noexcept
     return "Registered Assets";
 }
 
-struct AudioScalarSpec
-{
-    const char* label;
-    int parameter;
-    float minValue;
-    float maxValue;
-    float step;
-    const char* format;
-};
-
-constexpr AudioScalarSpec kAudioGlobalSpecs[] = {
-    { "Simple min energy", 0, 0.0f, 1000.0f, 2.5f, "%.1f" },
-    { "Simple delta speed", 1, 0.0f, 20.0f, 0.05f, "%.2f" },
-    { "Simple energy range", 2, 1.0f, 5000.0f, 10.0f, "%.0f" },
-    { "Master gain", 3, 0.0f, 4.0f, 0.05f, "%.2f" },
-    { "Distance scale", 4, 0.01f, 16.0f, 0.05f, "%.2fx" },
-    { "Min closing speed", 5, 0.0f, 20.0f, 0.05f, "%.2f" },
-    { "Min impact score", 6, 0.0f, 5000.0f, 1.0f, "%.1f" },
-    { "Score range", 7, 0.001f, 10.0f, 0.05f, "%.2fs" },
-    { "Burst voices / 100ms", 8, 1.0f, 40.0f, 1.0f, "%.0f" },
-    { "Rolling level", 9, -60.0f, 0.0f, 1.0f, "%.0f dB" },
-    { "Rolling distance", 10, 1.0f, 200.0f, 1.0f, "%.0f" },
-    { "Rolling slip speed", 11, 0.1f, 20.0f, 0.05f, "%.2f" },
-    { "Rolling voices / 100ms", 12, 0.0f, 12.0f, 1.0f, "%.0f" },
-};
-
-constexpr AudioScalarSpec kAudioRecipeSpecs[] = {
-    { "Min impulse", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetMinImpulse ), 0.0f, 100.0f, 0.05f, "%.2f" },
-    { "Impulse range",
-      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetImpulseRange ),
-      0.05f,
-      100.0f,
-      0.05f,
-      "%.2f" },
-    { "Pair cooldown",
-      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetCooldownMs ),
-      0.0f,
-      1000.0f,
-      5.0f,
-      "%.0f ms" },
-    { "Spike rearm",
-      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetOverrideCooldownMs ),
-      0.0f,
-      1000.0f,
-      5.0f,
-      "%.0f ms" },
-    { "Patch distance",
-      static_cast<int>( SkullbonezCore::UI::UISoundParam::SetMaxDistance ),
-      1.0f,
-      500.0f,
-      1.0f,
-      "%.0f" },
-    { "Set gain", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetBaseGain ), 0.0f, 4.0f, 0.05f, "%.2f" },
-    { "Pitch min", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetPitchMin ), 0.25f, 4.0f, 0.01f, "%.2f" },
-    { "Pitch max", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetPitchMax ), 0.25f, 4.0f, 0.01f, "%.2f" },
-    { "Voice cap", static_cast<int>( SkullbonezCore::UI::UISoundParam::SetMaxVoices ), 1.0f, 32.0f, 1.0f, "%.0f" },
-};
-
-constexpr AudioScalarSpec kAudioBandSpecs[] = {
-    { "Min impulse",
-      static_cast<int>( SkullbonezCore::UI::UISoundBandParam::MinImpulse ),
-      0.0f,
-      100.0f,
-      0.05f,
-      "%.2f" },
-    { "Impulse range",
-      static_cast<int>( SkullbonezCore::UI::UISoundBandParam::ImpulseRange ),
-      0.05f,
-      100.0f,
-      0.05f,
-      "%.2f" },
-    { "Base gain", static_cast<int>( SkullbonezCore::UI::UISoundBandParam::BaseGain ), 0.0f, 4.0f, 0.05f, "%.2f" },
-    { "Pitch min", static_cast<int>( SkullbonezCore::UI::UISoundBandParam::PitchMin ), 0.25f, 4.0f, 0.01f, "%.2f" },
-    { "Pitch max", static_cast<int>( SkullbonezCore::UI::UISoundBandParam::PitchMax ), 0.25f, 4.0f, 0.01f, "%.2f" },
-};
-
-static_assert( sizeof( kAudioGlobalSpecs ) / sizeof( kAudioGlobalSpecs[0] ) == 13u );
-static_assert( sizeof( kAudioRecipeSpecs ) / sizeof( kAudioRecipeSpecs[0] ) == 9u );
-static_assert( sizeof( kAudioBandSpecs ) / sizeof( kAudioBandSpecs[0] ) == 5u );
-
-const char* SampleLeafName( const char* path ) noexcept
-{
-    if ( !path || path[0] == '\0' )
-    {
-        return "No samples loaded";
-    }
-    const char* slash = std::strrchr( path, '/' );
-    const char* backslash = std::strrchr( path, '\\' );
-    const char* leaf = slash && backslash ? ( slash > backslash ? slash : backslash ) : ( slash ? slash : backslash );
-    return leaf ? leaf + 1 : path;
-}
-
 double BytesToMiB( uint64_t bytes ) noexcept
 {
     return static_cast<double>( bytes ) / ( 1024.0 * 1024.0 );
@@ -509,7 +417,6 @@ void ImGuiEditorOwner::Shutdown() noexcept
     m_gameViewportRect = {};
     m_propertyEdit = {};
     m_renderingEdit = {};
-    m_audioEdit = {};
     m_diagnosticsEdit = {};
     m_nativePointerStateTouched = false;
     m_lastPlatformMouseCursor = -2;
@@ -549,7 +456,6 @@ void ImGuiEditorOwner::SetVisible( bool visible ) noexcept
         // it is a cancel, not an owner mutation.
         m_propertyEdit = {};
         m_renderingEdit = {};
-        m_audioEdit = {};
         m_diagnosticsEdit = {};
         io.ClearInputMouse();
     }
@@ -816,7 +722,7 @@ void ImGuiEditorOwner::ResetDefaultPanelVisibility() noexcept
     m_showGameViewport = true;
     m_showInspector = true;
     m_showWorldSimulation = true;
-    m_showRenderingAudio = true;
+    m_showRendering = true;
     m_showDiagnostics = true;
     m_showCausality = true;
     m_showCausalityDetail = false;
@@ -840,7 +746,7 @@ uint32_t ImGuiEditorOwner::CopyPanelVisibilityMask() const noexcept
     add( ImGuiEditorPanelId::GameViewport, m_showGameViewport );
     add( ImGuiEditorPanelId::Inspector, m_showInspector );
     add( ImGuiEditorPanelId::WorldSimulation, m_showWorldSimulation );
-    add( ImGuiEditorPanelId::RenderingAudio, m_showRenderingAudio );
+    add( ImGuiEditorPanelId::Rendering, m_showRendering );
     add( ImGuiEditorPanelId::Diagnostics, m_showDiagnostics );
     add( ImGuiEditorPanelId::Causality, m_showCausality );
     add( ImGuiEditorPanelId::CausalityDetail, m_showCausalityDetail );
@@ -871,8 +777,8 @@ bool ImGuiEditorOwner::SetPanelVisibility( ImGuiEditorPanelId panel, bool visibl
     case ImGuiEditorPanelId::WorldSimulation:
         m_showWorldSimulation = visible;
         break;
-    case ImGuiEditorPanelId::RenderingAudio:
-        m_showRenderingAudio = visible;
+    case ImGuiEditorPanelId::Rendering:
+        m_showRendering = visible;
         break;
     case ImGuiEditorPanelId::Diagnostics:
         m_showDiagnostics = visible;
@@ -1001,7 +907,7 @@ void ImGuiEditorOwner::BuildDefaultDockLayout( uint32_t rootDockId, float width,
     ImGui::DockBuilderDockWindow( ImGuiEditorPanel::GameViewport, viewport );
     ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Inspector, inspector );
     ImGui::DockBuilderDockWindow( ImGuiEditorPanel::WorldSimulation, world );
-    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::RenderingAudio, utilityTabs );
+    ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Rendering, utilityTabs );
     ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Diagnostics, utilityTabs );
     ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Causality, utilityTabs );
     ImGui::DockBuilderDockWindow( ImGuiEditorPanel::Replay, replay );
@@ -1347,7 +1253,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
             ImGui::MenuItem( ImGuiEditorPanel::GameViewport, nullptr, &m_showGameViewport );
             ImGui::MenuItem( ImGuiEditorPanel::Inspector, nullptr, &m_showInspector );
             ImGui::MenuItem( ImGuiEditorPanel::WorldSimulation, nullptr, &m_showWorldSimulation );
-            ImGui::MenuItem( "Rendering / Audio", nullptr, &m_showRenderingAudio );
+            ImGui::MenuItem( "Rendering", nullptr, &m_showRendering );
             ImGui::MenuItem( "Diagnostics", nullptr, &m_showDiagnostics );
             ImGui::MenuItem( "Causality", nullptr, &m_showCausality );
             ImGui::MenuItem( "Causality Detail", nullptr, &m_showCausalityDetail );
@@ -1904,7 +1810,7 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 ImGui::TextDisabled( "Mixed values" );
                 ImGui::SeparatorText( "Identity" );
                 ImGui::TextDisabled( "Mixed stable identities" );
-                ImGui::SeparatorText( "Render / Physics / Audio" );
+                ImGui::SeparatorText( "Render / Physics" );
                 ImGui::TextDisabled( "Mixed values" );
             }
             else
@@ -1976,14 +1882,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                                  inspector.angularVelocity[0],
                                  inspector.angularVelocity[1],
                                  inspector.angularVelocity[2] );
-                }
-                if ( ImGui::CollapsingHeader( "Audio" ) )
-                {
-                    ImGui::Text( "Contact material  %s",
-                                 inspector.contactMaterialName && inspector.contactMaterialName[0] != '\0'
-                                     ? inspector.contactMaterialName
-                                     : "default" );
-                    ImGui::TextDisabled( "Contact recipes and sample authoring are consolidated in E13." );
                 }
                 if ( ImGui::CollapsingHeader( "Object-specific" ) )
                 {
@@ -2168,11 +2066,11 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
         ImGui::End();
     }
 
-    if ( m_showRenderingAudio )
+    if ( m_showRendering )
     {
-        if ( ImGui::Begin( ImGuiEditorPanel::RenderingAudio, &m_showRenderingAudio ) )
+        if ( ImGui::Begin( ImGuiEditorPanel::Rendering, &m_showRendering ) )
         {
-            if ( ImGui::BeginTabBar( "##RenderingAudioTabs" ) )
+            if ( ImGui::BeginTabBar( "##RenderingTabs" ) )
             {
                 if ( ImGui::BeginTabItem( "Rendering" ) )
                 {
@@ -2350,232 +2248,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                     ImGui::EndTabItem();
                 }
 
-                if ( ImGui::BeginTabItem( "Audio Authoring" ) )
-                {
-                    const UI::OperatorEditorAudioView& audio = view.audio;
-                    const auto submitAudio =
-                        [&]( UI::OperatorEditorAudioCommandType type,
-                             int parameter = -1,
-                             int setIndex = -1,
-                             int bandIndex = -1,
-                             int sampleIndex = -1,
-                             float value = 0.0f,
-                             UI::OperatorEditorEditPhase phase = UI::OperatorEditorEditPhase::Commit )
-                    {
-                        submit( m_frameCommands.operatorEditor.audio,
-                                UI::OperatorEditorAudioCommand{ type,
-                                                                parameter,
-                                                                setIndex,
-                                                                bandIndex,
-                                                                sampleIndex,
-                                                                value,
-                                                                phase } );
-                    };
-                    ImGui::BeginDisabled( !audio.available );
-                    bool enabled = audio.enabled;
-                    if ( ImGui::Checkbox( "Contact audio", &enabled ) )
-                    {
-                        submitAudio( UI::OperatorEditorAudioCommandType::ToggleEnabled );
-                    }
-                    ImGui::SameLine();
-                    bool simpleMode = audio.simpleMode;
-                    if ( ImGui::Checkbox( "Simple linear mode", &simpleMode ) )
-                    {
-                        submitAudio( UI::OperatorEditorAudioCommandType::ToggleSimpleMode );
-                    }
-
-                    if ( ImGui::CollapsingHeader( "Global tuning", ImGuiTreeNodeFlags_DefaultOpen ) )
-                    {
-                        for ( const AudioScalarSpec& spec : kAudioGlobalSpecs )
-                        {
-                            ImGui::PushID( spec.parameter );
-                            editParameterized(
-                                m_audioEdit,
-                                spec.label,
-                                static_cast<int>( UI::OperatorEditorAudioCommandType::SetGlobalParameter ),
-                                spec.parameter,
-                                -1,
-                                -1,
-                                audio.globalParameters[spec.parameter],
-                                spec.step,
-                                spec.minValue,
-                                spec.maxValue,
-                                spec.format,
-                                [&]( float value, UI::OperatorEditorEditPhase phase )
-                                {
-                                    submitAudio( UI::OperatorEditorAudioCommandType::SetGlobalParameter,
-                                                 spec.parameter,
-                                                 -1,
-                                                 -1,
-                                                 -1,
-                                                 value,
-                                                 phase );
-                                } );
-                            ImGui::PopID();
-                        }
-                    }
-
-                    m_audioSetIndex = audio.setCount > 0 ? std::clamp( m_audioSetIndex, 0, audio.setCount - 1 ) : 0;
-                    const UI::OperatorEditorAudioSetView* selectedSet =
-                        audio.setCount > 0 ? &audio.sets[m_audioSetIndex] : nullptr;
-                    if ( ImGui::CollapsingHeader( "Contact recipes / material bands", ImGuiTreeNodeFlags_DefaultOpen ) )
-                    {
-                        const char* setLabel = selectedSet && selectedSet->name ? selectedSet->name : "No recipes";
-                        if ( ImGui::BeginCombo( "Recipe", setLabel ) )
-                        {
-                            for ( int index = 0; index < audio.setCount; ++index )
-                            {
-                                const bool selected = index == m_audioSetIndex;
-                                if ( ImGui::Selectable( audio.sets[index].name, selected ) )
-                                {
-                                    m_audioSetIndex = index;
-                                    m_audioBandIndex = 0;
-                                }
-                                if ( selected )
-                                {
-                                    ImGui::SetItemDefaultFocus();
-                                }
-                            }
-                            ImGui::EndCombo();
-                        }
-                        if ( selectedSet )
-                        {
-                            ImGui::TextDisabled( "materials %u / %u | %u samples",
-                                                 selectedSet->materialA,
-                                                 selectedSet->materialB,
-                                                 selectedSet->sampleCount );
-                            for ( int row = 0; row < 9; ++row )
-                            {
-                                const AudioScalarSpec& spec = kAudioRecipeSpecs[row];
-                                ImGui::PushID( 100 + row );
-                                editParameterized(
-                                    m_audioEdit,
-                                    spec.label,
-                                    static_cast<int>( UI::OperatorEditorAudioCommandType::SetRecipeParameter ),
-                                    spec.parameter,
-                                    m_audioSetIndex,
-                                    -1,
-                                    selectedSet->parameters[row],
-                                    spec.step,
-                                    spec.minValue,
-                                    spec.maxValue,
-                                    spec.format,
-                                    [&]( float value, UI::OperatorEditorEditPhase phase )
-                                    {
-                                        submitAudio( UI::OperatorEditorAudioCommandType::SetRecipeParameter,
-                                                     spec.parameter,
-                                                     m_audioSetIndex,
-                                                     -1,
-                                                     -1,
-                                                     value,
-                                                     phase );
-                                    } );
-                                ImGui::PopID();
-                            }
-                            m_audioBandIndex =
-                                selectedSet->bandCount > 0u
-                                    ? std::clamp( m_audioBandIndex, 0, static_cast<int>( selectedSet->bandCount ) - 1 )
-                                    : 0;
-                            if ( selectedSet->bandCount > 0u )
-                            {
-                                const UI::OperatorEditorAudioBandView& band = selectedSet->bands[m_audioBandIndex];
-                                if ( ImGui::BeginCombo( "Band", band.name ) )
-                                {
-                                    for ( uint32_t index = 0u; index < selectedSet->bandCount; ++index )
-                                    {
-                                        if ( ImGui::Selectable( selectedSet->bands[index].name,
-                                                                static_cast<int>( index ) == m_audioBandIndex ) )
-                                        {
-                                            m_audioBandIndex = static_cast<int>( index );
-                                        }
-                                    }
-                                    ImGui::EndCombo();
-                                }
-                                const float bandValues[] = { band.minImpulse,
-                                                             band.impulseRange,
-                                                             band.baseGain,
-                                                             band.pitchMin,
-                                                             band.pitchMax };
-                                for ( int row = 0; row < 5; ++row )
-                                {
-                                    const AudioScalarSpec& spec = kAudioBandSpecs[row];
-                                    ImGui::PushID( 200 + row );
-                                    editParameterized(
-                                        m_audioEdit,
-                                        spec.label,
-                                        static_cast<int>( UI::OperatorEditorAudioCommandType::SetBandParameter ),
-                                        spec.parameter,
-                                        m_audioSetIndex,
-                                        m_audioBandIndex,
-                                        bandValues[row],
-                                        spec.step,
-                                        spec.minValue,
-                                        spec.maxValue,
-                                        spec.format,
-                                        [&]( float value, UI::OperatorEditorEditPhase phase )
-                                        {
-                                            submitAudio( UI::OperatorEditorAudioCommandType::SetBandParameter,
-                                                         spec.parameter,
-                                                         m_audioSetIndex,
-                                                         m_audioBandIndex,
-                                                         -1,
-                                                         value,
-                                                         phase );
-                                        } );
-                                    ImGui::PopID();
-                                }
-                            }
-                        }
-                    }
-
-                    if ( ImGui::CollapsingHeader( "Sample library" ) )
-                    {
-                        m_audioSampleIndex =
-                            audio.sampleCount > 0 ? std::clamp( m_audioSampleIndex, 0, audio.sampleCount - 1 ) : 0;
-                        const char* sampleLabel = audio.sampleCount > 0
-                                                      ? SampleLeafName( audio.samplePaths[m_audioSampleIndex] )
-                                                      : "No samples loaded";
-                        if ( ImGui::BeginCombo( "Sample", sampleLabel ) )
-                        {
-                            for ( int index = 0; index < audio.sampleCount; ++index )
-                            {
-                                if ( ImGui::Selectable( SampleLeafName( audio.samplePaths[index] ),
-                                                        index == m_audioSampleIndex ) )
-                                {
-                                    m_audioSampleIndex = index;
-                                }
-                            }
-                            ImGui::EndCombo();
-                        }
-                        ImGui::BeginDisabled( audio.sampleCount <= 0 );
-                        if ( ImGui::Button( "Play" ) )
-                        {
-                            submitAudio( UI::OperatorEditorAudioCommandType::PreviewSample,
-                                         -1,
-                                         -1,
-                                         -1,
-                                         m_audioSampleIndex );
-                        }
-                        ImGui::SameLine();
-                        ImGui::BeginDisabled( !selectedSet );
-                        if ( ImGui::Button( "Use in recipe" ) )
-                        {
-                            submitAudio( UI::OperatorEditorAudioCommandType::SelectSample,
-                                         -1,
-                                         m_audioSetIndex,
-                                         -1,
-                                         m_audioSampleIndex );
-                        }
-                        ImGui::EndDisabled();
-                        ImGui::EndDisabled();
-                    }
-                    ImGui::EndDisabled();
-                    if ( !audio.available )
-                    {
-                        DrawDisabledWrapped( "Contact audio is unavailable; authoring remains visible for context." );
-                    }
-                    ImGui::EndTabItem();
-                }
                 ImGui::EndTabBar();
             }
         }
@@ -2801,24 +2473,6 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                 ImGui::Text( "Current %d | worker core %.2f ms",
                              diagnostics.workerThreadCount,
                              diagnostics.workerCoreTotalMs );
-            }
-
-            if ( ImGui::CollapsingHeader( "Audio" ) )
-            {
-                bool counters = diagnostics.audioDebugCounters;
-                if ( ImGui::Checkbox( "Reducer counters", &counters ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::ToggleAudioCounters );
-                }
-                if ( ImGui::Button( diagnostics.audioFlashModeLabel ) )
-                {
-                    submitDiagnostics( UI::OperatorEditorDiagnosticsCommandType::CycleAudioFlashMode );
-                }
-                ImGui::Text( "Events %llu | candidates %llu | voices %llu | dropped %llu",
-                             static_cast<unsigned long long>( diagnostics.audioEventsSeen ),
-                             static_cast<unsigned long long>( diagnostics.audioCandidates ),
-                             static_cast<unsigned long long>( diagnostics.audioSubmittedVoices ),
-                             static_cast<unsigned long long>( diagnostics.audioDroppedVoices ) );
             }
 
             if ( ImGui::CollapsingHeader( "UI" ) )

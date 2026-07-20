@@ -53,7 +53,6 @@ Related:
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "RenderDefaultsStore.h"
 #include "RuntimeInteractionController.h"
-#include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderHost.h"
 #include "Render/RuntimeRenderer.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -144,7 +143,6 @@ class Run
     AttachedCameraController m_attachedCamera;                     // Owns non-serialized Attach target/orbit/follow state.
     SimulationSystem m_simulation;                                 // Simulation timestep policy and physics accumulators
     ReplayRuntime m_replayRuntime;                                 // Constructs and sequences the concrete replay domain owners.
-    Runtime::Audio::ContactAudioService m_contactAudio;            // Presentation-only material impact playback sink.
     RuntimeTools m_runtimeTools;                                   // Launcher, editor, manipulator state, and transient render feedback.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Lifetime: the development editor owns only its ImGui CPU context and
@@ -167,9 +165,9 @@ class Run
     void UpdateLogic( float simulationDt,
                       float cameraDt,
                       float presentationAlpha );                   // simulationDt drives physics; cameraDt is unscaled wall time.
-    void AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
-                           RuntimeFrameSceneView& sceneOwners,
-                           float presentationAlpha );              // Post-step hooks that must see committed physics state.
+    void
+    AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners,
+                      RuntimeFrameSceneView& sceneOwners );        // Post-step hooks that must see committed physics state.
     // --- Per-frame tick helpers (called from Execute()) ---
     float TickPhysics( double dt,
                        RuntimeFrameInteractionView& interactionOwners,

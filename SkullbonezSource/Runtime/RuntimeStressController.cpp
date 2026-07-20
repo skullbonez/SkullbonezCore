@@ -1038,7 +1038,6 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
     RunCameraState& camera = interactionOwners.camera;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     SimulationSystem& simulation = sceneOwners.simulation;
-    Runtime::Audio::ContactAudioService& contactAudio = sceneOwners.contactAudio;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
@@ -1099,7 +1098,6 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        *window,
                                        ui,
-                                       contactAudio,
                                        presentationOwners.validationHarness,
                                        launchOptions );
         return loaded;

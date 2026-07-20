@@ -141,8 +141,8 @@ inline const char* PhysicsPipelineStageName( PhysicsPipelineStage stage )
 struct PhysicsDebugContact
 {
     // Solver contact row captured for drawing and presentation sinks. The
-    // pre-solve speeds are measured before the row applies impulses, so audio
-    // can distinguish real relative motion from support force transmission.
+    // pre-solve speeds are measured before the row applies impulses, so
+    // diagnostics distinguish real relative motion from support-force transfer.
     int bodyA = -1;
     int bodyB = -1;
     uint32_t featureId = 0;

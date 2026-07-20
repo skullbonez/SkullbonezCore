@@ -55,10 +55,6 @@ namespace UI
 class InGameUI;
 struct OperatorEditorFrameView;
 } // namespace UI
-namespace Runtime::Audio
-{
-class ContactAudioService;
-}
 namespace Runtime
 {
 class ApplicationExitState;
@@ -148,7 +144,6 @@ struct RuntimeFrameSceneView
     RunTimerState& timers;
     RuntimeOverlayDiagnostics& overlays;
     SimulationSystem& simulation;
-    Runtime::Audio::ContactAudioService& contactAudio;
     SceneController& sceneController;
 
     RuntimeFrameSceneView( SkullbonezCore::Core::EngineConfig& configValue,
@@ -157,11 +152,9 @@ struct RuntimeFrameSceneView
                            RunTimerState& timersValue,
                            RuntimeOverlayDiagnostics& overlaysValue,
                            SimulationSystem& simulationValue,
-                           Runtime::Audio::ContactAudioService& contactAudioValue,
                            SceneController& sceneControllerValue )
         : config( configValue ), launchOptions( launchOptionsValue ), startup( startupValue ), timers( timersValue ),
-          overlays( overlaysValue ), simulation( simulationValue ), contactAudio( contactAudioValue ),
-          sceneController( sceneControllerValue )
+          overlays( overlaysValue ), simulation( simulationValue ), sceneController( sceneControllerValue )
     {
     }
     RuntimeFrameSceneView( const RuntimeFrameSceneView& ) = delete;

@@ -55,13 +55,6 @@ namespace Physics
 {
 class PhysicsDebugVisualizer;
 }
-namespace Runtime
-{
-namespace Audio
-{
-class ContactAudioService;
-}
-} // namespace Runtime
 namespace UI
 {
 class InGameUI;

@@ -99,7 +99,6 @@ UIWindowInteractionOwner::WidgetView UIWindowInteractionOwner::Widgets()
              m_profilerTab,
              m_memoryOverlay,
              m_sceneTab,
-             m_soundTab,
              m_skyTab,
              m_cinematicTab,
              m_scrollY,
@@ -253,7 +252,6 @@ void UIWindowInteractionOwner::SetActiveTab( InGameUITab tab )
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
-    SoundTab::ResetPreviewState( m_soundTab );
     m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Content );
     m_cache.Reset();
 }
@@ -275,7 +273,6 @@ void UIWindowInteractionOwner::CancelInputCapture()
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
-    SoundTab::ResetPreviewState( m_soundTab );
     m_editorTab.objectCombo.Close();
     m_renderTargetCombo.Close();
     m_cameraModeCombo.Close();
@@ -505,8 +502,6 @@ int UIWindowInteractionOwner::ContentHeight() const
         return EditorTab::ContentHeight();
     case InGameUITab::Physics:
         return PhysicsTab::ContentHeight();
-    case InGameUITab::Sound:
-        return SoundTab::ContentHeight();
     case InGameUITab::Options:
         return OptionsTab::ContentHeight();
     case InGameUITab::Render:
@@ -1230,30 +1225,6 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
             CinematicTab::CloseCombo( m_cinematicTab );
             m_editorTab.objectCombo.Close();
         }
-        else if ( inContent && m_activeTab == InGameUITab::Sound )
-        {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
-            const int previousActiveSlider = m_activeSlider;
-            if ( SoundTab::HandleContentClick( m_soundTab,
-                                               result,
-                                               m_activeSlider,
-                                               m_mouseX,
-                                               m_mouseY,
-                                               contentX,
-                                               scrolledY,
-                                               contentW ) &&
-                 m_activeSlider != 0 && m_activeSlider != previousActiveSlider )
-            {
-                result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Acquire;
-            }
-            m_rendererCombo.Close();
-            m_reflectionCombo.Close();
-            CinematicTab::CloseCombo( m_cinematicTab );
-            m_editorTab.objectCombo.Close();
-            m_renderTargetCombo.Close();
-        }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
@@ -1479,8 +1450,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
                                                result ) &&
              !MemoryTab::UpdateActiveSlider( m_memoryOverlay, m_activeSlider, m_mouseX, result ) &&
              !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, m_lastModelCapacity, result ) &&
-             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) &&
-             !SoundTab::UpdateActiveSlider( m_soundTab, m_activeSlider, m_mouseX, result ) )
+             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
@@ -1546,8 +1516,7 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
              !ProfilerTab::CommitActiveSlider( m_profilerTab, m_activeSlider, result ) &&
              !MemoryTab::CommitActiveSlider( m_memoryOverlay, m_activeSlider, result ) &&
              !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
-             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) &&
-             !SoundTab::CommitActiveSlider( m_soundTab, m_activeSlider, result ) )
+             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
         {
             const int renderSlider = RenderSliderIndexFromActiveSlider( m_activeSlider );
             if ( renderSlider >= 0 )
@@ -1573,7 +1542,6 @@ InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profi
         OptionsTab::ResetPreviewState( m_optionsTab );
         PhysicsTab::ResetPreviewState( m_physicsTab );
         ControlsTab::ResetPreviewState( m_controlsTab );
-        SoundTab::ResetPreviewState( m_soundTab );
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         result.nativeMouseCapture = InGameUIInputResult::NativeMouseCaptureRequest::Release;

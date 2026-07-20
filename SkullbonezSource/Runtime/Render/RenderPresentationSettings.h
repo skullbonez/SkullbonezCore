@@ -6,7 +6,7 @@ Purpose:
 Summary:
   RuntimeRenderer owns these values alongside its render passes. Scene loading,
   UI, and stress tools may edit them at explicit cold/frame boundaries, while
-  physics and audio keep their own state in their domain owners.
+  physics keeps its own state in its domain owner.
 
 Glossary:
   Pipeline sync: Diagnostic mode that forces CPU/GPU synchronization before a
@@ -17,7 +17,7 @@ Glossary:
 Invariants:
   - These values never change deterministic physics state.
   - Vsync is retained while the backend is absent and applied when it is live.
-  - No physics, audio, input, or scene-lifecycle state belongs here.
+  - No physics, input, or scene-lifecycle state belongs here.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h

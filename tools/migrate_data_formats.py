@@ -16,6 +16,8 @@
 #     execution key; old content remains on the byte-exact scalar path.
 #   Config v4: Removes the rejected SIMD-kernel key; the retained engine path is
 #     scalar-only over the byte-certified SoA body layout.
+#   Config v5: Removes every contact-audio setting after the subsystem and its
+#     authored content were retired.
 #
 # Invariants:
 #   - Rewriting an already-current file is byte-idempotent.
@@ -41,7 +43,7 @@ import bake_hulls
 
 
 ASSET_LIBRARY_VERSION = 1
-CONFIG_VERSION = 4
+CONFIG_VERSION = 5
 ASSET_FORMAT = "skullbonez.asset_library.json"
 CONFIG_VERSION_RE = re.compile(r"^(?P<indent>\s*)format_version\s*=\s*(?P<version>[^#\s]+)(?P<tail>\s*(?:#.*)?)$")
 
@@ -136,6 +138,11 @@ def migrate_config_text(text: str, path: Path) -> str:
     # --check catch a manually retained v4 row.
     lines = [line for line in lines if line.partition("=")[0].strip() != simd_kernel_key]
 
+    # Named v4->v5 step: remove the complete retired contact-audio namespace.
+    # Applying this normalization to current files also makes --check reject a
+    # manually retained v5 row rather than preserving a setting with no owner.
+    lines = [line for line in lines if not line.partition("=")[0].strip().startswith("contact_audio_")]
+
     return "\n".join(lines) + "\n"
 
 
@@ -190,7 +197,7 @@ def self_test() -> None:
 
     config_path = Path("engine.cfg")
     config = migrate_config_text("# config\nscreen_x = 1\n", config_path)
-    assert "format_version = 4\n" in config
+    assert "format_version = 5\n" in config
     assert "physics_parallel_mutual_gravity = 1\n" in config
     assert "physics_simd_kernels" not in config
     assert migrate_config_text(config, config_path) == config
@@ -198,13 +205,20 @@ def self_test() -> None:
         "format_version = 3\nphysics_parallel_integrate = 1\nphysics_simd_kernels = 1\nscreen_x = 2\n",
         config_path,
     )
-    assert "format_version = 4\n" in v3_config
+    assert "format_version = 5\n" in v3_config
     assert "physics_simd_kernels" not in v3_config
     assert "screen_x = 2\n" in v3_config
+    v4_config = migrate_config_text(
+        "format_version = 4\ncontact_audio_enabled = 1\ncontact_audio_master_gain = 0.5\nscreen_x = 3\n",
+        config_path,
+    )
+    assert "format_version = 5\n" in v4_config
+    assert "contact_audio_" not in v4_config
+    assert "screen_x = 3\n" in v4_config
     try:
-        migrate_config_text("format_version = 5\n", config_path)
+        migrate_config_text("format_version = 6\n", config_path)
     except MigrationError as exc:
-        assert "newer than current version 4" in str(exc)
+        assert "newer than current version 5" in str(exc)
     else:
         raise AssertionError("future config version must fail")
 

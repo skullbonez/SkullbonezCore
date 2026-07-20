@@ -4,9 +4,8 @@ Purpose:
   Owns command-line early-exit probes that validate isolated startup subsystems.
 
 Summary:
-  Atlas generation, standalone physics/runtime-handle validation, and contact
-  audio smoke execute before the ordinary window, renderer, worker, and Run
-  owners are constructed.
+  Atlas generation and standalone physics/runtime-handle validation execute
+  before the ordinary window, renderer, worker, and Run owners are constructed.
 
 Glossary:
   Early-exit probe: CLI mode that emits bounded evidence and returns a process
@@ -20,7 +19,7 @@ Invariants:
   - Output strings, output files, exit codes, and call positions are startup
     compatibility surface and remain byte-identical to the pre-split Init.cpp.
   - Probe state is local to one synchronous invocation and is never retained.
-  - Physics and audio probes finish before ordinary runtime ownership begins.
+  - Physics probes finish before ordinary runtime ownership begins.
 
 Related:
   - StartupProbeHarnesses.h
@@ -38,7 +37,6 @@ Related:
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/Text.h"
 #include "../../World/WorldEnvironment.h"
-#include "../Audio/ContactAudioService.h"
 #include "../Scene/SceneController.h"
 #include "../WindowConstants.h"
 #include <cstdio>
@@ -464,66 +462,6 @@ bool HandlePhysicsStandaloneSmoke( const CommandLineView& commandLine, int& outE
     }
     fprintf( stdout, "PASS: standalone physics and runtime handle mirror smoke matched expected state.\n" );
     outExitCode = 0;
-    return true;
-}
-bool HandleContactAudioSmoke( const ParsedArgs& args, const SkullbonezCore::Core::EngineConfig& cfg, int& outExitCode )
-{
-    if ( !args.contactAudioSmoke )
-    {
-        return false;
-    }
-    // Concept: this smoke path proves decode, voice submission, and counters
-    // without creating a window, renderer, worker pool, or physics world.
-    SkullbonezCore::Runtime::Audio::ContactAudioService audio;
-    audio.SetMasterGain( cfg.contactAudio.masterGain );
-    audio.SetMaxDistanceScale( cfg.contactAudio.maxDistanceScale );
-    audio.SetRollingLevelDb( cfg.contactAudio.rollingLevelDb );
-    audio.SetRollingMaxDistance( cfg.contactAudio.rollingMaxDistance );
-    audio.SetRollingMinSlipSpeed( cfg.contactAudio.rollingMinSlipSpeed );
-    audio.SetRollingVoicesPerWindow( static_cast<uint32_t>( cfg.contactAudio.rollingVoicesPerWindow ) );
-    const bool initialized = audio.Initialize();
-    const bool loaded = audio.LoadContactAudioMap( "SkullbonezData/audio/contact_audio.materials.json" );
-    const bool submitted = initialized && loaded && audio.PlaySmokeImpact( HashStr( "earth" ), 6.0f );
-    Sleep( 350 );
-    const SkullbonezCore::Runtime::Audio::ContactAudioStats& stats = audio.Stats();
-    CreateDirectoryA( "TestOutput", nullptr );
-    FILE* report = nullptr;
-    if ( fopen_s( &report, "TestOutput/contact_audio_smoke.json", "w" ) == 0 && report )
-    {
-        fprintf( report,
-                 "{\n"
-                 "  \"initialized\": %s,\n"
-                 "  \"loaded\": %s,\n"
-                 "  \"submitted\": %s,\n"
-                 "  \"eventsSeen\": %u,\n"
-                 "  \"rejectedByThreshold\": %u,\n"
-                 "  \"rejectedByCooldown\": %u,\n"
-                 "  \"submittedVoices\": %u,\n"
-                 "  \"droppedVoices\": %u\n"
-                 "}\n",
-                 initialized ? "true" : "false",
-                 loaded ? "true" : "false",
-                 submitted ? "true" : "false",
-                 stats.eventsSeen,
-                 stats.rejectedByThreshold,
-                 stats.rejectedByCooldown,
-                 stats.submittedVoices,
-                 stats.droppedVoices );
-        fclose( report );
-    }
-    fprintf( stdout,
-             "[audio-smoke] initialized=%d loaded=%d submitted=%d events=%u threshold=%u cooldown=%u voices=%u "
-             "dropped=%u report=TestOutput/contact_audio_smoke.json\n",
-             initialized ? 1 : 0,
-             loaded ? 1 : 0,
-             submitted ? 1 : 0,
-             stats.eventsSeen,
-             stats.rejectedByThreshold,
-             stats.rejectedByCooldown,
-             stats.submittedVoices,
-             stats.droppedVoices );
-    fflush( stdout );
-    outExitCode = submitted ? 0 : 1;
     return true;
 }
 } // namespace Startup
