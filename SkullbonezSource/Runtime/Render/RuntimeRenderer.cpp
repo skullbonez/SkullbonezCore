@@ -1079,18 +1079,10 @@ bool RuntimeRenderer::ExecuteSceneTargetBeginThroughRenderGraph( const RenderFra
 }
 
 
-bool RuntimeRenderer::ExecuteObjectThroughRenderGraph(
-    const RenderFrameContext& frame,
-    ObjectPassMode mode,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    const Rendering::ShadowFrameData* objectShadow,
-    bool collisionStateColorsVisible,
-    float collisionVisualizerAlphaOverride,
-    float bodyAlpha,
-    const std::vector<uint8_t>* replayFocusModelMask,
-    bool drawMaskedModels )
+bool RuntimeRenderer::ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::ShadowFrameData* objectShadow = inputs.shadow;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle objectShadowResource;
     if ( objectShadow && objectShadow->valid )
@@ -1099,7 +1091,7 @@ bool RuntimeRenderer::ExecuteObjectThroughRenderGraph(
                                                           Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
 
-    const char* passName = mode == ObjectPassMode::Transparent ? "ObjectTransparentPass" : "ObjectOpaquePass";
+    const char* passName = inputs.mode == ObjectPassMode::Transparent ? "ObjectTransparentPass" : "ObjectOpaquePass";
     const uint32_t objectPass = graph.AddPass( passName,
                                                Rendering::RenderGraphQueueType::Graphics,
                                                Rendering::RenderGraphBarrierPolicy::HandoffValidated );
@@ -1107,24 +1099,25 @@ bool RuntimeRenderer::ExecuteObjectThroughRenderGraph(
     {
         graph.AddRead( objectPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
-    AddFrameTargetWrites( graph, objectPass, useCinematicTarget );
+    AddFrameTargetWrites( graph, objectPass, inputs.useCinematicTarget );
 
     ObjectGraphCallbackData callbackData;
     callbackData.objectPass = &m_objectPass;
     callbackData.frame = &frame;
-    callbackData.mode = mode;
-    callbackData.cinematic = activeCinematic;
+    callbackData.mode = inputs.mode;
+    callbackData.cinematic = inputs.cinematic;
     callbackData.shadow = objectShadow;
-    callbackData.collisionStateColorsVisible = collisionStateColorsVisible;
-    callbackData.collisionVisualizerAlphaOverride = collisionVisualizerAlphaOverride;
-    callbackData.bodyAlpha = bodyAlpha;
-    callbackData.modelMask = replayFocusModelMask;
-    callbackData.drawMaskedModels = drawMaskedModels;
-    graph.SetPassCallback<ExecuteObjectGraphCallback>(
-        objectPass,
-        callbackData,
-        true,
-        mode == ObjectPassMode::Transparent ? "Frame/Render/Objects/Transparent" : "Frame/Render/Objects/Opaque" );
+    callbackData.collisionStateColorsVisible = inputs.collisionStateColorsVisible;
+    callbackData.collisionVisualizerAlphaOverride = inputs.collisionVisualizerAlphaOverride;
+    callbackData.bodyAlpha = inputs.bodyAlpha;
+    callbackData.modelMask = inputs.modelMask;
+    callbackData.drawMaskedModels = inputs.drawMaskedModels;
+    graph.SetPassCallback<ExecuteObjectGraphCallback>( objectPass,
+                                                       callbackData,
+                                                       true,
+                                                       inputs.mode == ObjectPassMode::Transparent
+                                                           ? "Frame/Render/Objects/Transparent"
+                                                           : "Frame/Render/Objects/Opaque" );
 
     // Concept: object draw selection still lives in ObjectPassInputs. The graph
     // owns when that selection is scheduled and which frame target/shadow map
@@ -1137,14 +1130,11 @@ bool RuntimeRenderer::ExecuteObjectThroughRenderGraph(
 }
 
 
-bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph(
-    const RenderFrameContext& frame,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    const Rendering::ShadowFrameData* terrainShadow,
-    const Rendering::ShadowFrameData* objectShadow,
-    bool terrainHidden )
+bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::ShadowFrameData* terrainShadow = inputs.shadow;
+    const Rendering::ShadowFrameData* objectShadow = inputs.detailShadow;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle terrainShadowResource;
     if ( terrainShadow && terrainShadow->valid )
@@ -1170,15 +1160,15 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph(
     {
         graph.AddRead( terrainPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
-    AddFrameTargetWrites( graph, terrainPass, useCinematicTarget );
+    AddFrameTargetWrites( graph, terrainPass, inputs.useCinematicTarget );
 
     TerrainGraphCallbackData callbackData;
     callbackData.terrainPass = &m_terrainPass;
     callbackData.frame = &frame;
-    callbackData.cinematic = activeCinematic;
+    callbackData.cinematic = inputs.cinematic;
     callbackData.shadow = terrainShadow;
     callbackData.detailShadow = objectShadow;
-    callbackData.terrainHidden = terrainHidden;
+    callbackData.terrainHidden = inputs.terrainHidden;
     graph.SetPassCallback<ExecuteTerrainGraphCallback>( terrainPass, callbackData, true, "Frame/Render/Terrain" );
 
     // Invariant: terrain visibility is snapshotted before graph execution, while
@@ -1191,20 +1181,12 @@ bool RuntimeRenderer::ExecuteTerrainThroughRenderGraph(
 }
 
 
-bool RuntimeRenderer::ExecuteWaterThroughRenderGraph(
-    const RenderFrameContext& frame,
-    const ReflectionPassOutput& reflection,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    bool waterHidden,
-    bool flatWater,
-    bool noReflection,
-    bool freezeTime,
-    float frozenTime,
-    float liveWaterTime )
+bool RuntimeRenderer::ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const ReflectionPassOutput& reflection = inputs.reflection;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    if ( reflection.reflectionTextureHandle != 0u && !noReflection )
+    if ( reflection.reflectionTextureHandle != 0u && !inputs.noReflection )
     {
         const Rendering::RenderGraphResourceHandle reflectionTexture =
             graph.AddExternalResource( reflection.usedDxr ? "DxrReflectionTexture" : "RasterReflectionColor",
@@ -1213,19 +1195,19 @@ bool RuntimeRenderer::ExecuteWaterThroughRenderGraph(
                                                   Rendering::RenderGraphQueueType::Graphics,
                                                   Rendering::RenderGraphBarrierPolicy::HandoffValidated );
         graph.AddRead( waterPass, reflectionTexture, Rendering::RenderGraphResourceAccess::PixelShaderResource );
-        AddFrameTargetWrites( graph, waterPass, useCinematicTarget );
+        AddFrameTargetWrites( graph, waterPass, inputs.useCinematicTarget );
 
         WaterGraphCallbackData callbackData;
         callbackData.waterPass = &m_waterPass;
         callbackData.frame = &frame;
         callbackData.reflection = &reflection;
-        callbackData.cinematic = activeCinematic;
-        callbackData.waterHidden = waterHidden;
-        callbackData.flatWater = flatWater;
-        callbackData.noReflection = noReflection;
-        callbackData.freezeTime = freezeTime;
-        callbackData.frozenTime = frozenTime;
-        callbackData.liveWaterTime = liveWaterTime;
+        callbackData.cinematic = inputs.cinematic;
+        callbackData.waterHidden = inputs.waterHidden;
+        callbackData.flatWater = inputs.flatWater;
+        callbackData.noReflection = inputs.noReflection;
+        callbackData.freezeTime = inputs.freezeTime;
+        callbackData.frozenTime = inputs.frozenTime;
+        callbackData.liveWaterTime = inputs.liveWaterTime;
         graph.SetPassCallback<ExecuteWaterGraphCallback>( waterPass, callbackData, true, "Frame/Render/Water" );
 
         CompileRenderPassGraph( graph );
@@ -1238,19 +1220,19 @@ bool RuntimeRenderer::ExecuteWaterThroughRenderGraph(
     const uint32_t waterPass = graph.AddPass( "WaterPass",
                                               Rendering::RenderGraphQueueType::Graphics,
                                               Rendering::RenderGraphBarrierPolicy::HandoffValidated );
-    AddFrameTargetWrites( graph, waterPass, useCinematicTarget );
+    AddFrameTargetWrites( graph, waterPass, inputs.useCinematicTarget );
 
     WaterGraphCallbackData callbackData;
     callbackData.waterPass = &m_waterPass;
     callbackData.frame = &frame;
     callbackData.reflection = &reflection;
-    callbackData.cinematic = activeCinematic;
-    callbackData.waterHidden = waterHidden;
-    callbackData.flatWater = flatWater;
-    callbackData.noReflection = noReflection;
-    callbackData.freezeTime = freezeTime;
-    callbackData.frozenTime = frozenTime;
-    callbackData.liveWaterTime = liveWaterTime;
+    callbackData.cinematic = inputs.cinematic;
+    callbackData.waterHidden = inputs.waterHidden;
+    callbackData.flatWater = inputs.flatWater;
+    callbackData.noReflection = inputs.noReflection;
+    callbackData.freezeTime = inputs.freezeTime;
+    callbackData.frozenTime = inputs.frozenTime;
+    callbackData.liveWaterTime = inputs.liveWaterTime;
     graph.SetPassCallback<ExecuteWaterGraphCallback>( waterPass, callbackData, true, "Frame/Render/Water" );
 
     // Invariant: WaterPass may decide to draw the no-reflection shader path or
@@ -1265,16 +1247,15 @@ bool RuntimeRenderer::ExecuteWaterThroughRenderGraph(
 
 
 RuntimeRenderer::GraphPassResult
-RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame,
-                                                         bool useCinematicTarget,
-                                                         const TornadoVisualSnapshot& snapshot )
+RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const TornadoVisualGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle colorTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
                                    Rendering::RenderGraphResourceAccess::RenderTarget );
     const Rendering::RenderGraphResourceHandle depthTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
                                    Rendering::RenderGraphResourceAccess::DepthWrite );
 
     const uint32_t tornadoPass = graph.AddPass( "TornadoVisualPass",
@@ -1286,7 +1267,7 @@ RuntimeRenderer::ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContex
     TornadoVisualGraphCallbackData callbackData;
     callbackData.tornadoVisualPass = &m_tornadoVisualPass;
     callbackData.frame = &frame;
-    callbackData.snapshot = &snapshot;
+    callbackData.snapshot = &inputs.snapshot;
     graph.SetPassCallback<ExecuteTornadoVisualGraphCallback>( tornadoPass,
                                                               callbackData,
                                                               true,
@@ -1325,13 +1306,10 @@ TornadoVisualSnapshot RuntimeRenderer::BuildTornadoVisualSnapshot( const RenderF
 }
 
 
-bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
-    const RenderFrameContext& frame,
-    const ReplayVisualPacket& replayVisualPacket,
-    bool useCinematicTarget,
-    const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-    const Rendering::ShadowFrameData* objectShadow )
+bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const Rendering::ShadowFrameData* objectShadow = inputs.shadow;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     Rendering::RenderGraphResourceHandle objectShadowResource;
     if ( objectShadow && objectShadow->valid )
@@ -1347,14 +1325,14 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
     {
         graph.AddRead( replayPass, objectShadowResource, Rendering::RenderGraphResourceAccess::PixelShaderResource );
     }
-    AddFrameTargetWrites( graph, replayPass, useCinematicTarget );
+    AddFrameTargetWrites( graph, replayPass, inputs.useCinematicTarget );
 
     ReplayGhostGraphCallbackData callbackData;
     callbackData.profiler = m_profiler;
-    callbackData.replayVisualPacket = &replayVisualPacket;
+    callbackData.replayVisualPacket = &inputs.replayVisualPacket;
     callbackData.frame = &frame;
     callbackData.config = &m_config;
-    callbackData.cinematic = activeCinematic;
+    callbackData.cinematic = inputs.cinematic;
     callbackData.shadow = objectShadow;
     graph.SetPassCallback<ExecuteReplayGhostGraphCallback>( replayPass,
                                                             callbackData,
@@ -1374,17 +1352,17 @@ bool RuntimeRenderer::ExecuteReplayGhostsThroughRenderGraph(
 
 
 RuntimeRenderer::GraphPassResult
-RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
-                                                        const RuntimeRenderServices& services,
-                                                        bool useCinematicTarget )
+RuntimeRenderer::ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
+    const RuntimeRenderServices& services = inputs.services;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const DebugOverlaySnapshot snapshot = BuildDebugOverlaySnapshot( frame, services );
     const Rendering::RenderGraphResourceHandle colorTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneColor" : "SwapchainBackbuffer",
                                    Rendering::RenderGraphResourceAccess::RenderTarget );
     const Rendering::RenderGraphResourceHandle depthTarget =
-        graph.AddExternalResource( useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
+        graph.AddExternalResource( inputs.useCinematicTarget ? "CinematicSceneDepth" : "MainDepthStencil",
                                    Rendering::RenderGraphResourceAccess::DepthWrite );
 
     const uint32_t debugPass = graph.AddPass( "DebugOverlayPass",
@@ -2070,82 +2048,80 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     bool objectTransparentCallbackOwned = false;
     if ( !debugTransparentBodyPass )
     {
-        objectOpaqueCallbackOwned = ExecuteObjectThroughRenderGraph( frame,
-                                                                     ObjectPassMode::Opaque,
-                                                                     useCinematicTarget,
-                                                                     activeCinematic,
-                                                                     objectShadowFrame,
-                                                                     collisionStateColorsVisible,
-                                                                     collisionVisualizerAlphaOverride,
-                                                                     1.0f,
-                                                                     replayFocusModelMask,
-                                                                     true );
+        objectOpaqueCallbackOwned = ExecuteObjectThroughRenderGraph( { frame,
+                                                                       ObjectPassMode::Opaque,
+                                                                       useCinematicTarget,
+                                                                       activeCinematic,
+                                                                       objectShadowFrame,
+                                                                       collisionStateColorsVisible,
+                                                                       collisionVisualizerAlphaOverride,
+                                                                       1.0f,
+                                                                       replayFocusModelMask,
+                                                                       true } );
     }
 
     // Terrain receives the broad shadow frame and provides the main world depth
     // that cinematic post passes read later.
-    const bool terrainCallbackOwned = ExecuteTerrainThroughRenderGraph( frame,
-                                                                        useCinematicTarget,
-                                                                        activeCinematic,
-                                                                        terrainShadowFrame,
-                                                                        terrainDetailShadowFrame,
-                                                                        policy.terrainHidden );
+    const bool terrainCallbackOwned = ExecuteTerrainThroughRenderGraph( { frame,
+                                                                          useCinematicTarget,
+                                                                          activeCinematic,
+                                                                          terrainShadowFrame,
+                                                                          terrainDetailShadowFrame,
+                                                                          policy.terrainHidden } );
 
     // Water is deliberately downstream of ReflectionPass; it samples the
     // reflection texture but never rebuilds it.
-    const bool waterCallbackOwned = ExecuteWaterThroughRenderGraph( frame,
-                                                                    reflection,
-                                                                    useCinematicTarget,
-                                                                    activeCinematic,
-                                                                    policy.waterHidden,
-                                                                    policy.waterFlatDebug,
-                                                                    policy.waterNoReflect,
-                                                                    policy.waterFreezeDebug,
-                                                                    policy.frozenWaterTime,
-                                                                    static_cast<float>( policy.simulationSeconds ) );
+    const bool waterCallbackOwned =
+        ExecuteWaterThroughRenderGraph( { frame,
+                                          reflection,
+                                          useCinematicTarget,
+                                          activeCinematic,
+                                          policy.waterHidden,
+                                          policy.waterFlatDebug,
+                                          policy.waterNoReflect,
+                                          policy.waterFreezeDebug,
+                                          policy.frozenWaterTime,
+                                          static_cast<float>( policy.simulationSeconds ) } );
 
     const GraphPassResult tornadoVisualGraph =
-        ExecuteTornadoVisualThroughRenderGraph( frame, useCinematicTarget, tornadoVisual );
+        ExecuteTornadoVisualThroughRenderGraph( { frame, useCinematicTarget, tornadoVisual } );
 
     if ( debugTransparentBodyPass )
     {
-        objectTransparentCallbackOwned = ExecuteObjectThroughRenderGraph( frame,
-                                                                          ObjectPassMode::Transparent,
-                                                                          useCinematicTarget,
-                                                                          activeCinematic,
-                                                                          objectShadowFrame,
-                                                                          collisionStateColorsVisible,
-                                                                          collisionVisualizerAlphaOverride,
-                                                                          bodyRenderAlpha,
-                                                                          nullptr,
-                                                                          true );
+        objectTransparentCallbackOwned = ExecuteObjectThroughRenderGraph( { frame,
+                                                                            ObjectPassMode::Transparent,
+                                                                            useCinematicTarget,
+                                                                            activeCinematic,
+                                                                            objectShadowFrame,
+                                                                            collisionStateColorsVisible,
+                                                                            collisionVisualizerAlphaOverride,
+                                                                            bodyRenderAlpha,
+                                                                            nullptr,
+                                                                            true } );
     }
     else if ( replayFocusFadeActive )
     {
-        objectTransparentCallbackOwned = ExecuteObjectThroughRenderGraph( frame,
-                                                                          ObjectPassMode::Transparent,
-                                                                          useCinematicTarget,
-                                                                          activeCinematic,
-                                                                          objectShadowFrame,
-                                                                          collisionStateColorsVisible,
-                                                                          collisionVisualizerAlphaOverride,
-                                                                          0.5f,
-                                                                          replayFocusModelMask,
-                                                                          false );
+        objectTransparentCallbackOwned = ExecuteObjectThroughRenderGraph( { frame,
+                                                                            ObjectPassMode::Transparent,
+                                                                            useCinematicTarget,
+                                                                            activeCinematic,
+                                                                            objectShadowFrame,
+                                                                            collisionStateColorsVisible,
+                                                                            collisionVisualizerAlphaOverride,
+                                                                            0.5f,
+                                                                            replayFocusModelMask,
+                                                                            false } );
     }
 
     bool replayGhostCallbackOwned = false;
     {
         CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-        replayGhostCallbackOwned = ExecuteReplayGhostsThroughRenderGraph( frame,
-                                                                          *replayFrame.visualPacket,
-                                                                          useCinematicTarget,
-                                                                          activeCinematic,
-                                                                          objectShadowFrame );
+        replayGhostCallbackOwned = ExecuteReplayGhostsThroughRenderGraph(
+            { frame, *replayFrame.visualPacket, useCinematicTarget, activeCinematic, objectShadowFrame } );
     }
 
     const GraphPassResult debugOverlayGraph =
-        ExecuteDebugOverlayThroughRenderGraph( frame, services, useCinematicTarget );
+        ExecuteDebugOverlayThroughRenderGraph( { frame, services, useCinematicTarget } );
 
     bool volumetricReady = false;
     bool volumetricCallbackOwned = false;

@@ -1,6 +1,6 @@
 # Render Graph Completion
 
-Status: Active — 3/6 tasks (G0-G2 complete; G3-G5 pending)
+Status: Active — 4/6 tasks (G0-G3 complete; G4-G5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 5 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding E)
 Ledger: G0-G5
@@ -208,6 +208,35 @@ Validation at the unchanged G2 tip:
   native-token lifetime, UAV ordering, and bind-only framebuffer invariants are
   documented beside the relevant code.
 
+## G3 World Pass Ownership Evidence
+
+Objects, terrain, water, tornado visuals, replay ghosts, and debug overlays
+already entered the G3 slice with callback-only execution and graph-declared
+frame-target reads/writes. G3 made that single path explicit at the wrapper
+boundary: every touched world wrapper now accepts a named per-pass input record,
+and every frame call site constructs that record instead of passing positional
+visibility, target-selection, and presentation booleans. Static source
+inspection confirms each pass body's `Render` call, plus replay ghost
+submission, remains reachable only from its render-graph callback; there is no
+direct fallback or hidden target transition in the world-pass wrappers.
+
+Validation at the unchanged G3 tip:
+
+- Direct Automation build: PASS in 21.87 s, zero warnings/errors.
+- `tools\validate_dx12_renderer.bat` runs 1-3: PASS in 66.98 s, 55.18 s,
+  and 55.24 s; every run reported zero DX12 validation errors and matched all
+  three committed screenshot baselines. The initial pre-launch formatting
+  check stopped before renderer execution; after the touched header's required
+  alignment post-pass, the consecutive sequence restarted from run 1.
+- `tools\run_graphics_stress.bat 1`: PASS in 61.70 s; PID 36216 completed the
+  bounded minute and closed by PID-scoped timeout without a crash.
+- `tools\validate_replay_visual_fidelity.bat`: PASS in 447.61 s with exactly
+  one invocation, one engine process, one prediction generation, all positive
+  and false-pass controls, and zero golden refresh.
+- Touched-source comment audit: 2/2 checked, 0 deferred; both files retain
+  complete learning headers and the typed-input borrow/synchronous-execution
+  contract is documented beside the new records.
+
 ## Tasks
 
 - [x] G0 — Authority inventory and migration map: for every pass, record
@@ -227,7 +256,7 @@ Validation at the unchanged G2 tip:
   the hand path per class. Typed input structs for touched wrappers.
   Validation: `tools\validate_dx12_renderer.bat` ×3 +
   `tools\run_graphics_stress.bat 1`.
-- [ ] G3 — World pass class: objects, terrain, water, tornado visual, replay
+- [x] G3 — World pass class: objects, terrain, water, tornado visual, replay
   ghosts, debug overlay become callback-owned with graph transitions; delete
   their direct execution fallbacks. Replay-facing presentation/submission is
   touched here, so the replay fidelity gate applies. Validation:

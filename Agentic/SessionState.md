@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade, and physics settings plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the five remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 20 / 37 live tasks; 54%. |
+| Active/future progress | 21 / 37 live tasks; 57%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | X2 `validate_full` passes in 166.92s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | G2: direct Automation build, three consecutive DX12 renderer gates, and bounded graphics stress pass; 14/14 comment audit, 0 deferred. |
+| Validation for current edits | G3: direct Automation build, three consecutive DX12 renderer gates, bounded graphics stress, and the single-process replay-fidelity gate pass; 2/2 comment audit, 0 deferred. |
 
 ## Live Queue
 
-NOW. Five live plans, 37 tasks; 20 complete (54%). The remaining architecture-review campaign
+NOW. Five live plans, 37 tasks; 21 complete (57%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: render-graph-completion → render-hal-modernization →
@@ -114,6 +114,12 @@ are not certified. Full evidence:
 | `tools\validate_dx12_renderer.bat` (G2 run 2) | 55.10 s | PASS; zero DX12 errors and unchanged baselines |
 | `tools\validate_dx12_renderer.bat` (G2 run 3) | 55.70 s | PASS; zero DX12 errors and unchanged baselines |
 | `tools\run_graphics_stress.bat 1` (G2) | 61.96 s | PASS; bounded PID-scoped run, crash-free |
+| direct Automation build (G3) | 21.87 s | PASS; zero warnings/errors |
+| `tools\validate_dx12_renderer.bat` (G3 run 1) | 66.98 s | PASS; zero DX12 errors and unchanged baselines |
+| `tools\validate_dx12_renderer.bat` (G3 run 2) | 55.18 s | PASS; zero DX12 errors and unchanged baselines |
+| `tools\validate_dx12_renderer.bat` (G3 run 3) | 55.24 s | PASS; zero DX12 errors and unchanged baselines |
+| `tools\run_graphics_stress.bat 1` (G3) | 61.70 s | PASS; bounded PID-scoped run, crash-free |
+| replay visual fidelity (G3, one engine generation) | 447.61 s | PASS; all positive/negative controls, zero refresh |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -121,11 +127,14 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `render-graph-completion` G3 on `nightrunner-20th-july`.
-G2 transferred shadow, raster/DXR reflection, and cinematic scene barriers to
-compiled producer/publish callbacks; framebuffer and DXR hand paths are gone,
-and three consecutive DX12 gates plus stress passed. Consolidate the world
-passes and replace touched wrapper argument avalanches next. The Profiler semantic
+Continue `render-graph-completion` G4 on `nightrunner-20th-july`.
+G3 replaced every world-pass wrapper avalanche with a typed input record and
+proved objects, terrain, water, tornado visuals, replay ghosts, and debug
+overlays have callback-only execution with no hidden transition fallback.
+Three consecutive DX12 gates, stress, and the single-process replay-fidelity
+gate passed. Transfer UI/text and normal backbuffer frame edges next, recording
+only the plan-approved Present/capture/editor-copy/lifecycle exceptions and
+deleting the graph diagnostic scaffolding. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

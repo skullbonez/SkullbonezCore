@@ -212,6 +212,65 @@ class RuntimeRenderer
         bool waterNoReflection = false;
         float simulationTimeSeconds = 0.0f;
     };
+    // Concept: each world-pass graph wrapper receives one named record so
+    // visibility and target-selection flags cannot be swapped positionally.
+    // Lifetime: references and pointers below are borrowed only for the
+    // wrapper's synchronous compile, dry-run, and callback execution.
+    struct ObjectGraphInputs
+    {
+        const RenderFrameContext& frame;
+        ObjectPassMode mode = ObjectPassMode::Opaque;
+        bool useCinematicTarget = false;
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+        const Rendering::ShadowFrameData* shadow = nullptr;
+        bool collisionStateColorsVisible = false;
+        float collisionVisualizerAlphaOverride = -1.0f;
+        float bodyAlpha = 1.0f;
+        const std::vector<uint8_t>* modelMask = nullptr;
+        bool drawMaskedModels = true;
+    };
+    struct TerrainGraphInputs
+    {
+        const RenderFrameContext& frame;
+        bool useCinematicTarget = false;
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+        const Rendering::ShadowFrameData* shadow = nullptr;
+        const Rendering::ShadowFrameData* detailShadow = nullptr;
+        bool terrainHidden = false;
+    };
+    struct WaterGraphInputs
+    {
+        const RenderFrameContext& frame;
+        const ReflectionPassOutput& reflection;
+        bool useCinematicTarget = false;
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+        bool waterHidden = false;
+        bool flatWater = false;
+        bool noReflection = false;
+        bool freezeTime = false;
+        float frozenTime = 0.0f;
+        float liveWaterTime = 0.0f;
+    };
+    struct TornadoVisualGraphInputs
+    {
+        const RenderFrameContext& frame;
+        bool useCinematicTarget = false;
+        const TornadoVisualSnapshot& snapshot;
+    };
+    struct ReplayGhostGraphInputs
+    {
+        const RenderFrameContext& frame;
+        const ReplayVisualPacket& replayVisualPacket;
+        bool useCinematicTarget = false;
+        const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
+        const Rendering::ShadowFrameData* shadow = nullptr;
+    };
+    struct DebugOverlayGraphInputs
+    {
+        const RenderFrameContext& frame;
+        const RuntimeRenderServices& services;
+        bool useCinematicTarget = false;
+    };
     struct GraphPassResult
     {
         bool rendered = false;                            // Pass body produced visible output.
@@ -239,47 +298,16 @@ class RuntimeRenderer
     bool ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame );
     ReflectionGraphResult ExecuteReflectionThroughRenderGraph( const ReflectionGraphInputs& inputs );
     bool ExecuteSceneTargetBeginThroughRenderGraph( const RenderFrameContext& frame );
-    bool ExecuteObjectThroughRenderGraph( const RenderFrameContext& frame,
-                                          ObjectPassMode mode,
-                                          bool useCinematicTarget,
-                                          const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-                                          const Rendering::ShadowFrameData* objectShadow,
-                                          bool collisionStateColorsVisible,
-                                          float collisionVisualizerAlphaOverride,
-                                          float bodyAlpha,
-                                          const std::vector<uint8_t>* replayFocusModelMask,
-                                          bool drawMaskedModels );
-    bool ExecuteTerrainThroughRenderGraph( const RenderFrameContext& frame,
-                                           bool useCinematicTarget,
-                                           const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-                                           const Rendering::ShadowFrameData* terrainShadow,
-                                           const Rendering::ShadowFrameData* objectShadow,
-                                           bool terrainHidden );
-    bool ExecuteWaterThroughRenderGraph( const RenderFrameContext& frame,
-                                         const ReflectionPassOutput& reflection,
-                                         bool useCinematicTarget,
-                                         const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-                                         bool waterHidden,
-                                         bool flatWater,
-                                         bool noReflection,
-                                         bool freezeTime,
-                                         float frozenTime,
-                                         float liveWaterTime );
+    bool ExecuteObjectThroughRenderGraph( const ObjectGraphInputs& inputs );
+    bool ExecuteTerrainThroughRenderGraph( const TerrainGraphInputs& inputs );
+    bool ExecuteWaterThroughRenderGraph( const WaterGraphInputs& inputs );
     TornadoVisualSnapshot BuildTornadoVisualSnapshot( const RenderFrameContext& frame,
                                                       const RuntimeRenderServices& services ) const;
-    GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const RenderFrameContext& frame,
-                                                            bool useCinematicTarget,
-                                                            const TornadoVisualSnapshot& snapshot );
+    GraphPassResult ExecuteTornadoVisualThroughRenderGraph( const TornadoVisualGraphInputs& inputs );
     DebugOverlaySnapshot BuildDebugOverlaySnapshot( const RenderFrameContext& frame,
                                                     const RuntimeRenderServices& services ) const;
-    bool ExecuteReplayGhostsThroughRenderGraph( const RenderFrameContext& frame,
-                                                const ReplayVisualPacket& replayVisualPacket,
-                                                bool useCinematicTarget,
-                                                const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic,
-                                                const Rendering::ShadowFrameData* objectShadow );
-    GraphPassResult ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
-                                                           const RuntimeRenderServices& services,
-                                                           bool useCinematicTarget );
+    bool ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
+    GraphPassResult ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
