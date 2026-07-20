@@ -33,12 +33,11 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.cpp
-  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
+  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
   - ThirdPtySource/tracy/manual/tracy.md
 */
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 
 #if defined( TRACY_ENABLE ) && !defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
@@ -88,10 +87,6 @@ class TracyClientOwner
     // Plot names must have process lifetime because Tracy records their address.
     static void PublishPlot( const char* name, double value ) noexcept;
     static void PublishDevelopmentAllocationPlots() noexcept;
-    // Heavy-mode hooks return the observing connection id; the allocation
-    // header must return that id with the matching free.
-    static uint64_t RecordAllocation( const void* pointer, std::size_t size ) noexcept;
-    static void RecordFree( const void* pointer, uint64_t connectionId ) noexcept;
 
   private:
     bool m_started = false;
@@ -138,10 +133,6 @@ class TracyOwnerZoneScope
     ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::EndOwnerZone( token )
 #define SKORE_TRACY_PLOT_VALUE( name, value )                                                                          \
     ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::PublishPlot( name, static_cast<double>( value ) )
-#define SKORE_TRACY_RECORD_ALLOCATION( pointer, size )                                                                 \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::RecordAllocation( pointer, size )
-#define SKORE_TRACY_RECORD_FREE( pointer, connectionId )                                                               \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::RecordFree( pointer, connectionId )
 #else
 // Invariant: the argument tokens are discarded, so disabled builds cannot pay
 // formatting, function-call, allocation, or side-effect cost by accident.
@@ -152,6 +143,4 @@ class TracyOwnerZoneScope
 #define SKORE_TRACY_BEGIN_OWNER_ZONE( sourceLocationHandle ) 0u
 #define SKORE_TRACY_END_OWNER_ZONE( token ) ( (void)0 )
 #define SKORE_TRACY_PLOT_VALUE( name, value ) ( (void)0 )
-#define SKORE_TRACY_RECORD_ALLOCATION( pointer, size ) 0u
-#define SKORE_TRACY_RECORD_FREE( pointer, connectionId ) ( (void)0 )
 #endif

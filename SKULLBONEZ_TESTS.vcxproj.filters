@@ -34,7 +34,7 @@
     <Filter Include="Source Files\Runtime">
       <UniqueIdentifier>{B1E9B95C-2E68-4B0F-8EE6-EC0F5529E0BA}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Runtime\Allocation">
+    <Filter Include="Source Files\Core\Allocation">
       <UniqueIdentifier>{D8F59F97-F421-4B8B-AD58-274C63075BB0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Camera">
@@ -261,14 +261,14 @@
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp">
       <Filter>Source Files\Runtime\Camera</Filter>

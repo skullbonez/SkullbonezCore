@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.cpp
 Purpose:
-  Owns Tracy lifecycle, owner zones, plots, heavy allocation tracing, and status.
+  Owns Tracy lifecycle, owner zones, plots, capture mode, and status.
 
 Summary:
   The process composition root starts the manually managed on-demand client
@@ -9,7 +9,7 @@ Summary:
   shuts it down after joining them. A fixed source-location registry maps the
   engine profiler's established owner paths into Tracy. Standard mode records
   zones and capacity plots; explicit heavy mode also records call stacks and
-  global C++ allocation events.
+  enables the Core allocation owner to emit global C++ allocation events.
 
 Glossary:
   On-demand client: Tracy mode that records only while an external viewer is
@@ -29,8 +29,8 @@ Invariants:
   - The 32-byte worker-name buffer bounds all formatted thread labels.
   - Source locations borrow static engine marker strings and never outlive the
     process-owned client.
-  - Heavy allocation frees are emitted only to the connection that observed
-    the matching allocation.
+  - The Core allocation owner emits heavy frees only to the connection that
+    observed the matching allocation; this owner publishes the active mode.
   - Every rpmalloc backing map reserves bytes in the named Tracy owner before
     VirtualAlloc, and every LZ4 stream allocation enters that same owner; there
     is no untracked system- or CRT-allocation fallback.
@@ -45,7 +45,7 @@ Related:
 */
 #include "TracyClientOwner.h"
 
-#include "../Allocation/DevelopmentToolAllocation.h"
+#include "../../Core/Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/PlatformWin32.h"
 
@@ -101,7 +101,6 @@ constexpr const char* OWNER_ZONE_FUNCTION = "Engine owner interval";
 constexpr const char* CAPTURE_MODE_ENVIRONMENT = "SKORE_TRACY_MODE";
 constexpr const char* STANDARD_MODE_VALUE = "standard";
 constexpr const char* HEAVY_MODE_VALUE = "heavy";
-constexpr const char* RUNTIME_HEAP_NAME = "Skore Runtime C++ Heap";
 constexpr std::size_t TRACY_BACKING_ALIGNMENT = 64u * 1024u;
 
 enum class RequestedCaptureMode
@@ -146,11 +145,6 @@ RequestedCaptureMode ReadRequestedCaptureMode() noexcept
 bool IsInitialized() noexcept
 {
     return g_tracyInitialized.load( std::memory_order_acquire );
-}
-
-bool IsHeavyCaptureConnected() noexcept
-{
-    return IsInitialized() && g_tracyHeavyMode.load( std::memory_order_acquire ) && TracyIsConnected;
 }
 
 void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
@@ -282,6 +276,7 @@ void TracyClientOwner::Start()
     const bool heavyMode = m_started && captureMode == RequestedCaptureMode::Heavy;
     g_tracyHeavyMode.store( heavyMode, std::memory_order_release );
     g_tracyInitialized.store( m_started, std::memory_order_release );
+    RuntimeAllocation::SetTracyAllocationTracingEnabled( heavyMode );
     if ( !m_started )
     {
         return;
@@ -320,6 +315,7 @@ void TracyClientOwner::Shutdown() noexcept
     // UI snapshots and marker seams therefore stop reaching the vendor first.
     g_tracyInitialized.store( false, std::memory_order_release );
     g_tracyHeavyMode.store( false, std::memory_order_release );
+    RuntimeAllocation::SetTracyAllocationTracingEnabled( false );
     tracy::ShutdownProfiler();
     m_started = false;
     RuntimeAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
@@ -487,30 +483,4 @@ void TracyClientOwner::PublishDevelopmentAllocationPlots() noexcept
     }
 }
 
-uint64_t TracyClientOwner::RecordAllocation( const void* pointer, std::size_t size ) noexcept
-{
-    if ( !pointer || !IsHeavyCaptureConnected() )
-    {
-        return 0u;
-    }
-
-    const uint64_t connectionId = tracy::GetProfiler().ConnectionId();
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
-    ___tracy_emit_memory_alloc_callstack_named( pointer, size, HEAVY_CALLSTACK_DEPTH, 0, RUNTIME_HEAP_NAME );
-    return connectionId;
-}
-
-void TracyClientOwner::RecordFree( const void* pointer, uint64_t connectionId ) noexcept
-{
-    if ( !pointer || connectionId == 0u || !IsHeavyCaptureConnected() ||
-         tracy::GetProfiler().ConnectionId() != connectionId )
-    {
-        return;
-    }
-
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
-    ___tracy_emit_memory_free_callstack_named( pointer, HEAVY_CALLSTACK_DEPTH, 0, RUNTIME_HEAP_NAME );
-}
 } // namespace SkullbonezCore::Runtime::DevelopmentTools

@@ -98,13 +98,13 @@
         "SkullbonezSource/Core/SbResult.h",
         "SkullbonezSource/Core/WorkerPool.*",
         "SkullbonezSource/Core/AmortizedTask.*",
-        "SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.*",
-        "SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.*"
+        "SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.*",
+        "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.*"
       ],
       "required_instrumented_sources": [
         "SkullbonezSource/Core/WorkerPool.cpp",
-        "SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp",
-        "SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp"
+        "SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp",
+        "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp"
       ]
     },
     {

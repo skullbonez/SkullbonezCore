@@ -37,7 +37,7 @@ Related:
 #include "../Core/Common.h"
 #include "../Core/Config.h"
 #include "../Core/MainMemoryStats.h"
-#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Runtime/Scene/SceneControllerState.h"
 #include "../Rendering/IShader.h"
 #include "../Rendering/IRenderDiagnostics.h"

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp
+File: SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp
 Purpose:
   Implements fixed-storage allocation tracking and the process allocation hook.
 
@@ -31,14 +31,16 @@ Invariants:
   - Heavy-mode allocation/free events pair only within one viewer connection.
 
 Related:
-  - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
+  - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
   - tools/check_allocation_policy.py
-  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
+  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
 */
 #include "RuntimeAllocationTracker.h"
 
 #include "RuntimeReserveAllocator.h"
-#include "../DevelopmentTools/TracyClientOwner.h"
+#if defined( TRACY_ENABLE )
+#include "DevelopmentToolAllocation.h"
+#endif
 
 #include <atomic>
 #include <cstddef>
@@ -50,7 +52,7 @@ Related:
 #include <intrin.h>
 #endif
 #if defined( _WIN32 )
-#include "../../Core/PlatformWin32.h"
+#include "../PlatformWin32.h"
 #endif
 
 namespace
@@ -364,7 +366,8 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
         // Heavy Tracy capture is independent of allocation-guard mode. The
         // connection id pairs this allocation with a free only inside the same
         // viewer session, avoiding stale frees after disconnect/reconnect.
-        header->tracyConnectionId = SKORE_TRACY_RECORD_ALLOCATION( reinterpret_cast<void*>( userAddress ), size );
+        header->tracyConnectionId =
+            SkullbonezCore::Runtime::Allocation::RecordTracyAllocation( reinterpret_cast<void*>( userAddress ), size );
 #endif
         s_insideAllocationHook = false;
     }
@@ -398,7 +401,7 @@ void FreeTrackedMemory( void* pointer ) noexcept
     {
         s_insideAllocationHook = true;
 #if defined( TRACY_ENABLE )
-        SKORE_TRACY_RECORD_FREE( pointer, header->tracyConnectionId );
+        SkullbonezCore::Runtime::Allocation::RecordTracyFree( pointer, header->tracyConnectionId );
 #endif
         RecordFree( *header );
         s_insideAllocationHook = false;

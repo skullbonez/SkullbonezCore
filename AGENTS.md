@@ -344,7 +344,7 @@ render, or tool gate; it does not replace it.
 | `SkullbonezData/scenes/prediction_ragdoll_wall_200.scene.json`, `SkullbonezData/interaction/prediction_ragdoll_wall_200_*.json`, or `TestOutput/baselines/replay_visual_fidelity_200_box*.json` | `validate_replay_visual_fidelity.bat` |
 | `tools/check_replay_visual_fidelity.py`, `tools/replay_query.py`, `tools/validate_replay_visual_fidelity.bat`, or `tools/validate_replay_scrub.bat` | `validate_fast`, then `validate_replay_visual_fidelity.bat` |
 | `Agentic/Tests/*` or a new standalone CPU test project/script | `validate_all_cpu_tests` |
-| `Runtime/Allocation/*` | `validate_perf` |
+| `Core/Allocation/*` | `validate_perf` |
 | `tools/check_allocation_policy.py`, `tools/allocation_policy_allowlist.json` | `validate_fast`, then `python tools\check_allocation_policy.py --self-test` and `python tools\check_allocation_policy.py --repo .`; add `validate_perf` if runtime guard or reserve semantics change |
 | `tools/check_coverage.py`, `tools/coverage_floors.json`, `tools/validate_coverage.bat`, or coverage exclusions/instrumentation scope | `validate_fast`, then run `tools\validate_coverage.bat` directly |
 | `Run*`, `Runtime/*` | `validate_full` |

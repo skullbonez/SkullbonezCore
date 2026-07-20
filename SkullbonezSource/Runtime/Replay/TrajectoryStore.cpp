@@ -25,8 +25,8 @@ Related:
 */
 #include "TrajectoryStore.h"
 #include "ReplayPredictionReserve.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
-#include "../Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 
 #include <algorithm>
 #include <limits>

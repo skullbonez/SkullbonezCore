@@ -20,7 +20,7 @@ Invariants:
     partial UI data, retry later, or cancel the current prediction build.
 
 Related:
-  - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
   - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
 */
 #include "ReplayPredictionReserve.h"

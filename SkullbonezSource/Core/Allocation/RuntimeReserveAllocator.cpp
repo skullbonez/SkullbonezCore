@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp
+File: SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp
 Purpose:
   Implements fixed-storage runtime reserve-owner registration and diagnostics.
 
@@ -31,9 +31,9 @@ Invariants:
     allocation phase observed by gameplay workers.
 
 Related:
-  - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
-  - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp
-  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.cpp
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp
+  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.cpp
 */
 #include "RuntimeReserveAllocator.h"
 

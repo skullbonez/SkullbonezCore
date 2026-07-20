@@ -32,8 +32,8 @@ Related:
 #include "ReplayRetainedMemory.h"
 
 #include "../CameraCollection.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
-#include "../Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Common.h"
 #include "../../Core/ByteView.h"
 #include "../../Core/FatalError.h"

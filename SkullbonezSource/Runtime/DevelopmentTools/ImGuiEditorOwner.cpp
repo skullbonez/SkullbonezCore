@@ -43,7 +43,7 @@ Related:
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
 
-#include "../Allocation/DevelopmentToolAllocation.h"
+#include "../../Core/Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
 #include "../../Rendering/DX12/Dx12ImGuiRendererOwner.h"
 #include "../../UI/UITabEditor.h"

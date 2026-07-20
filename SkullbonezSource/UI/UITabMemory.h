@@ -28,11 +28,11 @@ Invariants:
 
 Related:
   - SkullbonezSource/UI/UITabMemory.cpp
-  - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
 */
 #pragma once
 
-#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "UIButton.h"
 #include "UISlider.h"
 

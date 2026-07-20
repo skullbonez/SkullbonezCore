@@ -72,7 +72,7 @@ Related:
 #include "../UI/UI.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderShaderDevelopment.h"
-#include "Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../UI/UILayout.h"
 
 #include <cstddef>

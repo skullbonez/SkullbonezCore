@@ -49,7 +49,7 @@ Related:
 #include "ReplayRestoreTransactions.h"
 #include "ReplayV2Artifact.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../DevelopmentTools/TracyClientOwner.h"
 #include "../RuntimeFileWriter.h"
 #include "../InputRouter.h"

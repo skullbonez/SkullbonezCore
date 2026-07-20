@@ -67,8 +67,8 @@ Related:
 #include "ObjectContactManifold.h"
 #include "../Core/Profiler.h"
 #include "../Core/WorkerPool.h"
-#include "../Runtime/Allocation/RuntimeAllocationTracker.h"
-#include "../Runtime/Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 
 #include <algorithm>
 #include <cassert>

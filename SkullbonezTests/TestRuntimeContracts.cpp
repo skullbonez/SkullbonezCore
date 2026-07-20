@@ -33,6 +33,9 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Core/AmortizedTask.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
+#endif
 #include "../SkullbonezSource/Core/FatalError.h"
 #include "../SkullbonezSource/Core/Log.h"
 #include "../SkullbonezSource/Core/SbResult.h"
@@ -62,8 +65,8 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::AppendSleepSupportEdge;
 using SkullbonezCore::Physics::MAX_SLEEP_SUPPORT_EDGES;
 using SkullbonezCore::Threading::AmortizedTask;
-using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::LockOrderValidator;
+using SkullbonezCore::Threading::RunWorkerSystemSelfTest;
 using SkullbonezCore::Threading::WorkerChunkRange;
 using SkullbonezCore::Threading::WorkerPool;
 
@@ -77,15 +80,22 @@ TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
     const uint32_t zoneToken = SKORE_TRACY_BEGIN_OWNER_ZONE( ++evaluatedArguments );
     SKORE_TRACY_END_OWNER_ZONE( ++evaluatedArguments );
     SKORE_TRACY_PLOT_VALUE( "Disabled", ++evaluatedArguments );
-    const uint64_t allocationConnection =
-        SKORE_TRACY_RECORD_ALLOCATION( &evaluatedArguments, ++evaluatedArguments );
-    SKORE_TRACY_RECORD_FREE( &evaluatedArguments, ++evaluatedArguments );
-
     CHECK( evaluatedArguments == 0 );
     CHECK( sourceHandle == 0u );
     CHECK( zoneToken == 0u );
-    CHECK( allocationConnection == 0u );
 }
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+TEST_CASE( "Tracy allocation events stay inactive outside heavy capture" )
+{
+    using namespace SkullbonezCore::Runtime::Allocation;
+    int value = 0;
+    SetTracyAllocationTracingEnabled( false );
+    const uint64_t connectionId = RecordTracyAllocation( &value, sizeof( value ) );
+    CHECK( connectionId == 0u );
+    RecordTracyFree( &value, connectionId );
+}
+#endif
 
 namespace
 {
@@ -306,17 +316,16 @@ bool RunRuntimeFatalCase( const char* caseName )
         std::atomic<bool> started{ false };
         std::atomic<bool> release{ false };
         {
-            AmortizedTask task(
-                1,
-                1,
-                [&]( int, int )
-                {
-                    started.store( true, std::memory_order_release );
-                    while ( !release.load( std::memory_order_acquire ) )
-                    {
-                        std::this_thread::yield();
-                    }
-                } );
+            AmortizedTask task( 1,
+                                1,
+                                [&]( int, int )
+                                {
+                                    started.store( true, std::memory_order_release );
+                                    while ( !release.load( std::memory_order_acquire ) )
+                                    {
+                                        std::this_thread::yield();
+                                    }
+                                } );
             task.SubmitTick( pool );
             while ( !started.load( std::memory_order_acquire ) )
             {
@@ -361,7 +370,9 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
                     if ( writeIndex % 16 == 0 )
                     {
                         SkullbonezCore::Core::EngineLog::Get().WriteEventf(
-                            "runtime_contract_log_test thread=%d write=%d", threadIndex, writeIndex );
+                            "runtime_contract_log_test thread=%d write=%d",
+                            threadIndex,
+                            writeIndex );
                     }
                 }
             } );
@@ -374,8 +385,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineLog: concurrent file and event writes sh
     SkullbonezCore::Core::EngineLog::Get().CloseAllForTests();
 
     const std::string contents = ReadSharedFileText( path );
-    CHECK( static_cast<int>( std::count( contents.begin(), contents.end(), '\n' ) ) ==
-           threadCount * writesPerThread );
+    CHECK( static_cast<int>( std::count( contents.begin(), contents.end(), '\n' ) ) == threadCount * writesPerThread );
 #endif
 }
 
@@ -396,17 +406,16 @@ TEST_CASE( "AmortizedTask: Reset reports idle success and in-flight refusal" )
     workerPool.Initialise( 1 );
     std::atomic<bool> started{ false };
     std::atomic<bool> release{ false };
-    AmortizedTask inFlightTask(
-        1,
-        1,
-        [&]( int, int )
-        {
-            started.store( true, std::memory_order_release );
-            while ( !release.load( std::memory_order_acquire ) )
-            {
-                std::this_thread::yield();
-            }
-        } );
+    AmortizedTask inFlightTask( 1,
+                                1,
+                                [&]( int, int )
+                                {
+                                    started.store( true, std::memory_order_release );
+                                    while ( !release.load( std::memory_order_acquire ) )
+                                    {
+                                        std::this_thread::yield();
+                                    }
+                                } );
     inFlightTask.SubmitTick( workerPool );
     while ( !started.load( std::memory_order_acquire ) )
     {
@@ -496,8 +505,7 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "spatial-grid-nan",
                      { "FATAL[Physics/SpatialGrid]", "body=7", "min=(nan,-1,-1)", "max_world_coordinate=100000" } );
     ExpectFatalCase( "spatial-grid-extent",
-                     { "FATAL[Physics/SpatialGrid]", "body=11", "max=(100002,1,1)",
-                       "max_world_coordinate=100000" } );
+                     { "FATAL[Physics/SpatialGrid]", "body=11", "max=(100002,1,1)", "max_world_coordinate=100000" } );
     ExpectFatalCase( "spatial-grid-zero-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0", "minimum=0.5" } );
     ExpectFatalCase( "spatial-grid-nan-cell",
@@ -505,13 +513,19 @@ TEST_CASE( "Runtime contracts: invalid broadphase and task lifetimes terminate i
     ExpectFatalCase( "spatial-grid-tiny-cell",
                      { "FATAL[Physics/SpatialGrid]", "cell size invalid", "value=0.25", "minimum=0.5" } );
     ExpectFatalCase( "spatial-grid-bucket-capacity",
-                     { "FATAL[Physics/SpatialGrid]", "bucket capacity exceeded", "capacity=8192", "active=8192",
+                     { "FATAL[Physics/SpatialGrid]",
+                       "bucket capacity exceeded",
+                       "capacity=8192",
+                       "active=8192",
                        "phase=steady_gameplay" } );
     ExpectFatalCase( "sleep-support-edge-capacity",
-                     { "FATAL[Physics/SleepSupportEdges]", "Sleep support edge capacity exceeded",
-                       "requested=32769", "capacity=32768", "high_water=32768", "phase=steady_gameplay" } );
+                     { "FATAL[Physics/SleepSupportEdges]",
+                       "Sleep support edge capacity exceeded",
+                       "requested=32769",
+                       "capacity=32768",
+                       "high_water=32768",
+                       "phase=steady_gameplay" } );
     ExpectFatalCase( "amortized-task-in-flight-destroy",
                      { "FATAL[Core/AmortizedTask]", "Destroying AmortizedTask while worker chunk is in flight" } );
-    ExpectFatalCase( "worker-fatal-log",
-                     { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
+    ExpectFatalCase( "worker-fatal-log", { "FATAL[Tests/WorkerFatalProbe]", "worker-thread fatal logging probe" } );
 }

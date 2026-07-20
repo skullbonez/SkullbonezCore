@@ -4,6 +4,11 @@ File: tools/check_allocation_policy.py
 Purpose:
   Enforce the static slice of the runtime allocation policy.
 
+Summary:
+  Scans the engine-owned Core, Runtime, Physics, and Rendering trees for heap,
+  reserve-growth, dynamic-storage, and STL growth shapes, then reconciles every
+  finding against owner- and phase-specific allowlist metadata.
+
 Mental model:
   This checker catches heap APIs, replay reserve-growth APIs, owning dynamic
   STL members, and STL growth calls that are easy to detect textually. Findings
@@ -42,6 +47,9 @@ from pathlib import Path
 from typing import Iterable
 
 
+# Core is intentionally a broad scan root: the allocation-policy implementation
+# lives under Core/Allocation, and future Core ownership moves must not escape
+# heap/growth enforcement through a path-specific exception.
 SOURCE_ROOTS = (
     "SkullbonezSource/Core",
     "SkullbonezSource/Runtime",

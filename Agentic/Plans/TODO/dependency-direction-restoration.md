@@ -1,6 +1,6 @@
 # Dependency Direction Restoration
 
-Status: Active — 1/6 tasks (L0 complete; L1-L5 pending)
+Status: Active — 2/6 tasks (L0-L1 complete; L2-L5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 1 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding A)
 Ledger: L0-L5
@@ -87,7 +87,7 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
     validation errors, three image baselines, and byte-exact physics), and
     `tools\run_graphics_stress.bat 1` completed its PID-bounded minute in
     60.85s with exit 0. No tracked behavioral artifact changed.
-- [ ] L1 — Move `Runtime/Allocation/*` to `Core/Allocation/`; update
+- [x] L1 — Move `Runtime/Allocation/*` to `Core/Allocation/`; update
   includers, project files, `tools/check_allocation_policy.py` roots,
   `tools/allocation_policy_allowlist.json` rows, and the `AGENTS.md` mapping
   row in the same commit. Validation: `tools\validate_fast.bat`, then
@@ -95,6 +95,43 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
   `python tools\check_allocation_policy.py --repo .`, then
   `tools\validate_perf.bat` (allocation guard semantics are path-sensitive),
   then `tools\validate_full.bat`.
+  - Evidence (2026-07-20): all seven allocation-policy files moved physically
+    to `Core/Allocation/`; 37 include edges, both production/test project and
+    filter inventories, the semantic filter validator, allocation allowlist,
+    coverage metadata, and the `AGENTS.md` validation mapping now use the Core
+    path. `check_allocation_policy.py` already scans the broad `Core/` root and
+    now documents that ownership. The semantic `Runtime::Allocation` namespace
+    is deliberately unchanged in this mechanical slice.
+  - Direction correction: moving the global allocation hook exposed its Tracy
+    heap-event dependency on `Runtime/DevelopmentTools`. Heavy-event emission
+    and viewer-connection pairing now live beside the hook in
+    `Core/Allocation/DevelopmentToolAllocation`; the runtime Tracy owner only
+    publishes the heavy-capture enabled state. This preserves the hard-capped
+    development allocation owner and removes the would-be new Core→Runtime
+    edge. A runtime-contract test proves the seam remains inert outside heavy
+    capture.
+  - Validation: final `tools\validate_fast.bat` passed in 1m12.6s after three
+    diagnostic iterations caught formatting/header alignment and two stale
+    test contracts. Allocation self-test passed; repository scan reported
+    `scanned=403`, 39 direct-heap findings, 147 dynamic-STL-member findings,
+    647 STL-growth findings, and zero allowlist errors. Direct coverage passed
+    in 19.6s with all 10 floors and 70.07% whole-product coverage.
+    `tools\validate_perf.bat` completed in about 1m44s with zero steady-gameplay
+    allocations or reserve-policy violations. Final `tools\validate_full.bat`
+    passed in 2m26.1s with zero warnings/errors, all CPU/coverage/runtime lanes,
+    zero DX12 validation errors, three passing image baselines, and byte-exact
+    physics. `tools\run_graphics_stress.bat 1` ran PID 51736 for 60.8s and
+    exited cleanly through the PID-scoped timeout.
+  - Blocker and reconciliation: the one permitted replay-fidelity invocation
+    completed its single 2,401-tick engine generation, then exposed an inherited
+    config provenance mismatch from the already-landed v4→v5 audio-removal
+    migration (`f5fe4daa…c09e3fe` expected versus tracked `engine.cfg`
+    `83401df0…e5c784a3f4`). Under the standing provenance-only ruling, only
+    `configSha256` changed; its mechanically derived visual-manifest SHA changed
+    `a3db2039…452d3dc` → `931463f2…e4f6dc`. No behavioral golden field moved.
+    The existing generated report then passed the primary checker and all nine
+    offline negative/determinism control groups in 31.6s; no second engine
+    process or prediction generation was launched.
 - [ ] L2 — Move `Runtime/Replay/ReplaySolverSnapshot.h` to
   `Physics/PhysicsSolverSnapshot.h` with namespace/type rename per binding
   decision 4; investigate and resolve the `PhysicsWorld.cpp` include of

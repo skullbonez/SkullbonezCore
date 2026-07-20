@@ -380,7 +380,7 @@ RUNTIME_SCENE_PREFIXES = (
     "SceneRuntimeUiOptions",
 )
 
-RUNTIME_ALLOCATION_PREFIXES = (
+CORE_ALLOCATION_PREFIXES = (
     "DevelopmentToolAllocation",
     "DevelopmentToolsCapability",
     "RuntimeAllocationTracker",
@@ -507,7 +507,7 @@ AREA_PREFIXES = (
     ("Physics\\Diagnostics", PHYSICS_DIAGNOSTICS_PREFIXES),
     ("Physics\\Support", PHYSICS_SUPPORT_PREFIXES),
     ("Runtime\\Scene", RUNTIME_SCENE_PREFIXES),
-    ("Runtime\\Allocation", RUNTIME_ALLOCATION_PREFIXES),
+    ("Core\\Allocation", CORE_ALLOCATION_PREFIXES),
     ("Runtime\\Replay", RUNTIME_REPLAY_PREFIXES),
     ("Runtime\\Render", RUNTIME_RENDER_PREFIXES),
     ("Runtime\\Editor", RUNTIME_EDITOR_PREFIXES),

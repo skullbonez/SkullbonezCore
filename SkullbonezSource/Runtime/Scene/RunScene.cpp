@@ -37,7 +37,7 @@ Related:
 #include "../RuntimeOverlayDiagnostics.h"
 #include "../RuntimeValidationHarness.h"
 #include "../WindowConstants.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../OperatorCommandApplier.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../AttachedCameraController.h"

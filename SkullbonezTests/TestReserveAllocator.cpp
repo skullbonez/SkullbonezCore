@@ -31,17 +31,17 @@
 //   - Tracker cases restore the process-wide guard to Off before returning.
 //
 // Related:
-//   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
-//   - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp
+//   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
+//   - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp
 //   - Agentic/Reports/behavioral_test_depth_closure_20260711.md
 //
 
 #include "../ThirdPtySource/doctest/doctest.h"
 
-#include "../SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h"
-#include "../SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h"
+#include "../SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-#include "../SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h"
+#include "../SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h"
 #endif
 
 #include <array>

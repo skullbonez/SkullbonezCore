@@ -24,7 +24,7 @@ Related:
   - SkullbonezSource/Runtime/CaptureSystem.h
 */
 #include "CaptureController.h"
-#include "Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Core/FatalError.h"
 
 #include <cstdio>

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Allocation/DevelopmentToolsCapability.h
+File: SkullbonezSource/Core/Allocation/DevelopmentToolsCapability.h
 Purpose:
   Enforces the single compile-time boundary shared by development-only tools.
 
@@ -19,7 +19,7 @@ Invariants:
 
 Related:
   - SkoreDevelopmentThirdParty.props
-  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
+  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
   - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E2)
 */
 #pragma once

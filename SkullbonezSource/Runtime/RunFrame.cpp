@@ -59,8 +59,8 @@ Related:
 #include "CaptureSystem.h"
 #include "Editor/EditorTools.h"
 #include "Replay/ReplayV2Artifact.h"
-#include "Allocation/RuntimeAllocationTracker.h"
-#include "Allocation/RuntimeReserveAllocator.h"
+#include "../Core/Allocation/RuntimeAllocationTracker.h"
+#include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "DevelopmentTools/TracyClientOwner.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "DevelopmentTools/ImGuiEditorOwner.h"

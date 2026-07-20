@@ -34,7 +34,7 @@ Related:
 */
 #include "DiagnosticsRuntime.h"
 
-#include "../Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../InputController.h"
 #include "../RunDebugState.h"
 #include "../Scene/SceneRuntime.h"

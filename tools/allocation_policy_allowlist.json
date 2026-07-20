@@ -95,7 +95,7 @@
       "removal_or_wrapper_plan": "Route resource owner allocation through a backend resource arena before strict allocation enforcement covers resource rebuilds."
     },
     {
-      "path": "SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.cpp",
+      "path": "SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.cpp",
       "patterns": [
         "std::malloc(",
         "std::free("
@@ -107,7 +107,7 @@
       "removal_or_wrapper_plan": "Keep raw heap calls isolated in this wrapper; future arena work should replace this implementation without adding raw calls elsewhere."
     },
     {
-      "path": "SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.cpp",
+      "path": "SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.cpp",
       "patterns": [
         "RuntimeReserveAllocator::RequestGrowth("
       ],

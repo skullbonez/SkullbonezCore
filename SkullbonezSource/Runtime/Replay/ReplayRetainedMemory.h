@@ -33,11 +33,11 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
   - SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h
   - SkullbonezSource/Runtime/Replay/ReplayV2Artifact.h
-  - SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
+  - SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
 */
 #pragma once
 
-#include "../Allocation/RuntimeReserveAllocator.h"
+#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 
 #include <array>
 #include <cstddef>

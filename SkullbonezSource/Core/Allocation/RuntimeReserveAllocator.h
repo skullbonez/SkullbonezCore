@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Allocation/RuntimeReserveAllocator.h
+File: SkullbonezSource/Core/Allocation/RuntimeReserveAllocator.h
 Purpose:
   Declares the runtime memory-owner registry and reserve-growth policy gate.
 
@@ -32,8 +32,8 @@ Invariants:
     cannot exempt allocations on another thread.
 
 Related:
-  - SkullbonezSource/Runtime/Allocation/RuntimeAllocationTracker.h
-  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
+  - SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
+  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
   - AGENTS.md (Runtime Static Allocation Policy)
 */
 #pragma once

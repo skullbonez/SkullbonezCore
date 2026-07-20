@@ -251,9 +251,9 @@
     <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Core\WorkerPool.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp" />
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />

@@ -35,7 +35,7 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
 #include "../../Runtime/DevelopmentTools/TracyClientOwner.h"
-#include "../../Runtime/Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include <algorithm>
 #include <cstdio>

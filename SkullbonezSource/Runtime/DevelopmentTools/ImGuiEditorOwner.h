@@ -41,7 +41,7 @@ Invariants:
 Related:
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp
   - SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorInputPolicy.h
-  - SkullbonezSource/Runtime/Allocation/DevelopmentToolAllocation.h
+  - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
   - Agentic/Plans/TODO/imgui-tracy-editor-campaign.md (E5-E16)
 */
 #pragma once

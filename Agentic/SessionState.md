@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0 moves the unchanged scene-capacity contract from Runtime to Core. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0-L1 move scene capacity and allocation policy from Runtime to Core. |
 | Current objective | Complete the eight-plan architecture-review campaign in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 18 / 53 live tasks; 34%. |
+| Active/future progress | 19 / 53 live tasks; 36%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | L0 `validate_full` passes from final source: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
-| Validation for current edits | `validate_full` and the mandatory one-minute graphics stress pass; no tracked behavioral artifact changed. |
+| Last broad local gate | L1 `validate_full` passes from final source in 2m26.1s: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
+| Validation for current edits | Fast, allocation self/repo, direct coverage, perf, full, replay-fidelity offline continuation, and the mandatory one-minute graphics stress pass; only authorized provenance hashes changed. |
 
 ## Live Queue
 
@@ -31,8 +31,9 @@ replay-boundary-containment. Owner decisions at registration: finish the
 render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 
-`dependency-direction-restoration` is 1/6: L0 is complete and L1 (move
-Runtime allocation policy into Core) is next with no blocker.
+`dependency-direction-restoration` is 2/6: L0-L1 are complete and L2 (move
+the replay solver snapshot into Physics and remove Physics→Replay edges) is
+next with no blocker.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -78,8 +79,9 @@ the touched files were formatted before every final-source pass above.
 
 ## Next Handoff
 
-Continue `dependency-direction-restoration` L1 on `nightrunner-20th-july`.
-Move `Runtime/Allocation/*` to `Core/Allocation/`, update checker/allowlist and
-validation mapping paths in the same commit, then run the plan's allocation,
-performance, and full gates. The E17 extended owner playtest remains parked;
-keep Legacy default until the owner explicitly authorizes a switch.
+Continue `dependency-direction-restoration` L2 on `nightrunner-20th-july`.
+Move `Runtime/Replay/ReplaySolverSnapshot.h` to the Physics-owned snapshot
+contract, resolve PhysicsWorld's `ReplayRetainedMemory.h` edge without a
+compatibility shim, and retain the one-process replay-fidelity rule. The E17
+extended owner playtest remains parked; keep Legacy default until the owner
+explicitly authorizes a switch.

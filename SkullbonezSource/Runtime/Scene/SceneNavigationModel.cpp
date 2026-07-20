@@ -28,7 +28,7 @@ Related:
 #include "SceneControllerState.h"
 #include "SceneRuntime.h"
 #include "SceneRuntimeCoordinator.h"
-#include "../Allocation/RuntimeAllocationTracker.h"
+#include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include <cstring>
 

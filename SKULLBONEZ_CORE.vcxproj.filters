@@ -74,10 +74,10 @@
     <Filter Include="Header Files\Runtime">
       <UniqueIdentifier>{31639C9E-0BD5-779D-C281-0DEC18B44398}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Runtime\Allocation">
+    <Filter Include="Source Files\Core\Allocation">
       <UniqueIdentifier>{6579C1A7-27A1-4F1F-9F07-8E26B0BC8F3E}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Runtime\Allocation">
+    <Filter Include="Header Files\Core\Allocation">
       <UniqueIdentifier>{9E0B1E54-2AA1-4C1C-8E4E-3C2E02E19A67}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Scene">
@@ -645,14 +645,14 @@
     <ClCompile Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.cpp">
       <Filter>Source Files\Runtime\Debug</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.cpp">
-      <Filter>Source Files\Runtime\Allocation</Filter>
+    <ClCompile Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.cpp">
+      <Filter>Source Files\Core\Allocation</Filter>
     </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.cpp">
-        <Filter>Source Files\Runtime\Allocation</Filter>
+      <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
+        <Filter>Source Files\Core\Allocation</Filter>
       </ClCompile>
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
         <Filter>Source Files\Runtime\Diagnostics</Filter>
@@ -1321,17 +1321,17 @@
     <ClInclude Include="SkullbonezSource\Runtime\Debug\BroadphaseVisualizer.h">
       <Filter>Header Files\Runtime\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeReserveAllocator.h">
-      <Filter>Header Files\Runtime\Allocation</Filter>
+    <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeReserveAllocator.h">
+      <Filter>Header Files\Core\Allocation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\RuntimeAllocationTracker.h">
-      <Filter>Header Files\Runtime\Allocation</Filter>
+    <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.h">
+      <Filter>Header Files\Core\Allocation</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolAllocation.h">
-      <Filter>Header Files\Runtime\Allocation</Filter>
+    <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.h">
+      <Filter>Header Files\Core\Allocation</Filter>
     </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\Allocation\DevelopmentToolsCapability.h">
-        <Filter>Header Files\Runtime\Allocation</Filter>
+      <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h">
+        <Filter>Header Files\Core\Allocation</Filter>
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h">
         <Filter>Header Files\Runtime\Diagnostics</Filter>

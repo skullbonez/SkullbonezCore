@@ -38,7 +38,7 @@ Related:
 #include "Dx12FrameOwner.h"
 #include "RenderBackendDX12.h"
 #include "RenderDeviceDX12.h"
-#include "../../Runtime/Allocation/DevelopmentToolsCapability.h"
+#include "../../Core/Allocation/DevelopmentToolsCapability.h"
 #include "../../Core/FatalError.h"
 
 #include <imgui.h>
