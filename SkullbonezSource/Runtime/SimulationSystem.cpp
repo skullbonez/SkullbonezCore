@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Physics/SimulationSystem.cpp
+File: SkullbonezSource/Runtime/SimulationSystem.cpp
 Purpose:
   Owns runtime simulation stepping policy and physics accumulators.
 
@@ -25,13 +25,13 @@ Invariants:
     worker pools; callers execute the returned committed tick count.
 
 Related:
-  - SkullbonezSource/Physics/SimulationSystem.h
+  - SkullbonezSource/Runtime/SimulationSystem.h
   - Agentic/Reference/runtime-reference.md
 */
 #include "SimulationSystem.h"
-#include "PhysicsTimestep.h"
 
 #include "../Core/Common.h"
+#include "../Physics/PhysicsTimestep.h"
 
 #include <algorithm>
 #include <cmath>
@@ -50,7 +50,6 @@ void SimulationSystem::Reset()
     m_droppedPhysicsTickCount = 0;
     m_physicsHitchEventCount = 0;
 }
-
 
 SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 {

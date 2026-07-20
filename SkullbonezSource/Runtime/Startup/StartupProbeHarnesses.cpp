@@ -38,7 +38,7 @@ Related:
 #include "../../Rendering/Text.h"
 #include "../../World/WorldEnvironment.h"
 #include "../Scene/SceneController.h"
-#include "../WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include <cstdio>
 #include <cstring>
 #include <memory>

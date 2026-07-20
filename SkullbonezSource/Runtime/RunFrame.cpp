@@ -61,7 +61,7 @@ Related:
 #include "Replay/ReplayV2Artifact.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
-#include "DevelopmentTools/TracyClientOwner.h"
+#include "../Core/TracyClientOwner.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "DevelopmentTools/ImGuiEditorOwner.h"
 #endif
@@ -1176,7 +1176,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // Win32 message routing remains isolated to E7.
             const UINT windowDpi = GetDpiForWindow( m_window.NativeWindowHandle() );
             const float dpiScale = windowDpi > 0u ? static_cast<float>( windowDpi ) / 96.0f : 1.0f;
-            const DevelopmentTools::TracyClientStatus tracyStatus = DevelopmentTools::TracyClientOwner::CopyStatus();
+            const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus tracyStatus =
+                SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus();
             const DevelopmentTools::ImGuiEditorFrameInput imguiFrameInput{ m_window.ClientWidth(),
                                                                            m_window.ClientHeight(),
                                                                            dpiScale,

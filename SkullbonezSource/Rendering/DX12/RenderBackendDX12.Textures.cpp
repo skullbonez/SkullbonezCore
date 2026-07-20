@@ -33,7 +33,7 @@ Related:
 */
 #include "RenderBackendDX12.h"
 #include "Dx12RenderGraphExecutor.h"
-#include "../../Runtime/WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include "ShaderDX12.h"
 #include "ShaderBytecodeManifest.h"
 #include "MeshDX12.h"

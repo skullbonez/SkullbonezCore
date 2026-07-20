@@ -25,7 +25,7 @@ Related:
   - Agentic/Reports/2026-07-11/runtime-shell-final-ownership-review.md
 */
 #include "SceneRuntimeDefaults.h"
-#include "../WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include "../../Core/Common.h"
 
 #include <algorithm>

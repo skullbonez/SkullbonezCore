@@ -50,7 +50,7 @@ Related:
 #include "ReplayV2Artifact.h"
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../DevelopmentTools/TracyClientOwner.h"
+#include "../../Core/TracyClientOwner.h"
 #include "../RuntimeFileWriter.h"
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
@@ -1090,7 +1090,7 @@ void ReplayRuntime::CaptureFrame( ReplayCaptureInput input, RuntimeTools& runtim
     }
 
 #if defined( TRACY_ENABLE )
-    if ( DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
+    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
     {
         // Why: recorder counts and reserve rows are already-owned fixed
         // snapshots. No-viewer runs skip even these value copies, and the

@@ -49,7 +49,7 @@ Related:
 
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
-#include "../../Physics/SimulationSystem.h"
+#include "../SimulationSystem.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
 #include "../../Physics/PhysicsEngine.h"

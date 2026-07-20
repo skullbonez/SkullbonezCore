@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h
+File: SkullbonezSource/Core/TracyClientOwner.h
 Purpose:
   Declares the development-only Tracy process owner and zero-cost marker seams.
 
@@ -32,7 +32,7 @@ Invariants:
     performs no socket or process query.
 
 Related:
-  - SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.cpp
+  - SkullbonezSource/Core/TracyClientOwner.cpp
   - SkullbonezSource/Core/Allocation/DevelopmentToolAllocation.h
   - ThirdPtySource/tracy/manual/tracy.md
 */
@@ -45,7 +45,7 @@ Related:
 #endif
 
 #if defined( TRACY_ENABLE )
-namespace SkullbonezCore::Runtime::DevelopmentTools
+namespace SkullbonezCore::Core::DevelopmentTools
 {
 struct TracyClientStatus
 {
@@ -110,29 +110,29 @@ class TracyOwnerZoneScope
   private:
     TracyZoneToken m_token;
 };
-} // namespace SkullbonezCore::Runtime::DevelopmentTools
+} // namespace SkullbonezCore::Core::DevelopmentTools
 
 #define SKORE_TRACY_PASTE_INNER( a, b ) a##b
 #define SKORE_TRACY_PASTE( a, b ) SKORE_TRACY_PASTE_INNER( a, b )
 #define SKORE_TRACY_SCOPED_OWNER_ZONE_IMPL( name, hash, line )                                                         \
     static const uint32_t SKORE_TRACY_PASTE( _skoreTracySource_, line ) =                                              \
-        ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::RegisterOwnerZone( name, hash );                \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyOwnerZoneScope SKORE_TRACY_PASTE( _skoreTracyScope_, line )(     \
+        ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::RegisterOwnerZone( name, hash );                   \
+    ::SkullbonezCore::Core::DevelopmentTools::TracyOwnerZoneScope SKORE_TRACY_PASTE( _skoreTracyScope_, line )(        \
         SKORE_TRACY_PASTE( _skoreTracySource_, line ) )
 #define SKORE_TRACY_SCOPED_OWNER_ZONE( name, hash ) SKORE_TRACY_SCOPED_OWNER_ZONE_IMPL( name, hash, __LINE__ )
 
 #define SKORE_TRACY_MARK_SUBMITTED_FRAME()                                                                             \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::MarkSubmittedFrame()
+    ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::MarkSubmittedFrame()
 #define SKORE_TRACY_NAME_WORKER_THREAD( workerIndex )                                                                  \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::NameWorkerThread( workerIndex )
+    ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::NameWorkerThread( workerIndex )
 #define SKORE_TRACY_REGISTER_OWNER_ZONE( fullPath, hash )                                                              \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::RegisterOwnerZone( fullPath, hash )
+    ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::RegisterOwnerZone( fullPath, hash )
 #define SKORE_TRACY_BEGIN_OWNER_ZONE( sourceLocationHandle )                                                           \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::BeginOwnerZone( sourceLocationHandle )
+    ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::BeginOwnerZone( sourceLocationHandle )
 #define SKORE_TRACY_END_OWNER_ZONE( token )                                                                            \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::EndOwnerZone( token )
+    ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::EndOwnerZone( token )
 #define SKORE_TRACY_PLOT_VALUE( name, value )                                                                          \
-    ::SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::PublishPlot( name, static_cast<double>( value ) )
+    ::SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishPlot( name, static_cast<double>( value ) )
 #else
 // Invariant: the argument tokens are discarded, so disabled builds cannot pay
 // formatting, function-call, allocation, or side-effect cost by accident.

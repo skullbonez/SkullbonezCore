@@ -33,7 +33,7 @@ Related:
 #include "Profiler.h"
 #include "FatalError.h"
 #include "../Rendering/IRenderDiagnostics.h"
-#include "../Runtime/DevelopmentTools/TracyClientOwner.h"
+#include "TracyClientOwner.h"
 #include "WorkerPool.h"
 
 #include <cstring>
@@ -410,9 +410,9 @@ WorkerProfilerScope::~WorkerProfilerScope()
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
 #if defined( TRACY_ENABLE )
-    const SkullbonezCore::Runtime::DevelopmentTools::TracyZoneToken tracyToken{ m_tracyZoneId,
-                                                                                m_tracyZoneActive,
-                                                                                m_tracyZoneConnectionId };
+    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken{ m_tracyZoneId,
+                                                                             m_tracyZoneActive,
+                                                                             m_tracyZoneConnectionId };
     SKORE_TRACY_END_OWNER_ZONE( tracyToken );
     m_tracyZoneId = 0u;
     m_tracyZoneActive = 0;
@@ -521,9 +521,9 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPla
     top.openCount = 0;
     --m_stackTop;
 #if defined( TRACY_ENABLE )
-    const SkullbonezCore::Runtime::DevelopmentTools::TracyZoneToken tracyToken{ tracyZoneId,
-                                                                                tracyZoneActive,
-                                                                                tracyZoneConnectionId };
+    const SkullbonezCore::Core::DevelopmentTools::TracyZoneToken tracyToken{ tracyZoneId,
+                                                                             tracyZoneActive,
+                                                                             tracyZoneConnectionId };
     SKORE_TRACY_END_OWNER_ZONE( tracyToken );
 #endif
     if ( emitCpuPlatformProfiler && cpuPlatformOpen )
@@ -985,7 +985,7 @@ void Profiler::FrameEnd()
     }
 
 #if defined( TRACY_ENABLE )
-    if ( SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
+    if ( SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus().viewerConnected )
     {
         // Why: fixed snapshots already computed for the legacy profiler are
         // the cheapest trustworthy capacity facts. No-viewer runs skip these
@@ -1034,7 +1034,7 @@ void Profiler::FrameEnd()
             SKORE_TRACY_PLOT_VALUE( "Counter/Render/TransientSRVDescriptorsPeak",
                                     memory.srvTransientDescriptorsPeakThisRun );
         }
-        SkullbonezCore::Runtime::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
+        SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::PublishDevelopmentAllocationPlots();
     }
 #endif
 

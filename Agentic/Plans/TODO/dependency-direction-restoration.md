@@ -1,6 +1,6 @@
 # Dependency Direction Restoration
 
-Status: Active — 3/6 tasks (L0-L2 complete; L3-L5 pending)
+Status: Active — 4/6 tasks (L0-L3 complete; L4-L5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 1 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding A)
 Ledger: L0-L5
@@ -170,7 +170,7 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
     all CPU/coverage/runtime lanes, zero DX12 validation errors, three passing
     image baselines, and byte-exact physics. No tracked behavioral artifact or
     golden changed.
-- [ ] L3 — Move `SimulationSystem.{h,cpp}` to `Runtime/`; fix the
+- [x] L3 — Move `SimulationSystem.{h,cpp}` to `Runtime/`; fix the
   Rendering→`Runtime/WindowConstants.h` edges (move the constants to `Core/`
   or pass the values at the three DX12 call sites plus `Rendering/Text.cpp`;
   record which). Proof: `grep -rn '\.\./Runtime' SkullbonezSource/Rendering
@@ -178,6 +178,44 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
   point at Core). Validation: `tools\validate_full.bat` plus
   `tools\validate_dx12_renderer.bat` + `tools\run_graphics_stress.bat 1`
   (DX12 TUs touched).
+  - `SimulationSystem.{h,cpp}` moved from Physics to Runtime without a
+    forwarding header or namespace alias. Production/test project ownership,
+    filters, includes, tests, references, and manual-source links now use the
+    Runtime path; the stepping implementation is unchanged apart from its
+    same-directory Runtime include and the explicit Physics timestep include.
+  - Choice recorded: `WindowConstants.h` moved to `Core/` because Assets,
+    World, Rendering, Startup, Scene, and Window all consume the same stable
+    process strings. Passing the data through every render/asset entry point
+    would spread composition plumbing without creating a more specific owner.
+    The constants and their values are unchanged.
+  - The required zero-edge proof exposed DX12's remaining include of Runtime's
+    process-wide Tracy marker owner. The complete `TracyClientOwner.{h,cpp}`
+    moved to `Core/` and `SkullbonezCore::Core::DevelopmentTools`; Runtime,
+    Core, Rendering, tests, projects, and the filter validator consume that
+    owner directly. This preserves marker/lifecycle behavior and introduces no
+    bridge, callback pack, forwarding wrapper, or compatibility alias.
+  - Final proofs: `rg -n '\.\./Runtime' SkullbonezSource/Rendering
+    SkullbonezSource/Physics` returns zero rows; exact scans for the old
+    `Physics/SimulationSystem`, `Runtime/WindowConstants`, and
+    `Runtime/DevelopmentTools/TracyClientOwner` live paths also return zero.
+    The rename-aware diff identifies five real moves at 67%-98% similarity.
+  - Comment-quality audit: all 41 touched source-bearing files inspected,
+    41 checked, zero deferred/unchecked, and zero missing learning-header
+    fields. The existing ImGui/Tracy comment checklist was reconciled to the
+    relocated Core paths.
+  - Validation: the first focused Profile build found only an unqualified
+    sibling namespace in `Init.cpp`; the corrected retry passed in 12.7s with
+    zero warnings/errors. The first fast gate found two now-empty test virtual
+    filters; after removing them, final `tools\validate_fast.bat` passed in
+    71.8s with production filters 718/718 and test filters 97/97.
+    `tools\validate_replay_visual_fidelity.bat` passed once in 444.4s with
+    exactly one engine process, 2,401 ticks, 200 moved/175 toppled bricks, and
+    all controls. `tools\validate_full.bat` passed in 163.1s with all CPU,
+    coverage, runtime, DX12, and byte-exact physics lanes. The explicit
+    `tools\validate_dx12_renderer.bat` passed in 54.0s with zero InfoQueue
+    errors and all three baselines; `tools\run_graphics_stress.bat 1` ran PID
+    7296 for 61.5s and ended only at its PID-scoped timeout. No tracked
+    behavioral artifact, baseline, golden, shader output, or scene changed.
 - [ ] L4 — Core inversion pass: remove `Core/SkullScope.cpp`'s five physics
   includes (SkullScope moves to `Physics/Diagnostics/` or consumes a
   physics-supplied view; record the choice), remove `Core/Profiler.cpp`'s

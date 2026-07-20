@@ -129,9 +129,6 @@
     <ClCompile Include="SkullbonezSource\Physics\Ragdoll.cpp">
       <Filter>Source Files\Bodies</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\SleepIslandSystem.cpp">
       <Filter>Source Files\Solver</Filter>
     </ClCompile>
@@ -226,9 +223,6 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\Ragdoll.h">
       <Filter>Header Files\Bodies</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Physics\SimulationSystem.h">
-      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\SleepIslandSystem.h">
       <Filter>Header Files\Solver</Filter>

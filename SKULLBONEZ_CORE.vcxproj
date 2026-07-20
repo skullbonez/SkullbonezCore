@@ -301,7 +301,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
       <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
+      <ClCompile Include="SkullbonezSource\Core\TracyClientOwner.cpp">
         <ExcludedFromBuild Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Profile-WPO'">true</ExcludedFromBuild>
       </ClCompile>
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
@@ -429,6 +429,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\RunCameraState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\RunScene.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeValidationHarness.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\UiTextPass.cpp" />
@@ -521,7 +522,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\Allocation\RuntimeAllocationTracker.h" />
       <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.h" />
       <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h" />
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h" />
+      <ClInclude Include="SkullbonezSource\Core\TracyClientOwner.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.h" />
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorInputPolicy.h" />
@@ -559,6 +560,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeValidationHarness.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\SimulationSystem.h" />
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Input.h" />
     <ClInclude Include="SkullbonezSource\Runtime\InputController.Bindings.h" />
@@ -655,7 +657,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Rendering\Text.h" />
     <ClInclude Include="SkullbonezSource\Assets\TextureCollection.h" />
     <ClInclude Include="SkullbonezSource\Core\Timer.h" />
-    <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h" />
+    <ClInclude Include="SkullbonezSource\Core\WindowConstants.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Window.h" />
     <ClInclude Include="SkullbonezSource\Core\WorkerPool.h" />
     <ClInclude Include="SkullbonezSource\World\WorldEnvironment.h" />

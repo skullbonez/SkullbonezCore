@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0-L2 move scene capacity/allocation policy into Core and solver snapshot ownership into Physics. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0-L3 place shared capacity/allocation/window/Tracy contracts in Core, solver snapshots in Physics, and simulation scheduling in Runtime. |
 | Current objective | Complete the eight-plan architecture-review campaign in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 20 / 53 live tasks; 38%. |
+| Active/future progress | 21 / 53 live tasks; 40%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | L2 `validate_full` passes from final source in 2m24.2s: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
-| Validation for current edits | Fast/project filters, byte-exact physics, one-process replay fidelity, and full pass; no tracked behavioral artifact or golden changed. |
+| Last broad local gate | L3 `validate_full` passes from final source in 163.1s: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
+| Validation for current edits | Fast/project filters, one-process replay fidelity, full, explicit DX12, and 61.5s graphics stress pass; no tracked behavioral artifact or golden changed. |
 
 ## Live Queue
 
@@ -31,9 +31,9 @@ replay-boundary-containment. Owner decisions at registration: finish the
 render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 
-`dependency-direction-restoration` is 3/6: L0-L2 are complete and L3 (move
-SimulationSystem into Runtime and remove Rendering/Physics→Runtime include
-edges) is next with no blocker.
+`dependency-direction-restoration` is 4/6: L0-L3 are complete and L4 (invert
+SkullScope, Profiler rendering, and WorkerPool asset-key dependencies out of
+Core) is next with no blocker.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -68,19 +68,19 @@ are not certified. Full evidence:
 
 | Command | Time | Result |
 |---|---:|---|
-| `tools\validate_fast.bat` | ~55 s | PASS |
-| `tools\validate_perf.bat` | ~118 s | PASS |
-| `tools\validate_physics_deep.bat` | ~132 s | PASS |
-| `tools\validate_full.bat` | ~183 s | PASS |
-| config migration, allocation policy, project filters, and physics-query regression | ~45 s combined | PASS |
+| `tools\validate_fast.bat` | 71.8 s | PASS |
+| `tools\validate_replay_visual_fidelity.bat` | 444.4 s | PASS; one engine process |
+| `tools\validate_full.bat` | 163.1 s | PASS |
+| `tools\validate_dx12_renderer.bat` | 54.0 s | PASS; zero InfoQueue errors |
+| `tools\run_graphics_stress.bat 1` | 61.5 s | PASS; PID-scoped timeout |
 
-The initial fast-gate attempt found only mechanical formatting differences;
-the touched files were formatted before every final-source pass above.
+The initial focused build and fast gate found only namespace qualification and
+empty test-filter metadata; both were corrected before every final-source pass.
 
 ## Next Handoff
 
-Continue `dependency-direction-restoration` L3 on `nightrunner-20th-july`.
-Move `SimulationSystem.{h,cpp}` to Runtime, resolve the Rendering dependency on
-`Runtime/WindowConstants.h`, and prove Physics/Rendering contain no relative
-Runtime includes. The E17 extended owner playtest remains parked; keep Legacy
-default until the owner explicitly authorizes a switch.
+Continue `dependency-direction-restoration` L4 on `nightrunner-20th-july`.
+Invert the remaining Core dependencies owned by SkullScope diagnostics,
+Profiler rendering, and WorkerPool asset keys, recording any honest bounded
+exception. The E17 extended owner playtest remains parked; keep Legacy default
+until the owner explicitly authorizes a switch.

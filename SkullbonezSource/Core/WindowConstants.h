@@ -1,14 +1,14 @@
 /*
-File: SkullbonezSource/Runtime/WindowConstants.h
+File: SkullbonezSource/Core/WindowConstants.h
 Purpose:
-  Owns process-wide window labels and the runtime data-root prefix used to load
+  Owns process-wide window labels and the data-root prefix used to load
   committed engine assets.
 
 Summary:
   The executable launches from the repository root in validation and local
-  development. These constants are the narrow compatibility surface that keeps
-  window creation, title updates, and asset path construction using the same
-  stable strings while Common.h is being split.
+  development. These constants are the lower-layer compatibility surface that
+  keeps window creation, title updates, rendering resources, and asset path
+  construction on the same stable strings.
 
 Glossary:
   Window class name: Win32 registration key used before any window handle can
@@ -22,8 +22,8 @@ Invariants:
   - WINDOW_NAME must match registration and unregistration paths.
 
 Related:
-  - SkullbonezSource/Core/Common.h includes this during the aliasing period.
   - SkullbonezSource/Runtime/Window.cpp consumes the window labels.
+  - SkullbonezSource/Assets/AssetSystem.h consumes the shared data root.
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once

@@ -117,7 +117,7 @@ Related:
 #include "Dx12RenderGraphExecutor.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include "../../Runtime/DevelopmentTools/TracyClientOwner.h"
+#include "../../Core/TracyClientOwner.h"
 #include "../../Core/FatalError.h"
 #include <cstdio>
 #include <algorithm>

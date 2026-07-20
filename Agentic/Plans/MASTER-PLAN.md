@@ -246,7 +246,7 @@ acceptance remains a parked owner item that does not block it.
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | 3 | 6 | 50% |
+| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | 4 | 6 | 67% |
 | [physics-facade-unification](TODO/physics-facade-unification.md) | 0 | 3 | 0% |
 | [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 0 | 4 | 0% |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 0 | 3 | 0% |
@@ -254,7 +254,7 @@ acceptance remains a parked owner item that does not block it.
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **20** | **53** | **38%** |
+| **Active/future total** | **21** | **53** | **40%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1110,7 +1110,7 @@ L2 snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | Active — L0-L2 complete | 3/6 | Start L3 (move SimulationSystem to Runtime and remove Rendering/Physics→Runtime include edges); no blocker |
+| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | Active — L0-L3 complete | 4/6 | Start L4 Core inversion pass; no blocker |
 | [physics-facade-unification](TODO/physics-facade-unification.md) | Registered | 0/3 | Start after plan 1 L0-L2 (soft); F0 inventory may run anytime |
 | [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Registered | 0/4 | Start after facade unification lands the surviving PhysicsEngine |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Registered | 0/3 | Independent; may run parallel to plans 2-3 |

@@ -33,7 +33,7 @@ Related:
 #include "StartupCommandLine.h"
 #include "../../Core/Common.h"
 #include "../RunLaunchOptions.h"
-#include "../WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>

@@ -51,8 +51,8 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.cpp`
 - [x] `SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorOwner.h`
-- [x] `SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.cpp`
-- [x] `SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h`
+- [x] `SkullbonezSource/Core/TracyClientOwner.cpp`
+- [x] `SkullbonezSource/Core/TracyClientOwner.h`
 
 ## Runtime, input, and editor
 

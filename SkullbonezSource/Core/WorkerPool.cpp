@@ -34,7 +34,7 @@ Related:
 #include "WorkerPool.h"
 #include "FatalError.h"
 #include "Profiler.h"
-#include "../Runtime/DevelopmentTools/TracyClientOwner.h"
+#include "TracyClientOwner.h"
 
 #include <algorithm>
 #include <atomic>

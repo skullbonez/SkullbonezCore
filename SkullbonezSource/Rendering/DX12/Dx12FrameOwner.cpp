@@ -34,7 +34,7 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/PlatformProfiler.h"
-#include "../../Runtime/DevelopmentTools/TracyClientOwner.h"
+#include "../../Core/TracyClientOwner.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include <algorithm>

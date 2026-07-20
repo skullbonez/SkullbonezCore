@@ -142,7 +142,6 @@ PHYSICS_CORE_PREFIXES = (
     "PhysicsScene",
     "PhysicsSolverSnapshot",
     "PhysicsWorld",
-    "SimulationSystem",
 )
 
 PHYSICS_BODY_PREFIXES = (
@@ -296,8 +295,8 @@ RUNTIME_LIFECYCLE_PREFIXES = (
     "RunTimerState",
     "RuntimeFrameViews",
     "RuntimeOverlayDiagnostics",
+    "SimulationSystem",
     "Window",
-    "WindowConstants",
 )
 
 # Startup units are process-entry policy owners rather than Run lifecycle
@@ -464,7 +463,6 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
     "ImGuiEditorOwner",
     "RuntimeDiagnostics",
     "SceneMemoryDiagnostics",
-    "TracyClientOwner",
 )
 
 # Why: shared runtime UI values have their own physical owner and Solution
@@ -493,7 +491,9 @@ CORE_PREFIXES = (
     "SceneCapacity",
     "SkullScope",
     "Timer",
+    "TracyClientOwner",
     "WorkerPool",
+    "WindowConstants",
 )
 
 AREA_PREFIXES = (

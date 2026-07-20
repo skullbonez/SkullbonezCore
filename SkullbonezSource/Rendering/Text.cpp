@@ -29,7 +29,7 @@ Related:
 */
 #include "Text.h"
 #include "../Core/PlatformWin32.h"
-#include "../Runtime/WindowConstants.h"
+#include "../Core/WindowConstants.h"
 #include "../Assets/AssetSystem.h"
 #include "IRenderCommandContext.h"
 #include "IRenderResourceFactory.h"

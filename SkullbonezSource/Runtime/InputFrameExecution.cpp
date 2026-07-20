@@ -68,7 +68,7 @@ Related:
 #include "../Core/Log.h"
 #include "../Physics/ColliderStore.h"
 #include "../Physics/PhysicsBodyStore.h"
-#include "../Physics/SimulationSystem.h"
+#include "SimulationSystem.h"
 #include "../UI/UI.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderShaderDevelopment.h"

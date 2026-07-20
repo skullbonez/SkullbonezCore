@@ -33,7 +33,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RenderBackendDX12.h"
-#include "../../Runtime/WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include "ShaderDX12.h"
 #include "MeshDX12.h"
 #include "FramebufferDX12.h"

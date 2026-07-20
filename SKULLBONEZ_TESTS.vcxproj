@@ -259,7 +259,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\Camera.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\CameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp" />
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputController.Bindings.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\InputRouter.cpp" />

@@ -40,7 +40,7 @@ Related:
 #include "RuntimeViewModel.h"
 #include "Scene/SceneRuntime.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
-#include "DevelopmentTools/TracyClientOwner.h"
+#include "../Core/TracyClientOwner.h"
 #include "Diagnostics/DiagnosticsRuntime.h"
 #include "Replay/ReplayOverlayRenderer.h"
 #include "Replay/ReplayPresentation.h"
@@ -641,7 +641,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 #endif
 #if defined( TRACY_ENABLE )
         {
-            const DevelopmentTools::TracyClientStatus tracyStatus = DevelopmentTools::TracyClientOwner::CopyStatus();
+            const SkullbonezCore::Core::DevelopmentTools::TracyClientStatus tracyStatus =
+                SkullbonezCore::Core::DevelopmentTools::TracyClientOwner::CopyStatus();
             UIData.profiler.tracyBuildEnabled = tracyStatus.buildEnabled;
             UIData.profiler.tracyInitialized = tracyStatus.initialized;
             UIData.profiler.tracyViewerConnected = tracyStatus.viewerConnected;

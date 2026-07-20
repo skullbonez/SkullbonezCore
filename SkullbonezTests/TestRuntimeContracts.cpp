@@ -42,7 +42,7 @@
 #include "../SkullbonezSource/Core/WorkerPool.h"
 #include "../SkullbonezSource/Physics/SpatialGrid.h"
 #include "../SkullbonezSource/Physics/SleepIslandSystem.h"
-#include "../SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h"
+#include "../SkullbonezSource/Core/TracyClientOwner.h"
 #include "TestFatalCases.h"
 
 #define WIN32_LEAN_AND_MEAN

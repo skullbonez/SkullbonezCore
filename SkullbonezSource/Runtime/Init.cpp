@@ -35,7 +35,7 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
-#include "DevelopmentTools/TracyClientOwner.h"
+#include "../Core/TracyClientOwner.h"
 #include "Input.h"
 #include "Run.h"
 #include "Startup/StartupCommandLine.h"
@@ -43,7 +43,7 @@ Related:
 #include "Startup/StartupLaunchResolution.h"
 #include "Startup/StartupProbeHarnesses.h"
 #include "Window.h"
-#include "WindowConstants.h"
+#include "../Core/WindowConstants.h"
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -371,7 +371,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #if defined( TRACY_ENABLE )
     // Lifetime: this owner starts before WorkerPool creates instrumentable
     // threads and is explicitly stopped after their joins on every exit path.
-    DevelopmentTools::TracyClientOwner tracyClientOwner;
+    SkullbonezCore::Core::DevelopmentTools::TracyClientOwner tracyClientOwner;
     tracyClientOwner.Start();
 #endif
 

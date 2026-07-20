@@ -34,7 +34,7 @@ Related:
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/WorkerPool.h"
 #include "../RunLaunchOptions.Renderer.h"
-#include "../WindowConstants.h"
+#include "../../Core/WindowConstants.h"
 #include <cerrno>
 #include <climits>
 #include <cstdarg>

@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.cpp
+File: SkullbonezSource/Core/TracyClientOwner.cpp
 Purpose:
   Owns Tracy lifecycle, owner zones, plots, capture mode, and status.
 
@@ -38,16 +38,16 @@ Invariants:
     the main thread name states that fact rather than inventing fake threads.
 
 Related:
-  - SkullbonezSource/Runtime/DevelopmentTools/TracyClientOwner.h
+  - SkullbonezSource/Core/TracyClientOwner.h
   - SkullbonezSource/Runtime/Init.cpp
   - SkullbonezSource/Runtime/RunFrame.cpp
   - SkullbonezSource/Core/WorkerPool.cpp
 */
 #include "TracyClientOwner.h"
 
-#include "../../Core/Allocation/DevelopmentToolAllocation.h"
-#include "../../Core/FatalError.h"
-#include "../../Core/PlatformWin32.h"
+#include "Allocation/DevelopmentToolAllocation.h"
+#include "FatalError.h"
+#include "PlatformWin32.h"
 
 #include <client/tracy_rpmalloc.hpp>
 #include <tracy/Tracy.hpp>
@@ -242,7 +242,7 @@ void ConfigureTracyBackingAllocator()
 }
 } // namespace
 
-namespace SkullbonezCore::Runtime::DevelopmentTools
+namespace SkullbonezCore::Core::DevelopmentTools
 {
 TracyClientOwner::~TracyClientOwner()
 {
@@ -483,4 +483,4 @@ void TracyClientOwner::PublishDevelopmentAllocationPlots() noexcept
     }
 }
 
-} // namespace SkullbonezCore::Runtime::DevelopmentTools
+} // namespace SkullbonezCore::Core::DevelopmentTools

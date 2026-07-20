@@ -49,7 +49,7 @@ Related:
 #include "Tools/RuntimeTools.h"
 #include "Window.h"
 #include "../Assets/AssetSystem.h"
-#include "../Physics/SimulationSystem.h"
+#include "SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/IRenderResourceFactory.h"

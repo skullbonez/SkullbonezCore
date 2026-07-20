@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Physics/SimulationSystem.h
+File: SkullbonezSource/Runtime/SimulationSystem.h
 Purpose:
   Owns runtime simulation stepping policy and physics accumulators.
 
@@ -10,7 +10,7 @@ Summary:
 
 Glossary:
   Fixed-step: Deterministic mode that advances physics by one fixed delta per
-  requested tick instead of wall-clock time.
+    requested tick instead of wall-clock time.
   Accumulator: Stored fractional tick state that carries time across frames.
   Commit count: Number of fixed physics ticks the runtime owner must execute
     after the scheduler has updated accumulator state.
@@ -29,19 +29,17 @@ Invariants:
   - Catch-up drops whole ticks only; fractional accumulator state survives.
 
 Related:
-  - SkullbonezSource/Physics/SimulationSystem.cpp
+  - SkullbonezSource/Runtime/SimulationSystem.cpp
   - SkullbonezSource/Runtime/RunFrame.cpp
   - Agentic/Reference/runtime-reference.md
 */
 #pragma once
 
-#include "../Runtime/RuntimeInteractionController.h"
+#include "RuntimeInteractionController.h"
 
 #include <cstdint>
 
-namespace SkullbonezCore
-{
-namespace Runtime
+namespace SkullbonezCore::Runtime
 {
 struct SimulationTickInput
 {
@@ -83,5 +81,4 @@ class SimulationSystem
     uint64_t m_droppedPhysicsTickCount = 0;
     uint64_t m_physicsHitchEventCount = 0;
 };
-} // namespace Runtime
-} // namespace SkullbonezCore
+} // namespace SkullbonezCore::Runtime

@@ -483,6 +483,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeStressController.cpp">
       <Filter>Source Files\Runtime\Automation</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeOverlayDiagnostics.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
@@ -654,8 +657,8 @@
       <ClCompile Include="SkullbonezSource\Core\Allocation\DevelopmentToolAllocation.cpp">
         <Filter>Source Files\Core\Allocation</Filter>
       </ClCompile>
-      <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.cpp">
-        <Filter>Source Files\Runtime\Diagnostics</Filter>
+      <ClCompile Include="SkullbonezSource\Core\TracyClientOwner.cpp">
+        <Filter>Source Files\Core</Filter>
       </ClCompile>
       <ClCompile Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorOwner.cpp">
         <Filter>Source Files\Runtime\Diagnostics</Filter>
@@ -872,6 +875,9 @@
       <Filter>Header Files\Runtime\Automation</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeFrameViews.h">
+      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\SimulationSystem.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\ApplicationExitState.h">
@@ -1177,8 +1183,8 @@
     <ClInclude Include="SkullbonezSource\Core\Timer.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\WindowConstants.h">
-      <Filter>Header Files\Runtime\Lifecycle</Filter>
+    <ClInclude Include="SkullbonezSource\Core\WindowConstants.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Window.h">
       <Filter>Header Files\Runtime\Lifecycle</Filter>
@@ -1330,8 +1336,8 @@
       <ClInclude Include="SkullbonezSource\Core\Allocation\DevelopmentToolsCapability.h">
         <Filter>Header Files\Core\Allocation</Filter>
       </ClInclude>
-      <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\TracyClientOwner.h">
-        <Filter>Header Files\Runtime\Diagnostics</Filter>
+      <ClInclude Include="SkullbonezSource\Core\TracyClientOwner.h">
+        <Filter>Header Files\Core</Filter>
       </ClInclude>
       <ClInclude Include="SkullbonezSource\Runtime\DevelopmentTools\ImGuiEditorCausalityProjection.h">
         <Filter>Header Files\Runtime\Editor</Filter>

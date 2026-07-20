@@ -28,9 +28,6 @@
     <Filter Include="Source Files\Assets">
       <UniqueIdentifier>{6A96B565-85DF-4E09-8F65-E5556EE490C5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Physics">
-      <UniqueIdentifier>{BB54C591-485D-4831-95BE-EC866F8F14C3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Runtime">
       <UniqueIdentifier>{B1E9B95C-2E68-4B0F-8EE6-EC0F5529E0BA}</UniqueIdentifier>
     </Filter>
@@ -60,9 +57,6 @@
     </Filter>
     <Filter Include="Source Files\Runtime\Tools">
       <UniqueIdentifier>{3182C7E3-3124-4D9E-9160-F5D082491CF0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Physics\Core">
-      <UniqueIdentifier>{D22051DA-1CAC-4D89-95BC-FD3C606A4664}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Runtime\Replay">
       <UniqueIdentifier>{B75CFE80-5DE1-4FA6-B50A-6450A7E0A819}</UniqueIdentifier>
@@ -279,8 +273,8 @@
     <ClCompile Include="SkullbonezSource\Runtime\DemoDirector.cpp">
       <Filter>Source Files\Runtime\Demo</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\SimulationSystem.cpp">
-      <Filter>Source Files\Physics\Core</Filter>
+    <ClCompile Include="SkullbonezSource\Runtime\SimulationSystem.cpp">
+      <Filter>Source Files\Runtime\Lifecycle</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp">
       <Filter>Source Files\Runtime\Lifecycle</Filter>
