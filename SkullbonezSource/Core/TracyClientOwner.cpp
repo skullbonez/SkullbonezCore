@@ -59,7 +59,7 @@ Related:
 #include <limits>
 #include <mutex>
 
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 #if defined( LZ4_USER_MEMORY_FUNCTIONS )
 // Why: Tracy compiles its private LZ4 implementation into TracyClient.cpp. The
@@ -67,8 +67,7 @@ namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
 // capped owner as its rpmalloc maps without modifying the pinned vendor source.
 void* LZ4_malloc( std::size_t size )
 {
-    return RuntimeAllocation::AllocateDevelopmentToolMemory( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                             size );
+    return CoreAllocation::AllocateDevelopmentToolMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, size );
 }
 
 void* LZ4_calloc( std::size_t count, std::size_t size )
@@ -88,7 +87,7 @@ void* LZ4_calloc( std::size_t count, std::size_t size )
 
 void LZ4_free( void* pointer )
 {
-    RuntimeAllocation::FreeDevelopmentToolMemory( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy, pointer );
+    CoreAllocation::FreeDevelopmentToolMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy, pointer );
 }
 #endif
 
@@ -153,13 +152,12 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
     {
         *offset = 0u;
     }
-    if ( !RuntimeAllocation::TryAccountDevelopmentToolBackingMemory(
-             RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-             size ) )
+    if ( !CoreAllocation::TryAccountDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                                  size ) )
     {
-        RuntimeAllocation::DevelopmentToolAllocationStats stats;
-        RuntimeAllocation::CopyDevelopmentToolAllocationStats( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                               stats );
+        CoreAllocation::DevelopmentToolAllocationStats stats;
+        CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                            stats );
         // Lane F: continuing would either exceed the owner-approved cap or
         // tempt the vendor allocator to fall back outside engine accounting.
         SB_FATAL( "DevelopmentTools/Tracy",
@@ -173,9 +171,8 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
     void* address = VirtualAlloc( nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
     if ( !address )
     {
-        RuntimeAllocation::ReleaseDevelopmentToolBackingMemory(
-            RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-            size );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                             size );
         SB_FATAL( "DevelopmentTools/Tracy",
                   "VirtualAlloc failed for rpmalloc backing: request=%llu error=%lu",
                   static_cast<unsigned long long>( size ),
@@ -184,9 +181,8 @@ void* MapTracyBackingMemory( std::size_t size, std::size_t* offset )
     if ( ( reinterpret_cast<std::uintptr_t>( address ) & ( TRACY_BACKING_ALIGNMENT - 1u ) ) != 0u )
     {
         VirtualFree( address, 0u, MEM_RELEASE );
-        RuntimeAllocation::ReleaseDevelopmentToolBackingMemory(
-            RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-            size );
+        CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                             size );
         SB_FATAL( "DevelopmentTools/Tracy", "VirtualAlloc returned a non-64-KiB-aligned rpmalloc range." );
     }
     return address;
@@ -217,8 +213,8 @@ void UnmapTracyBackingMemory( void* address, std::size_t size, std::size_t offse
                   static_cast<unsigned long long>( release ),
                   static_cast<unsigned long>( GetLastError() ) );
     }
-    RuntimeAllocation::ReleaseDevelopmentToolBackingMemory( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                            release );
+    CoreAllocation::ReleaseDevelopmentToolBackingMemory( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                         release );
 }
 
 void ConfigureTracyBackingAllocator()
@@ -269,14 +265,14 @@ void TracyClientOwner::Start()
     }
 
     ConfigureTracyBackingAllocator();
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
+    CoreAllocation::DevelopmentToolAllocationScope allocationScope(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
     tracy::StartupProfiler();
     m_started = tracy::IsProfilerStarted();
     const bool heavyMode = m_started && captureMode == RequestedCaptureMode::Heavy;
     g_tracyHeavyMode.store( heavyMode, std::memory_order_release );
     g_tracyInitialized.store( m_started, std::memory_order_release );
-    RuntimeAllocation::SetTracyAllocationTracingEnabled( heavyMode );
+    CoreAllocation::SetTracyAllocationTracingEnabled( heavyMode );
     if ( !m_started )
     {
         return;
@@ -287,9 +283,9 @@ void TracyClientOwner::Start()
     // that ownership visible without pretending those roles have private lanes.
     tracy::SetThreadName( "Skore Main + Render + Replay + IO" );
     TracySetProgramName( "SkullbonezCore" );
-    RuntimeAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
-    RuntimeAllocation::CopyDevelopmentToolAllocationStats( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                           tracyAllocationStats );
+    CoreAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
+    CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                        tracyAllocationStats );
     fprintf( stdout,
              "[tracy] Manual on-demand client started. viewer=waiting capture=%s callstacks=%s allocations=%s "
              "owner_active=%llu owner_high_water=%llu owner_cap=%d\n",
@@ -309,18 +305,18 @@ void TracyClientOwner::Shutdown() noexcept
         return;
     }
 
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
+    CoreAllocation::DevelopmentToolAllocationScope allocationScope(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
     // Lifetime: publish the stopped state before freeing Tracy's process data;
     // UI snapshots and marker seams therefore stop reaching the vendor first.
     g_tracyInitialized.store( false, std::memory_order_release );
     g_tracyHeavyMode.store( false, std::memory_order_release );
-    RuntimeAllocation::SetTracyAllocationTracingEnabled( false );
+    CoreAllocation::SetTracyAllocationTracingEnabled( false );
     tracy::ShutdownProfiler();
     m_started = false;
-    RuntimeAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
-    RuntimeAllocation::CopyDevelopmentToolAllocationStats( RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-                                                           tracyAllocationStats );
+    CoreAllocation::DevelopmentToolAllocationStats tracyAllocationStats;
+    CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                        tracyAllocationStats );
     fprintf( stdout,
              "[tracy] Client stopped after engine worker shutdown. owner_active=%llu owner_high_water=%llu "
              "owner_cap=%d\n",
@@ -348,8 +344,8 @@ void TracyClientOwner::MarkSubmittedFrame() noexcept
         return;
     }
 
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
+    CoreAllocation::DevelopmentToolAllocationScope allocationScope(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
     FrameMark;
 }
 
@@ -362,8 +358,8 @@ void TracyClientOwner::NameWorkerThread( int workerIndex ) noexcept
 
     char threadName[32] = {};
     _snprintf_s( threadName, sizeof( threadName ), _TRUNCATE, "Skore Worker %02d", workerIndex );
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
+    CoreAllocation::DevelopmentToolAllocationScope allocationScope(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
     tracy::SetThreadNameWithHint( threadName, 1 );
 }
 
@@ -426,8 +422,8 @@ TracyZoneToken TracyClientOwner::BeginOwnerZone( uint32_t sourceLocationHandle )
         return token;
     }
 
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
+    CoreAllocation::DevelopmentToolAllocationScope allocationScope(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
     const ___tracy_source_location_data* source = &g_ownerSourceLocations[sourceLocationHandle - 1u].tracy;
     const TracyCZoneCtx context = g_tracyHeavyMode.load( std::memory_order_acquire )
                                       ? ___tracy_emit_zone_begin_callstack( source, HEAVY_CALLSTACK_DEPTH, 1 )
@@ -446,8 +442,8 @@ void TracyClientOwner::EndOwnerZone( TracyZoneToken token ) noexcept
         return;
     }
 
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
+    CoreAllocation::DevelopmentToolAllocationScope allocationScope(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
     ___tracy_emit_zone_end( { token.id, token.active } );
 }
 
@@ -458,25 +454,23 @@ void TracyClientOwner::PublishPlot( const char* name, double value ) noexcept
         return;
     }
 
-    RuntimeAllocation::DevelopmentToolAllocationScope allocationScope(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy );
+    CoreAllocation::DevelopmentToolAllocationScope allocationScope(
+        CoreAllocation::DevelopmentToolAllocationOwner::Tracy );
     ___tracy_emit_plot( name, value );
 }
 
 void TracyClientOwner::PublishDevelopmentAllocationPlots() noexcept
 {
-    RuntimeAllocation::DevelopmentToolAllocationStats imguiStats;
-    RuntimeAllocation::DevelopmentToolAllocationStats tracyStats;
-    if ( RuntimeAllocation::CopyDevelopmentToolAllocationStats(
-             RuntimeAllocation::DevelopmentToolAllocationOwner::DearImGui,
-             imguiStats ) )
+    CoreAllocation::DevelopmentToolAllocationStats imguiStats;
+    CoreAllocation::DevelopmentToolAllocationStats tracyStats;
+    if ( CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::DearImGui,
+                                                             imguiStats ) )
     {
         PublishPlot( "Counter/DevelopmentTools/ImGuiActiveBytes", static_cast<double>( imguiStats.activeBytes ) );
         PublishPlot( "Counter/DevelopmentTools/ImGuiHighWaterBytes", static_cast<double>( imguiStats.highWaterBytes ) );
     }
-    if ( RuntimeAllocation::CopyDevelopmentToolAllocationStats(
-             RuntimeAllocation::DevelopmentToolAllocationOwner::Tracy,
-             tracyStats ) )
+    if ( CoreAllocation::CopyDevelopmentToolAllocationStats( CoreAllocation::DevelopmentToolAllocationOwner::Tracy,
+                                                             tracyStats ) )
     {
         PublishPlot( "Counter/DevelopmentTools/TracyActiveBytes", static_cast<double>( tracyStats.activeBytes ) );
         PublishPlot( "Counter/DevelopmentTools/TracyHighWaterBytes", static_cast<double>( tracyStats.highWaterBytes ) );

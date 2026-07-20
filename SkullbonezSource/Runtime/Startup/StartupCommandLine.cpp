@@ -43,7 +43,7 @@ Related:
 #include <cstring>
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Threading;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 namespace SkullbonezCore
 {
 namespace Runtime
@@ -685,21 +685,21 @@ bool ParseOptionalOnOffValue( const char* value, bool& out )
 }
 namespace
 {
-bool ParseAllocationGuardModeValue( const char* value, RuntimeAllocation::RuntimeAllocationGuardMode& out )
+bool ParseAllocationGuardModeValue( const char* value, CoreAllocation::RuntimeAllocationGuardMode& out )
 {
     if ( IsOptionValueMissing( value ) || _stricmp( value, "measure" ) == 0 )
     {
-        out = RuntimeAllocation::RuntimeAllocationGuardMode::Measure;
+        out = CoreAllocation::RuntimeAllocationGuardMode::Measure;
         return true;
     }
     if ( _stricmp( value, "off" ) == 0 || _stricmp( value, "none" ) == 0 )
     {
-        out = RuntimeAllocation::RuntimeAllocationGuardMode::Off;
+        out = CoreAllocation::RuntimeAllocationGuardMode::Off;
         return true;
     }
     if ( _stricmp( value, "gameplay" ) == 0 || _stricmp( value, "warn" ) == 0 || _stricmp( value, "warnings" ) == 0 )
     {
-        out = RuntimeAllocation::RuntimeAllocationGuardMode::Gameplay;
+        out = CoreAllocation::RuntimeAllocationGuardMode::Gameplay;
         return true;
     }
     return false;
@@ -968,7 +968,8 @@ bool ParseUnsignedCommandLineToken( const char* value, unsigned int& out )
 {
     return ParseUnsignedIntToken( value, out );
 }
-bool ParseAllocationGuardCommandLineToken( const char* value, Allocation::RuntimeAllocationGuardMode& out )
+bool ParseAllocationGuardCommandLineToken( const char* value,
+                                           SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode& out )
 {
     return ParseAllocationGuardModeValue( value, out );
 }

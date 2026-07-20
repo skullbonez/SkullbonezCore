@@ -230,7 +230,8 @@ SceneLoadRequest SceneLoadNavigationState::LoadDemoScene( SceneRuntime& scene ) 
 
 SceneLoadNavigationState CaptureSceneLoadNavigationState( const UI::SceneNavigationModel& navigation )
 {
-    Allocation::RuntimeAllocationScope allocationScope( Allocation::RuntimeAllocationPhase::SceneLoad );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SceneLoad );
     SceneLoadNavigationState state;
     state.browserPaths = navigation.browser.paths;
     state.overrides = navigation.overrides;

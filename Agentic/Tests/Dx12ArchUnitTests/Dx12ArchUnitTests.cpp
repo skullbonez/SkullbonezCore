@@ -62,7 +62,7 @@ Related:
 
 using namespace SkullbonezCore::Rendering;
 using SkullbonezCore::Core::SbResult;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 
 static_assert(
     std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,

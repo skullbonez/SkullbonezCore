@@ -231,7 +231,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
           eventIndex < data.reserveGrowthEventCount && eventIndex < UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX;
           ++eventIndex )
     {
-        const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event =
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event =
             data.reserveGrowthEvents[eventIndex];
         hash = HashTextValue( hash, event.targetName );
         hash = HashInt( hash, event.frameNumber );

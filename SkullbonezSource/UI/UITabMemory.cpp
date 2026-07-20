@@ -327,7 +327,7 @@ int AllocatePinnedEventSlot( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState
 }
 
 void RetainOverlayEvent( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& state,
-                         const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event,
+                         const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event,
                          uint64_t levelBytes,
                          double now )
 {
@@ -430,7 +430,7 @@ void RefreshOverlayAxis( SkullbonezCore::UI::MemoryTab::UIMemoryOverlayState& st
     state.axisMaxBytes = state.axisMinBytes + paddedSpan;
 }
 
-void MemoryEventColor( const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event,
+void MemoryEventColor( const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event,
                        float& r,
                        float& g,
                        float& b )
@@ -1123,7 +1123,7 @@ void DrawReserveGrowthEvents( const SkullbonezCore::UI::UIDrawContext& draw,
 
     for ( int i = 0; i < eventCount; ++i )
     {
-        const SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView& event = data.reserveGrowthEvents[i];
+        const SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView& event = data.reserveGrowthEvents[i];
         const float rowY = tableY + MEMORY_EVENT_HEADER_H + static_cast<float>( i ) * MEMORY_EVENT_ROW_H;
         if ( !IsMemoryRowVisible( contentY, contentH, rowY, MEMORY_EVENT_ROW_H ) )
         {

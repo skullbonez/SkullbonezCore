@@ -63,7 +63,7 @@ struct MemoryOverlaySample
 
 struct MemoryOverlayPinnedEvent
 {
-    Runtime::Allocation::RuntimeReserveGrowthEventView event;
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView event;
     uint64_t levelBytes = 0; // Process-memory level observed when the event first reached the UI.
     double firstSeenSeconds = 0.0;
     bool isFilled = false;

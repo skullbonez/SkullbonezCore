@@ -41,12 +41,12 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
 namespace SBUI = SkullbonezCore::UI;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 
 std::unique_ptr<RuntimeOverlayDiagnostics> RuntimeOverlayDiagnostics::CreateForStartup( Core::Profiler* profiler )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
     // Allocation policy: Run keeps this heavyweight cohesive owner out of its
     // public header. The one process-lifetime allocation is bounded to startup.
     return std::make_unique<RuntimeOverlayDiagnostics>( profiler );

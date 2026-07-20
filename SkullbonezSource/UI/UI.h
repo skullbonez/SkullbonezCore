@@ -197,7 +197,8 @@ struct InGameUIFrameData
     int profilerMarkerOptionCount = 0;
     SkullbonezCore::Core::MainMemoryStats mainMemory;
     Rendering::RenderMemoryStats renderMemory; // Value snapshot for the Memory tab/overlay only.
-    Runtime::Allocation::RuntimeReserveGrowthEventView reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView
+        reserveGrowthEvents[UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX];
     int reserveGrowthEventCount = 0;
     uint64_t reserveGrowthEventTotalCount = 0;
     uint64_t reserveGrowthEventDroppedCount = 0;

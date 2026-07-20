@@ -66,7 +66,7 @@ using namespace SkullbonezCore::Runtime::RunInternal;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -1012,8 +1012,7 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
     const RunCameraState& camera = inputs.camera;
     const UI::InGameUI& ui = inputs.ui;
 
-    RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     if ( m_written )
     {
         return status.Result();

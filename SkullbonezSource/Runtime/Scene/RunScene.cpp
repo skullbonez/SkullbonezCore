@@ -95,7 +95,7 @@ using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Rendering::IMesh;
 using namespace SkullbonezCore::Runtime::RunInternal;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -578,7 +578,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const RuntimeRenderBackendView& renderBackendView = presentation.renderBackendView;
     RuntimeRenderer& renderer = presentation.renderer;
 
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::SceneLoad );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
     consumerOutputs.ResetForLoad();
     consumerOutputs.navigation = interactionParticipants.navigation;
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;

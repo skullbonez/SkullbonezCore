@@ -85,7 +85,7 @@ using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Vector = SkullbonezCore::Math::Vector;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -101,7 +101,7 @@ constexpr std::size_t REPLAY_SOLVER_SNAPSHOT_VECTOR_GROWTH_CHUNK = 4096u;
 // larger solver snapshots interactively. The hard byte cap is the memory bound;
 // growth count remains diagnostic instead of being a fatal budget.
 constexpr int REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT =
-    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+    CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint32_t PHYSICS_TORNADO_WORKER_HASH = HashStr( "Frame/Physics/TornadoField/WorkerBodies" );
 
 #ifdef SKULLBONEZ_PROFILE_ENABLED
@@ -200,13 +200,13 @@ bool IsPointJointBodyPair( const PhysicsBodyStore& bodyStore,
 }
 
 
-RuntimeAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
+CoreAllocation::RuntimeReserveOwnerHandle ReplaySolverSnapshotReserveOwner()
 {
-    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
-        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner =
+        CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
             { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
-              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
-              RuntimeAllocation::RuntimeReservePhase::Replay,
+              CoreAllocation::RuntimeReserveSubsystem::Replay,
+              CoreAllocation::RuntimeReservePhase::Replay,
               0,
               PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
               REPLAY_SOLVER_SNAPSHOT_RESERVE_GROWTH_LIMIT,
@@ -434,27 +434,26 @@ void PhysicsWorld::CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapsh
             ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
                                                       static_cast<std::size_t>( requestedSnapshotBytes ) );
         }
-        const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplaySolverSnapshotReserveOwner();
-        const RuntimeAllocation::RuntimeReserveGrowthRequest request = { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
-                                                                         "PhysicsSolverSnapshot",
-                                                                         RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                         modelCount,
-                                                                         static_cast<int>( oldSnapshotBytes ),
-                                                                         static_cast<int>( requestedSnapshotBytes ),
-                                                                         1 };
-        const RuntimeAllocation::RuntimeReserveGrowthResult result =
-            RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+        const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplaySolverSnapshotReserveOwner();
+        const CoreAllocation::RuntimeReserveGrowthRequest request = { PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
+                                                                      "PhysicsSolverSnapshot",
+                                                                      CoreAllocation::RuntimeReservePhase::Replay,
+                                                                      modelCount,
+                                                                      static_cast<int>( oldSnapshotBytes ),
+                                                                      static_cast<int>( requestedSnapshotBytes ),
+                                                                      1 };
+        const CoreAllocation::RuntimeReserveGrowthResult result =
+            CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
         if ( !result.granted )
         {
             ReportReplaySolverSnapshotReserveFailure( "solverSnapshotBytes",
                                                       static_cast<std::size_t>( requestedSnapshotBytes ) );
         }
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-        RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                                  RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                  result );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+        CoreAllocation::RuntimeReserveGrowthScope growthScope( owner,
+                                                               CoreAllocation::RuntimeReservePhase::Replay,
+                                                               result );
         reserveSnapshotVectors();
     }
     else

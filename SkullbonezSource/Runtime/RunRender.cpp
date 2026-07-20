@@ -38,7 +38,7 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
@@ -119,7 +119,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                m_interaction.Gesture(),
                                                                toolOverlay.attachedTargetIndex,
                                                                toolOverlay.attachedFollow } );
-    const uint64_t replayGrowthEventCount = RuntimeAllocation::RuntimeReserveAllocator::GrowthEventCount();
+    const uint64_t replayGrowthEventCount = CoreAllocation::RuntimeReserveAllocator::GrowthEventCount();
     const bool debugTransparentBodyPass = debug.isPhysicsDebugTransparent && debug.physicsDebugAlpha < 1.0f;
     const ReplayRenderFrameView replayFrame =
         m_replayRuntime.PrepareRenderFrame( m_sceneController.Scene().MutableRenderInstances(),

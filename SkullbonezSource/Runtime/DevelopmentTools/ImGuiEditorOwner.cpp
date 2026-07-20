@@ -68,7 +68,7 @@ Related:
 // Win32 ABI boundary, so repeat the vendor-prescribed declaration here.
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND window, UINT message, WPARAM wParam, LPARAM lParam );
 
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -83,15 +83,13 @@ constexpr float MAX_DELTA_SECONDS = 0.25f;
 
 void* AllocateImGuiMemory( size_t size, void* ) noexcept
 {
-    return RuntimeAllocation::AllocateDevelopmentToolMemory(
-        RuntimeAllocation::DevelopmentToolAllocationOwner::DearImGui,
-        size );
+    return CoreAllocation::AllocateDevelopmentToolMemory( CoreAllocation::DevelopmentToolAllocationOwner::DearImGui,
+                                                          size );
 }
 
 void FreeImGuiMemory( void* pointer, void* ) noexcept
 {
-    RuntimeAllocation::FreeDevelopmentToolMemory( RuntimeAllocation::DevelopmentToolAllocationOwner::DearImGui,
-                                                  pointer );
+    CoreAllocation::FreeDevelopmentToolMemory( CoreAllocation::DevelopmentToolAllocationOwner::DearImGui, pointer );
 }
 
 bool IsReadableFile( const char* path ) noexcept

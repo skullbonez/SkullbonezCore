@@ -95,7 +95,7 @@ enum class ReplayGrowthExhaustionRule : uint8_t
 struct ReplayGrowthOwnerPolicy
 {
     const char* ownerName;
-    Runtime::Allocation::RuntimeReservePhase phase;
+    SkullbonezCore::Core::Allocation::RuntimeReservePhase phase;
     int hardBytes;
     uint64_t measuredHighWaterBytes;
     ReplayGrowthExhaustionRule exhaustion;
@@ -110,17 +110,17 @@ inline constexpr int REPLAY_PREDICTION_RESERVE_HARD_BYTES = 256 * 1024 * 1024;
 
 inline constexpr std::array<ReplayGrowthOwnerPolicy, 3> REPLAY_GROWTH_OWNER_POLICIES = {
     ReplayGrowthOwnerPolicy{ REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                             Runtime::Allocation::RuntimeReservePhase::Replay,
+                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                              REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
                              6206626u,
                              ReplayGrowthExhaustionRule::FatalRetainedState },
     ReplayGrowthOwnerPolicy{ Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER,
-                             Runtime::Allocation::RuntimeReservePhase::Replay,
+                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                              Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES,
                              1437696u,
                              ReplayGrowthExhaustionRule::FatalRetainedState },
     ReplayGrowthOwnerPolicy{ REPLAY_PREDICTION_RESERVE_OWNER,
-                             Runtime::Allocation::RuntimeReservePhase::Replay,
+                             SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
                              REPLAY_PREDICTION_RESERVE_HARD_BYTES,
                              211376304u,
                              ReplayGrowthExhaustionRule::CancelPredictionBuild } };

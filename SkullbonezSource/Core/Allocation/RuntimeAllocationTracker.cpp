@@ -57,10 +57,10 @@ Related:
 
 namespace
 {
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
+using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
 
 struct PhaseCounters
 {
@@ -315,7 +315,7 @@ void RecordFree( const AllocationHeader& header ) noexcept
     counters.frees.fetch_add( 1u, std::memory_order_relaxed );
     counters.freedBytes.fetch_add( header.size, std::memory_order_relaxed );
     SubtractActiveBytes( counters.activeBytes, header.size );
-    SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::RecordFree( header.owner, header.size );
+    SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RecordFree( header.owner, header.size );
 }
 
 void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAlignment, void* callsite ) noexcept
@@ -367,7 +367,7 @@ void* AllocateTrackedMemory( std::size_t requestedSize, std::size_t requestedAli
         // connection id pairs this allocation with a free only inside the same
         // viewer session, avoiding stale frees after disconnect/reconnect.
         header->tracyConnectionId =
-            SkullbonezCore::Runtime::Allocation::RecordTracyAllocation( reinterpret_cast<void*>( userAddress ), size );
+            SkullbonezCore::Core::Allocation::RecordTracyAllocation( reinterpret_cast<void*>( userAddress ), size );
 #endif
         s_insideAllocationHook = false;
     }
@@ -401,7 +401,7 @@ void FreeTrackedMemory( void* pointer ) noexcept
     {
         s_insideAllocationHook = true;
 #if defined( TRACY_ENABLE )
-        SkullbonezCore::Runtime::Allocation::RecordTracyFree( pointer, header->tracyConnectionId );
+        SkullbonezCore::Core::Allocation::RecordTracyFree( pointer, header->tracyConnectionId );
 #endif
         RecordFree( *header );
         s_insideAllocationHook = false;
@@ -450,7 +450,7 @@ void* AllocateOrFatal( std::size_t size, std::size_t alignment, void* callsite )
 
 namespace SkullbonezCore
 {
-namespace Runtime
+namespace Core
 {
 namespace Allocation
 {
@@ -691,7 +691,7 @@ void PrintRuntimeAllocationSummary( FILE* out ) noexcept
     fflush( out );
 }
 } // namespace Allocation
-} // namespace Runtime
+} // namespace Core
 } // namespace SkullbonezCore
 
 #if defined( _MSC_VER )

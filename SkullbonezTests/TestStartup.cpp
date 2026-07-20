@@ -43,9 +43,9 @@
 
 using SkullbonezCore::Core::ActiveSceneObjectCapacity;
 using SkullbonezCore::Core::EngineConfig;
+using SkullbonezCore::Core::Allocation::RuntimeAllocationGuardMode;
 using SkullbonezCore::Runtime::GeneratedObjectTypeOverride;
 using SkullbonezCore::Runtime::RunStartupOverrides;
-using SkullbonezCore::Runtime::Allocation::RuntimeAllocationGuardMode;
 using namespace SkullbonezCore::Runtime::Startup;
 
 namespace
@@ -515,8 +515,7 @@ TEST_CASE( "Startup development UI: one startup-selected surface owns focus and 
         const RunStartupOverrides overrides = BuildRunStartupOverrides( args );
         CHECK( overrides.launch.developmentUiMode == modeCase.expected );
         CHECK( overrides.launch.developmentUiModeExplicit );
-        CHECK( DevelopmentUiModeShowsLegacy( modeCase.expected ) !=
-               DevelopmentUiModeShowsImGui( modeCase.expected ) );
+        CHECK( DevelopmentUiModeShowsLegacy( modeCase.expected ) != DevelopmentUiModeShowsImGui( modeCase.expected ) );
     }
 
     ParsedArgs omitted;

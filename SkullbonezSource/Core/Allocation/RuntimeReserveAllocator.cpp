@@ -43,18 +43,18 @@ Related:
 
 namespace
 {
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthEventView;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthRequest;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveGrowthResult;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerDesc;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerStatsView;
-using SkullbonezCore::Runtime::Allocation::RuntimeReservePhase;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
+using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthEventView;
+using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthRequest;
+using SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerDesc;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerStatsView;
+using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
+using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
 constexpr int MAX_RUNTIME_RESERVE_OWNERS = 160;
 constexpr int MAX_RUNTIME_RESERVE_GROWTH_EVENTS =
-    SkullbonezCore::Runtime::Allocation::RUNTIME_RESERVE_GROWTH_EVENT_HISTORY;
+    SkullbonezCore::Core::Allocation::RUNTIME_RESERVE_GROWTH_EVENT_HISTORY;
 constexpr RuntimeReserveOwnerHandle UNREGISTERED_OWNER = 0u;
 
 struct OwnerCounters
@@ -335,7 +335,7 @@ RuntimeReserveGrowthResult DenyGrowth( OwnerRecord& owner,
 
 namespace SkullbonezCore
 {
-namespace Runtime
+namespace Core
 {
 namespace Allocation
 {
@@ -867,5 +867,5 @@ RuntimeReservePhase RuntimeReservePhaseFromAllocationPhaseIndex( int phaseIndex 
     return static_cast<RuntimeReservePhase>( phaseIndex );
 }
 } // namespace Allocation
-} // namespace Runtime
+} // namespace Core
 } // namespace SkullbonezCore

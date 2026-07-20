@@ -92,7 +92,7 @@ using namespace SkullbonezCore::Runtime::RunInternal;
 namespace Math = SkullbonezCore::Math;
 namespace Physics = SkullbonezCore::Physics;
 namespace Rendering = SkullbonezCore::Rendering;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -1722,8 +1722,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         EnsureFrameResources( resourceContext );
     }
 
@@ -1744,8 +1743,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // but keeping the ensure calls in the frame story gives future extraction
     // work an obvious place to move those GPU resources.
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         m_objectPass.EnsureGpuResources( resourceContext );
         m_terrainPass.EnsureGpuResources( resourceContext );
         m_waterPass.EnsureGpuResources( resourceContext );
@@ -1765,8 +1763,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         shadowMapsEnabled ? &activeShadowStyle : nullptr;
     if ( activeShadowConfig )
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         PrimitiveRenderContext primitiveContext{ services.renderResources,
                                                  services.renderCommands,
                                                  services.renderDiagnostics,
@@ -1823,8 +1820,8 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     if ( reflectionPassNeeded )
     {
         {
-            RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+            CoreAllocation::RuntimeAllocationScope allocationScope(
+                CoreAllocation::RuntimeAllocationPhase::BackendInit );
             m_reflectionPass.EnsureGpuResources( resourceContext );
         }
         const ReflectionGraphResult reflectionGraph =
@@ -1920,8 +1917,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 
     bool replayGhostCallbackOwned = false;
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
         replayGhostCallbackOwned = ExecuteReplayGhostsThroughRenderGraph( frame,
                                                                           *replayFrame.visualPacket,
                                                                           useCinematicTarget,
@@ -1979,8 +1975,8 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         frameSnapshot.volumetricHeight = cinematicPostGraph.volumetricHeight;
     }
     {
-        RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
+        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
         Rendering::RenderPipeline::DumpExecutedFrameGraphIfChanged( frameSnapshot );
     }
     return debugOverlayGraph.rendered;
@@ -2184,7 +2180,7 @@ RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& rende
                                         int screenW,
                                         int screenH )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     return m_uiTextPass.EnsureGpuResources( m_textBatch, renderResources, assets, screenW, screenH );
 }
 

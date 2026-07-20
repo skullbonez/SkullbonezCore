@@ -84,7 +84,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using SkullbonezCore::Hardware::Input;
 namespace Physics = SkullbonezCore::Physics;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -2424,8 +2424,7 @@ EvaluateInteractionAutomationAssertion( RuntimeTools& runtimeTools,
 
 bool LoadScript( InteractionAutomationController& state )
 {
-    RuntimeAllocation::RuntimeAllocationScope diagnosticsScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
+    CoreAllocation::RuntimeAllocationScope diagnosticsScope( CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     state.scriptLoaded = true;
     std::ifstream input( state.scriptPath );
     if ( !input.is_open() )
@@ -2982,8 +2981,8 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
         return result;
     }
 
-    RuntimeAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
+    CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+        CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     const int frame = scene.State().currentFrame;
     for ( RunInteractionAutomationAction& action : state.actions )
     {

@@ -39,11 +39,11 @@ Related:
 
 namespace
 {
-using SkullbonezCore::Runtime::Allocation::DevelopmentToolAllocationOwner;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveOwnerHandle;
-using SkullbonezCore::Runtime::Allocation::RuntimeReservePhase;
-using SkullbonezCore::Runtime::Allocation::RuntimeReserveSubsystem;
+using SkullbonezCore::Core::Allocation::DevelopmentToolAllocationOwner;
+using SkullbonezCore::Core::Allocation::RuntimeReserveAllocator;
+using SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle;
+using SkullbonezCore::Core::Allocation::RuntimeReservePhase;
+using SkullbonezCore::Core::Allocation::RuntimeReserveSubsystem;
 
 constexpr int MEBIBYTE_BYTES = 1024 * 1024;
 constexpr int IMGUI_ACTIVE_BYTE_CAP = 64 * MEBIBYTE_BYTES;
@@ -88,7 +88,7 @@ RuntimeReserveOwnerHandle ToolOwnerHandle( DevelopmentToolAllocationOwner owner 
 }
 } // namespace
 
-namespace SkullbonezCore::Runtime::Allocation
+namespace SkullbonezCore::Core::Allocation
 {
 DevelopmentToolAllocationScope::DevelopmentToolAllocationScope( DevelopmentToolAllocationOwner owner ) noexcept
     : m_ownerScope( ToolOwnerHandle( owner ) )
@@ -185,4 +185,4 @@ void RecordTracyFree( const void* pointer, uint64_t connectionId ) noexcept
     (void)connectionId;
 #endif
 }
-} // namespace SkullbonezCore::Runtime::Allocation
+} // namespace SkullbonezCore::Core::Allocation

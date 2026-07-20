@@ -38,7 +38,7 @@ Related:
 #include <cstddef>
 #include <cstdint>
 
-namespace SkullbonezCore::Runtime::Allocation
+namespace SkullbonezCore::Core::Allocation
 {
 enum class DevelopmentToolAllocationOwner
 {
@@ -84,4 +84,4 @@ void FreeDevelopmentToolMemory( DevelopmentToolAllocationOwner owner, void* poin
 void SetTracyAllocationTracingEnabled( bool enabled ) noexcept;
 uint64_t RecordTracyAllocation( const void* pointer, std::size_t size ) noexcept;
 void RecordTracyFree( const void* pointer, uint64_t connectionId ) noexcept;
-} // namespace SkullbonezCore::Runtime::Allocation
+} // namespace SkullbonezCore::Core::Allocation

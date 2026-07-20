@@ -808,11 +808,11 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
             // process memory sampling, it is safe to refresh for the F6 overlay.
             UIData.renderMemory = inputs.renderDiagnostics.GetRenderMemoryStats();
             UIData.reserveGrowthEventTotalCount =
-                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+                SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
             UIData.reserveGrowthEventDroppedCount =
-                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventDroppedCount();
+                SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventDroppedCount();
             UIData.reserveGrowthEventCount =
-                SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::CopyRecentGrowthEvents(
+                SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::CopyRecentGrowthEvents(
                     UIData.reserveGrowthEvents,
                     SkullbonezCore::UI::UI_RUNTIME_RESERVE_GROWTH_EVENT_MAX );
         }

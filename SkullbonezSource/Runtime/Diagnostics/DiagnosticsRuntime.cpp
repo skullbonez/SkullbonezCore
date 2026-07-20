@@ -830,8 +830,8 @@ DiagnosticsRuntime::RefreshMainMemoryStats( const SkullbonezCore::Core::MainMemo
         return m_mainMemoryStats;
     }
 
-    SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
-        SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::Diagnostics );
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Diagnostics );
 
     // Concept: The Memory tab wants cheap repeated reads, while shutdown dumps and
     // stress logs need the deep private-working-set query. Build one reconciled

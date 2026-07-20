@@ -35,12 +35,12 @@
 #include <vector>
 
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::FindReplayGrowthOwnerPolicy;
 using SkullbonezCore::Runtime::REPLAY_GROWTH_OWNER_POLICIES;
 using SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::REPLAY_RETAINED_OWNERSHIP_RULES;
-using SkullbonezCore::Physics::PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
 using SkullbonezCore::Runtime::ReplayGrowthExhaustionRule;
@@ -228,7 +228,7 @@ TEST_CASE( "ReplayRuntime: retained ownership and growth policies are complete a
     REQUIRE( REPLAY_GROWTH_OWNER_POLICIES.size() == 3u );
     for ( const auto& policy : REPLAY_GROWTH_OWNER_POLICIES )
     {
-        CHECK( policy.phase == SkullbonezCore::Runtime::Allocation::RuntimeReservePhase::Replay );
+        CHECK( policy.phase == SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay );
         CHECK( policy.hardBytes > 0 );
         CHECK( policy.measuredHighWaterBytes < static_cast<uint64_t>( policy.hardBytes ) );
         CHECK( FindReplayGrowthOwnerPolicy( policy.ownerName ) == &policy );

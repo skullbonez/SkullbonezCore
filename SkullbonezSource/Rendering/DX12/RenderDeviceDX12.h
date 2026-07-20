@@ -75,8 +75,8 @@ struct Dx12UploadReservationResolution
 // Lane R: steady render reservations fail at the draw boundary. Cold lifecycle
 // phases retain the legacy submit/wait retry because their stalls do not become
 // frame hitches.
-inline Dx12UploadOverflowAction SelectDx12UploadOverflowAction( bool fits,
-                                                                Runtime::Allocation::RuntimeAllocationPhase phase )
+inline Dx12UploadOverflowAction
+SelectDx12UploadOverflowAction( bool fits, SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase )
 {
     if ( fits )
     {
@@ -84,10 +84,10 @@ inline Dx12UploadOverflowAction SelectDx12UploadOverflowAction( bool fits,
     }
     switch ( phase )
     {
-    case Runtime::Allocation::RuntimeAllocationPhase::SteadyGameplay:
-    case Runtime::Allocation::RuntimeAllocationPhase::Physics:
-    case Runtime::Allocation::RuntimeAllocationPhase::Render:
-    case Runtime::Allocation::RuntimeAllocationPhase::Replay:
+    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::SteadyGameplay:
+    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Physics:
+    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Render:
+    case SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay:
         return Dx12UploadOverflowAction::DropCaller;
     default:
         return Dx12UploadOverflowAction::FlushAndRetry;
@@ -98,7 +98,9 @@ inline Dx12UploadOverflowAction SelectDx12UploadOverflowAction( bool fits,
 // a counted cold-retry callback. Steady phases never invoke that callback.
 template <typename ColdRetry>
 Dx12UploadReservationResolution
-ResolveDx12UploadReservation( bool fits, Runtime::Allocation::RuntimeAllocationPhase phase, ColdRetry coldRetry )
+ResolveDx12UploadReservation( bool fits,
+                              SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase,
+                              ColdRetry coldRetry )
 {
     const Dx12UploadOverflowAction action = SelectDx12UploadOverflowAction( fits, phase );
     if ( action == Dx12UploadOverflowAction::Allocate )

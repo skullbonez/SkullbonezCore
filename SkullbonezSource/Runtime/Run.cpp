@@ -68,7 +68,7 @@ using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUITab;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -76,7 +76,7 @@ constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 
 std::unique_ptr<SkullbonezCore::UI::InGameUI> CreateOperatorUiForStartup( SkullbonezCore::Core::Profiler* profiler )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Startup );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Startup );
     // Allocation policy: the cohesive UI owner must remain opaque to Run.h so
     // the public composition-root header does not republish the UI graph.
     return std::make_unique<SkullbonezCore::UI::InGameUI>( profiler );
@@ -104,9 +104,9 @@ void ApplyRuntimeLaunchPolicy( const RunLaunchOptions& launch,
                                PhysicsEngine& physics )
 {
     target.allocationGuardMode = launch.allocationGuardMode;
-    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
+    if ( CoreAllocation::GetRuntimeAllocationGuardMode() != launch.allocationGuardMode )
     {
-        RuntimeAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
+        CoreAllocation::SetRuntimeAllocationGuardMode( launch.allocationGuardMode );
     }
     if ( launch.timeScaleOverride > 0.0f )
     {
@@ -303,7 +303,7 @@ Run::Run( Window& window,
 
 Run::~Run()
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
 #ifdef _DEBUG
     m_diagnosticsRuntime.EndPhysicsDiagnosticsRun( m_sceneController.State(), "process_end" );
 #endif

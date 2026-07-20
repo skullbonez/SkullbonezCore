@@ -128,7 +128,6 @@ Related:
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
-namespace Runtime = SkullbonezCore::Runtime;
 
 
 // --- Helpers ---

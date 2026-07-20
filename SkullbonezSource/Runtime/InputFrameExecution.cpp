@@ -708,8 +708,8 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             // Allocation policy: F9 is an explicit cold developer utility. The
             // bake, manifest parse, reflection maps, and process launch belong
             // to BackendInit rather than steady input/render accounting.
-            SkullbonezCore::Runtime::Allocation::RuntimeAllocationScope allocationScope(
-                SkullbonezCore::Runtime::Allocation::RuntimeAllocationPhase::BackendInit );
+            SkullbonezCore::Core::Allocation::RuntimeAllocationScope allocationScope(
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::BackendInit );
             const SkullbonezCore::Core::SbResult reloadResult =
                 m_renderBackendView.shaderDevelopment->ReloadShadersFromSource();
             if ( !reloadResult.ok )

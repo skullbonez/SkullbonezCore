@@ -58,7 +58,7 @@ using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::Startup;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Threading;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 
 namespace
@@ -127,7 +127,7 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
                                                   RuntimeRenderBackendView& renderBackendView,
                                                   std::unique_ptr<RenderBackendDX12>& outBackend )
 {
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::BackendInit );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
     auto backend = std::make_unique<RenderBackendDX12>();
     RenderBackendDX12* renderBackend = backend.get();
     const SkullbonezCore::Core::SbResult renderInitResult = renderBackend->Init( window->NativeWindowHandle(),
@@ -352,13 +352,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
-    RuntimeAllocation::SetRuntimeAllocationGuardMode( args.allocationGuardMode );
-    if ( RuntimeAllocation::RuntimeAllocationGuardEnabled() )
+    CoreAllocation::SetRuntimeAllocationGuardMode( args.allocationGuardMode );
+    if ( CoreAllocation::RuntimeAllocationGuardEnabled() )
     {
         fprintf( stdout,
                  "[allocation-guard] Enabled mode=%s. Startup, scene, backend, gameplay, replay, capture, and shutdown "
                  "allocations will be summarized at process end.\n",
-                 RuntimeAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
+                 CoreAllocation::RuntimeAllocationGuardModeName( args.allocationGuardMode ) );
     }
 
     int standalonePhysicsExitCode = 0;
@@ -453,8 +453,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
     const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView );
 
     {
-        RuntimeAllocation::RuntimeAllocationScope allocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Shutdown );
+        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Shutdown );
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         profiler->BindRenderDiagnostics( nullptr );
 #endif
@@ -466,11 +465,10 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #endif
         CleanupWindow( window, hInstance, renderBackend );
     }
-    RuntimeAllocation::PrintRuntimeAllocationSummary( stdout );
+    CoreAllocation::PrintRuntimeAllocationSummary( stdout );
     int finalExitCode = runExitCode;
-    if ( RuntimeAllocation::GetRuntimeAllocationGuardMode() ==
-             RuntimeAllocation::RuntimeAllocationGuardMode::Gameplay &&
-         RuntimeAllocation::RuntimeAllocationGuardHasGameplayViolations() && finalExitCode == 0 )
+    if ( CoreAllocation::GetRuntimeAllocationGuardMode() == CoreAllocation::RuntimeAllocationGuardMode::Gameplay &&
+         CoreAllocation::RuntimeAllocationGuardHasGameplayViolations() && finalExitCode == 0 )
     {
         fprintf( stdout, "[allocation-guard] FAIL: gameplay allocation guard detected policy violations.\n" );
         finalExitCode = 9;

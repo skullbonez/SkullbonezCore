@@ -120,7 +120,7 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.cpp",
       "patterns": [
-        "Runtime::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+        "SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
@@ -153,7 +153,7 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
       "patterns": [
-        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+        "CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
@@ -164,7 +164,7 @@
     {
       "path": "SkullbonezSource/Physics/PhysicsWorld.cpp",
       "patterns": [
-        "RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
+        "CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );"
       ],
       "owner": "Replay solver snapshot reserve",
       "phase": "replay",

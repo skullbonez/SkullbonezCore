@@ -100,7 +100,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::RunInternal;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -541,7 +541,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
         diagnostics.uploadUsedBytes = renderMemory.uploadUsedBytes;
         diagnostics.uploadCapacityBytes = renderMemory.uploadCapacityBytes;
         diagnostics.replayReserveGrowthEvents =
-            SkullbonezCore::Runtime::Allocation::RuntimeReserveAllocator::GrowthEventCount();
+            SkullbonezCore::Core::Allocation::RuntimeReserveAllocator::GrowthEventCount();
         diagnostics.renderTargetCount =
             (std::min)( renderTargetPreviews.count, SkullbonezCore::UI::OPERATOR_EDITOR_RENDER_TARGET_CAPACITY );
         for ( int index = 0; index < diagnostics.renderTargetCount; ++index )
@@ -635,8 +635,7 @@ void RenderExecuteUiTextFrame( RuntimeFrameHostView& host,
         const ReplayHudStatus replayHud = replayRuntime.BuildHudStatus( replayMemoryStatsRequested );
         PROFILE_BEGIN( host.profiler, "Frame/UI" );
         {
-            RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                RuntimeAllocation::RuntimeAllocationPhase::Render );
+            CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
             DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI" );
             renderer.RenderUiText( renderDiagnostics,
                                    uiRender,
@@ -681,7 +680,7 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     SkullbonezCore::Environment::WorldEnvironment& world = models.Scene().Environment();
     PhysicsEngine& physics = models.Scene().Physics();
     const SceneEntityStore& entities = models.Scene().Entities();
-    RuntimeAllocation::RuntimeAllocationScope allocationScope( RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( profiler, "Frame/Physics/Step/ReplayCapture" );
     ReplayCaptureInput input;
     input.sceneFrame = scene.currentFrame;
@@ -748,8 +747,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
         }
 
         {
-            RuntimeAllocation::RuntimeAllocationScope frameAllocationScope(
-                RuntimeAllocation::RuntimeAllocationPhase::SteadyGameplay );
+            CoreAllocation::RuntimeAllocationScope frameAllocationScope(
+                CoreAllocation::RuntimeAllocationPhase::SteadyGameplay );
             double secondsPerFrame = m_timers.frameTimer.GetElapsedTime();
             secondsPerFrame = std::clamp( secondsPerFrame, 0.0, 0.05 );
 
@@ -1043,8 +1042,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 ;
             float simulationPresentationAlpha = 1.0f;
             {
-                RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                    RuntimeAllocation::RuntimeAllocationPhase::Physics );
+                CoreAllocation::RuntimeAllocationScope allocationScope(
+                    CoreAllocation::RuntimeAllocationPhase::Physics );
                 simulationPresentationAlpha =
                     TickPhysics( secondsPerFrame, frameInteraction, frameScene, capturePresentationPinned );
             }
@@ -1053,8 +1052,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 // Invariant: prediction scheduling completes before overlay
                 // construction. Render consumes only the published future and
                 // cannot decide whether the private engine advances.
-                RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                    RuntimeAllocation::RuntimeAllocationPhase::Replay );
+                CoreAllocation::RuntimeAllocationScope allocationScope(
+                    CoreAllocation::RuntimeAllocationPhase::Replay );
                 m_replayRuntime.UpdatePrediction( m_sceneController.Scene().Physics(),
                                                   m_sceneController.Scene().Entities(),
                                                   m_config,
@@ -1089,8 +1088,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 PROFILE_BEGIN( m_profiler, "Frame/PipelineSync" );
                 SkullbonezCore::Core::SbResult finishResult = SkullbonezCore::Core::SbResult::Success();
                 {
-                    RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                        RuntimeAllocation::RuntimeAllocationPhase::Render );
+                    CoreAllocation::RuntimeAllocationScope allocationScope(
+                        CoreAllocation::RuntimeAllocationPhase::Render );
                     finishResult = renderLifecycle.Finish();
                 }
                 PROFILE_END( m_profiler, "Frame/PipelineSync" );
@@ -1108,8 +1107,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
             PROFILE_BEGIN( m_profiler, "Frame/Render" );
             {
-                RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                    RuntimeAllocation::RuntimeAllocationPhase::Render );
+                CoreAllocation::RuntimeAllocationScope allocationScope(
+                    CoreAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
                 Render( renderModels, presentationAlpha );
             }
@@ -1205,8 +1204,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
             PROFILE_BEGIN( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
             {
-                RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                    RuntimeAllocation::RuntimeAllocationPhase::Capture );
+                CoreAllocation::RuntimeAllocationScope allocationScope(
+                    CoreAllocation::RuntimeAllocationPhase::Capture );
                 m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(),
                                                                   m_renderBackendView.RequireCaptureBackend() );
             }
@@ -1250,8 +1249,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
 #endif
 
             {
-                RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                    RuntimeAllocation::RuntimeAllocationPhase::Capture );
+                CoreAllocation::RuntimeAllocationScope allocationScope(
+                    CoreAllocation::RuntimeAllocationPhase::Capture );
                 if ( TickScreenshots() )
                 {
                     continue;
@@ -1269,8 +1268,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             PROFILE_BEGIN( m_profiler, "Frame/VsyncWait" );
             SkullbonezCore::Core::SbResult presentResult = SkullbonezCore::Core::SbResult::Success();
             {
-                RuntimeAllocation::RuntimeAllocationScope allocationScope(
-                    RuntimeAllocation::RuntimeAllocationPhase::Render );
+                CoreAllocation::RuntimeAllocationScope allocationScope(
+                    CoreAllocation::RuntimeAllocationPhase::Render );
                 presentResult = renderLifecycle.Present();
             }
             PROFILE_END( m_profiler, "Frame/VsyncWait" );

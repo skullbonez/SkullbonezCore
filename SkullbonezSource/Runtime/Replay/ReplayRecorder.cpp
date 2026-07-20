@@ -57,7 +57,7 @@ using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::PhysicsDebugContact;
 namespace Physics = SkullbonezCore::Physics;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -72,7 +72,7 @@ constexpr std::size_t REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK = 256u;
 // scene size instead of preallocating every future slot at game_model_capacity.
 // The hard byte cap is per vector reserve request and growth count is telemetry.
 constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT =
-    RuntimeAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
+    CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;
 constexpr uint64_t FNV64_PRIME = 1099511628211ull;
 constexpr uint32_t REPLAY_WORLD_OVERRIDE_GRAVITY_CHANGED = 1u;
@@ -90,13 +90,13 @@ int ReplayRuntimeBodyCapacity( const ReplayRecorderConfig& config )
     return std::clamp( config.runtimeBodyCapacity, 1, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
 }
 
-RuntimeAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
+CoreAllocation::RuntimeReserveOwnerHandle ReplayRecorderSampleReserveOwner()
 {
-    static const RuntimeAllocation::RuntimeReserveOwnerHandle owner =
-        RuntimeAllocation::RuntimeReserveAllocator::RegisterOwner(
+    static const CoreAllocation::RuntimeReserveOwnerHandle owner =
+        CoreAllocation::RuntimeReserveAllocator::RegisterOwner(
             { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-              RuntimeAllocation::RuntimeReserveSubsystem::Replay,
-              RuntimeAllocation::RuntimeReservePhase::Replay,
+              CoreAllocation::RuntimeReserveSubsystem::Replay,
+              CoreAllocation::RuntimeReservePhase::Replay,
               0,
               REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES,
               REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT,
@@ -205,26 +205,23 @@ void ReserveReplayRecorderSampleVector( std::vector<T>& values,
 
     // Invariant: policy approval is required even when allocation-hook
     // measurement is off; guard mode changes attribution, not the hard cap.
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
-    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                                                                     targetName,
-                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                     ReplayRecorderGrowthFrameNumber( frameIndex ),
-                                                                     static_cast<int>( oldBytes ),
-                                                                     static_cast<int>( requestedBytes ),
-                                                                     1 };
-    const RuntimeAllocation::RuntimeReserveGrowthResult result =
-        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
+    const CoreAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                  targetName,
+                                                                  CoreAllocation::RuntimeReservePhase::Replay,
+                                                                  ReplayRecorderGrowthFrameNumber( frameIndex ),
+                                                                  static_cast<int>( oldBytes ),
+                                                                  static_cast<int>( requestedBytes ),
+                                                                  1 };
+    const CoreAllocation::RuntimeReserveGrowthResult result =
+        CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     if ( !result.granted )
     {
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )
@@ -256,26 +253,23 @@ void ReserveReplayRecorderDeltaVector( std::vector<T>& values,
 
     // Invariant: delta payloads share the recorder owner's aggregate byte cap
     // with body vectors instead of receiving a per-vector 64 MiB allowance.
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
-    const RuntimeAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
-                                                                     targetName,
-                                                                     RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                                     ReplayRecorderGrowthFrameNumber( frameIndex ),
-                                                                     static_cast<int>( oldBytes ),
-                                                                     static_cast<int>( requestedBytes ),
-                                                                     1 };
-    const RuntimeAllocation::RuntimeReserveGrowthResult result =
-        RuntimeAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayRecorderSampleReserveOwner();
+    const CoreAllocation::RuntimeReserveGrowthRequest request = { REPLAY_RECORDER_SAMPLE_RESERVE_OWNER,
+                                                                  targetName,
+                                                                  CoreAllocation::RuntimeReservePhase::Replay,
+                                                                  ReplayRecorderGrowthFrameNumber( frameIndex ),
+                                                                  static_cast<int>( oldBytes ),
+                                                                  static_cast<int>( requestedBytes ),
+                                                                  1 };
+    const CoreAllocation::RuntimeReserveGrowthResult result =
+        CoreAllocation::RuntimeReserveAllocator::RequestGrowth( owner, request );
     if ( !result.granted )
     {
         ReportReplayRecorderReserveFailure( targetName, reserveCapacity, requestedBytes );
     }
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     values.reserve( reserveCapacity );
 
     if ( requestedCapacity > values.capacity() )

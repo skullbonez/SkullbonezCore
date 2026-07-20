@@ -203,7 +203,7 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
         return false;
     }
 
-    Runtime::Allocation::RuntimeReserveGrowthResult result = {};
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
     if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryStore::records",
                                                 frameNumber,
                                                 static_cast<int>( oldStoreBytes ),
@@ -214,13 +214,14 @@ bool ReplayTrajectoryStore::ReserveRecords( std::size_t requestedCapacity, int f
         return false;
     }
 
-    const Runtime::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    Runtime::Allocation::RuntimeAllocationScope replayAllocationScope(
-        Runtime::Allocation::RuntimeAllocationPhase::Replay );
-    Runtime::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    Runtime::Allocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                                Runtime::Allocation::RuntimeReservePhase::Replay,
-                                                                result );
+    const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
+    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
+        owner,
+        SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+        result );
     records.reserve( requestedCapacity );
     return requestedCapacity <= records.capacity();
 }
@@ -254,7 +255,7 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
         return false;
     }
 
-    Runtime::Allocation::RuntimeReserveGrowthResult result = {};
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthResult result = {};
     if ( !RequestReplayPredictionReserveGrowth( "ReplayTrajectoryRecord::points",
                                                 frameNumber,
                                                 static_cast<int>( oldStoreBytes ),
@@ -265,13 +266,14 @@ bool ReplayTrajectoryStore::ReserveRecordPoints( ReplayTrajectoryRecord& record,
         return false;
     }
 
-    const Runtime::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    Runtime::Allocation::RuntimeAllocationScope replayAllocationScope(
-        Runtime::Allocation::RuntimeAllocationPhase::Replay );
-    Runtime::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
-    Runtime::Allocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                                Runtime::Allocation::RuntimeReservePhase::Replay,
-                                                                result );
+    const SkullbonezCore::Core::Allocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    SkullbonezCore::Core::Allocation::RuntimeAllocationScope replayAllocationScope(
+        SkullbonezCore::Core::Allocation::RuntimeAllocationPhase::Replay );
+    SkullbonezCore::Core::Allocation::RuntimeReserveOwnerScope ownerScope( owner );
+    SkullbonezCore::Core::Allocation::RuntimeReserveGrowthScope growthScope(
+        owner,
+        SkullbonezCore::Core::Allocation::RuntimeReservePhase::Replay,
+        result );
     record.points.reserve( requestedCapacity );
     return requestedCapacity <= record.points.capacity();
 }

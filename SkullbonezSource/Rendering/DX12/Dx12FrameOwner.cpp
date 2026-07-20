@@ -42,7 +42,6 @@ Related:
 #include <cstring>
 
 using namespace SkullbonezCore::Rendering;
-namespace Runtime = SkullbonezCore::Runtime;
 
 Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device,
                                 Dx12PipelineOwner& pipeline,
@@ -526,7 +525,8 @@ static const char* Dx12UploadCategoryName( RenderUploadCategory category )
 bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, RenderUploadCategory category )
 {
     const bool fits = m_uploads.CanAllocate( m_allocatorIndex, size, alignment );
-    const Runtime::Allocation::RuntimeAllocationPhase phase = Runtime::Allocation::GetRuntimeAllocationPhase();
+    const SkullbonezCore::Core::Allocation::RuntimeAllocationPhase phase =
+        SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase();
     const Dx12UploadArenaStats stats = m_uploads.GetStats( m_allocatorIndex );
     const char* owner = Dx12UploadCategoryName( category );
     const Dx12UploadReservationResolution resolution = ResolveDx12UploadReservation(
@@ -539,7 +539,7 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
                 "dx12_upload_cold_flush owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
                 "capacity_bytes=%llu flushes=%llu",
                 owner,
-                Runtime::Allocation::RuntimeAllocationPhaseName( phase ),
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
                 static_cast<unsigned long long>( size ),
                 static_cast<unsigned long long>( stats.usedBytes ),
                 static_cast<unsigned long long>( stats.capacityBytes ),
@@ -563,7 +563,7 @@ bool Dx12FrameOwner::PrepareUploadReservation( UINT64 size, UINT64 alignment, Re
                 "dx12_upload_drop owner=%s phase=%s requested_bytes=%llu used_bytes=%llu "
                 "capacity_bytes=%llu owner_drops=%llu total_drops=%llu",
                 owner,
-                Runtime::Allocation::RuntimeAllocationPhaseName( phase ),
+                SkullbonezCore::Core::Allocation::RuntimeAllocationPhaseName( phase ),
                 static_cast<unsigned long long>( size ),
                 static_cast<unsigned long long>( stats.usedBytes ),
                 static_cast<unsigned long long>( stats.capacityBytes ),

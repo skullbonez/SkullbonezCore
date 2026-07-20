@@ -34,7 +34,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Runtime
+namespace Core
 {
 namespace Allocation
 {
@@ -88,5 +88,5 @@ uint64_t RuntimeAllocationGuardViolationCount() noexcept;
 void ResetRuntimeAllocationCounters() noexcept;
 void PrintRuntimeAllocationSummary( FILE* out ) noexcept;
 } // namespace Allocation
-} // namespace Runtime
+} // namespace Core
 } // namespace SkullbonezCore

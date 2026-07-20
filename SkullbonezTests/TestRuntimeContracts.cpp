@@ -88,7 +88,7 @@ TEST_CASE( "Tracy disabled marker seams discard caller expressions" )
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 TEST_CASE( "Tracy allocation events stay inactive outside heavy capture" )
 {
-    using namespace SkullbonezCore::Runtime::Allocation;
+    using namespace SkullbonezCore::Core::Allocation;
     int value = 0;
     SetTracyAllocationTracingEnabled( false );
     const uint64_t connectionId = RecordTracyAllocation( &value, sizeof( value ) );

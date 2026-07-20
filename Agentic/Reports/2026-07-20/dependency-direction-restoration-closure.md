@@ -58,6 +58,12 @@ is explicitly separated from the follow-up namespace proof.
 Both rows name an owner, reason, deletion condition, and review evidence. The
 follow-ups are live MASTER tasks; neither exception authorizes a new edge.
 
+Resolution update, 2026-07-20: `allocation-namespace-restoration` A0 is closed.
+`Core/Allocation/*` and every consumer now use `Core::Allocation`, with zero old
+namespace, compatibility alias, or forwarding rows. Evidence is in
+`allocation-namespace-restoration-closure.md`. The Profiler row remains open
+and deletion-bound to Render HAL M0/M5.
+
 ## Independent Review
 
 One independent read-only rubber-duck review covered the whole L0-L5 commit
@@ -94,6 +100,7 @@ mirrored to `TestOutput/logs/l5_validate_full.log`.
 
 ## Handoff
 
-The completed plan leaves the active/future ledger under inventory rule 4.
-Start `allocation-namespace-restoration` A0 next; the Profiler exception remains
-bound to Render HAL M0/M5.
+The completed plan left the active/future ledger under inventory rule 4.
+`allocation-namespace-restoration` A0 subsequently closed; continue
+`physics-facade-unification` F0. The Profiler exception remains bound to Render
+HAL M0/M5.

@@ -257,10 +257,16 @@ exceptions have concrete deletion conditions in
 Closure evidence is in
 `../Reports/2026-07-20/dependency-direction-restoration-closure.md`.
 
+The active/future denominator returned 48 → 47 when
+`allocation-namespace-restoration` closed A0 and left the ledger under rule 4.
+The Core allocation namespace exception is resolved with zero compatibility
+rows; only the Profiler semantic seam remains deletion-bound to
+`render-hal-modernization` M0/M5. Closure evidence is in
+`../Reports/2026-07-20/allocation-namespace-restoration-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [allocation-namespace-restoration](TODO/allocation-namespace-restoration.md) | 0 | 1 | 0% |
 | [physics-facade-unification](TODO/physics-facade-unification.md) | 0 | 3 | 0% |
 | [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 0 | 4 | 0% |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 0 | 3 | 0% |
@@ -268,7 +274,7 @@ Closure evidence is in
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **17** | **48** | **35%** |
+| **Active/future total** | **17** | **47** | **36%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -331,12 +337,12 @@ smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 The architecture-review campaign registered 2026-07-20 is the active queue.
-Dependency-direction restoration is closed. Remaining execution order is
-binding and biggest-wins-first: 1 `allocation-namespace-restoration`, 2
-`physics-facade-unification`, 3 `physics-settings-snapshot`, 4
-`run-execute-deaccretion`, 5 `render-graph-completion`, 6
-`render-hal-modernization` (hard-blocked on 5), 7
-`gameplay-module-extraction` (T0-T1 after 3; T2 after 5), 8
+Dependency-direction restoration and allocation-namespace restoration are
+closed. Remaining execution order is binding and biggest-wins-first: 1
+`physics-facade-unification`, 2 `physics-settings-snapshot`, 3
+`run-execute-deaccretion`, 4 `render-graph-completion`, 5
+`render-hal-modernization` (hard-blocked on 4), 6
+`gameplay-module-extraction` (T0-T1 after 2; T2 after 4), 7
 `replay-boundary-containment`. Owner decisions ratified at
 registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
@@ -1125,8 +1131,7 @@ inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [allocation-namespace-restoration](TODO/allocation-namespace-restoration.md) | Active | 0/1 | Start A0 namespace migration; no blocker |
-| [physics-facade-unification](TODO/physics-facade-unification.md) | Registered | 0/3 | Start after plan 1 L0-L2 (soft); F0 inventory may run anytime |
+| [physics-facade-unification](TODO/physics-facade-unification.md) | Active | 0/3 | Start F0 inventory; no blocker |
 | [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Registered | 0/4 | Start after facade unification lands the surviving PhysicsEngine |
 | [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Registered | 0/3 | Independent; may run parallel to plans 2-3 |
 | [render-graph-completion](TODO/render-graph-completion.md) | Registered | 0/6 | Start G0 anytime; owner ruling to finish the migration is recorded |

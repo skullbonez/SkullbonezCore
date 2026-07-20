@@ -94,7 +94,7 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace RuntimeAllocation = SkullbonezCore::Runtime::Allocation;
+namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
 {
@@ -154,8 +154,7 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
                                const PhysicsWorldForces& worldForces,
                                SkullbonezCore::Threading::WorkerPool& workerPool )
 {
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
     engine.Step( fixedDt, config, worldForces, workerPool, nullptr, 0, PhysicsDiagnosticsCsvWriter{} );
     return true;
 }
@@ -487,7 +486,7 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
         return false;
     }
 
-    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    CoreAllocation::RuntimeReserveGrowthResult result = {};
     if ( !RequestReplayPredictionReserveGrowth( targetName,
                                                 frameNumber,
                                                 static_cast<int>( oldBytes ),
@@ -498,13 +497,10 @@ bool ReserveReplayPredictionVector( std::vector<T>& values,
         return false;
     }
 
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     values.reserve( requestedCapacity );
     return requestedCapacity <= values.capacity();
 }
@@ -550,7 +546,7 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
         return false;
     }
 
-    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    CoreAllocation::RuntimeReserveGrowthResult result = {};
     if ( !RequestReplayPredictionReserveGrowth( targetName,
                                                 frameNumber,
                                                 static_cast<int>( oldBytes ),
@@ -561,13 +557,10 @@ bool ReserveReplayPredictionFramePayloadVectors( std::vector<RunReplayPrediction
         return false;
     }
 
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     for ( std::size_t i = 0; i < requestedFrameCount; ++i )
     {
         ( frames[i].*member ).reserve( requestedCapacityPerFrame );
@@ -2790,8 +2783,7 @@ bool CaptureReplayPredictionBodyState( const PhysicsBodyStore& bodyStore,
 
     const auto captureBody = [&]( int i )
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         const PhysicsBodyRecord& body = bodyRecords[bodyIndex];
         RunReplayPredictionBodyBackup backup;
@@ -2879,7 +2871,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
                                  int modelCount )
 {
     PROFILE_SCOPED( profiler, "Frame/Replay/Prediction/SeedPrivateEngine" );
-    const RuntimeAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
+    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
     const int requestedBytes = ReplayPredictionEngineReserveBytes( liveEngine );
     if ( requestedBytes <= 0 )
     {
@@ -2893,7 +2885,7 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
         return false;
     }
 
-    RuntimeAllocation::RuntimeReserveGrowthResult result = {};
+    CoreAllocation::RuntimeReserveGrowthResult result = {};
     if ( requestedBytes > currentBytes )
     {
         // Why: the private engine is retained across prediction rebuilds. Only
@@ -2910,12 +2902,9 @@ bool SeedReplayPredictionEngine( RunReplayPredictionState& prediction,
         }
     }
 
-    RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-        RuntimeAllocation::RuntimeAllocationPhase::Replay );
-    RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    RuntimeAllocation::RuntimeReserveGrowthScope growthScope( owner,
-                                                              RuntimeAllocation::RuntimeReservePhase::Replay,
-                                                              result );
+    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
+    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
     prediction.simulation.predictionEngineReady = false;
     if ( !prediction.simulation.predictionEngine )
     {
@@ -2977,8 +2966,7 @@ bool CaptureReplayPredictionFrame( RunReplayPredictionState& prediction,
 
     const auto captureBody = [&]( int i )
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
         const PhysicsBodyRecord& source = bodyRecords[bodyIndex];
         RunReplayPredictionBodySample body;
@@ -3469,9 +3457,8 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
         return false;
     }
     {
-        RuntimeAllocation::RuntimeAllocationScope replayAllocationScope(
-            RuntimeAllocation::RuntimeAllocationPhase::Replay );
-        RuntimeAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
+        CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
+        CoreAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
         prediction.build.workerTask = std::make_unique<ReplayPredictionAmortizedTask>(
             prediction.build.targetTickCount,
             REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,

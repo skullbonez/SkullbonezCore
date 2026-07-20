@@ -45,7 +45,7 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Runtime
+namespace Core
 {
 namespace Allocation
 {
@@ -222,5 +222,5 @@ const char* RuntimeReservePhaseName( RuntimeReservePhase phase ) noexcept;
 const char* RuntimeReserveSubsystemName( RuntimeReserveSubsystem subsystem ) noexcept;
 RuntimeReservePhase RuntimeReservePhaseFromAllocationPhaseIndex( int phaseIndex ) noexcept;
 } // namespace Allocation
-} // namespace Runtime
+} // namespace Core
 } // namespace SkullbonezCore
