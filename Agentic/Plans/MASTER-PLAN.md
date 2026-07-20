@@ -301,9 +301,8 @@ owner and Core-owned value history. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 3 | 4 | 75% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **20** | **25** | **80%** |
+| **Active/future total** | **17** | **21** | **81%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -368,9 +367,13 @@ smoke all pass. Closure evidence is in
 The architecture-review campaign registered 2026-07-20 is the active queue.
 Dependency-direction restoration, allocation-namespace restoration,
 physics-facade unification, physics-settings snapshot, Run::Execute
-de-accretion, render-graph completion, and Render HAL modernization are closed.
-Remaining execution order is binding and biggest-wins-first: 1
-`gameplay-module-extraction`, 2 `replay-boundary-containment`. Owner decisions
+de-accretion, render-graph completion, Render HAL modernization, and gameplay
+module extraction are closed. Gameplay now owns tornado state, forces, and
+visuals above bounded Physics/Rendering value seams; final full, physics,
+performance, replay, DX12, and stress gates pass, and independent ownership
+review is clear. Closure evidence is in
+`../Reports/2026-07-21/gameplay-module-extraction-closure.md`.
+The remaining execution target is `replay-boundary-containment`. Owner decisions
 ratified at registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
 a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
@@ -1152,14 +1155,13 @@ or hot-path inheritance/callback artifacts (existing review rules apply
 verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
 this campaign: it waits on the parked E17 owner verdict.
 
-Execution order is binding (biggest wins first). Render-graph completion and
-Render HAL modernization are closed, so every gameplay task is unblocked.
-Replay boundary containment inherits the now-closed solver-snapshot move.
+Execution order is binding (biggest wins first). Render-graph completion,
+Render HAL modernization, and gameplay extraction are closed. Replay boundary
+containment inherits the now-closed solver-snapshot move and is unblocked.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Active | 3/4 | T2 render extraction is validated; start T3 closure reconciliation and independent boundary review |
-| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |
+| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Active | 0/3 | Start R0 boundary census and contract on the closed solver-snapshot seam |
 
 ## Features
 

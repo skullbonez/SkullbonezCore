@@ -2,7 +2,7 @@
 File: SkullbonezSource/Runtime/OperatorCommandApplier.cpp
 Purpose:
   Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
-  tornado physics settings and worker-thread overrides.
+  tornado gameplay settings, and worker-thread overrides.
 
 Summary:
   Runtime input decides when a UI command is accepted. This file decides how
@@ -20,7 +20,7 @@ Glossary:
 Invariants:
   - Render and cinematic UI values are clamped before they mutate live config.
   - Scene override masks must be updated with the value they describe.
-  - Tornado commands commit copied field/system values back to the physics owner.
+  - Tornado commands mutate Gameplay-owned field/system/visual values in place.
 
 Related:
   - SkullbonezSource/Runtime/OperatorCommandApplier.h
@@ -48,28 +48,6 @@ namespace Runtime
 {
 namespace RunInternal
 {
-namespace
-{
-void ApplyTornadoFieldValue( Gameplay::TornadoFieldConfig& tornadoField,
-                             Gameplay::TornadoSystemConfig& tornadoSystem,
-                             bool hasTornadoSystem,
-                             float Gameplay::TornadoFieldConfig::* field,
-                             float value )
-{
-    if ( hasTornadoSystem )
-    {
-        for ( Gameplay::TornadoVortexConfig& vortex : tornadoSystem.vortices )
-        {
-            vortex.field.*field = value;
-        }
-    }
-    else
-    {
-        tornadoField.*field = value;
-    }
-}
-} // namespace
-
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
     switch ( param )
@@ -587,116 +565,62 @@ TornadoUICommandResult ApplyTornadoUICommands( TornadoUICommandContext context, 
     // Why: RunInput owns input-mode bookkeeping, while this helper owns the
     // gameplay-facing mutation and single sync point for accepted tornado edits.
     TornadoUICommandResult result;
-    Gameplay::TornadoFieldConfig tornadoField = context.world.Tornado().GetFieldConfig();
-    Gameplay::TornadoSystemConfig tornadoSystem = context.world.Tornado().GetSystemConfig();
-    Gameplay::TornadoVisualSettings tornadoVisual = context.world.Tornado().VisualSettings();
-    bool tornadoFieldChanged = false;
-    const bool hasTornadoSystem = !tornadoSystem.vortices.empty();
+    Gameplay::TornadoGameplay& tornado = context.world.Tornado();
 
     if ( commands.toggleTornado )
     {
-        bool tornadoEnabled = false;
-        if ( hasTornadoSystem )
+        const bool enabled = tornado.ToggleEnabled();
+        if ( tornado.VisualAutoEnableWithTornado() )
         {
-            tornadoSystem.enabled = !tornadoSystem.enabled;
-            tornadoEnabled = tornadoSystem.enabled;
+            tornado.SetVisualEnabled( enabled );
         }
-        else
-        {
-            tornadoField.enabled = !tornadoField.enabled;
-            tornadoEnabled = tornadoField.enabled;
-        }
-        if ( tornadoVisual.autoEnableWithTornado )
-        {
-            tornadoVisual.enabled = tornadoEnabled;
-        }
-        tornadoFieldChanged = true;
         result.toggledTornado = true;
     }
     if ( commands.toggleTornadoVisualShell )
     {
-        tornadoVisual.enabled = !tornadoVisual.enabled;
+        tornado.ToggleVisualEnabled();
         result.toggledVisualShell = true;
     }
     if ( commands.toggleTornadoFieldVectors )
     {
-        if ( hasTornadoSystem )
-        {
-            tornadoSystem.visualizeVelocityField = !tornadoSystem.visualizeVelocityField;
-        }
-        else
-        {
-            tornadoField.visualizeVelocityField = !tornadoField.visualizeVelocityField;
-        }
-        tornadoFieldChanged = true;
+        tornado.ToggleFieldVectors();
         result.toggledFieldVectors = true;
     }
     if ( commands.requestTornadoRadius )
     {
-        ApplyTornadoFieldValue( tornadoField,
-                                tornadoSystem,
-                                hasTornadoSystem,
-                                &Gameplay::TornadoFieldConfig::radius,
-                                std::clamp( commands.requestedTornadoRadius,
+        tornado.SetFieldRadius( std::clamp( commands.requestedTornadoRadius,
                                             UI::Layout::UI_TORNADO_RADIUS_MIN,
                                             UI::Layout::UI_TORNADO_RADIUS_MAX ) );
-        tornadoFieldChanged = true;
         ++result.applySettingsActionCount;
     }
     if ( commands.requestTornadoHeight )
     {
-        ApplyTornadoFieldValue( tornadoField,
-                                tornadoSystem,
-                                hasTornadoSystem,
-                                &Gameplay::TornadoFieldConfig::height,
-                                std::clamp( commands.requestedTornadoHeight,
+        tornado.SetFieldHeight( std::clamp( commands.requestedTornadoHeight,
                                             UI::Layout::UI_TORNADO_HEIGHT_MIN,
                                             UI::Layout::UI_TORNADO_HEIGHT_MAX ) );
-        tornadoFieldChanged = true;
         ++result.applySettingsActionCount;
     }
     if ( commands.requestTornadoInward )
     {
-        ApplyTornadoFieldValue( tornadoField,
-                                tornadoSystem,
-                                hasTornadoSystem,
-                                &Gameplay::TornadoFieldConfig::inwardAcceleration,
-                                std::clamp( commands.requestedTornadoInward,
-                                            UI::Layout::UI_TORNADO_INWARD_MIN,
-                                            UI::Layout::UI_TORNADO_INWARD_MAX ) );
-        tornadoFieldChanged = true;
+        tornado.SetFieldInwardAcceleration( std::clamp( commands.requestedTornadoInward,
+                                                        UI::Layout::UI_TORNADO_INWARD_MIN,
+                                                        UI::Layout::UI_TORNADO_INWARD_MAX ) );
         ++result.applySettingsActionCount;
     }
     if ( commands.requestTornadoSwirl )
     {
-        ApplyTornadoFieldValue( tornadoField,
-                                tornadoSystem,
-                                hasTornadoSystem,
-                                &Gameplay::TornadoFieldConfig::swirlAcceleration,
-                                std::clamp( commands.requestedTornadoSwirl,
-                                            UI::Layout::UI_TORNADO_SWIRL_MIN,
-                                            UI::Layout::UI_TORNADO_SWIRL_MAX ) );
-        tornadoFieldChanged = true;
+        tornado.SetFieldSwirlAcceleration( std::clamp( commands.requestedTornadoSwirl,
+                                                       UI::Layout::UI_TORNADO_SWIRL_MIN,
+                                                       UI::Layout::UI_TORNADO_SWIRL_MAX ) );
         ++result.applySettingsActionCount;
     }
     if ( commands.requestTornadoLift )
     {
-        ApplyTornadoFieldValue( tornadoField,
-                                tornadoSystem,
-                                hasTornadoSystem,
-                                &Gameplay::TornadoFieldConfig::liftAcceleration,
-                                std::clamp( commands.requestedTornadoLift,
-                                            UI::Layout::UI_TORNADO_LIFT_MIN,
-                                            UI::Layout::UI_TORNADO_LIFT_MAX ) );
-        tornadoFieldChanged = true;
+        tornado.SetFieldLiftAcceleration( std::clamp( commands.requestedTornadoLift,
+                                                      UI::Layout::UI_TORNADO_LIFT_MIN,
+                                                      UI::Layout::UI_TORNADO_LIFT_MAX ) );
         ++result.applySettingsActionCount;
     }
-    if ( tornadoFieldChanged )
-    {
-        context.world.Tornado().SetFieldConfig( tornadoField );
-        context.world.Tornado().SetSystemConfig( tornadoSystem );
-    }
-    context.world.Tornado().SetVisualSettings( tornadoVisual );
     return result;
 }
 

@@ -63,6 +63,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Core/AmortizedTask.h"
 #include "../../Core/Config.h"
+#include "../../Core/SceneCapacity.h"
 #include "../../Core/WorkerPool.h"
 
 #include <algorithm>
@@ -3449,6 +3450,8 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
                                                                     tornadoGameplay.GetFieldConfig(),
                                                                     tornadoGameplay.GetSystemConfig(),
                                                                     tornadoGameplay.GetSystemElapsedSeconds() );
+    prediction.simulation.predictionTornadoGameplay.SetParallelForceEvaluation(
+        tornadoGameplay.ParallelForceEvaluation() );
     prediction.simulation.predictionWorld.tornadoConfig = tornadoGameplay.GetFieldConfig();
     prediction.simulation.predictionWorld.tornadoSystemConfig = tornadoGameplay.GetSystemConfig();
     prediction.simulation.predictionWorld.tornadoSystemElapsedSeconds = tornadoGameplay.GetSystemElapsedSeconds();
@@ -4149,7 +4152,17 @@ void ReplayPrediction::ArmDeterministicReveal( ReplayFrameIndex frame, bool rese
     }
 }
 
-RunReplayPredictionState::RunReplayPredictionState() = default;
+RunReplayPredictionState::RunReplayPredictionState()
+{
+    // Runtime allocation policy: prediction reuses this snapshot throughout
+    // the session. Reserve every Gameplay row at construction so per-build
+    // seeding and per-tick capture only change logical sizes.
+    simulation.predictionWorld.tornadoSystemConfig.vortices.reserve(
+        Gameplay::TornadoGameplay::MAX_ACTIVE_FORCE_FIELDS );
+    simulation.predictionWorld.tornadoCaptureSeconds.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+    simulation.predictionWorld.tornadoEjectCooldownSeconds.reserve(
+        SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
+}
 
 RunReplayPredictionState::~RunReplayPredictionState()
 {
@@ -4206,7 +4219,7 @@ bool ReplayPrediction::PromoteBuildPrefixToCommitted()
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
     m_state.simulation.predictionTornadoGameplay.Clear();
-    m_state.simulation.predictionWorld = SkullbonezCore::Runtime::ReplaySolverWorldSnapshot();
+    m_state.simulation.predictionWorld.ClearPreservingCapacity();
     return true;
 }
 
@@ -4224,7 +4237,7 @@ void ReplayPrediction::CancelJob( bool clearSamples )
     m_state.simulation.predictionEngineReady = false;
     m_state.simulation.predictionBodies.clear();
     m_state.simulation.predictionTornadoGameplay.Clear();
-    m_state.simulation.predictionWorld = SkullbonezCore::Runtime::ReplaySolverWorldSnapshot();
+    m_state.simulation.predictionWorld.ClearPreservingCapacity();
     // Runtime allocation policy: cancellation invalidates publication but keeps
     // the double-buffered frame payloads warm for the next replay rebuild.
     m_state.ResetBuildFramePublication();

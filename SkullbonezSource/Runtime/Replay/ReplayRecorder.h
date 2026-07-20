@@ -301,6 +301,20 @@ struct ReplaySolverWorldSnapshot
     float tornadoSystemElapsedSeconds = 0.0f;
     std::vector<float> tornadoCaptureSeconds;
     std::vector<float> tornadoEjectCooldownSeconds;
+
+    void ClearPreservingCapacity() noexcept
+    {
+        // Lifetime: cancellation is a steady-runtime transition. Preserve all
+        // Physics and Gameplay vector storage allocated during reserve setup.
+        physics.ClearPreservingCapacity();
+        tornadoConfig = {};
+        tornadoSystemConfig.enabled = false;
+        tornadoSystemConfig.visualizeVelocityField = false;
+        tornadoSystemConfig.vortices.clear();
+        tornadoSystemElapsedSeconds = 0.0f;
+        tornadoCaptureSeconds.clear();
+        tornadoEjectCooldownSeconds.clear();
+    }
 };
 
 // Invariant: a full vector payload is used for keyframes and size changes.

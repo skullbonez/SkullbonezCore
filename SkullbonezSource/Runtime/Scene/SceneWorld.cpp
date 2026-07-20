@@ -150,6 +150,7 @@ void SceneWorld::ReserveForActiveSceneObjectCapacity()
     const std::size_t capacity = static_cast<std::size_t>( m_activeSceneObjectCapacity );
     m_physics.ReserveAuthoredBodyCapacity( capacity );
     m_tornadoGameplay.ReserveBodyCapacity( m_activeSceneObjectCapacity );
+    m_tornadoGameplay.ReserveVisualCapacity();
     m_renderInstanceStore.ReservePresentationCapacity( capacity );
 }
 
@@ -287,6 +288,16 @@ const SkullbonezCore::Gameplay::TornadoGameplay& SceneWorld::Tornado() const
     return m_tornadoGameplay;
 }
 
+uint64_t SceneWorld::CollectGameplayMemoryBytes() const
+{
+    return m_tornadoGameplay.CollectMemoryBytes();
+}
+
+uint64_t SceneWorld::CollectGameplayDebugMemoryBytes() const
+{
+    return m_tornadoGameplay.CollectDebugMemoryBytes();
+}
+
 
 std::span<const float> SceneWorld::BuildWorldExtensionDebugLines()
 {
@@ -299,6 +310,7 @@ void SceneWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& c
     m_activeSceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
     Entities().ConfigureCapacity( m_activeSceneObjectCapacity );
     ReserveForActiveSceneObjectCapacity();
+    m_tornadoGameplay.SetParallelForceEvaluation( config.physicsExecution.parallelExternalForceFields );
     m_physics.ApplyRuntimeConfig( config );
 }
 

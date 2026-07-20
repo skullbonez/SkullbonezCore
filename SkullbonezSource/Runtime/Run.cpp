@@ -309,14 +309,16 @@ Run::~Run()
 
     if ( m_diagnosticsRuntime.MainMemoryDumpRequested() )
     {
-        m_diagnosticsRuntime.WriteMainMemoryDump(
-            m_replayRuntime.CollectMemoryStats(),
-            CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ m_sceneController.Scene().Entities(),
-                                                                 m_sceneController.Scene().Physics(),
-                                                                 m_sceneController.Scene().RenderInstances() } ),
-            m_sceneController.State(),
-            "shutdown",
-            m_timers.simulationTimer.GetTotalTime() );
+        m_diagnosticsRuntime.WriteMainMemoryDump( m_replayRuntime.CollectMemoryStats(),
+                                                  CollectSceneMemoryStats( SceneMemoryDiagnosticsView{
+                                                      m_sceneController.Scene().Entities(),
+                                                      m_sceneController.Scene().CollectGameplayMemoryBytes(),
+                                                      m_sceneController.Scene().CollectGameplayDebugMemoryBytes(),
+                                                      m_sceneController.Scene().Physics(),
+                                                      m_sceneController.Scene().RenderInstances() } ),
+                                                  m_sceneController.State(),
+                                                  "shutdown",
+                                                  m_timers.simulationTimer.GetTotalTime() );
     }
     m_diagnosticsRuntime.ClosePerfLog();
     const ReplayShutdownReport replayShutdown = m_replayRuntime.FinishShutdown();

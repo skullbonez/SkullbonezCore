@@ -452,6 +452,7 @@ class Dx12PipelineOwner
 class Dx12GeometryOwner
 {
   public:
+    Dx12GeometryOwner();
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices );
     void UploadAndDrawDynamicVB( uint32_t handle,
                                  std::span<const float> packedVertices,
@@ -526,6 +527,7 @@ class Dx12GeometryOwner
     void Shutdown();
 
   private:
+    static constexpr size_t MAX_DYNAMIC_VERTEX_BUFFERS = 32;
     static constexpr size_t MAX_GRID_LINE_PSOS = 4;
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
     std::vector<DynamicVBDX12> m_dynamicVBs;

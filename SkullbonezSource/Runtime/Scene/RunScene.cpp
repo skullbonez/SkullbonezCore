@@ -20,6 +20,8 @@ Glossary:
     owner/message diagnostics so load stops before unsafe resource replacement.
   Required scene contact: Authored pair gate that marks a scenario objective
     once two bodies have produced an exact contact.
+  Authored projection: Cold-load, field-by-field copy from parser DTOs into an
+    owning subsystem's runtime values.
 
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
@@ -29,6 +31,8 @@ Invariants:
     backend.
   - Scene/model/terrain destruction starts only after a successful GPU drain.
   - Load orchestration retains no caller pointer, callback, or mutable owner bag.
+  - Tornado projection copies every authored field here so Gameplay never
+    depends upward on Scene or parser vocabulary.
 Related:
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
@@ -103,6 +107,52 @@ namespace
 {
 using Json = nlohmann::ordered_json;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
+
+TornadoFieldConfig ProjectAuthoredTornadoField( const AuthoredTornadoFieldConfig& authored )
+{
+    TornadoFieldConfig projected;
+    projected.enabled = authored.enabled;
+    projected.visualizeVelocityField = authored.visualizeVelocityField;
+    projected.center = authored.center;
+    projected.radius = authored.radius;
+    projected.height = authored.height;
+    projected.inwardAcceleration = authored.inwardAcceleration;
+    projected.swirlAcceleration = authored.swirlAcceleration;
+    projected.liftAcceleration = authored.liftAcceleration;
+    projected.ejectAcceleration = authored.ejectAcceleration;
+    projected.ejectUpAcceleration = authored.ejectUpAcceleration;
+    projected.ejectBand = authored.ejectBand;
+    projected.minCaptureSeconds = authored.minCaptureSeconds;
+    projected.ejectCooldownSeconds = authored.ejectCooldownSeconds;
+    projected.maxDeltaVelocity = authored.maxDeltaVelocity;
+    return projected;
+}
+
+TornadoSystemConfig ProjectAuthoredTornadoSystem( const AuthoredTornadoSystemConfig& authored )
+{
+    // Boundary: Scene owns cold authored DTOs. Runtime performs the exhaustive
+    // copy so Gameplay never depends upward on Scene or parser vocabulary.
+    TornadoSystemConfig projected;
+    projected.enabled = authored.enabled;
+    projected.visualizeVelocityField = authored.visualizeVelocityField;
+    projected.vortices.reserve( authored.vortices.size() );
+    for ( const AuthoredTornadoVortexConfig& authoredVortex : authored.vortices )
+    {
+        SkullbonezCore::Gameplay::TornadoVortexConfig vortex;
+        vortex.field = ProjectAuthoredTornadoField( authoredVortex.field );
+        vortex.spawnSeconds = authoredVortex.spawnSeconds;
+        vortex.timeToLiveSeconds = authoredVortex.timeToLiveSeconds;
+        vortex.growSeconds = authoredVortex.growSeconds;
+        vortex.shrinkSeconds = authoredVortex.shrinkSeconds;
+        vortex.driftRadius = authoredVortex.driftRadius;
+        vortex.driftSpeed = authoredVortex.driftSpeed;
+        vortex.driftPhase = authoredVortex.driftPhase;
+        vortex.repulsionRadius = authoredVortex.repulsionRadius;
+        vortex.repulsionStrength = authoredVortex.repulsionStrength;
+        projected.vortices.push_back( vortex );
+    }
+    return projected;
+}
 
 void ApplySceneWorkerThreadSetting( SkullbonezCore::Core::EngineConfig& config,
                                     SkullbonezCore::Threading::WorkerPool& workerPool,
@@ -1132,7 +1182,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                             ActiveSceneCinematicConfig( SceneState(), config ) );
         if ( hasSceneTornadoSystem )
         {
-            tornadoSystem = Gameplay::ProjectAuthoredTornadoSystem( sceneTornadoSystem );
+            tornadoSystem = ProjectAuthoredTornadoSystem( sceneTornadoSystem );
             tornadoField.enabled = false;
             m_sceneController.Scene().Tornado().SetVisualEnabled( true );
         }

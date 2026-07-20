@@ -162,6 +162,10 @@ class SceneWorld
     const Physics::PhysicsEngine& Physics() const;
     Gameplay::TornadoGameplay& Tornado();
     const Gameplay::TornadoGameplay& Tornado() const;
+    // Projects content-neutral byte totals so diagnostics and renderer-facing
+    // composition never need to name or borrow the concrete Gameplay owner.
+    uint64_t CollectGameplayMemoryBytes() const;
+    uint64_t CollectGameplayDebugMemoryBytes() const;
     // Content-neutral publication consumed by the late debug render pass. The
     // span aliases scene-owned gameplay scratch for this frame only.
     std::span<const float> BuildWorldExtensionDebugLines();

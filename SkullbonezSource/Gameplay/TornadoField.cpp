@@ -4,9 +4,9 @@ Purpose:
   Evolves Gameplay-owned tornado fields and samples their acceleration.
 
 Summary:
-  Cold scene DTOs are projected into Gameplay values, then authored vortices
-  advance through deterministic growth, drift, and pair-repulsion math. The
-  resulting active rows retain source order for Physics and presentation.
+  Gameplay-owned vortices advance through deterministic growth, drift, and
+  pair-repulsion math. The resulting active rows retain source order for
+  Physics and presentation.
 
 Glossary:
   Strength envelope: Product of the growth and shrink factors for one vortex.
@@ -16,8 +16,6 @@ Glossary:
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
-  - Authored projection copies every schema field explicitly so a future field
-    addition cannot silently cross the Scene-to-Gameplay boundary.
 
 Related:
   - SkullbonezSource/Gameplay/TornadoField.h
@@ -26,6 +24,7 @@ Related:
 */
 #include "TornadoField.h"
 #include "../Core/Common.h"
+#include "../Core/FatalError.h"
 #include <algorithm>
 #include <cmath>
 
@@ -34,54 +33,6 @@ using namespace SkullbonezCore::Gameplay;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 namespace Vector = SkullbonezCore::Math::Vector;
-
-
-static TornadoFieldConfig
-ProjectAuthoredTornadoField( const SkullbonezCore::Runtime::AuthoredTornadoFieldConfig& authored )
-{
-    TornadoFieldConfig projected;
-    projected.enabled = authored.enabled;
-    projected.visualizeVelocityField = authored.visualizeVelocityField;
-    projected.center = authored.center;
-    projected.radius = authored.radius;
-    projected.height = authored.height;
-    projected.inwardAcceleration = authored.inwardAcceleration;
-    projected.swirlAcceleration = authored.swirlAcceleration;
-    projected.liftAcceleration = authored.liftAcceleration;
-    projected.ejectAcceleration = authored.ejectAcceleration;
-    projected.ejectUpAcceleration = authored.ejectUpAcceleration;
-    projected.ejectBand = authored.ejectBand;
-    projected.minCaptureSeconds = authored.minCaptureSeconds;
-    projected.ejectCooldownSeconds = authored.ejectCooldownSeconds;
-    projected.maxDeltaVelocity = authored.maxDeltaVelocity;
-    return projected;
-}
-
-
-TornadoSystemConfig SkullbonezCore::Gameplay::ProjectAuthoredTornadoSystem(
-    const SkullbonezCore::Runtime::AuthoredTornadoSystemConfig& authored )
-{
-    TornadoSystemConfig projected;
-    projected.enabled = authored.enabled;
-    projected.visualizeVelocityField = authored.visualizeVelocityField;
-    projected.vortices.reserve( authored.vortices.size() );
-    for ( const SkullbonezCore::Runtime::AuthoredTornadoVortexConfig& authoredVortex : authored.vortices )
-    {
-        TornadoVortexConfig vortex;
-        vortex.field = ProjectAuthoredTornadoField( authoredVortex.field );
-        vortex.spawnSeconds = authoredVortex.spawnSeconds;
-        vortex.timeToLiveSeconds = authoredVortex.timeToLiveSeconds;
-        vortex.growSeconds = authoredVortex.growSeconds;
-        vortex.shrinkSeconds = authoredVortex.shrinkSeconds;
-        vortex.driftRadius = authoredVortex.driftRadius;
-        vortex.driftSpeed = authoredVortex.driftSpeed;
-        vortex.driftPhase = authoredVortex.driftPhase;
-        vortex.repulsionRadius = authoredVortex.repulsionRadius;
-        vortex.repulsionStrength = authoredVortex.repulsionStrength;
-        projected.vortices.push_back( vortex );
-    }
-    return projected;
-}
 
 
 static float SmoothStep01( float edge0, float edge1, float value )
@@ -136,6 +87,23 @@ void TornadoField::SetConfig( const TornadoFieldConfig& config )
     m_config.maxDeltaVelocity = (std::max)( 1.0f, m_config.maxDeltaVelocity );
 }
 
+bool TornadoField::ToggleEnabled()
+{
+    m_config.enabled = !m_config.enabled;
+    return m_config.enabled;
+}
+
+void TornadoField::ToggleVelocityFieldVisualization()
+{
+    m_config.visualizeVelocityField = !m_config.visualizeVelocityField;
+}
+
+void TornadoField::SetFieldValue( float TornadoFieldConfig::* field, float value )
+{
+    m_config.*field = value;
+    SetConfig( m_config );
+}
+
 
 Vector3 TornadoField::SampleAcceleration( const Vector3& position ) const
 {
@@ -155,8 +123,24 @@ std::size_t TornadoField::DynamicMemoryBytes() const
 }
 
 
+TornadoSystem::TornadoSystem()
+{
+    // Lifetime: both vectors reach their authored hard cap during owner
+    // construction. Scene edits, idle UI, and replay restore may change size
+    // but cannot grow storage after steady gameplay begins.
+    m_config.vortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );
+    m_activeVortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );
+}
+
 void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 {
+    if ( config.vortices.size() > m_config.vortices.capacity() )
+    {
+        SB_FATAL( "Gameplay/TornadoSystem",
+                  "Authored vortex storage exceeded. requested=%zu capacity=%zu",
+                  config.vortices.size(),
+                  m_config.vortices.capacity() );
+    }
     m_config = config;
     for ( TornadoVortexConfig& vortex : m_config.vortices )
     {
@@ -178,10 +162,6 @@ void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
         vortex.repulsionStrength = (std::max)( 0.0f, vortex.repulsionStrength );
     }
 
-    if ( m_activeVortices.capacity() < m_config.vortices.size() )
-    {
-        m_activeVortices.reserve( m_config.vortices.size() );
-    }
     RebuildActiveVortices();
 }
 
@@ -189,6 +169,32 @@ void TornadoSystem::SetConfig( const TornadoSystemConfig& config )
 bool TornadoSystem::IsEnabled() const
 {
     return m_config.enabled && !m_config.vortices.empty();
+}
+
+bool TornadoSystem::HasAuthoredVortices() const
+{
+    return !m_config.vortices.empty();
+}
+
+bool TornadoSystem::ToggleEnabled()
+{
+    m_config.enabled = !m_config.enabled;
+    RebuildActiveVortices();
+    return m_config.enabled;
+}
+
+void TornadoSystem::ToggleVelocityFieldVisualization()
+{
+    m_config.visualizeVelocityField = !m_config.visualizeVelocityField;
+}
+
+void TornadoSystem::SetFieldValue( float TornadoFieldConfig::* field, float value )
+{
+    for ( TornadoVortexConfig& vortex : m_config.vortices )
+    {
+        vortex.field.*field = value;
+    }
+    SetConfig( m_config );
 }
 
 

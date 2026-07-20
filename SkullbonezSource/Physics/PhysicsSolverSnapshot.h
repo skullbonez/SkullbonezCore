@@ -131,5 +131,41 @@ struct PhysicsSolverSnapshot
     std::vector<PhysicsDebugContact> debugContacts;
     std::vector<PhysicsPipelineRecord> pipelineTrace;
     std::vector<int64_t> collisionCellKeys;
+
+    void ClearPreservingCapacity() noexcept
+    {
+        // Lifetime: replay prediction cancels and restarts in steady runtime.
+        // Clear logical state without replacing vectors so the reserve-phase
+        // storage remains registered and reusable by the next prediction.
+        version = 2;
+        modelCount = 0;
+        nextSleepIslandVisualId = 1;
+        sleepEnabled = true;
+        collisionVisualFrameActive = false;
+        timeRemaining.clear();
+        sleepSupportedThisFrame.clear();
+        sleepInhibitedThisFrame.clear();
+        sleepState.clear();
+        sleepCounter.clear();
+        underwaterSleepLocked.clear();
+        collisionVisualContacts.clear();
+        sleepIslandVisualId.clear();
+        sleepIslandAssignedVisualId.clear();
+        sleepSupportEdges.clear();
+        sleepIslandParent.clear();
+        sleepIslandRank.clear();
+        sleepIslandHasAwake.clear();
+        sleepIslandHasSupportAnchor.clear();
+        sleepIslandEligible.clear();
+        sleepIslandCanSleep.clear();
+        persistentContacts.clear();
+        persistentContactCache.clear();
+        solverStats = {};
+        persistentContactCounts.clear();
+        persistentRestingContactCounts.clear();
+        debugContacts.clear();
+        pipelineTrace.clear();
+        collisionCellKeys.clear();
+    }
 };
 } // namespace SkullbonezCore::Physics

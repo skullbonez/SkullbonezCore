@@ -2537,7 +2537,11 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
         config.runtimeRender.renderCollisionVolumes,
         config.runtimeRender.shadowParallelPrep,
         scene.GetSceneKineticEnergy(),
-        CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(), physics, scene.RenderInstances() } ) };
+        CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(),
+                                                             scene.CollectGameplayMemoryBytes(),
+                                                             scene.CollectGameplayDebugMemoryBytes(),
+                                                             physics,
+                                                             scene.RenderInstances() } ) };
 }
 
 

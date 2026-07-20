@@ -33,7 +33,7 @@ Invariants:
   - Scene override bits and the changed value must stay paired.
   - Physics config edits are mirrored into SceneWorld immediately so
     existing and newly added bodies share the same runtime policy.
-  - Tornado commands commit copied field/system values back to the physics owner.
+  - Tornado commands mutate Gameplay-owned field/system/visual values in place.
   - This module owns command validation and application only; subsystem state
     remains with the explicitly borrowed render, physics, scene, and
     worker owners.
@@ -78,9 +78,8 @@ Math::Vector::Vector3 CinematicSkySunDirection( const SkullbonezCore::Core::Cine
 struct TornadoUICommandContext
 {
     // Lifetime: borrowed only while one Physics-tab tornado command packet is applied.
-    // The helper copies, edits, and commits deterministic field config through
-    // the scene-world physics owner; render-only art stays with RuntimeRenderer.
-    RuntimeRenderer& renderer;
+    // The helper applies bounded edits through the SceneWorld-owned Gameplay
+    // module; it copies no authored vector and borrows no renderer authority.
     SceneWorld& world;
 };
 

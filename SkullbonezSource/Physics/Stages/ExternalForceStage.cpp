@@ -250,7 +250,7 @@ void ExternalForceStage::ApplyBodyForces( const ExternalForceFrameInput& input,
         hotFields.linearVelocityZ[row] = velocity.z;
     };
 
-    if ( context.execution.parallel && context.execution.parallelExternalForceFields )
+    if ( context.execution.parallel && input.parallelEvaluation )
     {
         context.workerPool.ParallelForNoAlloc( 0,
                                                modelCount,

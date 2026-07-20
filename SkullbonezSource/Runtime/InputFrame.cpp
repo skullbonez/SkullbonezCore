@@ -986,7 +986,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     }
     RecordDiagnosticsPhysicsOverlayUIActions( physicsDiagnosticsCommands, recordUIAction );
     const TornadoUICommandResult tornadoCommands =
-        ApplyTornadoUICommands( TornadoUICommandContext{ renderer, sceneController.Scene() }, uiCommands.physics );
+        ApplyTornadoUICommands( TornadoUICommandContext{ sceneController.Scene() }, uiCommands.physics );
     RecordTornadoToggleUIActions( tornadoCommands, recordUIAction );
     if ( runtimeTools.ApplyRayCastVisualizationUICommand( uiCommands.physics ) )
     {

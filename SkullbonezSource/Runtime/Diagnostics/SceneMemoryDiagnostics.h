@@ -4,12 +4,13 @@ Purpose:
   Declares aggregate scene-memory accounting over concrete const owners.
 
 Summary:
-  Diagnostics joins entity metadata, physics storage, and render presentation
-  capacity only while building one value snapshot. No lifecycle controller or
-  mutable cross-domain context is retained.
+  Diagnostics joins entity, Physics, and render owner capacity with precomputed
+  Gameplay byte values while building one value snapshot. No lifecycle
+  controller or mutable cross-domain context is retained.
 
 Glossary:
-  Owner view: Synchronous const references to the three scene-lifetime stores.
+  Owner view: Three synchronous const store references plus Gameplay byte
+    values projected by SceneWorld.
   Aggregate snapshot: Value-only MainMemoryGameObjectStats returned to UI,
     stress, renderer, or shutdown diagnostics.
 
@@ -45,6 +46,8 @@ class SceneEntityStore;
 struct SceneMemoryDiagnosticsView
 {
     const SceneEntityStore& entities;
+    uint64_t gameplayWorldBytes;
+    uint64_t gameplayDebugBytes;
     const Physics::PhysicsEngine& physics;
     const Rendering::RenderInstanceStore& renderInstances;
 };

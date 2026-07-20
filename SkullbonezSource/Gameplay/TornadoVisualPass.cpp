@@ -26,6 +26,7 @@ Related:
 */
 #include "TornadoGameplay.h"
 
+#include "../Core/FatalError.h"
 #include "../Rendering/IRenderCommandContext.h"
 #include "../Rendering/IRenderDiagnostics.h"
 #include "../Rendering/RenderGpuTimingOwner.h"
@@ -45,7 +46,6 @@ using Math::Vector::Vector3;
 using Math::Vector::VectorMagSquared;
 
 constexpr int RENDER_TEXTURE_SLOT_COUNT = Rendering::TEXTURE_SLOT_COUNT;
-constexpr std::size_t VISUAL_FLOATS_PER_VERTEX = 11u;
 constexpr float FX_KIND_RIBBON = 0.0f;
 constexpr float FX_KIND_DUST = 1.0f;
 constexpr Rendering::PassRasterStateBucket VISUAL_RASTER =
@@ -158,6 +158,11 @@ bool TornadoGameplay::VisualAutoEnableWithTornado() const
     return m_visualPass.AutoEnableWithTornado();
 }
 
+void TornadoGameplay::ToggleVisualEnabled()
+{
+    m_visualPass.SetEnabled( !m_visualPass.Settings().enabled );
+}
+
 void TornadoGameplay::SetVisualEnabled( bool enabled )
 {
     m_visualPass.SetEnabled( enabled );
@@ -259,9 +264,12 @@ void TornadoVisualPass::EnsureTransientCapacity()
         authoredVortexCount * ( ribbonCount * ribbonSegments * 6 + dustBands * dustSegments * 6 + particleCount * 6 );
     const std::size_t floatCapacity =
         static_cast<std::size_t>( (std::max)( vertexCount, 0 ) ) * VISUAL_FLOATS_PER_VERTEX;
-    if ( m_vertices.capacity() < floatCapacity )
+    if ( floatCapacity > m_vertices.capacity() )
     {
-        m_vertices.reserve( floatCapacity );
+        SB_FATAL( "Gameplay/TornadoVisualPass",
+                  "Transient vertex capacity exceeded. requested=%zu capacity=%zu",
+                  floatCapacity,
+                  m_vertices.capacity() );
     }
 }
 

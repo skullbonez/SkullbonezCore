@@ -44,6 +44,19 @@ template <typename T> uint64_t VectorCapacityBytes( const std::vector<T>& values
 }
 } // namespace
 
+TornadoVisualPass::TornadoVisualPass()
+{
+    m_activeVisualVortices.reserve( MAX_TORNADO_ACTIVE_FORCE_FIELDS );
+}
+
+void TornadoVisualPass::ReserveCapacity()
+{
+    // Runtime allocation policy: the live SceneWorld pays the complete visual
+    // maximum before steady gameplay. Replay-only TornadoGameplay owners do
+    // not carry this 32 MiB presentation buffer.
+    m_vertices.reserve( MAX_VISUAL_FLOAT_CAPACITY );
+}
+
 TornadoGameplay::TornadoGameplay()
 {
     ReserveBodyCapacity( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS );
@@ -51,11 +64,26 @@ TornadoGameplay::TornadoGameplay()
     m_debugVortices.reserve( MAX_ACTIVE_FORCE_FIELDS );
 }
 
+void TornadoGameplay::SetParallelForceEvaluation( bool enabled )
+{
+    m_parallelForceEvaluation = enabled;
+}
+
+bool TornadoGameplay::ParallelForceEvaluation() const
+{
+    return m_parallelForceEvaluation;
+}
+
 void TornadoGameplay::ReserveBodyCapacity( int capacity )
 {
     const std::size_t reserveCount = static_cast<std::size_t>( (std::max)( 0, capacity ) );
     m_captureSeconds.reserve( reserveCount );
     m_ejectCooldownSeconds.reserve( reserveCount );
+}
+
+void TornadoGameplay::ReserveVisualCapacity()
+{
+    m_visualPass.ReserveCapacity();
 }
 
 void TornadoGameplay::Clear()
@@ -115,12 +143,76 @@ float TornadoGameplay::GetSystemElapsedSeconds() const
     return m_system.GetElapsedSeconds();
 }
 
+bool TornadoGameplay::ToggleEnabled()
+{
+    return m_system.HasAuthoredVortices() ? m_system.ToggleEnabled() : m_field.ToggleEnabled();
+}
+
+void TornadoGameplay::ToggleFieldVectors()
+{
+    if ( m_system.HasAuthoredVortices() )
+    {
+        m_system.ToggleVelocityFieldVisualization();
+    }
+    else
+    {
+        m_field.ToggleVelocityFieldVisualization();
+    }
+}
+
+void TornadoGameplay::SetFieldRadius( float value )
+{
+    SetFieldValue( &TornadoFieldConfig::radius, value );
+}
+
+void TornadoGameplay::SetFieldHeight( float value )
+{
+    SetFieldValue( &TornadoFieldConfig::height, value );
+}
+
+void TornadoGameplay::SetFieldInwardAcceleration( float value )
+{
+    SetFieldValue( &TornadoFieldConfig::inwardAcceleration, value );
+}
+
+void TornadoGameplay::SetFieldSwirlAcceleration( float value )
+{
+    SetFieldValue( &TornadoFieldConfig::swirlAcceleration, value );
+}
+
+void TornadoGameplay::SetFieldLiftAcceleration( float value )
+{
+    SetFieldValue( &TornadoFieldConfig::liftAcceleration, value );
+}
+
+void TornadoGameplay::SetFieldValue( float TornadoFieldConfig::* field, float value )
+{
+    if ( m_system.HasAuthoredVortices() )
+    {
+        m_system.SetFieldValue( field, value );
+    }
+    else
+    {
+        m_field.SetFieldValue( field, value );
+    }
+}
+
 void TornadoGameplay::SetReplayState( const std::vector<float>& captureSeconds,
                                       const std::vector<float>& ejectCooldownSeconds,
                                       const TornadoFieldConfig& fieldConfig,
                                       const TornadoSystemConfig& systemConfig,
                                       float systemElapsedSeconds )
 {
+    if ( captureSeconds.size() > m_captureSeconds.capacity() ||
+         ejectCooldownSeconds.size() > m_ejectCooldownSeconds.capacity() )
+    {
+        SB_FATAL( "Gameplay/TornadoGameplay",
+                  "Replay timer storage exceeded. capture=%zu/%zu cooldown=%zu/%zu",
+                  captureSeconds.size(),
+                  m_captureSeconds.capacity(),
+                  ejectCooldownSeconds.size(),
+                  m_ejectCooldownSeconds.capacity() );
+    }
     m_captureSeconds = captureSeconds;
     m_ejectCooldownSeconds = ejectCooldownSeconds;
     m_field.SetConfig( fieldConfig );
@@ -271,19 +363,22 @@ Physics::ExternalForceFrameInput TornadoGameplay::BuildForceFrame( float dt, int
         std::span<const Physics::ExternalCylindricalForceField>( m_forceFields.data(), m_forceFieldCount ),
         std::span<float>( m_captureSeconds.data(), m_captureSeconds.size() ),
         std::span<float>( m_ejectCooldownSeconds.data(), m_ejectCooldownSeconds.size() ),
-        stepSeconds };
+        stepSeconds,
+        m_parallelForceEvaluation };
 }
 
 uint64_t TornadoGameplay::CollectMemoryBytes() const
 {
     return VectorCapacityBytes( m_captureSeconds ) + VectorCapacityBytes( m_ejectCooldownSeconds ) +
            static_cast<uint64_t>( m_field.DynamicMemoryBytes() ) +
-           static_cast<uint64_t>( m_system.DynamicMemoryBytes() ) + sizeof( m_forceFields );
+           static_cast<uint64_t>( m_system.DynamicMemoryBytes() ) + m_visualPass.DynamicMemoryBytes() +
+           VectorCapacityBytes( m_debugLineVertices ) + VectorCapacityBytes( m_debugVortices ) +
+           sizeof( m_forceFields );
 }
 
 uint64_t TornadoGameplay::CollectDebugMemoryBytes() const
 {
-    return static_cast<uint64_t>( m_field.DynamicMemoryBytes() );
+    return VectorCapacityBytes( m_debugLineVertices ) + VectorCapacityBytes( m_debugVortices );
 }
 
 void TornadoGameplay::EnsureStateBuffers( int modelCount )
@@ -333,5 +428,14 @@ void TornadoGameplay::AppendForceField( const TornadoFieldConfig& config )
     field.minimumExposureSeconds = config.minCaptureSeconds;
     field.repeatCooldownSeconds = config.ejectCooldownSeconds;
     field.maxDeltaVelocityMetersPerSecond = config.maxDeltaVelocity;
+}
+
+uint64_t TornadoVisualPass::DynamicMemoryBytes() const
+{
+    // Why: the focused CPU test target links Gameplay ownership without the
+    // DX12-backed visual implementation, but diagnostics still must account
+    // for the visual owner's reserved CPU arena through that stable seam.
+    return static_cast<uint64_t>( m_vertices.capacity() ) * sizeof( float ) +
+           static_cast<uint64_t>( m_activeVisualVortices.capacity() ) * sizeof( TornadoActiveVortex );
 }
 } // namespace SkullbonezCore::Gameplay

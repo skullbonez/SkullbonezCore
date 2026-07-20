@@ -4,13 +4,11 @@ Purpose:
   Owns tornado configuration and deterministic active-vortex evolution.
 
 Summary:
-  Gameplay retains the authored tornado values, evolves their active strengths
-  and positions, and exposes sampling used by presentation. The fixed-step
-  Physics boundary is published separately by TornadoGameplay.
+  Gameplay retains tornado values projected by Runtime, evolves their active
+  strengths and positions, and exposes sampling used by presentation. The
+  fixed-step Physics boundary is published separately by TornadoGameplay.
 
 Glossary:
-  Authored projection: Cold-load copy from Scene DTOs into Gameplay-owned
-    configuration.
   Active vortex: An authored vortex after spawn, growth, shrink, drift, and
     pair-repulsion have been evaluated at the current gameplay time.
 
@@ -34,7 +32,6 @@ Related:
 #include <cstddef>
 #include <vector>
 #include "../Maths/Vector3.h"
-#include "../Scene/AuthoredTornadoConfig.h"
 
 
 namespace SkullbonezCore
@@ -90,10 +87,6 @@ struct TornadoSystemConfig
     std::vector<TornadoVortexConfig> vortices;
 };
 
-// Boundary: Scene owns the authored DTO; Gameplay owns the projected copy used
-// by simulation, replay, and presentation after cold scene loading completes.
-TornadoSystemConfig ProjectAuthoredTornadoSystem( const Runtime::AuthoredTornadoSystemConfig& authored );
-
 struct TornadoActiveVortex
 {
     TornadoFieldConfig field;
@@ -106,6 +99,9 @@ class TornadoField
 {
   public:
     void SetConfig( const TornadoFieldConfig& config );
+    bool ToggleEnabled();
+    void ToggleVelocityFieldVisualization();
+    void SetFieldValue( float TornadoFieldConfig::* field, float value );
     const TornadoFieldConfig& GetConfig() const
     {
         return m_config;
@@ -123,12 +119,17 @@ class TornadoField
 class TornadoSystem
 {
   public:
+    TornadoSystem();
     void SetConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetConfig() const
     {
         return m_config;
     }
     bool IsEnabled() const;
+    bool HasAuthoredVortices() const;
+    bool ToggleEnabled();
+    void ToggleVelocityFieldVisualization();
+    void SetFieldValue( float TornadoFieldConfig::* field, float value );
     void ResetElapsedSeconds();
     void SetElapsedSeconds( float seconds );
     float GetElapsedSeconds() const

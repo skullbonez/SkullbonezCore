@@ -92,14 +92,14 @@ using SkullbonezCore::Physics::PhysicsBodyRecord;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
+using SkullbonezCore::Physics::PhysicsSolverSnapshot;
 using SkullbonezCore::Physics::PhysicsWorldForces;
 using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
 using SkullbonezCore::Runtime::ReplaySolverBodySample;
 using SkullbonezCore::Runtime::ReplaySolverFrameSample;
-using SkullbonezCore::Physics::PhysicsSolverSnapshot;
-using SkullbonezCore::Threading::WorkerPool;
 using SkullbonezCore::Threading::LockOrderValidator;
+using SkullbonezCore::Threading::WorkerPool;
 
 namespace
 {
@@ -361,8 +361,7 @@ TEST_CASE( "Tornado force witness preserves exact one-step body state" )
                  0,
                  SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
 
-    const PhysicsBodyHotState hot = LoadPhysicsBodyHotState(
-        PhysicsEngine::ReadBodies( engine ).HotFields(), 0u );
+    const PhysicsBodyHotState hot = LoadPhysicsBodyHotState( PhysicsEngine::ReadBodies( engine ).HotFields(), 0u );
     uint32_t velocityXBits = 0;
     uint32_t velocityYBits = 0;
     uint32_t velocityZBits = 0;
@@ -381,6 +380,84 @@ TEST_CASE( "Tornado force witness preserves exact one-step body state" )
     CHECK( positionXBits == 1120402650u );
     CHECK( positionYBits == 1112016013u );
     CHECK( positionZBits == 3156411918u );
+}
+
+TEST_CASE( "Tornado execution config is published by the Gameplay force frame" )
+{
+    SkullbonezCore::Gameplay::TornadoGameplay gameplay;
+    gameplay.SetParallelForceEvaluation( false );
+    CHECK_FALSE( gameplay.BuildForceFrame( PHYSICS_FIXED_DT, 0 ).parallelEvaluation );
+
+    // Invariant: the authored compatibility key projects into Gameplay. The
+    // Physics settings snapshot must not regain content-specific execution
+    // authority merely because the generic stage consumes this value.
+    gameplay.SetParallelForceEvaluation( true );
+    CHECK( gameplay.BuildForceFrame( PHYSICS_FIXED_DT, 0 ).parallelEvaluation );
+
+    SkullbonezCore::Gameplay::TornadoGameplay predictionGameplay;
+    predictionGameplay.SetParallelForceEvaluation( gameplay.ParallelForceEvaluation() );
+    CHECK( predictionGameplay.BuildForceFrame( PHYSICS_FIXED_DT, 0 ).parallelEvaluation );
+}
+
+TEST_CASE( "Tornado owner edits and replay restore reuse bounded vortex storage" )
+{
+    SkullbonezCore::Gameplay::TornadoGameplay gameplay;
+    const uint64_t memoryBeforeVisualReserve = gameplay.CollectMemoryBytes();
+    gameplay.ReserveVisualCapacity();
+    CHECK( gameplay.CollectMemoryBytes() > memoryBeforeVisualReserve + 30u * 1024u * 1024u );
+
+    SkullbonezCore::Gameplay::TornadoSystemConfig system;
+    system.enabled = true;
+    system.vortices.resize( 3u );
+    gameplay.SetSystemConfig( system );
+
+    const auto* storage = gameplay.GetSystemConfig().vortices.data();
+    const std::size_t capacity = gameplay.GetSystemConfig().vortices.capacity();
+    gameplay.ToggleEnabled();
+    gameplay.ToggleFieldVectors();
+    gameplay.SetFieldRadius( 180.0f );
+    gameplay.SetFieldHeight( 120.0f );
+    gameplay.SetFieldInwardAcceleration( 140.0f );
+    gameplay.SetFieldSwirlAcceleration( 175.0f );
+    gameplay.SetFieldLiftAcceleration( 60.0f );
+
+    CHECK( gameplay.GetSystemConfig().vortices.data() == storage );
+    CHECK( gameplay.GetSystemConfig().vortices.capacity() == capacity );
+
+    std::vector<float> captureSeconds( 3u, 0.25f );
+    std::vector<float> cooldownSeconds( 3u, 0.50f );
+    gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, system, 2.0f );
+    CHECK( gameplay.GetSystemConfig().vortices.data() == storage );
+    CHECK( gameplay.GetSystemConfig().vortices.capacity() == capacity );
+}
+
+TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot storage" )
+{
+    SkullbonezCore::Runtime::ReplaySolverWorldSnapshot world;
+    world.tornadoSystemConfig.vortices.reserve( 64u );
+    world.tornadoCaptureSeconds.reserve( 1024u );
+    world.tornadoEjectCooldownSeconds.reserve( 1024u );
+    const auto* vortexStorage = world.tornadoSystemConfig.vortices.data();
+    const auto* captureStorage = world.tornadoCaptureSeconds.data();
+    const auto* cooldownStorage = world.tornadoEjectCooldownSeconds.data();
+    const std::size_t vortexCapacity = world.tornadoSystemConfig.vortices.capacity();
+    const std::size_t captureCapacity = world.tornadoCaptureSeconds.capacity();
+    const std::size_t cooldownCapacity = world.tornadoEjectCooldownSeconds.capacity();
+
+    world.ClearPreservingCapacity();
+    CHECK( world.tornadoSystemConfig.vortices.data() == vortexStorage );
+    CHECK( world.tornadoCaptureSeconds.data() == captureStorage );
+    CHECK( world.tornadoEjectCooldownSeconds.data() == cooldownStorage );
+    CHECK( world.tornadoSystemConfig.vortices.capacity() == vortexCapacity );
+    CHECK( world.tornadoCaptureSeconds.capacity() == captureCapacity );
+    CHECK( world.tornadoEjectCooldownSeconds.capacity() == cooldownCapacity );
+
+    // Invariant: repeated cancellation invalidation remains allocation-free;
+    // the first reset must not merely leave a fresh snapshot with zero reserve.
+    world.ClearPreservingCapacity();
+    CHECK( world.tornadoSystemConfig.vortices.data() == vortexStorage );
+    CHECK( world.tornadoCaptureSeconds.data() == captureStorage );
+    CHECK( world.tornadoEjectCooldownSeconds.data() == cooldownStorage );
 }
 
 void AddMutualGravityBody( PhysicsEngine& engine,
@@ -443,10 +520,7 @@ void SeedTwoBodyGravityWorld( PhysicsEngine& engine,
     REQUIRE( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).Count() == 2 );
 }
 
-void StepMicroWorldWith( PhysicsEngine& engine,
-                         int ticks,
-                         const PhysicsWorldForces& forces,
-                         int workerThreadCount = 0 )
+void StepMicroWorldWith( PhysicsEngine& engine, int ticks, const PhysicsWorldForces& forces, int workerThreadCount = 0 )
 {
     LockOrderValidator lockOrderValidator;
     WorkerPool workerPool( lockOrderValidator );
@@ -912,7 +986,8 @@ void CheckReplaySamplesEqual( const ReplaySolverFrameSample& lhs, const ReplaySo
     CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepCounter, rhs.worldSnapshot.physics.sleepCounter );
     CheckVectorContentsEqual( lhs.worldSnapshot.physics.collisionVisualContacts,
                               rhs.worldSnapshot.physics.collisionVisualContacts );
-    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepIslandParent, rhs.worldSnapshot.physics.sleepIslandParent );
+    CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepIslandParent,
+                              rhs.worldSnapshot.physics.sleepIslandParent );
     CheckVectorContentsEqual( lhs.worldSnapshot.physics.sleepIslandRank, rhs.worldSnapshot.physics.sleepIslandRank );
     CHECK( lhs.contactCount == rhs.contactCount );
     CHECK( lhs.pipelineRecordCount == rhs.pipelineRecordCount );
@@ -1036,6 +1111,68 @@ TEST_CASE( "PhysicsEngine multithreaded determinism: contact and sleep pipeline 
 
     const auto sleepStates = SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( *serial );
     CHECK( std::any_of( sleepStates.begin(), sleepStates.end(), []( uint8_t sleeping ) { return sleeping != 0; } ) );
+}
+
+
+TEST_CASE( "Tornado external-force lane is byte-exact across serial and parallel body partitions" )
+{
+    constexpr int bodyCount = kParallelContactBodyCount;
+    auto serial = std::make_unique<PhysicsEngine>();
+    auto parallel = std::make_unique<PhysicsEngine>();
+    EngineConfig config = MakeDeterministicConfig();
+    config.physicsExecution.parallel = true;
+    serial->ApplyRuntimeConfig( config );
+    parallel->ApplyRuntimeConfig( config );
+    serial->SetSleepEnabled( false );
+    parallel->SetSleepEnabled( false );
+    for ( int index = 0; index < bodyCount; ++index )
+    {
+        const Vector3 position( -95.0f + static_cast<float>( index % 20 ) * 10.0f,
+                                20.0f + static_cast<float>( index / 20 ) * 5.0f,
+                                -40.0f + static_cast<float>( index % 9 ) * 10.0f );
+        const Vector3 zeroVelocity( 0.0f, 0.0f, 0.0f );
+        AddMicroBody( *serial, 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
+        AddMicroBody( *parallel, 2000u + static_cast<uint32_t>( index ), position, zeroVelocity );
+    }
+
+    SkullbonezCore::Gameplay::TornadoFieldConfig field;
+    field.enabled = true;
+    field.center = Vector3( 0.0f, 0.0f, 0.0f );
+    field.radius = 500.0f;
+    field.height = 500.0f;
+    field.minCaptureSeconds = 1000.0f;
+    field.maxDeltaVelocity = 1000.0f;
+    SkullbonezCore::Gameplay::TornadoGameplay serialGameplay;
+    SkullbonezCore::Gameplay::TornadoGameplay parallelGameplay;
+    serialGameplay.SetFieldConfig( field );
+    parallelGameplay.SetFieldConfig( field );
+    serialGameplay.SetParallelForceEvaluation( false );
+    parallelGameplay.SetParallelForceEvaluation( true );
+
+    LockOrderValidator serialLockOrder;
+    LockOrderValidator parallelLockOrder;
+    WorkerPool serialWorkers( serialLockOrder );
+    WorkerPool parallelWorkers( parallelLockOrder );
+    serialWorkers.Initialise( 4 );
+    parallelWorkers.Initialise( 4 );
+    serial->Step( PHYSICS_FIXED_DT,
+                  NoGravityForces(),
+                  serialGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
+                  serialWorkers,
+                  nullptr,
+                  0,
+                  SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+    parallel->Step( PHYSICS_FIXED_DT,
+                    NoGravityForces(),
+                    parallelGameplay.BuildForceFrame( PHYSICS_FIXED_DT, bodyCount ),
+                    parallelWorkers,
+                    nullptr,
+                    0,
+                    SkullbonezCore::Physics::PhysicsDiagnosticsCsvWriter{} );
+
+    CheckEngineKinematicsEqual( *serial, *parallel );
+    CheckVectorContentsEqual( serialGameplay.CaptureSeconds(), parallelGameplay.CaptureSeconds() );
+    CheckVectorContentsEqual( serialGameplay.EjectCooldownSeconds(), parallelGameplay.EjectCooldownSeconds() );
 }
 
 

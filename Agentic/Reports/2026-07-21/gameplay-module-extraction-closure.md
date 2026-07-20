@@ -1,12 +1,12 @@
-# Gameplay Module Extraction
+# Gameplay Module Extraction Closure
 
-Status: Active — 3/4 tasks (T0-T2 complete; T3 remains)
+Status: Complete — 4/4 tasks (T0-T3 complete)
 Owner: repository owner; registered 2026-07-20 as campaign plan 7 of 8
-Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding G)
+Evidence: `../2026-07-20/engine-architecture-review.md` (finding G)
 Ledger: T0-T3
 Depends on: `physics-settings-snapshot` C1 (force-stage inputs are typed
 values, giving the external-force seam its shape) and
-`../../Reports/2026-07-20/render-graph-completion-closure.md` (satisfied;
+`../2026-07-20/render-graph-completion-closure.md` (satisfied;
 the callback-owned pass-registration seam required by T2 is available).
 
 ## Objective
@@ -50,8 +50,10 @@ game feature copying this pattern makes the engine less an engine.
 
 1. New module `SkullbonezSource/Gameplay/` (own filter folder in the
    vcxproj; direction rule from plan 1 extends: `Gameplay/` may include
-   Core/Maths/Physics/Rendering/Scene contracts; nothing below it may
-   include `Gameplay/`).
+   Core/Maths and stable Physics/Rendering value or registration seams, but
+   not Assets/Scene/World/Runtime/UI; nothing below it may include
+   `Gameplay/`). Runtime composition owns exhaustive Scene-to-Gameplay
+   projection instead of exposing parser DTOs upward.
 2. The force seam is a bounded per-tick value input to the force stage
    (e.g. `ExternalForceField` records: center/axis/falloff/strength rows in
    a fixed-capacity span) supplied by the owner that steps physics.
@@ -73,23 +75,33 @@ game feature copying this pattern makes the engine less an engine.
 
 ## T0 Census (2026-07-21)
 
-`git grep -il tornado -- . ':(exclude)Agentic/**'` finds 82 tracked files.
-This inventory is the closure source of truth; T3 must rerun and reconcile it.
+The T0 command found 82 tracked files. T3 reran the same command at the final
+source tip and reconciled the result to 71 tracked files. The final inventory
+is the closure source of truth:
 
-| Surface | Tracked files containing tornado vocabulary | T1-T3 disposition |
-|---|---|---|
-| Physics | `PhysicsBodyStore.h`, `PhysicsEngine.cpp/.h`, `PhysicsRuntimeSettings.h`, `PhysicsSolverSnapshot.h`, `PhysicsWorld.cpp/.h`, `Stages/PhysicsSleepController.Wake.cpp`, `TornadoField.cpp/.h`, `TornadoGameplay.cpp/.h` | T1 moves content/config/state to `Gameplay/` and replaces the physics-facing names with the value lane below. Closure target: zero rows. |
-| Runtime render | `RenderPresentationSettings.h`, `RuntimeRenderer.cpp/.h`, `RuntimeRenderInputs.h`, `RuntimeRenderPasses.cpp/.h` | T2 moves visual settings, snapshot, pass state, GPU lifecycle, and graph callback payload to `Gameplay/`. Closure target: zero rows. |
-| Rendering | `DX12/GeneratedShaderReflection.h`, `DX12/RenderBackendDX12.DynamicGeometry.cpp`, `RenderPipeline.cpp`, `RenderSceneSnapshot.h`, `ShaderContracts.h` | T2 replaces content-specific shader/draw vocabulary with the existing generic transient-colored-triangle contract; generated reflection and manifest keys move with the gameplay shader contract. Closure target: zero rows. |
-| Runtime composition and tools | `DevelopmentTools/ImGuiEditorOwner.cpp`, `InputController.cpp/.h`, `InputFrame.cpp`, `OperatorCommandApplier.cpp/.h`, `Run.cpp`, `RunLaunchOptions.h`, `RuntimeDiagnostics.cpp`, `RuntimeStressController.cpp`, `Scene/RunScene.cpp`, `Scene/SceneRuntimeReset.cpp/.h`, `Startup/StartupCommandLine.cpp/.h`, `Startup/StartupLaunchResolution.cpp`, `UI/OperatorEditorFrameComposer.cpp`, `UiTextPass.cpp` | T1 wires the Gameplay owner into the fixed-step value lane; T3 routes input, startup, reset, stress, diagnostics, and UI composition to that owner. Runtime composition may name Gameplay; Physics, Rendering, and `Runtime/Render` may not. |
-| Replay | `ReplayPrediction.cpp`, `ReplayPredictionArchive.cpp`, `ReplayPredictionView.h`, `ReplayRecorder.cpp/.h`, `ReplayRestoreService.h`, `ReplayV2Artifact.cpp` | T3 records/restores Gameplay-owned values without changing replay ordering, schema, or sample values. |
-| Scene authoring | `AuthoredScene.cpp/.h`, `AuthoredSceneParser.cpp`, `AuthoredSceneParserRuntime.cpp`, `AuthoredSceneParserSchema.h` | T3 keeps authored schema spelling stable while projecting parsed values into Gameplay ownership. No schema/version bump is intended. |
-| UI | `OperatorEditorExchange.cpp/.h`, `UI.cpp/.h`, `UICommands.h`, `UIFrameComposition.cpp`, `UILayout.h`, `UITabPhysics.cpp/.h` | T3 preserves operator command/value vocabulary and moves the owning command target from Physics/renderer to Gameplay. |
-| Core, assets, and config | `Assets/AssetSystem.cpp`, `Core/Config.cpp/.h`, `SkullbonezData/engine.cfg` | T3 moves content config projection to Gameplay. The only config-file hit is `physics_parallel_tornado_field`; its authored spelling remains stable unless a versioned migration is explicitly added. |
-| Data and shader | `scenes/aaa_ragdoll_sunset_showcase.scene.json`, `scenes/tornado_alley_showcase.scene.json`, `scenes/tornado_village_rampage.scene.json`, `shaders/shader_manifest.json`, `shaders/transient_colored_triangles.hlsl` | Authored scene content names stay content names. The three scenes author 1, 3, and 3 vortices respectively. T2 moved the shared packed-triangle shader to a content-neutral build key without changing shader behavior. |
-| Tests and tools | `TestDeterminism.cpp`, `TestOwnerRequestQueues.cpp`, `TestPhysicsStageState.cpp`, `TestStartup.cpp`, `tools/allocation_policy_allowlist.json`, `tools/replay_query.py`, `tools/validate_project_filters.py` | Tests follow the new owner and add the missing direct force witness; allowlist/project-filter/query tooling follows moved paths without weakening checks. |
-| Project metadata | `SKULLBONEZ_CORE.vcxproj/.filters`, `SKULLBONEZ_PHYSICS.vcxproj/.filters` | T1 adds the `Gameplay` filter and moves compilation ownership out of the physics-only project. |
-| Baselines | No tracked file under `TestOutput/baselines/` contains tornado vocabulary. `validate_physics.bat` runs `physics_bench_varied.scene.json`, which has no tornado configuration. | This is a validation gap, not refresh authority. T1 adds a focused deterministic witness and still runs the normal byte-exact physics gate. |
+`git grep -il tornado -- . ':(exclude)Agentic/**'`
+
+| Final surface | Files | Closure disposition |
+|---|---:|---|
+| Physics | 0 | Content/config/state names were removed; Physics consumes only the generic bounded external-force lane. |
+| Rendering | 0 | The shader, draw, and dynamic-geometry contracts are content-neutral. |
+| `Runtime/Render` | 0 | The renderer owns only the typed post-water registration scope. |
+| Gameplay | 6 | Owns the field, system, visuals, configuration, state, and pass callback end to end. |
+| Runtime replay | 10 | Records, restores, predicts, and presents Gameplay-owned values without changing artifact ordering or schema. |
+| Other Runtime | 22 | Composition, startup, reset, input, diagnostics, and development tooling may name Gameplay while keeping lower modules independent. |
+| Scene authoring | 6 | Stable authored spelling is projected field by field into Gameplay ownership; no schema change was made. |
+| UI | 9 | Existing operator vocabulary targets the Gameplay owner without per-command container copies. |
+| Core | 1 | The stable configuration field remains content configuration, not Physics authority. |
+| Tests | 5 | Cover force determinism, serial/parallel equivalence, publication, reuse, reset, and memory accounting. |
+| Data/shader | 5 | Three authored scenes and stable shader/config data retain their content names; the shared shader build key is neutral. |
+| Tools | 3 | Allocation, replay-query, and project-filter tooling follow the moved owner without weakened checks. |
+| Project metadata | 4 | Core/test project and filter files reflect the Gameplay compilation and coverage boundary. |
+| **Total** | **71** | All retained rows are owner-appropriate; forbidden lower-module surfaces are zero. |
+
+No tracked replay/physics baseline contains tornado vocabulary. The varied
+physics baseline still has no tornado configuration, so the focused direct
+force and serial/parallel witnesses remain the behavioral oracle; no physics
+baseline refresh was authorized or performed.
 
 ## T0 Bound Seam Contract
 
@@ -183,7 +195,7 @@ deletion condition, and comparison evidence before source changes continue.
   `grep -irn "tornado" SkullbonezSource/Runtime/Render
   SkullbonezSource/Rendering` returns zero rows. Validation:
   `tools\validate_dx12_renderer.bat` + `tools\run_graphics_stress.bat 1`.
-- [ ] T3 — Closure: UI/replay/config reference reconciliation lands on the
+- [x] T3 — Closure: UI/replay/config reference reconciliation lands on the
   `Gameplay/` owner; direction-rule grep extended in `AGENTS.md`
   (`Gameplay/` inclusion rule); independent rubber-duck review (boundary
   check: physics/render kept zero content vocabulary; the seam did not
@@ -239,5 +251,57 @@ committed thresholds; `tools\run_graphics_stress.bat 1` 62.74 s PASS with a
 PID-scoped stop and empty stderr. No baseline was refreshed. Comment audit
 checked 31/31 touched source-bearing files with zero deferred.
 
-T3: `validate_full` +
-`validate_physics` at final source.
+T3 complete 2026-07-21. Runtime now projects authored values field by field
+into the Gameplay owner; replay records, restores, predicts, and presents that
+state without exposing Gameplay internals to Physics or Rendering. UI commands
+mutate the owner in place, prediction reset preserves prepared capacity, and
+diagnostics include the Gameplay CPU visual arena/debug subset. The DX12
+dynamic-vertex registry reserves its fixed 32-row budget and fails before the
+hard cap. Direct tests cover config publication, 31.6 MiB memory accounting,
+storage reuse, repeated snapshot-reset capacity, and exact serial/parallel
+520-body output. The final 71-file census records zero tornado vocabulary in
+Physics, Rendering, and `Runtime/Render`; direction-rule greps also find no
+forbidden Gameplay dependency on Assets, Scene, World, Runtime, or UI.
+
+The replay visual gate first rejected only stale shader provenance after T2's
+path-only shader rename: shader-tree SHA-256
+`257a7a6b63ef87f327ac6d6bc277ba27054a69daf2d3343db10121d8e9a171fb`
+became
+`69e4feeca6aa06093f580149b568d7da2d17b50b615eae127a06755c203d3faa`.
+The renamed VS/PS bytecode hashes remained identical and a direct baseline/
+current comparison reported no behavioral difference. Under the owner's
+continue-through-blockers direction, the visual JSON changed only that hash;
+`Get-FileHash -Algorithm SHA256` then mechanically changed the dependent causal
+`visualBaselineSha256` from
+`931463f2d38b453a38eb0d462fe5ac2285dfa53faed89791b41db49053e4f6dc`
+to
+`68b8cee200e21e97645880daaadbb61e502738b6e46c27974795e82165d79dcf`.
+Both JSON diffs are one hash-field substitution with no tick, sample,
+topology, pixel, scene, or physics-baseline change. The reconciled authoritative
+gate passed in 452.2 s: 2,401 ticks, 200 moved bricks, 175 toppled bricks, 200
+causal nodes, one presented cascade, 62 saved/loaded ticks, and every positive
+and negative control.
+
+Formal exact-tip evidence: allocation self-test/repository scan 9.37 s PASS
+(412 files, zero allowlist errors); `validate_fast` PASS after correcting one
+explicit-zero test fixture; `validate_perf` first missed the DX12 average noise
+threshold by 0.3 percentage points, then an unchanged-tip 108.58 s rerun PASSed
+with zero gameplay/reserve violations and no physics or DX12 regression;
+`validate_dx12_renderer` 57.14 s PASS with 43 fresh shader stages, zero
+InfoQueue errors, and all three committed captures accepted;
+`run_graphics_stress.bat 1` 61.71 s PASS with a PID-scoped stop and empty
+stderr; `validate_full` 145.4 s PASS across the CPU umbrella and five runtime
+lanes; and the separately required `validate_physics` 55.62 s PASS with the
+44,401-line CSV byte-exact. A focused Automation behavior probe also passed
+with two prediction generations and no reserve-counter change. Its stricter
+allocation-guard variant exposed broad pre-existing replay/path allocations,
+so it is recorded only as behavior evidence; capacity proof comes from direct
+reuse/reset tests and the clean official performance guard.
+
+Independent ownership review is clear after remediation: the seam is bounded,
+ordered value data with no callback, inheritance, owner lookup, or back-
+reference; lower modules retain zero content vocabulary; preallocation, reset
+preservation, memory totals, and hard caps are honest. The comment-style audit
+inspected all 32 touched source-bearing files, with 32 checked and zero
+deferred. Validation ran in the available headless shell with output mirrored
+under `TestOutput/agent_logs/`; no visible console was available.

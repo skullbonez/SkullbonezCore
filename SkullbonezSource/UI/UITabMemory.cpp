@@ -820,8 +820,8 @@ void DrawMainMemoryPanel( const SkullbonezCore::UI::UIDrawContext& draw,
                                           memory.gameObjects.renderStoreBytes;
     FormatMemoryMiB( memory.gameObjects.modelVectorBytes, a, sizeof( a ) );
     FormatMemoryMiB( gameObjectStoreBytes, b, sizeof( b ) );
-    FormatMemoryMiB( memory.gameObjects.physicsWorldBytes, c, sizeof( c ) );
-    snprintf( text, sizeof( text ), "Models %s  Stores %s  World %s", a, b, c );
+    FormatMemoryMiB( memory.gameObjects.physicsWorldBytes + memory.gameObjects.gameplayWorldBytes, c, sizeof( c ) );
+    snprintf( text, sizeof( text ), "Models %s  Stores %s  Worlds %s", a, b, c );
     draw.Text( subX, row0 + 50.0f, 8.4f, 0.48f, 0.60f, 0.64f, text );
 
     DrawMemoryRow( draw, x, row0 + 68.0f, labelW, "Unattrib", memory.unattributedProcessBytes, 0.82f, 0.74f, 0.55f );

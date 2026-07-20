@@ -79,18 +79,21 @@ bypass it.
 ## Dependency Direction Rule
 
 Dependency direction must remain visible from physical include paths. `Core/`
-is the infrastructure floor and must not include Assets, Physics, Rendering,
-Scene, World, Runtime, or UI. Physics and Rendering may include Core and Maths,
-but must not include Runtime or UI. Move a misplaced value or implementation to
-its owning layer instead of adding a forwarding header, compatibility alias,
-callback pack, service bag, or upward include.
+is the infrastructure floor and must not include Assets, Gameplay, Physics,
+Rendering, Scene, World, Runtime, or UI. Physics and Rendering may include Core
+and Maths, but must not include Gameplay, Runtime, or UI. Gameplay may include
+Core, Maths, and stable Physics/Rendering value or registration seams, but must
+not include Assets, Scene, World, Runtime, or UI. Move a misplaced value or
+implementation to its owning layer instead of adding a forwarding header,
+compatibility alias, callback pack, service bag, or upward include.
 
 Before closing a dependency-direction change, run these exact review proofs;
-both commands must return no rows:
+all commands must return no rows:
 
 ```powershell
-rg -n '^#include[[:space:]]+.*(Assets|Physics|Rendering|Scene|World|Runtime|UI)/' SkullbonezSource/Core
-rg -n '^#include[[:space:]]+.*(Runtime|UI)/' SkullbonezSource/Physics SkullbonezSource/Rendering
+rg -n '^#include[[:space:]]+.*(Assets|Gameplay|Physics|Rendering|Scene|World|Runtime|UI)/' SkullbonezSource/Core
+rg -n '^#include[[:space:]]+.*(Gameplay|Runtime|UI)/' SkullbonezSource/Physics SkullbonezSource/Rendering
+rg -n '^#include[[:space:]]+.*(Assets|Scene|World|Runtime|UI)/' SkullbonezSource/Gameplay
 ```
 
 If an edge cannot be inverted in the owning task, record it in that task's

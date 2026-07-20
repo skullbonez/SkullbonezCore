@@ -245,8 +245,24 @@ bool Dx12GeometryOwner::EnsureGridLinePipeline( ID3D12Device* device,
 }
 
 
+Dx12GeometryOwner::Dx12GeometryOwner()
+{
+    // Runtime allocation policy: text, overlays, primitive batches, and tools
+    // acquire stable one-based handles from this bounded registry. Reserve the
+    // complete handle budget before any first-use render path can request one.
+    m_dynamicVBs.reserve( MAX_DYNAMIC_VERTEX_BUFFERS );
+}
+
+
 uint32_t Dx12GeometryOwner::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
 {
+    if ( m_dynamicVBs.size() >= MAX_DYNAMIC_VERTEX_BUFFERS )
+    {
+        SB_FATAL( "Rendering/Dx12GeometryOwner",
+                  "Dynamic vertex-buffer handle capacity exceeded. requested=%zu hard_capacity=%zu",
+                  m_dynamicVBs.size() + 1u,
+                  MAX_DYNAMIC_VERTEX_BUFFERS );
+    }
     DynamicVBDX12 dvb = {};
     dvb.numAttribs = numAttribs;
     dvb.maxVertices = maxVertices;

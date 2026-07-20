@@ -160,13 +160,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         visualTime.predictionSystemSeconds = replayFrame.predictionFrame->tornadoSystemElapsedSeconds;
     }
     Rendering::WorldRenderExtensionRegistration worldExtension;
-    {
-        // Why: transient visual storage may grow only during the backend-init
-        // phase. The returned registration keeps no allocation authority and
-        // is consumed synchronously by this frame's render graph.
-        CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-        worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
-    }
+    // Invariant: Gameplay preallocates its bounded visual maximum during owner
+    // construction. Steady rendering receives no allocation-phase exemption.
+    worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
                                                                          renderModels,

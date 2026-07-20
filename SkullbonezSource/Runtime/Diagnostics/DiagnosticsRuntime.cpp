@@ -1008,6 +1008,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              "    \"collider_store_bytes\": %llu,\n"
              "    \"render_store_bytes\": %llu,\n"
              "    \"physics_world_bytes\": %llu,\n"
+             "    \"gameplay_world_bytes\": %llu,\n"
              "    \"debug_and_broadphase_bytes\": %llu,\n"
              "    \"model_count\": %llu,\n"
              "    \"model_capacity\": %llu,\n"
@@ -1035,6 +1036,7 @@ bool DiagnosticsRuntime::WriteMainMemoryDump( const SkullbonezCore::Core::MainMe
              static_cast<unsigned long long>( stats.gameObjects.colliderStoreBytes ),
              static_cast<unsigned long long>( stats.gameObjects.renderStoreBytes ),
              static_cast<unsigned long long>( stats.gameObjects.physicsWorldBytes ),
+             static_cast<unsigned long long>( stats.gameObjects.gameplayWorldBytes ),
              static_cast<unsigned long long>( stats.gameObjects.debugAndBroadphaseBytes ),
              static_cast<unsigned long long>( stats.gameObjects.modelCount ),
              static_cast<unsigned long long>( stats.gameObjects.modelCapacity ),

@@ -64,7 +64,12 @@ class TornadoGameplay
 
     TornadoGameplay();
 
+    // Selects serial or worker-partitioned body-row evaluation. Physics receives
+    // only this choice in the resulting per-frame value packet.
+    void SetParallelForceEvaluation( bool enabled );
+    bool ParallelForceEvaluation() const;
     void ReserveBodyCapacity( int capacity );
+    void ReserveVisualCapacity();
     void Clear();
 
     void SetFieldConfig( const TornadoFieldConfig& config );
@@ -72,6 +77,17 @@ class TornadoGameplay
     void SetSystemConfig( const TornadoSystemConfig& config );
     const TornadoSystemConfig& GetSystemConfig() const;
     float GetSystemElapsedSeconds() const;
+
+    // Applies operator-facing content edits directly to owner storage. These
+    // calls never copy or grow the authored vortex vector during input frames.
+    bool ToggleEnabled();
+    void ToggleFieldVectors();
+    void ToggleVisualEnabled();
+    void SetFieldRadius( float value );
+    void SetFieldHeight( float value );
+    void SetFieldInwardAcceleration( float value );
+    void SetFieldSwirlAcceleration( float value );
+    void SetFieldLiftAcceleration( float value );
     void SetReplayState( const std::vector<float>& captureSeconds,
                          const std::vector<float>& ejectCooldownSeconds,
                          const TornadoFieldConfig& fieldConfig,
@@ -115,6 +131,9 @@ class TornadoGameplay
     std::vector<TornadoActiveVortex> m_debugVortices;
     std::array<Physics::ExternalCylindricalForceField, MAX_ACTIVE_FORCE_FIELDS> m_forceFields{};
     std::size_t m_forceFieldCount = 0u;
+    bool m_parallelForceEvaluation = false;
+
+    void SetFieldValue( float TornadoFieldConfig::* field, float value );
 };
 } // namespace Gameplay
 } // namespace SkullbonezCore

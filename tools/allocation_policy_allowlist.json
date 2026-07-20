@@ -73,13 +73,15 @@
     {
       "path": "SkullbonezSource/Runtime/Scene/RunScene.cpp",
       "patterns": [
-        "std::make_unique<Terrain>"
+        "std::make_unique<Terrain>",
+        ".push_back(",
+        ".reserve("
       ],
-      "owner": "Scene terrain rebuild",
+      "owner": "Runtime cold scene projection and terrain rebuild",
       "phase": "scene_load",
-      "reason": "Scene load/reset creates terrain resources from scene data before returning to steady gameplay.",
-      "cap": "One terrain owner per scene load/reset path.",
-      "removal_or_wrapper_plan": "Move terrain object lifetime to a reusable scene-load arena if scene churn becomes allocation-sensitive."
+      "reason": "Scene load/reset creates terrain resources and projects the parser's capped authored tornado rows into Gameplay values before returning to steady gameplay.",
+      "cap": "One terrain owner and at most 64 authored tornado rows per scene load/reset path.",
+      "removal_or_wrapper_plan": "Move terrain object lifetime to a reusable scene-load arena and replace authored tornado vectors with bounded cold-load storage if scene churn becomes allocation-sensitive."
     },
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp",
@@ -641,8 +643,8 @@
       ],
       "owner": "Gameplay tornado authored-content and preallocated state surface",
       "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Authored vortex rows grow only during scene/config load; active force publication uses a fixed 64-field array and pre-reserved per-body timer rows.",
-      "cap": "Authored vortex count is capped at 64 and body timers are bounded by the configured scene-object capacity.",
+      "reason": "The TornadoSystem constructor reserves both authored and active-vortex rows to the fixed maximum; later push operations change logical size only inside that capacity.",
+      "cap": "Both vortex vectors are capped at 64 and body timers are bounded by the configured scene-object capacity.",
       "removal_or_wrapper_plan": "Replace authored vortex vectors with bounded gameplay storage when the scene schema gains a fixed-list representation."
     },
     {
@@ -666,8 +668,8 @@
       ],
       "owner": "Gameplay tornado authored-content, body state, and debug-line publication",
       "phase": "startup_preallocation_scene_load_replay_and_bounded_debug_build",
-      "reason": "Body timers and debug buffers reserve before steady gameplay; assigns/inserts/pushes only change logical size inside capacities, while authored vortex growth stays in scene load/replay.",
-      "cap": "Active force fields and debug vortices are capped at 64; timer rows use scene-object capacity; debug vertices reserve the fixed 12x4x5 sampling recipe for all 64 vortices.",
+      "reason": "Body timers/debug buffers reserve during owner construction, while live SceneWorld preallocation reserves the complete production-visual recipe; assigns/inserts/pushes only change logical size inside those capacities.",
+      "cap": "Active fields/debug vortices are capped at 64; timer rows use scene-object capacity; production visuals cap at 16x96 ribbons, three 56-segment dust bands, and 256 particles for each of 64 vortices.",
       "removal_or_wrapper_plan": "Replace replay-owned dynamic copies separately and move debug publication to a fixed packed-line store when the shared diagnostics buffer contract lands."
     },
     {
@@ -685,23 +687,21 @@
       "path": "SkullbonezSource/Gameplay/TornadoVisualPass.cpp",
       "patterns": [
         ".push_back(",
-        ".reserve(",
         ".shrink_to_fit("
       ],
       "owner": "Gameplay tornado production visual",
-      "phase": "startup_and_backend_init_prepare_then_drained_shutdown_release",
-      "reason": "Gameplay pre-reserves the 64 active-vortex rows and prepares bounded transient triangle capacity under the explicit BackendInit allocation scope before graph execution; shrink occurs only after the renderer drains GPU work during shutdown.",
+      "phase": "startup_preallocation_then_drained_shutdown_release",
+      "reason": "The Gameplay visual owner reserves 64 active rows at construction and live SceneWorld preallocation reserves the maximum visual recipe; steady graph preparation only fills within capacity, and shrink occurs only after renderer drain during shutdown.",
       "cap": "At most 64 active vortices, 16 ribbons, 96 ribbon segments, three 56-segment dust bands, 256 particles, and 11 floats per emitted vertex.",
       "removal_or_wrapper_plan": "Replace the transient float vector with the render upload arena and the active-vortex vector with a fixed Gameplay list once those typed stores are available."
     },
     {
       "path": "SkullbonezSource/Gameplay/TornadoVisualPass.h",
       "patterns": [
-        "std::vector<",
-        ".reserve("
+        "std::vector<"
       ],
       "owner": "Gameplay tornado production visual",
-      "phase": "startup_and_backend_init_prepare_then_drained_shutdown_release",
+      "phase": "startup_preallocation_then_drained_shutdown_release",
       "reason": "The owner retains preallocated active-vortex and transient packed-vertex storage; the graph callback only clears and fills within the prepared capacity.",
       "cap": "The same 64-vortex and clamped visual-recipe limits enforced by TornadoVisualPass::EnsureTransientCapacity.",
       "removal_or_wrapper_plan": "Adopt fixed active-vortex storage and the renderer upload arena, then remove both owning vectors."
@@ -709,12 +709,13 @@
     {
       "path": "SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp",
       "patterns": [
-        ".push_back("
+        ".push_back(",
+        ".reserve("
       ],
       "owner": "Rendering backend/resource static STL surface",
-      "phase": "backend_init_scene_resource_preallocation",
-      "reason": "Existing rendering vectors cover resource registries, generated mesh data, render graph build products, and preallocated render submission buffers outside unapproved steady allocation paths.",
-      "cap": "Bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
+      "phase": "startup_preallocation_backend_init_scene_resource_preallocation",
+      "reason": "The dynamic vertex-buffer handle registry reserves its fixed budget at backend owner construction; other rendering vectors cover generated mesh data and preallocated submission buffers outside unapproved steady allocation paths.",
+      "cap": "Dynamic vertex-buffer handles are capped at 32; other rows remain bounded by renderer resource counts, MAX_SCENE_OBJECTS, render graph limits, or generated mesh sizes.",
       "removal_or_wrapper_plan": "Move renderer storage to fixed registries, arenas, or typed resource-owner wrappers before deleting these patterns."
     },
     {
@@ -1155,8 +1156,8 @@
         ".resize("
       ],
       "owner": "Replay static STL storage/growth surface",
-      "phase": "replay",
-      "reason": "Replay is the only approved runtime growth exception; these existing recorder, prediction, query, artifact, and trajectory buffers remain reviewed while runtime reserve owners and validation guard actual gameplay growth.",
+      "phase": "startup_preallocation_and_replay",
+      "reason": "Replay is the only approved runtime growth exception; prediction also reserves its bounded Gameplay snapshot rows during owner construction so per-build copies do not grow outside a registered replay reserve scope.",
       "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },

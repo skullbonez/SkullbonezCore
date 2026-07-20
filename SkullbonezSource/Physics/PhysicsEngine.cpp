@@ -191,7 +191,6 @@ PhysicsRuntimeSettings PhysicsEngine::RuntimeSettingsFromConfig( const Skullbone
     settings.execution.parallel = config.physicsExecution.parallel;
     settings.execution.parallelApplyForces = config.physicsExecution.parallelApplyForces;
     settings.execution.parallelMutualGravity = config.physicsExecution.parallelMutualGravity;
-    settings.execution.parallelExternalForceFields = config.physicsExecution.parallelExternalForceFields;
     settings.execution.parallelNarrowphase = config.physicsExecution.parallelNarrowphase;
     settings.execution.parallelTerrainDetect = config.physicsExecution.parallelTerrainDetect;
     settings.execution.parallelIntegrate = config.physicsExecution.parallelIntegrate;

@@ -72,6 +72,7 @@ struct ExternalForceFrameInput
     std::span<float> exposureSeconds;
     std::span<float> repeatCooldownSeconds;
     float stepSeconds = 0.0f;
+    bool parallelEvaluation = false; // Gameplay-owned execution choice for this value frame.
 
     bool Active() const
     {
