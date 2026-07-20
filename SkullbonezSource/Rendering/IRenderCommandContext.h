@@ -122,6 +122,16 @@ struct InstancedMeshDrawDesc
     PassRasterStateBucket rasterState;
 };
 
+struct ClearTargetDesc
+{
+    // Values travel on the clear operation so no later pass can inherit hidden
+    // backend clear state from an earlier target.
+    bool color = true;
+    bool depth = true;
+    float colorValue[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    float depthValue = 1.0f;
+};
+
 // Pass code names the bucket id while spelling out the complete fixed-function
 // recipe. Defaults deliberately match an opaque depth-tested mesh draw.
 constexpr PassRasterStateBucket MakePassRasterStateBucket( uint8_t id,
@@ -150,11 +160,8 @@ class IRenderCommandContext
     virtual ~IRenderCommandContext() = default;
 
     virtual void SetViewport( int x, int y, int w, int h ) = 0;
-    virtual void Clear( bool color, bool depth ) = 0;
-    virtual void SetClearColor( float r, float g, float b, float a ) = 0;
-    virtual void SetClearDepth( float depth ) = 0;
-
-    virtual void SetClipPlane( int index, bool enable ) = 0;
+    // Clears the currently graph-acquired target using the supplied values.
+    virtual void Clear( const ClearTargetDesc& target ) = 0;
 
     virtual void BindTexture( uint32_t handle, int slot ) = 0;
     // Concept: graph-declared transient textures resolve through the command

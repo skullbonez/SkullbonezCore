@@ -827,30 +827,15 @@ void Dx12PipelineOwner::BindCurrentOutputs( ID3D12GraphicsCommandList* commandLi
 }
 
 
-void Dx12PipelineOwner::SetClearColor( float r, float g, float b, float a )
+void Dx12PipelineOwner::ClearCurrentColor( ID3D12GraphicsCommandList* commandList, const float color[4] ) const
 {
-    m_clearColor[0] = r;
-    m_clearColor[1] = g;
-    m_clearColor[2] = b;
-    m_clearColor[3] = a;
+    commandList->ClearRenderTargetView( m_currentRTV, color, 0, nullptr );
 }
 
 
-void Dx12PipelineOwner::SetClearDepth( float depth )
+void Dx12PipelineOwner::ClearCurrentDepth( ID3D12GraphicsCommandList* commandList, float depth ) const
 {
-    m_clearDepth = depth;
-}
-
-
-void Dx12PipelineOwner::ClearCurrentColor( ID3D12GraphicsCommandList* commandList ) const
-{
-    commandList->ClearRenderTargetView( m_currentRTV, m_clearColor, 0, nullptr );
-}
-
-
-void Dx12PipelineOwner::ClearCurrentDepth( ID3D12GraphicsCommandList* commandList ) const
-{
-    commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, m_clearDepth, 0, 0, nullptr );
+    commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, depth, 0, 0, nullptr );
 }
 
 
@@ -921,11 +906,6 @@ void Dx12PipelineOwner::ResetCommandState()
     m_currentDSV = defaults.m_currentDSV;
     m_currentRTVFormat = defaults.m_currentRTVFormat;
     m_renderingToFBO = defaults.m_renderingToFBO;
-    m_clearColor[0] = 0.0f;
-    m_clearColor[1] = 0.0f;
-    m_clearColor[2] = 0.0f;
-    m_clearColor[3] = 1.0f;
-    m_clearDepth = 1.0f;
     m_lastPSOHash = defaults.m_lastPSOHash;
     m_pipelineBindingDirty = defaults.m_pipelineBindingDirty;
     m_targetsDirty = defaults.m_targetsDirty;

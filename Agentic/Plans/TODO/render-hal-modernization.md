@@ -1,6 +1,6 @@
 # Render HAL Modernization
 
-Status: Active — 4/6 tasks (M0-M5)
+Status: Active — 5/6 tasks (M0-M5)
 Owner: repository owner; registered 2026-07-20 as campaign plan 6 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding F)
 Ledger: M0-M5
@@ -396,6 +396,54 @@ source-bearing files inspected, zero deferred. The format gate initially found
 two touched headers needing the repository alignment post-pass; scoped repair
 was applied and every formal gate then passed.
 
+## M4 Typed-DXR And Dead-Surface Evidence
+
+Completed 2026-07-20 on `nightrunner-20th-july`.
+
+The optional raytracing facet now carries complete operation values:
+
+- `RaytracingSetupDesc` owns the terrain/sphere geometry descriptions and fixed
+  instance capacity passed into initialization;
+- `WaterReflectionRayDesc` owns typed `Matrix4`/`Vector3` camera, light, water,
+  sky, time, and environment-texture inputs for one dispatch;
+- TLAS rebuild accepts `std::span<const Matrix4>` rather than a flat float
+  buffer plus count, while the bounded runtime scratch array remains owned by
+  `RuntimeRenderer`; and
+- the unused dispatch width/height and always-zero terrain/sphere BLAS
+  parameters are deleted. Backend-owned output dimensions and BLAS resources
+  remain the single authorities.
+
+M0's adjacent dead rows are closed with source proof. `SetClearColor` and
+`SetClearDepth` had no tracked external callers; their retained backend fields
+and forwarding rows are gone, and `ClearTargetDesc` carries each clear's
+values. `IRenderCommandContext::SetClipPlane` was a no-op with two reflection
+callers; both calls and the no-op row are gone. The real typed clip-plane state
+in `PrimitiveBatchRenderer` and `CollisionVisualizer` remains because their
+shaders consume it.
+
+The Debug render suite wrote affirmative machine evidence to
+`Debug/runtime_events.log`: `dxr_capability supported=1 tier=11`. It exited 0,
+captured all three render scenes, and had empty stderr. The bounded stress suite
+then exercised its deterministic three-mode reflection churn for 12,663 frames
+and 348 scene loads. PSO telemetry stayed at 19 entries/misses, with hits rising
+24,634 -> 175,960 and one pass-precompiled PSO; stderr was empty and shutdown
+was graceful.
+
+Validation at the final M4 source tip:
+
+| Command | Time | Result |
+|---|---:|---|
+| `tools\validate_dx12_renderer.bat` | 78.0 s | PASS; Profile/Debug clean, zero warnings/errors, captures accepted, zero DX12 validation errors |
+| `tools\run_graphics_stress.bat 1` | 61.0 s | PASS; 12,663 frames/348 scene loads, graceful PID-scoped stop, empty stderr, stable PSO misses |
+| Debug DXR-capability render-suite probe | 7.0 s | PASS; exit 0, empty stderr, `supported=1 tier=11` recorded |
+| `tools\validate_full.bat` | 156.0 s | PASS; 329/329 tests and 61,354 assertions, coverage/Automation/DX12/physics, zero DX12 errors, accepted screenshots, 44,401 physics lines byte-exact |
+
+Focused iteration passed the Profile build after correcting one local name
+collision (10.23 s, zero warnings/errors); the preceding failed compile was
+16.84 s and emitted no warnings. Comment-style audit: 10/10 touched
+source-bearing files inspected, zero deferred. Scoped clang-format/header
+alignment, `git diff --check`, and CodeGraph sync completed before validation.
+
 ## Tasks
 
 - [x] M0 — Contract and inventory: enumerate every `IRenderCommandContext`
@@ -419,7 +467,7 @@ was applied and every formal gate then passed.
   population is state-desc-only. Typed math types per binding decision 3 on
   migrated signatures. Validation: `tools\validate_dx12_renderer.bat` ×3 +
   `tools\run_graphics_stress.bat 1` + `tools\validate_perf.bat`.
-- [ ] M4 — DXR facet: replace `DispatchReflectionRays`/`InitDXR` positional
+- [x] M4 — DXR facet: replace `DispatchReflectionRays`/`InitDXR` positional
   surfaces with typed descriptions per binding decision 4; delete dead
   interface rows found in M0 with usage proof. Validation:
   `tools\validate_dx12_renderer.bat` + `tools\run_graphics_stress.bat 1`

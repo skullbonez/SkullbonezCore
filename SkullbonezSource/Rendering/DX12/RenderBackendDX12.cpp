@@ -1543,7 +1543,7 @@ void RenderBackendDX12::SetViewport( int x, int y, int w, int h )
 }
 
 
-void RenderBackendDX12::Clear( bool color, bool depth )
+void RenderBackendDX12::Clear( const ClearTargetDesc& target )
 {
     if ( !m_frameOwner.EnsureOpen().ok )
     {
@@ -1570,39 +1570,21 @@ void RenderBackendDX12::Clear( bool color, bool depth )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetviewports
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects
-    if ( color )
+    if ( target.color )
     {
         // Clear the render target to a solid color (wipes the entire back buffer).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-clearrendertargetview
-        m_pipelineOwner.ClearCurrentColor( CommandList() );
+        m_pipelineOwner.ClearCurrentColor( CommandList(), target.colorValue );
     }
-    if ( depth )
+    if ( target.depth )
     {
         // Clear the depth buffer to 1.0 (maximum distance), so all subsequent draws will pass
         // the depth test. This is done at the start of each frame or when switching render targets.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-cleardepthstencilview
-        m_pipelineOwner.ClearCurrentDepth( CommandList() );
+        m_pipelineOwner.ClearCurrentDepth( CommandList(), target.depthValue );
     }
-}
-
-
-void RenderBackendDX12::SetClearColor( float r, float g, float b, float a )
-{
-    m_pipelineOwner.SetClearColor( r, g, b, a );
-}
-
-
-void RenderBackendDX12::SetClearDepth( float depth )
-{
-    m_pipelineOwner.SetClearDepth( depth );
-}
-
-
-void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
-{
-    // Clip planes are handled through shader constants.
 }
 
 

@@ -294,10 +294,10 @@ restart uses an explicit zero-declaration completion. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [render-hal-modernization](TODO/render-hal-modernization.md) | 4 | 6 | 67% |
+| [render-hal-modernization](TODO/render-hal-modernization.md) | 5 | 6 | 83% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **21** | **31** | **68%** |
+| **Active/future total** | **22** | **31** | **71%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1152,7 +1152,7 @@ boundary containment inherits the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-hal-modernization](TODO/render-hal-modernization.md) | Active | 4/6 | Start M4 typed DXR facet and dead interface-row deletion |
+| [render-hal-modernization](TODO/render-hal-modernization.md) | Active | 5/6 | Start M5 closure, Profiler dependency restoration, and independent review |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | All tasks unblocked; start after Render HAL in binding order |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |
 

@@ -680,7 +680,7 @@ class ReflectionPass
     ReflectionPass( ReflectionPassResources& resources,
                     Physics::CollisionVisualizer& collisionVisualizer,
                     const SkullbonezCore::Core::EngineConfig& config,
-                    float* dxrReflectionTransforms,
+                    Math::Transformation::Matrix4* dxrReflectionTransforms,
                     int dxrReflectionTransformCapacity,
                     RenderResourceLifecycleLog& lifecycleLog,
                     SkullbonezCore::Core::Profiler* profiler )
@@ -701,7 +701,7 @@ class ReflectionPass
     ReflectionPassResources& m_resources;
     Physics::CollisionVisualizer& m_collisionVisualizer;
     const SkullbonezCore::Core::EngineConfig& m_config;
-    float* m_dxrReflectionTransforms = nullptr;
+    Math::Transformation::Matrix4* m_dxrReflectionTransforms = nullptr;
     int m_dxrReflectionTransformCapacity = 0;
     RenderResourceLifecycleLog& m_lifecycleLog;
     SkullbonezCore::Core::Profiler* m_profiler;         // Startup-bound diagnostics borrow; null when profiling is disabled.

@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, and render-graph plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the three remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 21 / 31 live tasks; 68%. |
+| Active/future progress | 22 / 31 live tasks; 71%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | M3 `validate_full` passes in 144.36s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | M3 DX12 x3, stress, perf, and full pass. The command HAL has no raster setters/queries or bucketless draw overloads; PSO misses remain 19 from frames 1,800-12,600 while hits rise 24,634 -> 175,960. |
+| Last broad local gate | M4 `validate_full` passes in 156.0s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | M4 DX12, stress, Debug DXR-capability probe, and full pass. DXR setup/dispatch/TLAS inputs are typed; dead clear/clip rows are removed; the machine reports DXR tier 11. |
 
 ## Live Queue
 
-NOW. Four live plans, 31 tasks; 21 complete (68%). The remaining architecture-review campaign
+NOW. Four live plans, 31 tasks; 22 complete (71%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: render-hal-modernization → gameplay-module-extraction →
@@ -146,6 +146,10 @@ are not certified. Full evidence:
 | `tools\validate_perf.bat` (M3) | 110.79 s | PASS; absolute budgets and DX12/physics comparisons, no regressions |
 | `tools\validate_full.bat` (M3) | 144.36 s | PASS; all CPU/coverage and five runtime lanes, 44,401-line physics CSV byte-exact |
 | `tools\validate_format.bat` (M3 final) | 13.41 s | PASS; 276 headers aligned and all source formatted |
+| `tools\validate_dx12_renderer.bat` (M4) | 78.0 s | PASS; zero DX12 errors and unchanged baselines |
+| `tools\run_graphics_stress.bat 1` (M4) | 61.0 s | PASS; 12,663 frames, 348 scene loads, graceful PID-scoped stop, empty stderr |
+| Debug DXR-capability render-suite probe (M4) | 7.0 s | PASS; exit 0, empty stderr, `supported=1 tier=11` |
+| `tools\validate_full.bat` (M4) | 156.0 s | PASS; 329 cases/61,354 assertions, all CPU/coverage and five runtime lanes, 44,401-line physics CSV byte-exact |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -153,14 +157,13 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `render-hal-modernization` M4 on `nightrunner-20th-july`.
-M3 is complete: the command HAL has no raster setters/queries or bucketless
-graphics draw overloads; pipeline key construction is declaration-only; typed
-spans, `Matrix4`, and `InstancedMeshDrawDesc` carry migrated geometry inputs.
-Exact stress telemetry shows 19 misses stable after warm-up, 175,960 hits by
-frame 12,600, and one pass-precompiled PSO. DX12 x3, bounded stress, perf, and
-full all pass; comment audit is 23/23. M4 types the DXR facet and deletes dead
-interface rows with usage proof. The Profiler semantic exception remains
-deletion-bound to M5. E17
+Start `render-hal-modernization` M5 on `nightrunner-20th-july`.
+M4 is complete: DXR setup, reflection dispatch, and TLAS rebuild use typed
+descriptions/spans; unused positional parameters and dead clear/clip interface
+rows are deleted with usage proof. The Debug suite records DXR tier 11 support,
+and DX12, bounded stress, and full gates pass; comment audit is 10/10. M5 moves
+the Profiler Rendering/Text dependency out of Core, pins the final architecture
+contract, records closure perf/PSO evidence, and requests the plan's single
+independent review. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

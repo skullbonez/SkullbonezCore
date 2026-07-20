@@ -345,8 +345,8 @@ class RuntimeRenderer
     float m_consequenceGradeStrength = 0.0f;              // Render-owned fade strength for the frame-local consequence grade.
     std::chrono::steady_clock::time_point
         m_consequenceGradeLastTick;                       // Wall-clock anchor for the grade crossfade; zero means uninitialized.
-    std::array<float, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * 16> m_dxrReflectionTransforms =
-        {};                                               // Scratch matrices for DXR TLAS instance upload.
+    std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
+        m_dxrReflectionTransforms = {};                   // Scratch matrices for DXR TLAS instance upload.
     FullscreenQuadPass m_fullscreenQuadPass;              // Shared full-screen vertex buffer pass used by sky/post effects.
     SkyPass m_skyPass;                                    // Background sky pass, reused by reflection and scene target passes.
     SceneTargetPass m_sceneTargetPass;                    // Cinematic HDR scene-target begin/release pass.

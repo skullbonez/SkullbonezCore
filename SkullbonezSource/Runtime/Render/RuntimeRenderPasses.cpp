@@ -148,10 +148,10 @@ void ClearAllRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContex
 }
 
 int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstanceStore& renderStore,
-                                   float* outMatrixFloats,
+                                   Matrix4* outMatrices,
                                    int maxModelCount )
 {
-    if ( !outMatrixFloats || maxModelCount <= 0 )
+    if ( !outMatrices || maxModelCount <= 0 )
     {
         return 0;
     }
@@ -160,8 +160,7 @@ int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstan
     const int modelCount = (std::min)( static_cast<int>( instances.size() ), maxModelCount );
     for ( int i = 0; i < modelCount; ++i )
     {
-        const Matrix4& modelMatrix = instances[static_cast<std::size_t>( i )].modelMatrix;
-        memcpy( outMatrixFloats + static_cast<std::size_t>( i ) * 16u, modelMatrix.Data(), 16u * sizeof( float ) );
+        outMatrices[i] = instances[static_cast<std::size_t>( i )].modelMatrix;
     }
     return modelCount;
 }
@@ -944,7 +943,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     // handle stored in ShadowFrameData.
     target.Bind();
     renderCommands.SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
-    renderCommands.Clear( true, true );
+    renderCommands.Clear( {} );
 
     // The bucket applies opaque depth writes, back-face culling, and the
     // rasterizer bias to each caster PSO without mutating later passes.
@@ -1160,7 +1159,7 @@ void SceneTargetPass::Begin( const RenderFrameContext& frame, SkyPass& skyPass )
     m_resources.hdrTarget->Bind();
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
     renderCommands.SetViewport( 0, 0, m_resources.hdrTarget->GetWidth(), m_resources.hdrTarget->GetHeight() );
-    renderCommands.Clear( true, true );
+    renderCommands.Clear( {} );
 
     PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/CinematicSky" );
     {
@@ -1201,78 +1200,66 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
 
         // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
         // runtime supplies only per-instance sphere transforms here.
-        rayTracing->BuildTLAS( m_dxrReflectionTransforms, ballCount, 0, 0 );
+        rayTracing->BuildTLAS(
+            std::span<const Matrix4>( m_dxrReflectionTransforms, static_cast<std::size_t>( ballCount ) ) );
 
         // Ray generation reconstructs world-space rays from screen pixels, so
         // it needs the inverse of the main camera view-projection matrix.
-        Matrix4 invVP = inputs.frame.viewProjection.Inverse();
-        float cameraPos[3] = { inputs.frame.eye.x, inputs.frame.eye.y, inputs.frame.eye.z };
-        float simTime = inputs.simulationTimeSeconds;
-        // Why: nullptr preserves the backend's legacy sky colors for ordinary
-        // water while cinematic scenes can make DXR misses match authored voids.
-        float cinematicSkyColorTop[3] = {};
-        float cinematicSkyColorBottom[3] = {};
-        const float* skyColorTop = nullptr;
-        const float* skyColorBottom = nullptr;
+        Rendering::WaterReflectionRayDesc reflection;
+        reflection.inverseViewProjection = inputs.frame.viewProjection.Inverse();
+        reflection.cameraPosition = inputs.frame.eye;
+        reflection.lightPosition =
+            Vector3( inputs.frame.lightPosition[0], inputs.frame.lightPosition[1], inputs.frame.lightPosition[2] );
+        reflection.waterHeight = inputs.frame.waterY;
+        reflection.simulationTimeSeconds = inputs.simulationTimeSeconds;
+        // Default colors preserve ordinary-water sky misses; cinematic scenes
+        // replace the typed values so ray misses match authored void colors.
         if ( inputs.cinematic && inputs.cinematic->enabled )
         {
-            cinematicSkyColorTop[0] = inputs.cinematic->skyZenithR;
-            cinematicSkyColorTop[1] = inputs.cinematic->skyZenithG;
-            cinematicSkyColorTop[2] = inputs.cinematic->skyZenithB;
-            cinematicSkyColorBottom[0] = inputs.cinematic->skyHorizonR;
-            cinematicSkyColorBottom[1] = inputs.cinematic->skyHorizonG;
-            cinematicSkyColorBottom[2] = inputs.cinematic->skyHorizonB;
-            skyColorTop = cinematicSkyColorTop;
-            skyColorBottom = cinematicSkyColorBottom;
+            reflection.skyColorTop =
+                Vector3( inputs.cinematic->skyZenithR, inputs.cinematic->skyZenithG, inputs.cinematic->skyZenithB );
+            reflection.skyColorBottom =
+                Vector3( inputs.cinematic->skyHorizonR, inputs.cinematic->skyHorizonG, inputs.cinematic->skyHorizonB );
         }
 
         Textures::TextureCollection& textures = RenderTextures( inputs.frame );
-        uint32_t sphereHandle = 0;
-        uint32_t terrainHandle = 0;
-        uint32_t skyUpHandle = 0;
-        uint32_t skyDownHandle = 0;
-        uint32_t skyRightHandle = 0;
-        uint32_t skyLeftHandle = 0;
-        uint32_t skyFrontHandle = 0;
-        uint32_t skyBackHandle = 0;
         if ( !ResolveRenderTextureHandle( textures,
                                           TEXTURE_BOUNDING_SPHERE,
                                           "Frame/Render/Reflection/DXR",
-                                          sphereHandle ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_GROUND, "Frame/Render/Reflection/DXR", terrainHandle ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_UP, "Frame/Render/Reflection/DXR", skyUpHandle ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_DOWN, "Frame/Render/Reflection/DXR", skyDownHandle ) ||
+                                          reflection.textures.sphere ) ||
+             !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_GROUND,
+                                          "Frame/Render/Reflection/DXR",
+                                          reflection.textures.terrain ) ||
+             !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_SKY_UP,
+                                          "Frame/Render/Reflection/DXR",
+                                          reflection.textures.skyUp ) ||
+             !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_SKY_DOWN,
+                                          "Frame/Render/Reflection/DXR",
+                                          reflection.textures.skyDown ) ||
              !ResolveRenderTextureHandle( textures,
                                           TEXTURE_SKY_RIGHT,
                                           "Frame/Render/Reflection/DXR",
-                                          skyRightHandle ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_LEFT, "Frame/Render/Reflection/DXR", skyLeftHandle ) ||
+                                          reflection.textures.skyRight ) ||
+             !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_SKY_LEFT,
+                                          "Frame/Render/Reflection/DXR",
+                                          reflection.textures.skyLeft ) ||
              !ResolveRenderTextureHandle( textures,
                                           TEXTURE_SKY_FRONT,
                                           "Frame/Render/Reflection/DXR",
-                                          skyFrontHandle ) ||
-             !ResolveRenderTextureHandle( textures, TEXTURE_SKY_BACK, "Frame/Render/Reflection/DXR", skyBackHandle ) )
+                                          reflection.textures.skyFront ) ||
+             !ResolveRenderTextureHandle( textures,
+                                          TEXTURE_SKY_BACK,
+                                          "Frame/Render/Reflection/DXR",
+                                          reflection.textures.skyBack ) )
         {
             PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection" );
             return output;
         }
-        rayTracing->DispatchReflectionRays( invVP.Data(),
-                                            cameraPos,
-                                            inputs.frame.waterY,
-                                            simTime,
-                                            inputs.frame.lightPosition,
-                                            skyColorTop,
-                                            skyColorBottom,
-                                            inputs.frame.windowWidth * 2,
-                                            inputs.frame.windowHeight * 2,
-                                            sphereHandle,
-                                            terrainHandle,
-                                            skyUpHandle,
-                                            skyDownHandle,
-                                            skyRightHandle,
-                                            skyLeftHandle,
-                                            skyFrontHandle,
-                                            skyBackHandle );
+        rayTracing->DispatchReflectionRays( reflection );
         output.reflectionTextureHandle = rayTracing->GetReflectionUAVTexture();
         output.reflectionSampleViewProjection = inputs.frame.viewProjection;
     }
@@ -1288,7 +1275,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
         m_resources.target->Bind();
         renderCommands.SetViewport( 0, 0, m_resources.target->GetWidth(), m_resources.target->GetHeight() );
-        renderCommands.Clear( true, true );
+        renderCommands.Clear( {} );
 
         // Skybox reflected (XZ follows eye; Y anchored at runtime config).
         // Cinematic mode can reflect the generated sunset sky into the water
@@ -1305,7 +1292,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         // below-surface visual from the main scene.
         PROFILE_GPU_BEGIN( m_profiler, "Frame/Render/Reflection/Balls" );
         DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection/Balls" );
-        renderCommands.SetClipPlane( 0, true );
         PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
@@ -1355,7 +1341,6 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                     Rendering::RenderVisibilityView::Reflection );
             }
         }
-        renderCommands.SetClipPlane( 0, false );
         PrimitiveBatchRendererForFrame( inputs.frame ).SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( m_profiler, "Frame/Render/Reflection/Balls" );

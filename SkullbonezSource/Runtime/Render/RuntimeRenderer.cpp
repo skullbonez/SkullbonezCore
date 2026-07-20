@@ -405,7 +405,7 @@ void ExecuteBackbufferAcquireGraphCallback( const SkullbonezCore::Rendering::Ren
     (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
     if ( data.clearFrameTargets )
     {
-        data.renderCommands->Clear( true, true );
+        data.renderCommands->Clear( {} );
     }
 }
 
@@ -1766,7 +1766,7 @@ RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const Render
                         m_collisionVisualizer,
                         m_config,
                         m_dxrReflectionTransforms.data(),
-                        static_cast<int>( m_dxrReflectionTransforms.size() / 16 ),
+                        static_cast<int>( m_dxrReflectionTransforms.size() ),
                         m_lifecycleLog,
                         m_profiler ),
       m_objectPass( m_collisionVisualizer, m_config, m_profiler ), m_terrainPass( m_terrain, m_config, m_profiler ),
@@ -1850,13 +1850,12 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
 
     // Lane R: device resource creation and shader bytecode failures remain a
     // recoverable renderer result reported through the scene-load transaction.
-    return rayTracing->InitDXR( terrainVBVA,
-                                terrainMesh->GetVertexCount(),
-                                terrainMesh->GetStride(),
-                                sphereVBVA,
-                                sphereGeometry.vertexCount,
-                                rayTracing->GetInstancedMeshStaticStride( sphereHandle ),
-                                modelCapacity );
+    const Rendering::RaytracingSetupDesc setup{
+        { terrainVBVA, terrainMesh->GetVertexCount(), terrainMesh->GetStride() },
+        { sphereVBVA, sphereGeometry.vertexCount, rayTracing->GetInstancedMeshStaticStride( sphereHandle ) },
+        modelCapacity,
+    };
+    return rayTracing->InitDXR( setup );
 }
 
 

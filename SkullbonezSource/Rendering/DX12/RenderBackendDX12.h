@@ -382,10 +382,8 @@ class Dx12PipelineOwner
     void RestoreRenderTargetFormat( DXGI_FORMAT format );
     void SetCurrentColorTarget( D3D12_CPU_DESCRIPTOR_HANDLE rtv );
     void BindCurrentOutputs( ID3D12GraphicsCommandList* commandList ) const;
-    void SetClearColor( float r, float g, float b, float a );
-    void SetClearDepth( float depth );
-    void ClearCurrentColor( ID3D12GraphicsCommandList* commandList ) const;
-    void ClearCurrentDepth( ID3D12GraphicsCommandList* commandList ) const;
+    void ClearCurrentColor( ID3D12GraphicsCommandList* commandList, const float color[4] ) const;
+    void ClearCurrentDepth( ID3D12GraphicsCommandList* commandList, float depth ) const;
     size_t CacheCount() const;
     uint64_t CacheHitCount() const;
     uint64_t CacheMissCount() const;
@@ -441,10 +439,6 @@ class Dx12PipelineOwner
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
     DXGI_FORMAT m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     bool m_renderingToFBO = false;
-    // Concept: clear values are desired output state. They travel with the
-    // pipeline owner's current target recipe rather than the composition root.
-    float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-    float m_clearDepth = 1.0f;
     size_t m_lastPSOHash = 0;
     bool m_pipelineBindingDirty = true;
     bool m_targetsDirty = true;
@@ -574,26 +568,14 @@ class Dx12RaytracingOwner
                                            Dx12DescriptorHeaps& descriptors,
                                            int renderWidth,
                                            int renderHeight,
-                                           uint64_t terrainVBVA,
-                                           int terrainVertCount,
-                                           int terrainStride,
-                                           uint64_t sphereVBVA,
-                                           int sphereVertCount,
-                                           int sphereStride );
+                                           const RaytracingSetupDesc& setup );
     SkullbonezCore::Core::SbResult CompleteSetup( ID3D12Device* device, int maxInstances );
     void AbortSetup( const SkullbonezCore::Core::SbResult& failure );
-    SkullbonezCore::Core::SbResult BuildScene( const float* instanceTransforms, int instanceCount );
+    SkullbonezCore::Core::SbResult BuildScene( std::span<const Math::Transformation::Matrix4> instanceTransforms );
     Dx12RaytracingDispatchOutcome DispatchReflections( ID3D12Device* device,
                                                        Dx12DescriptorHeaps& descriptors,
                                                        const Dx12TextureOwner& textures,
-                                                       const float* invViewProj,
-                                                       const float* cameraPos,
-                                                       float waterY,
-                                                       float time,
-                                                       const float* lightPos,
-                                                       const float* skyColorTop,
-                                                       const float* skyColorBottom,
-                                                       const uint32_t textureHandles[8] );
+                                                       const WaterReflectionRayDesc& reflection );
     UINT ReflectionSrvIndex() const;
     ID3D12Resource* ReflectionResource() const;
     uint32_t ReflectionTextureHandle() const;
@@ -730,11 +712,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     SkullbonezCore::Core::SbResult ReloadShadersFromSource() override;
 
     void SetViewport( int x, int y, int w, int h ) override;
-    void Clear( bool color, bool depth ) override;
-    void SetClearColor( float r, float g, float b, float a ) override;
-    void SetClearDepth( float depth ) override;
-
-    void SetClipPlane( int index, bool enable ) override;
+    void Clear( const ClearTargetDesc& target ) override;
 
     std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
     std::unique_ptr<IMesh>
@@ -821,32 +799,9 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         m_diagnostics.PopDrawCallTraceScope( hash );
     }
 
-    SkullbonezCore::Core::SbResult InitDXR( uint64_t terrainVBVA,
-                                            int terrainVertCount,
-                                            int terrainStride,
-                                            uint64_t sphereVBVA,
-                                            int sphereVertCount,
-                                            int sphereStride,
-                                            int maxInstances ) override;
-    void DispatchReflectionRays( const float* invViewProj,
-                                 const float* cameraPos,
-                                 float waterY,
-                                 float time,
-                                 const float* lightPos,
-                                 const float* skyColorTop,
-                                 const float* skyColorBottom,
-                                 int width,
-                                 int height,
-                                 uint32_t sphereTexHandle,
-                                 uint32_t terrainTexHandle,
-                                 uint32_t skyUpHandle,
-                                 uint32_t skyDownHandle,
-                                 uint32_t skyRightHandle,
-                                 uint32_t skyLeftHandle,
-                                 uint32_t skyFrontHandle,
-                                 uint32_t skyBackHandle ) override;
-    void
-    BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) override;
+    SkullbonezCore::Core::SbResult InitDXR( const RaytracingSetupDesc& setup ) override;
+    void DispatchReflectionRays( const WaterReflectionRayDesc& reflection ) override;
+    void BuildTLAS( std::span<const Math::Transformation::Matrix4> instanceTransforms ) override;
     uint32_t GetReflectionUAVTexture() const override;
     void ShutdownDXR() override;
     uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const override;
