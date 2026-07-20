@@ -1,6 +1,6 @@
 # Replay Policy Debt Closure
 
-Status: Active — 1/4 tasks (RP0-RP3)
+Status: Active — 2/4 tasks (RP0-RP3)
 Owner: repository owner; registered 2026-07-21 from replay-boundary RB1 audit
 Evidence: `../../Reports/2026-07-21/replay-boundary-containment-closure.md`
 RB1 findings RB1-F1 through RB1-F3
@@ -48,7 +48,7 @@ identity while serialized artifact scalars remain byte-compatible.
   steady work, and record the exact owner/preallocation remedy. Add a focused
   repeatable probe if the current interaction command is not deterministic.
   Investigation only; no behavior change. Validation: targeted probe.
-- [ ] RP1 — Allocation closure: route every live Replay-owned growth through
+- [x] RP1 — Allocation closure: route every live Replay-owned growth through
   one of the three existing registered owners or prepare fixed capacity before
   steady use; eliminate owner-zero render/steady allocations caused by replay
   presentation without blanket scopes. Correct the recorder/solver policy
@@ -150,4 +150,60 @@ no-prediction control hit the already-audited 32 MiB recorder cap at frame 61;
 a reduced-window retry stopped progressing and its exact PID was terminated.
 Neither run produced a valid report, so no allocation conclusion rests on it.
 
-RP1-RP3 pending.
+### RP1 — allocation closure
+
+Allocation phase attribution is now thread-local, matching reserve-owner
+attribution. A concurrent nested-scope regression proves a Replay scope on one
+thread cannot overwrite a Render scope on another. The allocation guard also
+captures a bounded higher parent frame so future strict failures point at the
+engine operation instead of only an STL allocator.
+
+The post-fix inventory fell in three source-proven steps:
+
+1. Thread-local phase attribution reduced 40,350 policy violations to 2,105;
+   the removed JSON family was DX12 BackendInit and the phase-split stringstream
+   family was RenderGraph evidence.
+2. `WriteCinematicPostGraphEvidence` now labels its file/string work as
+   Diagnostics, and the per-generation `ReplayPredictionAmortizedTask` is an
+   in-place `std::optional` slot instead of a heap object. That left five
+   160-byte steady-gameplay allocations.
+3. Higher parent capture mapped all five to the automation-only prediction-
+   horizon report formatter. Its narrow Diagnostics scope produced a clean
+   strict exit 0 without a blanket Replay owner scope.
+
+`tools\validate_replay_allocation_policy.bat` and
+`SkullbonezData/interaction/replay_allocation_policy_two_generation.json` are
+the repeatable regression gate. One hidden Automation process must complete two
+prediction generations through frame 180 and expose both
+`gameplay_violations=0` and `policy_violations=0`; any nonzero process result,
+early report, or missing evidence is a failure.
+
+The final strict evidence kept exactly three Replay owners and zero failed
+growth requests. Ratified high-water evidence is 17,737,640 bytes for recorder,
+2,877,186 for solver snapshots, and the maximum valid strict-run observation
+110,979,828 for prediction. Policy comments, the three
+`REPLAY_GROWTH_OWNER_POLICIES` measurements, and the allocation allowlist now
+agree. The two ReplayRecorder rows name `replay_recorder_samples` and its
+aggregate 32 MiB cap; the obsolete heap-task exception is gone.
+
+| Final gate | Result | Time |
+|---|---|---:|
+| `tools\validate_fast.bat` | PASS; format/metadata/size, Profile/Debug builds, 336 tests / 68,633 assertions | 75.65 s |
+| allocation policy self-test | PASS | 0.14 s |
+| allocation policy repository scan | PASS; 412 files, zero allowlist errors | 9.4 s |
+| `tools\validate_perf.bat` | PASS; allocation and performance comparisons clean | 108.5 s |
+| `tools\validate_replay_allocation_policy.bat` | PASS; frame 180, zero gameplay and policy violations | 16.87 s |
+| `tools\validate_full.bat` | PASS; CPU umbrella and five runtime lanes, byte-exact physics | 151.9 s |
+| `tools\validate_replay_visual_fidelity.bat` | PASS; 2,401 ticks, one generation/presentation, all controls | 447.2 s |
+
+The first `validate_fast` attempt correctly failed three stale headroom
+assertions. They were replaced with the owner-approved invariant that every cap
+retains at least 1.5x current measured high-water, then the entire final matrix
+above passed. No baseline, golden, screenshot, artifact schema, or behavior
+value changed.
+
+Comment-style audit covered all 13 touched source/test/substantial-tool files:
+13 checked, 0 deferred, no separate subsystem checklist required for this
+touched-file pass, and no unresolved terminology.
+
+RP2-RP3 pending.

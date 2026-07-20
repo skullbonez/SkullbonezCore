@@ -1,18 +1,19 @@
 /*
 File: SkullbonezSource/Core/Allocation/RuntimeAllocationTracker.h
 Purpose:
-  Declares the process-wide runtime allocation phase tracker.
+  Declares per-thread runtime allocation phase attribution and process-wide
+  allocation counters.
 
 Summary:
   The tracker is measurement infrastructure, not a gameplay allocator. Runtime
-  code labels broad lifecycle phases, and the global allocation hook records
-  which phase owned each heap request.
+  code labels broad lifecycle phases on the thread doing the work, and the
+  global allocation hook records which phase owned each heap request.
 
 Glossary:
   Allocation guard: CLI-enabled measurement mode that counts heap requests by
     runtime phase and warns when steady gameplay allocates.
-  Phase scope: RAII marker that labels allocations until the scope restores the
-    previous process phase.
+  Phase scope: RAII marker that labels allocations on the calling thread until
+    the scope restores that thread's previous phase.
   Steady gameplay: Frame work after startup, backend init, and scene load where
     hot paths should reuse preallocated storage.
 
@@ -20,8 +21,8 @@ Invariants:
   - Tracker storage is fixed and must not allocate while recording or reporting.
   - Phase scopes remain active when the optional allocation counter is off;
     renderer and reserve policies consume the same lifecycle label.
-  - Worker threads read the same process phase as the main thread so parallel
-    physics allocations cannot hide behind a default thread-local phase.
+  - Each worker must establish its own phase. One thread's nested scope must
+    never relabel allocations made concurrently on another thread.
 
 Related:
   - AGENTS.md (Runtime Static Allocation Policy)

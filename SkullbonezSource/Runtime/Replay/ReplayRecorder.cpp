@@ -71,7 +71,9 @@ constexpr std::size_t REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY = 128u;
 constexpr std::size_t REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK = 256u;
 // Runtime allocation policy: retained replay body payloads now grow per active
 // scene size instead of preallocating every future slot at game_model_capacity.
-// The hard byte cap is per vector reserve request and growth count is telemetry.
+// Invariant: every retained recorder vector shares one aggregate 32 MiB owner
+// cap. The strict two-generation probe measured 17,737,640 bytes high-water;
+// growth count is telemetry, not a separate allowance per vector.
 constexpr int REPLAY_RECORDER_SAMPLE_RESERVE_GROWTH_LIMIT =
     CoreAllocation::RUNTIME_RESERVE_REPLAY_GROWTH_LIMIT_UNBOUNDED;
 constexpr uint64_t FNV64_OFFSET = 14695981039346656037ull;

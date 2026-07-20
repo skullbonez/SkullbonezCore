@@ -39,8 +39,8 @@ Related:
 namespace SkullbonezCore::Physics
 {
 inline constexpr const char* PHYSICS_SOLVER_SNAPSHOT_RESERVE_OWNER = "replay_solver_snapshot";
-// Measured high-water is 1,437,696 bytes. Eight MiB leaves more than 5x
-// headroom while deleting the old unmeasured 64 MiB ceiling.
+// The strict two-generation prediction probe measured 2,877,186 bytes.
+// Eight MiB preserves 2.92x measured headroom.
 inline constexpr int PHYSICS_SOLVER_SNAPSHOT_RESERVE_HARD_BYTES = 8 * 1024 * 1024;
 
 struct PhysicsSolverContactCacheSample

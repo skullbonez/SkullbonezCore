@@ -757,6 +757,11 @@ void WriteCinematicPostGraphEvidence(
     size_t volumetricTransitionCount,
     size_t tonemapTransitionCount )
 {
+    // Why: this human-readable file is diagnostic evidence, not frame storage.
+    // The allocation phase must match that policy even when the cinematic post
+    // graph is emitted from inside the Render frame scope.
+    CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+        CoreAllocation::RuntimeAllocationPhase::Diagnostics );
     std::ofstream out( "Debug/dx12_cinematic_post_graph.txt", std::ios::trunc );
     if ( !out.is_open() )
     {

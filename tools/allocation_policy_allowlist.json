@@ -127,7 +127,7 @@
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
       "reason": "Prediction frames, frame payload pools, private prediction engine storage, and trajectory records share one registered replay growth gate.",
-      "cap": "ReplayRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; measured combined high-water is 211,376,304 bytes.",
+      "cap": "ReplayRetainedMemory policy registers replay_prediction_working_set with a 256 MiB hard byte cap; the strict two-generation probe measured 110,979,828 bytes high-water.",
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
@@ -144,13 +144,13 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
       "patterns": [
-        "std::make_unique<ReplayPredictionAmortizedTask>"
+        "prediction.build.workerTask.emplace("
       ],
-      "owner": "ReplayPrediction private working set",
+      "owner": "ReplayPrediction fixed worker-task slot",
       "phase": "replay",
-      "reason": "The prediction worker task is constructed lazily with the private replay prediction build and retained only until the build completes or is cancelled.",
-      "cap": "One AmortizedTask instance per active prediction build; construction runs under replay_prediction_working_set and is discarded by CancelPredictionJob or completion.",
-      "removal_or_wrapper_plan": "Replace with an embedded fixed task slot if AmortizedTask gains resettable no-heap storage; keep construction at prediction begin, never in per-tick worker slices."
+      "reason": "std::optional::emplace reconstructs the single embedded AmortizedTask in place; it is not a growing STL container and performs no heap allocation.",
+      "cap": "Exactly one sizeof(ReplayPredictionAmortizedTask) slot embedded in RunReplayPredictionBuildState; the strict two-generation guard reports zero gameplay and reserve-policy violations.",
+      "removal_or_wrapper_plan": "Delete this exact regex exception when the checker distinguishes optional/variant emplacement from container growth."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
@@ -160,7 +160,7 @@
       "owner": "Replay recorder sample payloads",
       "phase": "replay",
       "reason": "Presentation and solver sample body vectors grow lazily under active scene size instead of startup game_model_capacity.",
-      "cap": "ReplayRetainedMemory policy registers replay_recorder_samples with a 32 MiB aggregate hard cap from the guarded 6,206,626-byte high-water; denial is fatal to prevent partial scrub state.",
+      "cap": "ReplayRetainedMemory policy registers replay_recorder_samples with a 32 MiB aggregate hard cap from the strict two-generation probe's 17,737,640-byte high-water; denial is fatal to prevent partial scrub state.",
       "removal_or_wrapper_plan": "Replace retained body vectors with a flat replay arena/body dictionary when replay memory tuning lands; keep recorder growth behind ReserveReplayRecorderSampleVector until then."
     },
     {
@@ -171,7 +171,7 @@
       "owner": "Replay solver snapshot reserve",
       "phase": "replay",
       "reason": "Solver replay snapshots batch many typed vector payload reserves into one byte-budget approval before copying physics state.",
-      "cap": "ReplayRetainedMemory policy registers replay_solver_snapshot with an 8 MiB hard byte cap from the measured 1,437,696-byte high-water; denial is fatal.",
+      "cap": "ReplayRetainedMemory policy registers replay_solver_snapshot with an 8 MiB hard byte cap from the strict two-generation probe's 2,877,186-byte high-water; denial is fatal.",
       "removal_or_wrapper_plan": "Replace snapshot vectors with an arena-backed snapshot record if replay solver storage is flattened."
     },
     {
@@ -1044,10 +1044,10 @@
         ".reserve(",
         ".resize("
       ],
-      "owner": "ReplayPrediction bounded build and presentation working set",
+      "owner": "Replay recorder retained sample payloads",
       "phase": "replay",
-      "reason": "ReplayPrediction builds private future frames, causal nodes, and publication payloads under the registered replay_prediction_working_set reserve owner.",
-      "cap": "ReplayPrediction growth is bounded by the replay_prediction_working_set 256 MiB hard cap and its per-container limits.",
+      "reason": "ReplayRecorder retains presentation, solver, world-delta, event, and visual sample payloads under the registered replay_recorder_samples reserve owner.",
+      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 17,737,640 bytes high-water.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {
@@ -1055,10 +1055,10 @@
       "patterns": [
         "std::vector<"
       ],
-      "owner": "ReplayPrediction trajectory publication store",
+      "owner": "Replay recorder retained sample payloads",
       "phase": "replay",
-      "reason": "ReplayPrediction owns trajectory records and their point buffers; growth is approved through the registered replay_prediction_working_set reserve path.",
-      "cap": "Trajectory records and points share ReplayPrediction's replay_prediction_working_set 256 MiB hard cap and explicit record/point limits.",
+      "reason": "ReplayRecorder record types own retained presentation, solver, world-delta, event, and visual vectors whose growth is approved through replay_recorder_samples.",
+      "cap": "All recorder vectors share replay_recorder_samples' aggregate 32 MiB hard cap; the strict two-generation probe measured 17,737,640 bytes high-water.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
     },
     {

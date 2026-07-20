@@ -936,6 +936,11 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
         // exposes, while still forcing a rebuild when a script changes it before
         // a proof.
         PublishReplayPredictionHorizon( replayIntent, horizonSeconds );
+        // Why: this text exists only in the machine-readable automation report.
+        // Keep stream/string formatting in Diagnostics even though the scripted
+        // action executes inside the steady-gameplay input phase.
+        CoreAllocation::RuntimeAllocationScope diagnosticsAllocationScope(
+            CoreAllocation::RuntimeAllocationPhase::Diagnostics );
         std::ostringstream detail;
         detail << "prediction horizon set to " << horizonSeconds << "s";
         AppendReportAction( state, frame, action.type, "", nullptr, true, detail.str().c_str() );

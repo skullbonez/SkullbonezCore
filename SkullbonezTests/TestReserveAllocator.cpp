@@ -17,8 +17,8 @@
 //   Development tool owner: Thread-local ImGui or Tracy attribution that admits
 //     bounded vendor storage without changing the process gameplay phase.
 //   Growth event: Fixed-ring diagnostic row recording one grant or denial.
-//   Lifecycle phase: Always-on process label used by allocation and upload
-//     policies even when allocation counting is disabled.
+//   Lifecycle phase: Always-on calling-thread label used by allocation and
+//     upload policies even when allocation counting is disabled.
 //   Allocation guard: Process-wide measurement mode that attributes global
 //     heap requests to lifecycle phases and flags steady-gameplay violations.
 //
@@ -26,7 +26,8 @@
 //   - Gameplay-phase owners never receive replay growth approval.
 //   - Denied growth increments policy violations and still records an event.
 //   - ResetCounters() clears counters/events without unregistering owners.
-//   - RuntimeAllocationScope publishes/restores phase independently of guard mode.
+//   - RuntimeAllocationScope publishes/restores calling-thread phase
+//     independently of guard mode and concurrent scopes.
 //   - Development tool scopes do not mask an ordinary gameplay allocation.
 //   - Tracker cases restore the process-wide guard to Off before returning.
 //
@@ -45,10 +46,12 @@
 #endif
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdio>
 #include <new>
 #include <string>
+#include <thread>
 
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationGuardMode;
 using SkullbonezCore::Core::Allocation::GetRuntimeAllocationPhase;
@@ -112,6 +115,46 @@ TEST_CASE( "RuntimeAllocationScope: lifecycle phase remains active when allocati
     SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
     {
         RuntimeAllocationScope renderScope( RuntimeAllocationPhase::Render );
+        CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
+    }
+    CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Startup );
+}
+
+TEST_CASE( "RuntimeAllocationScope: concurrent threads retain independent nested phases" )
+{
+    SetRuntimeAllocationGuardMode( RuntimeAllocationGuardMode::Off );
+    SetRuntimeAllocationPhase( RuntimeAllocationPhase::Startup );
+    std::atomic<bool> workerEnteredReplay{ false };
+    std::atomic<bool> mainObservedRender{ false };
+    std::atomic<bool> workerPhasesCorrect{ false };
+
+    {
+        RuntimeAllocationScope mainRenderScope( RuntimeAllocationPhase::Render );
+        std::thread worker( [&]() {
+            SetRuntimeAllocationPhase( RuntimeAllocationPhase::BackendInit );
+            bool phasesCorrect = GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
+            {
+                RuntimeAllocationScope workerReplayScope( RuntimeAllocationPhase::Replay );
+                phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
+                workerEnteredReplay.store( true, std::memory_order_release );
+                while ( !mainObservedRender.load( std::memory_order_acquire ) )
+                {
+                    std::this_thread::yield();
+                }
+                phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Replay;
+            }
+            phasesCorrect = phasesCorrect && GetRuntimeAllocationPhase() == RuntimeAllocationPhase::BackendInit;
+            workerPhasesCorrect.store( phasesCorrect, std::memory_order_release );
+        } );
+
+        while ( !workerEnteredReplay.load( std::memory_order_acquire ) )
+        {
+            std::this_thread::yield();
+        }
+        CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
+        mainObservedRender.store( true, std::memory_order_release );
+        worker.join();
+        CHECK( workerPhasesCorrect.load( std::memory_order_acquire ) );
         CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Render );
     }
     CHECK( GetRuntimeAllocationPhase() == RuntimeAllocationPhase::Startup );

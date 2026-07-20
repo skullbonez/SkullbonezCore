@@ -3485,7 +3485,9 @@ bool BeginReplayPredictionJob( const ReplayPredictionJobDesc& desc )
     {
         CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
         CoreAllocation::RuntimeReserveOwnerScope ownerScope( ReplayPredictionReserveOwner() );
-        prediction.build.workerTask = std::make_unique<ReplayPredictionAmortizedTask>(
+        // Runtime allocation policy: the task lives in the build state's fixed
+        // optional slot; each generation reconstructs it without heap growth.
+        prediction.build.workerTask.emplace(
             prediction.build.targetTickCount,
             REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT,
             ReplayPredictionWorkerOperation{ &predictionOwner, &config, &workerPool, modelCount } );

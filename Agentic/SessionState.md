@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, render graph, Render HAL, and gameplay extraction are closed with exact proofs and independent review clear. |
 | Current objective | Close replay boundary's filed allocation/identity defects without stopping at the findings. |
-| Active/future progress | 18 / 22 live tasks; 82%. |
+| Active/future progress | 19 / 22 live tasks; 86%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Gameplay T3 final `validate_full` passes in 145.4 s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | Replay RP0 is documentation-only. Its targeted Automation strict probes and symbolized source attribution are recorded in the plan; no repository validation script is required. |
+| Validation for current edits | Replay RP1 passes fast, allocation checks, perf, strict two-generation allocation, full, and replay visual fidelity; no baseline refresh. |
 
 ## Live Queue
 
-NOW. Two live plans, 22 tasks; 18 complete (82%). The remaining architecture-review campaign
+NOW. Two live plans, 22 tasks; 19 complete (86%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: replay-boundary-containment → replay-policy-debt-closure. Owner
@@ -174,6 +174,12 @@ are not certified. Full evidence:
 | `tools\run_graphics_stress.bat 1` (T3 final) | 61.71 s | PASS; PID 48420, bounded PID-scoped stop, crash-free, empty stderr |
 | `tools\validate_full.bat` (T3 final) | 145.4 s | PASS; CPU umbrella and five runtime lanes, byte-exact physics |
 | `tools\validate_physics.bat` (T3 final) | 55.62 s | PASS; 44,401-line CSV byte-exact |
+| `tools\validate_fast.bat` (RP1 final) | 75.65 s | PASS; format/metadata/size, Profile/Debug builds, 336 tests / 68,633 assertions |
+| allocation self-test + repository scan (RP1) | 9.54 s | PASS; 412 files, zero allowlist errors |
+| `tools\validate_perf.bat` (RP1) | 108.5 s | PASS; allocation/performance comparisons clean |
+| strict two-generation Replay allocation (RP1) | 16.87 s | PASS; frame 180, zero gameplay/reserve-policy violations |
+| `tools\validate_full.bat` (RP1) | 151.9 s | PASS; CPU umbrella and five runtime lanes, byte-exact physics |
+| replay visual fidelity (RP1, one engine generation) | 447.2 s | PASS; 2,401 ticks and all positive/negative controls |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -181,13 +187,12 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-policy-debt-closure` RP1 on `nightrunner-20th-july`. RP0
-reproduced the strict two-generation failure (40,353 gameplay / 40,350 policy
-violations; valid `ok=true` report), symbolized every material top-24 site, and
-source-proved that the process-global allocation phase races the thread-local
-reserve owner. The apparent Replay JSON family is DX12 shader-manifest loading;
-the Render/Replay stringstream family is RenderGraph diagnostics. RP1 must make
-phase state thread-local with a cross-thread regression, rerun strict
-attribution, and only then bind genuine live growth to the existing three
-Replay owners or fixed capacity. E17 extended owner playtest remains parked;
-keep Legacy default until explicit owner authorization.
+Continue `replay-policy-debt-closure` RP2 on `nightrunner-20th-july`. RP1 is
+closed with a repeatable strict two-generation gate: phase attribution is
+thread-local, the worker task uses fixed in-place storage, diagnostics are
+narrowly scoped, and the final report has zero gameplay/reserve-policy
+violations with exactly three Replay owners. RP2 must converge Replay, Physics,
+and Rendering durable identity to `PhysicsSceneObjectId`, delete the two
+definition-only facades unless a real consumer is proven, and preserve replay
+artifact scalar bytes/schema. E17 extended owner playtest remains parked; keep
+Legacy default until explicit owner authorization.

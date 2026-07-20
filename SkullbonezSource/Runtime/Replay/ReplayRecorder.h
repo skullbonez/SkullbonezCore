@@ -28,11 +28,15 @@ Glossary:
     replayed alongside solver state for authoritative rollback work.
   Wire code: Explicit serialized value whose meaning is independent of a C++
     domain enum's declaration order.
+  Recorder reserve owner: Aggregate replay-only byte budget shared by retained
+    presentation, solver, world-delta, and visual sample vectors.
 
 Invariants:
   - Capture order is chronological even though storage wraps internally.
   - Hash fields are compatibility surface for deterministic validation.
   - Owner-action wire values never serialize domain enum ordinals.
+  - Retained vector growth shares `replay_recorder_samples`; no record or vector
+    receives a private copy of the 32 MiB hard cap.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp

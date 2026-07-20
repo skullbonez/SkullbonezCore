@@ -37,6 +37,7 @@ Related:
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -210,7 +211,9 @@ struct RunReplayPredictionBuildState
     // the frame loop only submits ticks and consumes the published prefix.
     // Hazard: cancellation must wait for an in-flight slice before clearing
     // buildFrames, trajectory records, or the private prediction engine.
-    std::unique_ptr<ReplayPredictionAmortizedTask> workerTask;
+    // Lifetime: optional owns one in-place worker task for an active build. Its
+    // reset waits for worker idleness first and releases no heap allocation.
+    std::optional<ReplayPredictionAmortizedTask> workerTask;
     std::atomic<bool> workerFailed{ false };
 };
 

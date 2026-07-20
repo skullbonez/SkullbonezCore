@@ -9,8 +9,10 @@ Summary:
   reporting is a bounded stdout table emitted after the runtime shuts down.
 
 Glossary:
-  Violation: An allocation recorded while the process phase is steady gameplay,
-    physics, or render under the gameplay guard mode.
+  Violation: An allocation recorded while the calling-thread phase is steady
+    gameplay, physics, render, or replay under the gameplay guard mode.
+  Thread phase: Calling-thread lifecycle label captured in each allocation
+    header; scopes on other threads cannot overwrite it.
   Reentrancy guard: Thread-local flag that prevents tracker internals from
     recursively recording their own emergency work.
   Active bytes: Tracked bytes allocated but not freed at the time of reporting.
@@ -28,6 +30,8 @@ Invariants:
     hook measures C++ allocation paths such as STL growth.
   - Tool permission is checked from the calling thread's owner, so concurrent
     gameplay allocations retain ordinary violation accounting.
+  - Allocation phase and reserve owner are both calling-thread state. Keeping
+    only one thread-local would create impossible phase/owner pairs.
   - Heavy-mode allocation/free events pair only within one viewer connection.
 
 Related:
@@ -106,7 +110,10 @@ constexpr int MAX_PRINTED_CALLSITES = 24;
 constexpr std::size_t DEFAULT_ALIGNMENT = alignof( std::max_align_t );
 
 std::atomic<int> s_guardMode{ static_cast<int>( RuntimeAllocationGuardMode::Off ) };
-std::atomic<int> s_currentPhase{ static_cast<int>( RuntimeAllocationPhase::Startup ) };
+// Invariant: phase and reserve-owner attribution must share thread affinity.
+// A process-global phase races nested Replay/Render scopes and can pair one
+// thread's phase with another thread's owner-zero allocation.
+thread_local RuntimeAllocationPhase s_currentPhase = RuntimeAllocationPhase::Startup;
 std::atomic<uint64_t> s_gameplayViolations{ 0 };
 std::atomic<uint64_t> s_totalAllocations{ 0 };
 std::atomic<uint64_t> s_totalBytes{ 0 };
@@ -176,7 +183,7 @@ bool IsGameplayViolationPhase( RuntimeAllocationPhase phase ) noexcept
 
 RuntimeAllocationPhase CurrentPhase() noexcept
 {
-    const int phase = s_currentPhase.load( std::memory_order_relaxed );
+    const int phase = static_cast<int>( s_currentPhase );
     if ( phase < 0 || phase >= static_cast<int>( RuntimeAllocationPhase::Count ) )
     {
         return RuntimeAllocationPhase::Startup;
@@ -261,14 +268,14 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     s_totalBytes.fetch_add( size, std::memory_order_relaxed );
     RuntimeReserveAllocator::RecordAllocation( owner, phaseIndex, size );
 
-    uintptr_t stackFrames[2] = {};
+    uintptr_t stackFrames[8] = {};
 #if defined( _WIN32 )
     // Why: CaptureStackBackTrace reports opaque return addresses through its
     // void-pointer ABI; the tracker stores integer addresses for bounded lookup
     // and never dereferences them.
-    void* capturedFrames[2] = {};
-    const USHORT capturedCount = CaptureStackBackTrace( 2u, 2u, capturedFrames, nullptr );
-    for ( USHORT index = 0; index < capturedCount && index < 2u; ++index )
+    void* capturedFrames[8] = {};
+    const USHORT capturedCount = CaptureStackBackTrace( 2u, 8u, capturedFrames, nullptr );
+    for ( USHORT index = 0; index < capturedCount && index < 8u; ++index )
     {
         stackFrames[index] = reinterpret_cast<uintptr_t>( capturedFrames[index] );
     }
@@ -283,7 +290,11 @@ bool RecordAllocation( RuntimeAllocationPhase phase,
     const bool gameplayViolation = CurrentMode() == RuntimeAllocationGuardMode::Gameplay &&
                                    IsGameplayViolationPhase( phase ) && !approvedReplayGrowth &&
                                    !approvedDevelopmentToolAllocation;
-    const uintptr_t parent = stackFrames[1] != 0u ? stackFrames[1] : stackFrames[0];
+    // Why: STL allocation helpers often inline several layers below the owner.
+    // The fourth captured frame normally clears those helpers while remaining
+    // near the engine operation; fall back to the nearest captured frame on a
+    // shallower platform stack.
+    const uintptr_t parent = stackFrames[3] != 0u ? stackFrames[3] : stackFrames[0];
     RecordCallsite( phase, owner, callsite, parent, gameplayViolation, size );
 
     if ( gameplayViolation )
@@ -526,7 +537,7 @@ const char* RuntimeAllocationPhaseName( RuntimeAllocationPhase phase ) noexcept
 
 void SetRuntimeAllocationPhase( RuntimeAllocationPhase phase ) noexcept
 {
-    s_currentPhase.store( static_cast<int>( phase ), std::memory_order_relaxed );
+    s_currentPhase = phase;
 }
 
 RuntimeAllocationPhase GetRuntimeAllocationPhase() noexcept
