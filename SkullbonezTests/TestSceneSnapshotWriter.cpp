@@ -104,7 +104,6 @@ void AppendEntity( SceneEntityStore& entities,
     // is copied into all three owner rows before the entity becomes visible.
     PhysicsBodyCreateRecord body;
     body.cold.sceneObjectId = PhysicsSceneObjectId{ id };
-    body.cold.replayBodyId = id;
     body.hot.position = position;
     body.hot.orientation = Quaternion( 0.11f, -0.22f, 0.33f, 0.91f );
     body.hot.orientation.Normalise();
@@ -122,7 +121,6 @@ void AppendEntity( SceneEntityStore& entities,
     ColliderRecord collider;
     collider.body = bodyHandle;
     collider.sceneObjectId = body.cold.sceneObjectId;
-    collider.replayBodyId = id;
     collider.shape = shape;
     collider.restitution = restitution;
     strncpy_s( collider.contactMaterialName, contactMaterial, _TRUNCATE );
@@ -363,7 +361,6 @@ void AppendParsedEntity( SceneEntityStore& entities,
 {
     PhysicsBodyCreateRecord body;
     body.cold.sceneObjectId = id;
-    body.cold.replayBodyId = id.value;
     body.hot.position = position;
     body.hot.orientation = orientation;
     body.hot.linearVelocity = velocity;
@@ -380,7 +377,6 @@ void AppendParsedEntity( SceneEntityStore& entities,
     ColliderRecord collider;
     collider.body = bodyHandle;
     collider.sceneObjectId = id;
-    collider.replayBodyId = id.value;
     collider.shape = shape;
     collider.restitution = restitution;
     strncpy_s( collider.contactMaterialName, contactMaterial, _TRUNCATE );

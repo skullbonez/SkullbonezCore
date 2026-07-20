@@ -176,7 +176,7 @@ void RunSceneState::ResetSceneObjectIdCursor( const SkullbonezCore::Physics::Phy
     const uint32_t maxSceneObjectId = ( std::numeric_limits<uint32_t>::max )();
     for ( const SkullbonezCore::Physics::PhysicsBodyRecord& body : bodyStore.Records() )
     {
-        const uint32_t id = body.sceneObjectId.IsValid() ? body.sceneObjectId.value : body.replayBodyId;
+        const uint32_t id = body.sceneObjectId.value;
         if ( id == maxSceneObjectId )
         {
             nextId = maxSceneObjectId;

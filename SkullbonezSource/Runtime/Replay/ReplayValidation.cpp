@@ -100,12 +100,12 @@ const PhysicsBodyRecord* TryGetReplayProbeBodyRecord( const SceneWorld& world, i
 const ColliderRecord* TryGetEditorTransformColliderRecord( const SceneWorld& world,
                                                            PhysicsColliderHandle colliderHandle,
                                                            int modelIndex,
-                                                           uint32_t replayBodyId )
+                                                           PhysicsSceneObjectId sceneObjectId )
 {
     const ColliderStore& colliderStore = world.Colliders();
     const PhysicsBodyStore& bodyStore = world.BodyStore();
-    const PhysicsBodyHandle bodyHandle = replayBodyId != 0u
-                                             ? bodyStore.HandleForReplayBodyId( replayBodyId, modelIndex )
+    const PhysicsBodyHandle bodyHandle = sceneObjectId.IsValid()
+                                             ? bodyStore.HandleForSceneObjectId( sceneObjectId, modelIndex )
                                              : bodyStore.HandleForModelIndex( modelIndex );
     const PhysicsColliderHandle resolvedHandle =
         colliderHandle.IsValid() ? colliderHandle : colliderStore.HandleForBodyHandle( bodyHandle );
@@ -114,7 +114,7 @@ const ColliderRecord* TryGetEditorTransformColliderRecord( const SceneWorld& wor
     {
         return nullptr;
     }
-    if ( replayBodyId != 0 && collider->replayBodyId != replayBodyId )
+    if ( sceneObjectId.IsValid() && collider->sceneObjectId != sceneObjectId )
     {
         return nullptr;
     }
@@ -594,13 +594,13 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world,
 
     PhysicsEngine& physics = world.Physics();
     const PhysicsBodyStore& bodyStoreBeforeEdit = world.BodyStore();
-    const PhysicsBodyHandle eventBody =
-        bodyStoreBeforeEdit.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
+    const PhysicsSceneObjectId eventSceneObjectId{ static_cast<uint32_t>( event.value1 ) };
+    const PhysicsBodyHandle eventBody = bodyStoreBeforeEdit.HandleForSceneObjectId( eventSceneObjectId, event.value0 );
     const PhysicsBodyRecord* eventBodyRecord = bodyStoreBeforeEdit.RecordForHandle( eventBody );
     if ( !eventBodyRecord || bodyStoreBeforeEdit.ModelIndexForHandle( eventBody ) != event.value0 ||
-         eventBodyRecord->replayBodyId != static_cast<uint32_t>( event.value1 ) )
+         eventBodyRecord->sceneObjectId != eventSceneObjectId )
     {
-        WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform replay body id mismatch" );
+        WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform scene object id mismatch" );
         return false;
     }
 
@@ -628,7 +628,7 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world,
             TryGetEditorTransformColliderRecord( world,
                                                  PhysicsColliderHandle{},
                                                  event.value0,
-                                                 eventBodyRecord->replayBodyId );
+                                                 eventBodyRecord->sceneObjectId );
         if ( !colliderBeforeScale )
         {
             WriteReplayProbeReason( eventOutReason, eventReasonSize, "editor transform collider row missing" );
@@ -669,8 +669,7 @@ bool ApplyReplayRestoreEditorTransformEvent( SceneWorld& world,
     // The wake decision should read the committed PhysicsBodyStore record, not
     // presentation/authored pose data.
     const PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
-    const PhysicsBodyHandle body =
-        bodyStore.HandleForReplayBodyId( static_cast<uint32_t>( event.value1 ), event.value0 );
+    const PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( eventSceneObjectId, event.value0 );
     const PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
     const int bodyIndex = bodyStore.ModelIndexForHandle( body );
     if ( bodyRecord && bodyIndex >= 0 && bodyStore.HotFields().fixed[static_cast<std::size_t>( bodyIndex )] == 0u )
@@ -921,7 +920,7 @@ bool ReplayCheckpointTopologyMatchesLive( const ReplaySolverFrameSample& checkpo
             return false;
         }
         const PhysicsBodyRecord* bodyRecord = TryGetReplayProbeBodyRecord( world, body.modelRow.value );
-        if ( !bodyRecord || bodyRecord->replayBodyId != body.id.value )
+        if ( !bodyRecord || bodyRecord->sceneObjectId != body.id )
         {
             return false;
         }
@@ -1024,7 +1023,7 @@ void FormatReplayRestoreDivergenceMessage( char* message,
                    expectedBody.orientation[1],
                    expectedBody.orientation[2],
                    expectedBody.orientation[3],
-                   restoredBody->replayBodyId,
+                   restoredBody->sceneObjectId.value,
                    expectedBody.id.value,
                    static_cast<unsigned long long>( eventsApplied ) );
     }
@@ -1388,7 +1387,7 @@ bool RebuildReplayGeneratedSceneTopology( ReplayRestoreOwnerContext& context,
     // Invariant: a restore-side generated rebuild is a fresh scene population,
     // even though it does not enter the full scene-load path. Reset the
     // scene-owned id cursor after the clear so regenerated
-    // PhysicsSceneObjectId/replay ids match the checkpoint topology.
+    // PhysicsSceneObjectId/scene object ids match the checkpoint topology.
     context.scene.ResetSceneObjectIdCursor( context.world.BodyStore() );
     context.runtimeTools.ClearRayCastTestLines();
     context.simulation.Reset();

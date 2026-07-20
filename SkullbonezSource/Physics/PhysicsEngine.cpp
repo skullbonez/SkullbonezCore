@@ -124,7 +124,6 @@ ColliderRecord MakeColliderRecordFromDesc( const PhysicsColliderCreateDesc& desc
     ColliderRecord record;
     record.body = body.handle;
     record.sceneObjectId = desc.sceneObjectId.IsValid() ? desc.sceneObjectId : body.sceneObjectId;
-    record.replayBodyId = body.replayBodyId;
     record.shape = desc.shape;
     record.shapeKind = ShapeKindForColliderDesc( desc.shape );
     record.boundingRadius = desc.boundingRadius;
@@ -274,7 +273,7 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
     const std::size_t descriptorCount = m_authoredBodyDescs.size();
     if ( static_cast<std::size_t>( refreshView.bodyCount.value ) != descriptorCount ||
          ( descriptorCount > 0u &&
-           ( !refreshView.replayBodyIds || !refreshView.fixedTreeReleaseRoots || !refreshView.diagnosticNames ) ) )
+           ( !refreshView.sceneObjectIds || !refreshView.fixedTreeReleaseRoots || !refreshView.diagnosticNames ) ) )
     {
         return false;
     }
@@ -285,8 +284,7 @@ bool PhysicsEngine::RefreshBodyStoreFromAuthoredDescriptors( const PhysicsAuthor
     for ( int i = 0; i < static_cast<int>( descriptorCount ); ++i )
     {
         PhysicsBodyCreateDesc desc = m_authoredBodyDescs[static_cast<std::size_t>( i )];
-        desc.sceneObjectId =
-            MakePhysicsSceneObjectIdFromReplayBodyId( refreshView.replayBodyIds[static_cast<std::size_t>( i )] );
+        desc.sceneObjectId = refreshView.sceneObjectIds[static_cast<std::size_t>( i )];
         desc.fixedTreeReleaseRootIndex = refreshView.fixedTreeReleaseRoots[static_cast<std::size_t>( i )].value;
         desc.diagnosticName = refreshView.diagnosticNames[static_cast<std::size_t>( i )];
         ApplyAuthoredBodyPolicy( desc );
@@ -514,7 +512,7 @@ bool PhysicsEngine::TrimCollidersToCount( PhysicsColliderCount colliderCount )
 
 
 bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
-                                            uint32_t replayBodyId,
+                                            PhysicsSceneObjectId sceneObjectId,
                                             bool fixed,
                                             const Math::Vector::Vector3& position,
                                             const Math::Orientation::Quaternion& orientation,
@@ -526,7 +524,7 @@ bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
                                             const Math::Vector::Vector3& inverseRotationalInertia )
 {
     const bool restored = m_bodyStore.RestoreReplayBodyState( body,
-                                                              replayBodyId,
+                                                              sceneObjectId,
                                                               fixed,
                                                               position,
                                                               orientation,
@@ -573,7 +571,6 @@ void PhysicsEngine::ValidatePhysicsStoreMappings( int modelCount ) const
         assert( collider.body == bodyHandle );
         assert( m_bodyStore.ModelIndexForHandle( bodyHandle ) == i );
         assert( m_colliderStore.ModelIndexForHandle( colliderHandle ) == i );
-        assert( body.replayBodyId == collider.replayBodyId );
         assert( body.sceneObjectId == collider.sceneObjectId );
     }
 }

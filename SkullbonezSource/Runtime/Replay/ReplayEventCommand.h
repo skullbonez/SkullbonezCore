@@ -26,6 +26,7 @@ Related:
 #include "ReplayIdentity.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Maths/Vector3.h"
+#include "../../Physics/PhysicsHandles.h"
 
 #include <array>
 #include <cstddef>
@@ -141,7 +142,7 @@ ReplayEventCommand BuildEditorPlace( int objectType,
                                      float placementYawRadians );
 ReplayEventCommand BuildEditorTransform( int modelIndex,
                                          uint32_t changedFlags,
-                                         uint32_t replayBodyId,
+                                         Physics::PhysicsSceneObjectId sceneObjectId,
                                          const Math::Vector::Vector3& position,
                                          const Math::Orientation::Quaternion& orientation,
                                          int modelCount,

@@ -385,18 +385,19 @@ TEST_CASE( "Replay event commands: domain values encode bounded deterministic pa
     CHECK( std::strncmp( place.text, "place7:", 7u ) == 0 );
 
     const Quaternion orientation;
-    CHECK( BuildEditorTransform( 2, 0u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, -1, 1.0f ).kind ==
+    const SkullbonezCore::Physics::PhysicsSceneObjectId sceneObjectId{ 77u };
+    CHECK( BuildEditorTransform( 2, 0u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, -1, 1.0f ).kind ==
            ReplayEventKind::Unknown );
-    CHECK( BuildEditorTransform( 2, 4u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 4, 2.0f ).kind ==
+    CHECK( BuildEditorTransform( 2, 4u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 4, 2.0f ).kind ==
            ReplayEventKind::Unknown );
     const ReplayEventCommand translate =
-        BuildEditorTransform( 2, 1u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 2, 5.0f );
+        BuildEditorTransform( 2, 1u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 2, 5.0f );
     CHECK( translate.kind == ReplayEventKind::EditorTransform );
     CHECK( translate.flags == 1u );
     CHECK( translate.value3 == -1 );
     CHECK( std::strncmp( translate.text, "xform7:", 7u ) == 0 );
     const ReplayEventCommand scale =
-        BuildEditorTransform( 2, 7u, 77u, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 1, 1.25f );
+        BuildEditorTransform( 2, 7u, sceneObjectId, Vector3( 1.0f, 2.0f, 3.0f ), orientation, 8, 1, 1.25f );
     CHECK( scale.kind == ReplayEventKind::EditorTransform );
     CHECK( scale.flags == 7u );
     CHECK( scale.value3 == 1 );

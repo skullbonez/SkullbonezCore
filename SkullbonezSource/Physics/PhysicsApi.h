@@ -466,7 +466,7 @@ struct PhysicsIslandCollectionView
 // physics facade reads these spans only for the duration of the refresh call.
 struct PhysicsAuthoredBodyRefreshView
 {
-    const uint32_t* replayBodyIds = nullptr;
+    const PhysicsSceneObjectId* sceneObjectIds = nullptr;
     const ModelRowHint* fixedTreeReleaseRoots = nullptr;
     const char* const* diagnosticNames = nullptr;
     PhysicsAuthoredBodyCount bodyCount;
@@ -490,12 +490,6 @@ struct PhysicsDiagnosticsSnapshot
     uint32_t debugContactCount = 0;
     const PhysicsPipelineRecord* pipelineRecords = nullptr;
     uint32_t pipelineRecordCount = 0;
-};
-
-struct PhysicsReplaySolverSnapshotView
-{
-    const PhysicsSolverSnapshot* snapshot = nullptr;
-    PhysicsBodyCount bodyCount;
 };
 
 struct PhysicsStandaloneSmokeResult

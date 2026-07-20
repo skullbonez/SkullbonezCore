@@ -27,7 +27,7 @@ Glossary:
 Invariants:
   - Buffer spans borrow RunEditorTracer storage for the current render frame only.
   - ReplayPresentation owns packet publication and semantic metadata; the tracer owns
-    storage capacity but cannot invent replay identity or reveal state.
+    storage capacity but cannot invent scene object identity or reveal state.
   - Production rendering and validation consume the same published packet.
   - Float equality is bit-exact; no epsilon or order normalization is permitted.
 
@@ -112,8 +112,8 @@ inline uint64_t BuildCanonicalReplayVisualArchiveSemanticHash( uint64_t visualSt
 // them into a packet-specific copy would let validation drift from production.
 struct RunReplayPathTraceNode
 {
-    ReplayBodyId id;
-    ReplayBodyId parentId;
+    Physics::PhysicsSceneObjectId id;
+    Physics::PhysicsSceneObjectId parentId;
     Physics::ModelRowHint modelRow;
     Physics::ModelRowHint parentModelRow;
     ReplayFrameIndex firstFrame = 0;
@@ -137,7 +137,7 @@ struct ReplayPredictionGhostDrawRequest
 
 struct ReplayPredictionRetainedMarker
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     bool hasEntryPose = false;
     bool hasRestPose = false;
@@ -198,7 +198,7 @@ struct ReplayVisualPacketHeader
     uint32_t schemaVersion = REPLAY_VISUAL_PACKET_SCHEMA_VERSION;
     ReplayFrameIndex sourceFrame = 0;
     ReplayFrameIndex revealFrame = 0;
-    ReplayBodyId targetId;
+    Physics::PhysicsSceneObjectId targetId;
     uint32_t branchId = 0;
     uint32_t eventCursor = 0;
     uint32_t topologyVersion = 0;
@@ -356,7 +356,7 @@ inline bool FindReplayVisualValueDifference( uint64_t expected,
     return true;
 }
 
-// Concept: semantic comparison walks replay identity and presentation records
+// Concept: semantic comparison walks scene object identity and presentation records
 // before raw render buffers. A failure therefore names the owner record that
 // diverged instead of reporting only an opaque hash or byte offset.
 inline bool FindReplayVisualFloatDifference( float expected,

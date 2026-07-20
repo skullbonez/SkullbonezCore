@@ -950,7 +950,7 @@ void ApplyInteractionAutomationReplayStateAction( InteractionAutomationControlle
     {
         const Physics::PhysicsBodyStore& bodyStore = SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics );
         const Physics::PhysicsBodyHandle body =
-            bodyStore.HandleForReplayBodyId( replay.path.targetId.value, replay.path.targetModelRow.value );
+            bodyStore.HandleForSceneObjectId( replay.path.targetId, replay.path.targetModelRow.value );
         const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
         const int bodyIndex = bodyStore.ModelIndexForHandle( body );
         const bool hasTarget = replay.path.hasTarget && replay.path.targetId.value != 0;
@@ -2804,12 +2804,12 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                     }
                     const Physics::PhysicsBodyRecord* body =
                         scene.Scene().BodyStore().RecordForModelIndex( modelIndex );
-                    if ( !body || body->replayBodyId == 0 )
+                    if ( !body || !body->sceneObjectId.IsValid() )
                     {
                         return false;
                     }
                     result.replayIntent.setPathTarget = true;
-                    result.replayIntent.pathTargetId.value = body->replayBodyId;
+                    result.replayIntent.pathTargetId = body->sceneObjectId;
                     result.replayIntent.pathTargetModelRow.value = modelIndex;
                     strncpy_s( result.replayIntent.pathTargetName,
                                sizeof( result.replayIntent.pathTargetName ),

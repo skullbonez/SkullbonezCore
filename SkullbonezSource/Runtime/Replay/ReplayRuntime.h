@@ -42,7 +42,7 @@ Glossary:
 Invariants:
   - Full timeline, scrubber, presentation, prediction, and authoring state is
     private; external callers cannot recover mutable owner authority.
-  - Stored dense rows use ModelRowHint; ReplayBodyId remains the identity check.
+  - Stored dense rows use ModelRowHint; Physics::PhysicsSceneObjectId remains the identity check.
   - Scrub/prediction draw poses are presentation-only value overrides; replay
     must not backup or mutate live legacy object record pose for rendering.
   - Prediction cache cursors must be reset whenever target, ragdoll mode, or

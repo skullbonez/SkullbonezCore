@@ -206,12 +206,12 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const bool renderMirrorMatches = bodyARecord && renderStore.Count() == 2 && renderHandleA.IsValid() &&
                                      renderStore.ModelIndexForHandle( renderHandleA ) == 0 &&
                                      !renderStore.Records().empty() &&
-                                     renderStore.Records()[0].replayBodyId == bodyARecord->replayBodyId;
+                                     renderStore.Records()[0].sceneObjectId == bodyARecord->sceneObjectId;
     const bool jointUsesHandles = jointHandle.IsValid() && pointJoints.size() == 1 && pointJoints[0].bodyA == bodyA &&
                                   pointJoints[0].bodyB == bodyB && pointJoints[0].BodyAIndex( bodyStore ) == 0 &&
                                   pointJoints[0].BodyBIndex( bodyStore ) == 1;
-    constexpr uint32_t REORDER_BODY_A_REPLAY_ID = 100u;
-    constexpr uint32_t REORDER_BODY_B_REPLAY_ID = 101u;
+    constexpr uint32_t REORDER_BODY_A_SCENE_OBJECT_ID_VALUE = 100u;
+    constexpr uint32_t REORDER_BODY_B_SCENE_OBJECT_ID_VALUE = 101u;
     // Why: PhysicsBodyStore owns SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS fixed arrays. Keep this cold
     // standalone probe owner off WinMain's bounded thread stack.
     auto reorderBodyStore = std::make_unique<PhysicsBodyStore>();
@@ -220,7 +220,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     {
         PhysicsBodyCreateDesc desc;
         desc.sceneObjectId =
-            MakePhysicsSceneObjectIdFromReplayBodyId( REORDER_BODY_A_REPLAY_ID + static_cast<uint32_t>( i ) );
+            MakePhysicsSceneObjectId( REORDER_BODY_A_SCENE_OBJECT_ID_VALUE + static_cast<uint32_t>( i ) );
         desc.shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere(
             0.5f,
             SkullbonezCore::Math::Vector::Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -236,15 +236,15 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     }
     reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
     const PhysicsBodyHandle reorderedOriginalBody = reorderBodyStore->HandleForModelIndex( 0 );
-    const uint32_t reorderBodyAReplayId = REORDER_BODY_A_REPLAY_ID;
-    const uint32_t reorderBodyBReplayId = REORDER_BODY_B_REPLAY_ID;
+    const uint32_t reorderBodyASceneObjectIdValue = REORDER_BODY_A_SCENE_OBJECT_ID_VALUE;
+    const uint32_t reorderBodyBSceneObjectIdValue = REORDER_BODY_B_SCENE_OBJECT_ID_VALUE;
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulse( 0.0f, 2.0f, 0.0f );
     const SkullbonezCore::Math::Vector::Vector3 pendingImpulsePoint( 0.25f, 0.0f, 0.0f );
     const bool seededReorderState =
         reorderBodyStore->SetPendingBodyImpulse( reorderedOriginalBody, pendingImpulse, pendingImpulsePoint ) &&
         reorderBodyStore->SeedBodyAsleep( reorderedOriginalBody );
-    reorderBodyDescs[0].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyBReplayId );
-    reorderBodyDescs[1].sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( reorderBodyAReplayId );
+    reorderBodyDescs[0].sceneObjectId = MakePhysicsSceneObjectId( reorderBodyBSceneObjectIdValue );
+    reorderBodyDescs[1].sceneObjectId = MakePhysicsSceneObjectId( reorderBodyASceneObjectIdValue );
     reorderBodyStore->LoadFromDescriptors( reorderBodyDescs, std::vector<uint8_t>{} );
     const int reorderedBodyAIndex = reorderBodyStore->ModelIndexForHandle( reorderedOriginalBody );
     const PhysicsBodyRecord* reorderedBodyARecord =
@@ -268,7 +268,7 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
     const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
     const bool seededLiveOnlyState = bodyBBeforeDelete && bodyBIndexBeforeDelete >= 0 &&
                                      physics.RestoreReplayBodyState( bodyB,
-                                                                     bodyBBeforeDelete->replayBodyId,
+                                                                     bodyBBeforeDelete->sceneObjectId,
                                                                      bodyBHotBeforeDelete.fixed,
                                                                      liveOnlyPosition,
                                                                      bodyBHotBeforeDelete.orientation,

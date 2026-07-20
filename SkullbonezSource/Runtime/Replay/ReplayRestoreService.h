@@ -5,14 +5,14 @@ Purpose:
 
 Summary:
   Replay restore is a controlled rollback boundary. The service validates that
-  saved replay body ids still match live physics rows, trims presentation/model
+  saved scene object ids still match live physics rows, trims presentation/model
   state to the sampled body count, restores body and solver caches, then applies
   the matching world/camera/tool presentation state.
 
 Glossary:
   Solver sample: Replay frame containing restorable physics body rows and hidden
     solver world cache state.
-  Replay body id: Stable physics-owned identity used to reject stale model slots.
+  Scene object id: Stable physics-owned identity used to reject stale model slots.
   Restore context: Frame-local borrow packet for the live owners that a restore
     must mutate together.
 
@@ -72,7 +72,7 @@ class ReplayRestoreService
     using ResolvedBodyTable =
         std::array<Physics::PhysicsBodyHandle, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
-    // Resolves every retained body by stable replay identity. modelRow is only
+    // Resolves every retained body by stable scene object identity. modelRow is only
     // a cache hint; callers may deliberately pass stale hints to prove that a
     // restore cannot be redirected to another live body.
     static bool ResolveBodiesForRestore( const Physics::PhysicsBodyStore& bodyStore,
@@ -94,12 +94,12 @@ class ReplayRestoreService
         {
             const ReplaySolverBodySample& body = sample.bodies[bodyIndex];
             const Physics::PhysicsBodyHandle liveHandle =
-                bodyStore.HandleForReplayBodyId( body.id.value, body.modelRow.value );
+                bodyStore.HandleForSceneObjectId( body.id, body.modelRow.value );
             const Physics::PhysicsBodyRecord* liveBody = bodyStore.RecordForHandle( liveHandle );
             const int liveRow = bodyStore.ModelIndexForHandle( liveHandle );
-            // Invariant: the replay id resolves identity. The retained row is
+            // Invariant: the scene object id resolves identity. The retained row is
             // only a cache and cannot redirect restore after topology changes.
-            if ( !liveBody || liveBody->replayBodyId != body.id.value || liveRow < 0 || liveRow >= restoreModelCount )
+            if ( !liveBody || liveBody->sceneObjectId != body.id || liveRow < 0 || liveRow >= restoreModelCount )
             {
                 WriteReason( outReason, reasonSize, "selected frame body ids no longer match" );
                 return false;
@@ -164,7 +164,7 @@ class ReplayRestoreService
                                                        body.orientation[2],
                                                        body.orientation[3] );
             if ( !physics.RestoreReplayBodyState( resolvedBodies[bodyIndex],
-                                                  body.id.value,
+                                                  body.id,
                                                   body.fixed,
                                                   body.position,
                                                   orientation,

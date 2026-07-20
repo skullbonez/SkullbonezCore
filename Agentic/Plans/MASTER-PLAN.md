@@ -301,8 +301,8 @@ owner and Core-owned value history. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | 2 | 4 | 50% |
-| **Active/future total** | **19** | **22** | **86%** |
+| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | 3 | 4 | 75% |
+| **Active/future total** | **20** | **22** | **91%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1165,7 +1165,7 @@ containment inherits the now-closed solver-snapshot move and is unblocked.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | Active | 2/4 | RP1 strict two-generation allocation policy is clean; converge Replay/Physics/Rendering identity in RP2 |
+| [replay-policy-debt-closure](TODO/replay-policy-debt-closure.md) | Active | 3/4 | RP2 identity convergence is clean; run cumulative census, allocation, comment, and independent-review closure in RP3 |
 
 ## Features
 

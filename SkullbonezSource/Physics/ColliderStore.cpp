@@ -14,7 +14,7 @@ Glossary:
   Collider: Shape metadata used to decide what precise collision test applies.
   Physics material: Runtime policy for collider friction and sphere drag.
   Narrowphase: Precise collision pass that builds contacts for candidate pairs.
-  Replay body id: Stable per-scene id used when replay and diagnostics name a
+  Scene object id: Stable per-scene id used when replay and diagnostics name a
     physics body across frames.
 
 Invariants:
@@ -68,7 +68,7 @@ ColliderStore::ColliderStore() = default;
 // from this slot table. Same-slot reuse keeps ids stable across refreshes;
 // retiring a slot bumps its generation so stale collider handles stop resolving.
 PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
-                                                                 uint32_t replayBodyId,
+                                                                 PhysicsSceneObjectId sceneObjectId,
                                                                  ColliderHandleAssignmentMask& assignedHandleSlots )
 {
     auto assignSlot = [&]( uint32_t slot ) -> PhysicsColliderHandle
@@ -80,7 +80,7 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
         assignedHandleSlots[static_cast<std::size_t>( slot )] = 1;
         m_handleAlive[static_cast<std::size_t>( slot )] = 1;
         m_handleModelIndices[static_cast<std::size_t>( slot )] = modelIndex;
-        m_handleReplayBodyIds[static_cast<std::size_t>( slot )] = replayBodyId;
+        m_handleSceneObjectIds[static_cast<std::size_t>( slot )] = sceneObjectId;
 
         PhysicsColliderHandle handle;
         handle.index = slot;
@@ -94,7 +94,7 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
         if ( previous.IsValid() && previous.index < m_handleGenerations.size() &&
              previous.generation == m_handleGenerations[static_cast<std::size_t>( previous.index )] &&
              m_handleAlive[static_cast<std::size_t>( previous.index )] != 0 &&
-             m_handleReplayBodyIds[static_cast<std::size_t>( previous.index )] == replayBodyId &&
+             m_handleSceneObjectIds[static_cast<std::size_t>( previous.index )] == sceneObjectId &&
              ( previous.index >= assignedHandleSlots.size() ||
                assignedHandleSlots[static_cast<std::size_t>( previous.index )] == 0 ) )
         {
@@ -102,11 +102,11 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
         }
     }
 
-    if ( replayBodyId != 0 )
+    if ( sceneObjectId.IsValid() )
     {
-        for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleReplayBodyIds.size() ); ++slot )
+        for ( uint32_t slot = 0; slot < static_cast<uint32_t>( m_handleSceneObjectIds.size() ); ++slot )
         {
-            if ( m_handleAlive[slot] != 0 && m_handleReplayBodyIds[slot] == replayBodyId &&
+            if ( m_handleAlive[slot] != 0 && m_handleSceneObjectIds[slot] == sceneObjectId &&
                  slot < m_handleGenerations.size() &&
                  ( slot >= assignedHandleSlots.size() || assignedHandleSlots[slot] == 0 ) )
             {
@@ -127,7 +127,7 @@ PhysicsColliderHandle ColliderStore::ResolveHandleForModelIndex( int modelIndex,
         m_handleGenerations.push_back( PHYSICS_HANDLE_INITIAL_GENERATION );
         m_handleAlive.push_back( 0 );
         m_handleModelIndices.push_back( -1 );
-        m_handleReplayBodyIds.push_back( 0 );
+        m_handleSceneObjectIds.push_back( {} );
     }
 
     return assignSlot( slot );
@@ -149,7 +149,7 @@ void ColliderStore::RetireUnassignedHandles( const ColliderHandleAssignmentMask&
 
         m_handleAlive[slot] = 0;
         m_handleModelIndices[slot] = -1;
-        m_handleReplayBodyIds[slot] = 0;
+        m_handleSceneObjectIds[slot] = {};
         m_handleGenerations[slot] = NextHandleGeneration( m_handleGenerations[slot] );
         m_freeHandleSlots.push_back( slot );
     }
@@ -168,7 +168,7 @@ void ColliderStore::Clear()
         }
         m_handleAlive[slot] = 0;
         m_handleModelIndices[slot] = -1;
-        m_handleReplayBodyIds[slot] = 0;
+        m_handleSceneObjectIds[slot] = {};
     }
     m_freeHandleSlots.clear();
     // Invariant: CreateColliderRecord pops from the back of the free list.
@@ -205,10 +205,9 @@ bool ColliderStore::RefreshBodyBindings( const PhysicsBodyStore& bodyStore )
             return false;
         }
         record.body = body->handle;
-        record.replayBodyId = body->replayBodyId;
-        record.sceneObjectId = MakePhysicsSceneObjectIdFromReplayBodyId( record.replayBodyId );
-        const uint32_t replayBodyId = record.replayBodyId;
-        record.handle = ResolveHandleForModelIndex( i, replayBodyId, assignedHandleSlots );
+        record.sceneObjectId = body->sceneObjectId;
+        const PhysicsSceneObjectId sceneObjectId = record.sceneObjectId;
+        record.handle = ResolveHandleForModelIndex( i, sceneObjectId, assignedHandleSlots );
         m_modelColliderHandles[static_cast<std::size_t>( i )] = record.handle;
     }
     RetireUnassignedHandles( assignedHandleSlots );
@@ -230,7 +229,7 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
         m_handleGenerations.push_back( PHYSICS_HANDLE_INITIAL_GENERATION );
         m_handleAlive.push_back( 0 );
         m_handleModelIndices.push_back( -1 );
-        m_handleReplayBodyIds.push_back( 0 );
+        m_handleSceneObjectIds.push_back( {} );
     }
 
     const int recordIndex = static_cast<int>( m_colliders.size() );
@@ -247,7 +246,7 @@ PhysicsColliderHandle ColliderStore::CreateColliderRecord( const ColliderRecord&
 
     m_handleAlive[static_cast<std::size_t>( slot )] = 1;
     m_handleModelIndices[static_cast<std::size_t>( slot )] = recordIndex;
-    m_handleReplayBodyIds[static_cast<std::size_t>( slot )] = record.replayBodyId;
+    m_handleSceneObjectIds[static_cast<std::size_t>( slot )] = record.sceneObjectId;
     m_colliders.push_back( record );
     m_modelColliderHandles.push_back( handle );
     return handle;
@@ -269,14 +268,12 @@ bool ColliderStore::UpdateRecordForHandle( PhysicsColliderHandle handle, const C
     updated.handle = handle;
     if ( !updated.sceneObjectId.IsValid() )
     {
-        updated.sceneObjectId = updated.replayBodyId != 0u
-                                    ? MakePhysicsSceneObjectIdFromReplayBodyId( updated.replayBodyId )
-                                    : PhysicsSceneObjectId{ handle.index + 1u };
+        updated.sceneObjectId = PhysicsSceneObjectId{ handle.index + 1u };
     }
 
     m_colliders[static_cast<std::size_t>( recordIndex )] = updated;
     m_handleModelIndices[static_cast<std::size_t>( handle.index )] = recordIndex;
-    m_handleReplayBodyIds[static_cast<std::size_t>( handle.index )] = updated.replayBodyId;
+    m_handleSceneObjectIds[static_cast<std::size_t>( handle.index )] = updated.sceneObjectId;
     return true;
 }
 
@@ -343,7 +340,7 @@ bool ColliderStore::DestroyColliderRecord( PhysicsColliderHandle handle )
     m_modelColliderHandles.pop_back();
     m_handleAlive[handleSlot] = 0;
     m_handleModelIndices[handleSlot] = -1;
-    m_handleReplayBodyIds[handleSlot] = 0;
+    m_handleSceneObjectIds[handleSlot] = {};
     m_handleGenerations[handleSlot] = NextHandleGeneration( m_handleGenerations[handleSlot] );
     m_freeHandleSlots.push_back( handle.index );
     return true;

@@ -48,6 +48,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+namespace Physics = SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -70,7 +71,7 @@ constexpr float REPLAY_SELECTED_PATH_EMPHASIS = 0.75f;
 constexpr uint16_t REPLAY_TRAJECTORY_COMMITTED_BRANCH = 0;
 constexpr uint16_t REPLAY_TRAJECTORY_BUILD_BRANCH = 1;
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
-                                     ReplayBodyId id,
+                                     Physics::PhysicsSceneObjectId id,
                                      int modelIndexHint,
                                      int modelCount,
                                      int& outModelIndex )
@@ -80,7 +81,7 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
         return false;
     }
 
-    const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, modelIndexHint );
+    const PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, modelIndexHint );
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
     if ( modelIndex < 0 || modelIndex >= modelCount )
     {
@@ -93,14 +94,14 @@ bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
 
 
 bool TryResolveReplayBodyModelIndex( const PhysicsBodyStore& bodyStore,
-                                     ReplayBodyId id,
+                                     Physics::PhysicsSceneObjectId id,
                                      ModelRowHint& hint,
                                      int modelCount,
                                      int& outModelIndex )
 {
     // Why: retained replay UI state still carries modelIndex integers until the
     // fable-06 conversion rows are complete. Naming the cache as ModelRowHint
-    // keeps stable replay identity in ReplayBodyId while this resolver heals or
+    // keeps stable scene object identity in Physics::PhysicsSceneObjectId while this resolver heals or
     // invalidates the dense-row guess.
     if ( !TryResolveReplayBodyModelIndex( bodyStore, id, hint.value, modelCount, outModelIndex ) )
     {
@@ -130,7 +131,7 @@ bool TryAddReplayTargetMarkerFromStores( RunEditorTracer& tracer,
 
     // Invariant: replay target identity resolves through body handles before
     // markers read store rows. This avoids scanning the legacy object record mirror just
-    // to recover a stable ReplayBodyId that PhysicsBodyStore already owns.
+    // to recover a stable Physics::PhysicsSceneObjectId that PhysicsBodyStore already owns.
     const std::size_t bodyIndex = static_cast<std::size_t>( modelIndex );
     const auto hotFields = bodyStore.HotFields();
     const float radius =
@@ -244,7 +245,7 @@ bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point&
 }
 
 template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayBodyId id )
+const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
 {
     for ( const BodySample& body : sample.bodies )
     {
@@ -285,7 +286,7 @@ const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample,
 }
 
 const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
-                                                                   ReplayBodyId id )
+                                                                   Physics::PhysicsSceneObjectId id )
 {
     return FindReplayBodyByIdInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample>( frame, id );
 }
@@ -310,8 +311,9 @@ bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelI
     return entity && entity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll;
 }
 
-const RunReplayPredictionBodySample*
-FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, ReplayBodyId id, int modelIndex )
+const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
+                                                                           Physics::PhysicsSceneObjectId id,
+                                                                           int modelIndex )
 {
     if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
     {
@@ -323,7 +325,8 @@ FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame, Rep
     return FindReplayPredictionBodyById( frame, id );
 }
 
-ReplayTrajectoryRecordKey ReplayTrajectoryKey( ReplayBodyId bodyId, ReplayTrajectoryLane lane, uint16_t branchOrdinal )
+ReplayTrajectoryRecordKey
+ReplayTrajectoryKey( Physics::PhysicsSceneObjectId bodyId, ReplayTrajectoryLane lane, uint16_t branchOrdinal )
 {
     ReplayTrajectoryRecordKey key;
     key.bodyId = bodyId;
@@ -340,7 +343,7 @@ uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usin
 }
 
 bool ReplayPredictionFutureTreeReadyForDraw( const ReplayPredictionPresentationView& prediction,
-                                             ReplayBodyId rootId,
+                                             Physics::PhysicsSceneObjectId rootId,
                                              bool usingBuildFrames,
                                              std::size_t frameCount )
 {
@@ -490,7 +493,7 @@ void ReplayTimeGradientColor( float pathT, float& r, float& g, float& b )
     b = ReplayColorLerp( 0.78f, 1.00f, horizonT );
 }
 
-void ReplayHueColor( ReplayBodyId bodyId, float& r, float& g, float& b )
+void ReplayHueColor( Physics::PhysicsSceneObjectId bodyId, float& r, float& g, float& b )
 {
     // Why: multiplying stable object identity by the golden-ratio conjugate
     // spreads adjacent ids around the hue wheel without retained palette state.
@@ -541,7 +544,7 @@ void ReplayHueColor( ReplayBodyId bodyId, float& r, float& g, float& b )
 
 void ResolveReplayPathColor( ReplayPathColorMode mode,
                              ReplayTrajectoryLane lane,
-                             ReplayBodyId bodyId,
+                             Physics::PhysicsSceneObjectId bodyId,
                              int causalDepth,
                              float pathT,
                              float speed,
@@ -604,7 +607,7 @@ struct ReplayPredictionDrawFrameWindow
 
 std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& record );
 const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( std::span<const ReplayTrajectoryRecord> records,
-                                                             ReplayBodyId id,
+                                                             Physics::PhysicsSceneObjectId id,
                                                              ReplayTrajectoryLane lane,
                                                              uint16_t branchOrdinal );
 const ColliderRecord* ReplayColliderRecordForModelIndex( const ColliderStore* colliderStore, int modelIndex );
@@ -710,7 +713,7 @@ std::size_t ReplayTrajectoryPublishedPointCount( const ReplayTrajectoryRecord& r
 }
 
 const ReplayTrajectoryRecord* ReplayTrajectoryRecordForDraw( std::span<const ReplayTrajectoryRecord> records,
-                                                             ReplayBodyId id,
+                                                             Physics::PhysicsSceneObjectId id,
                                                              ReplayTrajectoryLane lane,
                                                              uint16_t branchOrdinal )
 {
@@ -819,7 +822,7 @@ std::size_t ReplayRetainedMarkerTrailStrideForFrameCount( std::size_t frameCount
 }
 
 const ReplayTrajectoryRecord* FindReplayPredictionMarkerTrailRecord( const ReplayPredictionPresentationView& prediction,
-                                                                     ReplayBodyId id,
+                                                                     Physics::PhysicsSceneObjectId id,
                                                                      bool usingBuildFrames )
 {
     const uint16_t branchBase = usingBuildFrames ? static_cast<uint16_t>( REPLAY_PATH_MAX_FUTURE_NODES ) : 0u;
@@ -941,7 +944,7 @@ uint16_t ReplayPredictionDrawBranch( bool usingBuildFrames )
 }
 
 void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresentationView& prediction,
-                                                  ReplayBodyId rootId,
+                                                  Physics::PhysicsSceneObjectId rootId,
                                                   ReplayPathColorMode colorMode,
                                                   bool usingBuildFrames,
                                                   ReplayFrameIndex lastFrame,
@@ -989,7 +992,7 @@ void DrawReplayPredictionRootTrajectoryFromStore( const ReplayPredictionPresenta
 
 void DrawReplayPredictionSmallSceneBodyTrajectories( std::span<const RunReplayPredictionFrame> frames,
                                                      std::size_t frameCount,
-                                                     ReplayBodyId selectedId,
+                                                     Physics::PhysicsSceneObjectId selectedId,
                                                      ReplayPathColorMode colorMode,
                                                      ReplayFrameIndex revealFrame,
                                                      std::size_t requestedStride,
@@ -1229,7 +1232,7 @@ void DrawReplayPredictionChildTrajectoriesFromStore( const ReplayPredictionPrese
 }
 
 void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationView& prediction,
-                                            ReplayBodyId rootId,
+                                            Physics::PhysicsSceneObjectId rootId,
                                             ReplayPathColorMode colorMode,
                                             ReplayFrameIndex presentFrame,
                                             RunEditorTracer& tracer,
@@ -1387,7 +1390,7 @@ void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPrediction
 
 struct ReplayPredictionAffectedBodyTrail
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     ModelRowHint modelRow;
     std::size_t firstFrameSlot = 0;
     ReplayFrameIndex firstFrame = 0;
@@ -1402,7 +1405,7 @@ struct ReplayPredictionAffectedBodyTrail
     Quaternion entryOrientation = IDENTITY_QUATERNION;
 };
 
-bool ReplayPredictionIdInFutureNodes( std::span<const RunReplayPathTraceNode> nodes, ReplayBodyId id )
+bool ReplayPredictionIdInFutureNodes( std::span<const RunReplayPathTraceNode> nodes, Physics::PhysicsSceneObjectId id )
 {
     for ( const RunReplayPathTraceNode& node : nodes )
     {
@@ -1418,7 +1421,7 @@ std::size_t BuildReplayPredictionAffectedBodyTrails(
     std::span<const RunReplayPredictionFrame> frames,
     std::size_t frameCount,
     ReplayFrameIndex revealFrame,
-    ReplayBodyId rootId,
+    Physics::PhysicsSceneObjectId rootId,
     int rootModelIndex,
     std::span<const RunReplayPathTraceNode> futureNodes,
     const SceneEntityStore& collection,
@@ -1500,7 +1503,7 @@ void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPrediction
                                              std::size_t frameCount,
                                              ReplayPathColorMode colorMode,
                                              ReplayFrameIndex revealFrame,
-                                             ReplayBodyId rootId,
+                                             Physics::PhysicsSceneObjectId rootId,
                                              int rootModelIndex,
                                              std::span<const RunReplayPathTraceNode> futureNodes,
                                              const SceneEntityStore& collection,
@@ -1706,7 +1709,8 @@ void DrawReplayPredictionVisualizer( const RunReplayPathVisualizerState& pathVis
     DrawReplayPredictionOverlay( pathVisualizer, prediction, profiler, entities, colliderStore, tracer, ribbonQuota );
 }
 
-const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
+const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
+                                                  Physics::PhysicsSceneObjectId id )
 {
     return FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, id );
 }

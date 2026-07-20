@@ -121,10 +121,6 @@ class SceneWorld
     const Physics::ColliderStore& Colliders() const;
     Rendering::RenderInstanceStore& MutableRenderInstances();
     const Rendering::RenderInstanceStore& RenderInstances() const;
-    bool TryQueueReplayRenderPoseOverride( int modelIndex,
-                                           uint32_t replayBodyId,
-                                           const Math::Vector::Vector3& position,
-                                           const Math::Orientation::Quaternion& orientation );
     // Cold callers that need a refreshed snapshot use this command; hot render
     // passes consume RenderInstances() after PrepareRenderInstances().
     const Rendering::RenderInstanceStore& GetRenderInstanceStore();

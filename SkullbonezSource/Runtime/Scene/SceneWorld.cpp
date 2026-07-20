@@ -29,14 +29,14 @@ Glossary:
     as ragdolls or releasable trees, to a stable root scene object id.
   Fixed-tree release: Authored scene rule that lets tree parts become dynamic
     when a related fixed part is hit strongly enough.
-  Replay body id: PhysicsBodyStore-owned identity saved in replay samples so
+  Scene object id: PhysicsBodyStore-owned identity saved in replay samples so
     restore paths can reject stale model slots.
   Shadow caster stream: Opaque render bin resolved while scene material and
     collider facts are both available at the instance-build boundary.
 
 Invariants:
   - SceneEntityStore order remains the scene alignment key for physics stores,
-    render batches, and scene snapshots. Replay ids live in PhysicsBodyStore
+    render batches, and scene snapshots. Scene object ids live in PhysicsBodyStore
     rows after append.
   - SceneEntityStore owns behavior groups with stable root ids. Dense root rows
     are derived only when physics or a model-index compatibility API requires one.
@@ -182,12 +182,12 @@ std::vector<const char*> SceneWorld::BuildDiagnosticNamesForReload() const
 
 bool SceneWorld::RefreshPhysicsBodyStoreFromAuthoredDescriptors()
 {
-    const std::vector<uint32_t> replayBodyIds =
-        Physics::PhysicsEngine::ReadBodies( m_physics ).BuildReplayBodyIdsForReload( SceneEntityCount() );
+    const std::vector<PhysicsSceneObjectId> sceneObjectIds =
+        Physics::PhysicsEngine::ReadBodies( m_physics ).BuildSceneObjectIdsForReload( SceneEntityCount() );
     const std::vector<ModelRowHint> fixedTreeReleaseRoots = BuildFixedTreeReleaseRootsForReload();
     const std::vector<const char*> diagnosticNames = BuildDiagnosticNamesForReload();
     PhysicsAuthoredBodyRefreshView refreshView;
-    refreshView.replayBodyIds = replayBodyIds.empty() ? nullptr : replayBodyIds.data();
+    refreshView.sceneObjectIds = sceneObjectIds.empty() ? nullptr : sceneObjectIds.data();
     refreshView.fixedTreeReleaseRoots = fixedTreeReleaseRoots.empty() ? nullptr : fixedTreeReleaseRoots.data();
     refreshView.diagnosticNames = diagnosticNames.empty() ? nullptr : diagnosticNames.data();
     refreshView.bodyCount = MakePhysicsAuthoredBodyCountFromNonNegativeInt( SceneEntityCount() );
@@ -600,7 +600,7 @@ bool SceneWorld::TrimForReplayRestore( int bodyCount )
     // not a recoverable replay-file error because earlier owners may already
     // have retired handles.
     // Invariant: physics rows shrink before presentation and metadata rows.
-    // Every surviving handle was validated by replay id before this command,
+    // Every surviving handle was validated by scene object id before this command,
     // and PhysicsBodyStore retires removed handles.
     if ( !m_physics.TrimBodiesToCount( bodies ) ||
          ( liveColliderCount > bodyCount && !m_physics.TrimCollidersToCount( colliders ) ) ||
@@ -773,27 +773,6 @@ const SkullbonezCore::Rendering::RenderInstanceStore& SceneWorld::RenderInstance
 SkullbonezCore::Rendering::RenderInstanceStore& SceneWorld::MutableRenderInstances()
 {
     return m_renderInstanceStore;
-}
-
-
-bool SceneWorld::TryQueueReplayRenderPoseOverride( int modelIndex,
-                                                   uint32_t replayBodyId,
-                                                   const Math::Vector::Vector3& position,
-                                                   const Math::Orientation::Quaternion& orientation )
-{
-    const Physics::PhysicsBodyStore& bodyStore = BodyStore();
-    const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
-    const Physics::PhysicsBodyRecord* bodyRecord = bodyStore.RecordForHandle( body );
-    // Invariant: render-pose overrides are keyed by the physics-owned body id.
-    // Model-index hints can lag during scrub/prediction presentation, so they
-    // cannot approve which live render instance receives the pose.
-    if ( !bodyRecord || bodyStore.ModelIndexForHandle( body ) != modelIndex ||
-         bodyRecord->replayBodyId != replayBodyId )
-    {
-        return false;
-    }
-
-    return m_renderInstanceStore.OverridePose( modelIndex, replayBodyId, position, orientation, Colliders() );
 }
 
 

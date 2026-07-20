@@ -1,6 +1,6 @@
 # Replay Policy Debt Closure
 
-Status: Active — 2/4 tasks (RP0-RP3)
+Status: Active — 3/4 tasks (RP0-RP3)
 Owner: repository owner; registered 2026-07-21 from replay-boundary RB1 audit
 Evidence: `../../Reports/2026-07-21/replay-boundary-containment-closure.md`
 RB1 findings RB1-F1 through RB1-F3
@@ -66,7 +66,7 @@ identity while serialized artifact scalars remain byte-compatible.
   `tools\validate_perf.bat`, the focused strict probe,
   `tools\validate_full.bat`, and
   `tools\validate_replay_visual_fidelity.bat`.
-- [ ] RP2 — Identity convergence: replace Replay-owned `ReplayBodyId` and raw
+- [x] RP2 — Identity convergence: replace Replay-owned `ReplayBodyId` and raw
   cross-system `replayBodyId` surfaces with `PhysicsSceneObjectId`, including
   Physics authored refresh/body/collider APIs and storage plus Rendering
   instance/override values; retain dense model rows only as repairable hints.
@@ -206,4 +206,40 @@ Comment-style audit covered all 13 touched source/test/substantial-tool files:
 13 checked, 0 deferred, no separate subsystem checklist required for this
 touched-file pass, and no unresolved terminology.
 
-RP2-RP3 pending.
+### RP2 — scene-object identity convergence
+
+Replay, Physics, Rendering, and runtime presentation now carry
+`PhysicsSceneObjectId` directly. The duplicate Replay-owned `ReplayBodyId`
+wrapper and raw `replayBodyId` fields are absent from the source/test census;
+body, collider, handle-slot, authored-refresh, render-instance, pose-override,
+camera-target, restore, prediction, and authoring surfaces all use the typed
+scene identity. Dense `ModelRowHint` values remain lookup hints only.
+
+The definition-only `PhysicsReplaySolverSnapshotView` and
+`SceneWorld::TryQueueReplayRenderPoseOverride` facades had no callers and were
+deleted. Replay artifact readers/writers still encode `id.value` in the same
+fixed-width scalar fields with no schema or golden change. The byte-canonical
+artifact round-trip test passed as part of the 336-test suite, and replay visual
+fidelity accepted the durable artifact plus all byte-mutation negative controls.
+
+The first three `validate_full` attempts stopped before completion: two exposed
+the implementation/header formatting pipeline, and the third exposed an
+Automation-only namespace qualification. Exactly the touched files were
+formatted, the Automation target then built cleanly in 12.15 s, and the final
+full gate passed. No baseline, golden, screenshot, artifact schema, or behavior
+value was refreshed.
+
+| Final gate | Result | Time |
+|---|---|---:|
+| Focused Profile builds + 336 doctests | PASS; 68,633 assertions, byte-canonical artifact round trip | 27.53 s rebuild + 1.35 s tests |
+| `tools\validate_physics.bat` | PASS; handle mirror smoke and 44,401-line CSV byte-exact | 85.63 s |
+| `tools\validate_full.bat` | PASS; CPU umbrella and five runtime lanes, DX12 images accepted, byte-exact physics | 153.8 s |
+| `tools\validate_replay_visual_fidelity.bat` | PASS; 2,401 ticks, one generation/presentation, durable artifact and all controls | 447.0 s |
+
+Comment-style audit covered all 48 touched source/test files: 48 checked, 0
+deferred, every learning-header section present, and no unresolved legacy
+identity terminology. The final source/test census reports zero occurrences of
+`ReplayBodyId`, `replayBodyId`, `PhysicsReplaySolverSnapshotView`, and
+`TryQueueReplayRenderPoseOverride`.
+
+RP3 pending.

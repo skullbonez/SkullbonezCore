@@ -159,7 +159,6 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
 
     PhysicsBodyCreateRecord body;
     body.cold.sceneObjectId = PhysicsSceneObjectId{ sceneId };
-    body.cold.replayBodyId = sceneId;
     body.cold.mass = 4.0f;
     body.cold.volume = SkullbonezCore::Math::CollisionDetection::GetShapeVolume( shape );
     body.cold.projectedSurfaceArea =
@@ -181,7 +180,6 @@ void CheckUnderwaterForcePath( const CollisionShape& shape, uint32_t sceneId )
     ColliderRecord collider;
     collider.body = handle;
     collider.sceneObjectId = body.cold.sceneObjectId;
-    collider.replayBodyId = sceneId;
     collider.shape = shape;
     collider.shapeKind = ShapeKind( shape );
     collider.boundingRadius = body.hot.boundingRadius;

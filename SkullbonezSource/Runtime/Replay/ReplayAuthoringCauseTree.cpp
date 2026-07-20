@@ -46,6 +46,7 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
+namespace Physics = SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 
 namespace
@@ -104,13 +105,13 @@ float ReplayCauseTreeColliderRadiusForBody( const ColliderStore& colliderStore,
 
 // Concept: focus pose lookup is authoring interpretation over immutable replay
 // publications plus live physics rows. Dense model rows remain radius hints;
-// ReplayBodyId is the identity check in every source.
+// Physics::PhysicsSceneObjectId is the identity check in every source.
 // Invariant: this helper stores no view and never repairs topology while input
 // is active. The frame boundary prepared paired body/collider stores first.
-bool ResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
+bool ResolveReplayCauseTreeBodyPosition( Physics::PhysicsSceneObjectId id,
                                          bool predictionEnabled,
-                                         ReplayBodyId predictionTargetId,
-                                         ReplayBodyId pathTargetId,
+                                         Physics::PhysicsSceneObjectId predictionTargetId,
+                                         Physics::PhysicsSceneObjectId pathTargetId,
                                          std::span<const RunReplayPredictionFrame> activePredictionFrames,
                                          const ReplaySolverFrameSample* solverSample,
                                          const PhysicsBodyStore& bodyStore,
@@ -134,7 +135,7 @@ bool ResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
         {
             return;
         }
-        const PhysicsBodyHandle liveBody = bodyStore.HandleForReplayBodyId( id.value, modelRow.value );
+        const PhysicsBodyHandle liveBody = bodyStore.HandleForSceneObjectId( id, modelRow.value );
         const PhysicsBodyRecord* liveBodyRecord = bodyStore.RecordForHandle( liveBody );
         *outRadius = liveBodyRecord
                          ? ReplayCauseTreeColliderRadiusForBody( colliderStore, *liveBodyRecord, modelRow.value )
@@ -172,7 +173,7 @@ bool ResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
     for ( std::size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex )
     {
         const PhysicsBodyRecord& body = bodies[bodyIndex];
-        if ( body.replayBodyId == id.value )
+        if ( body.sceneObjectId == id )
         {
             outPosition = PhysicsBodyPosition( hotFields, bodyIndex );
             if ( outRadius )
@@ -188,25 +189,26 @@ bool ResolveReplayCauseTreeBodyPosition( ReplayBodyId id,
 // Concept: replay body lookup is sample-shaped, not subsystem-shaped.
 //
 // Solver samples and prediction frames both expose body rows keyed by
-// ReplayBodyId, while modelIndex remains only a fast hint into each row array.
+// Physics::PhysicsSceneObjectId, while modelIndex remains only a fast hint into each row array.
 // Invariant: wrappers keep the old negative-modelIndex behavior for callers
 // that still distinguish solver samples from prediction samples.
 template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayBodyId id );
+const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id );
 
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
 const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex );
 
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int modelIndex );
+Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex );
 
-const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample, ReplayBodyId id )
+const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
+                                                  Physics::PhysicsSceneObjectId id )
 {
     return FindReplayBodyByIdInSample<ReplaySolverFrameSample, ReplaySolverBodySample>( sample, id );
 }
 
 template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayBodyId id )
+const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
 {
     for ( const BodySample& body : sample.bodies )
     {
@@ -218,10 +220,10 @@ const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, ReplayB
     return nullptr;
 }
 
-ReplayBodyId ReplayBodyIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
+Physics::PhysicsSceneObjectId SceneObjectIdForModelIndex( const ReplaySolverFrameSample& sample, int modelIndex )
 {
-    return ReplayBodyIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample,
-                                                                                                      modelIndex );
+    return SceneObjectIdForModelIndexInSample<ReplaySolverFrameSample, ReplaySolverBodySample, false>( sample,
+                                                                                                       modelIndex );
 }
 
 Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
@@ -272,7 +274,7 @@ const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample,
 }
 
 template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
+Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
 {
     if ( const BodySample* body =
              FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>( sample,
@@ -280,7 +282,7 @@ ReplayBodyId ReplayBodyIdForModelIndexInSample( const FrameSample& sample, int m
     {
         return body->id;
     }
-    return ReplayBodyId{};
+    return Physics::PhysicsSceneObjectId{};
 }
 
 bool ReplayContactHasModelIndex( const SkullbonezCore::Physics::PhysicsSolverPersistentContactSample& contact,
@@ -413,11 +415,11 @@ bool ReplayAuthoring::BuildCauseTreeRows(
     };
 
     // Invariant: cause-tree rows keep model indices only for UI row selection
-    // and solver-artifact contact matching. ReplayBodyId identity resolves
+    // and solver-artifact contact matching. Physics::PhysicsSceneObjectId identity resolves
     // through body-store handles first; solver samples are historical fallback.
-    auto modelIndexForId = [&]( ReplayBodyId id, int preferredModelIndex ) -> int
+    auto modelIndexForId = [&]( Physics::PhysicsSceneObjectId id, int preferredModelIndex ) -> int
     {
-        const PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, preferredModelIndex );
+        const PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, preferredModelIndex );
         const int liveIndex = bodyStore.ModelIndexForHandle( body );
         if ( liveIndex >= 0 )
         {
@@ -433,16 +435,16 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         return -1;
     };
 
-    auto idForModelIndex = [&]( int modelIndex ) -> ReplayBodyId
+    auto idForModelIndex = [&]( int modelIndex ) -> Physics::PhysicsSceneObjectId
     {
-        ReplayBodyId id;
+        Physics::PhysicsSceneObjectId id;
         if ( modelIndex < 0 )
         {
             return id;
         }
         if ( solverSample )
         {
-            id = ReplayBodyIdForModelIndex( *solverSample, modelIndex );
+            id = SceneObjectIdForModelIndex( *solverSample, modelIndex );
             if ( id.value != 0 )
             {
                 return id;
@@ -450,13 +452,16 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         }
         if ( const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
         {
-            id.value = body->replayBodyId;
+            id = body->sceneObjectId;
         }
         return id;
     };
 
-    auto writeName =
-        [&]( ReplayBodyId id, int modelIndex, const char* fallback, char* out, std::size_t outSize ) -> void
+    auto writeName = [&]( Physics::PhysicsSceneObjectId id,
+                          int modelIndex,
+                          const char* fallback,
+                          char* out,
+                          std::size_t outSize ) -> void
     {
         out[0] = '\0';
         if ( fallback && fallback[0] != '\0' )
@@ -625,7 +630,7 @@ bool ReplayAuthoring::BuildCauseTreeRows(
                 continue;
             }
             centroid /= static_cast<float>( pointCount );
-            const ReplayBodyId otherId = idForModelIndex( group.otherModelIndex );
+            const Physics::PhysicsSceneObjectId otherId = idForModelIndex( group.otherModelIndex );
 
             char otherName[64] = {};
             if ( group.terrain )
@@ -735,8 +740,8 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         }
     };
 
-    auto addBodyRow = [&]( ReplayBodyId id,
-                           ReplayBodyId parentId,
+    auto addBodyRow = [&]( Physics::PhysicsSceneObjectId id,
+                           Physics::PhysicsSceneObjectId parentId,
                            ReplayFrameIndex firstFrame,
                            int depth,
                            int modelIndex,
@@ -790,13 +795,18 @@ bool ReplayAuthoring::BuildCauseTreeRows(
         return !rowOverflow;
     };
 
-    if ( !addBodyRow( path.targetId, ReplayBodyId{}, 0, 0, path.targetModelRow.value, path.targetName ) )
+    if ( !addBodyRow( path.targetId,
+                      Physics::PhysicsSceneObjectId{},
+                      0,
+                      0,
+                      path.targetModelRow.value,
+                      path.targetName ) )
     {
         FailCauseTreeRowBuild();
         return false;
     }
 
-    auto addChildren = [&]( auto&& self, ReplayBodyId parentId, int fallbackDepth ) -> void
+    auto addChildren = [&]( auto&& self, Physics::PhysicsSceneObjectId parentId, int fallbackDepth ) -> void
     {
         for ( const RunReplayPathTraceNode& node : nodes )
         {
@@ -926,7 +936,7 @@ bool ReplayAuthoring::TryGetCauseTreeRow( int rowIndex, RunReplayCauseTreeRow& o
 }
 
 
-void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, ReplayBodyId focusedId ) noexcept
+void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObjectId focusedId ) noexcept
 {
     m_causeTree.selectedRow = rowIndex;
     m_causeTree.focusedId = focusedId;
@@ -991,8 +1001,8 @@ bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
     const bool leftPressed = pointer.leftPressed;
     const bool leftReleased = pointer.leftReleased;
     BeginCauseTreeInputFrame();
-    const ReplayBodyId pathTargetId = presentationOwner.PathVisualizer().targetId;
-    const auto resolveCauseTreeBody = [&]( ReplayBodyId id, Vector3& outPosition, float* outRadius )
+    const Physics::PhysicsSceneObjectId pathTargetId = presentationOwner.PathVisualizer().targetId;
+    const auto resolveCauseTreeBody = [&]( Physics::PhysicsSceneObjectId id, Vector3& outPosition, float* outRadius )
     {
         return ResolveReplayCauseTreeBodyPosition( id,
                                                    prediction.enabled,

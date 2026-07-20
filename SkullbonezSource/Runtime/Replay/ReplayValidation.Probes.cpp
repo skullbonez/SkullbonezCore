@@ -357,7 +357,7 @@ struct ReplaySaveProbeEventCommands
 
     bool recordEditorTransform = false;
     int transformedModelIndex = -1;
-    uint32_t transformedReplayBodyId = 0;
+    PhysicsSceneObjectId transformedSceneObjectId;
     Vector3 transformedPosition;
     Quaternion transformedOrientation;
     int transformedModelCount = 0;
@@ -452,7 +452,7 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTo
             TryGetEditorTransformColliderRecord( world,
                                                  placementResult.placedCollider,
                                                  modelCountBeforePlace,
-                                                 placedBodyBeforeEdit->replayBodyId );
+                                                 placedBodyBeforeEdit->sceneObjectId );
         if ( !placedColliderBeforeEdit )
         {
             return ReplayProbeFailure( "replay save probe failed to resolve placed collider record" );
@@ -482,14 +482,14 @@ SkullbonezCore::Core::SbResult InjectReplaySaveProbePlacementCoverage( RuntimeTo
         }
         const PhysicsBodyRecord* placedBodyAfterEdit = world.BodyStore().RecordForModelIndex( modelCountBeforePlace );
         PhysicsBodyHotState placedHotAfterEdit;
-        if ( !placedBodyAfterEdit || placedBodyAfterEdit->replayBodyId == 0 ||
+        if ( !placedBodyAfterEdit || !placedBodyAfterEdit->sceneObjectId.IsValid() ||
              !TryGetReplayProbeBodyHotState( world, modelCountBeforePlace, placedHotAfterEdit ) )
         {
             return ReplayProbeFailure( "replay save probe failed to capture edited body record" );
         }
         commands.recordEditorTransform = true;
         commands.transformedModelIndex = modelCountBeforePlace;
-        commands.transformedReplayBodyId = placedBodyAfterEdit->replayBodyId;
+        commands.transformedSceneObjectId = placedBodyAfterEdit->sceneObjectId;
         commands.transformedPosition = placedHotAfterEdit.position;
         commands.transformedOrientation = placedHotAfterEdit.orientation;
         commands.transformedModelCount = world.SceneEntityCount();
@@ -786,7 +786,7 @@ ReplayProbeTickResult ReplayRuntime::TickProbes( const ReplayRestoreTransaction&
                 SubmitEvent( ReplayEventCommandOperations::BuildEditorTransform(
                     commands.transformedModelIndex,
                     REPLAY_EDITOR_TRANSFORM_TRANSLATE | REPLAY_EDITOR_TRANSFORM_ROTATE | REPLAY_EDITOR_TRANSFORM_SCALE,
-                    commands.transformedReplayBodyId,
+                    commands.transformedSceneObjectId,
                     commands.transformedPosition,
                     commands.transformedOrientation,
                     commands.transformedModelCount,

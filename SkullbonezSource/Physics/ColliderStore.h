@@ -14,7 +14,7 @@ Glossary:
   Physics material: Runtime policy for collider friction and sphere drag.
   Narrowphase: Precise collision pass that computes actual contact points.
   Convex hull: Collision shape made from a closed convex set of authored points.
-  Replay body id: Stable per-scene id paired with a body for replay diagnostics.
+  Scene object id: Stable per-scene id paired with a body for replay diagnostics.
 
 Invariants:
   - Body-binding refresh keeps store row order aligned to scene physics order.
@@ -57,19 +57,19 @@ enum class ColliderShapeKind : uint8_t
 
 struct ColliderRecord
 {
-    PhysicsColliderHandle handle;                                                            // Stable collider handle resolved through store maps.
-    PhysicsBodyHandle body;                                                                  // Body handle resolved by PhysicsBodyStore for the same model slot.
-    PhysicsSceneObjectId sceneObjectId;                                                      // Scene-local id currently mirrored from replay body id.
-    uint32_t replayBodyId = 0;                                                               // Stable replay-facing body id paired with this collider.
-    Math::CollisionDetection::CollisionShape shape;                                          // Exact shape variant used by narrowphase.
-    ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                 // Cheap typed discriminator for tools and migration checks.
-    float boundingRadius = 0.0f;                                                             // Conservative broadphase radius.
-    float restitution = 0.0f;                                                                // Collision restitution authored on the model.
-    float friction = 0.0f;                                                                   // Tangential contact resistance copied from physics material.
-    uint32_t contactMaterialId = 0;                                                          // Gameplay material hash copied from the collider descriptor.
-    char contactMaterialName[32] = {};                                                       // Cold scene round-trip token for authored contact material.
-    float projectedSurfaceArea = 0.0f;                                                       // Fluid-drag area mirrored from collision shape.
-    float dragCoefficient = 0.0f;                                                            // Shape drag coefficient used by fluid forces.
+    PhysicsColliderHandle handle;                                                                   // Stable collider handle resolved through store maps.
+    PhysicsBodyHandle body;                                                                         // Body handle resolved by PhysicsBodyStore for the same model slot.
+    // Stable cross-system identity paired with this collider.
+    PhysicsSceneObjectId sceneObjectId;
+    Math::CollisionDetection::CollisionShape shape;                                                 // Exact shape variant used by narrowphase.
+    ColliderShapeKind shapeKind = ColliderShapeKind::Sphere;                                        // Cheap typed discriminator for tools and migration checks.
+    float boundingRadius = 0.0f;                                                                    // Conservative broadphase radius.
+    float restitution = 0.0f;                                                                       // Collision restitution authored on the model.
+    float friction = 0.0f;                                                                          // Tangential contact resistance copied from physics material.
+    uint32_t contactMaterialId = 0;                                                                 // Gameplay material hash copied from the collider descriptor.
+    char contactMaterialName[32] = {};                                                              // Cold scene round-trip token for authored contact material.
+    float projectedSurfaceArea = 0.0f;                                                              // Fluid-drag area mirrored from collision shape.
+    float dragCoefficient = 0.0f;                                                                   // Shape drag coefficient used by fluid forces.
 };
 
 using ColliderRecordList = PhysicsFixedList<ColliderRecord, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
@@ -77,7 +77,8 @@ using ColliderHandleList = PhysicsFixedList<PhysicsColliderHandle, SkullbonezCor
 using ColliderHandleGenerationList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleFlagList = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleModelIndexList = PhysicsFixedList<int, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
-using ColliderHandleReplayIdList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
+using ColliderHandleSceneObjectIdList =
+    PhysicsFixedList<PhysicsSceneObjectId, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleSlotList = PhysicsFixedList<uint32_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 using ColliderHandleAssignmentMask = PhysicsFixedList<uint8_t, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>;
 
@@ -124,18 +125,18 @@ class ColliderStore
 
   private:
     PhysicsColliderHandle ResolveHandleForModelIndex( int modelIndex,
-                                                      uint32_t replayBodyId,
+                                                      PhysicsSceneObjectId sceneObjectId,
                                                       ColliderHandleAssignmentMask& assignedHandleSlots );
     void RetireUnassignedHandles( const ColliderHandleAssignmentMask& assignedHandleSlots );
 
-    ColliderRecordList m_colliders{ "ColliderStore.colliders" };                             // Dense live collider records.
+    ColliderRecordList m_colliders{ "ColliderStore.colliders" };                                    // Dense live collider records.
     ColliderHandleList m_modelColliderHandles{
-        "ColliderStore.modelColliderHandles" };                                              // Model slot to collider handle map.
-    ColliderHandleGenerationList m_handleGenerations{ "ColliderStore.handleGenerations" };   // Handle-slot generations.
-    ColliderHandleFlagList m_handleAlive{ "ColliderStore.handleAlive" };                     // Live handle slot flags.
-    ColliderHandleModelIndexList m_handleModelIndices{ "ColliderStore.handleModelIndices" }; // Slot to model index.
-    ColliderHandleReplayIdList m_handleReplayBodyIds{ "ColliderStore.handleReplayBodyIds" }; // Slot replay ids.
-    ColliderHandleSlotList m_freeHandleSlots{ "ColliderStore.freeHandleSlots" };             // Retired reusable slots.
+        "ColliderStore.modelColliderHandles" };                                                     // Model slot to collider handle map.
+    ColliderHandleGenerationList m_handleGenerations{ "ColliderStore.handleGenerations" };          // Handle-slot generations.
+    ColliderHandleFlagList m_handleAlive{ "ColliderStore.handleAlive" };                            // Live handle slot flags.
+    ColliderHandleModelIndexList m_handleModelIndices{ "ColliderStore.handleModelIndices" };        // Slot to model index.
+    ColliderHandleSceneObjectIdList m_handleSceneObjectIds{ "ColliderStore.handleSceneObjectIds" }; // Slot scene ids.
+    ColliderHandleSlotList m_freeHandleSlots{ "ColliderStore.freeHandleSlots" };                    // Retired reusable slots.
     // Runtime allocation policy: refresh reuses this handle-slot mask rather
     // than allocating a heap-backed standard-library container in topology repair.
     ColliderHandleAssignmentMask m_assignedHandleScratch{ "ColliderStore.assignedHandleScratch" };

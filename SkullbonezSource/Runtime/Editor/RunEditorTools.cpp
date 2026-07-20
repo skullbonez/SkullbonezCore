@@ -145,7 +145,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
 
     const PhysicsBodyStore& bodyStore = world.BodyStore();
     const PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
-    if ( !body || body->replayBodyId == 0 )
+    if ( !body || !body->sceneObjectId.IsValid() )
     {
         return false;
     }
@@ -155,7 +155,7 @@ bool RecordEditorTransformEventFromBodyStore( ReplayEventCommandBatch& replayEve
     if ( !replayEvents.Append(
              ReplayEventCommandOperations::BuildEditorTransform( modelIndex,
                                                                  changedFlags,
-                                                                 body->replayBodyId,
+                                                                 body->sceneObjectId,
                                                                  PhysicsBodyPosition( hotFields, bodyIndex ),
                                                                  PhysicsBodyOrientation( hotFields, bodyIndex ),
                                                                  world.SceneEntityCount(),

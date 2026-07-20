@@ -1373,7 +1373,7 @@ bool BuildReplayPresentationBodySample( int modelIndex,
     const ColliderRecord& colliderRecord = colliderStore.Records()[bodyIndex];
 
     outBody = ReplayBodyPresentationSample{};
-    outBody.id.value = bodyRecord.replayBodyId;
+    outBody.id = bodyRecord.sceneObjectId;
     outBody.modelRow = Physics::MakeModelRowHint( modelIndex );
     const char* modelName = entity->displayName;
     if ( modelName && modelName[0] != '\0' )
@@ -1749,7 +1749,7 @@ SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorPlace( int obj
 ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildEditorTransform(
     int modelIndex,
     uint32_t changedFlags,
-    uint32_t replayBodyId,
+    Physics::PhysicsSceneObjectId sceneObjectId,
     const Vector3& position,
     const SkullbonezCore::Math::Orientation::Quaternion& orientation,
     int modelCount,
@@ -1797,7 +1797,7 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
     orientation.GetComponents( qx, qy, qz, qw );
     uint64_t hash = FNV64_OFFSET;
     hash = HashInt( hash, modelIndex );
-    hash = HashInt( hash, static_cast<int32_t>( replayBodyId ) );
+    hash = HashInt( hash, static_cast<int32_t>( sceneObjectId.value ) );
     hash = HashInt( hash, modelCount );
     hash = HashInt( hash, static_cast<int32_t>( changedFlags ) );
     hash = HashInt( hash, scaleAxis );
@@ -1812,7 +1812,7 @@ ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildE
                          true,
                          changedFlags,
                          modelIndex,
-                         static_cast<int32_t>( replayBodyId ),
+                         static_cast<int32_t>( sceneObjectId.value ),
                          modelCount,
                          scaleAxis,
                          hash,

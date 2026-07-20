@@ -81,11 +81,6 @@ class SceneEntityStore;
 inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
 inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
 
-struct ReplayBodyId
-{
-    uint32_t value = 0;
-};
-
 struct ReplayBranchInfo
 {
     uint32_t branchId = 1;
@@ -124,8 +119,8 @@ struct ReplayWorldPresentationSample
 
 struct ReplayBodyPresentationSample
 {
-    ReplayBodyId id;
-    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
+    Physics::PhysicsSceneObjectId id;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; Physics::PhysicsSceneObjectId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -146,7 +141,7 @@ struct ReplayBodyPresentationSample
 
 struct ReplayVisualBodyMetadata
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
@@ -214,8 +209,8 @@ uint64_t ComputePresentationStateHash( const ReplayPresentationSample& sample ) 
 
 struct ReplaySolverBodySample
 {
-    ReplayBodyId id;
-    Physics::ModelRowHint modelRow; // Optional resolver cache; ReplayBodyId remains durable identity.
+    Physics::PhysicsSceneObjectId id;
+    Physics::ModelRowHint modelRow; // Optional resolver cache; Physics::PhysicsSceneObjectId remains durable identity.
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     Math::Vector::Vector3 position = Math::Vector::ZERO_VECTOR;
@@ -242,7 +237,7 @@ struct ReplaySolverBodySample
 // them byte-for-byte when reconstructing the public sample.
 struct ReplaySolverBodyMetadata
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     Physics::ModelRowHint modelRow;
     char name[64] = {};
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
@@ -628,7 +623,8 @@ class ReplaySolverRecorder
     // Visits one body's compact position stream without reconstructing dense
     // solver frames or their world snapshots. Returns false when retained
     // delta data is internally inconsistent.
-    template <typename Visitor> bool ForEachBodyPositionChronological( ReplayBodyId targetId, Visitor visitor ) const
+    template <typename Visitor>
+    bool ForEachBodyPositionChronological( Physics::PhysicsSceneObjectId targetId, Visitor visitor ) const
     {
         if ( m_sampleCount == 0 || m_samples.empty() )
         {

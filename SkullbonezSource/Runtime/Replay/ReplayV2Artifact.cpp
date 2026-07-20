@@ -101,7 +101,7 @@ struct BodyDictionaryEntry
     uint32_t id = 0;
     // Wire compatibility: v2 allocated these four bytes to a model index. V3
     // preserves the captured row only as a same-scene resolver hint;
-    // ReplayBodyId remains the sole durable identity.
+    // Physics::PhysicsSceneObjectId remains the sole durable identity.
     int32_t bodyOrder = -1;
     ReplayBodyShapeKind shapeKind = ReplayBodyShapeKind::Unknown;
     float mass = 0.0f;

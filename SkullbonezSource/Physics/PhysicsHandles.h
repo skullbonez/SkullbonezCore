@@ -108,7 +108,7 @@ struct PhysicsSceneObjectId
 };
 
 // Concept: a ModelRowHint is a cached dense-row guess, never identity.
-// Persistent state stores PhysicsBodyHandle, ReplayBodyId, or scene ids; the
+// Persistent state stores PhysicsBodyHandle or PhysicsSceneObjectId; the
 // hint only accelerates resolver fast paths and may be stale after compaction.
 struct ModelRowHint
 {
@@ -151,10 +151,10 @@ inline ModelRowHint MakeModelRowHint( int value )
     return hint;
 }
 
-inline PhysicsSceneObjectId MakePhysicsSceneObjectIdFromReplayBodyId( uint32_t replayBodyId )
+inline PhysicsSceneObjectId MakePhysicsSceneObjectId( uint32_t value )
 {
     PhysicsSceneObjectId id;
-    id.value = replayBodyId;
+    id.value = value;
     return id;
 }
 

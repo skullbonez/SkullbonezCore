@@ -182,14 +182,12 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     PhysicsBodyRecord body;
     body.handle = PhysicsBodyHandle{ 7u, 1u };
     body.sceneObjectId = PhysicsSceneObjectId{ 77u };
-    body.replayBodyId = 77u;
     PhysicsBodyHotState hotState;
 
     ColliderRecord collider;
     collider.handle = PhysicsColliderHandle{ 9u, 1u };
     collider.body = body.handle;
     collider.sceneObjectId = body.sceneObjectId;
-    collider.replayBodyId = body.replayBodyId;
     collider.shape =
         SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.5f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collider.shapeKind = ColliderShapeKind::Sphere;
@@ -201,7 +199,7 @@ TEST_CASE( "RenderInstanceStore: preflighted creation publishes every render row
     CHECK( renderStore.PresentationCount() == 1 );
     CHECK( renderStore.Count() == 1 );
     CHECK( renderStore.HandleForModelIndex( 0 ).IsValid() );
-    CHECK( renderStore.Records()[0].replayBodyId == 77u );
+    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId{ 77u } );
     CHECK( renderStore.Records()[0].material.baseColor[0] == doctest::Approx( 0.25f ) );
     CHECK( renderStore.Records()[0].shadowCasterStream == ShadowCasterStream::Pine );
     CHECK_FALSE( renderStore.PresentationRecords()[0].editorVisible );
@@ -224,7 +222,6 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     bodyStore.Clear();
     PhysicsBodyCreateRecord createRecord;
     createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 901u };
-    createRecord.cold.replayBodyId = 901u;
     createRecord.hot.position = Vector3( 0.0f, 0.0f, 0.0f );
     const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( createRecord );
     REQUIRE( bodyHandle.IsValid() );
@@ -234,7 +231,6 @@ TEST_CASE( "RenderInstanceStore: fixed-tick poses interpolate and discontinuitie
     ColliderRecord collider;
     collider.body = bodyHandle;
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
-    collider.replayBodyId = createRecord.cold.replayBodyId;
     collider.shape = SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, ZERO_VECTOR );
     collider.shapeKind = ColliderShapeKind::Sphere;
     collider.boundingRadius = 1.0f;
@@ -325,13 +321,11 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
         PhysicsBodyRecord body;
         body.handle = PhysicsBodyHandle{ static_cast<uint32_t>( index ), 1u };
         body.sceneObjectId = PhysicsSceneObjectId{ sceneId };
-        body.replayBodyId = sceneId;
         PhysicsBodyHotState hotState;
         ColliderRecord collider;
         collider.handle = PhysicsColliderHandle{ static_cast<uint32_t>( index ), 1u };
         collider.body = body.handle;
         collider.sceneObjectId = body.sceneObjectId;
-        collider.replayBodyId = sceneId;
         collider.shape =
             SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
         collider.shapeKind = ColliderShapeKind::Sphere;
@@ -348,21 +342,19 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     REQUIRE( renderStore.DestroyCreationRowAtSwapLast( 0 ) );
     REQUIRE( renderStore.Count() == 2 );
     REQUIRE( renderStore.PresentationCount() == 2 );
-    CHECK( renderStore.Records()[0].replayBodyId == 202u );
+    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId{ 202u } );
     CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.2f ) );
 
     static PhysicsBodyStore bodyStore;
     bodyStore.Clear();
     PhysicsBodyCreateRecord createRecord;
     createRecord.cold.sceneObjectId = PhysicsSceneObjectId{ 202u };
-    createRecord.cold.replayBodyId = 202u;
     const PhysicsBodyHandle bodyHandle = bodyStore.CreateBodyRecord( createRecord );
     static ColliderStore colliderStore;
     colliderStore.Clear();
     ColliderRecord collider;
     collider.body = bodyHandle;
     collider.sceneObjectId = createRecord.cold.sceneObjectId;
-    collider.replayBodyId = createRecord.cold.replayBodyId;
     collider.shape =
         SkullbonezCore::Math::CollisionDetection::BoundingSphere( 1.0f, SkullbonezCore::Math::Vector::ZERO_VECTOR );
     collider.shapeKind = ColliderShapeKind::Sphere;
@@ -374,6 +366,6 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     renderStore.TickContactFeedback( 1, 0.05f );
     renderStore.Refresh( bodyStore, colliderStore );
     REQUIRE( renderStore.Count() == 1 );
-    CHECK( renderStore.Records()[0].replayBodyId == 202u );
+    CHECK( renderStore.Records()[0].sceneObjectId == PhysicsSceneObjectId{ 202u } );
     CHECK( renderStore.Records()[0].fixedContactAlpha == doctest::Approx( 0.1f ) );
 }

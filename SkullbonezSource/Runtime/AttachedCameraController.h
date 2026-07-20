@@ -10,7 +10,7 @@ Summary:
   synchronous commands through borrowed model stores and cameras.
 
 Glossary:
-  Attach target: Physics body/collider identity plus replay id used to recover a
+  Attach target: Physics body/collider identity plus scene object id used to recover a
     followed model after dense rows move.
   Target snapshot: One-frame position, velocity, rotation, and broad radius read
     from physics stores.
@@ -18,7 +18,7 @@ Glossary:
     start for this solve.
 
 Invariants:
-  - Target recovery uses physics-store handles and replay ids; a dense row is
+  - Target recovery uses physics-store handles and scene object ids; a dense row is
     retained only as a typed, revalidated cache.
   - The controller does not store borrowed collection or camera pointers.
   - Pose commands are finite and never point eye and view at the same point.
@@ -63,9 +63,9 @@ struct AttachedCameraTarget
 {
     Physics::PhysicsBodyHandle body;                   // Primary live physics identity for follow/orbit sampling.
     Physics::PhysicsColliderHandle collider;           // Shape/radius identity paired with body.
-    Physics::ModelRowHint modelRow;                    // Cache only; body/replay id remain authoritative.
-    uint32_t replayBodyId = 0;                         // Stable scene-local identity used to recover stale indices.
-    char name[64] = {};                                // Human/debug fallback when replay id cannot recover the target.
+    Physics::ModelRowHint modelRow;                    // Cache only; body/scene object id remain authoritative.
+    Physics::PhysicsSceneObjectId sceneObjectId;       // Stable scene-local identity used to recover stale indices.
+    char name[64] = {};                                // Human/debug fallback when scene object id cannot recover the target.
 };
 
 struct AttachedCameraState

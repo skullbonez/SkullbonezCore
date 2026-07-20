@@ -128,12 +128,13 @@ float ReplayQueryColliderRadiusForModelIndex( const Physics::ColliderStore& coll
                        1.0f );
 }
 
-ReplayBodyId ReplayQueryBodyIdForModelIndex( const Physics::PhysicsBodyStore& bodyStore, int modelIndex )
+Physics::PhysicsSceneObjectId ReplayQueryBodyIdForModelIndex( const Physics::PhysicsBodyStore& bodyStore,
+                                                              int modelIndex )
 {
-    ReplayBodyId id;
+    Physics::PhysicsSceneObjectId id;
     if ( const Physics::PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex ) )
     {
-        id.value = body->replayBodyId;
+        id = body->sceneObjectId;
     }
     return id;
 }
@@ -178,7 +179,7 @@ bool ReplayPresentationModelIsRagdollPart(
 }
 
 const Physics::PhysicsBodyRecord* ReplayPresentationResolveReplayBody( const Physics::PhysicsBodyStore& bodyStore,
-                                                                       ReplayBodyId id,
+                                                                       Physics::PhysicsSceneObjectId id,
                                                                        int modelIndexHint,
                                                                        int modelCount,
                                                                        int& outModelIndex )
@@ -190,11 +191,11 @@ const Physics::PhysicsBodyRecord* ReplayPresentationResolveReplayBody( const Phy
     }
 
     // Invariant: replay artifacts carry model indices only as staleable hints.
-    // Stable identity is the replay id resolved through the live body handle map.
-    const Physics::PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, modelIndexHint );
+    // Stable identity is the scene object id resolved through the live body handle map.
+    const Physics::PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, modelIndexHint );
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
     const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
-    if ( !record || record->replayBodyId != id.value || modelIndex < 0 || modelIndex >= modelCount )
+    if ( !record || record->sceneObjectId != id || modelIndex < 0 || modelIndex >= modelCount )
     {
         return nullptr;
     }
@@ -208,7 +209,7 @@ const Physics::PhysicsBodyRecord* ReplayPresentationBodyRecordForModelIndex( con
 {
     const Physics::PhysicsBodyHandle body = bodyStore.HandleForModelIndex( modelIndex );
     const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
-    if ( !record || bodyStore.ModelIndexForHandle( body ) != modelIndex || record->replayBodyId == 0 )
+    if ( !record || bodyStore.ModelIndexForHandle( body ) != modelIndex || !record->sceneObjectId.IsValid() )
     {
         return nullptr;
     }
@@ -218,18 +219,18 @@ const Physics::PhysicsBodyRecord* ReplayPresentationBodyRecordForModelIndex( con
 bool ReplayPresentationQueueRenderPoseOverride( Rendering::RenderInstanceStore& renderInstances,
                                                 const Physics::PhysicsBodyStore& bodyStore,
                                                 const Physics::ColliderStore& colliderStore,
-                                                ReplayBodyId replayBodyId,
+                                                Physics::PhysicsSceneObjectId sceneObjectId,
                                                 const Math::Vector::Vector3& position,
                                                 const Math::Orientation::Quaternion& orientation )
 {
-    const Physics::PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( replayBodyId.value );
+    const Physics::PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( sceneObjectId );
     const Physics::PhysicsBodyRecord* record = bodyStore.RecordForHandle( body );
     const int modelIndex = bodyStore.ModelIndexForHandle( body );
-    if ( !record || record->replayBodyId != replayBodyId.value || modelIndex < 0 )
+    if ( !record || record->sceneObjectId != sceneObjectId || modelIndex < 0 )
     {
         return false;
     }
-    return renderInstances.OverridePose( modelIndex, replayBodyId.value, position, orientation, colliderStore );
+    return renderInstances.OverridePose( modelIndex, sceneObjectId, position, orientation, colliderStore );
 }
 
 int ReplayPresentationRenderPoseModelHint( const ReplayBodyPresentationSample& ) noexcept
@@ -336,11 +337,11 @@ bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore
         // Why: loaded artifacts may not contain every live body. Move unmatched
         // bodies out of view instead of letting unrelated live geometry appear
         // inside the scrubbed replay frame.
-        const ReplayBodyId replayBodyId{ bodyRecord->replayBodyId };
+        const Physics::PhysicsSceneObjectId sceneObjectId{ bodyRecord->sceneObjectId };
         if ( ReplayPresentationQueueRenderPoseOverride( renderInstances,
                                                         bodyStore,
                                                         colliderStore,
-                                                        replayBodyId,
+                                                        sceneObjectId,
                                                         hiddenReplayPosition,
                                                         Math::Orientation::IDENTITY_QUATERNION ) )
         {
@@ -350,7 +351,8 @@ bool ReplayPresentationHideUnmatchedRenderBodies( Rendering::RenderInstanceStore
     return queuedAny;
 }
 
-RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& visualizer, ReplayBodyId id )
+RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& visualizer,
+                                                Physics::PhysicsSceneObjectId id )
 {
     for ( RunReplayPathTarget& target : visualizer.targets )
     {
@@ -363,7 +365,7 @@ RunReplayPathTarget* FindReplayQueryPathTarget( RunReplayPathVisualizerState& vi
 }
 
 void ApplyReplayQueryPrimaryPathTarget( RunReplayPathVisualizerState& visualizer,
-                                        ReplayBodyId id,
+                                        Physics::PhysicsSceneObjectId id,
                                         int modelIndex,
                                         const char* name )
 {
@@ -521,8 +523,8 @@ bool ReplayPresentation::ClearCameraFocus() noexcept
 {
     const bool ownedPause = m_camera.ownsSimulationPause;
     m_camera.focusKind = RunReplayCameraFocusKind::None;
-    m_camera.focusedId = ReplayBodyId{};
-    m_camera.counterpartId = ReplayBodyId{};
+    m_camera.focusedId = Physics::PhysicsSceneObjectId{};
+    m_camera.counterpartId = Physics::PhysicsSceneObjectId{};
     m_camera.focusedRow = -1;
     m_camera.focusRowKind = RunReplayCauseTreeRowKind::Body;
     m_camera.focusModelRow.value = -1;
@@ -542,7 +544,7 @@ bool ReplayPresentation::ClearCameraFocus() noexcept
 void ReplayPresentation::ClearPathState()
 {
     m_pathVisualizer.hasTarget = false;
-    m_pathVisualizer.targetId = ReplayBodyId{};
+    m_pathVisualizer.targetId = Physics::PhysicsSceneObjectId{};
     m_pathVisualizer.targetModelRow.value = -1;
     m_pathVisualizer.targetName[0] = '\0';
     m_pathVisualizer.futureNodes.clear();
@@ -576,8 +578,7 @@ void ReplayPresentation::PreparePathDrawing( const Physics::PhysicsBodyStore& bo
 
     for ( RunReplayPathTarget& target : m_pathVisualizer.targets )
     {
-        const Physics::PhysicsBodyHandle handle =
-            bodyStore.HandleForReplayBodyId( target.id.value, target.modelRow.value );
+        const Physics::PhysicsBodyHandle handle = bodyStore.HandleForSceneObjectId( target.id, target.modelRow.value );
         const int modelIndex = bodyStore.ModelIndexForHandle( handle );
         if ( modelIndex < 0 )
         {
@@ -611,7 +612,7 @@ void ReplayPresentation::ApplyArchivePathState( const RunReplayPathVisualizerSta
 }
 
 
-void ReplayPresentation::ApplyPastTrajectoryUpdate( ReplayBodyId targetId,
+void ReplayPresentation::ApplyPastTrajectoryUpdate( Physics::PhysicsSceneObjectId targetId,
                                                     ReplayFrameIndex firstFrame,
                                                     ReplayFrameIndex builtThroughFrame,
                                                     uint64_t totalFramesEvicted,
@@ -661,16 +662,20 @@ bool ReplayPresentation::SetPathTarget( const char* name, int modelIndex, const 
         return false;
     }
     const Physics::PhysicsBodyRecord* body = bodyStore.RecordForModelIndex( modelIndex );
-    if ( !body || body->replayBodyId == 0 )
+    if ( !body || !body->sceneObjectId.IsValid() )
     {
         return false;
     }
 
-    return SetPathTarget( ReplayBodyId{ body->replayBodyId }, Physics::ModelRowHint{ modelIndex }, name );
+    return SetPathTarget( Physics::PhysicsSceneObjectId{ body->sceneObjectId },
+                          Physics::ModelRowHint{ modelIndex },
+                          name );
 }
 
 
-bool ReplayPresentation::SetPathTarget( ReplayBodyId id, Physics::ModelRowHint modelRow, const char* name )
+bool ReplayPresentation::SetPathTarget( Physics::PhysicsSceneObjectId id,
+                                        Physics::ModelRowHint modelRow,
+                                        const char* name )
 {
     if ( id.value == 0 || modelRow.value < 0 )
     {
@@ -727,7 +732,7 @@ ReplayPresentation::TryPickPathTarget( const ReplayPathPickInput& input,
         }
     };
 
-    ReplayBodyId pickedId;
+    Physics::PhysicsSceneObjectId pickedId;
     int pickedIndex = -1;
     char pickedName[64] = {};
     if ( currentSolverSample )
@@ -850,14 +855,14 @@ bool ReplayPresentation::BuildFocusModelMask( const Physics::PhysicsBodyStore& b
 
     m_focusModelMask.assign( static_cast<std::size_t>( modelCount ), 0 );
     int markedCount = 0;
-    const auto markByReplayId = [&]( ReplayBodyId id, int preferredModelIndex )
+    const auto markBySceneObjectId = [&]( Physics::PhysicsSceneObjectId id, int preferredModelIndex )
     {
         if ( id.value == 0 )
         {
             return;
         }
 
-        const Physics::PhysicsBodyHandle body = bodyStore.HandleForReplayBodyId( id.value, preferredModelIndex );
+        const Physics::PhysicsBodyHandle body = bodyStore.HandleForSceneObjectId( id, preferredModelIndex );
         const int resolvedIndex = bodyStore.ModelIndexForHandle( body );
         if ( resolvedIndex >= 0 && resolvedIndex < modelCount )
         {
@@ -872,18 +877,18 @@ bool ReplayPresentation::BuildFocusModelMask( const Physics::PhysicsBodyStore& b
 
     if ( m_pathVisualizer.targets.empty() )
     {
-        markByReplayId( m_pathVisualizer.targetId, m_pathVisualizer.targetModelRow.value );
+        markBySceneObjectId( m_pathVisualizer.targetId, m_pathVisualizer.targetModelRow.value );
     }
     else
     {
         for ( const RunReplayPathTarget& target : m_pathVisualizer.targets )
         {
-            markByReplayId( target.id, target.modelRow.value );
+            markBySceneObjectId( target.id, target.modelRow.value );
         }
     }
     for ( const RunReplayPathTraceNode& node : futureNodes )
     {
-        markByReplayId( node.id, node.modelRow.value );
+        markBySceneObjectId( node.id, node.modelRow.value );
     }
 
     if ( markedCount <= 0 || markedCount >= modelCount )

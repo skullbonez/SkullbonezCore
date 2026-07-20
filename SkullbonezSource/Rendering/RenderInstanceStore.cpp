@@ -14,7 +14,7 @@ Glossary:
     intent.
   Material intent: Engine-level material choice before a renderer maps it to
     shaders, textures, or descriptor rows.
-  Replay body id: Stable per-scene id shared with physics/replay records.
+  Scene object id: Stable per-scene id shared with physics/replay records.
   Contact highlight: Render-only feedback alpha copied from presentation state
     after gameplay/physics feedback has advanced.
   Shadow caster stream: Scene-owner bin copied unchanged into the draw record so
@@ -178,7 +178,7 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
                                              int expectedIndex )
 {
     if ( !CanAppendCreationRow( expectedIndex ) || !body.handle.IsValid() || !collider.handle.IsValid() ||
-         collider.body != body.handle || collider.sceneObjectId.value != body.sceneObjectId.value )
+         collider.body != body.handle || collider.sceneObjectId != body.sceneObjectId )
     {
         SB_FATAL( "Rendering/RenderInstanceStore",
                   "Invalid preflighted creation commit. expected=%d presentation=%zu instances=%zu handles=%zu "
@@ -196,7 +196,7 @@ void RenderInstanceStore::CommitCreationRow( const RenderInstancePresentationRec
     const uint32_t modelIndex = static_cast<uint32_t>( expectedIndex );
     RenderInstanceRecord record;
     record.handle = MakeRenderInstanceHandleForModelIndex( modelIndex );
-    record.replayBodyId = body.replayBodyId;
+    record.sceneObjectId = body.sceneObjectId;
     record.modelMatrix = BuildRenderModelMatrix( hotState.position, hotState.orientation, collider );
     record.material = presentation.material;
     record.boundingRadius = collider.boundingRadius;
@@ -347,7 +347,7 @@ void RenderInstanceStore::BeginPhysicsStepPoseCapture( const PhysicsBodyStore& b
         // never blends across that discontinuity.
         const Vector3 position = PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) );
         const Quaternion orientation = PhysicsBodyOrientation( hotFields, static_cast<std::size_t>( index ) );
-        if ( !record.poseHistoryValid || record.replayBodyId != body.replayBodyId ||
+        if ( !record.poseHistoryValid || record.sceneObjectId != body.sceneObjectId ||
              !PoseMatchesCurrentEndpoint( record, position, orientation ) )
         {
             ResetPoseHistory( record, position, orientation );
@@ -372,7 +372,7 @@ void RenderInstanceStore::CompletePhysicsStepPoseCapture( const PhysicsBodyStore
     {
         RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( index )];
         const PhysicsBodyRecord& body = bodies[static_cast<std::size_t>( index )];
-        if ( !record.poseHistoryValid || record.replayBodyId != body.replayBodyId )
+        if ( !record.poseHistoryValid || record.sceneObjectId != body.sceneObjectId )
         {
             ResetPoseHistory( record,
                               PhysicsBodyPosition( hotFields, static_cast<std::size_t>( index ) ),
@@ -442,9 +442,9 @@ void RenderInstanceStore::Refresh( const RenderInstancePresentationRecord* prese
         const RenderInstancePresentationRecord& presentationRecord = presentation[index];
         RenderInstanceRecord& record = m_instances[index];
         const uint32_t modelIndex = static_cast<uint32_t>( i );
-        const bool bodyIdentityChanged = record.replayBodyId != body.replayBodyId;
+        const bool bodyIdentityChanged = record.sceneObjectId != body.sceneObjectId;
         record.handle = MakeRenderInstanceHandleForModelIndex( modelIndex );
-        record.replayBodyId = body.replayBodyId;
+        record.sceneObjectId = body.sceneObjectId;
         // A mismatch here did not pass through the fixed-step capture boundary:
         // scene load, spawn, teleport, replay restore, or scrub changed the pose.
         // Collapse history so the discontinuity is visible immediately.
@@ -510,7 +510,7 @@ bool RenderInstanceStore::TryGetPresentationPose( int modelIndex,
 
 
 bool RenderInstanceStore::OverridePose( int modelIndex,
-                                        uint32_t replayBodyId,
+                                        Physics::PhysicsSceneObjectId sceneObjectId,
                                         const Vector3& position,
                                         const Quaternion& orientation,
                                         const ColliderStore& colliderStore )
@@ -527,7 +527,7 @@ bool RenderInstanceStore::OverridePose( int modelIndex,
     }
 
     RenderInstanceRecord& record = m_instances[static_cast<std::size_t>( modelIndex )];
-    if ( record.replayBodyId != replayBodyId )
+    if ( record.sceneObjectId != sceneObjectId )
     {
         return false;
     }

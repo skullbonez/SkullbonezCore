@@ -58,7 +58,7 @@ using SkullbonezCore::Math::CollisionDetection::CollisionShape;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Physics::ColliderRecord;
 using SkullbonezCore::Physics::ColliderStore;
-using SkullbonezCore::Physics::MakePhysicsSceneObjectIdFromReplayBodyId;
+using SkullbonezCore::Physics::MakePhysicsSceneObjectId;
 using SkullbonezCore::Physics::ObjectNarrowphaseEvent;
 using SkullbonezCore::Physics::ObjectNarrowphaseEventKind;
 using SkullbonezCore::Physics::ObjectNarrowphasePairStageContext;
@@ -309,7 +309,7 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     ColliderStore& colliders = StageColliderStore();
     const CollisionShape sphere = UnitSphere();
     const auto desc =
-        SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectIdFromReplayBodyId( 91u ),
+        SkullbonezCore::Physics::MakePhysicsBodyCreateDesc( MakePhysicsSceneObjectId( 91u ),
                                                             sphere,
                                                             Vector3( 0.0f, 0.0f, 0.0f ),
                                                             SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
@@ -323,7 +323,7 @@ TEST_CASE( "Physics sleep underwater lock: fully submerged sleeper locks and dis
     const auto handle = bodies.CreateBodyRecord( desc, true );
     ColliderRecord collider;
     collider.body = handle;
-    collider.replayBodyId = 91u;
+    collider.sceneObjectId = MakePhysicsSceneObjectId( 91u );
     collider.shape = sphere;
     collider.boundingRadius = 1.0f;
     colliders.CreateColliderRecord( collider );

@@ -101,7 +101,7 @@ const ReplayTrajectoryRecord* ReplayTrajectoryStore::FindRecord( const ReplayTra
 
 ReplayTrajectoryRecord* ReplayTrajectoryStore::BeginReplaceRecord( const ReplayTrajectoryRecordKey& key,
                                                                    uint16_t styleId,
-                                                                   ReplayBodyId parentId,
+                                                                   Physics::PhysicsSceneObjectId parentId,
                                                                    int depth,
                                                                    ReplayFrameIndex firstFrame,
                                                                    bool contactDerived )

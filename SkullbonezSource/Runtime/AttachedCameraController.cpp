@@ -10,7 +10,7 @@ Summary:
   and input owners without reaching back into controller state.
 
 Glossary:
-  Replay body id: Stable physics identity used to recover a followed body when
+  Scene object id: Stable physics identity used to recover a followed body when
     dense model rows are rebuilt.
   Ragdoll eyes: Attach submode that places the camera near a resolved head body
     and looks along that body's forward axis.
@@ -19,7 +19,7 @@ Glossary:
     cameras while target identity and selection remain physics-authoritative.
 
 Invariants:
-  - Duplicate replay ids invalidate the target instead of selecting an
+  - Duplicate scene object ids invalidate the target instead of selecting an
     arbitrary body.
   - Orbit pitch and distance are clamped before producing a camera pose.
   - Invalid or degenerate pose math fails closed without changing the camera.
@@ -506,7 +506,7 @@ bool AttachedCameraController::TryAttachTargetHandlesFromModelIndex( const Scene
     target.body = body->handle;
     target.collider = collider->handle;
     target.modelRow.value = modelIndex;
-    target.replayBodyId = body->replayBodyId;
+    target.sceneObjectId = body->sceneObjectId;
     return true;
 }
 
@@ -541,7 +541,7 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
             // handle proves which dense row currently owns the body.
             target.body = body->handle;
             target.modelRow.value = modelIndex;
-            target.replayBodyId = body->replayBodyId;
+            target.sceneObjectId = body->sceneObjectId;
             outModelIndex = modelIndex;
             return true;
         }
@@ -551,12 +551,12 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
     const int cachedIndex = target.modelRow.value;
     if ( cachedIndex >= 0 && cachedIndex < modelCount )
     {
-        const bool hasReplayId = target.replayBodyId != 0;
+        const bool hasSceneObjectId = target.sceneObjectId.IsValid();
         bool cachedIndexMatches = true;
-        if ( hasReplayId )
+        if ( hasSceneObjectId )
         {
             const PhysicsBodyRecord* cachedBody = bodyStore.RecordForModelIndex( cachedIndex );
-            cachedIndexMatches = cachedBody && cachedBody->replayBodyId == target.replayBodyId;
+            cachedIndexMatches = cachedBody && cachedBody->sceneObjectId == target.sceneObjectId;
         }
         if ( cachedIndexMatches && TryAttachTargetHandlesFromModelIndex( collection, cachedIndex, target ) )
         {
@@ -565,16 +565,16 @@ bool AttachedCameraController::TryResolveTargetIdentity( const SceneWorld& colle
         }
     }
 
-    if ( target.replayBodyId != 0 )
+    if ( target.sceneObjectId.IsValid() )
     {
         int match = -1;
         const auto bodyRecords = bodyStore.Records();
-        // Invariant: duplicate replay ids are corruption, not an arbitrary
+        // Invariant: duplicate scene object ids are corruption, not an arbitrary
         // first match. Scan the dense body rows so stale camera targets fail
         // closed without touching authoring/presentation data.
         for ( int i = 0; i < static_cast<int>( bodyRecords.size() ); ++i )
         {
-            if ( bodyRecords[static_cast<std::size_t>( i )].replayBodyId == target.replayBodyId )
+            if ( bodyRecords[static_cast<std::size_t>( i )].sceneObjectId == target.sceneObjectId )
             {
                 if ( match >= 0 )
                 {

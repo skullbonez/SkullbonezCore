@@ -118,7 +118,7 @@ constexpr float kDampingEnergyTolerance = 0.0001f;
 struct BodyReplayState
 {
     PhysicsBodyHandle handle;
-    uint32_t replayBodyId = 0;
+    PhysicsSceneObjectId sceneObjectId;
     bool fixed = false;
     Vector3 position;
     Quaternion orientation;
@@ -209,7 +209,7 @@ CollisionShape MakeSphereShape( float radius )
 }
 
 void AddMicroBody( PhysicsEngine& engine,
-                   uint32_t sceneObjectId,
+                   uint32_t sceneObjectIdValue,
                    const Vector3& position,
                    const Vector3& linearVelocity )
 {
@@ -217,12 +217,12 @@ void AddMicroBody( PhysicsEngine& engine,
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
-    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectIdValue },
                                                shape,
                                                position,
                                                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
                                                linearVelocity,
-                                               Vector3( 0.03f * static_cast<float>( sceneObjectId ), 0.0f, 0.0f ),
+                                               Vector3( 0.03f * static_cast<float>( sceneObjectIdValue ), 0.0f, 0.0f ),
                                                Vector3( inertia, inertia, inertia ),
                                                mass,
                                                0.0f,
@@ -235,13 +235,13 @@ void AddMicroBody( PhysicsEngine& engine,
     REQUIRE( engine.RegisterAuthoredBody( bodyDesc, colliderDesc ).IsValid() );
 }
 
-void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectId, const Vector3& position )
+void AddSupportedSleepBody( PhysicsEngine& engine, uint32_t sceneObjectIdValue, const Vector3& position )
 {
     const float radius = 1.0f;
     const float mass = 2.0f;
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
-    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectIdValue },
                                                shape,
                                                position,
                                                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
@@ -461,7 +461,7 @@ TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot s
 }
 
 void AddMutualGravityBody( PhysicsEngine& engine,
-                           uint32_t sceneObjectId,
+                           uint32_t sceneObjectIdValue,
                            const Vector3& position,
                            const Vector3& linearVelocity,
                            float mass,
@@ -469,7 +469,7 @@ void AddMutualGravityBody( PhysicsEngine& engine,
 {
     const float inertia = 0.4f * mass * radius * radius;
     const CollisionShape shape = MakeSphereShape( radius );
-    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectId },
+    auto bodyDesc = MakePhysicsBodyCreateDesc( PhysicsSceneObjectId{ sceneObjectIdValue },
                                                shape,
                                                position,
                                                SkullbonezCore::Math::Orientation::IDENTITY_QUATERNION,
@@ -679,7 +679,7 @@ BodyReplayState CaptureBodyReplayState( const PhysicsBodyRecord& record, const P
 {
     BodyReplayState state;
     state.handle = record.handle;
-    state.replayBodyId = record.replayBodyId;
+    state.sceneObjectId = record.sceneObjectId;
     state.fixed = hotState.fixed;
     state.position = hotState.position;
     state.orientation = hotState.orientation;
@@ -802,7 +802,7 @@ ReplaySolverBodySample CaptureMicroWorldReplayBodySample( const PhysicsEngine& e
 
     ReplaySolverBodySample body;
     const PhysicsBodyHotState hotState = RequireBodyHotState( engine, modelIndex );
-    body.id.value = record->replayBodyId;
+    body.id = record->sceneObjectId;
     body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( modelIndex );
     body.shapeKind = ReplayBodyShapeKind::Sphere;
     body.position = hotState.position;
@@ -873,7 +873,7 @@ void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot&
     for ( const BodyReplayState& state : snapshot.bodies )
     {
         REQUIRE( engine.RestoreReplayBodyState( state.handle,
-                                                state.replayBodyId,
+                                                state.sceneObjectId,
                                                 state.fixed,
                                                 state.position,
                                                 state.orientation,
@@ -904,7 +904,7 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( body.modelRow.value );
         REQUIRE( record != nullptr );
         REQUIRE( engine.RestoreReplayBodyState( record->handle,
-                                                body.id.value,
+                                                body.id,
                                                 body.fixed,
                                                 body.position,
                                                 orientation,

@@ -23,7 +23,7 @@ Glossary:
   Shadow caster stream: Opaque prepared bin selecting the sphere, box, pine, or
     convex-hull submission stream without interpreting content in the renderer.
   RenderSceneSnapshot: Future immutable frame input consumed by render passes.
-  Replay body id: Stable per-scene id shared with physics/replay records.
+  Scene object id: Stable per-scene id shared with physics/replay records.
   Pose history: Previous/current completed solver endpoints stored in the
     existing fixed-capacity instance row for allocation-free presentation.
 
@@ -49,6 +49,7 @@ Related:
 
 #include "../Maths/Matrix4.h"
 #include "../Maths/Quaternion.h"
+#include "../Physics/PhysicsHandles.h"
 #include "RenderMaterial.h"
 
 namespace SkullbonezCore
@@ -123,7 +124,7 @@ enum class ShadowCasterStream : uint8_t
 struct RenderInstanceRecord
 {
     RenderInstanceHandle handle;                                         // Stable render handle paired with the model slot.
-    uint32_t replayBodyId = 0;                                           // Stable replay-facing body id paired with this instance.
+    Physics::PhysicsSceneObjectId sceneObjectId;                         // Stable cross-system identity paired with this instance.
     Math::Transformation::Matrix4 modelMatrix;                           // World transform used by object rendering.
     RenderMaterial material;                                             // Backend-neutral material intent.
     float boundingRadius = 0.0f;                                         // Conservative render/shadow bounds radius.
@@ -196,7 +197,7 @@ class RenderInstanceStore
     // Applies a one-frame presentation pose, such as replay scrub/prediction,
     // without writing that pose into PhysicsBodyStore or authoring storage.
     bool OverridePose( int modelIndex,
-                       uint32_t replayBodyId,
+                       Physics::PhysicsSceneObjectId sceneObjectId,
                        const Math::Vector::Vector3& position,
                        const Math::Orientation::Quaternion& orientation,
                        const Physics::ColliderStore& colliderStore );

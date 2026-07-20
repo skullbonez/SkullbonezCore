@@ -109,7 +109,7 @@ class PhysicsEngine
     // Store-owned replay restore command. Callers resolve a body handle at the
     // owner edge so physics does not accept transient model slots as authority.
     bool RestoreReplayBodyState( PhysicsBodyHandle body,
-                                 uint32_t replayBodyId,
+                                 PhysicsSceneObjectId sceneObjectId,
                                  bool fixed,
                                  const Math::Vector::Vector3& position,
                                  const Math::Orientation::Quaternion& orientation,
