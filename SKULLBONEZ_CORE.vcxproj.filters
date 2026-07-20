@@ -495,6 +495,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\UiTextPass.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.cpp">
+      <Filter>Source Files\Runtime\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeDiagnostics.cpp">
       <Filter>Source Files\Runtime\Diagnostics</Filter>
     </ClCompile>
@@ -1007,6 +1010,9 @@
       <Filter>Header Files\Runtime\Interaction</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h">
+      <Filter>Header Files\Runtime\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.h">
       <Filter>Header Files\Runtime\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h">

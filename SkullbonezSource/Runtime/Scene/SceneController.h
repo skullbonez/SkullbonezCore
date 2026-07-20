@@ -16,6 +16,8 @@ Glossary:
   Scene request: Deferred load, reset, create, or defaults-save owner intent.
   Scene world: Concrete owner for active-scene entities, physics, cameras,
     terrain, environment settings, and render presentation.
+  Proceed policy: Value packet that freezes the sampled step edge and
+    cross-scene pause decision for one frame.
 
 Invariants:
   - SceneController owns queue/index bookkeeping and composes exactly one
@@ -108,6 +110,19 @@ struct SceneFrameAdvanceResult
     // Value request only; validation retains diagnostic rows and printing.
     bool reportMissingRequirements = false;
 };
+// Value policy sampled once after input. Every late-frame consumer observes
+// the same step edge and cross-scene lock decision for the entire frame turn.
+struct SceneFrameProceedPolicy
+{
+    bool stepRequested = false;
+    bool crossScenePauseLocked = false;
+    bool proceedAllowed = true;
+};
+inline SceneFrameProceedPolicy ResolveSceneFrameProceedPolicy( bool crossScenePauseLocked, bool stepRequested )
+{
+    // Invariant: only the sampled step edge releases a locked scene turn.
+    return SceneFrameProceedPolicy{ stepRequested, crossScenePauseLocked, !crossScenePauseLocked || stepRequested };
+}
 struct SceneDefaultsSaveView
 {
     // Lifetime: every owner is borrowed only for one synchronous cold save.
@@ -212,6 +227,7 @@ class SceneController
     void MarkInteractiveRunComplete();
     void ToggleCrossScenePause();
     bool CrossScenePauseLocked() const;
+    SceneFrameProceedPolicy BuildFrameProceedPolicy( bool stepRequested ) const;
     SceneFrameAdvanceResult AdvanceFrame( const SceneAutomationGateStatus& automationGates,
                                           bool proceedAllowed,
                                           bool perfTestActive,

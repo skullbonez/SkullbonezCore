@@ -278,15 +278,20 @@ Core-config edge, exact default/custom/Boolean provenance tests, unchanged
 single-site clamps, and clear independent review. Closure evidence is in
 `../Reports/2026-07-20/physics-settings-snapshot-closure.md`.
 
+The active/future denominator returned 40 → 37 when
+`run-execute-deaccretion` closed X0-X2 and left the ledger under rule 4. Run
+now sequences one scene proceed policy and one concrete operator-editor
+composer call; the complete logical ownership review is clear. Closure evidence
+is in `../Reports/2026-07-20/run-execute-deaccretion-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 2 | 3 | 67% |
 | [render-graph-completion](TODO/render-graph-completion.md) | 0 | 6 | 0% |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **19** | **40** | **48%** |
+| **Active/future total** | **17** | **37** | **46%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -350,11 +355,11 @@ smoke all pass. Closure evidence is in
 
 The architecture-review campaign registered 2026-07-20 is the active queue.
 Dependency-direction restoration, allocation-namespace restoration,
-physics-facade unification, and physics-settings snapshot are closed. Remaining
-execution order is binding and biggest-wins-first: 1
-`run-execute-deaccretion`, 2 `render-graph-completion`, 3
-`render-hal-modernization` (hard-blocked on 2), 4
-`gameplay-module-extraction` (T0-T1 unblocked; T2 after 2), 5
+physics-facade unification, physics-settings snapshot, and Run::Execute
+de-accretion are closed. Remaining execution order is binding and
+biggest-wins-first: 1 `render-graph-completion`, 2
+`render-hal-modernization` (hard-blocked on 1), 3
+`gameplay-module-extraction` (T0-T1 unblocked; T2 after 1), 4
 `replay-boundary-containment`. Owner decisions ratified at
 registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
@@ -1143,8 +1148,7 @@ the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Active | 2/3 | X1 disposition sweep complete; run independent X2 closure review and final gate |
-| [render-graph-completion](TODO/render-graph-completion.md) | Registered | 0/6 | Start G0 anytime; owner ruling to finish the migration is recorded |
+| [render-graph-completion](TODO/render-graph-completion.md) | Active | 0/6 | Start G0; owner ruling to finish the migration is recorded |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | T0-T1 unblocked; T2 after render-graph-completion |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | Required snapshot boundary is closed; start after preceding binding plans |

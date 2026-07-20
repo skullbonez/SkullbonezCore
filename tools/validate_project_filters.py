@@ -470,6 +470,7 @@ RUNTIME_DIAGNOSTICS_PREFIXES = (
 # Why: shared runtime UI values have their own physical owner and Solution
 # Explorer filter; keeping this explicit prevents them drifting into Runtime.
 RUNTIME_UI_PREFIXES = (
+    "OperatorEditorFrameComposer",
     "UiTextPass",
     "RuntimeViewModel",
     "RuntimeUiSurface",

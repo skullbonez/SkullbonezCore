@@ -376,6 +376,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\RuntimePickService.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\OperatorCommandApplier.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\ApplicationExitState.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Init.cpp" />
@@ -599,6 +600,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\OperatorCommandApplier.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeInteractionController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\UI\RuntimeUiSurface.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\UI\OperatorEditorFrameComposer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickGeometry.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimePickService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.h" />

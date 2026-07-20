@@ -13,6 +13,8 @@ Glossary:
   Scene queue: Ordered list of authored scenes or demo entries to run.
   Request batch: Ordered fixed-capacity copy consumed at one frame checkpoint.
   Post-step output: Borrowed bounded physics facts consumed before the next step.
+  Proceed policy: One post-input decision shared by every late-frame consumer
+    that can advance scene work.
 
 Invariants:
   - Controller accessors must preserve the existing SceneRuntime semantics.
@@ -84,6 +86,14 @@ void SceneController::ToggleCrossScenePause()
 bool SceneController::CrossScenePauseLocked() const
 {
     return m_crossScenePauseLocked;
+}
+
+
+SceneFrameProceedPolicy SceneController::BuildFrameProceedPolicy( bool stepRequested ) const
+{
+    // Invariant: the lock can be bypassed only by the step edge sampled for
+    // this frame. Callers consume proceedAllowed instead of re-deriving it.
+    return ResolveSceneFrameProceedPolicy( m_crossScenePauseLocked, stepRequested );
 }
 
 

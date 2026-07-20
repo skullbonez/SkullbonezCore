@@ -30,7 +30,8 @@ Invariants:
     named owner commands and never a mutable prediction/recorder reference.
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
-  - Surface selection accepts Legacy or ImGui only; no action can request both.
+  - Surface selection accepts Legacy or ImGui only; one frame can publish at
+    most one process-surface request.
   - Development UI application stops on the first recoverable command failure;
     Run owns process exit policy and converts that result at its boundary.
 
@@ -2909,7 +2910,21 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
         case RunInteractionAutomationActionType::ResizeWindow:
         {
             const bool hasCapacity = result.developmentUiCommandCount < result.developmentUiCommands.size();
-            if ( hasCapacity )
+            bool duplicateSurfaceSelection = false;
+            if ( action.type == RunInteractionAutomationActionType::SetDevelopmentUiSurface )
+            {
+                for ( std::size_t commandIndex = 0u; commandIndex < result.developmentUiCommandCount; ++commandIndex )
+                {
+                    duplicateSurfaceSelection = result.developmentUiCommands[commandIndex].type ==
+                                                InteractionAutomationDevelopmentUiCommandType::SelectSurface;
+                    if ( duplicateSurfaceSelection )
+                    {
+                        break;
+                    }
+                }
+            }
+            const bool published = hasCapacity && !duplicateSurfaceSelection;
+            if ( published )
             {
                 InteractionAutomationDevelopmentUiCommand& command =
                     result.developmentUiCommands[result.developmentUiCommandCount++];
@@ -2942,6 +2957,12 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                     break;
                 }
             }
+            else if ( duplicateSurfaceSelection )
+            {
+                // Invariant: Run receives at most one process-surface request
+                // per frame, so selection is never silently collapsed or reordered.
+                FailAutomation( state, "multiple development UI surface selections share one frame" );
+            }
             else
             {
                 FailAutomation( state, "development UI automation command capacity exceeded" );
@@ -2951,8 +2972,10 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
                                 action.type,
                                 action.text,
                                 nullptr,
-                                hasCapacity,
-                                hasCapacity ? "development UI command published" : "command capacity exceeded" );
+                                published,
+                                published ? "development UI command published"
+                                          : ( duplicateSurfaceSelection ? "duplicate frame surface selection"
+                                                                        : "command capacity exceeded" ) );
             action.processed = true;
             break;
         }

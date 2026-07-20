@@ -9,7 +9,8 @@
 //   engine loop and renderer so failures identify owner logic directly.
 //
 // Glossary:
-//   Frame policy: Value packet deciding physics advance and camera-look state.
+//   Frame policy: Value packet deciding physics advance, camera-look state, or
+//     whether a cross-scene-locked frame may proceed.
 //   Control surface: Fixed-capacity ordered table of replay controls and hit
 //     regions rebuilt for one frame.
 //   Historical sample: Retained replay state that must not advance live physics.
@@ -32,6 +33,7 @@
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
 #include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
+#include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 
 #include <cmath>
 #include <cstring>
@@ -60,6 +62,24 @@ int RectCenterY( const SkullbonezCore::UI::UIRect& rect )
     return static_cast<int>( std::round( rect.y + rect.h * 0.5f ) );
 }
 } // namespace
+
+TEST_CASE( "Scene controller: one proceed policy governs the complete frame" )
+{
+    SceneFrameProceedPolicy policy = ResolveSceneFrameProceedPolicy( false, false );
+    CHECK_FALSE( policy.stepRequested );
+    CHECK_FALSE( policy.crossScenePauseLocked );
+    CHECK( policy.proceedAllowed );
+
+    policy = ResolveSceneFrameProceedPolicy( true, false );
+    CHECK_FALSE( policy.stepRequested );
+    CHECK( policy.crossScenePauseLocked );
+    CHECK_FALSE( policy.proceedAllowed );
+
+    policy = ResolveSceneFrameProceedPolicy( true, true );
+    CHECK( policy.stepRequested );
+    CHECK( policy.crossScenePauseLocked );
+    CHECK( policy.proceedAllowed );
+}
 
 TEST_CASE( "Runtime interaction: physics input matrix publishes one frame policy" )
 {

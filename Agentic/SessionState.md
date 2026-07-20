@@ -13,18 +13,18 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade, and physics settings plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the five remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 19 / 40 live tasks; 48%. |
+| Active/future progress | 17 / 37 live tasks; 46%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | X1 `validate_full` passes in 148.65s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | X1: 6/6 touched-source comment audit, clean Automation/Release builds, focused policy test, UI stress, and full gate pass. |
+| Last broad local gate | X2 `validate_full` passes in 166.92s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | X2: 10/10 touched-source/tool comment audit, clear independent review, clean Automation/Release builds, focused policy test, combined automation lane, project metadata proof, and full gate pass. |
 
 ## Live Queue
 
-NOW. Six live plans, 40 tasks; 19 complete (48%). The remaining architecture-review campaign
+NOW. Five live plans, 37 tasks; 17 complete (46%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
-binding order: run-execute-deaccretion → render-graph-completion →
-render-hal-modernization → gameplay-module-extraction →
+binding order: render-graph-completion → render-hal-modernization →
+gameplay-module-extraction →
 replay-boundary-containment. Owner decisions at registration: finish the
 render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
@@ -37,6 +37,8 @@ extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 `Agentic/Reports/2026-07-20/physics-facade-unification-closure.md`.
 `physics-settings-snapshot` is closed 4/4 and archived in
 `Agentic/Reports/2026-07-20/physics-settings-snapshot-closure.md`.
+`run-execute-deaccretion` is closed 3/3 and archived in
+`Agentic/Reports/2026-07-20/run-execute-deaccretion-closure.md`.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -95,8 +97,13 @@ are not certified. Full evidence:
 | direct Automation build (X1 tip) | 10.46 s | PASS; zero warnings/errors |
 | direct Release build (X1 tip) | 25.93 s | PASS; zero warnings/errors |
 | focused runtime interaction policy test (X1) | 2.44 s | PASS; 1 case, 25 assertions |
-| `tools\validate_ui_stress.bat` (X1) | 87.85 s | PASS; typed Ctrl+0 hot swap and zero DX12 errors |
+| `tools\validate_ui_stress.bat` (X1) | 87.85 s | PASS; direct surface-command matrix and zero DX12 errors |
 | `tools\validate_full.bat` (X1) | 148.65 s | PASS; all CPU/coverage and five runtime lanes |
+| direct Automation build (X2) | 19.72 s | PASS; zero warnings/errors |
+| direct Release build (X2) | 49.56 s | PASS; production macro path, zero warnings/errors |
+| focused scene proceed-policy test (X2) | 2.05 s | PASS; 1 case, 9 assertions |
+| `tools\validate_automation.bat` (X2) | 40.46 s | PASS; combined replay/prediction/development-UI/Ctrl+0 lane |
+| `tools\validate_full.bat` (X2) | 166.92 s | PASS; all CPU/coverage and five runtime lanes |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -104,9 +111,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `run-execute-deaccretion` X2 on `nightrunner-20th-july`.
-Run the independent God-object closure review, confirm the moved command script
-is represented in the full automation lane, and run the final full gate. The Profiler semantic
+Continue `render-graph-completion` G0 on `nightrunner-20th-july`.
+Inventory the remaining manual transition/barrier sites and classify them by
+resource and pass owner before changing renderer behavior. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.
