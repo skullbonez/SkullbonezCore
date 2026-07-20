@@ -1,13 +1,13 @@
 /*
-File: SkullbonezSource/Core/Profiler.cpp
+File: SkullbonezSource/Rendering/ProfilerImplementation.cpp
 Purpose:
   Records hierarchical CPU/GPU timing markers for runtime diagnostics.
 
 Summary:
-  Profiler.cpp records hierarchical CPU/GPU timing markers for runtime
-  diagnostics. As an implementation unit, keep edits anchored on process-wide
-  contracts, diagnostics, and validation-sensitive state and on the
-  glossary/invariants below.
+  The public profiler contract is Core infrastructure, while its implementation
+  integrates renderer timestamps, platform GPU ranges, text overlays, worker
+  samples, and Tracy plots. Locating that implementation in Rendering keeps the
+  Core API free of upward implementation includes.
 
 Glossary:
   Render diagnostics capability: Narrow renderer interface used here for GPU
@@ -27,14 +27,16 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Profiler.h
+  - SkullbonezSource/Rendering/IRenderDiagnostics.h
+  - SkullbonezSource/Rendering/Text.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
-#include "Profiler.h"
-#include "FatalError.h"
-#include "../Rendering/IRenderDiagnostics.h"
-#include "TracyClientOwner.h"
-#include "WorkerPool.h"
+#include "../Core/Profiler.h"
+#include "../Core/FatalError.h"
+#include "IRenderDiagnostics.h"
+#include "../Core/TracyClientOwner.h"
+#include "../Core/WorkerPool.h"
 
 #include <cstring>
 
@@ -49,8 +51,8 @@ using namespace SkullbonezCore::Rendering;
 #include <cfloat>
 #include <cstdio>
 #include <mutex>
-#include "PlatformProfiler.h"
-#include "../Rendering/Text.h"
+#include "../Core/PlatformProfiler.h"
+#include "Text.h"
 
 
 namespace
@@ -539,8 +541,8 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
     // GPU markers share Profiler's nesting stack, but Core must not reopen the
     // renderer singleton while recording a scope. Deletion condition: if GPU
     // scopes become owned by render passes directly, this borrow can disappear
-    // with the scope wrapper. Checker budget: Core/Profiler.cpp has zero
-    // renderer-service global accesses.
+    // with the scope wrapper. Checker budget: ProfilerImplementation.cpp has
+    // zero renderer-service global accesses.
     if ( SkullbonezCore::Threading::WorkerPool::IsCurrentThreadWorker() )
     {
         return;

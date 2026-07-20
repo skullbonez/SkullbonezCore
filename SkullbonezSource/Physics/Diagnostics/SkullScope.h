@@ -1,13 +1,13 @@
 /*
-File: SkullbonezSource/Core/SkullScope.h
+File: SkullbonezSource/Physics/Diagnostics/SkullScope.h
 Purpose:
   Defines compact physics diagnostics records emitted for SkullScope queries.
 
 Summary:
-  SkullScope.h defines compact physics diagnostics records emitted for
-  SkullScope queries. As a public header, keep edits anchored on process-wide
-  contracts, diagnostics, and validation-sensitive state and on the
-  glossary/invariants below.
+  Physics owns the stores, contacts, pipeline records, and sleep-island facts
+  sampled by each trace. Keeping the bounded writer beside those inputs makes
+  the diagnostic dependency point inward to Physics rather than upward from
+  Core.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -20,20 +20,18 @@ Invariants:
     penetration-window counters from a previous run.
 
 Related:
-  - SkullbonezSource/Core/SkullScope.cpp
+  - SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
+  - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
 
-namespace SkullbonezCore
-{
-namespace Physics
+namespace SkullbonezCore::Physics
 {
 struct PhysicsDiagnosticsFrameInput;
-} // namespace Physics
 
-namespace GameObjects
+namespace Diagnostics
 {
 class SkullScope final
 {
@@ -46,7 +44,7 @@ class SkullScope final
     bool IsFrameEnabled() const;
     // Emits one bounded trace frame from physics-owned stores and diagnostics
     // views. The frame input must outlive the call but is never retained.
-    void EmitFrame( const Physics::PhysicsDiagnosticsFrameInput& frame );
+    void EmitFrame( const PhysicsDiagnosticsFrameInput& frame );
 #endif
 
   private:
@@ -70,5 +68,5 @@ class SkullScope final
     bool m_physicsDiagnosticsPenetrationGrowingReported = false;
 #endif
 };
-} // namespace GameObjects
-} // namespace SkullbonezCore
+} // namespace Diagnostics
+} // namespace SkullbonezCore::Physics

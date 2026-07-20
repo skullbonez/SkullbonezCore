@@ -343,7 +343,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeReset.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeStyle.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp" />
-    <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp" />
@@ -482,7 +481,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\ProfilerImplementation.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />
@@ -553,7 +552,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h" />
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h" />
-    <ClInclude Include="SkullbonezSource\Core\SkullScope.h" />
+    <ClInclude Include="SkullbonezSource\Core\StringHash.h" />
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h" />
     <ClInclude Include="SkullbonezSource\Runtime\GraphicsStressController.h" />
     <ClInclude Include="SkullbonezSource\Runtime\RuntimeStressController.h" />

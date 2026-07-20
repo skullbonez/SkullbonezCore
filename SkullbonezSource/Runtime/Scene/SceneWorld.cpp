@@ -56,7 +56,6 @@ Related:
 #include "../../Core/Config.h"
 
 #include "../../Core/FatalError.h"
-#include "../../Core/SkullScope.h"
 #include "../../Runtime/Debug/CollisionVisualizer.h"
 #include "../../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../../Physics/ColliderStore.h"
@@ -73,7 +72,6 @@ Related:
 #include <variant>
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
 using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Vector::Vector3;

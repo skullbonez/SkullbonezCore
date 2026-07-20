@@ -1,6 +1,6 @@
 # Dependency Direction Restoration
 
-Status: Active — 4/6 tasks (L0-L3 complete; L4-L5 pending)
+Status: Active — 5/6 tasks (L0-L4 complete; L5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 1 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding A)
 Ledger: L0-L5
@@ -216,7 +216,7 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
     errors and all three baselines; `tools\run_graphics_stress.bat 1` ran PID
     7296 for 61.5s and ended only at its PID-scoped timeout. No tracked
     behavioral artifact, baseline, golden, shader output, or scene changed.
-- [ ] L4 — Core inversion pass: remove `Core/SkullScope.cpp`'s five physics
+- [x] L4 — Core inversion pass: remove `Core/SkullScope.cpp`'s five physics
   includes (SkullScope moves to `Physics/Diagnostics/` or consumes a
   physics-supplied view; record the choice), remove `Core/Profiler.cpp`'s
   `Rendering/Text.h`/`IRenderDiagnostics.h` includes via a caller-supplied
@@ -224,6 +224,42 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
   include. Any edge that cannot be cheaply inverted is recorded as an
   explicit exception with owner, reason, and deletion condition. Validation:
   `tools\validate_full.bat`.
+  - Choice recorded: SkullScope moved intact to
+    `Physics/Diagnostics/SkullScope.{h,cpp}` and now lives in
+    `SkullbonezCore::Physics::Diagnostics`. Physics diagnostics already owns
+    every sampled store and frame view, so relocation makes the dependency
+    point inward without a compatibility alias, callback, service interface,
+    or solver-hot-loop work. Project/filter metadata and the allocation-policy
+    allowlist now name that owner directly.
+  - Choice recorded: the Core `Profiler` API remains process infrastructure,
+    while its renderer-integrated implementation moved to
+    `Rendering/ProfilerImplementation.cpp`. That implementation owns GPU
+    timestamps, render diagnostics, text overlay drawing, platform GPU ranges,
+    and Tracy render plots; relocation removes Core's upward implementation
+    includes without adding an inheritance or callback boundary. No profiler
+    behavior or public call site changed.
+  - `HashStr` moved unchanged from asset-specific `AssetKeys.h` into
+    `Core/StringHash.h`. `WorkerPool.h`, `Profiler.h`, and asset keys consume
+    the generic Core contract, removing Core's Assets dependency while
+    preserving every FNV-1a value. The Core upward-include proof, WorkerPool
+    asset-include proof, and old SkullScope/Profiler path scans each return
+    zero rows. The surviving-exception table is empty at this slice.
+  - Comment-quality audit: all 14 touched source-bearing files inspected, 14
+    checked, zero deferred/unchecked, and zero missing learning-header fields.
+    The existing ImGui/Tracy checklist was reconciled to the relocated
+    profiler implementation.
+  - Validation: allocation-policy self-test passed in 0.09s and the repository
+    scan passed in 9.14s (`scanned=404`, 39 direct-heap findings, 147 dynamic
+    STL-member findings, 647 STL-growth findings, zero allowlist errors).
+    `tools\validate_fast.bat` passed in 56.95s with production filters 719/719,
+    clean staged-size checks, and zero-warning Profile/Debug builds.
+    `tools\validate_physics_deep.bat` passed in 128.05s. The first full gate
+    exposed one Automation-only orphaned `GameObjects` using-directive;
+    targeted `Automation` rebuilt in 14.40s with zero warnings/errors after its
+    removal. Final `tools\validate_full.bat` passed in 142.49s across all CPU,
+    coverage, runtime, DX12, replay/prediction, and byte-exact physics lanes.
+    No tracked behavioral artifact, baseline, golden, shader output, or scene
+    changed.
 - [ ] L5 — Enforcement and closure: add the direction rule and the exact
   grep proofs to `AGENTS.md`; rerun all proofs from L0-L4 at final source;
   independent rubber-duck review of the whole plan (single end-of-plan

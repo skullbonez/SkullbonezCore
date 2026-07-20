@@ -33,7 +33,7 @@ Related:
 #include <array>
 #include <cstdarg>
 
-#include "../Core/SkullScope.h"
+#include "Diagnostics/SkullScope.h"
 
 #ifdef _DEBUG
 #include "PhysicsDiagnosticsModel.h"
@@ -121,7 +121,7 @@ class PhysicsDiagnosticsSink
     std::array<PhysicsCollisionTimeEvent, COLLISION_TIME_EVENT_CAPACITY> m_collisionTimeEvents = {};
     int m_collisionTimeEventCount = 0;
     int m_collisionTimeEventHighWater = 0;
-    GameObjects::SkullScope m_skullScope;
+    Diagnostics::SkullScope m_skullScope;
 #endif
 };
 } // namespace Physics

@@ -73,7 +73,6 @@ Related:
 using SkullbonezCore::Math::Vector::Vector3;
 namespace Assets = SkullbonezCore::Assets;
 namespace Environment = SkullbonezCore::Environment;
-namespace GameObjects = SkullbonezCore::GameObjects;
 namespace Geometry = SkullbonezCore::Geometry;
 #include <vector>
 

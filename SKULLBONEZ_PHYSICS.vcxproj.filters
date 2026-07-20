@@ -84,6 +84,9 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp">
       <Filter>Source Files\Diagnostics</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Physics\Diagnostics\SkullScope.cpp">
+      <Filter>Source Files\Diagnostics</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -189,6 +192,9 @@
       <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h">
+      <Filter>Header Files\Diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Physics\Diagnostics\SkullScope.h">
       <Filter>Header Files\Diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h">

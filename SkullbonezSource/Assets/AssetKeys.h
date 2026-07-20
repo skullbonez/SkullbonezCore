@@ -21,20 +21,16 @@ Invariants:
     is a data migration, not a local renderer tweak.
 
 Related:
-  - SkullbonezSource/Core/Common.h includes this during the aliasing period.
+  - SkullbonezSource/Core/StringHash.h owns the shared hash function.
   - SkullbonezSource/Assets/TextureCollection.h consumes texture keys.
   - SkullbonezSource/Runtime/CameraCollection.h consumes camera keys.
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once
 
-#include <cstdint>
+#include "../Core/StringHash.h"
 
-// FNV-1a 32-bit compile-time hash for legacy string-key registries.
-constexpr std::uint32_t HashStr( const char* s, std::uint32_t hash = 2166136261u )
-{
-    return ( *s == '\0' ) ? hash : HashStr( s + 1, ( hash ^ static_cast<std::uint32_t>( *s ) ) * 16777619u );
-}
+#include <cstdint>
 
 constexpr std::uint32_t TEXTURE_GROUND = HashStr( "Ground" );
 constexpr std::uint32_t TEXTURE_BOUNDING_SPHERE = HashStr( "BoundingSphere" );

@@ -42,7 +42,6 @@ Related:
 #include <cstddef>
 #include <cstring>
 
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;

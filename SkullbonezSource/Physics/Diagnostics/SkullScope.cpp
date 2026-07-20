@@ -1,13 +1,12 @@
 /*
-File: SkullbonezSource/Core/SkullScope.cpp
+File: SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
 Purpose:
   Defines compact physics diagnostics records emitted for SkullScope queries.
 
 Summary:
-  SkullScope.cpp defines compact physics diagnostics records emitted for
-  SkullScope queries. As an implementation unit, keep edits anchored on
-  process-wide contracts, diagnostics, and validation-sensitive state and on
-  the glossary/invariants below.
+  The writer converts one physics-owned frame view into bounded diagnostic rows
+  after solver work has completed. It owns only trace formatting and run-local
+  counters; simulation stores remain borrowed for the duration of EmitFrame.
 
 Glossary:
   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
@@ -22,19 +21,20 @@ Invariants:
     solver, contacts, sleep islands, or spatial grid.
 
 Related:
-  - SkullbonezSource/Core/SkullScope.h
+  - SkullbonezSource/Physics/Diagnostics/SkullScope.h
+  - SkullbonezSource/Physics/PhysicsDiagnosticsSink.h
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullScope.h"
-#include "Log.h"
+#include "../../Core/Log.h"
 
 #ifdef _DEBUG
 
-#include "../Physics/ColliderStore.h"
-#include "../Physics/PhysicsBodyStore.h"
-#include "../Physics/PhysicsDiagnosticsSink.h"
-#include "../Physics/PhysicsDiagnosticsModel.h"
-#include "../Physics/PhysicsWorld.h"
+#include "../ColliderStore.h"
+#include "../PhysicsBodyStore.h"
+#include "../PhysicsDiagnosticsSink.h"
+#include "../PhysicsDiagnosticsModel.h"
+#include "../PhysicsWorld.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -43,10 +43,9 @@ Related:
 #include <vector>
 
 
-using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Physics::Diagnostics;
 namespace Vector = SkullbonezCore::Math::Vector;
 
 

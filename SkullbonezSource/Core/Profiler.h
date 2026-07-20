@@ -33,7 +33,7 @@ Invariants:
   - Tracy mirrors owner intervals; it does not become a second marker taxonomy.
 
 Related:
-  - SkullbonezSource/Core/Profiler.cpp
+  - SkullbonezSource/Rendering/ProfilerImplementation.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -41,6 +41,7 @@ Related:
 
 
 #include "Common.h"
+#include "StringHash.h"
 
 #include <cstdint>
 

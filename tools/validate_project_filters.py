@@ -193,6 +193,7 @@ PHYSICS_DIAGNOSTICS_PREFIXES = (
     "PhysicsDebugData",
     "PhysicsDiagnosticsModel",
     "PhysicsDiagnosticsSink",
+    "SkullScope",
 )
 
 PHYSICS_SUPPORT_PREFIXES = (
@@ -237,6 +238,7 @@ DX12_RENDERING_PREFIXES = (
 
 RENDERING_PREFIXES = (
     "DrawCallTrace",
+    "ProfilerImplementation",
     "RenderInstanceRenderer",
     "Helper",
     "IFramebuffer",
@@ -489,7 +491,7 @@ CORE_PREFIXES = (
     "Profiler",
     "SbResult",
     "SceneCapacity",
-    "SkullScope",
+    "StringHash",
     "Timer",
     "TracyClientOwner",
     "WorkerPool",

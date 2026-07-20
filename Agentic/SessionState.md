@@ -11,12 +11,12 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-20th-july` |
-| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0-L3 place shared capacity/allocation/window/Tracy contracts in Core, solver snapshots in Physics, and simulation scheduling in Runtime. |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0-L4 also places SkullScope in Physics diagnostics, the renderer-integrated profiler implementation in Rendering, and generic string hashing in Core. |
 | Current objective | Complete the eight-plan architecture-review campaign in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 21 / 53 live tasks; 40%. |
+| Active/future progress | 22 / 53 live tasks; 42%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | L3 `validate_full` passes from final source in 163.1s: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
-| Validation for current edits | Fast/project filters, one-process replay fidelity, full, explicit DX12, and 61.5s graphics stress pass; no tracked behavioral artifact or golden changed. |
+| Last broad local gate | L4 `validate_full` passes from final source in 142.49s: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
+| Validation for current edits | Fast, allocation policy, physics deep, targeted Automation, and full pass; no tracked behavioral artifact, baseline, or golden changed. |
 
 ## Live Queue
 
@@ -31,9 +31,9 @@ replay-boundary-containment. Owner decisions at registration: finish the
 render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
 
-`dependency-direction-restoration` is 4/6: L0-L3 are complete and L4 (invert
-SkullScope, Profiler rendering, and WorkerPool asset-key dependencies out of
-Core) is next with no blocker.
+`dependency-direction-restoration` is 5/6: L0-L4 are complete and L5
+(direction-rule enforcement, final proofs, surviving-exception table, and one
+independent whole-plan review) is next with no blocker.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -68,19 +68,22 @@ are not certified. Full evidence:
 
 | Command | Time | Result |
 |---|---:|---|
-| `tools\validate_fast.bat` | 71.8 s | PASS |
-| `tools\validate_replay_visual_fidelity.bat` | 444.4 s | PASS; one engine process |
-| `tools\validate_full.bat` | 163.1 s | PASS |
-| `tools\validate_dx12_renderer.bat` | 54.0 s | PASS; zero InfoQueue errors |
-| `tools\run_graphics_stress.bat 1` | 61.5 s | PASS; PID-scoped timeout |
+| `python tools\check_allocation_policy.py --self-test` | 0.09 s | PASS |
+| `python tools\check_allocation_policy.py --repo .` | 9.14 s | PASS; zero allowlist errors |
+| `tools\validate_fast.bat` | 56.95 s | PASS |
+| `tools\validate_physics_deep.bat` | 128.05 s | PASS |
+| `tools\validate_build.bat Automation` | 14.40 s | PASS; zero warnings/errors |
+| `tools\validate_full.bat` | 142.49 s | PASS |
 
-The initial focused build and fast gate found only namespace qualification and
-empty test-filter metadata; both were corrected before every final-source pass.
+The first full gate found one Automation-only orphaned `GameObjects`
+using-directive after the SkullScope namespace move. It was removed before the
+targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `dependency-direction-restoration` L4 on `nightrunner-20th-july`.
-Invert the remaining Core dependencies owned by SkullScope diagnostics,
-Profiler rendering, and WorkerPool asset keys, recording any honest bounded
-exception. The E17 extended owner playtest remains parked; keep Legacy default
-until the owner explicitly authorizes a switch.
+Continue `dependency-direction-restoration` L5 on `nightrunner-20th-july`.
+Write the enforceable direction rule and exact proofs into `AGENTS.md`, rerun
+the L0-L4 closure inventory, record the empty-or-bounded exception table, and
+obtain one independent whole-plan review before the final full gate. The E17
+extended owner playtest remains parked; keep Legacy default until the owner
+explicitly authorizes a switch.

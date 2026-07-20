@@ -345,9 +345,6 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeViewModel.cpp">
       <Filter>Source Files\Runtime\UI</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Core\SkullScope.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
@@ -564,8 +561,8 @@
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Core\Profiler.cpp">
-      <Filter>Source Files\Core</Filter>
+    <ClCompile Include="SkullbonezSource\Rendering\ProfilerImplementation.cpp">
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp">
       <Filter>Source Files\Rendering</Filter>
@@ -856,7 +853,7 @@
     <ClInclude Include="SkullbonezSource\Scene\SceneSnapshotWriter.h">
       <Filter>Header Files\Scene</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Core\SkullScope.h">
+    <ClInclude Include="SkullbonezSource\Core\StringHash.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\PrimitiveBatchRenderer.h">

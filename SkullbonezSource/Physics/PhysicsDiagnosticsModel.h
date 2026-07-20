@@ -20,7 +20,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Physics/PhysicsDiagnosticsSink.cpp
-  - SkullbonezSource/Core/SkullScope.cpp
+  - SkullbonezSource/Physics/Diagnostics/SkullScope.cpp
   - Agentic/Reference/comment-style-guide.md
 */
 #pragma once

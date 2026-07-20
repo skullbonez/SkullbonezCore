@@ -215,22 +215,22 @@
       ],
       "owner": "Core infrastructure static STL surface",
       "phase": "startup_diagnostics_threading",
-      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "reason": "Core logs, lock-order diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
       "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
       "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
     },
     {
-      "path": "SkullbonezSource/Core/SkullScope.cpp",
+      "path": "SkullbonezSource/Physics/Diagnostics/SkullScope.cpp",
       "patterns": [
         ".emplace_back(",
         ".push_back(",
         ".reserve("
       ],
-      "owner": "Core infrastructure static STL surface",
-      "phase": "startup_diagnostics_threading",
-      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
-      "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
-      "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
+      "owner": "Physics SkullScope diagnostics",
+      "phase": "debug_diagnostics_emission",
+      "reason": "SkullScope builds cold query records after the physics step only when an explicit Debug trace is enabled; these allocations never enter solver hot loops.",
+      "cap": "Bounded by configured scene capacity and retained per-frame physics diagnostic rows.",
+      "removal_or_wrapper_plan": "Replace trace assembly with fixed-capacity scratch if Debug diagnostics must join strict steady-runtime allocation enforcement."
     },
     {
       "path": "SkullbonezSource/Core/WorkerPool.cpp",
@@ -242,7 +242,7 @@
       ],
       "owner": "Core infrastructure static STL surface",
       "phase": "startup_diagnostics_threading",
-      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "reason": "Core logs, lock-order diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
       "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
       "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
     },
@@ -254,7 +254,7 @@
       ],
       "owner": "Core infrastructure static STL surface",
       "phase": "startup_diagnostics_threading",
-      "reason": "Core logs, lock-order diagnostics, SkullScope diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
+      "reason": "Core logs, lock-order diagnostics, and worker setup own reviewed STL storage outside unapproved gameplay allocation paths.",
       "cap": "Bounded by log channels, diagnostic graph size, trace output, or configured worker count.",
       "removal_or_wrapper_plan": "Replace with fixed diagnostic/threading storage if core infrastructure becomes part of strict steady-runtime allocation enforcement."
     },

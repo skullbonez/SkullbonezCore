@@ -180,6 +180,7 @@
     <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
+    <ClCompile Include="SkullbonezSource\Physics\Diagnostics\SkullScope.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsEngine.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsObjectPolicy.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsScene.cpp" />
@@ -220,6 +221,7 @@
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDebugData.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsModel.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.h" />
+    <ClInclude Include="SkullbonezSource\Physics\Diagnostics\SkullScope.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsEngine.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsFixedList.h" />
     <ClInclude Include="SkullbonezSource\Physics\PhysicsHandles.h" />
