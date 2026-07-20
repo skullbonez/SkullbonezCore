@@ -73,9 +73,9 @@ Please record:
   or shortcuts;
 - verdict: ready / not ready for extended hands-on use.
 
-The 2026-07-21 current-tip assisted playtest found no blocker and recommends
-**ready**. Owner acceptance is still pending: reply `ready`, or reply
-`not ready` and separate blocking findings from non-blocking preferences.
+The 2026-07-21 current-tip assisted playtest found no blocker and recommended
+**ready**. The owner replied **Ready** the same day, accepting E17 for extended
+hands-on use.
 
 No Legacy retirement or default switch is part of this evaluation. Legacy
 remains compiled, selectable, and the launch default until a later explicit

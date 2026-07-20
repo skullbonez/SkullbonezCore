@@ -11,18 +11,19 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-21st-july` |
-| Current baseline | Synced `origin/main` at `d4c8088d`; the architecture-review campaign is closed through replay policy, and the current-tip E17 assisted ImGui/Tracy/Legacy playtest has no blocking finding. |
-| Current objective | Obtain the owner's ready/not-ready E17 verdict after the clean current-tip assisted playtest. |
-| Active/future progress | 17 / 18 live tasks; 94%. |
+| Current baseline | All active/future MASTER plans are closed. The owner accepted ImGui/Tracy E17 after the clean current-tip assisted playtest; Legacy remains the development default. |
+| Current objective | None; await new owner direction. |
+| Active/future progress | 0 / 0 live tasks; 100% by the no-live-plan convention. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Synchronized-main `validate_full` passes in 243.7 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | Documentation-only E17 evidence update; no repository validation required. |
+| Validation for current edits | Documentation-only E17 owner-acceptance closure; no repository validation required. |
 
 ## Live Queue
 
-NOW. One live plan, 18 tasks; 17 complete (94%). The architecture-review
-campaign registered from `Reports/2026-07-20/engine-architecture-review.md` is
-closed through replay policy. No agent-actionable architecture row remains.
+NOW. No live local implementation plan remains. The architecture-review
+campaign is closed through replay policy, and the owner accepted ImGui/Tracy
+E17 for extended hands-on use on 2026-07-21. Closure evidence is in
+`Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
 
 `dependency-direction-restoration` is closed 6/6 and archived in
 `Agentic/Reports/2026-07-20/dependency-direction-restoration-closure.md`.
@@ -46,12 +47,10 @@ closed through replay policy. No agent-actionable architecture row remains.
 `Agentic/Reports/2026-07-21/replay-policy-debt-closure.md`; its single fresh
 independent review is clear with no remaining findings.
 
-`imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
-extended hands-on owner acceptance. A 2026-07-21 current-tip assisted
-ImGui/Tracy/Legacy playtest found no blocking issue and recommends ready; the
-owner's verdict is the sole remaining hold. Do not change the default during
-that evaluation: Legacy is default, ImGui is explicit opt-in, and only one UI
-surface owns focus/input at a time.
+`imgui-tracy-editor-campaign` closed at 18/18 after the owner accepted the clean
+current-tip assisted ImGui/Tracy/Legacy playtest. The completed TODO plan is
+deleted under MASTER inventory rule 4. Legacy remains default, ImGui remains
+explicit opt-in, and only one UI surface owns focus/input at a time.
 
 ## Audio Removal
 
@@ -204,9 +203,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-`replay-policy-debt-closure` is archived 4/4 with its independent review clear
-and all cumulative static/runtime gates clean. E17 is the only live task. Ask
-the owner for a `ready` or `not ready` verdict after the clean current-tip
-assisted playtest. If ready, check E17, archive the plan, reconcile the ledger,
-and commit the closure; if not ready, reopen and resolve the reported blocking
-findings. Keep Legacy default until separate owner authorization.
+No live implementation plan remains. ImGui/Tracy E17 is accepted and closed at
+18/18; all architecture-review plans are also closed with their independent
+reviews and cumulative gates clear. Await new owner direction. Legacy remains
+the default until a separate owner decision changes that policy.

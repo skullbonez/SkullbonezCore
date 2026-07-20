@@ -276,10 +276,9 @@ but it does not substitute for the owner's ready/not-ready verdict.
 
 ## Owner acceptance and handoff
 
-The current Profile development build plus the concise playtest in
-`imgui-tracy-e17-playtest.md` are ready for owner use. Blocking feedback would
-reopen E17. Because that hands-on response is unavailable in this goal run,
-the checkpoint remains retained and the plan checkbox remains open. This is the
-only non-automatable E17 hold after the final gates.
+The owner replied **Ready** on 2026-07-21 after the current-tip assisted
+playtest. E17's sole retained closure condition is satisfied and the campaign
+closes at 18/18. Closure evidence is in
+`../2026-07-21/imgui-tracy-editor-campaign-closure.md`.
 
 There is no Legacy deletion, retirement, or default switch in this campaign.
