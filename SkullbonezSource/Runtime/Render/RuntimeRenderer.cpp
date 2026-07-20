@@ -20,6 +20,8 @@ Glossary:
   mesh or procedural object owned by the DX12 backend.
   TLAS (Top-Level Acceleration Structure): Raytracing scene-instance table built
   before reflection rays are dispatched.
+  Compiled transition: Render-graph resource-state edge emitted immediately
+    before its callback records commands.
 
 Invariants:
   - RuntimeRenderer::RenderFrameEntry() owns pass order. Pass classes may bind
@@ -192,7 +194,10 @@ struct CinematicPostGraphCallbackData
     VolumetricPass* volumetricPass = nullptr;
     TonemapPass* tonemapPass = nullptr;
     const RenderFrameContext* frame = nullptr;
+    const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     SkullbonezCore::Rendering::RenderGraphTextureBinding volumetricLight;
+    size_t volumetricTransitionCount = 0;
+    size_t tonemapTransitionCount = 0;
     bool volumetricRendered = false;
 };
 
@@ -569,27 +574,56 @@ void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
                                data.secondsPerFrame } );
 }
 
-void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                      CinematicPostGraphCallbackData& data )
 {
-    if ( !data.volumetricPass || !data.frame )
+    if ( !data.volumetricPass || !data.frame || !data.compiled || !context.graph )
     {
         SB_FATAL( "RunRender", "VolumetricLightPass graph callback missing execution data." );
     }
     const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphOutput =
         data.volumetricLight.IsValid() ? &data.volumetricLight : nullptr;
+    if ( graphOutput )
+    {
+        data.volumetricTransitionCount =
+            data.frame->renderCommands->ExecuteGraphTransientTransitions( *context.graph,
+                                                                          *data.compiled,
+                                                                          context.passIndex );
+        if ( data.volumetricTransitionCount != 1u )
+        {
+            // Hazard: binding the transient without its compiled producer edge
+            // would let draw commands write a texture still declared for reads.
+            SB_FATAL( "RunRender",
+                      "VolumetricLightPass expected one compiled transient transition. actual=%zu",
+                      data.volumetricTransitionCount );
+        }
+    }
     data.volumetricRendered = data.volumetricPass->Render( *data.frame, graphOutput );
 }
 
-void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& /*context*/,
+void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                   CinematicPostGraphCallbackData& data )
 {
-    if ( !data.tonemapPass || !data.frame )
+    if ( !data.tonemapPass || !data.frame || !data.compiled || !context.graph )
     {
         SB_FATAL( "RunRender", "ToneMapPass graph callback missing execution data." );
     }
     const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphVolumetric =
         ( data.volumetricRendered && data.volumetricLight.IsValid() ) ? &data.volumetricLight : nullptr;
+    if ( graphVolumetric )
+    {
+        data.tonemapTransitionCount = data.frame->renderCommands->ExecuteGraphTransientTransitions( *context.graph,
+                                                                                                    *data.compiled,
+                                                                                                    context.passIndex );
+        if ( data.tonemapTransitionCount != 1u )
+        {
+            // Hazard: tonemap must not sample until the compiler-selected
+            // consumer edge changes the transient from output to shader read.
+            SB_FATAL( "RunRender",
+                      "ToneMapPass expected one compiled transient transition. actual=%zu",
+                      data.tonemapTransitionCount );
+        }
+    }
     data.tonemapPass->Render( *data.frame, data.volumetricRendered, data.volumetricRendered, graphVolumetric );
 }
 
@@ -598,7 +632,9 @@ void WriteCinematicPostGraphEvidence(
     const SkullbonezCore::Rendering::RenderGraphCompileResult& compiled,
     const SkullbonezCore::Rendering::RenderGraphTransientMaterializationStats& materialization,
     const SkullbonezCore::Rendering::RenderGraphTextureBinding& volumetricBinding,
-    bool volumetricDeclared )
+    bool volumetricDeclared,
+    size_t volumetricTransitionCount,
+    size_t tonemapTransitionCount )
 {
     std::ofstream out( "Debug/dx12_cinematic_post_graph.txt", std::ios::trunc );
     if ( !out.is_open() )
@@ -617,6 +653,8 @@ void WriteCinematicPostGraphEvidence(
     out << "  reused_this_compile=" << materialization.reusedThisCompile << "\n";
     out << "  descriptor_rows_owned=" << materialization.descriptorRowsOwned << "\n";
     out << "  released_at_frame_end=" << materialization.releasedAtFrameEnd << "\n";
+    out << "  volumetric_compiled_transitions_emitted=" << volumetricTransitionCount << "\n";
+    out << "  tonemap_compiled_transitions_emitted=" << tonemapTransitionCount << "\n";
     out << "  materialization_failed=" << ( materialization.failed ? "true" : "false" ) << "\n";
     out << "  materialization_failure_stage=" << materialization.failureStage << "\n";
     out << "  materialization_failure_resource=" << materialization.failureResource << "\n";
@@ -1232,8 +1270,9 @@ DebugOverlaySnapshot RuntimeRenderer::BuildDebugOverlaySnapshot( const RenderFra
 
 
 RuntimeRenderer::CinematicPostGraphResult
-RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame )
+RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs )
 {
+    const RenderFrameContext& frame = inputs.frame;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     const Rendering::RenderGraphResourceHandle sceneColor =
         graph.AddExternalResource( "CinematicSceneColor", Rendering::RenderGraphResourceAccess::PixelShaderResource );
@@ -1300,6 +1339,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
     // post passes have resource declarations before live callbacks record
     // commands, and the execute path records them in graph order.
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
+    callbackData.compiled = &compiled;
     Rendering::RenderGraphTransientMaterializationStats transientMaterialization;
     if ( frame.renderCommands )
     {
@@ -1322,14 +1362,16 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const RenderFrameContex
             }
         }
     }
+    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
+    const Rendering::RenderGraphCallbackExecutionResult executed =
+        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
     WriteCinematicPostGraphEvidence( graph,
                                      compiled,
                                      transientMaterialization,
                                      callbackData.volumetricLight,
-                                     volumetricDeclared );
-    graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::DryRun );
-    const Rendering::RenderGraphCallbackExecutionResult executed =
-        graph.ExecuteCallbacks( Rendering::RenderGraphCallbackExecutionMode::Execute );
+                                     volumetricDeclared,
+                                     callbackData.volumetricTransitionCount,
+                                     callbackData.tonemapTransitionCount );
 
     CinematicPostGraphResult result;
     result.volumetricReady = volumetricDeclared && callbackData.volumetricRendered;
@@ -1934,7 +1976,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     CinematicPostGraphResult cinematicPostGraph;
     if ( useCinematicTarget )
     {
-        cinematicPostGraph = ExecuteCinematicPostThroughRenderGraph( frame );
+        cinematicPostGraph = ExecuteCinematicPostThroughRenderGraph( { frame } );
         volumetricReady = cinematicPostGraph.volumetricReady;
         volumetricCallbackOwned = cinematicPostGraph.volumetricCallbackOwned;
         tonemapCallbackOwned = cinematicPostGraph.tonemapCallbackOwned;

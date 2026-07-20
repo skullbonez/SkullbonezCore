@@ -10,7 +10,7 @@ Summary:
 
 Glossary:
   RuntimeRenderer: Owner of pass instances and the frame pass order.
-  Pass order: The stable sequence of sky, shadows, reflection, objects, terrain,
+  Pass order: The stable sequence of shadows, sky, reflection, objects, terrain,
     water, post effects, and UI/text.
   Lane R result: Recoverable resource setup or GPU-drain failure reported
     through an owner/message result instead of throwing through the render owner.
@@ -188,6 +188,10 @@ class RuntimeRenderer
         uint32_t volumetricWidth = 0;                     // Materialized graph transient width for diagnostics.
         uint32_t volumetricHeight = 0;                    // Materialized graph transient height for diagnostics.
     };
+    struct CinematicPostGraphInputs
+    {
+        const RenderFrameContext& frame;                  // Complete immutable render facts borrowed for this post chain.
+    };
     struct GraphPassResult
     {
         bool rendered = false;                            // Pass body produced visible output.
@@ -270,7 +274,7 @@ class RuntimeRenderer
     GraphPassResult ExecuteDebugOverlayThroughRenderGraph( const RenderFrameContext& frame,
                                                            const RuntimeRenderServices& services,
                                                            bool useCinematicTarget );
-    CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const RenderFrameContext& frame );
+    CinematicPostGraphResult ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
     bool ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
                                           const UiTextPassState& state,

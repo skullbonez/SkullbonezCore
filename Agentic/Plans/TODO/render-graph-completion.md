@@ -1,6 +1,6 @@
 # Render Graph Completion
 
-Status: Active — 1/6 tasks (G0 complete; G1-G5 pending)
+Status: Active — 2/6 tasks (G0-G1 complete; G2-G5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 5 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding E)
 Ledger: G0-G5
@@ -140,6 +140,40 @@ may reorder callbacks.
    exception reasons, extend the architecture tests, and prove the single
    execution/barrier path with full, perf, and stress evidence.
 
+## G1 Transient Barrier Transfer Evidence
+
+The compiler's two `VolumetricLight` transitions are now the live DX12 path.
+`Dx12GraphTransientPool::ExecuteTransitions` consumes the compiled list for the
+active callback pass, resolves the materialized physical slot, verifies the
+compiler's before-state against tracked physical state, emits exactly one native
+barrier, and advances the tracked state. `BeginRenderTarget` and
+`EndRenderTarget` now change descriptors/targets only and contain no transition
+call. `CinematicPostGraphInputs` is the typed wrapper input for the touched post
+chain. Runtime evidence recorded a valid reused 632x340 RGBA16F binding and
+exactly one compiled transition in each callback:
+
+```text
+VolumetricLightPass: PixelShaderResource -> RenderTarget; emitted=1
+ToneMapPass: RenderTarget -> PixelShaderResource; emitted=1
+materialization_failed=false; pool_size=1; reused_this_compile=1
+```
+
+Validation at the unchanged G1 tip:
+
+- Direct Automation build: PASS in 19.2 s, zero warnings/errors.
+- `tools\validate_dx12_renderer.bat` run 1: PASS in 78.3 s; zero DX12
+  validation errors and all three screenshot baselines matched.
+- Runs 2 and 3: PASS in 55.0 s and 55.1 s with the same zero-error,
+  byte-identical visual result.
+- `tools\run_graphics_stress.bat 1`: PASS in 61.58 s; PID 51540 ran for the
+  bounded minute and closed by the PID-scoped timeout without a crash.
+- The initial formal attempt stopped before build/runtime on formatting; the
+  two implementation files and one header were formatted, and the required
+  three-consecutive sequence restarted from zero.
+- Touched-source comment audit: 7/7 checked, 0 deferred. Every touched source
+  file has the required learning header and the new barrier/state hazards are
+  documented beside the authority checks.
+
 ## Tasks
 
 - [x] G0 — Authority inventory and migration map: for every pass, record
@@ -148,7 +182,7 @@ may reorder callbacks.
   to; define the class-by-class migration order and the expected exception
   list. Output: migration table committed into this plan. No validation
   (documentation).
-- [ ] G1 — Transient resource class: graph-compiled transitions become the
+- [x] G1 — Transient resource class: graph-compiled transitions become the
   live barrier path for graph-managed transients (volumetric, tonemap
   inputs); delete the corresponding hand-written transitions. Typed input
   structs for the touched wrappers. Validation:

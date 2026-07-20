@@ -21,6 +21,8 @@ Glossary:
     or replay segment payloads submitted for one frame.
   Instanced mesh: Static mesh plus per-instance data drawn many times in one
     backend call.
+  Compiled transition: Render-graph state edge assigned to a specific pass and
+    resource before callbacks record live commands.
 
 Invariants:
   - Callers borrow this interface only while the renderer is initialized.
@@ -93,6 +95,18 @@ class IRenderCommandContext
     {
         (void)resource;
         return {};
+    }
+    // Executes the compiled transitions assigned to one callback pass for
+    // graph-managed transient resources. The returned count lets the callback
+    // prove that its declared producer/consumer edge became a live barrier.
+    virtual size_t ExecuteGraphTransientTransitions( const RenderGraph& graph,
+                                                     const RenderGraphCompileResult& compiled,
+                                                     uint32_t passIndex )
+    {
+        (void)graph;
+        (void)compiled;
+        (void)passIndex;
+        return 0;
     }
     virtual void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
     {

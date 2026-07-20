@@ -331,6 +331,14 @@ RenderGraphTextureBinding RenderBackendDX12::ResolveGraphTextureBinding( RenderG
 }
 
 
+size_t RenderBackendDX12::ExecuteGraphTransientTransitions( const RenderGraph& graph,
+                                                            const RenderGraphCompileResult& compiled,
+                                                            uint32_t passIndex )
+{
+    return m_graphTransientPool.ExecuteTransitions( graph, compiled, passIndex );
+}
+
+
 void RenderBackendDX12::BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
 {
     m_graphTransientPool.BeginRenderTarget( binding, passName );
