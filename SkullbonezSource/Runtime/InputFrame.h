@@ -17,11 +17,15 @@ Glossary:
     without taking ownership of their state or decisions.
   Editor arbitration: Deterministic merge that keeps the canonical legacy lane
     first, coalesces exact duplicate injected intent, and rejects conflicts.
+  Input turn result: Value-only process request emitted after semantic actions
+    are interpreted; Run applies process-wide policy without rescanning input.
 
 Invariants:
   - No frame view or referenced owner is retained after ProcessInputFrame returns.
   - The function is called once per rendered frame, after automation injection.
   - InputRouter remains the only owner of sampled device and semantic edge state.
+  - Process requests contain no owner references and are consumed in the same
+    frame immediately after ProcessInputFrame returns.
 
 Related:
   - InputRouter.h owns input state and routing policy.
@@ -176,15 +180,20 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   ReplayRuntime& replayRuntime,
                                                   RunCameraMode replayCurrentCameraMode );
 
+struct InputFrameExecutionResult
+{
+    bool requestDevelopmentUiSurfaceSwap = false;
+};
+
 // Executes one input turn through synchronous concrete-owner borrows. This is
 // composition, not an owner: all durable input state remains in inputRouter.
-void ProcessInputFrame( RuntimeFrameHostView& host,
-                        RuntimeFrameInteractionView& interactionOwners,
-                        RuntimeFrameSceneView& sceneOwners,
-                        RuntimeFramePresentationView& presentationOwners,
-                        ReplayRuntime& replayRuntime,
-                        UiInputCaptureIntent externalUiCapture,
-                        UI::OperatorEditorCommandQueues externalEditorCommands = {},
-                        bool legacyDevelopmentUiActive = true );
+InputFrameExecutionResult ProcessInputFrame( RuntimeFrameHostView& host,
+                                             RuntimeFrameInteractionView& interactionOwners,
+                                             RuntimeFrameSceneView& sceneOwners,
+                                             RuntimeFramePresentationView& presentationOwners,
+                                             ReplayRuntime& replayRuntime,
+                                             UiInputCaptureIntent externalUiCapture,
+                                             UI::OperatorEditorCommandQueues externalEditorCommands = {},
+                                             bool legacyDevelopmentUiActive = true );
 } // namespace Runtime
 } // namespace SkullbonezCore

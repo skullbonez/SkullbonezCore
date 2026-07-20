@@ -1,6 +1,6 @@
 # Run::Execute De-accretion
 
-Status: Active — 1/3 tasks (X0 complete; X1-X2 pending)
+Status: Active — 2/3 tasks (X0-X1 complete; X2 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 4 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding D)
 Ledger: X0-X2
@@ -62,7 +62,7 @@ automation/ImGui-owner business, not frame sequencing. The closure review of
   (`SKULLBONEZ_AUTOMATION_DIAGNOSTICS`, `SKULLBONEZ_DEVELOPMENT_TOOLS`)
   compile in all configurations. Validation: `tools\validate_full.bat`
   (Run* mapping row).
-- [ ] X1 — Non-sequencing sweep of `Execute()`, `TickPhysics`,
+- [x] X1 — Non-sequencing sweep of `Execute()`, `TickPhysics`,
   `AfterPhysicsStep`, `TickScreenshots`, `TickAutoCycle`,
   `TickSceneAdvance`: classify each block as sequencing (stays) or owner
   logic (moves or is recorded with reason). Output: disposition table in the
@@ -97,3 +97,11 @@ the command's exact Win32 DPI/style conversion moved with the interpreter.
 Automation and Release direct builds pass; the focused UI stress matrix passes
 all moved commands with clean logs and zero DX12 validation errors; and
 `tools\validate_full.bat` passes at the X0 tip in 139.54s.
+
+X1's complete disposition table is in
+`../../Reports/2026-07-20/run-execute-deaccretion-closure.md`. The sweep moved
+Ctrl+0 semantic interpretation into `ProcessInputFrame` as a typed result and
+moved cross-scene pause precedence into
+`RuntimeInteractionController::BuildFramePolicy`; Run now applies both without
+rescanning actions or mutating published policy. The focused value-seam test,
+UI stress matrix, and `tools\validate_full.bat` pass at the X1 tip.

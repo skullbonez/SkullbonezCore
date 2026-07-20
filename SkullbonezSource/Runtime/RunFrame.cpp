@@ -29,6 +29,8 @@ Glossary:
     assembled before the selected operator frontend renders.
   Development UI apply result: One automation-owned batch outcome containing
     only a recoverable status and an optional Run-owned surface selection.
+  Input turn result: Value-only process request published after the input owner
+    interprets semantic actions; Run never reopens the action array.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
@@ -40,6 +42,8 @@ Invariants:
   - A development surface swap hides the source before the target begins a frame.
   - Run sequences development UI automation but retains only process-wide
     surface selection and application-failure policy.
+  - Physics and input owners publish complete policy/results; Run applies them
+    without reconstructing or overriding their domain decisions.
 
 Related:
   - RuntimeFrameViews.h defines the frame-helper calling convention.
@@ -897,14 +901,15 @@ SkullbonezCore::Core::SbResult Run::Execute()
 #endif
             legacyDevelopmentUiActive = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy;
 #endif
-            ProcessInputFrame( frameHost,
-                               frameInteraction,
-                               frameScene,
-                               framePresentation,
-                               m_replayRuntime,
-                               developmentUiCapture,
-                               developmentEditorCommands,
-                               legacyDevelopmentUiActive );
+            [[maybe_unused]] const InputFrameExecutionResult inputFrameResult =
+                ProcessInputFrame( frameHost,
+                                   frameInteraction,
+                                   frameScene,
+                                   framePresentation,
+                                   m_replayRuntime,
+                                   developmentUiCapture,
+                                   developmentEditorCommands,
+                                   legacyDevelopmentUiActive );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
             if ( m_launchOptions.developmentUiModeExplicit || m_imguiEditor.HasActivatedSurfaceSelection() )
             {
@@ -913,23 +918,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 // process selection before either surface can begin its frame.
                 SelectDevelopmentUiSurface( m_imguiEditor.SelectedSurface() );
             }
-            bool legacySurfaceSwapRequested = false;
-            if ( m_imguiEditor.SelectedSurface() == DevelopmentUiMode::Legacy &&
-                 m_inputRouter.DeviceFrame().keys.IsDown( VK_CONTROL ) )
-            {
-                const InputActions& actions = m_inputRouter.Actions();
-                for ( std::size_t actionIndex = 0u; actionIndex < actions.Count(); ++actionIndex )
-                {
-                    const InputActionEvent& action = actions[actionIndex];
-                    legacySurfaceSwapRequested = action.action == RuntimeInputAction::ToggleUIVisibility &&
-                                                 action.edge == InputActionEdge::Pressed;
-                    if ( legacySurfaceSwapRequested )
-                    {
-                        break;
-                    }
-                }
-            }
-            if ( legacySurfaceSwapRequested )
+            if ( inputFrameResult.requestDevelopmentUiSurfaceSwap )
             {
                 // Plain 0 retains the Legacy minimize behavior. Ctrl+0 is the
                 // explicit surface chord; selection hides Legacy before ImGui
@@ -1267,27 +1256,18 @@ float Run::TickPhysics( double secondsPerFrame,
 #else
     constexpr bool physicsCapture = false;
 #endif
-    RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy(
-        RuntimeInteractionFrameInput{ m_sceneController.State().isScenePhysics,
-                                      stepRequested,
-                                      false,
-                                      replayLiveAdvanceHeld,
-                                      inputSnapshot.pointer.rightDown,
-                                      m_runtimeTools.Editor().viewportLookActive,
-                                      inputSnapshot.frameInput.replayInspectionLookActive,
-                                      physicsCapture,
-                                      m_sceneController.State().timeScale } );
-    if ( m_sceneController.CrossScenePauseLocked() )
-    {
-        // Invariant: the P-key pause lock outranks camera/tool mode. Launcher
-        // and passive scene cameras normally keep physics running, but the lock
-        // requires Space before any simulation step can proceed.
-        policy.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;
-        if ( !stepRequested )
-        {
-            policy.physicsTimeScale = 0.0f;
-        }
-    }
+    RuntimeInteractionFrameInput interactionFrameInput;
+    interactionFrameInput.scenePhysicsEnabled = m_sceneController.State().isScenePhysics;
+    interactionFrameInput.stepHeld = stepRequested;
+    interactionFrameInput.replayScrubbedHistoricalSample = false;
+    interactionFrameInput.replayLiveHeldAtCurrentFrame = replayLiveAdvanceHeld;
+    interactionFrameInput.crossScenePauseLocked = m_sceneController.CrossScenePauseLocked();
+    interactionFrameInput.rightMouseLookHeld = inputSnapshot.pointer.rightDown;
+    interactionFrameInput.editorViewportLookActive = m_runtimeTools.Editor().viewportLookActive;
+    interactionFrameInput.replayInspectionLookActive = inputSnapshot.frameInput.replayInspectionLookActive;
+    interactionFrameInput.forcePhysicsRunning = physicsCapture;
+    interactionFrameInput.sceneTimeScale = m_sceneController.State().timeScale;
+    const RuntimeInteractionFramePolicy policy = m_interaction.BuildFramePolicy( interactionFrameInput );
     const bool manipulatorPhysics = policy.manipulatorActive;
     const auto physicsWorldForces = m_sceneController.Scene().Environment().GetPhysicsWorldForces();
     constexpr bool canStepPhysics = true;

@@ -12,11 +12,14 @@ Glossary:
   Workspace: Coarse runtime mode such as live, inspect, edit, or replay.
   Owner: The tool or subsystem currently allowed to consume world input.
   Gesture: Active pointer operation that owns capture until it ends.
+  Cross-scene pause lock: Explicit policy fact that outranks normal live/tool
+    physics advance until the sampled step input is held.
 
 Invariants:
   - The controller does not clear hover, replay, editor, or physics state
     directly; it returns transition records for Run to apply.
   - Pointer capture, owner, and gesture must describe the same active operation.
+  - Returned frame policy is complete; Run consumes it without policy repair.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.h
@@ -443,6 +446,16 @@ RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInp
     else
     {
         policy.physicsAdvance = PhysicsAdvanceState::Running;
+    }
+    if ( input.crossScenePauseLocked )
+    {
+        // Invariant: the explicit cross-scene lock outranks camera, workspace,
+        // launcher, and tool policy. Space remains the sole step-level release.
+        policy.physicsAdvance = PhysicsAdvanceState::RunWhileStepHeld;
+        if ( !input.stepHeld )
+        {
+            policy.physicsTimeScale = 0.0f;
+        }
     }
 
     const bool toolGestureCaptured = m_pointerCapture == RuntimePointerCaptureOwner::ToolGesture;

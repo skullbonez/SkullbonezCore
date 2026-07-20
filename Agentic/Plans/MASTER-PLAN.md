@@ -281,12 +281,12 @@ single-site clamps, and clear independent review. Closure evidence is in
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 1 | 3 | 33% |
+| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 2 | 3 | 67% |
 | [render-graph-completion](TODO/render-graph-completion.md) | 0 | 6 | 0% |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
 | [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
-| **Active/future total** | **18** | **40** | **45%** |
+| **Active/future total** | **19** | **40** | **48%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -1143,7 +1143,7 @@ the now-closed solver-snapshot move.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Active | 1/3 | X0 interpreter move complete; perform X1 execution-helper disposition sweep |
+| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Active | 2/3 | X1 disposition sweep complete; run independent X2 closure review and final gate |
 | [render-graph-completion](TODO/render-graph-completion.md) | Registered | 0/6 | Start G0 anytime; owner ruling to finish the migration is recorded |
 | [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
 | [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | T0-T1 unblocked; T2 after render-graph-completion |

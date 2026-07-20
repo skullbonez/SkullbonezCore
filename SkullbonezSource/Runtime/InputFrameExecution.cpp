@@ -20,12 +20,15 @@ Glossary:
     independent of the platform's live hardware state.
   Selected development surface: The one Legacy or ImGui implementation allowed
     to own development-tool input and visibility for the current frame.
+  Input turn result: Value-only request returned to Run when an interpreted
+    semantic action requires process-wide development-surface selection.
 
 Invariants:
   - Device input is captured once; later phases consume router-owned values.
   - UI hit testing completes before pointer ownership is finalized.
   - Every concrete owner is borrowed synchronously for this call only.
   - An inactive Legacy surface cannot reactivate itself through stress actions.
+  - Process policy consumes typed results; it never rescans InputRouter actions.
 
 Related:
   - InputFrame.cpp implements shared value and UI-command policy.
@@ -98,15 +101,17 @@ using SkullbonezCore::UI::InGameUITab;
 // scene, replay, tools, diagnostics, UI, and rendering retain their own state
 // and expose only synchronous operations for accepted input actions.
 // Lifetime: both views are borrowed for this call and are never stored.
-void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
-                                                 RuntimeFrameInteractionView& interactionOwners,
-                                                 RuntimeFrameSceneView& sceneOwners,
-                                                 RuntimeFramePresentationView& presentationOwners,
-                                                 ReplayRuntime& replayRuntime,
-                                                 UiInputCaptureIntent externalUiCapture,
-                                                 UI::OperatorEditorCommandQueues externalEditorCommands,
-                                                 bool legacyDevelopmentUiActive )
+InputFrameExecutionResult
+SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
+                                            RuntimeFrameInteractionView& interactionOwners,
+                                            RuntimeFrameSceneView& sceneOwners,
+                                            RuntimeFramePresentationView& presentationOwners,
+                                            ReplayRuntime& replayRuntime,
+                                            UiInputCaptureIntent externalUiCapture,
+                                            UI::OperatorEditorCommandQueues externalEditorCommands,
+                                            bool legacyDevelopmentUiActive )
 {
+    InputFrameExecutionResult result;
     InputRouter& m_inputRouter = interactionOwners.inputRouter;
     SkullbonezCore::Core::EngineConfig& m_config = sceneOwners.config;
     RunLaunchOptions& m_launchOptions = sceneOwners.launchOptions;
@@ -245,7 +250,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         std::fflush( stderr );
         m_applicationExit.RequestOwnedFailure( deviceCaptureResult );
         PostQuitMessage( 1 );
-        return;
+        return result;
     }
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Concept: the last completed UI frame publishes the fitted image value.
@@ -339,7 +344,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             PostQuitMessage( 1 );
         }
         commitPointerPresentation();
-        return;
+        return result;
     }
     const bool UIBlocksKeyboardBeforeInput =
         m_UI.BlocksKeyboard() || externalUiCapture.keyboard || externalUiCapture.text;
@@ -744,6 +749,12 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 // active ImGui surface owns focus and input.
                 break;
             }
+            if ( event.action == RuntimeInputAction::ToggleUIVisibility && deviceFrame.keys.IsDown( VK_CONTROL ) )
+            {
+                // The input owner interprets the chord once; Run retains only
+                // the process-wide decision about which surface becomes active.
+                result.requestDevelopmentUiSurfaceSwap = true;
+            }
             const DiagnosticsUIKeyboardShortcutResult shortcutResult = HandleDiagnosticsUIKeyboardShortcut(
                 DiagnosticsUIKeyboardShortcutContext{ m_UI,
                                                       m_debug,
@@ -984,7 +995,7 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         m_applicationExit.RequestOwnedFailure( uiFrameResult.status );
         PostQuitMessage( 1 );
         commitPointerPresentation();
-        return;
+        return result;
     }
     const bool suppressWorldActionThisFrame = uiFrameResult.suppressWorldActionThisFrame;
 
@@ -994,17 +1005,18 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     const DeviceInputFrame& routedDeviceFrame = m_inputRouter.DeviceFrame();
     const UiInputHitSnapshot& routedUiSnapshot = m_inputRouter.UiSnapshot();
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
-    const RuntimeInteractionFrameInput frameInput{
-        SceneState().isScenePhysics,
-        routedDeviceFrame.keys.IsDown( VK_SPACE ) || uiFrameResult.requestSceneStep,
-        replayInput.scrubPaused,
-        replayInput.liveAdvanceHeld,
-        mouseEdges.rightDown,
-        m_runtimeTools.Editor().viewportLookActive,
-        replayInput.inspectionActive && routedDeviceFrame.rightDown && !routedUiSnapshot.wantsNativeCursor &&
-            !routedUiSnapshot.blocksCameraMouse,
-        false,
-        SceneState().timeScale };
+    RuntimeInteractionFrameInput frameInput;
+    frameInput.scenePhysicsEnabled = SceneState().isScenePhysics;
+    frameInput.stepHeld = routedDeviceFrame.keys.IsDown( VK_SPACE ) || uiFrameResult.requestSceneStep;
+    frameInput.replayScrubbedHistoricalSample = replayInput.scrubPaused;
+    frameInput.replayLiveHeldAtCurrentFrame = replayInput.liveAdvanceHeld;
+    frameInput.crossScenePauseLocked = m_sceneController.CrossScenePauseLocked();
+    frameInput.rightMouseLookHeld = mouseEdges.rightDown;
+    frameInput.editorViewportLookActive = m_runtimeTools.Editor().viewportLookActive;
+    frameInput.replayInspectionLookActive = replayInput.inspectionActive && routedDeviceFrame.rightDown &&
+                                            !routedUiSnapshot.wantsNativeCursor && !routedUiSnapshot.blocksCameraMouse;
+    frameInput.forcePhysicsRunning = false;
+    frameInput.sceneTimeScale = SceneState().timeScale;
     const RuntimeInputSnapshot& inputSnapshot =
         m_inputRouter.PublishRuntimeSnapshot( frameInput, suppressWorldActionThisFrame );
     const DeviceInputFrame& pointerDevice = m_inputRouter.DeviceFrame();
@@ -1142,4 +1154,5 @@ void SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     {
     }
     commitPointerPresentation();
+    return result;
 }

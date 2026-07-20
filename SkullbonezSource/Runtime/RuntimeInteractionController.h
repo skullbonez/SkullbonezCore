@@ -14,6 +14,8 @@ Glossary:
   Owner: The tool or subsystem currently allowed to consume world input.
   Gesture: Active pointer operation that owns capture until it ends.
   Physics advance: Per-frame policy that decides whether the physics step runs.
+  Cross-scene pause lock: Scene-owned fact that forces step-held physics even
+    when the active camera or tool would normally keep simulation running.
   World-settings command: Input-owned value in domain units consumed by the
     concrete world owner after routing completes.
 
@@ -26,6 +28,8 @@ Invariants:
   - Active drag kind, axis, and angular/scale mode exist only in the typed
     gesture; replay and editor payload owners must not mirror them in booleans.
   - Published world commands contain no physical key names or device handles.
+  - BuildFramePolicy resolves all precedence; frame sequencing must not mutate
+    the returned physics or camera decisions.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
@@ -178,6 +182,7 @@ struct RuntimeInteractionFrameInput
     bool stepHeld = false;
     bool replayScrubbedHistoricalSample = false;
     bool replayLiveHeldAtCurrentFrame = false;
+    bool crossScenePauseLocked = false;
     bool rightMouseLookHeld = false;
     bool editorViewportLookActive = false;
     bool replayInspectionLookActive = false;
