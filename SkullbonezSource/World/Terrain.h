@@ -28,7 +28,9 @@ Glossary:
 
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
-  are the validation contract.
+    are the validation contract.
+  - Terrain color and shadow draws consume caller-owned raster buckets; terrain
+    does not infer fixed-function state from renderer history.
 
 Related:
   - SkullbonezSource/World/Terrain.cpp
@@ -119,6 +121,7 @@ class Terrain
                  Rendering::IRenderCommandContext& commands,
                  const float* lightPosition,
                  const float* clipPlane,
+                 const Rendering::PassRasterStateBucket& rasterState,
                  const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr,
                  const Rendering::ShadowFrameData* shadow = nullptr,
                  const Rendering::ShadowFrameData* detailShadow =
@@ -126,6 +129,7 @@ class Terrain
     void RenderShadowDepth( Core::Profiler* profiler,
                             const Math::Transformation::Matrix4& lightView,
                             const Math::Transformation::Matrix4& lightProjection,
+                            const Rendering::PassRasterStateBucket& rasterState,
                             const SkullbonezCore::Core::CinematicRenderConfig* cinematic =
                                 nullptr );                                 // Depth-only terrain caster pass for directional shadows.
     void BindRenderContexts(

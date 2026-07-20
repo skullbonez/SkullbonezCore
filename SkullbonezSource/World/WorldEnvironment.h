@@ -36,6 +36,8 @@ Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
   - Device/key vocabulary cannot cross into world-setting mutation methods.
+  - Water rendering consumes its pass's declared raster bucket for both calm
+    and ocean meshes; world state never owns backend raster authority.
 
 Related:
   - SkullbonezSource/World/WorldEnvironment.cpp
@@ -156,6 +158,7 @@ class WorldEnvironment
                       const Math::Vector::Vector3& cameraWorld,
                       Rendering::IRenderCommandContext& commands,
                       const WaterReflectionInput& reflection,
+                      const Rendering::PassRasterStateBucket& rasterState,
                       float time,
                       bool flatWater = false,
                       bool cinematic = false,

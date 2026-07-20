@@ -19,6 +19,8 @@ Invariants:
     field order, or the draw that depends on them must be skipped.
   - Builder-owned mesh/shader handles are backend resources and must be released
     by the renderer destructor before backend teardown or recreation.
+  - Visible opaque, visible transparent, and shadow submissions select complete
+    raster buckets at the draw; batch begin/end never mutate ambient state.
 
 Related:
   - SkullbonezSource/Rendering/PrimitiveBatchRenderer.h
@@ -111,23 +113,22 @@ struct InstancedShadowDepthConstants
     float clipPlane[4];
 };
 
-static void BeginPrimitiveBatchTransparency( const PrimitiveRenderContext& context, bool isTransparent )
-{
-    if ( isTransparent )
-    {
-        Commands( context ).SetBlend( true );
-        Commands( context ).SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
-        Commands( context ).SetDepthWrite( false );
-    }
-}
+constexpr PassRasterStateBucket PRIMITIVE_OPAQUE_RASTER = MakePassRasterStateBucket( 0, true, true, false );
+constexpr PassRasterStateBucket PRIMITIVE_TRANSPARENT_RASTER =
+    MakePassRasterStateBucket( 1, true, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+// Shadow bias mirrors the pass-owned recipe: constant units first, then slope.
+constexpr PassRasterStateBucket PRIMITIVE_SHADOW_RASTER = MakePassRasterStateBucket( 2,
+                                                                                     true,
+                                                                                     true,
+                                                                                     false,
+                                                                                     BlendFactor::One,
+                                                                                     BlendFactor::Zero,
+                                                                                     CullMode::Back,
+                                                                                     { true, 4.0f, 2.0f } );
 
-static void EndPrimitiveBatchTransparency( const PrimitiveRenderContext& context, bool wasTransparent )
+static const PassRasterStateBucket& PrimitiveVisibleRasterState( bool isTransparent )
 {
-    if ( wasTransparent )
-    {
-        Commands( context ).SetDepthWrite( true );
-    }
-    Commands( context ).SetBlend( false );
+    return isTransparent ? PRIMITIVE_TRANSPARENT_RASTER : PRIMITIVE_OPAQUE_RASTER;
 }
 
 static uint8_t MaterialByte( float value )
@@ -884,8 +885,6 @@ void PrimitiveBatchRenderer::DrawSphereBatchBegin( const PrimitiveRenderContext&
         return;
     }
 
-    BeginPrimitiveBatchTransparency( context, isTransparent );
-
     // Low-poly spheres still cast real shadows onto terrain, but they do not
     // receive object shadows. The shadow map is single and terrain-sized, so
     // ball-on-ball receiver shadows alias badly across the large flat facets
@@ -925,10 +924,10 @@ void PrimitiveBatchRenderer::DrawSphereBatchEnd( const PrimitiveRenderContext& c
                                                     static_cast<int>( m_state.sphereInstanceData.size() ) );
             Commands( context ).DrawInstancedMesh( m_state.activeSphereInstMesh,
                                                    m_state.activeSphereVertexCount,
-                                                   instanceCount );
+                                                   instanceCount,
+                                                   PrimitiveVisibleRasterState( m_state.sphereBatchTransparent ) );
         }
     }
-    EndPrimitiveBatchTransparency( context, m_state.sphereBatchTransparent );
     m_state.sphereBatchTransparent = false;
     m_state.sphereBatchReady = false;
 }
@@ -1003,7 +1002,8 @@ void PrimitiveBatchRenderer::DrawShadowDepthSphereBatchEnd( const PrimitiveRende
                                                 static_cast<int>( m_state.sphereInstanceData.size() ) );
         Commands( context ).DrawInstancedMesh( m_state.activeSphereInstMesh,
                                                m_state.activeSphereVertexCount,
-                                               instanceCount );
+                                               instanceCount,
+                                               PRIMITIVE_SHADOW_RASTER );
     }
     m_state.sphereBatchReady = false;
 }
@@ -1075,8 +1075,6 @@ void PrimitiveBatchRenderer::DrawBoxBatchBegin( const PrimitiveRenderContext& co
         return;
     }
 
-    BeginPrimitiveBatchTransparency( context, isTransparent );
-
     m_state.boxBatchReady = BindPrimitiveBatchShader( *m_state.sphereShader,
                                                       { context,
                                                         m_state,
@@ -1107,9 +1105,11 @@ void PrimitiveBatchRenderer::DrawBoxBatchEnd( const PrimitiveRenderContext& cont
         Commands( context ).UploadInstanceData( m_state.boxInstMesh,
                                                 m_state.boxInstanceData.data(),
                                                 static_cast<int>( m_state.boxInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.boxInstMesh, m_state.boxVertexCount, instanceCount );
+        Commands( context ).DrawInstancedMesh( m_state.boxInstMesh,
+                                               m_state.boxVertexCount,
+                                               instanceCount,
+                                               PrimitiveVisibleRasterState( m_state.boxBatchTransparent ) );
     }
-    EndPrimitiveBatchTransparency( context, m_state.boxBatchTransparent );
     m_state.boxBatchTransparent = false;
     m_state.boxBatchReady = false;
 }
@@ -1161,7 +1161,10 @@ void PrimitiveBatchRenderer::DrawShadowDepthBoxBatchEnd( const PrimitiveRenderCo
         Commands( context ).UploadInstanceData( m_state.boxInstMesh,
                                                 m_state.boxInstanceData.data(),
                                                 static_cast<int>( m_state.boxInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.boxInstMesh, m_state.boxVertexCount, instanceCount );
+        Commands( context ).DrawInstancedMesh( m_state.boxInstMesh,
+                                               m_state.boxVertexCount,
+                                               instanceCount,
+                                               PRIMITIVE_SHADOW_RASTER );
     }
     m_state.boxBatchReady = false;
 }
@@ -1188,7 +1191,6 @@ void PrimitiveBatchRenderer::DrawConvexHullModel( const PrimitiveRenderContext& 
     }
 
     EnsureSphereShader( context );
-    BeginPrimitiveBatchTransparency( context, isTransparent );
     const bool ready = BindPrimitiveBatchShader( *m_state.sphereShader,
                                                  { context,
                                                    m_state,
@@ -1205,9 +1207,9 @@ void PrimitiveBatchRenderer::DrawConvexHullModel( const PrimitiveRenderContext& 
     {
         Commands( context ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
                                                     m_state.convexHullVertexData.data(),
-                                                    vertexCount );
+                                                    vertexCount,
+                                                    PrimitiveVisibleRasterState( isTransparent ) );
     }
-    EndPrimitiveBatchTransparency( context, isTransparent );
 }
 
 void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const PrimitiveRenderContext& context,
@@ -1243,7 +1245,8 @@ void PrimitiveBatchRenderer::DrawShadowDepthConvexHullModel( const PrimitiveRend
     {
         Commands( context ).UploadAndDrawDynamicVB( m_state.convexHullDynamicVB,
                                                     m_state.convexHullVertexData.data(),
-                                                    vertexCount );
+                                                    vertexCount,
+                                                    PRIMITIVE_SHADOW_RASTER );
     }
 }
 
@@ -1302,8 +1305,6 @@ void PrimitiveBatchRenderer::DrawPineBatchBegin( const PrimitiveRenderContext& c
         return;
     }
 
-    BeginPrimitiveBatchTransparency( context, isTransparent );
-
     m_state.pineBatchReady = BindPrimitiveBatchShader( *m_state.sphereShader,
                                                        { context,
                                                          m_state,
@@ -1334,9 +1335,11 @@ void PrimitiveBatchRenderer::DrawPineBatchEnd( const PrimitiveRenderContext& con
         Commands( context ).UploadInstanceData( m_state.pineInstMesh,
                                                 m_state.pineInstanceData.data(),
                                                 static_cast<int>( m_state.pineInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.pineInstMesh, m_state.pineVertexCount, instanceCount );
+        Commands( context ).DrawInstancedMesh( m_state.pineInstMesh,
+                                               m_state.pineVertexCount,
+                                               instanceCount,
+                                               PrimitiveVisibleRasterState( m_state.pineBatchTransparent ) );
     }
-    EndPrimitiveBatchTransparency( context, m_state.pineBatchTransparent );
     m_state.pineBatchTransparent = false;
     m_state.pineBatchReady = false;
 }
@@ -1385,7 +1388,10 @@ void PrimitiveBatchRenderer::DrawShadowDepthPineBatchEnd( const PrimitiveRenderC
         Commands( context ).UploadInstanceData( m_state.pineInstMesh,
                                                 m_state.pineInstanceData.data(),
                                                 static_cast<int>( m_state.pineInstanceData.size() ) );
-        Commands( context ).DrawInstancedMesh( m_state.pineInstMesh, m_state.pineVertexCount, instanceCount );
+        Commands( context ).DrawInstancedMesh( m_state.pineInstMesh,
+                                               m_state.pineVertexCount,
+                                               instanceCount,
+                                               PRIMITIVE_SHADOW_RASTER );
     }
     m_state.pineBatchReady = false;
 }

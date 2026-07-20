@@ -4,7 +4,7 @@ Purpose:
   Owns bounded dynamic/instanced geometry registries, warmed overlay pipelines,
   and their DX12 create/upload/draw/destroy lifecycle.
 
-Mental model:
+Summary:
   Dx12GeometryOwner retains geometry handles and warmed overlay resources.
   RenderBackendDX12 establishes a valid command epoch and lends per-operation
   values plus the concrete diagnostics owner; geometry records draw evidence
@@ -27,6 +27,8 @@ Invariants:
   - Dynamic line PSOs are stored in a fixed cache by render-target format; cache
     exhaustion is a renderer capacity invariant, not a recoverable shader/device
     failure.
+  - Declared dynamic, transient, and instanced draws pass their raster recipe
+    directly into PSO preparation; they never mutate legacy desired state.
   - GeometryOwner stores no backend pointer, callback, or polymorphic service;
     every frame dependency is explicit at the operation boundary.
   - One accepted native geometry draw records one row through Dx12Diagnostics.
@@ -128,6 +130,12 @@ bool IsTrajectoryRibbonStyle( TransientTriangleStyle style )
 {
     return style == TransientTriangleStyle::TrajectoryRibbon ||
            style == TransientTriangleStyle::TrajectoryRibbonDepthHint;
+}
+
+bool IsGridLineRasterState( const RasterStateDesc& raster )
+{
+    return !raster.depthTest && !raster.depthWrite && !raster.blendEnabled && raster.cullMode == CullMode::None &&
+           !raster.depthBias.enabled;
 }
 } // namespace
 
@@ -340,9 +348,12 @@ void Dx12GeometryOwner::DrawLinesColored( const float* data,
                                           ID3D12GraphicsCommandList* commandList,
                                           Dx12PipelineOwner& pipeline,
                                           Dx12DrawGate& drawGate,
-                                          Dx12Diagnostics& diagnostics )
+                                          Dx12Diagnostics& diagnostics,
+                                          const RasterStateDesc* declaredRasterState )
 {
-    if ( vertCount <= 0 )
+    // Invariant: the specialized line-topology PSO is immutable. Declared
+    // callers must select its depth-disabled, unblended, two-sided recipe.
+    if ( vertCount <= 0 || ( declaredRasterState && !IsGridLineRasterState( *declaredRasterState ) ) )
     {
         return;
     }
@@ -422,7 +433,8 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
                                                        uint8_t* uploadPointer,
                                                        ID3D12GraphicsCommandList* commandList,
                                                        Dx12DrawGate& drawGate,
-                                                       Dx12Diagnostics& diagnostics )
+                                                       Dx12Diagnostics& diagnostics,
+                                                       const RasterStateDesc* declaredRasterState )
 {
     if ( vertexCount <= 0 || !data || !viewProjMatrix16 || vbAddress == 0 || !uploadPointer )
     {
@@ -473,7 +485,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( const float* data,
     const UINT64 dataSize = static_cast<UINT64>( vertexCount ) * static_cast<UINT64>( vertexLayout.stride );
     memcpy( uploadPointer, data, static_cast<size_t>( dataSize ) );
 
-    if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout ) )
+    if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, false, nullptr, &vertexLayout, declaredRasterState ) )
     {
         return;
     }
@@ -673,7 +685,8 @@ void Dx12GeometryOwner::DrawInstancedMesh( uint32_t handle,
                                            int instanceCount,
                                            ID3D12GraphicsCommandList* commandList,
                                            Dx12DrawGate& drawGate,
-                                           Dx12Diagnostics& diagnostics )
+                                           Dx12Diagnostics& diagnostics,
+                                           const RasterStateDesc* declaredRasterState )
 {
     if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() || instanceCount <= 0 )
     {
@@ -686,7 +699,7 @@ void Dx12GeometryOwner::DrawInstancedMesh( uint32_t handle,
         return; // No instance data uploaded yet
     }
 
-    if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, true, &im, nullptr ) )
+    if ( !drawGate.PreparePipelineDraw( VertexFormat12::Pos3, true, &im, nullptr, declaredRasterState ) )
     {
         return;
     }
@@ -906,7 +919,37 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
                                       CommandList(),
                                       m_pipelineOwner,
                                       m_frameOwner.DrawGate(),
-                                      m_diagnostics );
+                                      m_diagnostics,
+                                      nullptr );
+    m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+}
+
+
+void RenderBackendDX12::DrawLinesColored( const float* data,
+                                          int vertCount,
+                                          const float* viewProjMatrix16,
+                                          const PassRasterStateBucket& bucket )
+{
+    m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+    if ( !data || !viewProjMatrix16 || vertCount <= 0 || !m_frameOwner.DrawGate().PrepareDraw() )
+    {
+        return;
+    }
+    const UINT64 bytes = static_cast<UINT64>( vertCount ) * 6u * sizeof( float );
+    const D3D12_GPU_VIRTUAL_ADDRESS address =
+        m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
+                                                                 m_geometryOwner.GridLineConstantBytes(),
+                                                                 RenderUploadCategory::DebugPredictionOverlay );
+    m_geometryOwner.DrawLinesColored( data,
+                                      vertCount,
+                                      viewProjMatrix16,
+                                      address,
+                                      address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
+                                      CommandList(),
+                                      m_pipelineOwner,
+                                      m_frameOwner.DrawGate(),
+                                      m_diagnostics,
+                                      &bucket.raster );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 
@@ -941,7 +984,45 @@ void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
         address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
         CommandList(),
         m_frameOwner.DrawGate(),
-        m_diagnostics );
+        m_diagnostics,
+        nullptr );
+    m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+}
+
+
+void RenderBackendDX12::DrawTransientColoredTriangles( const float* data,
+                                                       int vertexCount,
+                                                       const float* viewProjMatrix16,
+                                                       TransientTriangleStyle style,
+                                                       const PassRasterStateBucket& bucket )
+{
+    m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+    if ( !data || !viewProjMatrix16 || vertexCount <= 0 || !m_frameOwner.DrawGate().PrepareDraw() )
+    {
+        return;
+    }
+    const UINT64 floatsPerVertex = IsTrajectoryRibbonStyle( style ) ? 19u : 11u;
+    const UINT64 bytes = static_cast<UINT64>( vertexCount ) * floatsPerVertex * sizeof( float );
+    const RenderUploadCategory category = IsTrajectoryRibbonStyle( style )
+                                              ? RenderUploadCategory::DebugPredictionOverlay
+                                              : RenderUploadCategory::DynamicVertex;
+    const D3D12_GPU_VIRTUAL_ADDRESS address =
+        m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
+                                                                 m_geometryOwner.TransientConstantBytes( style ),
+                                                                 category );
+    m_geometryOwner.DrawTransientColoredTriangles(
+        data,
+        vertexCount,
+        viewProjMatrix16,
+        style,
+        m_renderDevice.Width(),
+        m_renderDevice.Height(),
+        address,
+        address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
+        CommandList(),
+        m_frameOwner.DrawGate(),
+        m_diagnostics,
+        &bucket.raster );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 
@@ -1022,7 +1103,29 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
                                        instanceCount,
                                        CommandList(),
                                        m_frameOwner.DrawGate(),
-                                       m_diagnostics );
+                                       m_diagnostics,
+                                       nullptr );
+    m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+}
+
+
+void RenderBackendDX12::DrawInstancedMesh( uint32_t handle,
+                                           int staticVertCount,
+                                           int instanceCount,
+                                           const PassRasterStateBucket& bucket )
+{
+    if ( !m_frameOwner.DrawGate().PrepareDraw() )
+    {
+        m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+        return;
+    }
+    m_geometryOwner.DrawInstancedMesh( handle,
+                                       staticVertCount,
+                                       instanceCount,
+                                       CommandList(),
+                                       m_frameOwner.DrawGate(),
+                                       m_diagnostics,
+                                       &bucket.raster );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 

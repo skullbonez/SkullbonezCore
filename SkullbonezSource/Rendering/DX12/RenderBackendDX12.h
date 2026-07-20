@@ -509,7 +509,8 @@ class Dx12GeometryOwner
                            ID3D12GraphicsCommandList* commandList,
                            Dx12PipelineOwner& pipeline,
                            Dx12DrawGate& drawGate,
-                           Dx12Diagnostics& diagnostics );
+                           Dx12Diagnostics& diagnostics,
+                           const RasterStateDesc* declaredRasterState );
     void DrawTransientColoredTriangles( const float* data,
                                         int vertexCount,
                                         const float* viewProjMatrix16,
@@ -520,7 +521,8 @@ class Dx12GeometryOwner
                                         uint8_t* uploadPointer,
                                         ID3D12GraphicsCommandList* commandList,
                                         Dx12DrawGate& drawGate,
-                                        Dx12Diagnostics& diagnostics );
+                                        Dx12Diagnostics& diagnostics,
+                                        const RasterStateDesc* declaredRasterState );
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
                                   int staticFloatsPerVert,
@@ -545,7 +547,8 @@ class Dx12GeometryOwner
                             int instanceCount,
                             ID3D12GraphicsCommandList* commandList,
                             Dx12DrawGate& drawGate,
-                            Dx12Diagnostics& diagnostics );
+                            Dx12Diagnostics& diagnostics,
+                            const RasterStateDesc* declaredRasterState );
     void DestroyInstancedMesh( uint32_t handle );
     uint64_t StaticVertexBufferAddress( uint32_t handle ) const;
     int StaticVertexStride( uint32_t handle ) const;
@@ -906,10 +909,19 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void DestroyDynamicVB( uint32_t handle ) override;
 
     void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
+    void DrawLinesColored( const float* data,
+                           int vertCount,
+                           const float* viewProjMatrix16,
+                           const PassRasterStateBucket& bucket ) override;
     void DrawTransientColoredTriangles( const float* data,
                                         int vertexCount,
                                         const float* viewProjMatrix16,
                                         TransientTriangleStyle style ) override;
+    void DrawTransientColoredTriangles( const float* data,
+                                        int vertexCount,
+                                        const float* viewProjMatrix16,
+                                        TransientTriangleStyle style,
+                                        const PassRasterStateBucket& bucket ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
@@ -923,6 +935,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                                   int numStaticAttribs = 0 ) override;
     void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;
     void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) override;
+    void DrawInstancedMesh( uint32_t handle,
+                            int staticVertCount,
+                            int instanceCount,
+                            const PassRasterStateBucket& bucket ) override;
     void DestroyInstancedMesh( uint32_t handle ) override;
 };
 } // namespace Rendering

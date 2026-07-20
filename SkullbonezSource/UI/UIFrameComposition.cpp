@@ -22,6 +22,8 @@ Invariants:
   - Functions retain no UI owner pointer or mutable frame state.
   - Tracy status participates in the profiler signature so a viewer connection
     transition invalidates the cached draw without per-frame text allocation.
+  - Render-target previews use a declared depth-disabled opaque bucket and do
+    not query or restore the surrounding UI pass's raster state.
 
 Related:
   - UIFrameComposition.h declares value contracts and constants.
@@ -32,6 +34,12 @@ Related:
 
 namespace SkullbonezCore::UI::FrameComposition
 {
+namespace
+{
+constexpr Rendering::PassRasterStateBucket PREVIEW_RASTER_STATE =
+    Rendering::MakePassRasterStateBucket( 0, false, false, false );
+}
+
 uint32_t HashCombine( uint32_t seed, uint32_t value )
 {
     seed ^= value;
@@ -750,17 +758,7 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader
     const Math::Transformation::Matrix4 proj =
         Math::Transformation::Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
     Rendering::IRenderCommandContext& commands = *render.commands;
-    const bool depthTestWasEnabled = commands.IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = commands.IsDepthWriteEnabled();
-    const bool blendWasEnabled = commands.IsBlendEnabled();
-    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
-    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-    commands.GetBlendFunc( blendSrc, blendDst );
-
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
-    commands.SetDepthTest( false );
-    commands.SetDepthWrite( false );
-    commands.SetBlend( false );
     shader->Use();
     shader->SetMat4( "uProjection", proj );
     shader->SetInt( "uTexture", 0 );
@@ -768,13 +766,9 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader
     commands.BindTexture( resource.textureHandle, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( *render.diagnostics, "RenderTargetPreview" );
-        commands.UploadAndDrawDynamicVB( dynamicVB, verts, 6 );
+        commands.UploadAndDrawDynamicVB( dynamicVB, verts, 6, PREVIEW_RASTER_STATE );
     }
     commands.BindTexture( 0, 0 );
-    commands.SetDepthWrite( depthWriteWasEnabled );
-    commands.SetDepthTest( depthTestWasEnabled );
-    commands.SetBlendFunc( blendSrc, blendDst );
-    commands.SetBlend( blendWasEnabled );
 }
 
 

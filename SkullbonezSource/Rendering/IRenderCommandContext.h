@@ -113,6 +113,20 @@ struct PassRasterStateBucket
     RasterStateDesc raster;
 };
 
+// Pass code names the bucket id while spelling out the complete fixed-function
+// recipe. Defaults deliberately match an opaque depth-tested mesh draw.
+constexpr PassRasterStateBucket MakePassRasterStateBucket( uint8_t id,
+                                                           bool depthTest,
+                                                           bool depthWrite,
+                                                           bool blendEnabled,
+                                                           BlendFactor sourceBlend = BlendFactor::One,
+                                                           BlendFactor destinationBlend = BlendFactor::Zero,
+                                                           CullMode cullMode = CullMode::Back,
+                                                           DepthBiasDesc depthBias = {} )
+{
+    return { { id }, { depthTest, depthWrite, blendEnabled, sourceBlend, destinationBlend, cullMode, depthBias, {} } };
+}
+
 enum class TransientTriangleStyle
 {
     Color,
@@ -209,6 +223,10 @@ class IRenderCommandContext
         (void)vertCount;
         (void)viewProjMatrix16;
     }
+    virtual void DrawLinesColored( const float* data,
+                                   int vertCount,
+                                   const float* viewProjMatrix16,
+                                   const PassRasterStateBucket& bucket ) = 0;
     virtual void DrawTransientColoredTriangles( const float* data,
                                                 int vertexCount,
                                                 const float* viewProjMatrix16,
@@ -219,9 +237,18 @@ class IRenderCommandContext
         (void)viewProjMatrix16;
         (void)style;
     }
+    virtual void DrawTransientColoredTriangles( const float* data,
+                                                int vertexCount,
+                                                const float* viewProjMatrix16,
+                                                TransientTriangleStyle style,
+                                                const PassRasterStateBucket& bucket ) = 0;
 
     virtual void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) = 0;
     virtual void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) = 0;
+    virtual void DrawInstancedMesh( uint32_t handle,
+                                    int staticVertCount,
+                                    int instanceCount,
+                                    const PassRasterStateBucket& bucket ) = 0;
 };
 
 } // namespace Rendering

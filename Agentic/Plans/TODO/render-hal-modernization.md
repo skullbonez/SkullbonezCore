@@ -1,6 +1,6 @@
 # Render HAL Modernization
 
-Status: Active — 2/6 tasks (M0-M5)
+Status: Active — 3/6 tasks (M0-M5)
 Owner: repository owner; registered 2026-07-20 as campaign plan 6 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding F)
 Ledger: M0-M5
@@ -304,6 +304,52 @@ launcher interaction (2.74 s, `ok=true`). Comment-style audit: 16/16 touched
 source-bearing files inspected, zero deferred; the two added null-mesh methods
 are trivial test-double no-ops and require no learning header.
 
+## M2 Full-Pass Migration Evidence
+
+Completed 2026-07-20 on `nightrunner-20th-july`.
+
+Every production graphics submission now selects a declared raster bucket:
+
+- terrain color/shadow, calm/ocean water, primitive opaque/transparent/shadow
+  batches, and convex hull draws carry complete mesh/dynamic/instanced recipes;
+- text, UI previews, cinematic sky, volumetric light, and tonemap fullscreen
+  quads carry depth-disabled buckets instead of save/mutate/restore sequences;
+- tornado triangles, replay depth-hint/visible ribbons, and both debug-line
+  producers carry explicit blended or specialized line buckets; and
+- the DX12 transient-triangle, debug-line, and instanced-mesh paths accept the
+  declaration at the operation boundary. The specialized line PSO validates
+  its immutable depth-disabled, unblended, two-sided recipe.
+
+Production pass/helper `.cpp` files contain zero raster setter or state-query
+calls. The legacy interface/backend rows remain only for M3 deletion; declared
+draws do not copy their values into legacy desired state.
+
+The same bounded stress suite/seed shows four fewer warmed PSO rows than M1 and
+no late misses:
+
+| Evidence | M1 frame 1,800 | M2 frame 1,800 | M2 frame 10,800 | M2 frame 12,600 |
+|---|---:|---:|---:|---:|
+| In-process PSO entries | 23 | 19 | 19 | 19 |
+| Cache hits | 24,630 | 24,634 | 150,750 | 175,960 |
+| Cache misses | 23 | 19 | 19 | 19 |
+| PSOs created by pass precompile | 1 | 1 | 1 | 1 |
+
+Validation at the final M2 source tip:
+
+| Command | Time | Result |
+|---|---:|---|
+| `tools\validate_dx12_renderer.bat` run 1 | 79.64 s | PASS; Profile/Debug clean, zero warnings/errors, captures accepted, zero DX12 validation errors |
+| `tools\validate_dx12_renderer.bat` run 2 | 56.00 s | PASS; same evidence |
+| `tools\validate_dx12_renderer.bat` run 3 | 56.14 s | PASS; same evidence |
+| `tools\run_graphics_stress.bat 1` | 62.62 s | PASS; 61.736 s sampled, 13,045 frames/358 scene loads, graceful PID-scoped stop, stderr empty, 19 misses stable and 175,960 hits |
+| `tools\validate_full.bat` | 157.12 s | PASS; 329/329 tests and 61,354 assertions, coverage/Automation/DX12/physics, zero DX12 errors, accepted screenshots, 44,401 physics lines byte-exact |
+
+Focused iteration also passed Profile and Automation builds (zero
+warnings/errors), a five-frame DX12 launch (2.11 s), and the launcher
+interaction (3.50 s, `ok=true`). Comment-style audit: 12/12 touched
+source-bearing files inspected, zero deferred. Formatting pipeline passed after
+scoped formatting of the touched files only.
+
 ## Tasks
 
 - [x] M0 — Contract and inventory: enumerate every `IRenderCommandContext`
@@ -319,7 +365,7 @@ are trivial test-double no-ops and require no learning header.
   with precompiled PSOs; prove baseline-identical output and record PSO
   cache evidence. Validation: `tools\validate_dx12_renderer.bat` ×3 +
   `tools\run_graphics_stress.bat 1` + `tools\validate_perf.bat`.
-- [ ] M2 — Full pass migration: remaining passes move to declared state;
+- [x] M2 — Full pass migration: remaining passes move to declared state;
   per-draw setter calls disappear from pass bodies. Validation:
   `tools\validate_dx12_renderer.bat` ×3 + `tools\run_graphics_stress.bat 1`.
 - [ ] M3 — Setter retirement: delete the global raster-state setters/getters

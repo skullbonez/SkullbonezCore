@@ -31,6 +31,8 @@ Invariants:
     paths can degrade without erasing already-revealed boxes.
   - The tracer owns fixed-capacity overlay buffers and must not allocate while
     building a frame.
+  - Line, depth-hint, and visible-ribbon draws carry separate immutable raster
+    buckets; overlay submission never borrows the prior pass's state.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.h
@@ -91,6 +93,30 @@ constexpr std::size_t RUN_EDITOR_TRACER_REPLAY_RIBBON_VERTEX_FLOAT_CAPACITY =
 constexpr float RUN_EDITOR_TRACER_REPLAY_LINE_OPACITY = 0.5f;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603ull;
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_PRIME = 1099511628211ull;
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_RIBBON_DEPTH_HINT_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
+                                                          false,
+                                                          false,
+                                                          true,
+                                                          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                                          SkullbonezCore::Rendering::BlendFactor::One,
+                                                          SkullbonezCore::Rendering::CullMode::None );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_RIBBON_VISIBLE_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 1,
+                                                          true,
+                                                          false,
+                                                          true,
+                                                          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                                          SkullbonezCore::Rendering::BlendFactor::One,
+                                                          SkullbonezCore::Rendering::CullMode::None );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_LINE_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 2,
+                                                          false,
+                                                          false,
+                                                          false,
+                                                          SkullbonezCore::Rendering::BlendFactor::One,
+                                                          SkullbonezCore::Rendering::BlendFactor::Zero,
+                                                          SkullbonezCore::Rendering::CullMode::None );
 
 void HashReplaySubmissionBytes( uint64_t& hash, SkullbonezCore::Core::ByteView bytes )
 {
@@ -1366,48 +1392,30 @@ void RunEditorTracer::Render( const ReplayVisualPacket& packet,
         // pair of vertices is one line segment consumed by DrawLinesColored.
         renderCommands.DrawLinesColored( packet.combinedLines.data(),
                                          static_cast<int>( packet.combinedLines.size() / 6u ),
-                                         viewProjection.Data() );
+                                         viewProjection.Data(),
+                                         REPLAY_LINE_RASTER );
     }
 
     if ( !packet.expandedRibbonVertices.empty() )
     {
-        Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
-        Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-        const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
-        const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
-        const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-        const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
-        renderCommands.GetBlendFunc( blendSrc, blendDst );
-
         // Concept: the first pass is a low-opacity depth hint with depth
         // testing disabled; the normal pass is depth-tested, so visible
         // strokes stay seated while occluded spans remain only faintly
         // readable behind scene geometry.
-        renderCommands.SetDepthTest( false );
-        renderCommands.SetDepthWrite( false );
-        renderCommands.SetBlend( true );
-        renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::One );
-        renderCommands.SetCullFace( false );
+        renderCommands.DrawTransientColoredTriangles(
+            packet.expandedRibbonVertices.data(),
+            static_cast<int>( packet.expandedRibbonVertices.size() /
+                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
+            viewProjection.Data(),
+            Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint,
+            REPLAY_RIBBON_DEPTH_HINT_RASTER );
 
         renderCommands.DrawTransientColoredTriangles(
             packet.expandedRibbonVertices.data(),
             static_cast<int>( packet.expandedRibbonVertices.size() /
                               RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
             viewProjection.Data(),
-            Rendering::TransientTriangleStyle::TrajectoryRibbonDepthHint );
-
-        renderCommands.SetDepthTest( true );
-        renderCommands.DrawTransientColoredTriangles(
-            packet.expandedRibbonVertices.data(),
-            static_cast<int>( packet.expandedRibbonVertices.size() /
-                              RUN_EDITOR_TRACER_REPLAY_RIBBON_FLOATS_PER_VERTEX ),
-            viewProjection.Data(),
-            Rendering::TransientTriangleStyle::TrajectoryRibbon );
-
-        renderCommands.SetCullFace( cullWasEnabled );
-        renderCommands.SetBlendFunc( blendSrc, blendDst );
-        renderCommands.SetBlend( blendWasEnabled );
-        renderCommands.SetDepthWrite( depthWriteWasEnabled );
-        renderCommands.SetDepthTest( depthTestWasEnabled );
+            Rendering::TransientTriangleStyle::TrajectoryRibbon,
+            REPLAY_RIBBON_VISIBLE_RASTER );
     }
 }

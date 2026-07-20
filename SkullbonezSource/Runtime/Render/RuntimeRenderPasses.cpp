@@ -33,6 +33,8 @@ Invariants:
     resource structs in a null/zero state for the next ensure.
   - Render methods consume only the current frame's input structs; they must not
     cache borrowed pointers from those structs.
+  - Every PSO-affecting draw selects a complete pass-local raster bucket; no
+    pass saves, mutates, or restores another pass's fixed-function state.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
@@ -91,6 +93,42 @@ constexpr unsigned int RENDER_TEXTURE_SLOT_5 = 1u << 5;
 constexpr std::size_t TORNADO_VISUAL_FLOATS_PER_VERTEX = 11u;
 constexpr float TORNADO_FX_KIND_RIBBON = 0.0f;
 constexpr float TORNADO_FX_KIND_DUST = 1.0f;
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket FULLSCREEN_OPAQUE_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, false, false, false );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket SHADOW_DEPTH_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
+                                                          true,
+                                                          true,
+                                                          false,
+                                                          SkullbonezCore::Rendering::BlendFactor::One,
+                                                          SkullbonezCore::Rendering::BlendFactor::Zero,
+                                                          SkullbonezCore::Rendering::CullMode::Back,
+                                                          { true, 4.0f, 2.0f } );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket WATER_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
+                                                          true,
+                                                          false,
+                                                          true,
+                                                          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                                          SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket TERRAIN_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, true, true, false );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket TORNADO_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
+                                                          true,
+                                                          false,
+                                                          true,
+                                                          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                                          SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha,
+                                                          SkullbonezCore::Rendering::CullMode::None );
+constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER =
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
+                                                          false,
+                                                          false,
+                                                          false,
+                                                          SkullbonezCore::Rendering::BlendFactor::One,
+                                                          SkullbonezCore::Rendering::BlendFactor::Zero,
+                                                          SkullbonezCore::Rendering::CullMode::None );
 
 void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
                                     unsigned int keptSlots )
@@ -392,11 +430,13 @@ constexpr float FULLSCREEN_QUAD_VERTS[] = {
     -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
 };
 
-void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands, uint32_t quadVB )
+void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                         uint32_t quadVB,
+                         const SkullbonezCore::Rendering::PassRasterStateBucket& rasterState )
 {
     // Shared post vertex contract: clip-space xy followed by UV. Keeping one
     // copy prevents sky, volumetric, and tonemap from quietly drifting apart.
-    renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, 6 );
+    renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, 6, rasterState );
 }
 
 void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
@@ -906,20 +946,8 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     renderCommands.SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
     renderCommands.Clear( true, true );
 
-    // Shadow depth writes must be opaque and depth-only. Save the caller's
-    // blend/depth state because this pass runs in the middle of RenderFrame()
-    // before reflection, world rendering, water, UI, and debug overlays.
-    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-    renderCommands.SetDepthTest( true );
-    renderCommands.SetDepthWrite( true );
-    renderCommands.SetBlend( false );
-    renderCommands.SetCullFace( true );
-
-    // Polygon offset reduces self-shadow acne on terrain and object faces. The
-    // shader-side receiver bias handles comparison precision; this rasterizer
-    // bias handles the depth values written into the map.
-    renderCommands.SetPolygonOffset( true, 2.0f, 4.0f );
+    // The bucket applies opaque depth writes, back-face culling, and the
+    // rasterizer bias to each caster PSO without mutating later passes.
     // Pass contract: shadow depth shaders write depth only and sample no
     // textures. Clear inherited slots so descriptor state from the visible
     // scene cannot leak into this off-screen pass.
@@ -937,6 +965,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         m_terrain.Get()->RenderShadowDepth( m_profiler,
                                             shadowFrame.lightView,
                                             shadowFrame.lightProjection,
+                                            SHADOW_DEPTH_RASTER,
                                             &cinematic );
     }
 
@@ -978,10 +1007,6 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
         }
     }
 
-    renderCommands.SetPolygonOffset( false );
-    renderCommands.SetDepthTest( depthWasEnabled );
-    renderCommands.SetDepthWrite( depthWasEnabled );
-    renderCommands.SetBlend( blendWasEnabled );
     target.Unbind();
     renderCommands.SetViewport( 0, 0, m_activeWindowWidth, m_activeWindowHeight );
 }
@@ -1095,23 +1120,13 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
     // The sky is painted as a full-screen background. It should not test against
     // terrain depth and it should not blend with whatever was previously there.
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
-    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-    renderCommands.SetDepthTest( false );
-    renderCommands.SetDepthWrite( false );
-    renderCommands.SetBlend( false );
-
     // Pass contract: this generated sky samples no textures. Clear inherited
     // SRV slots before the fullscreen draw so stale pass inputs cannot be
     // recopied by the backend while the sky shader is active.
     ClearAllRenderTextureSlots( renderCommands );
     m_skyResources.atmosphereShader->Use();
     BindSkyPassParams( *m_skyResources.atmosphereShader, view, frame.projection, cinematic );
-    DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
-
-    renderCommands.SetDepthTest( depthWasEnabled );
-    renderCommands.SetDepthWrite( depthWasEnabled );
-    renderCommands.SetBlend( blendWasEnabled );
+    DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
 }
 
 
@@ -1451,6 +1466,7 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
                                  renderCommands,
                                  inputs.frame.lightPosition,
                                  inputs.clipPlane,
+                                 TERRAIN_RASTER,
                                  inputs.cinematic,
                                  inputs.shadow,
                                  inputs.detailShadow );
@@ -1511,29 +1527,16 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     reflectionInput.noReflection = inputs.noReflection;
     reflectionInput.raytraced = inputs.reflection.usedDxr;
 
-    const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
-    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
-    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-    renderCommands.GetBlendFunc( blendSrc, blendDst );
-    renderCommands.SetBlend( true );
-    renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
-    renderCommands.SetDepthTest( true );
-    renderCommands.SetDepthWrite( false );
     m_world.RenderFluid( inputs.frame.baseView,
                          inputs.frame.projection,
                          inputs.frame.eye,
                          renderCommands,
                          reflectionInput,
+                         WATER_RASTER,
                          waterTime,
                          inputs.flatWater,
                          inputs.frame.cinematicEnabled,
                          inputs.cinematic );
-    renderCommands.SetDepthWrite( depthWriteWasEnabled );
-    renderCommands.SetDepthTest( depthTestWasEnabled );
-    renderCommands.SetBlendFunc( blendSrc, blendDst );
-    renderCommands.SetBlend( blendWasEnabled );
     PROFILE_GPU_END( m_profiler, "Frame/Render/Water" );
 }
 
@@ -1844,28 +1847,12 @@ bool TornadoVisualPass::Render( const TornadoVisualPassInputs& inputs )
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/TornadoVisual" );
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
     ClearAllRenderTextureSlots( renderCommands );
-    const bool depthTestWasEnabled = renderCommands.IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
-    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-    const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
-    Rendering::BlendFactor blendSrc = Rendering::BlendFactor::One;
-    Rendering::BlendFactor blendDst = Rendering::BlendFactor::Zero;
-    renderCommands.GetBlendFunc( blendSrc, blendDst );
-
-    renderCommands.SetDepthTest( true );
-    renderCommands.SetDepthWrite( false );
-    renderCommands.SetBlend( true );
-    renderCommands.SetBlendFunc( Rendering::BlendFactor::SrcAlpha, Rendering::BlendFactor::OneMinusSrcAlpha );
-    renderCommands.SetCullFace( false );
     renderCommands.DrawTransientColoredTriangles(
         m_vertices.data(),
         static_cast<int>( m_vertices.size() / TORNADO_VISUAL_FLOATS_PER_VERTEX ),
-        inputs.frame.viewProjection.Data() );
-    renderCommands.SetCullFace( cullWasEnabled );
-    renderCommands.SetBlendFunc( blendSrc, blendDst );
-    renderCommands.SetBlend( blendWasEnabled );
-    renderCommands.SetDepthWrite( depthWriteWasEnabled );
-    renderCommands.SetDepthTest( depthTestWasEnabled );
+        inputs.frame.viewProjection.Data(),
+        Rendering::TransientTriangleStyle::Color,
+        TORNADO_RASTER );
     PROFILE_GPU_END( m_profiler, "Frame/Render/TornadoVisual" );
     return true;
 }
@@ -2112,7 +2099,8 @@ void DebugOverlayPass::RenderTornadoVectorOverlay( const DebugOverlayPassInputs&
             const int vertCount = static_cast<int>( m_tornadoVectorLineData.size() / 6 );
             renderCommands.DrawLinesColored( m_tornadoVectorLineData.data(),
                                              vertCount,
-                                             inputs.frame.viewProjection.Data() );
+                                             inputs.frame.viewProjection.Data(),
+                                             DEBUG_LINE_RASTER );
         }
     }
 }
@@ -2189,12 +2177,6 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
 
     // This is another screen-space effect, so depth testing and blending are
     // disabled while the full-screen quad is generated.
-    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-    renderCommands.SetDepthTest( false );
-    renderCommands.SetDepthWrite( false );
-    renderCommands.SetBlend( false );
-
     {
         if ( detailMarkers )
         {
@@ -2216,16 +2198,13 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
                                 m_sceneResources.hdrTarget->GetDepthTextureHandle(),
                                 0,
                                 0 );
-        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
+        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( m_profiler, "Frame/Render/VolumetricLight/Draw" );
         }
     }
 
-    renderCommands.SetDepthTest( depthWasEnabled );
-    renderCommands.SetDepthWrite( depthWasEnabled );
-    renderCommands.SetBlend( blendWasEnabled );
     renderCommands.EndGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
     renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
     if ( detailMarkers )
@@ -2282,12 +2261,6 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
     renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
 
-    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-    renderCommands.SetDepthTest( false );
-    renderCommands.SetDepthWrite( false );
-    renderCommands.SetBlend( false );
-
     // Concept: "resolve" means "turn our off-screen cinematic render target
     // into the final image on the window." This is where the HDR scene becomes
     // normal display color and where bloom/fog/rays are layered in.
@@ -2319,16 +2292,13 @@ void TonemapPass::Render( const RenderFrameContext& frame,
                                 m_sceneResources.hdrTarget->GetDepthTextureHandle(),
                                 volumetricTexture,
                                 0 );
-        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB );
+        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( m_profiler, "Frame/Render/Tonemap/Draw" );
         }
     }
 
-    renderCommands.SetDepthTest( depthWasEnabled );
-    renderCommands.SetDepthWrite( depthWasEnabled );
-    renderCommands.SetBlend( blendWasEnabled );
     if ( detailMarkers )
     {
         PROFILE_GPU_END( m_profiler, "Frame/Render/Tonemap" );
