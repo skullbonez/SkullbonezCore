@@ -237,10 +237,24 @@ physics body-count scale campaign closed P0-P7 and left the live ledger under
 rule 4. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
+The denominator grew 18 → 53 on 2026-07-20 when the owner registered the
+eight-plan architecture-review campaign from the same-day engine architecture
+review (`../Reports/2026-07-20/engine-architecture-review.md`). The campaign
+is the next active queue in plan order 1→8; E17 extended hands-on owner
+acceptance remains a parked owner item that does not block it.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| **Active/future total** | **17** | **18** | **94%** |
+| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | 0 | 6 | 0% |
+| [physics-facade-unification](TODO/physics-facade-unification.md) | 0 | 3 | 0% |
+| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | 0 | 4 | 0% |
+| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | 0 | 3 | 0% |
+| [render-graph-completion](TODO/render-graph-completion.md) | 0 | 6 | 0% |
+| [render-hal-modernization](TODO/render-hal-modernization.md) | 0 | 6 | 0% |
+| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | 0 | 4 | 0% |
+| [replay-boundary-containment](TODO/replay-boundary-containment.md) | 0 | 3 | 0% |
+| **Active/future total** | **17** | **53** | **32%** |
 
 The denominator grew 9 → 14 on 2026-07-17 when the owner rejected S7 on the
 current SIMD evidence and activated the five-task broadphase scale-attribution
@@ -301,6 +315,18 @@ are certified; cross-platform and rollback determinism are not. Full, deep
 physics, performance, replay fidelity, one-minute graphics stress, and marker
 smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
+
+The architecture-review campaign registered 2026-07-20 is the active queue.
+Execution order is binding and biggest-wins-first: 1
+`dependency-direction-restoration`, 2 `physics-facade-unification`, 3
+`physics-settings-snapshot`, 4 `run-execute-deaccretion`, 5
+`render-graph-completion`, 6 `render-hal-modernization` (hard-blocked on 5),
+7 `gameplay-module-extraction` (T0-T1 after 3; T2 after 5), 8
+`replay-boundary-containment` (after plan 1 L2). Owner decisions ratified at
+registration: finish the render-graph migration (freezing rejected);
+`PhysicsEngine` survives the facade unification; extracted gameplay lives in
+a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
+below is a parked owner item and does not gate this campaign.
 
 `imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
 the accepted P1 one-process golden and their retained replay gates now pass
@@ -1048,6 +1074,51 @@ forbidden; no legacy deletion is authorized.
 |---|---|---:|---|
 | [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default; run separate Legacy/ImGui extended owner playtests and await acceptance |
 
+## Architecture Review Campaign (2026-07-20)
+
+Source: the owner-requested critical architecture review of 2026-07-20
+(`../Reports/2026-07-20/engine-architecture-review.md`), registered the same
+day as the next active queue. The review found the classic god objects
+closed but named five structural debts: unenforced dependency direction
+(Physics/Rendering/Core include Runtime), the surviving
+PhysicsEngine/PhysicsScene forwarding facade, `EngineConfig` threaded into
+the physics hot path, three half-finished dual architectures (physics
+facade, direct-vs-graph render paths, Legacy-vs-ImGui UI), and gameplay
+content (tornado) fused into Physics and Rendering.
+
+Owner decisions ratified at registration: finish the render-graph migration
+(RenderGraph owns barriers and pass scheduling; freezing as diagnostics was
+rejected); `PhysicsEngine` survives the facade unification and absorbs
+`PhysicsScene`; extracted gameplay content lives in a new top-level
+`SkullbonezSource/Gameplay/` module; the campaign starts immediately with
+E17 hands-on acceptance parked as a non-blocking owner item.
+
+Standing rules binding every plan in this campaign: zero behavioral
+baseline, golden, screenshot, replay, or physics CSV refresh — byte-exact
+and image-identical oracles prove each refactor, and divergence is reverted,
+never normalized; every DX12 slice runs the bounded graphics-stress proof
+per inventory rule 10; replay-facing slices run the one-invocation mega gate
+per inventory rule 11; one independent rubber-duck review per plan at
+closure, not per slice; no new compatibility spellings, forwarding wrappers,
+or hot-path inheritance/callback artifacts (existing review rules apply
+verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
+this campaign: it waits on the parked E17 owner verdict.
+
+Execution order is binding (biggest wins first): plans 1-4 are the cheap
+compounding tranche; plan 5 gates plans 6 and 7-T2; plan 8 follows plan 1's
+L2 snapshot move.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [dependency-direction-restoration](TODO/dependency-direction-restoration.md) | Registered | 0/6 | Start L0 (SceneCapacity move); no blockers |
+| [physics-facade-unification](TODO/physics-facade-unification.md) | Registered | 0/3 | Start after plan 1 L0-L2 (soft); F0 inventory may run anytime |
+| [physics-settings-snapshot](TODO/physics-settings-snapshot.md) | Registered | 0/4 | Start after facade unification lands the surviving PhysicsEngine |
+| [run-execute-deaccretion](TODO/run-execute-deaccretion.md) | Registered | 0/3 | Independent; may run parallel to plans 2-3 |
+| [render-graph-completion](TODO/render-graph-completion.md) | Registered | 0/6 | Start G0 anytime; owner ruling to finish the migration is recorded |
+| [render-hal-modernization](TODO/render-hal-modernization.md) | Registered | 0/6 | Hard-blocked on render-graph-completion closure |
+| [gameplay-module-extraction](TODO/gameplay-module-extraction.md) | Registered | 0/4 | T0 anytime; T1 after physics-settings-snapshot C1; T2 after render-graph-completion |
+| [replay-boundary-containment](TODO/replay-boundary-containment.md) | Registered | 0/3 | RB0 after plan 1 L2 lands the snapshot move (soft) |
+
 ## Features
 
 | Plan | State | Verified phase count | Start condition |
@@ -1061,8 +1132,12 @@ rule 9 applies — it is not live work and is not tracked here).
 
 Binding:
 
-- DX12 explicit helpers own live barriers; RenderGraph does not become a barrier
-  compiler.
+- Superseded 2026-07-20 by the owner's render-graph decision: RenderGraph
+  becomes the owner of pass scheduling and barrier emission through
+  [`render-graph-completion`](TODO/render-graph-completion.md). Until a
+  resource class is migrated by that plan, DX12 explicit helpers remain the
+  live barrier authority for it; the old freeze ruling no longer blocks the
+  migration.
 - Any DX12 modification requires a crash-free graphics-stress run lasting at
   least 10 seconds; `tools\run_graphics_stress.bat 1` is the standard bounded
   proof.
@@ -1072,7 +1147,10 @@ Binding:
   extractions.
 - Scene-lifetime physics ownership is promoted through
   `SceneController`/`PhysicsScene`; `Run` wires it and `GameModelCollection`
-  stops owning `PhysicsEngine`.
+  stops owning `PhysicsEngine`. (Historical ruling, satisfied. 2026-07-20:
+  the owner ruled `PhysicsEngine` absorbs `PhysicsScene` via
+  [`physics-facade-unification`](TODO/physics-facade-unification.md); the
+  ownership promotion this ruling achieved is unchanged by that rename.)
 - Inspect and Editor share one stable selection identity; workspace-specific
   gesture/presentation state remains separate.
 - Completed files are deleted rather than archived in the tip tree, except for
