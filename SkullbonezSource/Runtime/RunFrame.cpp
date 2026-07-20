@@ -27,6 +27,8 @@ Glossary:
     accepts a successful Present for the game frame.
   Shared editor view: One immutable scene/property/render/replay/tool value
     assembled before the selected operator frontend renders.
+  Development UI apply result: One automation-owned batch outcome containing
+    only a recoverable status and an optional Run-owned surface selection.
 
 Invariants:
   - Frame work updates input, simulation, capture, rendering, and diagnostics
@@ -36,6 +38,8 @@ Invariants:
   - A successful submitted game frame emits exactly one development profiler
     frame mark; failed or capture-only turns emit none.
   - A development surface swap hides the source before the target begins a frame.
+  - Run sequences development UI automation but retains only process-wide
+    surface selection and application-failure policy.
 
 Related:
   - RuntimeFrameViews.h defines the frame-helper calling convention.
@@ -811,88 +815,15 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                       frameScene,
                                                       automationReplayView );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-            for ( std::size_t commandIndex = 0u; commandIndex < automationBeforeInput.developmentUiCommandCount;
-                  ++commandIndex )
+            const InteractionAutomationDevelopmentUiApplyResult developmentUiApply =
+                m_interactionAutomation.ApplyDevelopmentUiCommands( automationBeforeInput, m_window, m_imguiEditor );
+            if ( developmentUiApply.selectSurface )
             {
-                const InteractionAutomationDevelopmentUiCommand& command =
-                    automationBeforeInput.developmentUiCommands[commandIndex];
-                SkullbonezCore::Core::SbResult commandStatus = SkullbonezCore::Core::SbResult::Success();
-                switch ( command.type )
-                {
-                case InteractionAutomationDevelopmentUiCommandType::SelectSurface:
-                    SelectDevelopmentUiSurface( std::strcmp( command.target, "imgui" ) == 0
-                                                    ? DevelopmentUiMode::ImGui
-                                                    : DevelopmentUiMode::Legacy );
-                    break;
-                case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
-                case InteractionAutomationDevelopmentUiCommandType::FocusPanel:
-                {
-                    DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
-                    if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
-                    {
-                        commandStatus = SkullbonezCore::Core::SbResult::Failure(
-                            "DevelopmentTools/ImGuiAutomation",
-                            "Interaction script names an unknown ImGui panel: %s",
-                            command.target );
-                        break;
-                    }
-                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
-                    editorCommand.type = command.type == InteractionAutomationDevelopmentUiCommandType::SetPanelVisible
-                                             ? DevelopmentTools::ImGuiEditorAutomationCommandType::SetPanelVisible
-                                             : DevelopmentTools::ImGuiEditorAutomationCommandType::FocusPanel;
-                    editorCommand.panel = panel;
-                    editorCommand.visible = command.boolValue;
-                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
-                    break;
-                }
-                case InteractionAutomationDevelopmentUiCommandType::ResetLayout:
-                {
-                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
-                    editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::ResetLayout;
-                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
-                    break;
-                }
-                case InteractionAutomationDevelopmentUiCommandType::SetDpiScale:
-                {
-                    DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
-                    editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::SetDpiScale;
-                    editorCommand.dpiScale = command.numberValue;
-                    commandStatus = m_imguiEditor.ApplyAutomationCommand( editorCommand );
-                    break;
-                }
-                case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
-                {
-                    // Why: scripts describe client pixels because those are the
-                    // editor's layout coordinates. Win32 resizes the outer frame,
-                    // so include the current style and monitor DPI exactly once.
-                    RECT outer{ 0, 0, command.width, command.height };
-                    const HWND window = m_window.NativeWindowHandle();
-                    const DWORD style = static_cast<DWORD>( GetWindowLongPtr( window, GWL_STYLE ) );
-                    const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( window, GWL_EXSTYLE ) );
-                    const UINT dpi = GetDpiForWindow( window );
-                    if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
-                         !SetWindowPos( window,
-                                        nullptr,
-                                        0,
-                                        0,
-                                        outer.right - outer.left,
-                                        outer.bottom - outer.top,
-                                        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
-                    {
-                        commandStatus = SkullbonezCore::Core::SbResult::Failure(
-                            "DevelopmentTools/ImGuiAutomation",
-                            "Failed to resize the automation client area to %dx%d",
-                            command.width,
-                            command.height );
-                    }
-                    break;
-                }
-                }
-                if ( !commandStatus.ok )
-                {
-                    m_applicationExit.RequestOwnedFailure( commandStatus );
-                    break;
-                }
+                SelectDevelopmentUiSurface( developmentUiApply.surface );
+            }
+            if ( !developmentUiApply.status.ok )
+            {
+                m_applicationExit.RequestOwnedFailure( developmentUiApply.status );
             }
 #endif
             if ( automationBeforeInput.applyCameraMode )

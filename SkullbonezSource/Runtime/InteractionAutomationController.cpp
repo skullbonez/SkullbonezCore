@@ -20,7 +20,8 @@ Glossary:
   Probe failure: CLI validation failure persisted as report `ok=false` and
     returned to the process boundary after the frame loop exits.
   Development UI command: Fixed-capacity presentation or native-window request
-    returned to the composition root; the sequencer retains no editor owner.
+    interpreted here against borrowed editor/window owners; a process-surface
+    selection is returned to the composition root as a typed value.
 
 Invariants:
   - Scripts must exercise normal runtime routing, not bypass tool ownership or
@@ -30,6 +31,8 @@ Invariants:
   - Published samples are frame-local; this file must not retain their spans or
     pointers beyond the synchronous automation turn.
   - Surface selection accepts Legacy or ImGui only; no action can request both.
+  - Development UI application stops on the first recoverable command failure;
+    Run owns process exit policy and converts that result at its boundary.
 
 Related:
   - SkullbonezSource/Runtime/RuntimePickService.h
@@ -58,6 +61,9 @@ Related:
 #include "DemoDirectorPlayback.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+#include "DevelopmentTools/ImGuiEditorOwner.h"
+#endif
 
 #include "../Physics/PhysicsEngine.h"
 #include "../Physics/PhysicsTimestep.h"
@@ -2469,6 +2475,100 @@ bool LoadScript( InteractionAutomationController& state )
     return true;
 }
 } // namespace
+
+#if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
+InteractionAutomationDevelopmentUiApplyResult
+InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAutomationFrameResult& frame,
+                                                             Window& window,
+                                                             DevelopmentTools::ImGuiEditorOwner& editor ) const
+{
+    InteractionAutomationDevelopmentUiApplyResult result;
+    for ( std::size_t commandIndex = 0u; commandIndex < frame.developmentUiCommandCount; ++commandIndex )
+    {
+        const InteractionAutomationDevelopmentUiCommand& command = frame.developmentUiCommands[commandIndex];
+        SkullbonezCore::Core::SbResult commandStatus = SkullbonezCore::Core::SbResult::Success();
+        switch ( command.type )
+        {
+        case InteractionAutomationDevelopmentUiCommandType::SelectSurface:
+            // Process selection remains Run-owned; publish the typed request
+            // after interpreting the script command alongside its peers.
+            result.selectSurface = true;
+            result.surface =
+                std::strcmp( command.target, "imgui" ) == 0 ? DevelopmentUiMode::ImGui : DevelopmentUiMode::Legacy;
+            break;
+        case InteractionAutomationDevelopmentUiCommandType::SetPanelVisible:
+        case InteractionAutomationDevelopmentUiCommandType::FocusPanel:
+        {
+            DevelopmentTools::ImGuiEditorPanelId panel = DevelopmentTools::ImGuiEditorPanelId::Count;
+            if ( !DevelopmentTools::TryParseImGuiEditorPanel( command.target, panel ) )
+            {
+                commandStatus =
+                    SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
+                                                             "Interaction script names an unknown ImGui panel: %s",
+                                                             command.target );
+                break;
+            }
+            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+            editorCommand.type = command.type == InteractionAutomationDevelopmentUiCommandType::SetPanelVisible
+                                     ? DevelopmentTools::ImGuiEditorAutomationCommandType::SetPanelVisible
+                                     : DevelopmentTools::ImGuiEditorAutomationCommandType::FocusPanel;
+            editorCommand.panel = panel;
+            editorCommand.visible = command.boolValue;
+            commandStatus = editor.ApplyAutomationCommand( editorCommand );
+            break;
+        }
+        case InteractionAutomationDevelopmentUiCommandType::ResetLayout:
+        {
+            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+            editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::ResetLayout;
+            commandStatus = editor.ApplyAutomationCommand( editorCommand );
+            break;
+        }
+        case InteractionAutomationDevelopmentUiCommandType::SetDpiScale:
+        {
+            DevelopmentTools::ImGuiEditorAutomationCommand editorCommand;
+            editorCommand.type = DevelopmentTools::ImGuiEditorAutomationCommandType::SetDpiScale;
+            editorCommand.dpiScale = command.numberValue;
+            commandStatus = editor.ApplyAutomationCommand( editorCommand );
+            break;
+        }
+        case InteractionAutomationDevelopmentUiCommandType::ResizeWindow:
+        {
+            // Why: scripts describe client pixels because those are the
+            // editor's layout coordinates. Win32 resizes the outer frame, so
+            // include the current style and monitor DPI exactly once.
+            RECT outer{ 0, 0, command.width, command.height };
+            const HWND nativeWindow = window.NativeWindowHandle();
+            const DWORD style = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_STYLE ) );
+            const DWORD extendedStyle = static_cast<DWORD>( GetWindowLongPtr( nativeWindow, GWL_EXSTYLE ) );
+            const UINT dpi = GetDpiForWindow( nativeWindow );
+            if ( !AdjustWindowRectExForDpi( &outer, style, FALSE, extendedStyle, dpi ) ||
+                 !SetWindowPos( nativeWindow,
+                                nullptr,
+                                0,
+                                0,
+                                outer.right - outer.left,
+                                outer.bottom - outer.top,
+                                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE ) )
+            {
+                commandStatus =
+                    SkullbonezCore::Core::SbResult::Failure( "DevelopmentTools/ImGuiAutomation",
+                                                             "Failed to resize the automation client area to %dx%d",
+                                                             command.width,
+                                                             command.height );
+            }
+            break;
+        }
+        }
+        if ( !commandStatus.ok )
+        {
+            result.status = commandStatus;
+            break;
+        }
+    }
+    return result;
+}
+#endif
 
 bool TryFindInteractionAutomationModel( const SceneWorld& world, const char* name, int& outIndex )
 {

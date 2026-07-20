@@ -1,6 +1,6 @@
 # Run::Execute De-accretion
 
-Status: Registered — 0/3 tasks (X0-X2)
+Status: Active — 1/3 tasks (X0 complete; X1-X2 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 4 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding D)
 Ledger: X0-X2
@@ -56,7 +56,7 @@ automation/ImGui-owner business, not frame sequencing. The closure review of
 
 ## Tasks
 
-- [ ] X0 — Move the automation development-UI command interpreter out of
+- [x] X0 — Move the automation development-UI command interpreter out of
   `Run::Execute` per binding decisions 1-2, preserving strings, exit paths,
   and `RequestOwnedFailure` behavior exactly. Both build flavors
   (`SKULLBONEZ_AUTOMATION_DIAGNOSTICS`, `SKULLBONEZ_DEVELOPMENT_TOOLS`)
@@ -87,3 +87,13 @@ automation/ImGui-owner business, not frame sequencing. The closure review of
 
 X0/X1: `validate_full` per Run* mapping. X2: final `validate_full` at
 closure tip. No baseline or golden refresh is authorized.
+
+X0 moved the complete development-UI interpreter into
+`InteractionAutomationController::ApplyDevelopmentUiCommands`, which borrows
+`Window&` and `ImGuiEditorOwner&` synchronously and returns only a typed
+surface-selection request plus recoverable status. `Run` retains process-mode
+selection and `RequestOwnedFailure`. `Window` has no client-area resize API, so
+the command's exact Win32 DPI/style conversion moved with the interpreter.
+Automation and Release direct builds pass; the focused UI stress matrix passes
+all moved commands with clean logs and zero DX12 validation errors; and
+`tools\validate_full.bat` passes at the X0 tip in 139.54s.

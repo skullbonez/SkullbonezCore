@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade, and physics settings plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the five remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 17 / 40 live tasks; 43%. |
+| Active/future progress | 18 / 40 live tasks; 45%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | C3 `validate_full` passes in 140.74s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | C3 settings closure: 4/4 touched-source audit, independent review clear after test fixes, and tests/physics/perf/full gates pass. |
+| Last broad local gate | X0 `validate_full` passes in 139.54s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | X0: 3/3 touched-source comment audit, Automation/Release builds, focused UI stress, and full gate pass. |
 
 ## Live Queue
 
-NOW. Six live plans, 40 tasks; 17 complete (43%). The remaining architecture-review campaign
+NOW. Six live plans, 40 tasks; 18 complete (45%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: run-execute-deaccretion → render-graph-completion →
@@ -88,6 +88,10 @@ are not certified. Full evidence:
 | `tools\validate_physics.bat` (C3) | 79.13 s | PASS; 44,401-line CSV byte-exact |
 | `tools\validate_perf.bat` (C3) | 108.54 s | PASS; allocation and comparison gates report no regression |
 | `tools\validate_full.bat` (C3) | 140.74 s | PASS; all CPU/coverage and five runtime lanes |
+| direct Automation build (X0) | 13.38 s | PASS; moved controller and Run call site compile |
+| direct Release build (X0) | 38.67 s | PASS; production macro path compiles |
+| `tools\validate_ui_stress.bat` (X0) | 72.77 s | PASS; moved command matrix, clean logs, zero DX12 errors |
+| `tools\validate_full.bat` (X0) | 139.54 s | PASS; all CPU/coverage and five runtime lanes |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -95,9 +99,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `run-execute-deaccretion` X0 on `nightrunner-20th-july`.
-Move the development-UI automation command interpreter from `Run::Execute` to
-`InteractionAutomationController` with identical typed behavior. The Profiler semantic
+Continue `run-execute-deaccretion` X1 on `nightrunner-20th-july`.
+Classify `Run::Execute` and the named execution helpers as sequencing or owner
+logic, record the disposition table, and apply any cheap ownership moves. The Profiler semantic
 exception remains deletion-bound to Render HAL M0/M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.
