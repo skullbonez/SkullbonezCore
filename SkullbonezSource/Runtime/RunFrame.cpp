@@ -1443,6 +1443,28 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 {
                     SelectDevelopmentUiSurface( DevelopmentUiMode::Legacy );
                 }
+                if ( imguiResult.commands.requestTracyStandardCapture )
+                {
+                    bool tracyStarted = false;
+#if defined( TRACY_ENABLE )
+                    if ( m_tracyClientOwner )
+                    {
+                        // Why: this is an explicit cold diagnostics action, not
+                        // steady gameplay. Starting Tracy first and recreating
+                        // the idle pool preserves the rule that instrumented
+                        // workers enter through their Tracy naming boundary.
+                        RuntimeAllocation::RuntimeAllocationScope tracyStartScope(
+                            RuntimeAllocation::RuntimeAllocationPhase::Diagnostics );
+                        tracyStarted = m_tracyClientOwner->StartStandardCapture();
+                        if ( tracyStarted )
+                        {
+                            m_workerPool.Initialise( m_config.runtimeCapacity.workerThreads );
+                            m_workerPool.BindProfiler( m_profiler );
+                        }
+                    }
+#endif
+                    m_imguiEditor.ReportTracyClientStartResult( tracyStarted );
+                }
             }
 #endif
 

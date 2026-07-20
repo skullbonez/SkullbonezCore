@@ -262,9 +262,10 @@ Run::Run( Window& window,
           SkullbonezCore::Core::EngineConfig& config,
           Threading::WorkerPool& workerPool,
           SkullbonezCore::Core::Profiler* profiler,
-          RuntimeRenderBackendView renderBackendView )
+          RuntimeRenderBackendView renderBackendView,
+          DevelopmentTools::TracyClientOwner* tracyClientOwner )
     : m_window( window ), m_workerPool( workerPool ), m_config( config ), m_profiler( profiler ),
-      m_sceneController( std::move( sceneQueue ) ), m_replayRuntime( profiler ),
+      m_tracyClientOwner( tracyClientOwner ), m_sceneController( std::move( sceneQueue ) ), m_replayRuntime( profiler ),
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup( profiler ) ),
       m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),

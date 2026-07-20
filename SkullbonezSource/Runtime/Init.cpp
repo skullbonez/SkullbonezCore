@@ -23,8 +23,9 @@ Invariants:
     validation launches deterministic from their command line.
   - Early-exit smoke modes must return before worker, window, renderer, or Run
     startup if their evidence claims subsystem isolation.
-  - Tracy starts before WorkerPool and stops after WorkerPool joins, while the
-    log and Windows platform services are still alive.
+  - Startup-selected Tracy begins before the initial WorkerPool. An interactive
+    Standard start recreates that pool before simulation resumes, and Tracy
+    still stops after all workers join while platform logging remains alive.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -165,13 +166,19 @@ int RunApp( Window* window,
             SkullbonezCore::Core::EngineConfig& cfg,
             WorkerPool& workerPool,
             SkullbonezCore::Core::Profiler* profiler,
-            RuntimeRenderBackendView renderBackendView )
+            RuntimeRenderBackendView renderBackendView,
+            DevelopmentTools::TracyClientOwner* tracyClientOwner )
 {
     // Lifetime: Run releases all render-owned resources before its borrowed
     // DX12 backend and Win32 window are torn down by the process owner.
     {
-        std::unique_ptr<Run> cRun =
-            std::make_unique<Run>( *window, std::move( args.sceneList ), cfg, workerPool, profiler, renderBackendView );
+        std::unique_ptr<Run> cRun = std::make_unique<Run>( *window,
+                                                           std::move( args.sceneList ),
+                                                           cfg,
+                                                           workerPool,
+                                                           profiler,
+                                                           renderBackendView,
+                                                           tracyClientOwner );
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
         struct ProfilerRenderDiagnosticsLifetime
         {
@@ -375,11 +382,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         return standalonePhysicsExitCode;
     }
 
+    DevelopmentTools::TracyClientOwner* tracyClient = nullptr;
 #if defined( TRACY_ENABLE )
     // Lifetime: this owner starts before WorkerPool creates instrumentable
     // threads and is explicitly stopped after their joins on every exit path.
     DevelopmentTools::TracyClientOwner tracyClientOwner;
     tracyClientOwner.Start();
+    tracyClient = &tracyClientOwner;
 #endif
 
     // Lifetime: declaration order keeps the Debug lock graph alive until after
@@ -457,7 +466,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 #endif
     workerPool.BindProfiler( profiler );
 
-    const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView );
+    const int runExitCode = RunApp( window, args, cfg, workerPool, profiler, renderBackendView, tracyClient );
 
     {
         RuntimeAllocation::RuntimeAllocationScope allocationScope(

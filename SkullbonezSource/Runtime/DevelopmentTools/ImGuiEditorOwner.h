@@ -107,6 +107,7 @@ struct ImGuiEditorCommands
 {
     UI::OperatorEditorCommandQueues operatorEditor;
     bool requestSurfaceSwap = false;
+    bool requestTracyStandardCapture = false;
 };
 
 struct ImGuiEditorFrameResult
@@ -211,6 +212,9 @@ class ImGuiEditorOwner
     // remains responsible for surface selection and native-window authority.
     SkullbonezCore::Core::SbResult ApplyAutomationCommand( const ImGuiEditorAutomationCommand& command ) noexcept;
     UI::OperatorEditorCommandQueues ConsumeOperatorEditorCommands() noexcept;
+    // Reports the runtime-owned result of a cold Tracy client start without
+    // lending profiler lifetime authority to this presentation owner.
+    void ReportTracyClientStartResult( bool started ) noexcept;
     SkullbonezCore::Core::SbResult CaptureGameViewport();
 
     ImGuiEditorNativeMessageRoute
@@ -278,8 +282,6 @@ class ImGuiEditorOwner
     bool m_showCausalityDetail = false;
     bool m_showReplay = true;
     bool m_showStatus = true;
-    bool m_tracyViewerAvailable = false;
-    char m_tracyViewerPath[512] = {};
     char m_tracyLaunchFeedback[160] = "Viewer not launched";
     char m_newSceneName[64] = "NewScene";
     char m_sceneFilter[64] = {};

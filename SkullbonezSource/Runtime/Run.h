@@ -92,6 +92,10 @@ class InGameUI;
 }
 namespace Runtime
 {
+namespace DevelopmentTools
+{
+class TracyClientOwner;
+}
 class Window;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
@@ -115,6 +119,8 @@ class Run
     Threading::WorkerPool& m_workerPool;                           // Startup-owned worker service borrowed for process lifetime.
     SkullbonezCore::Core::EngineConfig& m_config;                  // Borrowed process config loaded and CLI-patched by Runtime/Init.cpp.
     SkullbonezCore::Core::Profiler* m_profiler;                    // Startup-owned profiler borrow; null outside profiling builds.
+    DevelopmentTools::TracyClientOwner*
+        m_tracyClientOwner;                                        // Startup-owned development profiler lifetime borrow; null when unavailable.
     Assets::AssetSystem m_assets;                                  // Process source-asset registry shared by scene and renderer owners.
     SceneController m_sceneController;                             // Owns scene queue, cameras, world, entities, physics, and models.
     SkullbonezCore::Core::SbResult m_lastSceneLoadResult;          // Last queue load outcome observed by startup/load-only paths.
@@ -184,7 +190,9 @@ class Run
          SkullbonezCore::Core::EngineConfig& config,
          Threading::WorkerPool& workerPool,
          SkullbonezCore::Core::Profiler* profiler,
-         RuntimeRenderBackendView renderBackendView );             // sceneQueue empty string selects generated demo mode.
+         RuntimeRenderBackendView renderBackendView,
+         DevelopmentTools::TracyClientOwner* tracyClientOwner =
+             nullptr );                                            // sceneQueue empty string selects generated demo mode.
     ~Run();
     void Initialise();                                             // Initialises shared resources and loads first scene
     const SkullbonezCore::Core::SbResult&

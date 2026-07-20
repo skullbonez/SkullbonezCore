@@ -16,15 +16,17 @@ Glossary:
     Present succeeds.
   Composite main lane: The current engine thread that owns main-loop, render,
     replay/prediction coordination, and cold IO work.
-  Standard capture: Explicit SKORE_TRACY_MODE=standard selection that enables
-    owner zones and capacity plots without call stacks or allocation events.
+  Standard capture: Explicit SKORE_TRACY_MODE=standard selection, or the ImGui
+    cold-start command, that enables owner zones and capacity plots without
+    call stacks or allocation events.
   Heavy capture: Explicit SKORE_TRACY_MODE=heavy selection that adds call stacks
     and global C++ allocation events to the standard owner-zone capture.
 
 Invariants:
   - TRACY_ENABLE is valid only with SKULLBONEZ_DEVELOPMENT_TOOLS.
-  - When explicitly requested, the client starts before engine workers and
-    stops after every worker joins.
+  - A startup-selected client begins before the initial engine workers. An
+    interactive Standard start is followed by worker recreation before the
+    next simulation tick, and shutdown still happens after every worker joins.
   - Disabled marker macros do not evaluate their arguments.
   - Standard mode emits no call stacks or allocation events.
   - Source-location and zone-token storage is fixed and bounded.
@@ -73,6 +75,10 @@ class TracyClientOwner
     TracyClientOwner& operator=( const TracyClientOwner& ) = delete;
 
     void Start();
+    // Starts the lightweight Standard capture in response to a cold editor
+    // command. The caller must recreate engine workers before simulation
+    // resumes so their Tracy thread names belong to the new client lifetime.
+    [[nodiscard]] bool StartStandardCapture();
     void Shutdown() noexcept;
 
     static TracyClientStatus CopyStatus() noexcept;

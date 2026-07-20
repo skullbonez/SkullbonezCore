@@ -100,7 +100,56 @@ bool IsReadableFile( const char* path ) noexcept
     return attributes != INVALID_FILE_ATTRIBUTES && ( attributes & FILE_ATTRIBUTE_DIRECTORY ) == 0u;
 }
 
-bool ResolveTracyViewerPath( char* output, size_t outputCapacity ) noexcept
+bool CopyAbsoluteReadablePath( const char* path, char* output, size_t outputCapacity ) noexcept
+{
+    if ( !IsReadableFile( path ) )
+    {
+        return false;
+    }
+    const DWORD length = GetFullPathNameA( path, static_cast<DWORD>( outputCapacity ), output, nullptr );
+    return length > 0u && length < outputCapacity;
+}
+
+bool ResolveRepositoryPath( const char* repositoryRelativePath, char* output, size_t outputCapacity ) noexcept
+{
+    if ( CopyAbsoluteReadablePath( repositoryRelativePath, output, outputCapacity ) )
+    {
+        return true;
+    }
+
+    char modulePath[512] = {};
+    const DWORD moduleLength = GetModuleFileNameA( nullptr, modulePath, static_cast<DWORD>( sizeof( modulePath ) ) );
+    if ( moduleLength == 0u || moduleLength >= sizeof( modulePath ) )
+    {
+        return false;
+    }
+    char* separator = std::strrchr( modulePath, '\\' );
+    if ( !separator )
+    {
+        return false;
+    }
+    *separator = '\0'; // Remove the executable name.
+    separator = std::strrchr( modulePath, '\\' );
+    if ( !separator )
+    {
+        return false;
+    }
+    *separator = '\0'; // Profile/Debug/Automation output is one level below the repository root.
+
+    char candidate[512] = {};
+    const int written = snprintf( candidate, sizeof( candidate ), "%s\\%s", modulePath, repositoryRelativePath );
+    return written > 0 && static_cast<size_t>( written ) < sizeof( candidate ) &&
+           CopyAbsoluteReadablePath( candidate, output, outputCapacity );
+}
+
+enum class TracyViewerLaunchTarget : uint8_t
+{
+    Unavailable,
+    Viewer,
+    BuildAndOpenTool
+};
+
+TracyViewerLaunchTarget ResolveTracyViewerLaunchPath( char* output, size_t outputCapacity ) noexcept
 {
     constexpr const char* candidates[] = {
         "TestOutput/validation/tracy_profiler/Release/tracy-profiler.exe",
@@ -109,15 +158,22 @@ bool ResolveTracyViewerPath( char* output, size_t outputCapacity ) noexcept
     };
     for ( const char* candidate : candidates )
     {
-        if ( IsReadableFile( candidate ) )
+        if ( ResolveRepositoryPath( candidate, output, outputCapacity ) )
         {
-            strcpy_s( output, outputCapacity, candidate );
-            return true;
+            return TracyViewerLaunchTarget::Viewer;
         }
     }
     const DWORD length =
         SearchPathA( nullptr, "tracy-profiler.exe", nullptr, static_cast<DWORD>( outputCapacity ), output, nullptr );
-    return length > 0u && length < outputCapacity;
+    if ( length > 0u && length < outputCapacity )
+    {
+        return TracyViewerLaunchTarget::Viewer;
+    }
+    if ( ResolveRepositoryPath( "tools/launch_tracy_viewer.bat", output, outputCapacity ) )
+    {
+        return TracyViewerLaunchTarget::BuildAndOpenTool;
+    }
+    return TracyViewerLaunchTarget::Unavailable;
 }
 
 void DrawDisabledReason( const char* reason )
@@ -390,12 +446,17 @@ SkullbonezCore::Core::SbResult ImGuiEditorOwner::Start( HWND window, Rendering::
         return rendererResult;
     }
     m_renderer = renderer;
-    m_tracyViewerAvailable = ResolveTracyViewerPath( m_tracyViewerPath, sizeof( m_tracyViewerPath ) );
-    snprintf(
-        m_tracyLaunchFeedback,
-        sizeof( m_tracyLaunchFeedback ),
-        "%s",
-        m_tracyViewerAvailable ? "Pinned Tracy viewer ready" : "Pinned Tracy viewer is not built on this machine" );
+    char tracyLaunchPath[512] = {};
+    const TracyViewerLaunchTarget tracyLaunchTarget =
+        ResolveTracyViewerLaunchPath( tracyLaunchPath, sizeof( tracyLaunchPath ) );
+    snprintf( m_tracyLaunchFeedback,
+              sizeof( m_tracyLaunchFeedback ),
+              "%s",
+              tracyLaunchTarget == TracyViewerLaunchTarget::Viewer
+                  ? "Pinned Tracy viewer ready"
+                  : ( tracyLaunchTarget == TracyViewerLaunchTarget::BuildAndOpenTool
+                          ? "First click builds the pinned Tracy viewer, then opens it"
+                          : "Tracy viewer launcher is unavailable" ) );
     printf( "[imgui] Context ready layout_version=%d font=%s docking=on platform_viewports=off win32=bound.\n",
             LAYOUT_VERSION,
             m_fontSource == ImGuiEditorFontSource::Asset ? "asset" : "embedded_vector_fallback" );
@@ -576,6 +637,15 @@ UI::OperatorEditorCommandQueues ImGuiEditorOwner::ConsumeOperatorEditorCommands(
     const UI::OperatorEditorCommandQueues commands = m_pendingOperatorEditorCommands;
     m_pendingOperatorEditorCommands = {};
     return commands;
+}
+
+void ImGuiEditorOwner::ReportTracyClientStartResult( bool started ) noexcept
+{
+    snprintf( m_tracyLaunchFeedback,
+              sizeof( m_tracyLaunchFeedback ),
+              "%s",
+              started ? "Standard capture active; viewer connection is automatic"
+                      : "Standard capture failed to start; inspect the engine console" );
 }
 
 SkullbonezCore::Core::SbResult ImGuiEditorOwner::CaptureGameViewport()
@@ -1125,17 +1195,40 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
     };
     const auto launchTracyViewer = [&]()
     {
-        if ( !m_tracyViewerAvailable )
+        char launchPath[512] = {};
+        const TracyViewerLaunchTarget launchTarget = ResolveTracyViewerLaunchPath( launchPath, sizeof( launchPath ) );
+        if ( launchTarget == TracyViewerLaunchTarget::Unavailable )
         {
+            snprintf( m_tracyLaunchFeedback,
+                      sizeof( m_tracyLaunchFeedback ),
+                      "%s",
+                      "Tracy viewer launcher is unavailable" );
             return;
         }
-        const HINSTANCE launch = ShellExecuteA( m_window, "open", m_tracyViewerPath, nullptr, nullptr, SW_SHOWNORMAL );
+        if ( !m_frameInput.tracyInitialized )
+        {
+            // Concept: ImGui emits a value command; the runtime composition
+            // boundary starts Tracy and recreates workers after this frame.
+            // Presentation never receives the profiler lifetime owner.
+            m_frameCommands.requestTracyStandardCapture = true;
+        }
+        // Why: the first click is a cold developer action. It may start the
+        // pinned viewer build in a console, but it must never block the frame.
+        const char* launchParameters = launchTarget == TracyViewerLaunchTarget::Viewer ? "-a 127.0.0.1" : nullptr;
+        const HINSTANCE launch =
+            ShellExecuteA( m_window, "open", launchPath, launchParameters, nullptr, SW_SHOWNORMAL );
         const intptr_t launchCode = reinterpret_cast<intptr_t>( launch );
         snprintf( m_tracyLaunchFeedback,
                   sizeof( m_tracyLaunchFeedback ),
                   "%s",
-                  launchCode > 32 ? "Tracy viewer launched; connection is automatic"
-                                  : "Tracy viewer launch failed; rebuild or inspect the pinned executable" );
+                  launchCode > 32 ? ( launchTarget == TracyViewerLaunchTarget::Viewer
+                                          ? ( m_frameInput.tracyInitialized
+                                                  ? "Tracy viewer launched; connection is automatic"
+                                                  : "Starting Standard capture; viewer connection is automatic" )
+                                          : ( m_frameInput.tracyInitialized
+                                                  ? "Building pinned Tracy viewer; it opens automatically when ready"
+                                                  : "Starting Standard capture and building the pinned viewer" ) )
+                                  : "Tracy viewer launch failed; inspect the launcher console" );
     };
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -1277,13 +1370,9 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                                  m_frameInput.tracyViewerConnected
                                      ? "connected"
                                      : ( m_frameInput.tracyInitialized ? "waiting for viewer" : "disabled" ) );
-            if ( ImGui::MenuItem( "Launch Tracy Viewer", nullptr, false, m_tracyViewerAvailable ) )
+            if ( ImGui::MenuItem( "Launch Tracy Viewer" ) )
             {
                 launchTracyViewer();
-            }
-            if ( !m_tracyViewerAvailable )
-            {
-                DrawDisabledReason( "Build the pinned Tracy profiler or place tracy-profiler.exe on PATH" );
             }
             ImGui::TextDisabled( "%s", m_tracyLaunchFeedback );
             ImGui::Separator();
@@ -1349,12 +1438,10 @@ void ImGuiEditorOwner::BuildEditorShell( const UI::OperatorEditorFrameView& view
                              view.scene.currentFrame,
                              view.scene.timeScale );
         ImGui::SameLine();
-        ImGui::BeginDisabled( !m_tracyViewerAvailable );
         if ( ImGui::Button( m_frameInput.tracyViewerConnected ? "TRACY CONNECTED" : "OPEN TRACY" ) )
         {
             launchTracyViewer();
         }
-        ImGui::EndDisabled();
     }
     ImGui::EndChild();
     ImGui::PopStyleVar();

@@ -5,19 +5,21 @@ Purpose:
 
 Summary:
   The process composition root starts the manually managed on-demand client
-  before engine workers exist when profiling was explicitly requested, and
-  shuts it down after joining them. A fixed source-location registry maps the
-  engine profiler's established owner paths into Tracy. Standard mode records
-  zones and capacity plots; explicit heavy mode also records call stacks and
-  global C++ allocation events.
+  before engine workers exist when profiling was requested at launch, or starts
+  Standard capture at a cold editor boundary and recreates those workers. It
+  shuts Tracy down after joining them. A fixed source-location registry maps
+  the engine profiler's established owner paths into Tracy. Standard mode
+  records zones and capacity plots; explicit heavy mode also records call
+  stacks and global C++ allocation events.
 
 Glossary:
   On-demand client: Tracy mode that records only while an external viewer is
     connected instead of retaining an unbounded pre-connection history.
   Connection snapshot: Direct read of Tracy's existing atomic connection flag;
     it does not probe the network, launch a process, or allocate.
-  Capture configuration: Tracy is off unless SKORE_TRACY_MODE selects
-    `standard` or `heavy`; standard is the comparable low-overhead mode.
+  Capture configuration: Tracy starts disabled unless SKORE_TRACY_MODE selects
+    `standard` or `heavy`, or the ImGui action requests Standard capture;
+    standard is the comparable low-overhead mode.
   Backing map: Page-aligned virtual-memory range from which Tracy's private
     rpmalloc instance serves its transport queues and other client storage.
   LZ4 owner hooks: Compile-time allocator callbacks used by Tracy's embedded
@@ -305,6 +307,31 @@ void TracyClientOwner::Start()
              static_cast<unsigned long long>( tracyAllocationStats.highWaterBytes ),
              tracyAllocationStats.hardCapBytes );
     fflush( stdout );
+}
+
+bool TracyClientOwner::StartStandardCapture()
+{
+    if ( m_started )
+    {
+        return true;
+    }
+
+    // Why: Heavy capture observes global allocation lifetimes and therefore
+    // remains a pre-launch choice. Standard capture has no allocation events,
+    // so Tracy's manual-lifetime client can start safely at this cold editor
+    // boundary without invalidating already-live engine allocations.
+    if ( !SetEnvironmentVariableA( CAPTURE_MODE_ENVIRONMENT, STANDARD_MODE_VALUE ) )
+    {
+        fprintf( stderr,
+                 "[tracy] Standard capture request failed to set %s (error=%lu).\n",
+                 CAPTURE_MODE_ENVIRONMENT,
+                 static_cast<unsigned long>( GetLastError() ) );
+        fflush( stderr );
+        return false;
+    }
+
+    Start();
+    return m_started;
 }
 
 void TracyClientOwner::Shutdown() noexcept
