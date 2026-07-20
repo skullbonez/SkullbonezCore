@@ -43,7 +43,6 @@ Related:
 #include "../AttachedCameraController.h"
 #include "../InputRouter.h"
 #include "../Replay/ReplayRuntime.h"
-#include "../Audio/ContactAudioService.h"
 #include "../RunStartupState.h"
 #include "../RunTimerState.h"
 #include "../Window.h"
@@ -509,7 +508,6 @@ void SceneLoadConsumerOutputs::ResetForLoad()
     navigation = SceneLoadNavigationState{};
     windowTitle[0] = '\0';
     hasWindowTitle = false;
-    resetContactAudioHistory = false;
     applyAutomationGates = false;
     applyNavigation = false;
     refreshSceneBrowser = false;
@@ -520,16 +518,11 @@ void SceneLoadConsumerOutputs::ResetForLoad()
 void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                                              Window& window,
                                                              UI::InGameUI& operatorUi,
-                                                             Audio::ContactAudioService& contactAudio,
                                                              RuntimeValidationHarness& validationHarness,
                                                              const RunLaunchOptions& launchOptions )
 {
     // Invariant: preserve the former synchronous consumer order while keeping
-    // all four process owners outside SceneController's load participant graph.
-    if ( outputs.resetContactAudioHistory )
-    {
-        contactAudio.ResetSimpleLinearHistory();
-    }
+    // all three process owners outside SceneController's load participant graph.
     if ( outputs.applyAutomationGates )
     {
         validationHarness.SceneGates().ApplyConfiguration( std::move( outputs.automationGates ) );
@@ -688,7 +681,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     simulation.Reset();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
-    consumerOutputs.resetContactAudioHistory = true;
     renderer.ResetSceneRuntimePolicyFromConfig();
     consumerOutputs.applyAutomationGates = true;
 

@@ -2,7 +2,7 @@
 File: SkullbonezSource/Runtime/OperatorCommandApplier.cpp
 Purpose:
   Owns UI-driven runtime tuning for cinematic rendering, ordinary rendering,
-  contact-audio presentation, tornado physics settings, and worker-thread overrides.
+  tornado physics settings and worker-thread overrides.
 
 Summary:
   Runtime input decides when a UI command is accepted. This file decides how
@@ -14,14 +14,12 @@ Glossary:
   Ordinary render config: Non-cinematic renderer settings saved in engine.cfg.
   Override mask: Bitset recording which UI-touched scene values should persist.
   Run camera command: One-frame Run-tab packet that requests an operator camera mode.
-  Sound command: One-frame UI packet that edits contact-audio presentation state.
   Tornado command: One-frame Physics-tab packet that edits live vortex settings.
   Worker override: Runtime request for the worker-pool thread count.
 
 Invariants:
   - Render and cinematic UI values are clamped before they mutate live config.
   - Scene override masks must be updated with the value they describe.
-  - Sound commands delegate value limits to ContactAudioService setters.
   - Tornado commands commit copied field/system values back to the physics owner.
 
 Related:
@@ -30,7 +28,6 @@ Related:
 */
 #include "OperatorCommandApplier.h"
 
-#include "Audio/ContactAudioService.h"
 #include "Render/RuntimeRenderer.h"
 #include "../Core/WorkerPool.h"
 #include "Scene/SceneWorld.h"
@@ -53,31 +50,6 @@ namespace RunInternal
 {
 namespace
 {
-constexpr const char* CONTACT_AUDIO_MATERIAL_MAP_PATH = "SkullbonezData/audio/contact_audio.materials.json";
-
-Runtime::Audio::ContactAudioFlashMode NextContactAudioFlashMode( Runtime::Audio::ContactAudioFlashMode mode )
-{
-    using Runtime::Audio::ContactAudioFlashMode;
-    constexpr int MODE_COUNT = static_cast<int>( ContactAudioFlashMode::Count );
-    const int rawMode = static_cast<int>( mode );
-    if ( rawMode < 0 || rawMode >= MODE_COUNT )
-    {
-        return ContactAudioFlashMode::Emitted;
-    }
-    return static_cast<ContactAudioFlashMode>( ( rawMode + 1 ) % MODE_COUNT );
-}
-
-bool EnsureContactAudioReady( SoundUICommandContext context )
-{
-    if ( context.contactAudioDisabledByLaunch )
-    {
-        return false;
-    }
-    return context.contactAudio.IsAvailable() ||
-           ( context.contactAudio.Initialize() &&
-             context.contactAudio.LoadContactAudioMap( CONTACT_AUDIO_MATERIAL_MAP_PATH ) );
-}
-
 void ApplyTornadoFieldValue( Physics::TornadoFieldConfig& tornadoField,
                              Physics::TornadoSystemConfig& tornadoSystem,
                              bool hasTornadoSystem,
@@ -556,195 +528,6 @@ CinematicTuningUICommandResult ApplyCinematicTuningUICommands( CinematicUIComman
         result.appliedParam = true;
     }
     return result;
-}
-
-bool ApplySoundUICommands( SoundUICommandContext context, const UI::UISoundCommands& commands )
-{
-    // Why: contact audio is presentation-only and may be disabled at launch or
-    // unavailable on a machine. The Sound tab can retry initialization, but
-    // failure must not affect simulation, input mode, or validation.
-    bool soundTuningChanged = false;
-    Runtime::Audio::ContactAudioService& contactAudio = context.contactAudio;
-    if ( commands.toggleEnabled )
-    {
-        if ( contactAudio.IsEnabled() )
-        {
-            contactAudio.SetEnabled( false );
-        }
-        else if ( !context.contactAudioDisabledByLaunch )
-        {
-            const bool ready = EnsureContactAudioReady( context );
-            contactAudio.SetEnabled( ready );
-        }
-        soundTuningChanged = true;
-    }
-    if ( commands.toggleDebugCounters )
-    {
-        contactAudio.SetDebugCountersEnabled( !contactAudio.DebugCountersEnabled() );
-        soundTuningChanged = true;
-    }
-    if ( commands.cycleFlashMode )
-    {
-        contactAudio.SetFlashMode( NextContactAudioFlashMode( contactAudio.FlashMode() ) );
-        soundTuningChanged = true;
-    }
-    if ( commands.toggleSimpleMode )
-    {
-        contactAudio.SetSimpleModeEnabled( !contactAudio.SimpleModeEnabled() );
-        soundTuningChanged = true;
-    }
-    if ( commands.requestedParam != UISoundParam::None )
-    {
-        using Runtime::Audio::ContactAudioSetParam;
-        switch ( commands.requestedParam )
-        {
-        case UISoundParam::SimpleMinLinearEnergy:
-            contactAudio.SetSimpleMinLinearEnergy( commands.requestedValue );
-            break;
-        case UISoundParam::SimpleMinLinearDeltaSpeed:
-            contactAudio.SetSimpleMinLinearDeltaSpeed( commands.requestedValue );
-            break;
-        case UISoundParam::SimpleLinearEnergyRange:
-            contactAudio.SetSimpleLinearEnergyRange( commands.requestedValue );
-            break;
-        case UISoundParam::MasterGain:
-            contactAudio.SetMasterGain( commands.requestedValue );
-            break;
-        case UISoundParam::MaxDistanceScale:
-            contactAudio.SetMaxDistanceScale( commands.requestedValue );
-            break;
-        case UISoundParam::MinClosingSpeed:
-            contactAudio.SetMinClosingSpeed( commands.requestedValue );
-            break;
-        case UISoundParam::MinImpactScore:
-            contactAudio.SetMinImpactScore( commands.requestedValue );
-            break;
-        case UISoundParam::ImpactScoreRangeSeconds:
-            contactAudio.SetImpactScoreRangeSeconds( commands.requestedValue );
-            break;
-        case UISoundParam::BurstVoicesPerWindow:
-            contactAudio.SetBurstVoicesPerWindow( static_cast<uint32_t>( commands.requestedValue ) );
-            break;
-        case UISoundParam::RollingLevelDb:
-            contactAudio.SetRollingLevelDb( commands.requestedValue );
-            break;
-        case UISoundParam::RollingMaxDistance:
-            contactAudio.SetRollingMaxDistance( commands.requestedValue );
-            break;
-        case UISoundParam::RollingMinSlipSpeed:
-            contactAudio.SetRollingMinSlipSpeed( commands.requestedValue );
-            break;
-        case UISoundParam::RollingVoicesPerWindow:
-            contactAudio.SetRollingVoicesPerWindow( static_cast<uint32_t>( commands.requestedValue ) );
-            break;
-        case UISoundParam::SetMinImpulse:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::MinImpulse,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetImpulseRange:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::ImpulseRange,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetCooldownMs:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::CooldownMs,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetOverrideCooldownMs:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::OverrideCooldownMs,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetMaxDistance:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::MaxDistance,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetBaseGain:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::BaseGain,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetPitchMin:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::PitchMin,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetPitchMax:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::PitchMax,
-                                           commands.requestedValue );
-            break;
-        case UISoundParam::SetMaxVoices:
-            contactAudio.SetSoundSetParam( commands.requestedSetIndex,
-                                           ContactAudioSetParam::MaxVoices,
-                                           commands.requestedValue );
-            break;
-        default:
-            break;
-        }
-        soundTuningChanged = true;
-    }
-    if ( commands.requestedBandParam != UISoundBandParam::None )
-    {
-        using Runtime::Audio::ContactAudioBandParam;
-        switch ( commands.requestedBandParam )
-        {
-        case UISoundBandParam::MinImpulse:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::MinImpulse,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::ImpulseRange:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::ImpulseRange,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::BaseGain:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::BaseGain,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::PitchMin:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::PitchMin,
-                                            commands.requestedValue );
-            break;
-        case UISoundBandParam::PitchMax:
-            contactAudio.SetSoundBandParam( commands.requestedSetIndex,
-                                            commands.requestedBandIndex,
-                                            ContactAudioBandParam::PitchMax,
-                                            commands.requestedValue );
-            break;
-        default:
-            break;
-        }
-        soundTuningChanged = true;
-    }
-    if ( commands.previewSampleIndex >= 0 )
-    {
-        if ( EnsureContactAudioReady( context ) )
-        {
-            contactAudio.PreviewSoundSample( commands.previewSampleIndex, 0.85f );
-        }
-        soundTuningChanged = true;
-    }
-    if ( commands.selectSampleIndex >= 0 )
-    {
-        if ( EnsureContactAudioReady( context ) &&
-             contactAudio.SetSoundSetSample( commands.requestedSetIndex, commands.selectSampleIndex ) )
-        {
-            contactAudio.PreviewSoundSample( commands.selectSampleIndex, 0.85f );
-        }
-        soundTuningChanged = true;
-    }
-    return soundTuningChanged;
 }
 
 bool ApplyPhysicsSleepPolicyUICommand( PhysicsSleepPolicyUICommandContext context,

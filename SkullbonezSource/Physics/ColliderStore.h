@@ -66,7 +66,7 @@ struct ColliderRecord
     float boundingRadius = 0.0f;                                                             // Conservative broadphase radius.
     float restitution = 0.0f;                                                                // Collision restitution authored on the model.
     float friction = 0.0f;                                                                   // Tangential contact resistance copied from physics material.
-    uint32_t contactMaterialId = 0;                                                          // Gameplay/audio material hash copied from the collider descriptor.
+    uint32_t contactMaterialId = 0;                                                          // Gameplay material hash copied from the collider descriptor.
     char contactMaterialName[32] = {};                                                       // Cold scene round-trip token for authored contact material.
     float projectedSurfaceArea = 0.0f;                                                       // Fluid-drag area mirrored from collision shape.
     float dragCoefficient = 0.0f;                                                            // Shape drag coefficient used by fluid forces.

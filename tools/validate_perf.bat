@@ -14,7 +14,6 @@
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem   Headless perf args: Launch flags used to remove unrelated interactive or
-@rem     audio-side work from perf comparisons.
 @rem   Structural perf proof: Counter-based assertion that rejects an expensive
 @rem     algorithmic path without relying on machine-specific frame timings.
 @rem   Scale matrix: Measurement-only 200/520/1,000/2,000/sleepy-5,000-body artifacts used
@@ -38,9 +37,7 @@ REM  Use for: optimization work, hot-path changes, allocation changes.
 REM  Runtime: about 1 minute.
 REM  Exit 0 = build+run succeeded and perf budgets/comparisons passed.
 REM ===============================================================
-REM Keep contact audio out of perf scenes; audio has a separate smoke path, and
-REM decoded samples/XAudio startup would pollute render/physics measurements.
-set "PERF_HEADLESS_ARGS=--no-contact-audio"
+set "PERF_HEADLESS_ARGS="
 
 set "REPO=%~dp0.."
 pushd "%REPO%"

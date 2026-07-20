@@ -8,7 +8,7 @@ Summary:
   layout identity, deterministic dock shell, viewport presentation geometry,
   visibility, and balanced frame begin/end calls. Runtime supplies immutable
   window, shared domain facts, and a frame-local replay publication and receives
-  typed command/input values; mutable scene, replay, rendering, physics, audio,
+  typed command/input values; mutable scene, replay, rendering, physics,
   and editor owners never enter this presentation owner.
 
 Glossary:
@@ -270,7 +270,7 @@ class ImGuiEditorOwner
     bool m_showGameViewport = true;
     bool m_showInspector = true;
     bool m_showWorldSimulation = true;
-    bool m_showRenderingAudio = true;
+    bool m_showRendering = true;
     bool m_showDiagnostics = true;
     bool m_showCausality = true;
     // Invariant: detail visibility and its row index are presentation-only;
@@ -289,11 +289,7 @@ class ImGuiEditorOwner
     // Invariant: each authoring domain owns one active scalar identity so a
     // pointer release cannot commit a preview that originated in another rail.
     ImGuiEditorParameterizedEditState m_renderingEdit;
-    ImGuiEditorParameterizedEditState m_audioEdit;
     ImGuiEditorParameterizedEditState m_diagnosticsEdit;
-    int m_audioSetIndex = 0;
-    int m_audioBandIndex = 0;
-    int m_audioSampleIndex = 0;
     int m_causalityDetailSelectedRow = -1;
     bool m_focusSceneCreate = false;
     bool m_focusSceneFilter = false;

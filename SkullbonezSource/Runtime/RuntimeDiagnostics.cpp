@@ -37,7 +37,6 @@ Related:
 #include "../Core/Log.h"
 #include "../Physics/PhysicsEngine.h"
 #include "../Core/Profiler.h"
-#include "Audio/ContactAudioService.h"
 #include "Replay/ReplayRecorder.h"
 #include "Scene/SceneRuntime.h"
 #include "../Core/PlatformWin32.h"
@@ -519,7 +518,6 @@ void RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState&
     ++diagnostics.runSequence;
     sprintf_s( diagnostics.currentRunId, sizeof( diagnostics.currentRunId ), "run_%04d", diagnostics.runSequence );
     diagnostics.isRunActive = true;
-    diagnostics.contactAudioEventSequence = 0;
     physics.SetPhysicsDiagnosticsRunId( diagnostics.currentRunId );
 
     const char* solverName = "solver";
@@ -721,146 +719,6 @@ void RuntimeDiagnostics::LogReplayRestoreResult( RunPhysicsDiagnosticsState& dia
         fallbackRestored ? 1 : 0,
         escapedReason.c_str() );
     SkullbonezCore::Core::Log().FlushAll();
-}
-
-void RuntimeDiagnostics::LogContactAudioDecision( RunPhysicsDiagnosticsState& diagnostics,
-                                                  const RunSceneState& scene,
-                                                  const Runtime::Audio::ContactAudioDecision& decision )
-{
-    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
-    {
-        return;
-    }
-
-    const char* reason = decision.reason && decision.reason[0] != '\0' ? decision.reason : "unknown";
-    const char* kind = decision.kind && decision.kind[0] != '\0' ? decision.kind : "unknown";
-    const char* severity = ( decision.submitted || decision.flashEligible ) ? "medium" : "low";
-    char eventId[32];
-    sprintf_s( eventId, sizeof( eventId ), "CA%08u", diagnostics.contactAudioEventSequence++ );
-
-    std::string escapedReason = JsonEscape( reason );
-    std::string escapedKind = JsonEscape( kind );
-    std::string escapedSet = JsonEscape( decision.soundSetName );
-    std::string escapedBand = JsonEscape( decision.bandName );
-    std::string escapedSample = JsonEscape( decision.samplePath );
-
-    // Concept: contact audio is runtime presentation built from deterministic
-    // contact facts. Logging the verdict here keeps SkullScope useful without
-    // moving audio policy into the physics solver.
-    SkullbonezCore::Core::Log().Writef(
-        diagnostics.path,
-        "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,\"type\":\"contact_audio\","
-        "\"severity\":\"%s\",\"body_a\":%d,\"body_b\":%d,\"island_id\":null,\"summary\":\"contact audio %s\","
-        "\"data\":{\"decision\":\"%s\",\"kind\":\"%s\",\"pair_key\":%llu,\"feature_id\":%u,\"is_terrain\":%d,"
-        "\"material_a\":%u,\"material_b\":%u,\"normal_impulse\":%.6f,"
-        "\"normal_closing_speed\":%.6f,\"tangent_slip_speed\":%.6f,\"has_motion_data\":%d,"
-        "\"simple_linear\":%d,\"linear_energy\":%.6f,\"linear_delta_speed\":%.6f,"
-        "\"linear_speed_before\":%.6f,\"linear_speed_after\":%.6f,"
-        "\"min_impulse\":%.6f,\"impulse_range\":%.6f,\"distance\":%.6f,\"max_distance\":%.6f,"
-        "\"distance_gain\":%.6f,\"impact_gain\":%.6f,\"motion_gain\":%.6f,\"impact_score\":%.6f,"
-        "\"gain\":%.6f,\"contact_age_seconds\":%.6f,"
-        "\"rearm_gap_seconds\":%.6f,\"previous_strongest_impulse\":%.6f,"
-        "\"ongoing_contact\":%d,\"impulse_spike\":%d,"
-        "\"submitted\":%d,\"flash_eligible\":%d,\"max_voices\":%u,\"sample_index\":%d,"
-        "\"sound_set\":\"%s\",\"band\":\"%s\",\"sample\":\"%s\"}}\n",
-        diagnostics.currentRunId,
-        eventId,
-        scene.currentFrame,
-        severity,
-        decision.event.bodyA,
-        decision.event.bodyB,
-        escapedReason.c_str(),
-        escapedReason.c_str(),
-        escapedKind.c_str(),
-        static_cast<unsigned long long>( decision.pairKey ),
-        decision.event.featureId,
-        decision.event.isTerrain ? 1 : 0,
-        decision.event.materialA,
-        decision.event.materialB,
-        decision.event.normalImpulse,
-        decision.event.normalClosingSpeed,
-        decision.event.tangentSlipSpeed,
-        decision.event.hasMotionData ? 1 : 0,
-        decision.event.simpleLinear ? 1 : 0,
-        decision.event.linearEnergy,
-        decision.event.linearDeltaSpeed,
-        decision.event.linearSpeedBefore,
-        decision.event.linearSpeedAfter,
-        decision.minImpulse,
-        decision.impulseRange,
-        decision.distance,
-        decision.maxDistance,
-        decision.distanceGain,
-        decision.impactGain,
-        decision.motionGain,
-        decision.impactScore,
-        decision.gain,
-        decision.contactAgeSeconds,
-        decision.rearmGapSeconds,
-        decision.previousStrongestImpulse,
-        decision.ongoingContact ? 1 : 0,
-        decision.impulseSpike ? 1 : 0,
-        decision.submitted ? 1 : 0,
-        decision.flashEligible ? 1 : 0,
-        decision.maxVoices,
-        decision.sampleIndex,
-        escapedSet.c_str(),
-        escapedBand.c_str(),
-        escapedSample.c_str() );
-}
-
-void RuntimeDiagnostics::LogContactAudioStepStats( RunPhysicsDiagnosticsState& diagnostics,
-                                                   const RunSceneState& scene,
-                                                   const Runtime::Audio::ContactAudioStats& stats )
-{
-    if ( !diagnostics.isEnabled || !diagnostics.isRunActive )
-    {
-        return;
-    }
-    if ( stats.eventsSeen == 0 && stats.patchCandidates == 0 && stats.mergedCandidates == 0 &&
-         stats.candidateOverflows == 0 && stats.burstWindowSkippedCandidates == 0 &&
-         stats.budgetRejectedCandidates == 0 && stats.rejectedByThreshold == 0 && stats.rejectedByCooldown == 0 &&
-         stats.submittedVoices == 0 && stats.droppedVoices == 0 && stats.rollingCandidates == 0 &&
-         stats.rollingSubmittedVoices == 0 )
-    {
-        return;
-    }
-
-    char eventId[32];
-    sprintf_s( eventId, sizeof( eventId ), "CAS%08u", diagnostics.contactAudioEventSequence++ );
-
-    // Concept: this row is the reducer summary for one physics step. Verdict
-    // rows explain individual examples; this row preserves the raw fact and
-    // patch-merge counts even when per-candidate diagnostics are capped.
-    SkullbonezCore::Core::Log().Writef(
-        diagnostics.path,
-        "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"%s\",\"frame\":%d,"
-        "\"type\":\"contact_audio_frame\",\"severity\":\"low\",\"body_a\":-1,\"body_b\":-1,"
-        "\"island_id\":null,\"summary\":\"contact audio frame facts %u patches %u played %u rolling %u\","
-        "\"data\":{\"facts_seen\":%u,\"patch_candidates\":%u,\"merged_candidates\":%u,"
-        "\"candidate_overflows\":%u,\"burst_window_skipped_candidates\":%u,"
-        "\"budget_rejected_candidates\":%u,\"rejected_by_threshold\":%u,"
-        "\"rejected_by_cooldown\":%u,\"submitted_voices\":%u,\"dropped_voices\":%u,"
-        "\"rolling_candidates\":%u,\"rolling_submitted_voices\":%u}}\n",
-        diagnostics.currentRunId,
-        eventId,
-        scene.currentFrame,
-        stats.eventsSeen,
-        stats.patchCandidates,
-        stats.submittedVoices,
-        stats.rollingSubmittedVoices,
-        stats.eventsSeen,
-        stats.patchCandidates,
-        stats.mergedCandidates,
-        stats.candidateOverflows,
-        stats.burstWindowSkippedCandidates,
-        stats.budgetRejectedCandidates,
-        stats.rejectedByThreshold,
-        stats.rejectedByCooldown,
-        stats.submittedVoices,
-        stats.droppedVoices,
-        stats.rollingCandidates,
-        stats.rollingSubmittedVoices );
 }
 
 void RuntimeDiagnostics::EndPhysicsDiagnosticsRun( RunPhysicsDiagnosticsState& diagnostics,

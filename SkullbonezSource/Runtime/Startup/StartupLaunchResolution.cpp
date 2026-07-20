@@ -626,7 +626,6 @@ RunStartupOverrides BuildRunStartupOverrides( const ParsedArgs& args )
     launch.seedOverride = args.seedOverride;
     launch.noWater = args.noWater;
     launch.noSleep = args.noSleep;
-    launch.noContactAudio = args.noContactAudio;
     launch.hasTornadoOverride = args.hasTornadoOverride;
     launch.tornadoEnabled = args.tornadoEnabled;
     launch.tornadoVectors = args.tornadoVectors;

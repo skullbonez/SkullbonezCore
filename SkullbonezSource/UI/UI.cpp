@@ -288,9 +288,6 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
         DrawHitboxRect( draw, widgets.physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, widgets.physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
         break;
-    case InGameUITab::Sound:
-        SoundTab::DrawHitboxes( widgets.soundTab, draw, data, contentR, contentG, contentB );
-        break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
         {
@@ -668,7 +665,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     DrawEditorObjectCounter( draw, data, screenW, screenH, &objectCounterAvoidBounds );
 
     static const char* kTabs[] =
-        { "Prof", "Scene", "Edit", "Phys", "Sound", "Opt", "Render", "Targets", "Ctrl", "Sky", "Cine", "Mem" };
+        { "Prof", "Scene", "Edit", "Phys", "Opt", "Render", "Targets", "Ctrl", "Sky", "Cine", "Mem" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     widgets.tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -736,20 +733,6 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                           widgets.activeSlider,
                           widgets.mouseX,
                           widgets.mouseY );
-    }
-    else if ( widgets.activeTab == InGameUITab::Sound )
-    {
-        SoundTab::Draw( widgets.soundTab,
-                        draw,
-                        data,
-                        contentX,
-                        contentY,
-                        contentW,
-                        contentH,
-                        scrolledY,
-                        widgets.activeSlider,
-                        widgets.mouseX,
-                        widgets.mouseY );
     }
     else if ( widgets.activeTab == InGameUITab::Editor )
     {

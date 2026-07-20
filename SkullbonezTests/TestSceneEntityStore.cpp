@@ -293,7 +293,7 @@ TEST_CASE( "Quaternion shortest nlerp treats antipodal endpoints as one orientat
     CHECK( w == doctest::Approx( 1.0f ) );
 }
 
-TEST_CASE( "RenderInstanceStore: contact feedback follows presentation rows and decays" )
+TEST_CASE( "RenderInstanceStore: fixed-contact feedback follows presentation rows and decays" )
 {
     using namespace SkullbonezCore::Rendering;
 
@@ -301,18 +301,16 @@ TEST_CASE( "RenderInstanceStore: contact feedback follows presentation rows and 
     REQUIRE( renderStore.ResizePresentationRecords( 2 ) );
 
     renderStore.NotifyFixedContact( 0, 0.5f );
-    renderStore.NotifyAudioContact( 1, 0.1f );
+    renderStore.NotifyFixedContact( 1, 0.1f );
     renderStore.TickContactFeedback( 2, 0.05f );
 
     REQUIRE( renderStore.PresentationRecords().size() == 2u );
     CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.9f ) );
-    CHECK( renderStore.PresentationRecords()[0].audioContactAlpha == doctest::Approx( 0.0f ) );
-    CHECK( renderStore.PresentationRecords()[1].fixedContactAlpha == doctest::Approx( 0.0f ) );
-    CHECK( renderStore.PresentationRecords()[1].audioContactAlpha == doctest::Approx( 0.5f ) );
+    CHECK( renderStore.PresentationRecords()[1].fixedContactAlpha == doctest::Approx( 0.1f ) );
 
     renderStore.TickContactFeedback( 2, 1.0f );
     CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.0f ) );
-    CHECK( renderStore.PresentationRecords()[1].audioContactAlpha == doctest::Approx( 0.0f ) );
+    CHECK( renderStore.PresentationRecords()[1].fixedContactAlpha == doctest::Approx( 0.0f ) );
 }
 
 TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion and refresh" )
@@ -345,14 +343,13 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     commitRenderRow( 1, 303u );
     commitRenderRow( 2, 202u );
     renderStore.NotifyFixedContact( 0, 0.5f );
-    renderStore.NotifyAudioContact( 2, 0.1f );
+    renderStore.NotifyFixedContact( 2, 0.1f );
 
     REQUIRE( renderStore.DestroyCreationRowAtSwapLast( 0 ) );
     REQUIRE( renderStore.Count() == 2 );
     REQUIRE( renderStore.PresentationCount() == 2 );
     CHECK( renderStore.Records()[0].replayBodyId == 202u );
-    CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.0f ) );
-    CHECK( renderStore.PresentationRecords()[0].audioContactAlpha == doctest::Approx( 1.0f ) );
+    CHECK( renderStore.PresentationRecords()[0].fixedContactAlpha == doctest::Approx( 0.2f ) );
 
     static PhysicsBodyStore bodyStore;
     bodyStore.Clear();
@@ -378,5 +375,5 @@ TEST_CASE( "RenderInstanceStore: contact feedback survives swap-last deletion an
     renderStore.Refresh( bodyStore, colliderStore );
     REQUIRE( renderStore.Count() == 1 );
     CHECK( renderStore.Records()[0].replayBodyId == 202u );
-    CHECK( renderStore.Records()[0].audioContactAlpha == doctest::Approx( 0.5f ) );
+    CHECK( renderStore.Records()[0].fixedContactAlpha == doctest::Approx( 0.1f ) );
 }

@@ -349,50 +349,6 @@ bool AttachedCameraController::TickFollow( Runtime::SceneWorld& collection,
 }
 
 
-bool AttachedCameraController::TryGetPresentationListenerPosition( const Runtime::SceneWorld& collection,
-                                                                   float presentationAlpha,
-                                                                   Vector3& outPosition ) const
-{
-    const Environment::CameraCollection& cameras = collection.Cameras();
-    if ( !m_state.activeFollow )
-    {
-        return false;
-    }
-    // Lifetime: pose solving updates orbit/entry bookkeeping, so audio uses a
-    // frame-local state copy and cannot consume camera controller transitions.
-    AttachedCameraState state = m_state;
-    int modelIndex = -1;
-    AttachedCameraPhysicsTarget target;
-    if ( !TryResolvePhysicsTarget( collection, state.target, target, &modelIndex ) )
-    {
-        return false;
-    }
-    Quaternion presentedOrientation;
-    if ( collection.TryGetPresentationPose( modelIndex, presentationAlpha, target.position, presentedOrientation ) )
-    {
-        target.rotation = BodyRotation( presentedOrientation );
-    }
-    const AttachedCameraPose currentPose{ cameras.GetRenderCameraTranslation(),
-                                          cameras.GetRenderCameraView(),
-                                          cameras.GetRenderCameraUp() };
-    AttachedCameraPoseCommand command;
-    if ( !BuildFollowPose( collection,
-                           state,
-                           target,
-                           modelIndex,
-                           currentPose,
-                           0.0f,
-                           0.0f,
-                           presentationAlpha,
-                           command ) )
-    {
-        return false;
-    }
-    outPosition = command.pose.eye;
-    return true;
-}
-
-
 bool AttachedCameraController::CycleMode( Runtime::SceneWorld& collection )
 {
     Environment::CameraCollection& cameras = collection.Cameras();

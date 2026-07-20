@@ -26,8 +26,8 @@ Invariants:
     accepted range, dump position, and every validation-sensitive consumer.
   - `terrainRaw` selects both render and collision geometry; an asset-path move
     must still receive physics validation at the formal gate.
-  - Format version 4 removes the rejected SIMD toggle. Version-3 files remain
-    readable while the cold migration tool deletes that obsolete row.
+  - Format version 5 removes the retired contact-audio settings. Version-4
+    files remain readable while the cold migration tool deletes those rows.
 
 Related:
   - SkullbonezSource/Core/Config.cpp
@@ -48,7 +48,7 @@ namespace SkullbonezCore
 namespace Core
 {
 
-inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 4;
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 5;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -261,20 +261,6 @@ struct GeneratedSceneConfig
     int ballRestitutionRange = 5;
     int ballRadiusRange = 10;
     int ballForceRange = 1000;
-};
-
-// ContactAudioService owns impact and rolling presentation policy. Physics only
-// emits material/contact facts and never owns these voice limits or gains.
-struct ContactAudioConfig
-{
-    bool enabled = true;                   // Master startup switch; CLI mute can still force the service off.
-    float masterGain = 1.0f;               // Multiplier applied after material/band gain, clamped by the audio service.
-    float maxDistanceScale = 1.0f;         // Multiplier for each sound set's authored maxDistance.
-    float rollingLevelDb = -24.0f;         // dB; separate quiet roll/slide level.
-    float rollingMaxDistance = 24.0f;      // World units; independent of impact distance.
-    float rollingMinSlipSpeed = 0.65f;     // Pre-solve tangential speed threshold.
-    int rollingVoicesPerWindow = 4;        // Per 100 ms; zero disables rolling.
-    bool debugCounters = false;            // Prints copied presentation counters once per simulated second.
 };
 
 // RuntimeRenderer owns this scene-light presentation value and publishes it to
@@ -578,7 +564,6 @@ class EngineConfig
     PhysicsExecutionConfig physicsExecution;
     TerrainGeometryConfig terrainGeometry;
     GeneratedSceneConfig generatedScene;
-    ContactAudioConfig contactAudio;
     SceneLightConfig sceneLight;
     OrdinaryRenderConfig ordinaryRender;
     CinematicRenderConfig cinematicRender;
