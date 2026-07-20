@@ -1,8 +1,8 @@
 # Render HAL Modernization Closure
 
-Date: 2026-07-21  
-Branch: `nightrunner-20th-july`  
-Plan: `render-hal-modernization`, M0-M5 complete  
+Date: 2026-07-21
+Branch: `nightrunner-20th-july`
+Plan: `render-hal-modernization`, M0-M5 complete
 Verdict: closed; independent review clear after one stack-balance remediation
 
 ## Outcome
