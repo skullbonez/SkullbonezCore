@@ -262,7 +262,8 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
                                                 uint8_t* uploadPointer,
                                                 ID3D12GraphicsCommandList* commandList,
                                                 Dx12DrawGate& drawGate,
-                                                Dx12Diagnostics& diagnostics )
+                                                Dx12Diagnostics& diagnostics,
+                                                const RasterStateDesc* declaredRasterState )
 {
     if ( handle == 0 || handle > (uint32_t)m_dynamicVBs.size() || vertexCount <= 0 )
     {
@@ -287,7 +288,7 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
         fmt = VertexFormat12::Pos2_Tex2;
     }
 
-    if ( !drawGate.PreparePipelineDraw( fmt, false, nullptr, &dvb ) )
+    if ( !drawGate.PreparePipelineDraw( fmt, false, nullptr, &dvb, declaredRasterState ) )
     {
         return;
     }
@@ -305,6 +306,23 @@ void Dx12GeometryOwner::UploadAndDrawDynamicVB( uint32_t handle,
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     diagnostics.RecordDrawCall( { DrawCallKind::DynamicVertexBuffer, "DynamicVB", vertexCount, 1 } );
     commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
+}
+
+
+bool Dx12GeometryOwner::PrecompileDynamicVBRasterState( uint32_t handle,
+                                                        Dx12DrawGate& drawGate,
+                                                        const RasterStateDesc& declaredRasterState )
+{
+    if ( handle == 0 || handle > static_cast<uint32_t>( m_dynamicVBs.size() ) )
+    {
+        return false;
+    }
+    const DynamicVBDX12& dynamicVertexBuffer = m_dynamicVBs[handle - 1];
+    return drawGate.PrecompilePipelineDraw( VertexFormat12::Pos2_Tex2,
+                                            false,
+                                            nullptr,
+                                            &dynamicVertexBuffer,
+                                            declaredRasterState );
 }
 
 
@@ -818,7 +836,46 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
         address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
         CommandList(),
         m_frameOwner.DrawGate(),
-        m_diagnostics );
+        m_diagnostics,
+        nullptr );
+    m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+}
+
+
+bool RenderBackendDX12::PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket )
+{
+    return m_geometryOwner.PrecompileDynamicVBRasterState( handle, m_frameOwner.DrawGate(), bucket.raster );
+}
+
+
+void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle,
+                                                const float* data,
+                                                int vertexCount,
+                                                const PassRasterStateBucket& bucket )
+{
+    m_frameOwner.UploadReservations().CancelPendingConstantUpload();
+    if ( !data || !m_frameOwner.DrawGate().PrepareDraw() )
+    {
+        return;
+    }
+    const UINT64 bytes = m_geometryOwner.DynamicUploadBytes( handle, vertexCount );
+    const ShaderDX12* shader = m_pipelineOwner.ActiveShader();
+    const UINT64 constantBytes = shader ? shader->ConstantBufferUploadSize() : 0;
+    const D3D12_GPU_VIRTUAL_ADDRESS address =
+        bytes > 0 ? m_frameOwner.UploadReservations().ReserveGeometryUpload( bytes,
+                                                                             constantBytes,
+                                                                             RenderUploadCategory::DynamicVertex )
+                  : 0;
+    m_geometryOwner.UploadAndDrawDynamicVB(
+        handle,
+        data,
+        vertexCount,
+        address,
+        address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr,
+        CommandList(),
+        m_frameOwner.DrawGate(),
+        m_diagnostics,
+        &bucket.raster );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
 }
 

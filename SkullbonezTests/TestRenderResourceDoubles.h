@@ -84,6 +84,15 @@ class NullMesh final : public SkullbonezCore::Rendering::IMesh
     {
     }
 
+    bool PrecompileRasterState( const SkullbonezCore::Rendering::PassRasterStateBucket& ) const override
+    {
+        return true;
+    }
+
+    void Draw( const SkullbonezCore::Rendering::PassRasterStateBucket& ) const override
+    {
+    }
+
     void DrawInstanced( int ) const override
     {
     }

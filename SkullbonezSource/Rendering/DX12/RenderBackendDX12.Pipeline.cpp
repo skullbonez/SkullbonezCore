@@ -5,9 +5,10 @@ Purpose:
 
 Summary:
   Dx12PipelineOwner turns the active shader, vertex layout, raster/depth/blend
-  choices, and output format into a bounded cached PSO. It owns the dirty-state
-  fast path and receives only the device, command list, recording state,
-  and texture bindings required for one draw.
+  choices, and output format into a bounded cached PSO. Legacy draws source
+  those choices from tracked setters; migrated draws and pass precompile source
+  them from a declared value. The owner keeps one cache and one key path for
+  both during migration.
 
 Glossary:
   RTV (Render Target View): Descriptor row used when the GPU writes color
@@ -34,6 +35,8 @@ Invariants:
     them during draw submission or render-target allocation.
   - Shader-development code may release this owner's PSOs only after its fixed
     candidate registry is complete and the composition root has drained the GPU.
+  - Pass precompile and draw-time lookup share the exact key-builder/cache path;
+    precompile never binds command-list state.
 
 Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
@@ -283,11 +286,135 @@ void Dx12PipelineOwner::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb,
 }
 
 
+RasterStateDesc Dx12PipelineOwner::DesiredRasterState() const
+{
+    RasterStateDesc state;
+    state.depthTest = m_depthTestEnabled;
+    state.depthWrite = m_depthWriteEnabled;
+    state.blendEnabled = m_blendEnabled;
+    state.sourceBlend = m_blendSrc;
+    state.destinationBlend = m_blendDst;
+    state.cullMode = m_cullEnabled ? CullMode::Back : CullMode::None;
+    state.depthBias.enabled = m_polyOffsetEnabled;
+    state.depthBias.constant = m_polyOffsetUnits;
+    state.depthBias.slopeScaled = m_polyOffsetFactor;
+    return state;
+}
+
+
+PSOKey12
+Dx12PipelineOwner::BuildPSOKey( VertexFormat12 format, bool instanced, const RasterStateDesc& rasterState ) const
+{
+    PSOKey12 key = {};
+    key.rootSignatureIdentity = m_rootSignatureIdentity;
+    key.shaderVSHash = m_activeShader->GetVSBytecodeHash();
+    key.shaderPSHash = m_activeShader->GetPSBytecodeHash();
+    key.format = format;
+    key.isInstanced = instanced;
+    key.blendEnabled = rasterState.blendEnabled;
+    key.blendSrc = rasterState.sourceBlend;
+    key.blendDst = rasterState.destinationBlend;
+    key.depthEnabled = rasterState.depthTest;
+    key.depthWriteEnabled = rasterState.depthWrite;
+    key.cullEnabled = rasterState.cullMode == CullMode::Back;
+    key.polyOffsetEnabled = rasterState.depthBias.enabled;
+    key.polyOffsetDepthBias =
+        rasterState.depthBias.enabled ? TranslatePolygonOffsetDepthBiasDX12( rasterState.depthBias.constant ) : 0;
+    key.polyOffsetSlopeScaledDepthBias =
+        rasterState.depthBias.enabled ? TranslatePolygonOffsetSlopeBiasDX12( rasterState.depthBias.slopeScaled ) : 0.0f;
+    key.rtvFormat = m_currentRTVFormat;
+    return key;
+}
+
+
+size_t Dx12PipelineOwner::BuildPSOHash( const PSOKey12& key, const DynamicVBDX12* dynamicVertexBuffer )
+{
+    size_t psoHash = HashPSOKey( key );
+    if ( dynamicVertexBuffer )
+    {
+        for ( int i = 0; i < dynamicVertexBuffer->numAttribs; ++i )
+        {
+            psoHash ^= ( (size_t)dynamicVertexBuffer->attribComponents[i] << ( i * 4 ) );
+        }
+    }
+    return psoHash;
+}
+
+
+ID3D12PipelineState* Dx12PipelineOwner::FindOrCreatePSO( ID3D12Device* device,
+                                                         const PSOKey12& key,
+                                                         size_t psoHash,
+                                                         VertexFormat12 format,
+                                                         bool instanced,
+                                                         const InstancedMeshDX12* instancedMesh,
+                                                         const DynamicVBDX12* dynamicVertexBuffer,
+                                                         const RasterStateDesc& rasterState,
+                                                         bool precompile )
+{
+    for ( size_t i = 0; i < m_psoCacheCount; ++i )
+    {
+        if ( m_psoCache[i].hash == psoHash )
+        {
+            ++m_psoCacheHitCount;
+            return m_psoCache[i].pso;
+        }
+    }
+
+    ++m_psoCacheMissCount;
+    // Diagnostics: a cache miss means the renderer discovered a new pipeline
+    // shape. The declared flag separates pass preparation from draw-time
+    // discovery without creating a second cache or identity path.
+    SkullbonezCore::Core::Log().WriteEventf(
+        "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature_identity=%llu vs_hash=%llu "
+        "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d rtv_format=%u "
+        "precompile=%d",
+        static_cast<unsigned long long>( psoHash ),
+        static_cast<unsigned long long>( m_psoCacheCount ),
+        static_cast<unsigned long long>( key.rootSignatureIdentity ),
+        static_cast<unsigned long long>( key.shaderVSHash ),
+        static_cast<unsigned long long>( key.shaderPSHash ),
+        static_cast<unsigned int>( key.format ),
+        key.isInstanced ? 1 : 0,
+        key.blendEnabled ? 1 : 0,
+        key.depthEnabled ? 1 : 0,
+        key.depthWriteEnabled ? 1 : 0,
+        key.cullEnabled ? 1 : 0,
+        static_cast<unsigned int>( key.rtvFormat ),
+        precompile ? 1 : 0 );
+    if ( m_psoCacheCount >= m_psoCache.size() )
+    {
+        // Invariant: PSO variants are bounded by the fixed cache in the
+        // backend. A new draw-state family needs an intentional cache budget,
+        // not growth from pass preparation or draw submission.
+        SB_FATAL( "RenderBackendDX12",
+                  "DX12 graphics PSO cache exhausted. capacity=%zu hash=%llu format=%u instanced=%d",
+                  m_psoCache.size(),
+                  static_cast<unsigned long long>( psoHash ),
+                  static_cast<unsigned int>( key.format ),
+                  key.isInstanced ? 1 : 0 );
+    }
+    ID3D12PipelineState* pso = CreatePSO( device, format, instanced, instancedMesh, dynamicVertexBuffer, rasterState );
+    if ( !pso )
+    {
+        return nullptr;
+    }
+    m_psoCache[m_psoCacheCount].hash = psoHash;
+    m_psoCache[m_psoCacheCount].pso = pso;
+    ++m_psoCacheCount;
+    if ( precompile )
+    {
+        ++m_precompiledPsoCount;
+    }
+    return pso;
+}
+
+
 ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
                                                    VertexFormat12 format,
                                                    bool instanced,
                                                    const InstancedMeshDX12* im,
-                                                   const DynamicVBDX12* dvb )
+                                                   const DynamicVBDX12* dvb,
+                                                   const RasterStateDesc& rasterState )
 {
     D3D12_INPUT_ELEMENT_DESC elements[16] = {};
     UINT numElements = 0;
@@ -326,28 +453,30 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
 
     // Rasterizer
     psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    psoDesc.RasterizerState.CullMode = m_cullEnabled ? D3D12_CULL_MODE_BACK : D3D12_CULL_MODE_NONE;
+    psoDesc.RasterizerState.CullMode =
+        rasterState.cullMode == CullMode::Back ? D3D12_CULL_MODE_BACK : D3D12_CULL_MODE_NONE;
     psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
-    if ( m_polyOffsetEnabled )
+    if ( rasterState.depthBias.enabled )
     {
-        psoDesc.RasterizerState.DepthBias = TranslatePolygonOffsetDepthBiasDX12( m_polyOffsetUnits );
-        psoDesc.RasterizerState.SlopeScaledDepthBias = TranslatePolygonOffsetSlopeBiasDX12( m_polyOffsetFactor );
+        psoDesc.RasterizerState.DepthBias = TranslatePolygonOffsetDepthBiasDX12( rasterState.depthBias.constant );
+        psoDesc.RasterizerState.SlopeScaledDepthBias =
+            TranslatePolygonOffsetSlopeBiasDX12( rasterState.depthBias.slopeScaled );
     }
     psoDesc.RasterizerState.DepthClipEnable = TRUE;
 
     // Depth stencil
-    psoDesc.DepthStencilState.DepthEnable = m_depthTestEnabled ? TRUE : FALSE;
+    psoDesc.DepthStencilState.DepthEnable = rasterState.depthTest ? TRUE : FALSE;
     psoDesc.DepthStencilState.DepthWriteMask =
-        m_depthWriteEnabled ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+        rasterState.depthWrite ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 
     // Blend
     psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    if ( m_blendEnabled )
+    if ( rasterState.blendEnabled )
     {
         psoDesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
-        psoDesc.BlendState.RenderTarget[0].SrcBlend = MapBlendFactor( m_blendSrc );
-        psoDesc.BlendState.RenderTarget[0].DestBlend = MapBlendFactor( m_blendDst );
+        psoDesc.BlendState.RenderTarget[0].SrcBlend = MapBlendFactor( rasterState.sourceBlend );
+        psoDesc.BlendState.RenderTarget[0].DestBlend = MapBlendFactor( rasterState.destinationBlend );
         psoDesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
         psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
         psoDesc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
@@ -410,6 +539,31 @@ ID3D12PipelineState* Dx12PipelineOwner::CreatePSO( ID3D12Device* device,
 }
 
 
+bool Dx12PipelineOwner::PrecompileDraw( ID3D12Device* device,
+                                        VertexFormat12 format,
+                                        bool instanced,
+                                        const InstancedMeshDX12* instancedMesh,
+                                        const DynamicVBDX12* dynamicVertexBuffer,
+                                        const RasterStateDesc& declaredRasterState )
+{
+    if ( !device || !m_activeShader || declaredRasterState.targets.sampleCount != 1 )
+    {
+        return false;
+    }
+    const PSOKey12 key = BuildPSOKey( format, instanced, declaredRasterState );
+    const size_t psoHash = BuildPSOHash( key, dynamicVertexBuffer );
+    return FindOrCreatePSO( device,
+                            key,
+                            psoHash,
+                            format,
+                            instanced,
+                            instancedMesh,
+                            dynamicVertexBuffer,
+                            declaredRasterState,
+                            true ) != nullptr;
+}
+
+
 bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
                                      ID3D12GraphicsCommandList* commandList,
                                      Dx12CommandRecordingState& recording,
@@ -417,7 +571,8 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
                                      VertexFormat12 format,
                                      bool instanced,
                                      const InstancedMeshDX12* im,
-                                     const DynamicVBDX12* dvb )
+                                     const DynamicVBDX12* dvb,
+                                     const RasterStateDesc* declaredRasterState )
 {
     // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
     //
@@ -430,32 +585,9 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // UnifiedRaster, but future graph-local signatures must not accidentally
     // reuse an incompatible cached PSO. The owner-issued epoch survives COM
     // address recycling and therefore represents recipe identity, not storage.
-    PSOKey12 key = {};
-    key.rootSignatureIdentity = m_rootSignatureIdentity;
-    key.shaderVSHash = m_activeShader->GetVSBytecodeHash();
-    key.shaderPSHash = m_activeShader->GetPSBytecodeHash();
-    key.format = format;
-    key.isInstanced = instanced;
-    key.blendEnabled = m_blendEnabled;
-    key.blendSrc = m_blendSrc;
-    key.blendDst = m_blendDst;
-    key.depthEnabled = m_depthTestEnabled;
-    key.depthWriteEnabled = m_depthWriteEnabled;
-    key.cullEnabled = m_cullEnabled;
-    key.polyOffsetEnabled = m_polyOffsetEnabled;
-    key.polyOffsetDepthBias = m_polyOffsetEnabled ? TranslatePolygonOffsetDepthBiasDX12( m_polyOffsetUnits ) : 0;
-    key.polyOffsetSlopeScaledDepthBias =
-        m_polyOffsetEnabled ? TranslatePolygonOffsetSlopeBiasDX12( m_polyOffsetFactor ) : 0.0f;
-    key.rtvFormat = m_currentRTVFormat;
-
-    size_t psoHash = HashPSOKey( key );
-    if ( dvb )
-    {
-        for ( int i = 0; i < dvb->numAttribs; ++i )
-        {
-            psoHash ^= ( (size_t)dvb->attribComponents[i] << ( i * 4 ) );
-        }
-    }
+    const RasterStateDesc rasterState = declaredRasterState ? *declaredRasterState : DesiredRasterState();
+    const PSOKey12 key = BuildPSOKey( format, instanced, rasterState );
+    const size_t psoHash = BuildPSOHash( key, dvb );
 
     // Fast path: if PSO, texture descriptor bindings, and render targets are
     // unchanged, the only per-draw work left is uploading the constant buffer.
@@ -465,6 +597,9 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
 
     if ( !psoChanged && !textures.BindingsDirty() && !m_targetsDirty )
     {
+        // The last bound PSO is a cache reuse even though the fast path avoids
+        // walking the fixed array.
+        ++m_psoCacheHitCount;
         // Only the constant buffer has changed (e.g. model matrix per ball)
         if ( m_activeShader )
         {
@@ -494,58 +629,11 @@ bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device,
     // publish texture indices, and update output targets.
     if ( psoChanged )
     {
-        ID3D12PipelineState* pso = nullptr;
-        for ( size_t i = 0; i < m_psoCacheCount; ++i )
-        {
-            if ( m_psoCache[i].hash == psoHash )
-            {
-                pso = m_psoCache[i].pso;
-                break;
-            }
-        }
+        ID3D12PipelineState* pso =
+            FindOrCreatePSO( device, key, psoHash, format, instanced, im, dvb, rasterState, false );
         if ( !pso )
         {
-            // Diagnostics: a cache miss means the renderer discovered a new
-            // pipeline shape. That is expected during warm-up, but unexpected
-            // misses in validation/perf runs can reveal root-signature churn,
-            // render-target format drift, or state toggles happening in hot
-            // loops.
-            SkullbonezCore::Core::Log().WriteEventf(
-                "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature_identity=%llu vs_hash=%llu "
-                "ps_hash=%llu format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d "
-                "rtv_format=%u",
-                static_cast<unsigned long long>( psoHash ),
-                static_cast<unsigned long long>( m_psoCacheCount ),
-                static_cast<unsigned long long>( key.rootSignatureIdentity ),
-                static_cast<unsigned long long>( key.shaderVSHash ),
-                static_cast<unsigned long long>( key.shaderPSHash ),
-                static_cast<unsigned int>( key.format ),
-                key.isInstanced ? 1 : 0,
-                key.blendEnabled ? 1 : 0,
-                key.depthEnabled ? 1 : 0,
-                key.depthWriteEnabled ? 1 : 0,
-                key.cullEnabled ? 1 : 0,
-                static_cast<unsigned int>( key.rtvFormat ) );
-            if ( m_psoCacheCount >= m_psoCache.size() )
-            {
-                // Invariant: PSO variants are bounded by the fixed cache in the
-                // backend. A new draw-state family needs an intentional cache
-                // budget, not growth from the per-draw binding path.
-                SB_FATAL( "RenderBackendDX12",
-                          "DX12 graphics PSO cache exhausted. capacity=%zu hash=%llu format=%u instanced=%d",
-                          m_psoCache.size(),
-                          static_cast<unsigned long long>( psoHash ),
-                          static_cast<unsigned int>( key.format ),
-                          key.isInstanced ? 1 : 0 );
-            }
-            pso = CreatePSO( device, format, instanced, im, dvb );
-            if ( !pso )
-            {
-                return false;
-            }
-            m_psoCache[m_psoCacheCount].hash = psoHash;
-            m_psoCache[m_psoCacheCount].pso = pso;
-            ++m_psoCacheCount;
+            return false;
         }
 
         // Bind the PSO. This sets the whole GPU pipeline recipe (shaders,
@@ -789,6 +877,24 @@ size_t Dx12PipelineOwner::CacheCount() const
 }
 
 
+uint64_t Dx12PipelineOwner::CacheHitCount() const
+{
+    return m_psoCacheHitCount;
+}
+
+
+uint64_t Dx12PipelineOwner::CacheMissCount() const
+{
+    return m_psoCacheMissCount;
+}
+
+
+uint64_t Dx12PipelineOwner::PrecompiledPsoCount() const
+{
+    return m_precompiledPsoCount;
+}
+
+
 void Dx12PipelineOwner::Shutdown()
 {
     // Lifetime: serialize while the blob store and source PSOs are still live.
@@ -803,6 +909,9 @@ void Dx12PipelineOwner::Shutdown()
         }
     }
     m_psoCacheCount = 0;
+    m_psoCacheHitCount = 0;
+    m_psoCacheMissCount = 0;
+    m_precompiledPsoCount = 0;
     if ( m_rootSignature )
     {
         m_rootSignature->Release();

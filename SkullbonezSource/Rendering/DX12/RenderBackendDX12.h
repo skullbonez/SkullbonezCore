@@ -14,7 +14,8 @@ Summary:
   targets and their balanced binding transaction, Dx12Diagnostics owns timing
   and draw evidence, Dx12ShaderDevelopment owns cold reload registration and
   adoption, and the private frame epoch and retirement owners live in
-  Dx12FrameOwner.h.
+  Dx12FrameOwner.h. Dx12PipelineOwner accepts pass-declared raster values for
+  migrated draws without copying them into its legacy desired-state fields.
 
 Glossary:
   Recording epoch: Logical open/closed state of the reusable command list,
@@ -356,7 +357,14 @@ class Dx12PipelineOwner
                       VertexFormat12 format,
                       bool instanced,
                       const InstancedMeshDX12* instancedMesh,
-                      const DynamicVBDX12* dynamicVertexBuffer );
+                      const DynamicVBDX12* dynamicVertexBuffer,
+                      const RasterStateDesc* declaredRasterState );
+    bool PrecompileDraw( ID3D12Device* device,
+                         VertexFormat12 format,
+                         bool instanced,
+                         const InstancedMeshDX12* instancedMesh,
+                         const DynamicVBDX12* dynamicVertexBuffer,
+                         const RasterStateDesc& declaredRasterState );
     void SetActiveShader( const ShaderDX12* shader );
     void ReleaseShaderPipelinesForReload();
     void RestoreShaderPipelinesAfterReload();
@@ -390,6 +398,9 @@ class Dx12PipelineOwner
     void ClearCurrentColor( ID3D12GraphicsCommandList* commandList ) const;
     void ClearCurrentDepth( ID3D12GraphicsCommandList* commandList ) const;
     size_t CacheCount() const;
+    uint64_t CacheHitCount() const;
+    uint64_t CacheMissCount() const;
+    uint64_t PrecompiledPsoCount() const;
 
   private:
     static size_t HashPSOKey( const PSOKey12& key );
@@ -401,7 +412,20 @@ class Dx12PipelineOwner
                                     VertexFormat12 format,
                                     bool instanced,
                                     const InstancedMeshDX12* instancedMesh,
-                                    const DynamicVBDX12* dynamicVertexBuffer );
+                                    const DynamicVBDX12* dynamicVertexBuffer,
+                                    const RasterStateDesc& rasterState );
+    RasterStateDesc DesiredRasterState() const;
+    PSOKey12 BuildPSOKey( VertexFormat12 format, bool instanced, const RasterStateDesc& rasterState ) const;
+    static size_t BuildPSOHash( const PSOKey12& key, const DynamicVBDX12* dynamicVertexBuffer );
+    ID3D12PipelineState* FindOrCreatePSO( ID3D12Device* device,
+                                          const PSOKey12& key,
+                                          size_t psoHash,
+                                          VertexFormat12 format,
+                                          bool instanced,
+                                          const InstancedMeshDX12* instancedMesh,
+                                          const DynamicVBDX12* dynamicVertexBuffer,
+                                          const RasterStateDesc& rasterState,
+                                          bool precompile );
     void ResetDesiredState();
 
     static constexpr size_t CACHE_CAPACITY = 96;
@@ -409,6 +433,9 @@ class Dx12PipelineOwner
     Dx12CachedPsoStore m_persistentPsoCache;
     std::array<CachedPSODX12, CACHE_CAPACITY> m_psoCache = {};
     size_t m_psoCacheCount = 0;
+    uint64_t m_psoCacheHitCount = 0;
+    uint64_t m_psoCacheMissCount = 0;
+    uint64_t m_precompiledPsoCount = 0;
     // Canonical UnifiedRaster bytes reopen the P4 cache after a changed manifest
     // without retaining the temporary root-signature serialization blob.
     std::array<std::uint8_t, ROOT_SIGNATURE_SERIALIZED_CAPACITY> m_rootSignatureSerialized = {};
@@ -460,7 +487,11 @@ class Dx12GeometryOwner
                                  uint8_t* uploadPointer,
                                  ID3D12GraphicsCommandList* commandList,
                                  Dx12DrawGate& drawGate,
-                                 Dx12Diagnostics& diagnostics );
+                                 Dx12Diagnostics& diagnostics,
+                                 const RasterStateDesc* declaredRasterState );
+    bool PrecompileDynamicVBRasterState( uint32_t handle,
+                                         Dx12DrawGate& drawGate,
+                                         const RasterStateDesc& declaredRasterState );
     void DestroyDynamicVB( uint32_t handle );
     void AdoptGridLineShader( std::unique_ptr<IShader> shader );
     bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat );
@@ -867,6 +898,11 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
 
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
+    bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket ) override;
+    void UploadAndDrawDynamicVB( uint32_t handle,
+                                 const float* data,
+                                 int vertexCount,
+                                 const PassRasterStateBucket& bucket ) override;
     void DestroyDynamicVB( uint32_t handle ) override;
 
     void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;

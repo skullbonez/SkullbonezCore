@@ -252,6 +252,9 @@ RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
     stats.instancedMeshCount = m_geometryOwner.InstancedCount();
     stats.instancedMeshCapacity = m_geometryOwner.InstancedCapacity();
     stats.psoCacheCount = m_pipelineOwner.CacheCount();
+    stats.psoCacheHitCount = m_pipelineOwner.CacheHitCount();
+    stats.psoCacheMissCount = m_pipelineOwner.CacheMissCount();
+    stats.precompiledPsoCount = m_pipelineOwner.PrecompiledPsoCount();
     stats.graphTransientCount = m_graphTransientPool.Size();
     stats.graphTransientCapacity = m_graphTransientPool.Capacity();
 

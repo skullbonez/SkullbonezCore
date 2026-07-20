@@ -19,6 +19,8 @@ Glossary:
     reflection dispatch.
   Render memory snapshot: Coarse counters that separate engine renderer caches
     from platform-reported adapter memory during stress runs.
+  PSO cache counters: Monotonic per-device-epoch hit, miss, and pass-precompile
+    totals paired with the current fixed cache entry count.
   Upload category: Caller-owned reason for consuming frame upload bytes, used
     only for attribution and never for allocation priority.
   Visibility counters: Per-view candidate, cull, submission, and draw totals
@@ -33,6 +35,8 @@ Invariants:
     cache them across backend teardown and replacement.
   - Visibility snapshots describe only the current frame and never own a
     visible-index list or influence render decisions.
+  - PSO hit/miss/precompile totals diagnose pipeline behavior only; they never
+    choose state, resize the cache, or alter pass submission.
 
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.h
@@ -104,6 +108,9 @@ struct RenderMemoryStats
     std::size_t instancedMeshCount = 0;
     std::size_t instancedMeshCapacity = 0;
     std::size_t psoCacheCount = 0;
+    uint64_t psoCacheHitCount = 0;
+    uint64_t psoCacheMissCount = 0;
+    uint64_t precompiledPsoCount = 0;
     std::size_t graphTransientCount = 0;
     std::size_t graphTransientCapacity = 0;
     uint32_t rtvDescriptorsUsed = 0;

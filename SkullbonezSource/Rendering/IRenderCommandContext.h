@@ -7,8 +7,10 @@ Purpose:
 Summary:
   Command-context callers are inside the frame: they bind textures, set
   viewport/depth/blend/cull state, upload transient geometry, and ask the active
-  backend to draw. They should not be able to create long-lived resources,
-  resize the device, present the swap chain, or capture the back buffer.
+  backend to draw. Modernized passes carry pass-local raster buckets on their
+  draw calls while legacy passes retain setters until M3. Callers should not be
+  able to create long-lived resources, resize the device, present the swap
+  chain, or capture the back buffer.
 
 Glossary:
   Command context: Borrowed rendering surface for draw-state changes and draw
@@ -23,12 +25,15 @@ Glossary:
     backend call.
   Compiled transition: Render-graph state edge assigned to a specific pass and
     resource before callbacks record live commands.
+  Raster bucket: Pass-local value naming one complete fixed-function PSO recipe.
 
 Invariants:
   - Callers borrow this interface only while the renderer is initialized.
   - Texture and buffer handles are opaque backend-owned ids.
   - State query methods report the backend's tracked engine state so callers can
     restore temporary overlay changes without knowing native API state.
+  - A declared-raster draw derives its PSO only from its bucket, never from the
+    legacy setter/query state retained for unmigrated passes.
 
 Related:
   - SkullbonezSource/Rendering/IRenderResourceFactory.h
@@ -52,6 +57,60 @@ enum class BlendFactor
     One,
     SrcAlpha,
     OneMinusSrcAlpha
+};
+
+// Concept: declared raster state is a complete fixed-function recipe selected
+// by a draw. It is a value boundary, not a request to mutate ambient backend
+// state. Target formats remain graph/pass-owned and are validated against the
+// active pass while M1 pilots the state half of the contract.
+enum class CullMode
+{
+    None,
+    Back
+};
+
+enum class RenderTargetFormatExpectation
+{
+    ActivePass
+};
+
+struct DepthBiasDesc
+{
+    bool enabled = false;
+    float constant = 0.0f;
+    float slopeScaled = 0.0f;
+};
+
+struct RenderTargetFormatSet
+{
+    RenderTargetFormatExpectation color = RenderTargetFormatExpectation::ActivePass;
+    RenderTargetFormatExpectation depth = RenderTargetFormatExpectation::ActivePass;
+    uint8_t sampleCount = 1;
+};
+
+struct RasterStateDesc
+{
+    bool depthTest = true;
+    bool depthWrite = true;
+    bool blendEnabled = false;
+    BlendFactor sourceBlend = BlendFactor::One;
+    BlendFactor destinationBlend = BlendFactor::Zero;
+    CullMode cullMode = CullMode::Back;
+    DepthBiasDesc depthBias;
+    RenderTargetFormatSet targets;
+};
+
+struct RasterStateBucketId
+{
+    uint8_t value = 0;
+};
+
+struct PassRasterStateBucket
+{
+    // Invariant: this id is meaningful only inside the declaring pass. It is
+    // diagnostic identity, never a durable cross-pass or backend cache key.
+    RasterStateBucketId id;
+    RasterStateDesc raster;
 };
 
 enum class TransientTriangleStyle
@@ -137,6 +196,13 @@ class IRenderCommandContext
     virtual void GetBlendFunc( BlendFactor& outSrc, BlendFactor& outDst ) const = 0;
 
     virtual void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) = 0;
+    // M1 pilot path: precompile and draw consume the same pass-local value, so
+    // the backend never reconstructs this draw's PSO from setter history.
+    virtual bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket ) = 0;
+    virtual void UploadAndDrawDynamicVB( uint32_t handle,
+                                         const float* data,
+                                         int vertexCount,
+                                         const PassRasterStateBucket& bucket ) = 0;
     virtual void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )
     {
         (void)data;

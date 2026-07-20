@@ -53,6 +53,16 @@ constexpr float LASER_CORE_HALF_WIDTH = 0.12f;
 constexpr float LASER_IMPACT_HALF_SIZE = 1.45f;
 constexpr float LASER_IMPACT_DISC_HALF_SIZE = 0.68f;
 constexpr float LASER_MIN_SEGMENT_LENGTH = 0.25f;
+constexpr PassRasterStateBucket LASER_RASTER_BUCKET = {
+    { 0 },
+    { false,
+      false,
+      true,
+      BlendFactor::SrcAlpha,
+      BlendFactor::One,
+      CullMode::None,
+      { false, 0.0f, 0.0f },
+      { RenderTargetFormatExpectation::ActivePass, RenderTargetFormatExpectation::ActivePass, 1 } } };
 
 Vector3 NormalizeOr( const Vector3& value, const Vector3& fallback )
 {
@@ -87,6 +97,7 @@ void LauncherLaser::ResetResources( Rendering::IRenderResourceFactory* renderRes
 
     m_dynamicVB = 0;
     m_shader.reset();
+    m_rasterStatePrepared = false;
 }
 
 void LauncherLaser::Clear()
@@ -386,27 +397,20 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
         return;
     }
 
-    const bool depthWasEnabled = renderCommands.IsDepthTestEnabled();
-    const bool depthWriteWasEnabled = renderCommands.IsDepthWriteEnabled();
-    const bool blendWasEnabled = renderCommands.IsBlendEnabled();
-    const bool cullWasEnabled = renderCommands.IsCullFaceEnabled();
-    BlendFactor blendSrc = BlendFactor::One;
-    BlendFactor blendDst = BlendFactor::Zero;
-    renderCommands.GetBlendFunc( blendSrc, blendDst );
-
-    renderCommands.SetDepthTest( false );
-    renderCommands.SetDepthWrite( false );
-    renderCommands.SetBlend( true );
-    renderCommands.SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::One );
-    renderCommands.SetCullFace( false );
-
     m_shader->Use();
+    if ( !m_rasterStatePrepared )
+    {
+        // Why: compile the additive overlay recipe before the first submission
+        // instead of discovering a new PSO from setter history inside the draw.
+        m_rasterStatePrepared = renderCommands.PrecompileDynamicVBRasterState( m_dynamicVB, LASER_RASTER_BUCKET );
+    }
+    if ( !m_rasterStatePrepared )
+    {
+        return;
+    }
     m_shader->SetMat4( "uViewProj", viewProjection );
-    renderCommands.UploadAndDrawDynamicVB( m_dynamicVB, m_vertices.data(), static_cast<int>( m_vertices.size() / 7 ) );
-
-    renderCommands.SetCullFace( cullWasEnabled );
-    renderCommands.SetBlendFunc( blendSrc, blendDst );
-    renderCommands.SetBlend( blendWasEnabled );
-    renderCommands.SetDepthWrite( depthWriteWasEnabled );
-    renderCommands.SetDepthTest( depthWasEnabled );
+    renderCommands.UploadAndDrawDynamicVB( m_dynamicVB,
+                                           m_vertices.data(),
+                                           static_cast<int>( m_vertices.size() / 7 ),
+                                           LASER_RASTER_BUCKET );
 }

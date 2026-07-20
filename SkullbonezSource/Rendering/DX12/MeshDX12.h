@@ -21,6 +21,8 @@ Invariants:
   - Draw dependencies are stable concrete owners; mesh objects never retain the
     aggregate backend or callbacks into it.
   - One successful native draw records exactly one diagnostic draw row.
+  - Declared draws pass their raster bucket through the draw gate; MeshDX12
+    never copies it into ambient backend state.
 
 Related:
   - SkullbonezSource/Rendering/DX12/MeshDX12.cpp
@@ -95,6 +97,8 @@ class MeshDX12 : public IMesh
                  ID3D12Resource* uploadBuffer );
 
     void Draw() const override;
+    bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const override;
+    void Draw( const PassRasterStateBucket& bucket ) const override;
     void DrawInstanced( int instanceCount ) const override;
     int GetVertexCount() const override
     {

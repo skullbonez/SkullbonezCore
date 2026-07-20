@@ -1,6 +1,6 @@
 # Render HAL Modernization
 
-Status: Active — 1/6 tasks (M0-M5)
+Status: Active — 2/6 tasks (M0-M5)
 Owner: repository owner; registered 2026-07-20 as campaign plan 6 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding F)
 Ledger: M0-M5
@@ -250,6 +250,60 @@ M5's owned replacement is a one-way value boundary:
 This boundary preserves immediate GPU timestamps and Core-owned history while
 restoring the allowed Rendering -> Core dependency direction.
 
+## M1 Declared-State Pilot Evidence
+
+Completed 2026-07-20 on `nightrunner-20th-july`.
+
+The pilot establishes one production path for each required pass shape:
+
+- opaque world: all six `SkyBox` face meshes use one pass-local opaque bucket
+  (`depth test/write on`, blending off, back-face cull, no bias). The mesh
+  precompiles that declared recipe against the active pass target before the
+  first face and every face passes the same bucket on `IMesh::Draw`;
+- blended overlay: `LauncherLaser` owns one additive bucket (`depth test/write
+  off`, source-alpha/one blend, no cull). It precompiles once per laser resource
+  lifetime and passes the bucket on `UploadAndDrawDynamicVB`. Its former five
+  state queries, five setter calls, and restore sequence are gone; and
+- backend: `Dx12PipelineOwner` has one key builder and one fixed cache for both
+  legacy and declared draws. Declared state is an operation value carried
+  through `Dx12DrawGate`; it is never copied into the legacy desired-state
+  fields. Pass precompile populates the same cache without binding command-list
+  state. `RenderMemoryStats` now reports monotonic hit, miss, and precompiled
+  creation counters per device epoch.
+
+The M0 and M1 bounded-stress runs use the same one-minute suite/seed. M0 could
+observe only entries; M1 adds exact behavior:
+
+| Evidence | M0 | M1 frame 1,800 | M1 frame 10,800 |
+|---|---:|---:|---:|
+| In-process PSO entries | 24 | 23 | 23 |
+| Cache hits | not instrumented | 24,630 | 150,746 |
+| Cache misses | not instrumented | 23 | 23 |
+| PSOs created by pass precompile | not instrumented | 1 | 1 |
+
+The entry count is one lower than the pre-pilot run, while the exact miss count
+is flat for all samples after frame 1,800. This records the improvement without
+claiming a causal split for the removed row. The launcher Automation interaction
+also exits 0 with `ok=true`, proving the blended pilot submits successfully.
+
+Validation at the final M1 source tip:
+
+| Command | Time | Result |
+|---|---:|---|
+| `tools\validate_dx12_renderer.bat` run 1 | 87.88 s | PASS; Profile/Debug clean, zero warnings/errors, captures accepted, zero DX12 validation errors |
+| `tools\validate_dx12_renderer.bat` run 2 | 55.34 s | PASS; same evidence |
+| `tools\validate_dx12_renderer.bat` run 3 | 55.31 s | PASS; same evidence |
+| `tools\run_graphics_stress.bat 1` | 61.52 s | PASS; PID-scoped bounded stop, crash-free, stderr empty; 23 misses stable and 150,746 hits by frame 10,800 |
+| `tools\validate_perf.bat` | 114.97 s | PASS; zero steady-gameplay allocation violations and no DX12/physics regressions; DX12 avg 0.7511 ms, p99 1.3535 ms |
+| `tools\validate_full.bat` | 152.91 s | PASS; CPU/coverage/Automation/DX12/physics, zero DX12 validation errors, accepted screenshots, 44,401 physics lines byte-exact |
+
+Focused iteration also passed a Profile build (20.97 s, zero warnings/errors),
+Automation build (18.73 s, zero warnings/errors), all 329 doctests / 61,354
+assertions (3.63 s), a five-frame normal sky launch (3.34 s), and the 90-frame
+launcher interaction (2.74 s, `ok=true`). Comment-style audit: 16/16 touched
+source-bearing files inspected, zero deferred; the two added null-mesh methods
+are trivial test-double no-ops and require no learning header.
+
 ## Tasks
 
 - [x] M0 — Contract and inventory: enumerate every `IRenderCommandContext`
@@ -260,7 +314,7 @@ restoring the allowed Rendering -> Core dependency direction.
   define its Rendering-owned presenter/GPU-timing boundary per binding decision
   8. Output: inventory + contract committed into this plan.
   No validation (documentation).
-- [ ] M1 — State-desc pilot: migrate two structurally different passes
+- [x] M1 — State-desc pilot: migrate two structurally different passes
   (one opaque world pass, one blended overlay/UI pass) to declared state
   with precompiled PSOs; prove baseline-identical output and record PSO
   cache evidence. Validation: `tools\validate_dx12_renderer.bat` ×3 +

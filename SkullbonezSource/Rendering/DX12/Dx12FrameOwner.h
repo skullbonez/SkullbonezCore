@@ -24,6 +24,8 @@ Invariants:
   - The first recording/device failure is sticky until a new device lifecycle resets the owner.
   - Capability objects cannot reach unrelated backend state.
   - Diagnostics can inspect the fence timeline but cannot submit or advance it.
+  - Pass precompile may populate the bounded PSO cache but cannot bind command
+    state or submit a draw.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.cpp
@@ -115,7 +117,13 @@ class Dx12DrawGate
     bool PreparePipelineDraw( VertexFormat12 format,
                               bool instanced,
                               const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer );
+                              const DynamicVBDX12* dynamicVertexBuffer,
+                              const RasterStateDesc* declaredRasterState = nullptr );
+    bool PrecompilePipelineDraw( VertexFormat12 format,
+                                 bool instanced,
+                                 const InstancedMeshDX12* instancedMesh,
+                                 const DynamicVBDX12* dynamicVertexBuffer,
+                                 const RasterStateDesc& declaredRasterState );
     bool CanRecord() const;
 
   private:
@@ -272,7 +280,13 @@ class Dx12FrameOwner
     bool PreparePipelineDraw( VertexFormat12 format,
                               bool instanced,
                               const InstancedMeshDX12* instancedMesh,
-                              const DynamicVBDX12* dynamicVertexBuffer );
+                              const DynamicVBDX12* dynamicVertexBuffer,
+                              const RasterStateDesc* declaredRasterState );
+    bool PrecompilePipelineDraw( VertexFormat12 format,
+                                 bool instanced,
+                                 const InstancedMeshDX12* instancedMesh,
+                                 const DynamicVBDX12* dynamicVertexBuffer,
+                                 const RasterStateDesc& declaredRasterState );
     D3D12_GPU_VIRTUAL_ADDRESS
     ReserveUpload( UINT64 size, UINT64 alignment, RenderUploadCategory category = RenderUploadCategory::TextureRows );
     D3D12_GPU_VIRTUAL_ADDRESS

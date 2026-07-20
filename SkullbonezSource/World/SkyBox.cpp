@@ -19,6 +19,8 @@ Invariants:
     backend, but it borrows the texture registry.
   - Face order and texture hashes must stay paired so cube sides do not swap
     during renderer rebuilds.
+  - All six face draws share one pass-local opaque raster bucket, precompiled
+    against the active target before the first face submission.
 
 Related:
   - SkullbonezSource/World/SkyBox.h
@@ -38,6 +40,20 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Textures;
 namespace Runtime = SkullbonezCore::Runtime;
+
+namespace
+{
+constexpr PassRasterStateBucket SKYBOX_RASTER_BUCKET = {
+    { 0 },
+    { true,
+      true,
+      false,
+      BlendFactor::One,
+      BlendFactor::Zero,
+      CullMode::Back,
+      { false, 0.0f, 0.0f },
+      { RenderTargetFormatExpectation::ActivePass, RenderTargetFormatExpectation::ActivePass, 1 } } };
+} // namespace
 
 
 SkyBox::SkyBox( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
@@ -246,6 +262,12 @@ SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix
     m_shader->SetMat4( "uView", view );
     m_shader->SetMat4( "uProjection", proj );
 
+    if ( !m_faceMeshes[0] || !m_faceMeshes[0]->PrecompileRasterState( SKYBOX_RASTER_BUCKET ) )
+    {
+        return SkullbonezCore::Core::SbResult::Failure( "Rendering/SkyBox",
+                                                        "Skybox declared raster pipeline could not be precompiled." );
+    }
+
     for ( int i = 0; i < 6; ++i )
     {
         if ( !m_faceMeshes[i] )
@@ -259,7 +281,9 @@ SkullbonezCore::Core::SbResult SkyBox::Render( const Matrix4& view, const Matrix
         {
             return textureResult;
         }
-        m_faceMeshes[i]->Draw();
+        // Invariant: every sky face selects the pass-owned opaque bucket on its
+        // draw call. Ambient depth/blend/cull setter history is irrelevant.
+        m_faceMeshes[i]->Draw( SKYBOX_RASTER_BUCKET );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }

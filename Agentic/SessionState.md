@@ -13,14 +13,14 @@ plan inventory.
 | Branch | `nightrunner-20th-july` |
 | Current baseline | Synced `origin/main` after PRs #127/#128; dependency direction, allocation namespace, physics facade/settings, Run de-accretion, and render-graph plans are closed with exact proofs and independent review clear. |
 | Current objective | Complete the three remaining architecture-review plans in binding order, recording external blockers without stopping automatable work. |
-| Active/future progress | 18 / 31 live tasks; 58%. |
+| Active/future progress | 19 / 31 live tasks; 61%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | G5 `validate_full` passes in 177.73s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
-| Validation for current edits | M0 is documentation-only; no repository validation required. Its PSO baseline reuses G5's passing bounded-stress artifact: 24 entries by frame 1,800 and unchanged through frame 12,600. |
+| Last broad local gate | M1 `validate_full` passes in 152.91s: all CPU/coverage/runtime lanes, zero DX12 validation errors, accepted images, and byte-exact physics. |
+| Validation for current edits | M1 DX12 x3, stress, perf, and full pass. PSO misses remain 23 from frames 1,800-10,800 while hits rise 24,630 -> 150,746; one pass-precompiled row, zero steady allocation violations, no perf regression. |
 
 ## Live Queue
 
-NOW. Four live plans, 31 tasks; 18 complete (58%). The remaining architecture-review campaign
+NOW. Four live plans, 31 tasks; 19 complete (61%). The remaining architecture-review campaign
 (registered 2026-07-20 from
 `Reports/2026-07-20/engine-architecture-review.md`) is the active queue in
 binding order: render-hal-modernization → gameplay-module-extraction →
@@ -141,13 +141,13 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Start `render-hal-modernization` M1 on `nightrunner-20th-july`.
-M0 is committed in the owning plan: all 29 `IRenderCommandContext` members and
-callers are classified, the value-only `RasterStateDesc` and pass-local bucket
-contract is binding, the bounded-stress baseline warms to 24 PSOs and stays
-flat, and the Rendering-owned Profiler presenter/GPU-timing value boundary is
-defined. M1 migrates one opaque-world and one blended-overlay pass, adds exact
-PSO hit/miss/precompile counters, and runs the three renderer gates, stress,
-and perf gates. The Profiler semantic exception remains deletion-bound to M5. E17
+Start `render-hal-modernization` M2 on `nightrunner-20th-july`.
+M1 is complete: opaque SkyBox meshes and the additive LauncherLaser overlay
+carry pass-local raster buckets directly to the shared DX12 key/cache path;
+the laser no longer saves, mutates, or restores ambient state. Exact stress
+telemetry shows 23 misses stable after warm-up, 150,746 hits by frame 10,800,
+and one pass-precompiled PSO. DX12 x3, bounded stress, perf, and full all pass;
+comment audit is 16/16. M2 migrates the remaining pass callers without fallback
+to setter-driven state. The Profiler semantic exception remains deletion-bound to M5. E17
 extended owner playtest remains parked; keep Legacy default until the owner
 explicitly authorizes a switch.

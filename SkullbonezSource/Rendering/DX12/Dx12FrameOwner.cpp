@@ -883,7 +883,8 @@ bool Dx12DrawGate::PrepareFramebufferBind()
 bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
                                           bool instanced,
                                           const InstancedMeshDX12* instancedMesh,
-                                          const DynamicVBDX12* dynamicVertexBuffer )
+                                          const DynamicVBDX12* dynamicVertexBuffer,
+                                          const RasterStateDesc* declaredRasterState )
 {
     if ( !PrepareDraw() )
     {
@@ -896,16 +897,45 @@ bool Dx12FrameOwner::PreparePipelineDraw( VertexFormat12 format,
                                    format,
                                    instanced,
                                    instancedMesh,
-                                   dynamicVertexBuffer );
+                                   dynamicVertexBuffer,
+                                   declaredRasterState );
+}
+
+
+bool Dx12FrameOwner::PrecompilePipelineDraw( VertexFormat12 format,
+                                             bool instanced,
+                                             const InstancedMeshDX12* instancedMesh,
+                                             const DynamicVBDX12* dynamicVertexBuffer,
+                                             const RasterStateDesc& declaredRasterState )
+{
+    if ( !PrepareDraw() )
+    {
+        return false;
+    }
+    // Why: pass preparation warms the exact declared recipe before the first
+    // submission. No command-list state is changed by this operation.
+    return m_pipeline
+        .PrecompileDraw( Device(), format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
 }
 
 
 bool Dx12DrawGate::PreparePipelineDraw( VertexFormat12 format,
                                         bool instanced,
                                         const InstancedMeshDX12* instancedMesh,
-                                        const DynamicVBDX12* dynamicVertexBuffer )
+                                        const DynamicVBDX12* dynamicVertexBuffer,
+                                        const RasterStateDesc* declaredRasterState )
 {
-    return m_owner.PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer );
+    return m_owner.PreparePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
+}
+
+
+bool Dx12DrawGate::PrecompilePipelineDraw( VertexFormat12 format,
+                                           bool instanced,
+                                           const InstancedMeshDX12* instancedMesh,
+                                           const DynamicVBDX12* dynamicVertexBuffer,
+                                           const RasterStateDesc& declaredRasterState )
+{
+    return m_owner.PrecompilePipelineDraw( format, instanced, instancedMesh, dynamicVertexBuffer, declaredRasterState );
 }
 
 

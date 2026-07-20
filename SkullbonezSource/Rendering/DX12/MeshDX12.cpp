@@ -187,6 +187,31 @@ void MeshDX12::Draw() const
 }
 
 
+bool MeshDX12::PrecompileRasterState( const PassRasterStateBucket& bucket ) const
+{
+    return m_drawGate.PrecompilePipelineDraw( m_format, false, nullptr, nullptr, bucket.raster );
+}
+
+
+void MeshDX12::Draw( const PassRasterStateBucket& bucket ) const
+{
+    ID3D12GraphicsCommandList* commandList = m_device.CommandList();
+    if ( !commandList )
+    {
+        return;
+    }
+    // Invariant: the pass bucket reaches PSO selection on the same call that
+    // submits the mesh. No ambient setter state participates in this draw.
+    if ( !m_drawGate.PreparePipelineDraw( m_format, false, nullptr, nullptr, &bucket.raster ) )
+    {
+        return;
+    }
+    commandList->IASetVertexBuffers( 0, 1, &m_vbView );
+    m_diagnostics.RecordDrawCall( { DrawCallKind::Mesh, "MeshDeclaredRaster", m_vertexCount, 1 } );
+    commandList->DrawInstanced( static_cast<UINT>( m_vertexCount ), 1, 0, 0 );
+}
+
+
 void MeshDX12::DrawInstanced( int instanceCount ) const
 {
     ID3D12GraphicsCommandList* commandList = m_device.CommandList();

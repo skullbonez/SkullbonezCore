@@ -1255,7 +1255,8 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                 "upload_capacity_bytes=%llu upload_used_bytes=%llu upload_peak_bytes=%llu timer_readback_bytes=%llu "
                 "upload_constants_peak_bytes=%llu upload_dynamic_peak_bytes=%llu upload_instances_peak_bytes=%llu "
                 "upload_textures_peak_bytes=%llu upload_overlay_peak_bytes=%llu upload_flushes=%llu upload_drops=%llu "
-                "textures=%zu texture_capacity=%zu psos=%zu graph_transients=%zu graph_transient_capacity=%zu "
+                "textures=%zu texture_capacity=%zu psos=%zu pso_hits=%llu pso_misses=%llu "
+                "pso_precompiled=%llu graph_transients=%zu graph_transient_capacity=%zu "
                 "rtv_used=%u rtv_capacity=%u dsv_used=%u dsv_capacity=%u srv_static_used=%u srv_static_capacity=%u "
                 "srv_static_high_water=%u "
                 "srv_transient_used=%u srv_transient_capacity=%u srv_transient_peak=%u\n",
@@ -1295,6 +1296,9 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                 renderStats.textureRegistryCount,
                 renderStats.textureRegistryCapacity,
                 renderStats.psoCacheCount,
+                static_cast<unsigned long long>( renderStats.psoCacheHitCount ),
+                static_cast<unsigned long long>( renderStats.psoCacheMissCount ),
+                static_cast<unsigned long long>( renderStats.precompiledPsoCount ),
                 renderStats.graphTransientCount,
                 renderStats.graphTransientCapacity,
                 renderStats.rtvDescriptorsUsed,
