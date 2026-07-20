@@ -37,7 +37,7 @@ Related:
 #include <span>
 #include <vector>
 
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../PhysicsDebugData.h"
 #include "../PhysicsBodyStore.h"
 #include "../TerrainContactManifold.h"

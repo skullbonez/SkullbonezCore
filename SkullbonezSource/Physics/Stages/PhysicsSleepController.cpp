@@ -32,7 +32,7 @@ Related:
 #include "PhysicsContactSolverStage.h"
 #include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../DisjointSet.h"
 #include "../PhysicsBodyStore.h"

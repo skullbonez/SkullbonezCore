@@ -36,7 +36,7 @@ Related:
 */
 #pragma once
 
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "SceneCapacity.h"
 #include "SbResult.h"
 
 #include <algorithm>

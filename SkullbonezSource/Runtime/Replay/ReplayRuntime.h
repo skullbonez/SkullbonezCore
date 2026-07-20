@@ -72,7 +72,7 @@ Related:
 #include "ReplayVisualPacket.h"
 #include "ReplayPredictionScheduling.h"
 #include "../../Assets/AssetKeys.h"
-#include "../Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"

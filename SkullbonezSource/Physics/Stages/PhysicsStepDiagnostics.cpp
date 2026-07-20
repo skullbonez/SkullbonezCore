@@ -24,7 +24,7 @@ Related:
 */
 #include "PhysicsStepDiagnostics.h"
 
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsDiagnosticsModel.h"

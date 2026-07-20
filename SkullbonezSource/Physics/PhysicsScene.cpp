@@ -40,7 +40,7 @@ Related:
   - SkullbonezSource/Physics/PhysicsScene.h
 */
 #include "PhysicsScene.h"
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 #include "PhysicsApi.h"
 
 #include "../Core/Common.h"

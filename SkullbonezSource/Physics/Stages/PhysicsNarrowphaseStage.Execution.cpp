@@ -29,7 +29,7 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/WorkerPool.h"
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../DisjointSet.h"
 
 #include <algorithm>

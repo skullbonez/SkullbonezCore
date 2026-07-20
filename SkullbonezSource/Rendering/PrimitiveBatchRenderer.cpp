@@ -27,7 +27,7 @@ Related:
 */
 #include "PrimitiveBatchRenderer.h"
 #include "../Core/Config.h"
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 #include "../Assets/AssetSystem.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Core/Profiler.h"

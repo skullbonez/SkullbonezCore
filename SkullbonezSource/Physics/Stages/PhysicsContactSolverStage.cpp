@@ -28,7 +28,7 @@ Related:
 
 #include "../../Core/Config.h"
 #include "../../Core/FatalError.h"
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../ColliderStore.h"
 #include "../PhysicsBodyStore.h"
 #include "../PhysicsWorldForces.h"

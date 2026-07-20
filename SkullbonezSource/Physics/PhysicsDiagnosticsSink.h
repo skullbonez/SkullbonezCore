@@ -29,7 +29,7 @@ Related:
 */
 #pragma once
 
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 #include <array>
 #include <cstdarg>
 

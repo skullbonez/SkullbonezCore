@@ -48,7 +48,7 @@ Related:
 #include <vector>
 
 #include "PhysicsHandles.h"
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 #include "PhysicsFixedList.h"
 #include "../Maths/Quaternion.h"
 #include "../Maths/Vector3.h"

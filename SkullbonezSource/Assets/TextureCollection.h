@@ -32,7 +32,7 @@ Related:
 
 #include "AssetSystem.h"
 #include "AssetKeys.h"
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 #include "../Core/Common.h"
 #include "../Core/SbResult.h"
 

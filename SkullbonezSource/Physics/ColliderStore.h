@@ -37,7 +37,7 @@ Related:
 #include "CollisionShape.h"
 #include "PhysicsFixedList.h"
 #include "PhysicsHandles.h"
-#include "../Runtime/Scene/SceneCapacity.h"
+#include "../Core/SceneCapacity.h"
 #include "../Core/Common.h"
 
 namespace SkullbonezCore

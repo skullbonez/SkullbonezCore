@@ -35,7 +35,7 @@ Related:
 #include "../../Core/Common.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Physics/PhysicsHandles.h"
-#include "../Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 
 #include <array>
 #include <cstdint>

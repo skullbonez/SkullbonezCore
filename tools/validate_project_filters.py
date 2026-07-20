@@ -359,7 +359,6 @@ RUNTIME_SETTINGS_PREFIXES = (
 
 RUNTIME_SCENE_PREFIXES = (
     "RunScene",
-    "SceneCapacity",
     "SceneAutomationGateConfiguration",
     "SceneController",
     "SceneControllerState",
@@ -491,6 +490,7 @@ CORE_PREFIXES = (
     "PlatformWin32",
     "Profiler",
     "SbResult",
+    "SceneCapacity",
     "SkullScope",
     "Timer",
     "WorkerPool",

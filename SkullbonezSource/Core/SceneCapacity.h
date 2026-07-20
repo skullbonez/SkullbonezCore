@@ -1,5 +1,5 @@
 /*
-File: SkullbonezSource/Runtime/Scene/SceneCapacity.h
+File: SkullbonezSource/Core/SceneCapacity.h
 Purpose:
   Owns compile-time scene and presentation capacity constants shared by model,
   camera, texture, physics, replay, and render storage.

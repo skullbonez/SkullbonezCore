@@ -844,8 +844,8 @@
     <ClInclude Include="SkullbonezSource\Core\Fence.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneCapacity.h">
-      <Filter>Header Files\Runtime\Scene</Filter>
+    <ClInclude Include="SkullbonezSource\Core\SceneCapacity.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceRenderer.h">
       <Filter>Header Files\Rendering</Filter>

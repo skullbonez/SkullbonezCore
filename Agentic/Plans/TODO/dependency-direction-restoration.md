@@ -1,6 +1,6 @@
 # Dependency Direction Restoration
 
-Status: Registered — 0/6 tasks (L0-L5)
+Status: Active — 1/6 tasks (L0 complete; L1-L5 pending)
 Owner: repository owner; registered 2026-07-20 as campaign plan 1 of 8
 Evidence: `../../Reports/2026-07-20/engine-architecture-review.md` (finding A)
 Ledger: L0-L5
@@ -70,11 +70,23 @@ At the 2026-07-20 review tip there is no enforceable lower layer:
 
 ## Tasks
 
-- [ ] L0 — Move `Runtime/Scene/SceneCapacity.h` to `Core/SceneCapacity.h`;
+- [x] L0 — Move `Runtime/Scene/SceneCapacity.h` to `Core/SceneCapacity.h`;
   update every includer (Physics, Rendering, Runtime, Core/Config.h);
   update `.vcxproj`/`.filters`. Proof: `grep -rn "Runtime/Scene/SceneCapacity"
   SkullbonezSource` returns zero rows. Validation: `tools\validate_full.bat`
   (multi-area mechanical sweep).
+  - Evidence (2026-07-20): the capacity contract moved without namespace or
+    value changes; all 22 include sites across Assets, Core, Physics,
+    Rendering, and Runtime now resolve through `Core/SceneCapacity.h` (with
+    the same-directory include in `Core/Config.h`). The project/filter entry
+    and semantic filter validator classify it as Core. Both the exact stale
+    path proof and an expanded all-include-spellings proof pass with zero
+    stale Runtime/Scene edges.
+  - Final gates: `tools\validate_full.bat` passed in 3m24.3s (0 project-filter
+    errors, clean Profile/Debug builds, CPU/coverage/runtime lanes, zero DX12
+    validation errors, three image baselines, and byte-exact physics), and
+    `tools\run_graphics_stress.bat 1` completed its PID-bounded minute in
+    60.85s with exit 0. No tracked behavioral artifact changed.
 - [ ] L1 — Move `Runtime/Allocation/*` to `Core/Allocation/`; update
   includers, project files, `tools/check_allocation_policy.py` roots,
   `tools/allocation_policy_allowlist.json` rows, and the `AGENTS.md` mapping

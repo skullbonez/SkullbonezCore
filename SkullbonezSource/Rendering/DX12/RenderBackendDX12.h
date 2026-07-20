@@ -69,7 +69,7 @@ Related:
 
 
 #include "../IRenderCaptureBackend.h"
-#include "../../Runtime/Scene/SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../IRenderCommandContext.h"
 #include "../IRenderDeviceLifecycle.h"
 #include "../IRenderDiagnostics.h"

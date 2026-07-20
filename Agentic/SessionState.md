@@ -10,13 +10,13 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `main` |
-| Current baseline | Physics body-count scale P0-P7 is complete (P6 evidence-deferred; P7 sleeper/canonical behavior and baselines accepted). The audio subsystem, its UI, diagnostics, startup controls, decoder, linkage, authored lab scene, and shipped samples are removed (PR #127 merged). |
-| Current objective | Architecture-review campaign (8 plans, registered 2026-07-20) is the active queue, starting with `dependency-direction-restoration` L0. ImGui/Tracy E17 hands-on owner acceptance is parked and non-blocking. |
-| Active/future progress | 17 / 53 live tasks; 32%. |
+| Branch | `nightrunner-20th-july` |
+| Current baseline | Synced `origin/main` after PRs #127/#128; dependency restoration L0 moves the unchanged scene-capacity contract from Runtime to Core. |
+| Current objective | Complete the eight-plan architecture-review campaign in binding order, recording external blockers without stopping automatable work. |
+| Active/future progress | 18 / 53 live tasks; 34%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Audio-removal `validate_full` passes: 323/323 cases, 61,057 assertions, every coverage floor, Automation replay/prediction smoke, zero DX12 validation errors, three image baselines, and byte-exact physics. |
-| Validation for current edits | Fast, performance, deep physics, full, allocation-policy, config-migration, project-filter, and physics-query regression gates all pass. |
+| Last broad local gate | L0 `validate_full` passes from final source: every CPU/coverage/runtime lane, zero DX12 validation errors, three image baselines, and byte-exact physics. |
+| Validation for current edits | `validate_full` and the mandatory one-minute graphics stress pass; no tracked behavioral artifact changed. |
 
 ## Live Queue
 
@@ -30,6 +30,9 @@ render-hal-modernization → gameplay-module-extraction →
 replay-boundary-containment. Owner decisions at registration: finish the
 render-graph migration; PhysicsEngine absorbs PhysicsScene; gameplay
 extracts to a new top-level `SkullbonezSource/Gameplay/` module.
+
+`dependency-direction-restoration` is 1/6: L0 is complete and L1 (move
+Runtime allocation policy into Core) is next with no blocker.
 
 `imgui-tracy-editor-campaign` is 17/18; E17 remains unchecked only for
 extended hands-on owner acceptance, now parked and non-blocking. Do not
@@ -75,11 +78,8 @@ the touched files were formatted before every final-source pass above.
 
 ## Next Handoff
 
-Begin the architecture-review campaign at
-`Plans/TODO/dependency-direction-restoration.md` task L0 through the
-orchestrator skill. PR #127 (audio removal) is merged; when campaign tasks
-touch surfaces the removal deleted (contact-audio service, Sound tab, audio
-frame views), reconcile the task's census against post-removal source first.
-The E17 extended owner playtest (separate Legacy and ImGui modes, atomic hot
-swap only when desired) remains parked with the owner; keep Legacy default
-until the owner explicitly authorizes a switch.
+Continue `dependency-direction-restoration` L1 on `nightrunner-20th-july`.
+Move `Runtime/Allocation/*` to `Core/Allocation/`, update checker/allowlist and
+validation mapping paths in the same commit, then run the plan's allocation,
+performance, and full gates. The E17 extended owner playtest remains parked;
+keep Legacy default until the owner explicitly authorizes a switch.

@@ -31,7 +31,7 @@ Related:
 #pragma once
 
 #include "../../Core/SbResult.h"
-#include "SceneCapacity.h"
+#include "../../Core/SceneCapacity.h"
 #include "../../Physics/PhysicsHandles.h"
 #include "../../Rendering/RenderMaterial.h"
 
