@@ -240,12 +240,45 @@ surface authority. No authored behavior baseline, replay golden, physics CSV,
 or coverage floor changed in E17. The replay mismatch is handed directly to the
 binding post-E17 Physics P1 transition rather than refreshed here.
 
+## 2026-07-21 current-tip assisted playtest
+
+The synchronized-main Profile build at `d4c8088d` was exercised on
+`nightrunner-21st-july` with `--dev-ui imgui`, replay enabled, the stacking
+scene, and `--interactive on`. This focused rerun covers the one-click Tracy
+change merged after the broader `75a908fc` Legacy/ImGui acceptance matrix.
+
+- The 1786x993 ImGui default opened with the intended left editor rail,
+  dominant central viewport, right Inspector/World/Rendering/Diagnostics/
+  Causality stack, bottom replay transport, and status footer. No clipping,
+  overlap, bleed, focus conflict, or modal trap was visible.
+- `OPEN TRACY` started Standard capture, launched the repository-pinned Tracy
+  Profiler 0.13.1, and connected it automatically to `127.0.0.1`. The live
+  capture exposed Frame, Render, DX12, worker, CPU-usage, and physics-body data.
+  On engine shutdown the stopped capture contained 65,023 frames over 2:08 and
+  occupied 459.78 MB.
+- `View > Switch to Legacy UI` performed a clean same-process transition:
+  ImGui disappeared before the Legacy window appeared, the scene remained
+  visible, and no doubled replay or editor pixels were present.
+- The engine and Tracy viewer then closed cleanly, leaving no process behind.
+
+The earlier `75a908fc` assisted matrix additionally exercised Legacy Scene,
+Physics, and Memory tabs; plain-`0` minimize/restore; F5/F6 overlays; ImGui edit
+mode, object selection, hierarchy filtering, layout reset, render-target
+diagnostics, compact/expanded Causality, and replay pause/step/scrub/return-live.
+Computer-control modifier injection did not reliably deliver `Ctrl+0`, so the
+assisted runs do not claim a manually injected chord success; the current menu
+hot swap passed and the retained production automation remains the evidence for
+the actual chord path.
+
+No source, authored data, baseline, or golden changed. The assisted result has
+no blocking usability finding and recommends **ready** for extended owner use,
+but it does not substitute for the owner's ready/not-ready verdict.
+
 ## Owner acceptance and handoff
 
-The current Profile development build plus the concise playtest in
-`imgui-tracy-e17-playtest.md` are ready for owner use. Blocking feedback would
-reopen E17. Because that hands-on response is unavailable in this goal run,
-the checkpoint remains retained and the plan checkbox remains open. This is the
-only non-automatable E17 hold after the final gates.
+The owner replied **Ready** on 2026-07-21 after the current-tip assisted
+playtest. E17's sole retained closure condition is satisfied and the campaign
+closes at 18/18. Closure evidence is in
+`../2026-07-21/imgui-tracy-editor-campaign-closure.md`.
 
 There is no Legacy deletion, retirement, or default switch in this campaign.

@@ -298,10 +298,16 @@ Profiler semantic exception is resolved through a fixed Rendering-owned timing
 owner and Core-owned value history. Closure evidence is in
 `../Reports/2026-07-21/render-hal-modernization-closure.md`.
 
+The active/future denominator returned 18 → 0 on 2026-07-21 when the owner
+accepted ImGui/Tracy E17 as ready for extended hands-on use. The campaign
+closed E0-E17 at 18/18 and left the ledger under rule 4. Legacy remains the
+development default; no retirement or default switch was authorized. Closure
+evidence is in
+`../Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | 17 | 18 | 94% |
-| **Active/future total** | **17** | **18** | **94%** |
+| **Active/future total** | **0** | **0** | **100% (no live plans)** |
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -372,7 +378,8 @@ physics, performance, replay fidelity, one-minute graphics stress, and marker
 smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
-The architecture-review campaign registered 2026-07-20 is the active queue.
+The architecture-review campaign registered 2026-07-20 is complete; no live
+implementation queue remains.
 Dependency-direction restoration, allocation-namespace restoration,
 physics-facade unification, physics-settings snapshot, Run::Execute
 de-accretion, render-graph completion, Render HAL modernization, and gameplay
@@ -391,14 +398,15 @@ the final performance, physics, full, and visual-fidelity gates pass. Closure
 evidence is in `../Reports/2026-07-21/replay-policy-debt-closure.md`. Owner decisions
 ratified at registration: finish the render-graph migration (freezing rejected);
 `PhysicsEngine` survives the facade unification; extracted gameplay lives in
-a new top-level `SkullbonezSource/Gameplay/` module. E17 hands-on acceptance
-below is a parked owner item and does not gate this campaign.
+a new top-level `SkullbonezSource/Gameplay/` module. The separately parked E17
+owner item is now accepted and closed.
 
-`imgui-tracy-editor-campaign` (E0-E17) is 17/18. E14-E15 are reconciled against
-the accepted P1 one-process golden and their retained replay gates now pass
-exactly without another engine process. E16 is complete and E17's automatable
-evaluation, review, and gates are complete; its checkbox is retained only for
-extended hands-on owner acceptance. The 2026-07-18 owner amendment
+`imgui-tracy-editor-campaign` (E0-E17) is complete at 18/18. E14-E15 are
+reconciled against the accepted P1 one-process golden and their retained replay
+gates now pass exactly without another engine process. E16 is complete and
+E17's automatable evaluation, review, gates, assisted playtest, and owner
+acceptance are complete.
+The 2026-07-18 owner amendment
 keeps Legacy as the development default and makes ImGui an explicit
 `--dev-ui imgui` mode;
 parallel/Both activation is forbidden because it creates competing focus and
@@ -521,8 +529,10 @@ authority defects, then found no remaining blocker. Full, UI, UI-stress, DX12,
 bounded graphics-stress, unchanged-retry performance, allocation-policy,
 platform-marker, and Release gates passed. The mandated single replay-fidelity
 invocation reached only the already authorized topology `199 -> 200` transition;
-P1 later reconciled that same one-process report. Extended hands-on feedback
-remains the sole E17 hold and does not block Physics P2-P7.
+P1 later reconciled that same one-process report. A 2026-07-21 current-tip
+assisted ImGui/Tracy/Legacy playtest found no blocking usability issue, and the
+owner then accepted the editor as ready for extended hands-on use. The campaign
+closes at 18/18.
 The campaign adds a
 development-only ImGui docked editor and Tracy
 instrumentation while retaining the old UI intact for separate Legacy and
@@ -1116,8 +1126,8 @@ live plan was deleted under inventory rule 4. Closure evidence:
 
 Source: the owner selected Dear ImGui and Tracy for development tooling and
 directed a real engine-editor layout rather than extending the crowded legacy
-tab strip. The complete 18-task campaign is
-[`imgui-tracy-editor-campaign`](TODO/imgui-tracy-editor-campaign.md).
+tab strip. The complete 18-task campaign and owner acceptance are recorded in
+the [closure report](../Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md).
 
 Campaign order: coexistence inventory → pinned dependencies and narrow
 development allocation boundary → Tracy lifecycle/instrumentation → ImGui
@@ -1138,7 +1148,7 @@ forbidden; no legacy deletion is authorized.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [imgui-tracy-editor-campaign](TODO/imgui-tracy-editor-campaign.md) | Active — E0-E16 complete; E17 automatable checkpoint complete and hands-on acceptance retained | 17/18 | Retain Legacy as the default; run separate Legacy/ImGui extended owner playtests and await acceptance |
+| [ImGui + Tracy editor closure](../Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md) | Complete — owner accepted extended hands-on use; Legacy retained as default | 18/18 | Closed; await new owner direction |
 
 ## Architecture Review Campaign (2026-07-20)
 
@@ -1156,8 +1166,8 @@ Owner decisions ratified at registration: finish the render-graph migration
 (RenderGraph owns barriers and pass scheduling; freezing as diagnostics was
 rejected); `PhysicsEngine` survives the facade unification and absorbs
 `PhysicsScene`; extracted gameplay content lives in a new top-level
-`SkullbonezSource/Gameplay/` module; the campaign starts immediately with
-E17 hands-on acceptance parked as a non-blocking owner item.
+`SkullbonezSource/Gameplay/` module; the campaign started with E17 hands-on
+acceptance parked as a non-blocking owner item, which is now accepted.
 
 Standing rules binding every plan in this campaign: zero behavioral
 baseline, golden, screenshot, replay, or physics CSV refresh — byte-exact
@@ -1167,12 +1177,12 @@ per inventory rule 10; replay-facing slices run the one-invocation mega gate
 per inventory rule 11; one independent rubber-duck review per plan at
 closure, not per slice; no new compatibility spellings, forwarding wrappers,
 or hot-path inheritance/callback artifacts (existing review rules apply
-verbatim). The Legacy/ImGui UI resolution is deliberately **not** part of
-this campaign: it waits on the parked E17 owner verdict.
+verbatim). The Legacy/ImGui UI resolution was deliberately **not** part of
+this campaign; the owner accepted E17 separately on 2026-07-21.
 
 Execution order was binding (biggest wins first). All eight architecture-review
 campaign plans are closed with exact evidence and independent review. No live
-execution row remains; E17 extended owner acceptance is parked and non-blocking.
+execution row remains; E17 extended owner acceptance is also complete.
 
 ## Features
 
