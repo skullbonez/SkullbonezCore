@@ -11,20 +11,21 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF5; Legacy remains the development default. |
+| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at RC0; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 5 / 13 live tasks; 38%. |
+| Active/future progress | 0 / 7 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | OF4 `validate_full` passes in 146.5 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | OF4 reduced view-parameter slots 68→36; all 342 doctests / 68,685 assertions pass, Profile builds, 15-file comment audit and static proofs pass. OF2's Replay provenance blocker remains recorded. |
+| Last broad local gate | OF5 `validate_full` passes in 99.2 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | OF5 closes at ten transaction inputs with a ≤3-file reactive-owner witness; focused tests pass 6 cases / 177 assertions, 14-file comment audit and static proofs pass, and one-minute DX12 stress is crash-free. OF2's Replay provenance blocker remains recorded. |
 
 ## Live Queue
 
-NOW. The remaining 2026-07-22 architecture follow-up queue is, in binding
-order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (5/6), then
-`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Render interface
-retirement closed RH0-RH5; evidence is in
-`Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`. The prior architecture-review campaign is
+NOW. The remaining 2026-07-22 architecture follow-up queue is
+`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7), beginning at RC0.
+Render interface retirement closed RH0-RH5 and owner fan-out reduction closed
+OF0-OF5; evidence is in
+`Agentic/Reports/2026-07-22/render-interface-retirement-closure.md` and
+`Agentic/Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
@@ -215,6 +216,10 @@ are not certified. Full evidence:
 | focused Profile rebuild + complete doctests (OF4) | 10.5 s + 3.3 s | PASS; 342 cases / 68,685 assertions |
 | `tools\validate_full.bat` (OF4 first attempt) | 7.2 s | BLOCKED then resolved; formatting-only preflight identified three touched implementations and two touched headers |
 | `tools\validate_full.bat` (OF4 final) | 146.5 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile rebuild + Simulation lifecycle doctests (OF5) | PASS | Zero warnings; 6 cases / 177 assertions |
+| independent rubber-duck ownership review (OF5) | 7.3 min | PASS after remediation; ten inputs, exact render authority, ≤3-file witness, zero forbidden seams |
+| `tools\validate_full.bat` (OF5 final) | 99.2 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| `tools\run_graphics_stress.bat 1` (OF5 final) | 61.0 s | PASS; PID 61368 bounded stop, crash-free |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -222,10 +227,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The remaining 2026-07-22 architecture follow-up campaign is 5/13 complete.
-Continue with `owner-fanout-reduction` OF5: rerun the final participant census,
-publish the delta and ≤3-file reactive-owner checklist, then complete the
-independent ownership review and final broad gate. The OF2 replay provenance mismatch remains recorded and does not
-authorize a config or golden reconciliation. ImGui/Tracy E17 remains accepted;
-Legacy remains the default until a separate owner decision changes that
-policy.
+The remaining 2026-07-22 architecture follow-up campaign is replay subsystem
+consolidation at 0/7. Begin RC0: inventory all Replay files, oversized-TU
+responsibilities, non-Replay include consumers, six-domain assignments, and
+the `TrajectoryStore` ownership decision. The OF2 replay provenance mismatch
+remains recorded and does not authorize a config or golden reconciliation.
+ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
+owner decision changes that policy.

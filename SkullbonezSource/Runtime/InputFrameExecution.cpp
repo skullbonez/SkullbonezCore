@@ -435,12 +435,16 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                               m_startup,
                                               m_assets,
                                               m_workerPool,
+                                              m_diagnosticsRuntime,
+                                              m_renderBackendView.RendererName(),
                                               m_timers.simulationTimer.GetTotalTime() },
-                       SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
                        SceneLoadInteractionParticipants{
                            m_camera,
                            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) },
-                       SceneLoadPresentationParticipants{ m_debug, m_renderBackendView, m_renderer },
+                       SceneLoadPresentationParticipants{ m_debug,
+                                                          m_renderBackendView.renderFrame,
+                                                          m_renderBackendView.renderResources,
+                                                          m_renderer },
                        sceneLoadOutputs )
                 .ok;
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
@@ -448,6 +452,8 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                        interactionOwners.operatorUi,
                                        m_validationHarness,
                                        m_launchOptions,
+                                       m_renderBackendView.renderDevice,
+                                       m_renderer.VsyncEnabled(),
                                        m_timers,
                                        sceneOwners.overlays,
                                        m_sceneController,
@@ -1137,15 +1143,18 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  m_startup,
                                                  m_assets,
                                                  m_workerPool,
+                                                 m_diagnosticsRuntime,
+                                                 m_renderBackendView.RendererName(),
                                                  m_timers.simulationTimer.GetTotalTime() };
-    const SceneLoadHostParticipants sceneLoadHost{ m_diagnosticsRuntime, m_simulation };
     const SceneLoadInteractionParticipants sceneLoadInteraction{
         m_camera,
         CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
-    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_debug, m_renderBackendView, m_renderer };
+    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_debug,
+                                                                   m_renderBackendView.renderFrame,
+                                                                   m_renderBackendView.renderResources,
+                                                                   m_renderer };
     SceneLoadConsumerOutputs sceneLoadOutputs;
     const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
-                                                                  sceneLoadHost,
                                                                   sceneLoadInteraction,
                                                                   sceneLoadPresentation,
                                                                   sceneLoadOutputs );
@@ -1154,6 +1163,8 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                    interactionOwners.operatorUi,
                                    m_validationHarness,
                                    m_launchOptions,
+                                   m_renderBackendView.renderDevice,
+                                   m_renderer.VsyncEnabled(),
                                    m_timers,
                                    sceneOwners.overlays,
                                    m_sceneController,

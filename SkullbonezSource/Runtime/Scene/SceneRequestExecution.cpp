@@ -48,7 +48,6 @@ using namespace SkullbonezCore::Physics;
 
 
 bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
-                                      const SceneLoadHostParticipants& host,
                                       const SceneLoadInteractionParticipants& interaction,
                                       const SceneLoadPresentationParticipants& presentation,
                                       SceneLoadConsumerOutputs& consumerOutputs )
@@ -61,7 +60,7 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         {
             return false;
         }
-        return m_sceneController.Load( request, policy, host, interaction, presentation, consumerOutputs ).ok;
+        return m_sceneController.Load( request, policy, interaction, presentation, consumerOutputs ).ok;
     };
     const SceneRequestBatch batch = m_sceneController.TakePendingRequests();
     if ( batch.rejectedTransitionCount > 0 )

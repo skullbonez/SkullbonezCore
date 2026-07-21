@@ -51,6 +51,14 @@ void SimulationSystem::Reset()
     m_physicsHitchEventCount = 0;
 }
 
+void SimulationSystem::ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
+{
+    if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        Reset();
+    }
+}
+
 SimulationTickResult SimulationSystem::Tick( const SimulationTickInput& input )
 {
     SimulationTickResult result;

@@ -1035,7 +1035,6 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     RunCameraState& camera = interactionOwners.camera;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
-    SimulationSystem& simulation = sceneOwners.simulation;
     UI::InGameUI& ui = interactionOwners.operatorUi;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeRenderBackendView& renderBackendView = presentationOwners.renderBackendView;
@@ -1077,11 +1076,13 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                            startup,
                                            assets,
                                            workerPool,
+                                           diagnosticsRuntime,
+                                           renderBackendView.RendererName(),
                                            timers.simulationTimer.GetTotalTime() },
-                    SceneLoadHostParticipants{ diagnosticsRuntime, simulation },
                     SceneLoadInteractionParticipants{ camera, CaptureSceneLoadNavigationState( ui.SceneNavigation() ) },
                     SceneLoadPresentationParticipants{ sceneOwners.overlays.PresentationSnapshot(),
-                                                       renderBackendView,
+                                                       renderBackendView.renderFrame,
+                                                       renderBackendView.renderResources,
                                                        renderer },
                     sceneLoadOutputs )
                 .ok;
@@ -1098,6 +1099,8 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                        ui,
                                        presentationOwners.validationHarness,
                                        launchOptions,
+                                       renderBackendView.renderDevice,
+                                       renderer.VsyncEnabled(),
                                        timers,
                                        sceneOwners.overlays,
                                        sceneController,

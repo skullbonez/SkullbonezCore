@@ -25,6 +25,7 @@ Related:
 #include "RuntimeRenderHost.h"
 #include "../../Core/FatalError.h"
 #include "../../Rendering/DX12/Dx12BackbufferCapture.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
 
 SkullbonezCore::Rendering::Dx12BackbufferCapture&
 SkullbonezCore::Runtime::RuntimeRenderBackendView::RequireBackbufferCapture() const
@@ -34,4 +35,9 @@ SkullbonezCore::Runtime::RuntimeRenderBackendView::RequireBackbufferCapture() co
         SB_FATAL( "Runtime/RenderBackendView", "Screenshot capture requires a startup-bound DX12 capture owner" );
     }
     return *backbufferCapture;
+}
+
+const char* SkullbonezCore::Runtime::RuntimeRenderBackendView::RendererName() const
+{
+    return renderDiagnostics ? renderDiagnostics->GetRendererName() : "unknown";
 }

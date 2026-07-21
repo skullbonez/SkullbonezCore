@@ -97,13 +97,12 @@ class SceneLifecycleGenerationObserver
     uint64_t m_lastAppliedGeneration = 0;
 };
 
-// Concept: lifecycle receipts keep the remaining synchronous diagnostics,
-// render-device, and simulation calls auditable until OF3 evaluates them.
+// Concept: lifecycle receipts keep the remaining transaction-time diagnostics
+// and pre-mutation render drain auditable. Reactive owner work is absent.
 enum class SceneLifecycleConsumer : uint32_t
 {
     Diagnostics = 1u << 0,
-    RenderDevice = 1u << 1,
-    Simulation = 1u << 2,
+    RenderDrain = 1u << 1,
 };
 using SceneLifecycleConsumerMask = uint32_t;
 
@@ -118,10 +117,9 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRunti
     {
     case SceneRuntimeLifecycleEvent::BeforeSceneUnload:
         return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
     case SceneRuntimeLifecycleEvent::AfterSceneCleared:
-        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
+        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     case SceneRuntimeLifecycleEvent::AfterSceneActivated:
     case SceneRuntimeLifecycleEvent::BeforeScenePopulate:
     case SceneRuntimeLifecycleEvent::AfterScenePopulate:

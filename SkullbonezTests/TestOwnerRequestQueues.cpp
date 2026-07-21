@@ -96,9 +96,8 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
                                                        SceneRuntimeLifecycleEvent::None ) );
 
     const SceneLifecycleConsumerMask beforeUnload = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-                                                    SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
-    const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
+                                                    SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
+    const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeScenePopulate ) == 0 );

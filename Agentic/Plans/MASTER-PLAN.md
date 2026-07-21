@@ -322,9 +322,16 @@ is recorded in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| `owner-fanout-reduction` | 5 | 6 | 83% |
 | `replay-subsystem-consolidation` | 0 | 7 | 0% |
-| **Active/future total** | **5** | **13** | **38%** |
+| **Active/future total** | **0** | **7** | **0%** |
+
+The active/future denominator returned 13 → 7 when
+`owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
+Scene-load inputs are 18→10, consumer outputs are 20→11, view-parameter slots
+are 68→36, a reactive owner integrates in at most three files, and the final
+independent ownership review and broad/DX12-stress gates are clear. Evidence is
+recorded in
+`../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`.
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -1235,8 +1242,8 @@ or hot-path inheritance artifacts. Execution order is binding.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Active | 5/6 | OF4 reduced view-parameter slots 68→36; proceed to OF5 final census, checklist, and independent review |
-| [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Registered | 0/7 | Starts after owner-fanout-reduction closes |
+| [owner-fanout-reduction](../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md) | Complete | 6/6 | Ten-input scene-load boundary, ≤3-file reactive-owner path, clear independent review, and final broad/stress gates complete |
+| [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Active | 0/7 | Begin RC0 census and six-domain map |
 
 Render interface retirement closed RH0-RH5 with zero interface classes,
 narrower transient authority, clear independent review, and complete final

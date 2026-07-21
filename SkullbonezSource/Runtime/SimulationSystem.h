@@ -36,6 +36,7 @@ Related:
 #pragma once
 
 #include "RuntimeInteractionController.h"
+#include "Scene/SceneLifecycle.h"
 
 #include <cstdint>
 
@@ -69,6 +70,9 @@ class SimulationSystem
 {
   public:
     void Reset();
+    // Applies the pacing reset once after a scene transaction reaches clear;
+    // SimulationSystem never needs to participate in scene population.
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet );
     SimulationTickResult Tick( const SimulationTickInput& input );
     // Cumulative diagnostics since Reset; callers may sample them without
     // mutating scheduler state or retaining an accumulator view.
@@ -80,5 +84,6 @@ class SimulationSystem
     float m_fixedStepTickAccumulator = 0.0f;
     uint64_t m_droppedPhysicsTickCount = 0;
     uint64_t m_physicsHitchEventCount = 0;
+    SceneLifecycleGenerationObserver m_sceneResetObserver;
 };
 } // namespace SkullbonezCore::Runtime

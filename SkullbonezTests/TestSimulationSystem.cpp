@@ -13,11 +13,15 @@ Glossary:
     physics poses, derived from time left in the fixed-step accumulator.
   Hitch event: One fixed-step scheduling call that requests more whole ticks
     than the five-tick catch-up cap.
+  Lifecycle reset: Idempotent pacing reset applied after a scene generation
+    reaches the cleared phase.
 
 Invariants:
   - Deterministic fixed-step scenes and paused simulation publish exact state.
   - Presentation alpha never changes the committed physics tick count.
   - Catch-up accounting drops whole ticks but retains fractional cadence.
+  - A scene generation resets pacing at most once; later phase samples cannot
+    erase work accumulated after that reset.
 
 Related:
   - SkullbonezSource/Runtime/SimulationSystem.h
@@ -146,6 +150,39 @@ TEST_CASE( "SimulationSystem accumulates hitch diagnostics and Reset clears the 
     const SimulationTickResult boundedNormalFrame = simulation.Tick( input );
     CHECK( boundedNormalFrame.committedPhysicsTicks == 5 );
     CHECK( boundedNormalFrame.droppedPhysicsTicks == 0 );
+    CHECK( simulation.DroppedPhysicsTickCount() == 0u );
+    CHECK( simulation.PhysicsHitchEventCount() == 0u );
+}
+
+TEST_CASE( "SimulationSystem observes each cleared scene generation exactly once" )
+{
+    SimulationSystem simulation;
+    SimulationTickInput input;
+    input.canStepPhysics = true;
+    input.isFixedStep = true;
+    input.physicsAdvance = PhysicsAdvanceState::Running;
+    input.timeScale = 6.0f;
+    CHECK( simulation.Tick( input ).droppedPhysicsTicks == 1 );
+
+    SceneLifecyclePacket lifecycle;
+    lifecycle.generation = 1;
+    lifecycle.event = SceneRuntimeLifecycleEvent::BeforeSceneUnload;
+    simulation.ObserveSceneLifecycle( lifecycle );
+    CHECK( simulation.DroppedPhysicsTickCount() == 1u );
+
+    lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
+    simulation.ObserveSceneLifecycle( lifecycle );
+    CHECK( simulation.DroppedPhysicsTickCount() == 0u );
+    CHECK( simulation.PhysicsHitchEventCount() == 0u );
+
+    CHECK( simulation.Tick( input ).droppedPhysicsTicks == 1 );
+    lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneActivated;
+    simulation.ObserveSceneLifecycle( lifecycle );
+    CHECK( simulation.DroppedPhysicsTickCount() == 1u );
+
+    lifecycle.generation = 2;
+    lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
+    simulation.ObserveSceneLifecycle( lifecycle );
     CHECK( simulation.DroppedPhysicsTickCount() == 0u );
     CHECK( simulation.PhysicsHitchEventCount() == 0u );
 }

@@ -752,6 +752,9 @@ float Run::TickPhysics( double secondsPerFrame,
                         bool capturePresentationPinned,
                         const SceneFrameProceedPolicy& proceedPolicy )
 {
+    // Why: simulation pacing is a reactive frame concern. Sampling the ledger
+    // here keeps SimulationSystem out of every cold scene-load call surface.
+    m_simulation.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     if ( replayInput.scrubPaused )
     {
@@ -1037,13 +1040,15 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                                          m_startup,
                                                          m_assets,
                                                          m_workerPool,
+                                                         m_diagnosticsRuntime,
+                                                         m_renderBackendView.RendererName(),
                                                          m_timers.simulationTimer.GetTotalTime() },
-                                  SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
                                   SceneLoadInteractionParticipants{
                                       m_camera,
                                       CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
                                   SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
-                                                                     m_renderBackendView,
+                                                                     m_renderBackendView.renderFrame,
+                                                                     m_renderBackendView.renderResources,
                                                                      m_renderer },
                                   sceneLoadOutputs )
                            .ok;
@@ -1052,6 +1057,8 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                            *m_operatorUi,
                                            *m_validationHarness,
                                            m_launchOptions,
+                                           m_renderBackendView.renderDevice,
+                                           m_renderer.VsyncEnabled(),
                                            m_timers,
                                            *m_overlayDiagnostics,
                                            m_sceneController,
@@ -1179,13 +1186,15 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                                           m_startup,
                                                           m_assets,
                                                           m_workerPool,
+                                                          m_diagnosticsRuntime,
+                                                          m_renderBackendView.RendererName(),
                                                           m_timers.simulationTimer.GetTotalTime() },
-                                   SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
                                    SceneLoadInteractionParticipants{
                                        m_camera,
                                        CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
                                    SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
-                                                                      m_renderBackendView,
+                                                                      m_renderBackendView.renderFrame,
+                                                                      m_renderBackendView.renderResources,
                                                                       m_renderer },
                                    sceneLoadOutputs )
                             .ok;
@@ -1194,6 +1203,8 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                        *m_operatorUi,
                                        *m_validationHarness,
                                        m_launchOptions,
+                                       m_renderBackendView.renderDevice,
+                                       m_renderer.VsyncEnabled(),
                                        m_timers,
                                        *m_overlayDiagnostics,
                                        m_sceneController,

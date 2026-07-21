@@ -11,6 +11,38 @@ It survives dense-store compaction and must not be replaced by a generic
 their typed handles or dense rows locally; those row indices are temporary
 hints, not persisted identity.
 
+## Scene-Lifecycle Reactive Owner Integration
+
+Use the scene lifecycle ledger when an already integrated owner must reset or
+react after a scene transition but does not mutate the load transaction. The
+lifecycle integration itself must touch at most three files; constructing a
+brand-new subsystem owner is separate composition-root work.
+
+- [ ] Classify the action as reactive. If it needs the live parser DTO, mutates
+  scene population, drains GPU work, or can fail the load, it is transactional
+  and must be justified in the owning plan instead.
+- [ ] Add one `SceneLifecycleGenerationObserver` to the concrete owner and an
+  `ObserveSceneLifecycle(const SceneLifecyclePacket&)` action at the required
+  phase. The action must be idempotent for repeated samples of one generation.
+- [ ] Sample `SceneController::LifecyclePacket()` at that owner's existing
+  fixed frame entry. Do not add a reaction-only owner to `SceneController::Load`,
+  `ExecutePending`, `ApplySceneLoadConsumerOutputs`, a participant record, a
+  frame view, or a callback/subscriber registry.
+- [ ] Keep the change to the owner header, owner implementation, and one
+  existing frame-entry file. If no such entry exists, record that integration
+  blocker and design a typed owner-local entry before changing the load graph.
+- [ ] Preserve partial-failure semantics: choose the earliest required phase
+  (`AfterSceneCleared` versus `AfterSceneActivated`) and test failed or
+  incomplete generations when the distinction matters.
+- [ ] Add an owner-specific focused test for first application, repeat sampling
+  in the same generation, and the next generation. Generic ledger tests alone
+  are not sufficient evidence for stateful owner behavior.
+
+`SimulationSystem` is the reference path: `SimulationSystem.h/.cpp` owns the
+observer/reset and `RunFrame.cpp` samples it before physics scheduling. It
+therefore adds no scene participant, output field, frame-view field, or broad
+consumer parameter.
+
 ## Command-Line Arguments
 
 | Argument | Values | Description |

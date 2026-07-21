@@ -78,6 +78,12 @@ namespace Threading
 {
 class WorkerPool;
 }
+namespace Rendering
+{
+class Dx12FrameOwner;
+class Dx12RenderDevice;
+class Dx12ResourceBuilder;
+} // namespace Rendering
 namespace UI
 {
 class InGameUI;
@@ -103,7 +109,6 @@ struct RunDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
-struct RuntimeRenderBackendView;
 struct SceneFrameAdvanceResult
 {
     SceneLoadRequest loadRequest;
@@ -152,13 +157,11 @@ struct SceneLoadPolicyInputs
     const RunStartupState& startup;
     Assets::AssetSystem& assets;
     Threading::WorkerPool& workerPool;
-    double sceneTimeSeconds = 0.0;
-};
-
-struct SceneLoadHostParticipants
-{
+    // Diagnostics consumes authored automation/physics settings while the
+    // parsed scene is live, so it is the one justified non-target survivor.
     DiagnosticsRuntime& diagnosticsRuntime;
-    SimulationSystem& simulation;
+    const char* rendererName = "unknown";
+    double sceneTimeSeconds = 0.0;
 };
 
 struct SceneLoadInteractionParticipants
@@ -170,7 +173,11 @@ struct SceneLoadInteractionParticipants
 struct SceneLoadPresentationParticipants
 {
     RunDebugState debug;
-    const RuntimeRenderBackendView& renderBackendView;
+    // Hazard: scene mutation may start only after the DX12 frame is drained;
+    // terrain construction then uses the cold resource builder. No other
+    // backend capability belongs inside the load transaction.
+    Rendering::Dx12FrameOwner* renderFrame = nullptr;
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
     RuntimeRenderer& renderer;
 };
 
@@ -234,6 +241,8 @@ void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                     UI::InGameUI& operatorUi,
                                     RuntimeValidationHarness& validationHarness,
                                     const RunLaunchOptions& launchOptions,
+                                    Rendering::Dx12RenderDevice* renderDevice,
+                                    bool rendererVsyncEnabled,
                                     RunTimerState& timers,
                                     RuntimeOverlayDiagnostics& overlays,
                                     SceneController& sceneController,
@@ -296,14 +305,12 @@ class SceneController
     // the scene boundary.
     SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
                                          const SceneLoadPolicyInputs& policy,
-                                         const SceneLoadHostParticipants& host,
                                          const SceneLoadInteractionParticipants& interaction,
                                          const SceneLoadPresentationParticipants& presentation,
                                          SceneLoadConsumerOutputs& consumerOutputs );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
     bool ExecutePending( const SceneLoadPolicyInputs& policy,
-                         const SceneLoadHostParticipants& host,
                          const SceneLoadInteractionParticipants& interaction,
                          const SceneLoadPresentationParticipants& presentation,
                          SceneLoadConsumerOutputs& consumerOutputs );

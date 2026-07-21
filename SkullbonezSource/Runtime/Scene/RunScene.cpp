@@ -14,8 +14,8 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
-  Render setup owners: Concrete DX12 resource, command, diagnostics, frame, and
-    raytracing owners borrowed only during cold scene replacement.
+  Render setup owners: Exact DX12 frame-drain and cold resource-build
+    capabilities plus the runtime renderer used during scene replacement.
   Lifecycle generation: Monotonic value identifying one post-preflight load
     attempt, even when it fails before activation.
   Lane R result: Recoverable scene-load or renderer-drain failure carrying
@@ -53,10 +53,8 @@ Related:
 #include "../RunStartupState.h"
 #include "../RunTimerState.h"
 #include "../Window.h"
-#include "../Render/RuntimeRenderHost.h"
 #include "../Render/RuntimeRenderer.h"
 #include "SceneRuntimeCoordinator.h"
-#include "../SimulationSystem.h"
 #include "SceneRuntimeLoad.h"
 #include "SceneRuntimeReset.h"
 #include "SceneRuntimeStyle.h"
@@ -71,7 +69,6 @@ Related:
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/RenderRaytracingTypes.h"
-#include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UI.h"
@@ -578,6 +575,8 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
                                                              UI::InGameUI& operatorUi,
                                                              RuntimeValidationHarness& validationHarness,
                                                              const RunLaunchOptions& launchOptions,
+                                                             Rendering::Dx12RenderDevice* renderDevice,
+                                                             bool rendererVsyncEnabled,
                                                              RunTimerState& timers,
                                                              RuntimeOverlayDiagnostics& overlays,
                                                              SceneController& sceneController,
@@ -696,6 +695,12 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
             request.type == SceneRequestType::CreateScene ? request.text : ReplayOwnerEventName( eventCode ) ) );
     }
     validationHarness.SceneGates().ObserveSceneLifecycle( lifecycle, std::move( outputs.automationGates ) );
+    // Invariant: device swap policy commits only with a fully activated scene;
+    // partial loads may publish clear/populate reactions but not presentation.
+    if ( renderDevice && SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
+    {
+        renderDevice->SetVsyncEnabled( rendererVsyncEnabled );
+    }
     if ( outputs.windowTitle[0] != '\0' )
     {
         window.SetTitleText( outputs.windowTitle );
@@ -717,7 +722,6 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
 
 SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request,
                                                       const SceneLoadPolicyInputs& policy,
-                                                      const SceneLoadHostParticipants& host,
                                                       const SceneLoadInteractionParticipants& interactionParticipants,
                                                       const SceneLoadPresentationParticipants& presentation,
                                                       SceneLoadConsumerOutputs& consumerOutputs )
@@ -731,9 +735,10 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const RunStartupState& startup = policy.startup;
     SkullbonezCore::Assets::AssetSystem& assets = policy.assets;
     Threading::WorkerPool& workerPool = policy.workerPool;
-    DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
-    SimulationSystem& simulation = host.simulation;
-    const RuntimeRenderBackendView& renderBackendView = presentation.renderBackendView;
+    DiagnosticsRuntime& diagnosticsRuntime = policy.diagnosticsRuntime;
+    const char* rendererName = policy.rendererName ? policy.rendererName : "unknown";
+    Rendering::Dx12FrameOwner* renderFrame = presentation.renderFrame;
+    Rendering::Dx12ResourceBuilder* renderResources = presentation.renderResources;
     RuntimeRenderer& renderer = presentation.renderer;
 
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
@@ -792,7 +797,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                  renderer,
                                  m_debug,
                                  camera,
-                                 renderBackendView.renderFrame,
+                                 renderFrame,
                                  request.enterInteractiveSceneRun || launchOptions.interactiveSceneRun,
                                  index,
                                  suppressExitOnComplete,
@@ -818,8 +823,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     // but before any transaction phase mutates the active scene. Every event
     // emitted below therefore belongs to this exact load attempt.
     runtime.BeginLoadAttempt( index, lifecyclePolicy );
-    SceneLifecycleConsumerMask beforeUnloadConsumers =
-        SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
+    SceneLifecycleConsumerMask beforeUnloadConsumers = SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
     diagnosticsRuntime.BeforeSceneUnload( SceneState() );
     beforeUnloadConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload, beforeUnloadConsumers );
@@ -845,8 +849,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     SceneState().ResetForLoad( config.cinematicRender );
     diagnosticsRuntime.ResetForSceneLoad( m_perfPass + 1 );
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
-    simulation.Reset();
-    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
     renderer.ResetSceneRuntimePolicyFromConfig();
 
     m_sceneController.Scene().Cameras().Reset();
@@ -895,8 +897,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                "terrain.raw",
                                                                config.assetPaths.terrainRaw.c_str() ),
-                               renderBackendView.renderFrame,
-                               renderBackendView.renderResources );
+                               renderFrame,
+                               renderResources );
         if ( !terrainResult.ok )
         {
             m_lastSceneLoadResult = terrainResult;
@@ -951,8 +953,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                               ActiveSceneCinematicConfig( SceneState(), config ),
                                                               defaultCinematicRender } );
         sceneNavigation.selectedCineModeSceneIndex = styleBrowser.selectedCineModeSceneIndex;
-        const char* rendererName =
-            renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
         sprintf_s( consumerOutputs.windowTitle, "%s [%s]", TITLE_TEXT, rendererName );
     }
     else
@@ -1073,8 +1073,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                      scene.GetFlatBaseY(),
                                      scene.GetFlatSlopeX(),
                                      scene.GetFlatSlopeZ(),
-                                     renderBackendView.renderFrame,
-                                     renderBackendView.renderResources );
+                                     renderFrame,
+                                     renderResources );
             if ( !terrainResult.ok )
             {
                 m_lastSceneLoadResult = terrainResult;
@@ -1096,8 +1096,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                    assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                    "terrain.raw",
                                                                    config.assetPaths.terrainRaw.c_str() ),
-                                   renderBackendView.renderFrame,
-                                   renderBackendView.renderResources );
+                                   renderFrame,
+                                   renderResources );
             if ( !terrainResult.ok )
             {
                 m_lastSceneLoadResult = terrainResult;
@@ -1191,8 +1191,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             camera.trackBallRow.value = 0;
             camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
-        const char* rendererName =
-            renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
         sprintf_s( consumerOutputs.windowTitle, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
 
         // Snapshot scenes start paused in Inspect by default; authored live scenes
@@ -1358,7 +1356,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         SceneState().currentSceneIndex,
         SceneState().loadCount,
         scenePath.empty() ? "generated" : scenePath.c_str(),
-        renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown",
+        rendererName,
         SceneState().targetFrameCount,
         SceneState().rngSeed,
         SceneState().isFixedStep ? 1 : 0,
@@ -1368,19 +1366,12 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 #endif
 
 #ifdef _DEBUG
-    diagnosticsRuntime.BeginPhysicsDiagnosticsRun(
-        m_sceneController.Scene().Physics(),
-        SceneState(),
-        config,
-        scenePath.c_str(),
-        renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown" );
+    diagnosticsRuntime.BeginPhysicsDiagnosticsRun( m_sceneController.Scene().Physics(),
+                                                   SceneState(),
+                                                   config,
+                                                   scenePath.c_str(),
+                                                   rendererName );
 #endif
-
-    // Runtime swap policy is chosen after config/scene overrides are resolved.
-    if ( renderBackendView.renderDevice )
-    {
-        renderBackendView.renderDevice->SetVsyncEnabled( renderer.VsyncEnabled() );
-    }
 
     const SkullbonezCore::Core::SbResult rayTracingResult =
         renderer.InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
