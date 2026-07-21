@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF4; Legacy remains the development default. |
+| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF5; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 4 / 13 live tasks; 31%. |
+| Active/future progress | 5 / 13 live tasks; 38%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | OF3 `validate_full` passes in 147.8 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | OF3 collapsed consumer outputs 20→11; focused tests pass 4 cases / 51 assertions, Profile builds, eight-file comment audit, static proofs, and full gate pass. OF2's Replay provenance blocker remains recorded. |
+| Last broad local gate | OF4 `validate_full` passes in 146.5 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | OF4 reduced view-parameter slots 68→36; all 342 doctests / 68,685 assertions pass, Profile builds, 15-file comment audit and static proofs pass. OF2's Replay provenance blocker remains recorded. |
 
 ## Live Queue
 
 NOW. The remaining 2026-07-22 architecture follow-up queue is, in binding
-order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (4/6), then
+order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (5/6), then
 `Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Render interface
 retirement closed RH0-RH5; evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`. The prior architecture-review campaign is
@@ -212,6 +212,9 @@ are not certified. Full evidence:
 | `tools\validate_full.bat` (OF2 final) | 151.7 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
 | focused Profile rebuild + lifecycle/same-batch doctests (OF3) | 6.5 s + 1.8 s | PASS; 4 cases / 51 assertions |
 | `tools\validate_full.bat` (OF3 final) | 147.8 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile rebuild + complete doctests (OF4) | 10.5 s + 3.3 s | PASS; 342 cases / 68,685 assertions |
+| `tools\validate_full.bat` (OF4 first attempt) | 7.2 s | BLOCKED then resolved; formatting-only preflight identified three touched implementations and two touched headers |
+| `tools\validate_full.bat` (OF4 final) | 146.5 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -219,10 +222,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The remaining 2026-07-22 architecture follow-up campaign is 4/13 complete.
-Continue with `owner-fanout-reduction` OF4: measure every frame-view consumer,
-remove unread fields, convert copied UI facts to values, and inline views with
-two or fewer members. The OF2 replay provenance mismatch remains recorded and does not
+The remaining 2026-07-22 architecture follow-up campaign is 5/13 complete.
+Continue with `owner-fanout-reduction` OF5: rerun the final participant census,
+publish the delta and ≤3-file reactive-owner checklist, then complete the
+independent ownership review and final broad gate. The OF2 replay provenance mismatch remains recorded and does not
 authorize a config or golden reconciliation. ImGui/Tracy E17 remains accepted;
 Legacy remains the default until a separate owner decision changes that
 policy.

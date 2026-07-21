@@ -138,20 +138,21 @@ float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config
 namespace
 {
 
-void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
-                            RuntimeFrameSceneView& sceneOwners,
+// Lifetime: this fixed post-step operation receives only its replay-capture
+// inputs. It cannot reach unrelated frame owners through the root view slices.
+void CaptureReplayPostStep( RuntimeTools& runtimeTools,
+                            SkullbonezCore::Runtime::SceneController& sceneController,
+                            RunTimerState& timers,
+                            const RuntimeOverlayDiagnostics& overlays,
                             ReplayRuntime& replayRuntime,
                             SkullbonezCore::Core::Profiler* profiler )
 {
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
-    const RunSceneState& scene = models.State();
-    RunTimerState& timers = sceneOwners.timers;
-    const RunDebugState debug = sceneOwners.overlays.PresentationSnapshot();
-    SkullbonezCore::Environment::CameraCollection& cameras = models.Scene().Cameras();
-    SkullbonezCore::Environment::WorldEnvironment& world = models.Scene().Environment();
-    PhysicsEngine& physics = models.Scene().Physics();
-    const SceneEntityStore& entities = models.Scene().Entities();
+    const RunSceneState& scene = sceneController.State();
+    const RunDebugState debug = overlays.PresentationSnapshot();
+    SkullbonezCore::Environment::CameraCollection& cameras = sceneController.Scene().Cameras();
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
+    PhysicsEngine& physics = sceneController.Scene().Physics();
+    const SceneEntityStore& entities = sceneController.Scene().Entities();
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( profiler, "Frame/Physics/Step/ReplayCapture" );
     ReplayCaptureInput input;
@@ -166,10 +167,10 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     input.cameras = &cameras;
     input.world = &world;
     input.physics = &physics;
-    input.tornadoGameplay = &models.Scene().Tornado();
+    input.tornadoGameplay = &sceneController.Scene().Tornado();
     input.entities = &entities;
-    input.bodyStore = &models.Scene().BodyStore();
-    input.colliderStore = &models.Scene().Colliders();
+    input.bodyStore = &sceneController.Scene().BodyStore();
+    input.colliderStore = &sceneController.Scene().Colliders();
     replayRuntime.CaptureFrame( input, runtimeTools );
 }
 
@@ -284,7 +285,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             const ReplayInputView automationReplayInput = automationReplayView.input;
             const InteractionAutomationFrameResult automationBeforeInput =
                 TickInteractionAutomationBeforeInput( m_interactionAutomation,
-                                                      frameHost,
+                                                      m_window,
                                                       frameInteraction,
                                                       frameScene,
                                                       automationReplayView );
@@ -305,7 +306,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_inputRouter.ApplyCameraMode( automationBeforeInput.cameraMode,
                                                RuntimeInputActionSource::Runtime,
                                                frameInteraction,
-                                               frameScene,
+                                               m_sceneController,
                                                m_replayRuntime,
                                                m_inputRouter.RuntimeContext() );
             }
@@ -319,7 +320,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                     automationBeforeInput.worldInteractionOwner,
                     automationBeforeInput.worldInteractionReason,
                     frameInteraction,
-                    frameScene,
+                    m_sceneController,
                     m_replayRuntime,
                     NormalizeRuntimeCameraMode(
                         automationReplayInput.restoreCameraMode,
@@ -439,11 +440,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Physics );
-                simulationPresentationAlpha = TickPhysics( secondsPerFrame,
-                                                           frameInteraction,
-                                                           frameScene,
-                                                           capturePresentationPinned,
-                                                           sceneProceedPolicy );
+                simulationPresentationAlpha =
+                    TickPhysics( secondsPerFrame, capturePresentationPinned, sceneProceedPolicy );
             }
 
             {
@@ -549,12 +547,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                        : RunCameraModeLabel( m_camera.mode ),
                 m_runtimeTools.LauncherFireModeLabel(),
                 RunCameraModeUsesLauncher( m_camera.mode ),
-                m_interaction.Gesture(),
+                m_interaction.Gesture().kind,
+                m_interaction.Gesture().gizmoKind,
                 presentationAlpha,
                 capturePresentationPinned,
                 secondsPerFrame,
-                legacyDevelopmentUiActive,
-                operatorEditorView };
+                legacyDevelopmentUiActive };
             // Lifetime: replay publishes one immutable cause/scrubber view for
             // both the legacy late pass and the development editor. E14 reads
             // its rows directly instead of building a second causality tree.
@@ -568,9 +566,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
             OperatorEditorFrameComposer::Render( frameHost,
                                                  frameInteraction,
                                                  frameScene,
-                                                 framePresentation,
+                                                 m_renderer,
                                                  m_replayRuntime,
                                                  uiTextFacts,
+                                                 operatorEditorView,
                                                  replayOverlay,
                                                  frameRenderDiagnostics,
                                                  uiRender,
@@ -665,7 +664,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
                                                       frameInteraction,
-                                                      frameScene,
+                                                      m_sceneController,
                                                       m_replayRuntime.BuildAutomationView(),
                                                       automationDevelopmentUiView,
                                                       m_diagnosticsRuntime.Capture(),
@@ -750,8 +749,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
 
 float Run::TickPhysics( double secondsPerFrame,
-                        RuntimeFrameInteractionView& interactionOwners,
-                        RuntimeFrameSceneView& sceneOwners,
                         bool capturePresentationPinned,
                         const SceneFrameProceedPolicy& proceedPolicy )
 {
@@ -835,7 +832,7 @@ float Run::TickPhysics( double secondsPerFrame,
 
             if ( manipulatorPhysics || replayCapture )
             {
-                AfterPhysicsStep( interactionOwners, sceneOwners );
+                AfterPhysicsStep();
             }
         }
         PROFILE_END( m_profiler, "Frame/Physics" );
@@ -878,13 +875,18 @@ float Run::TickPhysics( double secondsPerFrame,
 }
 
 
-void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
+void Run::AfterPhysicsStep()
 {
     m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController.Scene(), m_inputRouter, m_interaction );
     const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
     if ( replayCaptured )
     {
-        CaptureReplayPostStep( interactionOwners, sceneOwners, m_replayRuntime, m_profiler );
+        CaptureReplayPostStep( m_runtimeTools,
+                               m_sceneController,
+                               m_timers,
+                               *m_overlayDiagnostics,
+                               m_replayRuntime,
+                               m_profiler );
     }
 #ifdef _DEBUG
     if ( replayCaptured )

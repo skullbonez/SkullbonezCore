@@ -85,7 +85,8 @@ class Terrain;
 namespace Runtime
 {
 class SceneController;
-}
+class RuntimeOverlayDiagnostics;
+} // namespace Runtime
 namespace Physics
 {
 class PhysicsEngine;
@@ -111,9 +112,7 @@ class SceneController;
 class DiagnosticsRuntime;
 class Window;
 struct RunDebugState;
-struct RuntimeFrameHostView;
 struct RuntimeFrameInteractionView;
-struct RuntimeFrameSceneView;
 
 struct EditorPointerRouteInput
 {
@@ -403,18 +402,18 @@ class InputRouter
                                  policy );         // Releases native capture only when mouse look has no stronger claim.
     void ApplyInteractionTransitionCleanup( const RuntimeInteractionTransition& transition,
                                             RuntimeFrameInteractionView& interactionOwners,
-                                            RuntimeFrameSceneView& sceneOwners,
+                                            SceneController& sceneController,
                                             ReplayRuntime& replayRuntime,
                                             RunCameraMode replayRestoreCameraMode );
     void ApplyInteractionTransition( const RuntimeInteractionTransition& transition,
                                      RuntimeFrameInteractionView& interactionOwners,
-                                     RuntimeFrameSceneView& sceneOwners,
+                                     SceneController& sceneController,
                                      ReplayRuntime& replayRuntime,
                                      RunCameraMode replayRestoreCameraMode );
     RuntimeInteractionTransition SetWorldInteractionOwner( WorldInteractionOwner owner,
                                                            InteractionExitReason reason,
                                                            RuntimeFrameInteractionView& interactionOwners,
-                                                           RuntimeFrameSceneView& sceneOwners,
+                                                           SceneController& sceneController,
                                                            ReplayRuntime& replayRuntime,
                                                            RunCameraMode replayRestoreCameraMode );
     // Camera-mode requests are input-owner transitions: the router sequences
@@ -423,40 +422,42 @@ class InputRouter
     void ApplyCameraMode( RunCameraMode mode,
                           RuntimeInputActionSource source,
                           RuntimeFrameInteractionView& interactionOwners,
-                          RuntimeFrameSceneView& sceneOwners,
+                          SceneController& sceneController,
                           ReplayRuntime& replayRuntime,
                           RuntimeInputContext& runtimeInput );
     void CycleCameraMode( RuntimeFrameInteractionView& interactionOwners,
-                          RuntimeFrameSceneView& sceneOwners,
+                          SceneController& sceneController,
                           ReplayRuntime& replayRuntime,
                           RuntimeInputContext& runtimeInput );
     bool HandleUnfocusedFrame( RuntimeFrameInteractionView& interactionOwners,
-                               RuntimeFrameSceneView& sceneOwners,
+                               SceneController& sceneController,
                                ReplayRuntime& replayRuntime,
                                RuntimeInputContext& runtimeInput );
     bool DispatchAfterUiDismiss( InputActions& actions,
                                  const RuntimeAfterUiDismissInput& input,
-                                 RuntimeFrameHostView& host,
+                                 DiagnosticsRuntime& diagnosticsRuntime,
                                  RuntimeFrameInteractionView& interactionOwners,
-                                 RuntimeFrameSceneView& sceneOwners,
+                                 SceneController& sceneController,
+                                 RuntimeOverlayDiagnostics& overlays,
                                  const ReplayInputView& replayInput );
     void DispatchCaptureActions( InputActions& actions,
-                                 RuntimeFrameHostView& host,
+                                 DiagnosticsRuntime& diagnosticsRuntime,
                                  RuntimeFrameInteractionView& interactionOwners,
-                                 RuntimeFrameSceneView& sceneOwners,
+                                 SceneController& sceneController,
                                  const ReplayInputView& replayInput );
     void RecordModeAction( RuntimeFrameInteractionView& interactionOwners,
                            RuntimeInputContext& runtimeInput,
                            RuntimeInputAction action,
                            RuntimeInputActionSource source );
     EditorPointerRouteResult RouteEditorPointer( const EditorPointerRouteInput& input,
-                                                 RuntimeFrameHostView& host,
-                                                 RuntimeFrameInteractionView& interactionOwners,
-                                                 RuntimeFrameSceneView& sceneOwners );
+                                                 Assets::AssetSystem& assets,
+                                                 RuntimeTools& runtimeTools,
+                                                 RuntimeInteractionController& interaction,
+                                                 SceneController& sceneController );
     RuntimePointerRouteResult RouteRuntimePointer( const RuntimePointerRouteInput& input,
-                                                   RuntimeFrameHostView& host,
+                                                   Assets::AssetSystem& assets,
                                                    RuntimeFrameInteractionView& interactionOwners,
-                                                   RuntimeFrameSceneView& sceneOwners,
+                                                   SceneController& sceneController,
                                                    ReplayRuntime& replayRuntime,
                                                    RunCameraMode replayRestoreCameraMode );
     bool TryBuildWorldRay( const Environment::CameraCollection& cameras,

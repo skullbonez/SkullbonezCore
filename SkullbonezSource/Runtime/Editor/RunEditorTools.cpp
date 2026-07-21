@@ -1596,16 +1596,13 @@ RuntimeTools::BeginEditorPlacementScalePointer( bool inspectGizmoActive,
 
 
 EditorPointerRouteResult InputRouter::RouteEditorPointer( const EditorPointerRouteInput& input,
-                                                          RuntimeFrameHostView& host,
-                                                          RuntimeFrameInteractionView& interactionOwners,
-                                                          RuntimeFrameSceneView& sceneOwners )
+                                                          Assets::AssetSystem& assets,
+                                                          RuntimeTools& runtimeTools,
+                                                          RuntimeInteractionController& interaction,
+                                                          SceneController& models )
 {
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    RuntimeInteractionController& interaction = interactionOwners.interaction;
-    SceneController& models = sceneOwners.sceneController;
     SceneWorld& sceneWorld = models.Scene();
     RunSceneState& scene = models.State();
-    Assets::AssetSystem& assets = host.assets;
     EditorPointerRouteResult routeResult;
     auto appendModeAction = [&routeResult]( RuntimeInputAction action )
     {

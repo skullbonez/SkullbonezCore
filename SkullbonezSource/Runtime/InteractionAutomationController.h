@@ -298,14 +298,14 @@ SkullbonezCore::Core::SbResult ConfigureInteractionAutomation( InteractionAutoma
 SkullbonezCore::Core::SbResult InteractionAutomationResult( const InteractionAutomationController& state );
 void ClearInteractionAutomationInput( InteractionAutomationController& state );
 InteractionAutomationFrameResult TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                                       RuntimeFrameHostView& host,
+                                                                       Window& window,
                                                                        RuntimeFrameInteractionView& interactionOwners,
                                                                        RuntimeFrameSceneView& sceneOwners,
                                                                        const ReplayAutomationView& replayView );
 InteractionAutomationFrameResult
 TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       RuntimeFrameInteractionView& interactionOwners,
-                                      RuntimeFrameSceneView& sceneOwners,
+                                      SceneController& scene,
                                       const ReplayAutomationView& replayView,
                                       const InteractionAutomationDevelopmentUiView& developmentUiView,
                                       CaptureController& capture,

@@ -160,9 +160,10 @@ bool IsEditorWorldOwner( WorldInteractionOwner owner );
 const char* ReplayOwnerEventName( ReplayOwnerEventCode code );
 uint32_t ReplaySceneRequestFlags( const SceneRequest& request );
 void ReportRuntimeInputFailure( const SkullbonezCore::Core::SbResult& result );
-RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
+RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
                                           RuntimeFrameInteractionView& interactionOwners,
-                                          RuntimeFrameSceneView& sceneOwners,
+                                          RunTimerState& timers,
+                                          SceneController& sceneController,
                                           ReplayRuntime& replayRuntime,
                                           const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts );
@@ -176,7 +177,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                                   const RuntimeInputFrameFacts& facts );
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RuntimeFrameInteractionView& interactionOwners,
-                                                  RuntimeFrameSceneView& sceneOwners,
+                                                  SceneController& sceneController,
                                                   ReplayRuntime& replayRuntime,
                                                   RunCameraMode replayCurrentCameraMode );
 

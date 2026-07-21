@@ -1,7 +1,7 @@
 # Owner Fan-Out Reduction — Scene Lifecycle And Frame-View Decoupling
 
 Date: 2026-07-22
-Status: Active — 4/6 phases complete
+Status: Active — 5/6 phases complete
 Impact area: Runtime shell (`Run*`, `RuntimeFrameViews.h`), scene system
 (`SceneController`, `SceneRuntime*`), reactive owner frame entries
 Owner: runtime shell / scene lifecycle
@@ -95,7 +95,7 @@ from special case to convention.
   effects that genuinely cannot be self-served (window title, UI browser
   refresh are expected survivors). Delete the covered fields and their
   application code.
-- [ ] OF4. Frame-view diet. For each helper consuming a frame view, list the
+- [x] OF4. Frame-view diet. For each helper consuming a frame view, list the
   fields it actually reads; delete unused fields, convert
   `RuntimeUiTextFrameFacts` borrowed members to value snapshots where the
   consumer copies anyway, and fold any view struct reduced to two or fewer
@@ -236,6 +236,34 @@ from special case to convention.
   allocation-shape, callback/context-bag, and exception proofs all pass. No
   Replay source file changed, so the plan's replay mega-gate rule did not apply.
   The independent rubber-duck review remains OF5.
+
+## OF4 Evidence — Frame-View Diet (2026-07-22)
+
+- The complete per-helper read matrix is recorded in
+  [`../../Reports/2026-07-22/owner-fanout-reduction-of4-frame-view-diet.md`](../../Reports/2026-07-22/owner-fanout-reduction-of4-frame-view-diet.md).
+  View-bearing helper signatures fell from 25 to 21 and view-parameter slots
+  fell 68→36. Narrow host, scene, presentation, and editor-route uses now take
+  direct owners instead of a broader capability slice.
+- The four root views retain 6 / 6 / 7 / 4 fields because the final census
+  proves every field has a real consumer. No root view reached the two-field
+  deletion threshold, so no replacement context spelling was introduced.
+- `RuntimeUiTextFrameFacts` is a copyable aggregate: the gesture reference is
+  reduced to the gesture-kind and gizmo-kind enum values actually consumed,
+  while the mutable `OperatorEditorFrameView` output is an explicit composer
+  parameter. Stable owner vocabulary labels remain pointer values because the
+  receiving UI records do not copy label bytes.
+- The final Profile build passes in 10.5 s and the complete doctest binary
+  passes 342 cases / 68,685 assertions in 3.3 s. The first broad-gate attempt
+  stopped at formatting in 7.2 s; the three touched implementations and two
+  touched headers were formatted directly. The rerun of
+  `tools\validate_full.bat` passes in 146.5 s with the mandatory CPU umbrella,
+  five runtime processes, zero DX12 errors, accepted screenshots, and the
+  44,401-line physics CSV byte-exact.
+- Comment audit: 15 touched C++ source-bearing files checked, zero deferred or
+  unchecked files. Formatting, dependency-direction and Replay
+  downward-include proofs pass. No `Runtime/Replay/*` source file changed, so
+  the replay visual-fidelity gate did not apply; OF2's recorded provenance-only
+  mismatch remains a non-stopping campaign blocker.
 
 ## Acceptance
 

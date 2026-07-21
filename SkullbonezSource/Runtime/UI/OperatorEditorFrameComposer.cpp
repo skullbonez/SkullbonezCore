@@ -198,15 +198,15 @@ static void FillOperatorRenderingParameters( SkullbonezCore::UI::OperatorEditorR
 void Render( RuntimeFrameHostView& host,
              RuntimeFrameInteractionView& interactionOwners,
              RuntimeFrameSceneView& sceneOwners,
-             RuntimeFramePresentationView& presentationOwners,
+             RuntimeRenderer& renderer,
              ReplayRuntime& replayRuntime,
              const RuntimeUiTextFrameFacts& facts,
+             SkullbonezCore::UI::OperatorEditorFrameView& operatorEditorView,
              const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
              SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics,
              const SkullbonezCore::UI::UIRenderContext& uiRender,
              const RuntimeRenderModelFrameView& renderModels )
 {
-    RuntimeRenderer& renderer = presentationOwners.renderer;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     RunTimerState& timers = sceneOwners.timers;
     RuntimeOverlayPresentationEdit presentationEdit = sceneOwners.overlays.EditPresentation();
@@ -232,19 +232,19 @@ void Render( RuntimeFrameHostView& host,
         sharedCinematicRendering ? sharedCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
     // Invariant: build this common value once. The legacy draw pass and the
     // secondary editor receive this exact object, not independently sampled owners.
-    facts.operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
-                                       uiSceneBrowser.namePtrs.empty() ? nullptr : uiSceneBrowser.namePtrs.data(),
-                                       CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
-                                       static_cast<int>( uiSceneBrowser.namePtrs.size() ),
-                                       scene.currentFrame,
-                                       sceneController.Scene().SceneEntityCount(),
-                                       scene.timeScale,
-                                       uiScenePath && !uiScenePath->empty(),
-                                       false };
-    facts.operatorEditorView.property = { sceneController.Scene().Environment().GetGravity(),
-                                          sceneController.Scene().Environment().GetFluidSurfaceHeight(),
-                                          sceneController.Scene().Environment().GetFluidDensity() };
-    SkullbonezCore::UI::OperatorEditorRenderingView& sharedRendering = facts.operatorEditorView.rendering;
+    operatorEditorView.scene = { uiScenePath ? uiScenePath->c_str() : "",
+                                 uiSceneBrowser.namePtrs.empty() ? nullptr : uiSceneBrowser.namePtrs.data(),
+                                 CurrentSceneBrowserIndex( sceneController, uiSceneBrowser ),
+                                 static_cast<int>( uiSceneBrowser.namePtrs.size() ),
+                                 scene.currentFrame,
+                                 sceneController.Scene().SceneEntityCount(),
+                                 scene.timeScale,
+                                 uiScenePath && !uiScenePath->empty(),
+                                 false };
+    operatorEditorView.property = { sceneController.Scene().Environment().GetGravity(),
+                                    sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                    sceneController.Scene().Environment().GetFluidDensity() };
+    SkullbonezCore::UI::OperatorEditorRenderingView& sharedRendering = operatorEditorView.rendering;
     sharedRendering.vsyncEnabled = renderer.PresentationSettings().vsyncEnabled;
     sharedRendering.shadowsEnabled = sharedShadows;
     sharedRendering.cinematicRendering = sharedCinematicRendering;
@@ -257,9 +257,9 @@ void Render( RuntimeFrameHostView& host,
     sharedRendering.waterReflectionMode = debug.isWaterNoReflect ? 2 : ( debug.isWaterRTReflect ? 1 : 0 );
     FillOperatorRenderingParameters( sharedRendering, config.ordinaryRender, sharedCinematic );
     const char* sharedGizmoMode = "translate";
-    if ( facts.interactionGesture.kind == RuntimeInteractionGestureKind::GizmoDrag )
+    if ( facts.interactionGestureKind == RuntimeInteractionGestureKind::GizmoDrag )
     {
-        switch ( facts.interactionGesture.gizmoKind )
+        switch ( facts.interactionGizmoKind )
         {
         case RuntimeGizmoDragKind::Rotate:
             sharedGizmoMode = "rotate";
@@ -273,37 +273,37 @@ void Render( RuntimeFrameHostView& host,
             break;
         }
     }
-    facts.operatorEditorView.viewport = { facts.cameraModeLabel, sharedGizmoMode, facts.presentationPinned };
-    facts.operatorEditorView.replay = { sharedReplayHud.memoryPreset,
-                                        sharedReplayHud.requestedRetentionSeconds,
-                                        sharedReplayHud.requestedBudgetMiB,
-                                        sharedReplayHud.presentationRetentionSeconds,
-                                        sharedReplayHud.solverRetentionSeconds,
-                                        sharedReplayHud.memoryBudgetClamped,
-                                        sharedReplayHud.solverWindowReduced };
-    facts.operatorEditorView.surfaces = { ui.IsVisible(), facts.operatorEditorView.surfaces.secondaryVisible };
+    operatorEditorView.viewport = { facts.cameraModeLabel, sharedGizmoMode, facts.presentationPinned };
+    operatorEditorView.replay = { sharedReplayHud.memoryPreset,
+                                  sharedReplayHud.requestedRetentionSeconds,
+                                  sharedReplayHud.requestedBudgetMiB,
+                                  sharedReplayHud.presentationRetentionSeconds,
+                                  sharedReplayHud.solverRetentionSeconds,
+                                  sharedReplayHud.memoryBudgetClamped,
+                                  sharedReplayHud.solverWindowReduced };
+    operatorEditorView.surfaces = { ui.IsVisible(), operatorEditorView.surfaces.secondaryVisible };
     const RunEditorPlacementState& sharedEditor = runtimeTools.Editor();
-    facts.operatorEditorView.scene.dirty = sharedEditor.history.IsDirty();
-    facts.operatorEditorView.tools = { sharedEditor.editorModeEnabled,
-                                       sharedEditor.placementModeEnabled,
-                                       sharedEditor.placeStaticObject,
-                                       sceneController.CrossScenePauseLocked(),
-                                       scene.isFixedStep,
-                                       sharedEditor.autoTerrainAlign,
-                                       static_cast<int>( sharedEditor.history.UndoDepth() ),
-                                       static_cast<int>( sharedEditor.history.RedoDepth() ) };
+    operatorEditorView.scene.dirty = sharedEditor.history.IsDirty();
+    operatorEditorView.tools = { sharedEditor.editorModeEnabled,
+                                 sharedEditor.placementModeEnabled,
+                                 sharedEditor.placeStaticObject,
+                                 sceneController.CrossScenePauseLocked(),
+                                 scene.isFixedStep,
+                                 sharedEditor.autoTerrainAlign,
+                                 static_cast<int>( sharedEditor.history.UndoDepth() ),
+                                 static_cast<int>( sharedEditor.history.RedoDepth() ) };
     const SceneEntityStore& hierarchyEntities = sceneController.Scene().Entities();
     const int selectedHierarchyRow =
         RunInternal::PeekSelectedEditorModelIndex( sharedEditor, sceneController.Scene().BodyStore() );
-    facts.operatorEditorView.hierarchy.totalRowCount = static_cast<uint32_t>( hierarchyEntities.Count() );
-    const uint32_t hierarchyRowCount = (std::min)( facts.operatorEditorView.hierarchy.totalRowCount,
+    operatorEditorView.hierarchy.totalRowCount = static_cast<uint32_t>( hierarchyEntities.Count() );
+    const uint32_t hierarchyRowCount = (std::min)( operatorEditorView.hierarchy.totalRowCount,
                                                    SkullbonezCore::UI::OPERATOR_EDITOR_HIERARCHY_ROW_CAPACITY );
-    facts.operatorEditorView.hierarchy.rowCount = hierarchyRowCount;
-    facts.operatorEditorView.hierarchy.truncated = facts.operatorEditorView.hierarchy.totalRowCount > hierarchyRowCount;
+    operatorEditorView.hierarchy.rowCount = hierarchyRowCount;
+    operatorEditorView.hierarchy.truncated = operatorEditorView.hierarchy.totalRowCount > hierarchyRowCount;
     for ( uint32_t index = 0u; index < hierarchyRowCount; ++index )
     {
         const SceneEntityRecord& entity = hierarchyEntities.At( static_cast<int>( index ) );
-        SkullbonezCore::UI::OperatorEditorHierarchyRow& row = facts.operatorEditorView.hierarchy.rows[index];
+        SkullbonezCore::UI::OperatorEditorHierarchyRow& row = operatorEditorView.hierarchy.rows[index];
         row.displayName = entity.displayName;
         row.sceneObjectId = entity.sceneObjectId.value;
         row.groupRootObjectId = entity.behaviorGroup.rootObjectId.value;
@@ -314,19 +314,19 @@ void Render( RuntimeFrameHostView& host,
         row.selected = static_cast<int>( index ) == selectedHierarchyRow;
         if ( row.selected )
         {
-            facts.operatorEditorView.hierarchy.selectedSceneObjectId = row.sceneObjectId;
+            operatorEditorView.hierarchy.selectedSceneObjectId = row.sceneObjectId;
         }
     }
-    facts.operatorEditorView.assets = { sharedEditor.objectType,
-                                        SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
-                                        host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
+    operatorEditorView.assets = { sharedEditor.objectType,
+                                  SkullbonezCore::UI::EditorTab::OBJECT_TYPE_COUNT,
+                                  host.assets.FindAssetLibrarySourceAsset( "assetlib.buildings" ) != nullptr };
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Why: the legacy surface does not consume E12 contextual detail. Sampling
     // cold body/collider/material rows only while the secondary editor is
     // visible keeps ordinary Profile and shipping frames on their prior path.
-    if ( facts.operatorEditorView.surfaces.secondaryVisible )
+    if ( operatorEditorView.surfaces.secondaryVisible )
     {
-        SkullbonezCore::UI::OperatorEditorInspectorView& inspector = facts.operatorEditorView.inspector;
+        SkullbonezCore::UI::OperatorEditorInspectorView& inspector = operatorEditorView.inspector;
         if ( sharedEditor.selectedBody.IsValid() && selectedHierarchyRow < 0 )
         {
             // Hazard: a scene transition can invalidate the body handle before the
@@ -405,31 +405,31 @@ void Render( RuntimeFrameHostView& host,
             }
         }
         const Gameplay::TornadoFieldConfig& tornado = sceneController.Scene().Tornado().GetFieldConfig();
-        facts.operatorEditorView.world = { scene.modelCount,
-                                           config.runtimeCapacity.sceneObjectCapacity,
-                                           scene.solverBallCount,
-                                           scene.solverBoxCount,
-                                           static_cast<int>( scene.rngSeed ),
-                                           scene.timeScale,
-                                           sceneController.Scene().Environment().GetGravity(),
-                                           sceneController.Scene().Environment().GetFluidSurfaceHeight(),
-                                           sceneController.Scene().Environment().GetFluidDensity(),
-                                           config.physicsMaterial.frictionCoeff,
-                                           config.physicsMaterial.objectFrictionCoeff,
-                                           config.physicsMaterial.rollingFrictionCoeff,
-                                           tornado.radius,
-                                           tornado.height,
-                                           tornado.inwardAcceleration,
-                                           tornado.swirlAcceleration,
-                                           tornado.liftAcceleration,
-                                           scene.isFixedStep,
-                                           sceneController.Scene().Physics().IsSleepEnabled(),
-                                           tornado.enabled };
+        operatorEditorView.world = { scene.modelCount,
+                                     config.runtimeCapacity.sceneObjectCapacity,
+                                     scene.solverBallCount,
+                                     scene.solverBoxCount,
+                                     static_cast<int>( scene.rngSeed ),
+                                     scene.timeScale,
+                                     sceneController.Scene().Environment().GetGravity(),
+                                     sceneController.Scene().Environment().GetFluidSurfaceHeight(),
+                                     sceneController.Scene().Environment().GetFluidDensity(),
+                                     config.physicsMaterial.frictionCoeff,
+                                     config.physicsMaterial.objectFrictionCoeff,
+                                     config.physicsMaterial.rollingFrictionCoeff,
+                                     tornado.radius,
+                                     tornado.height,
+                                     tornado.inwardAcceleration,
+                                     tornado.swirlAcceleration,
+                                     tornado.liftAcceleration,
+                                     scene.isFixedStep,
+                                     sceneController.Scene().Physics().IsSleepEnabled(),
+                                     tornado.enabled };
     }
 #endif
     RuntimeViewModel runtimeViewModel;
     RuntimeRenderTargetPreviewSnapshot renderTargetPreviews;
-    if ( facts.operatorEditorView.surfaces.secondaryVisible )
+    if ( operatorEditorView.surfaces.secondaryVisible )
     {
         // Why: the secondary surface can be visible while the legacy UI is
         // hidden. Sample its bounded authoring/diagnostic values here instead
@@ -446,7 +446,7 @@ void Render( RuntimeFrameHostView& host,
             sharedShadows,
             sharedCinematicRendering,
             sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
-        SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = facts.operatorEditorView.diagnostics;
+        SkullbonezCore::UI::OperatorEditorDiagnosticsView& diagnostics = operatorEditorView.diagnostics;
         // Invariant: the right rail reads fixed snapshots and cached counters;
         // opening Diagnostics must not trigger an allocation scan or grow data.
         const SkullbonezCore::Core::MainMemoryStats& mainMemory = diagnosticsRuntime.MainMemoryStatsSnapshot();
@@ -516,7 +516,7 @@ void Render( RuntimeFrameHostView& host,
                                        runtimeViewModel,
                                        uiSceneBrowser,
                                        renderTargetPreviews,
-                                       facts.operatorEditorView,
+                                       operatorEditorView,
                                        &workerPool,
                                        window.ClientWidth(),
                                        window.ClientHeight(),
@@ -580,7 +580,7 @@ void Render( RuntimeFrameHostView& host,
                                                                               ui.IsVisible(),
                                                                               ui.IsMinimized(),
                                                                               scene.isScenePhysics,
-                                                                              facts.interactionGesture.kind,
+                                                                              facts.interactionGestureKind,
                                                                               window.ClientWidth(),
                                                                               window.ClientHeight(),
                                                                               timers.simulationTimer.GetTotalTime() };
