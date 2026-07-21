@@ -1,7 +1,7 @@
 # Render Interface Retirement — Admit The DX12 Engine
 
 Date: 2026-07-22
-Status: Registered — 0/6 phases complete
+Status: Active — 1/6 phases complete
 Impact area: Rendering HAL headers, DX12 backend, runtime render host/passes,
 UI render context, primitive/text renderers
 Owner: rendering
@@ -52,8 +52,9 @@ renaming it. Zero virtual dispatch remains in the render submission path.
 
 ## Phases
 
-- [ ] RH0. Census. For each of the ten interfaces: every implementer (prove
-  single), every consumer file, and the member subset each consumer actually
+- [x] RH0. Census. For each of the ten interfaces: every implementer (prove
+  production-single and record test doubles), every consumer file, and the
+  member subset each consumer actually
   calls. From that, record the per-seam target: which concrete owner type
   replaces the interface at each consumer (e.g. `UIRenderContext` fields
   become concrete resource/command/diagnostics owner borrows;
@@ -85,6 +86,13 @@ renaming it. Zero virtual dispatch remains in the render submission path.
   Comment-style audit of touched files, independent review, final gates
   three-run renderer repeat (danger-zone upload/frame allocator row applies
   if frame-owner seams moved).
+
+RH0 evidence and the per-consumer access baseline are recorded in
+[`../../Reports/2026-07-22/render-interface-retirement-rh0-census.md`](../../Reports/2026-07-22/render-interface-retirement-rh0-census.md).
+The census corrected the registration evidence: production has one implementer
+per interface, but capture has two test implementations and resource factory,
+shader, and mesh each have one test double. All five test implementations are
+deletion-bound to RH1/RH2; none is an exception.
 
 ## Review Proof (must return no rows at RH5)
 

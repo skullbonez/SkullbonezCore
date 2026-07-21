@@ -10,21 +10,22 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-21st-july` |
-| Current baseline | All active/future MASTER plans are closed. The owner accepted ImGui/Tracy E17 after the clean current-tip assisted playtest; Legacy remains the development default. |
+| Branch | `nightrunner` |
+| Current baseline | The prior architecture campaign is closed. The 19-task architecture follow-up campaign is active at RH1; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 0 / 19 live tasks; 0%. |
+| Active/future progress | 1 / 19 live tasks; 5%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Synchronized-main `validate_full` passes in 243.7 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | Documentation-only campaign registration (three plans, MASTER-PLAN, this file); no repository validation required. |
+| Validation for current edits | RH0 census is documentation-only; no repository validation required. RH1 will run `tools\validate_dx12_renderer.bat` and `tools\run_graphics_stress.bat 1` at its commit gate. |
 
 ## Live Queue
 
 NOW. The 2026-07-22 architecture follow-up campaign is the live queue, in
-binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (0/6),
+binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (1/6),
 then `Agentic/Plans/TODO/owner-fanout-reduction.md` (0/6), then
-`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Next action is
-the RH0 interface/consumer census. The prior architecture-review campaign is
+`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). RH0 is recorded
+in `Agentic/Reports/2026-07-22/render-interface-retirement-rh0-census.md`;
+next action is RH1 cold-surface retirement. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
