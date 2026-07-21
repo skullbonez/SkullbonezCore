@@ -322,8 +322,7 @@ is recorded in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| `replay-subsystem-consolidation` | 6 | 7 | 86% |
-| **Active/future total** | **6** | **7** | **86%** |
+| **Active/future total** | **0** | **0** | **0%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -332,6 +331,15 @@ are 68→36, a reactive owner integrates in at most three files, and the final
 independent ownership review and broad/DX12-stress gates are clear. Evidence is
 recorded in
 `../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`.
+
+The active/future denominator returned 7 → 0 when
+`replay-subsystem-consolidation` closed RC0-RC6 and left the ledger under rule
+4. Replay is assigned across six named domains, production include edges fell
+48 → 33 with explicit survivors, the unchanged three-owner reserve inventory
+passes the strict two-generation gate, and the final independent review and
+broad gate are clear. The standing visual-fidelity config-provenance mismatch
+is recorded as a non-stopping certification blocker. Evidence is in
+`../Reports/2026-07-22/replay-subsystem-consolidation-closure.md`.
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -1243,7 +1251,7 @@ or hot-path inheritance artifacts. Execution order is binding.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [owner-fanout-reduction](../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md) | Complete | 6/6 | Ten-input scene-load boundary, ≤3-file reactive-owner path, clear independent review, and final broad/stress gates complete |
-| [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Active | 6/7 | RC5 proves Debug/Automation Validation placement and zero hot-owner inbound edges; proceed to final RC6 census/review/gates |
+| [replay-subsystem-consolidation](../Reports/2026-07-22/replay-subsystem-consolidation-closure.md) | Complete | 7/7 | Six domains, 48 → 33 production include edges, accepted cohesion exceptions, strict two-generation allocation proof, clear independent review, and final broad gate complete |
 
 Render interface retirement closed RH0-RH5 with zero interface classes,
 narrower transient authority, clear independent review, and complete final

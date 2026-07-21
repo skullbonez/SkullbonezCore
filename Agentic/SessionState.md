@@ -11,21 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at final RC6 closure; Legacy remains the development default. |
-| Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 6 / 7 live tasks; 86%. |
+| Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
+| Current objective | No active/future MASTER-plan task. Preserve the closed architecture boundaries and recorded deletion conditions. |
+| Active/future progress | 0 / 0 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RC4 `validate_full` passes in 109.5 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | RC5 proves Debug probes and Automation fidelity/report code are configuration-gated with zero Validation includes in Capture/Timeline/Prediction; its single replay gate stops only at the recorded config-provenance mismatch. |
+| Last broad local gate | RC6 `validate_full` passes in 104.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | RC6 strict allocation passes with exactly two generations and zero gameplay/policy violations; independent review is clear; the one replay mega stops only at the recorded config-provenance mismatch. |
 
 ## Live Queue
 
-NOW. The remaining 2026-07-22 architecture follow-up queue is
-`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (6/7), beginning final RC6 closure.
-Render interface retirement closed RH0-RH5 and owner fan-out reduction closed
-OF0-OF5; evidence is in
-`Agentic/Reports/2026-07-22/render-interface-retirement-closure.md` and
-`Agentic/Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`. The prior architecture-review campaign is
+NOW. There is no active/future MASTER-plan task. The 2026-07-22 architecture
+follow-up campaign is closed: render interface retirement closed RH0-RH5,
+owner fan-out reduction closed OF0-OF5, and Replay subsystem consolidation
+closed RC0-RC6. Evidence is in
+`Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`,
+`Agentic/Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`, and
+`Agentic/Reports/2026-07-22/replay-subsystem-consolidation-closure.md`. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
