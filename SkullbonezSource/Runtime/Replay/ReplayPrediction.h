@@ -243,6 +243,9 @@ struct RunReplayPredictionState
     bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
     bool BuildPrefixShouldBePresented() const noexcept;
     bool BuildFramesAreComplete() const noexcept;
+    bool FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId,
+                                 bool usingBuildFrames,
+                                 std::size_t frameCount ) const noexcept;
     void ResetBuildFramePublication() noexcept;
     void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
 
@@ -360,6 +363,8 @@ class ReplayPrediction
         view.futureNodesCacheValid = m_state.futureNodeCache.futureNodesCacheValid;
         view.trajectoryBuildValid = m_state.trajectoryBuild.valid;
         view.trajectoryBuildUsingBuildFrames = m_state.trajectoryBuild.usingBuildFrames;
+        view.futureTreeReady =
+            m_state.FutureTreeReadyForDraw( view.targetId, view.usingBuildFrames, view.frames.size() );
         view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
         view.baselineValid = m_state.baseline.valid;
         view.baselineComparisonActive = m_state.baseline.comparisonActive;
@@ -506,6 +511,22 @@ inline bool RunReplayPredictionState::BuildPrefixShouldBePresented() const noexc
 inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
 {
     return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= build.buildFrames.size();
+}
+
+inline bool RunReplayPredictionState::FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId,
+                                                              bool usingBuildFrames,
+                                                              std::size_t frameCount ) const noexcept
+{
+    // Invariant: consumers may submit child paths only when the bounded node
+    // cache and trajectory publication describe the same root, source bank,
+    // topology generation, and complete frame prefix.
+    const std::size_t nodeCount = (std::min)( futureNodeCache.futureNodes.size(),
+                                              static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+    return nodeCount > 0 && futureNodeCache.futureNodesCacheValid && futureNodeCache.futureNodesTopologyVersion != 0 &&
+           trajectoryBuild.valid && trajectoryBuild.rootId.value == rootId.value &&
+           trajectoryBuild.usingBuildFrames == usingBuildFrames &&
+           trajectoryBuild.topologyVersion == futureNodeCache.futureNodesTopologyVersion &&
+           trajectoryBuild.builtNodeCount == nodeCount && trajectoryBuild.childFrameCount >= frameCount;
 }
 
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept

@@ -103,6 +103,7 @@ struct ReplayPredictionPresentationView
     bool futureNodesCacheValid = false;
     bool trajectoryBuildValid = false;
     bool trajectoryBuildUsingBuildFrames = false;
+    bool futureTreeReady = false;
     bool ragdollVisualsEnabled = false;
     bool baselineValid = false;
     bool baselineComparisonActive = false;

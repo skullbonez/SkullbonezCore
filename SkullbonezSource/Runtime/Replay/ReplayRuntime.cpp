@@ -467,22 +467,7 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
     }
 
     const ReplayScrubberView scrubber = m_scrubberOwner.View();
-    const bool loadedPresentation = HasLoadedPresentation();
-    const RunReplayTrack overlayTrack = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
-    const float overlayTrackPosition = m_scrubberOwner.TrackPosition( overlayTrack );
-    const float solverPresentTrackPosition = SolverPresentTrackPosition();
-    const bool futureSelected =
-        !loadedPresentation && ReplayTrackPositionIsFuture( overlayTrackPosition, solverPresentTrackPosition );
-    const ReplayPresentationSample* selectedPresentation =
-        loadedPresentation ? LoadedPresentationSampleAtNormalized( overlayTrackPosition ) : nullptr;
-    const ReplayPresentationSample* latestPresentation =
-        loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
-    const ReplaySolverFrameSample* selectedSolver =
-        ( loadedPresentation || futureSelected )
-            ? nullptr
-            : m_timeline.Solver().SampleAtNormalized(
-                  ReplaySolverNormalizedFromTrack( overlayTrackPosition, solverPresentTrackPosition ) );
-    const ReplaySolverFrameSample* latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
+    const ReplayPresentationSelection selection = BuildPresentationSelection();
 
     return { scrubber,
              m_predictionOwner.PresentationView(),
@@ -490,17 +475,17 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
              m_authoring.VelocityEdit(),
              m_authoring.CauseTree(),
              m_timeline.Solver().GetStats(),
-             selectedPresentation,
-             latestPresentation,
-             selectedSolver,
-             latestSolver,
-             futureSelected ? CurrentPredictionScrubFrame() : nullptr,
-             CurrentScrubSample(),
-             CurrentSolverScrubSample(),
-             solverPresentTrackPosition,
-             loadedPresentation ? m_timeline.LoadedPresentation().samples.size() : 0u,
-             loadedPresentation,
-             m_predictionOwner.ActiveFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented(),
+             selection.selectedPresentation,
+             selection.latestPresentation,
+             selection.selectedSolver,
+             selection.latestSolver,
+             selection.selectedPrediction,
+             selection.currentPresentation,
+             selection.currentSolver,
+             selection.solverPresentTrackPosition,
+             selection.loadedSampleCount,
+             selection.loadedPresentation,
+             selection.predictionTimelineAvailable,
              ShouldRenderScrubber( editorModeEnabled, uiVisible, uiMinimized, gesture ),
              m_timeline.RecordingConfigured(),
              m_timeline.RecordingEnabled(),
@@ -508,12 +493,33 @@ ReplayRuntime::BuildOverlayStateView( bool editorModeEnabled,
 }
 
 
-ReplayRenderSelectionView ReplayRuntime::BuildRenderSelectionView() const
+ReplayPresentationSelection ReplayRuntime::BuildPresentationSelection() const
 {
-    const ReplayPresentationSample* presentationSample = CurrentScrubSample();
-    return { presentationSample,
-             presentationSample ? nullptr : CurrentSolverScrubSample(),
-             CurrentPredictionScrubFrame() };
+    const bool loadedPresentation = HasLoadedPresentation();
+    const RunReplayTrack track = loadedPresentation ? RunReplayTrack::Presentation : RunReplayTrack::Solver;
+    const float trackPosition = m_scrubberOwner.TrackPosition( track );
+    const float solverPresentTrackPosition = SolverPresentTrackPosition();
+    const bool futureSelected =
+        !loadedPresentation && ReplayTrackPositionIsFuture( trackPosition, solverPresentTrackPosition );
+
+    ReplayPresentationSelection selection;
+    selection.selectedPresentation =
+        loadedPresentation ? LoadedPresentationSampleAtNormalized( trackPosition ) : nullptr;
+    selection.latestPresentation = loadedPresentation ? LoadedPresentationLatestSample() : nullptr;
+    selection.selectedSolver = ( loadedPresentation || futureSelected )
+                                   ? nullptr
+                                   : m_timeline.Solver().SampleAtNormalized(
+                                         ReplaySolverNormalizedFromTrack( trackPosition, solverPresentTrackPosition ) );
+    selection.latestSolver = loadedPresentation ? nullptr : m_timeline.Solver().LatestSample();
+    selection.selectedPrediction = futureSelected ? CurrentPredictionScrubFrame() : nullptr;
+    selection.currentPresentation = CurrentScrubSample();
+    selection.currentSolver = CurrentSolverScrubSample();
+    selection.solverPresentTrackPosition = solverPresentTrackPosition;
+    selection.loadedSampleCount = loadedPresentation ? m_timeline.LoadedPresentation().samples.size() : 0u;
+    selection.loadedPresentation = loadedPresentation;
+    selection.predictionTimelineAvailable =
+        m_predictionOwner.ActiveFrames().size() >= 2 || m_predictionOwner.State().BuildPrefixShouldBePresented();
+    return selection;
 }
 
 ReplayRenderFrameView
@@ -533,10 +539,10 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
                                    const Math::Vector::Vector3& cameraUp,
                                    uint64_t replayReserveGrowthEvents )
 {
-    const ReplayRenderSelectionView selection = BuildRenderSelectionView();
-    const RunReplayPredictionFrame* predictionFrame = selection.predictionFrame;
-    const ReplayPresentationSample* presentationSample = selection.presentationSample;
-    const ReplaySolverFrameSample* solverSample = selection.solverSample;
+    const ReplayPresentationSelection selection = BuildPresentationSelection();
+    const RunReplayPredictionFrame* predictionFrame = selection.selectedPrediction;
+    const ReplayPresentationSample* presentationSample = selection.currentPresentation;
+    const ReplaySolverFrameSample* solverSample = selection.currentSolver;
     const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
 
     {

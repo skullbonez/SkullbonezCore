@@ -100,14 +100,24 @@ struct ReplayRenderFrameView
     bool focusFadeActive = false;
 };
 
-// Lifetime: selected replay rows are frame-local borrows. The render
-// composition shell must consume them before replay input or prediction update
-// mutates the owning timeline.
-struct ReplayRenderSelectionView
+// Concept: this is the Presentation domain's single answer to "what should this
+// frame show?" Render-pose application and overlay drawing consume the same
+// selected/latest/current borrows instead of independently resolving scrub state.
+// Lifetime: all rows are frame-local borrows and must be consumed before replay
+// input, capture, or prediction update mutates an owning timeline.
+struct ReplayPresentationSelection
 {
-    const ReplayPresentationSample* presentationSample = nullptr;
-    const ReplaySolverFrameSample* solverSample = nullptr;
-    const RunReplayPredictionFrame* predictionFrame = nullptr;
+    const ReplayPresentationSample* selectedPresentation = nullptr;
+    const ReplayPresentationSample* latestPresentation = nullptr;
+    const ReplaySolverFrameSample* selectedSolver = nullptr;
+    const ReplaySolverFrameSample* latestSolver = nullptr;
+    const RunReplayPredictionFrame* selectedPrediction = nullptr;
+    const ReplayPresentationSample* currentPresentation = nullptr;
+    const ReplaySolverFrameSample* currentSolver = nullptr;
+    float solverPresentTrackPosition = 1.0f;
+    std::size_t loadedSampleCount = 0u;
+    bool loadedPresentation = false;
+    bool predictionTimelineAvailable = false;
 };
 
 // Value-only per-frame publication for replay diagnostics drawn by the late

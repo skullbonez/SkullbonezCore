@@ -7,6 +7,12 @@ Summary:
   Scheduling and isolated simulation call these narrow operations without
   owning trajectory, baseline, topology, or marker publication policy.
 
+Glossary:
+  Published prefix: Contiguous prediction frames whose completed rows are
+    visible to readers after a release/acquire publication step.
+  Topology publication: Bounded cause-tree and trajectory values derived only
+    from the published frame prefix.
+
 Invariants:
   - This is an internal Replay header and is not part of ReplayRuntime's public seam.
   - Published frame rows are written before any prefix or derived topology is exposed.
@@ -71,10 +77,6 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                             std::size_t frameCount,
                                             bool usingBuildFrames,
                                             Physics::PhysicsSceneObjectId rootId );
-bool ReplayPredictionFutureTreeReadyForDraw( const RunReplayPredictionState& prediction,
-                                             Physics::PhysicsSceneObjectId rootId,
-                                             bool usingBuildFrames,
-                                             std::size_t frameCount );
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body );
 bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames,
                                       std::size_t frameCount,

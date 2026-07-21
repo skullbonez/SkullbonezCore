@@ -1614,7 +1614,7 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
     }
 
     const bool futureTreeReady =
-        ReplayPredictionFutureTreeReadyForDraw( prediction, targetId, usingBuildFrames, activePredictionFrameCount );
+        prediction.FutureTreeReadyForDraw( targetId, usingBuildFrames, activePredictionFrameCount );
     if ( futureTreeReady )
     {
         ReplayPathChildDrawContext childDraw;

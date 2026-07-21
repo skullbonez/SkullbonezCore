@@ -1006,22 +1006,6 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
     prediction.trajectoryBuild.builtNodeCount = nodeCount;
 }
 
-bool ReplayPredictionFutureTreeReadyForDraw( const RunReplayPredictionState& prediction,
-                                             Physics::PhysicsSceneObjectId rootId,
-                                             bool usingBuildFrames,
-                                             std::size_t frameCount )
-{
-    const std::size_t nodeCount =
-        (std::min)( prediction.futureNodeCache.futureNodes.size(), REPLAY_PATH_MAX_FUTURE_NODES );
-    return nodeCount > 0 && prediction.futureNodeCache.futureNodesCacheValid &&
-           prediction.futureNodeCache.futureNodesTopologyVersion != 0 && prediction.trajectoryBuild.valid &&
-           prediction.trajectoryBuild.rootId.value == rootId.value &&
-           prediction.trajectoryBuild.usingBuildFrames == usingBuildFrames &&
-           prediction.trajectoryBuild.topologyVersion == prediction.futureNodeCache.futureNodesTopologyVersion &&
-           prediction.trajectoryBuild.builtNodeCount == nodeCount &&
-           prediction.trajectoryBuild.childFrameCount >= frameCount;
-}
-
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )
 {
     return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;

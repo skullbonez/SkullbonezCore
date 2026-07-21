@@ -176,7 +176,7 @@ class ReplayRuntime
                            const Physics::PhysicsBodyStore& bodyStore );
     // Selects at most one historical track plus the prediction preview for the
     // current render turn; returned sample pointers are frame-local borrows.
-    ReplayRenderSelectionView BuildRenderSelectionView() const;
+    ReplayPresentationSelection BuildPresentationSelection() const;
     ReplayRenderFrameView
     PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstances,
                         std::span<const Rendering::RenderInstancePresentationRecord> presentationRecords,

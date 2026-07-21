@@ -1,7 +1,7 @@
 # Replay Subsystem Consolidation — Right-Size The Largest Domain
 
 Date: 2026-07-22
-Status: Active — 3/7 phases complete
+Status: Active — 4/7 phases complete
 Impact area: `Runtime/Replay/*` interior structure and public surface; no
 boundary, retention, or feature changes
 Owner: replay
@@ -77,7 +77,7 @@ behavioral drift is a defect in the task, never a baseline update.
   publication protocol invariants (published-prefix, cancellation waits for
   in-flight slice) each land in exactly one owner with their existing
   focused tests still passing.
-- [ ] RC3. Presentation consolidation. One Presentation domain with a
+- [x] RC3. Presentation consolidation. One Presentation domain with a
   recorded two-sided split: presentation *data selection* (what to show for
   a scrub position/cause tree) versus *draw submission* (value packets to
   the render seam). Fold `ReplayOverlayLayout`/`ReplayOverlayRenderer`/
@@ -195,3 +195,21 @@ any allocation-adjacent file moved.
 - RC2's single 422.9 s mega-gate invocation proves one process/generation and
   passes 16 / 72 controls, then reaches the unchanged config-provenance blocker.
   It was not retried and no config/golden edit occurred.
+
+## RC3 Evidence — Presentation Consolidation (2026-07-22)
+
+- Full evidence is recorded in
+  [`../../Reports/2026-07-22/replay-subsystem-consolidation-rc3-presentation.md`](../../Reports/2026-07-22/replay-subsystem-consolidation-rc3-presentation.md).
+  `ReplayRuntime::BuildPresentationSelection()` is the single data-selection
+  answer consumed by overlay composition and render-pose application.
+- Draw submission is value-only across `ReplayPredictionDrawing`, the new
+  `ReplayCauseFocusSubmission`, overlay renderer, and overlay layout.
+  `ReplayPredictionDrawing.cpp` fell from 2,084 to 1,752 lines.
+- Future-tree publication readiness now has one Prediction-owned predicate;
+  drawing retains only the stable-root mismatch guard.
+- `validate_fast` passes in 57.9 s and `validate_full` passes in 110.9 s with
+  zero DX12 errors and byte-exact physics. Comment audit checks 12 files with
+  zero deferred; allocation policy scans 416 files with zero errors.
+- RC3's single 418.7 s mega invocation proves one process/generation and passes
+  16 / 72 controls, then reaches the unchanged config-provenance blocker. It
+  was not retried and no config/golden edit occurred.
