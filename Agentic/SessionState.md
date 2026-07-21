@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF0; Legacy remains the development default. |
+| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF1; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 0 / 13 live tasks; 0%. |
+| Active/future progress | 1 / 13 live tasks; 8%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RH5 `validate_full` passes in 179.6 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | RH5 passes mandatory CPU, full, three-repeat DX12 renderer, and one-minute graphics-stress gates; independent review is clear. OF0 is documentation-only. |
+| Validation for current edits | RH5 passes mandatory CPU, full, three-repeat DX12 renderer, and one-minute graphics-stress gates; independent review is clear. OF0 is documentation-only and requires no validation. |
 
 ## Live Queue
 
 NOW. The remaining 2026-07-22 architecture follow-up queue is, in binding
-order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (0/6), then
+order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (1/6), then
 `Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Render interface
 retirement closed RH0-RH5; evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`. The prior architecture-review campaign is
@@ -211,9 +211,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The remaining 2026-07-22 architecture follow-up campaign is 0/13 complete.
-Continue with documentation-only `owner-fanout-reduction` OF0: census and
-classify every load/frame-view owner, record the target transactional list and
-lifecycle-ledger packet, then commit/push before OF1. ImGui/Tracy E17 remains accepted;
+The remaining 2026-07-22 architecture follow-up campaign is 1/13 complete.
+Continue with `owner-fanout-reduction` OF1: implement the lifecycle generation
+packet, migrate timer and overlay pilots, add reset-once/failure/same-count
+coverage, and run the mapped full gate. ImGui/Tracy E17 remains accepted;
 Legacy remains the default until a separate owner decision changes that
 policy.

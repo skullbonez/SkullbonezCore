@@ -1,7 +1,7 @@
 # Owner Fan-Out Reduction — Scene Lifecycle And Frame-View Decoupling
 
 Date: 2026-07-22
-Status: Registered — 0/6 phases complete
+Status: Active — 1/6 phases complete
 Impact area: Runtime shell (`Run*`, `RuntimeFrameViews.h`), scene system
 (`SceneController`, `SceneRuntime*`), reactive owner frame entries
 Owner: runtime shell / scene lifecycle
@@ -71,7 +71,7 @@ from special case to convention.
 
 ## Phases
 
-- [ ] OF0. Census and classification. Enumerate every owner reachable from
+- [x] OF0. Census and classification. Enumerate every owner reachable from
   `Load`, `ExecutePending`, `ApplySceneLoadConsumerOutputs`, and the four
   frame views. Classify each as transactional (mutates during the load
   transaction itself) or reactive (reset/notify only), with file:line
@@ -116,6 +116,24 @@ from special case to convention.
 - Decision for OF0 to record: whether automation-build owners
   (`InteractionAutomationController`) join the ledger or remain explicit
   participants behind their macro.
+
+## OF0 Evidence — Census And Classification (2026-07-22)
+
+- The complete census is recorded in
+  [`../../Reports/2026-07-22/owner-fanout-reduction-of0-census.md`](../../Reports/2026-07-22/owner-fanout-reduction-of0-census.md).
+  It classifies all 18 borrowed load owners, four excluded output consumers,
+  every field in the four frame views, and every `RuntimeUiTextFrameFacts`
+  value as transactional, generation-reactive, or unrelated to lifecycle.
+- The target transaction boundary is nine external owners/borrows plus the
+  internally owned scene root. Host, interaction, overlay, simulation, replay,
+  validation, and UI reset work moves to the fixed lifecycle value ledger.
+- The target packet records generation, ordered event, UI/runtime preservation,
+  exit/interactive/manual-reset policy, scene index, and scene mode. Failed-load
+  publication semantics are explicit for OF1 tests.
+- `InteractionAutomationController` remains at its existing Automation frame
+  boundary and does not join the ledger; it owns no scene-local reset state and
+  a macro-only consumer would make lifecycle shape build-dependent.
+- Documentation-only. No repository validation was required or run.
 
 ## Acceptance
 
