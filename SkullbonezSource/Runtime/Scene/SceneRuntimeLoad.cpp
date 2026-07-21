@@ -234,8 +234,9 @@ void CommitSceneRuntimeLoad( SceneController& controller,
                              SceneLoadNavigationState& navigation,
                              const SceneRuntimeLoadBeginResult& prepared )
 {
-    // Invariant: preparation has already validated the index and drained the
-    // device; this is the first mutation of scene/controller state.
+    // Invariant: preparation has validated the index and drained the device;
+    // the caller has already opened the lifecycle generation and completed the
+    // BeforeSceneUnload phase before committing these navigation mutations.
     if ( prepared.makeInteractive )
     {
         controller.State().isInteractiveRun = true;

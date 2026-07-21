@@ -433,8 +433,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                               m_renderDefaults.CinematicBaseline(),
                                               m_startup,
                                               m_assets,
-                                              m_workerPool },
-                       SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+                                              m_workerPool,
+                                              m_timers.simulationTimer.GetTotalTime() },
+                       SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
                        SceneLoadInteractionParticipants{
                            m_inputRouter,
                            m_interaction,
@@ -442,17 +443,16 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                            m_attachedCamera.State(),
                            m_runtimeTools,
                            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) },
-                       SceneLoadPresentationParticipants{ m_replayRuntime,
-                                                          sceneOwners.overlays,
-                                                          m_renderBackendView,
-                                                          m_renderer },
+                       SceneLoadPresentationParticipants{ m_replayRuntime, m_debug, m_renderBackendView, m_renderer },
                        sceneLoadOutputs )
                 .ok;
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        m_window,
                                        interactionOwners.operatorUi,
                                        m_validationHarness,
-                                       m_launchOptions );
+                                       m_launchOptions,
+                                       m_timers,
+                                       sceneOwners.overlays );
         presentationEdit.Refresh();
         return loaded;
     };
@@ -1126,8 +1126,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  m_renderDefaults.CinematicBaseline(),
                                                  m_startup,
                                                  m_assets,
-                                                 m_workerPool };
-    const SceneLoadHostParticipants sceneLoadHost{ m_timers, m_diagnosticsRuntime, m_simulation };
+                                                 m_workerPool,
+                                                 m_timers.simulationTimer.GetTotalTime() };
+    const SceneLoadHostParticipants sceneLoadHost{ m_diagnosticsRuntime, m_simulation };
     const SceneLoadInteractionParticipants sceneLoadInteraction{
         m_inputRouter,
         m_interaction,
@@ -1136,7 +1137,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         m_runtimeTools,
         CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
     const SceneLoadPresentationParticipants sceneLoadPresentation{ m_replayRuntime,
-                                                                   sceneOwners.overlays,
+                                                                   m_debug,
                                                                    m_renderBackendView,
                                                                    m_renderer };
     SceneLoadConsumerOutputs sceneLoadOutputs;
@@ -1149,7 +1150,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                    m_window,
                                    interactionOwners.operatorUi,
                                    m_validationHarness,
-                                   m_launchOptions );
+                                   m_launchOptions,
+                                   m_timers,
+                                   sceneOwners.overlays );
     presentationEdit.Refresh();
     if ( processedCapture || processedDefaults || processedScene )
     {

@@ -1081,6 +1081,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLifecycle.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>

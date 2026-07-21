@@ -13,8 +13,10 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
-  Render setup roles: Narrow interfaces for resources, commands, and diagnostics
-    plus the concrete DX12 raytracing owner.
+  Render setup owners: Concrete DX12 resource, command, diagnostics, frame, and
+    raytracing owners borrowed only during cold scene replacement.
+  Lifecycle generation: Monotonic value identifying one post-preflight load
+    attempt, even when it fails before activation.
   Lane R result: Recoverable scene-load or renderer-drain failure carrying
     owner/message diagnostics so load stops before unsafe resource replacement.
   Required scene contact: Authored pair gate that marks a scenario objective
@@ -25,8 +27,8 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
     surface.
-  - DXR reflection setup may run only after runtime binds the render resource,
-    command, and diagnostics roles plus the concrete raytracing owner.
+  - DXR reflection setup may run only after RuntimeRenderer binds every concrete
+    DX12 owner needed by scene population.
   - Scene/model/terrain destruction starts only after a successful GPU drain.
   - Load orchestration retains no caller pointer, callback, or mutable owner bag.
   - Tornado projection copies every authored field here so Gameplay never
@@ -557,6 +559,8 @@ void SceneLoadConsumerOutputs::ResetForLoad()
     uiActivation = SceneUiActivation{};
     automationGates.Reset();
     navigation = SceneLoadNavigationState{};
+    lifecycle = SceneLifecyclePacket{};
+    presentation = RunDebugState{};
     windowTitle[0] = '\0';
     hasWindowTitle = false;
     applyAutomationGates = false;
@@ -570,10 +574,15 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
                                                              Window& window,
                                                              UI::InGameUI& operatorUi,
                                                              RuntimeValidationHarness& validationHarness,
-                                                             const RunLaunchOptions& launchOptions )
+                                                             const RunLaunchOptions& launchOptions,
+                                                             RunTimerState& timers,
+                                                             RuntimeOverlayDiagnostics& overlays )
 {
-    // Invariant: preserve the former synchronous consumer order while keeping
-    // all three process owners outside SceneController's load participant graph.
+    // Invariant: reactive pilot owners consume the generation before external
+    // UI/validation effects. This preserves their former end-of-Load ordering
+    // without returning either owner to the transaction participant graph.
+    timers.ObserveSceneLifecycle( outputs.lifecycle );
+    overlays.ObserveSceneLifecycle( outputs.lifecycle, outputs.presentation );
     if ( outputs.applyAutomationGates )
     {
         validationHarness.SceneGates().ApplyConfiguration( std::move( outputs.automationGates ) );
@@ -616,7 +625,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const RunStartupState& startup = policy.startup;
     SkullbonezCore::Assets::AssetSystem& assets = policy.assets;
     Threading::WorkerPool& workerPool = policy.workerPool;
-    RunTimerState& timers = host.timers;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     SimulationSystem& simulation = host.simulation;
     InputRouter& inputRouter = interactionParticipants.inputRouter;
@@ -625,17 +633,24 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     AttachedCameraState& attachedCamera = interactionParticipants.attachedCamera;
     RuntimeTools& runtimeTools = interactionParticipants.runtimeTools;
     ReplayRuntime& replayRuntime = presentation.replayRuntime;
-    RuntimeOverlayDiagnostics& overlays = presentation.overlays;
     const RuntimeRenderBackendView& renderBackendView = presentation.renderBackendView;
     RuntimeRenderer& renderer = presentation.renderer;
 
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::SceneLoad );
     consumerOutputs.ResetForLoad();
     consumerOutputs.navigation = interactionParticipants.navigation;
+    consumerOutputs.presentation = presentation.debug;
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
-
-    RuntimeOverlayPresentationEdit presentationEdit = overlays.EditPresentation();
-    RunDebugState& m_debug = presentationEdit.State();
+    RunDebugState& m_debug = consumerOutputs.presentation;
+    struct LifecycleOutputPublisher
+    {
+        const SceneController& controller;
+        SceneLoadConsumerOutputs& outputs;
+        ~LifecycleOutputPublisher()
+        {
+            outputs.lifecycle = controller.LifecyclePacket();
+        }
+    } lifecycleOutputPublisher{ *this, consumerOutputs };
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
     const bool retainedPhysicsSleepEnabled = Scene().Physics().IsSleepEnabled();
@@ -703,6 +718,15 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     {
         return m_lastSceneLoadResult;
     }
+    const SceneLifecycleBeginPolicy lifecyclePolicy{ preserveUIState,
+                                                     preserveRuntimeState,
+                                                     suppressExitOnComplete,
+                                                     request.enterInteractiveSceneRun,
+                                                     request.markManualReset };
+    // Invariant: generation begins only after preflight and GPU drain succeed,
+    // but before any transaction phase mutates the active scene. Every event
+    // emitted below therefore belongs to this exact load attempt.
+    runtime.BeginLoadAttempt( index, lifecyclePolicy );
     SceneLifecycleConsumerMask beforeUnloadConsumers =
         SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
     diagnosticsRuntime.BeforeSceneUnload( SceneState() );
@@ -761,7 +785,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools );
     m_debug.ResetForSceneLoad();
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
-    timers.ResetSceneMeasurements();
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
@@ -925,7 +948,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         m_debug.isWaterNoReflect = waterReflectionMode == 2;
         if ( m_debug.isWaterFreezeDebug )
         {
-            m_debug.frozenWaterTime = static_cast<float>( timers.simulationTimer.GetTimeSinceLastStart() );
+            m_debug.frozenWaterTime = static_cast<float>( policy.sceneTimeSeconds );
         }
         SceneState().timeScale = scene.GetTimeScale();
         SceneState().isFixedStep = scene.IsFixedStep();
@@ -944,7 +967,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                       scene.GetCinematicRenderConfig() );
 
         const SceneUIOptions& UIOptions = scene.GetUIOptions();
-        const double UINow = timers.simulationTimer.GetTotalTime();
+        const double UINow = policy.sceneTimeSeconds;
         bool isAutomationScene = scene.IsExitOnComplete() || scene.IsScreenshotAndExit() ||
                                  scene.GetScreenshotFrame() >= 0 || scene.GetScreenshotMs() >= 0 ||
                                  scene.GetScreenshotInterval() > 0 || scene.GetPerfLogPath()[0] != '\0';
@@ -1233,7 +1256,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         diagnosticsRuntime.UIStress().enabled = true;
         diagnosticsRuntime.UIStress().randomState = launchOptions.uiStressSeed;
         diagnosticsRuntime.UIStress().actionsPerFrame = launchOptions.uiStressActions;
-        consumerOutputs.uiActivation.nowSeconds = timers.simulationTimer.GetTotalTime();
+        consumerOutputs.uiActivation.nowSeconds = policy.sceneTimeSeconds;
         consumerOutputs.uiActivation.forceVisible = true;
         consumerOutputs.uiActivation.forceUnminimized = true;
     }
@@ -1250,7 +1273,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         diagnosticsRuntime.Capture().ResetScreenshot();
         diagnosticsRuntime.ClosePerfLog();
         diagnosticsRuntime.ResetPerfLogForSceneLoad();
-        consumerOutputs.uiActivation.nowSeconds = timers.simulationTimer.GetTotalTime();
+        consumerOutputs.uiActivation.nowSeconds = policy.sceneTimeSeconds;
         consumerOutputs.uiActivation.forceVisible = true;
         consumerOutputs.uiActivation.forceUnminimized = true;
     }
@@ -1307,8 +1330,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         renderBackendView.renderDevice->SetVsyncEnabled( renderer.VsyncEnabled() );
     }
 
-    // Restart timers
-    timers.RestartForSceneActivation();
     const ReplaySceneTimelineResetInput replayReset =
         DescribeReplaySceneTimeline( m_sceneController,
                                      sceneNavigation.overrides,

@@ -17,9 +17,9 @@ Glossary:
 
 Invariants:
   - PrepareSceneRuntimeLoad returns intent/state without mutating any owner.
-  - CommitSceneRuntimeLoad is called only after a successful GPU drain and the
-    BeforeSceneUnload consumers have completed.
-  - Runtime state preservation must happen before SceneController begins load.
+  - CommitSceneRuntimeLoad is called only after a successful GPU drain, lifecycle
+    generation start, and BeforeSceneUnload consumers have completed.
+  - Runtime state preservation is captured before SceneController begins load.
 
 Related:
   - SkullbonezSource/Runtime/Scene/SceneRuntimeLoad.cpp

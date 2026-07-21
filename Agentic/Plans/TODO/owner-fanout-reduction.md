@@ -1,7 +1,7 @@
 # Owner Fan-Out Reduction — Scene Lifecycle And Frame-View Decoupling
 
 Date: 2026-07-22
-Status: Active — 1/6 phases complete
+Status: Active — 2/6 phases complete
 Impact area: Runtime shell (`Run*`, `RuntimeFrameViews.h`), scene system
 (`SceneController`, `SceneRuntime*`), reactive owner frame entries
 Owner: runtime shell / scene lifecycle
@@ -77,7 +77,7 @@ from special case to convention.
   transaction itself) or reactive (reset/notify only), with file:line
   evidence per owner. Record the target participant list and the target
   ledger packet fields. Documentation-only; no validation.
-- [ ] OF1. Lifecycle ledger. Promote `RecordLifecycleEvent` into the
+- [x] OF1. Lifecycle ledger. Promote `RecordLifecycleEvent` into the
   generation-stamp value protocol. Migrate two pilot reactive owners
   (`RunTimerState` restart policy and `RuntimeOverlayDiagnostics`) out of
   the load participant structs onto ledger observation. Focused tests pin
@@ -134,6 +134,38 @@ from special case to convention.
   boundary and does not join the ledger; it owns no scene-local reset state and
   a macro-only consumer would make lifecycle shape build-dependent.
 - Documentation-only. No repository validation was required or run.
+
+## OF1 Evidence — Lifecycle Generation Pilots (2026-07-22)
+
+- `SceneLifecyclePacket` now publishes one monotonic generation, ordered phase,
+  begin policy, target scene index, and scene-mode value per post-preflight load
+  attempt. Preflight failures leave the generation unchanged; failures after
+  clearing retain their partial generation and final reached phase.
+- `RunTimerState` and `RuntimeOverlayDiagnostics` no longer enter the scene-load
+  participant structs. Both consume the value packet once per generation at the
+  fixed post-load application boundary; timer reset and activation decisions are
+  isolated in a value-only policy so the CPU target can test them without the
+  platform clock implementation.
+- The participant census is reduced 18 → 16 for this pilot: timer and overlay
+  owners are gone, while sampled time and debug presentation cross as detached
+  values. Same-batch defaults persistence reads the newly emitted presentation
+  instead of a stale submitted snapshot.
+- Focused Debug doctests pass 5 cases / 61 assertions for strict phase order,
+  preflight/partial-failure publication, repeated same-scene generations,
+  once-only timer actions, and same-batch presentation selection. The focused
+  Profile rebuild passes with zero errors.
+- `tools\validate_full.bat` passes in 154.9 s: mandatory CPU umbrella, five
+  runtime processes, accepted DX12 screenshots with zero validation errors, and
+  the 44,401-line physics CSV byte-exact comparison.
+- Non-stopping blockers resolved during the slice: the test target lacked
+  platform Timer linkage, so lifecycle decisions moved into the value-only
+  policy; the first bounded full-gate launch was killed by an undersized shell
+  timeout; and the first real gate found the new header missing from the
+  project-filter prefix table. The focused filter recheck passes 722/722 items.
+- Comment audit: 17 touched C++ source-bearing files checked, zero deferred or
+  unchecked files. Dependency-direction and Replay downward-include proofs all
+  return zero rows. No rubber-duck pass was appropriate for this incremental
+  slice; the plan-level independent review remains OF5.
 
 ## Acceptance
 

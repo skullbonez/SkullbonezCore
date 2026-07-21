@@ -18,6 +18,8 @@ Glossary:
     terrain, environment settings, and render presentation.
   Proceed policy: Value packet that freezes the sampled step edge and
     cross-scene pause decision for one frame.
+  Lifecycle generation: Monotonic identity for one post-preflight scene-load
+    attempt, independent of scene index or successful activation.
 
 Invariants:
   - SceneController owns queue/index bookkeeping and composes exactly one
@@ -41,6 +43,7 @@ Related:
 #include "SceneRuntimeCoordinator.h"
 #include "SceneRuntimeUiOptions.h"
 #include "SceneWorld.h"
+#include "../RunDebugState.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 
@@ -134,11 +137,11 @@ struct SceneDefaultsSaveView
 };
 
 // Concept: scene loading borrows four phase-oriented values instead of
-// accepting the process shell's complete owner graph as one flat call. The
-// structs carry 18 concrete owners (6 policy, 3 host, 5 interaction, and 4
-// presentation); navigation crosses as a detached value snapshot. Window, UI,
-// and validation effects return through SceneLoadConsumerOutputs and no
-// participant or output is retained by SceneController.
+// accepting the process shell's complete owner graph as one flat call. The OF1
+// pilot carries 16 concrete owners (6 policy, 2 host, 5 interaction, and 3
+// presentation); time, navigation, and debug presentation cross as detached
+// values. Window, UI, validation, timer, and overlay effects return through
+// SceneLoadConsumerOutputs and no participant or output is retained.
 struct SceneLoadPolicyInputs
 {
     SkullbonezCore::Core::EngineConfig& config;
@@ -147,11 +150,11 @@ struct SceneLoadPolicyInputs
     const RunStartupState& startup;
     Assets::AssetSystem& assets;
     Threading::WorkerPool& workerPool;
+    double sceneTimeSeconds = 0.0;
 };
 
 struct SceneLoadHostParticipants
 {
-    RunTimerState& timers;
     DiagnosticsRuntime& diagnosticsRuntime;
     SimulationSystem& simulation;
 };
@@ -169,7 +172,7 @@ struct SceneLoadInteractionParticipants
 struct SceneLoadPresentationParticipants
 {
     ReplayRuntime& replayRuntime;
-    RuntimeOverlayDiagnostics& overlays;
+    RunDebugState debug;
     const RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 };
@@ -177,10 +180,12 @@ struct SceneLoadPresentationParticipants
 struct SceneLoadConsumerOutputs
 {
     // Value effects are accumulated synchronously and consumed immediately by
-    // the four owners intentionally excluded from the load participant graph.
+    // the five owners intentionally excluded from the load participant graph.
     SceneUiActivation uiActivation;
     SceneAutomationGateConfiguration automationGates;
     SceneLoadNavigationState navigation;
+    SceneLifecyclePacket lifecycle;
+    RunDebugState presentation;
     char windowTitle[256] = {};
     bool hasWindowTitle = false;
     bool applyAutomationGates = false;
@@ -201,6 +206,17 @@ inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const
     return outputs.applyNavigation ? outputs.navigation : submitted;
 }
 
+// A later cold action in the same fixed batch must observe authored/debug
+// policy produced by the completed load, even though the overlay owner applies
+// that detached value only after ExecutePending returns.
+inline const RunDebugState& ScenePresentationForFollowingRequest( const RunDebugState& submitted,
+                                                                  const SceneLoadConsumerOutputs& outputs )
+{
+    return SceneLifecycleReached( outputs.lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
+               ? outputs.presentation
+               : submitted;
+}
+
 // Applies one completed transaction's value effects at the excluded consumer
 // boundaries. Call exactly once after Load/ExecutePending, including failures
 // that progressed past scene clearing and therefore emitted reset effects.
@@ -208,7 +224,9 @@ void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                     Window& window,
                                     UI::InGameUI& operatorUi,
                                     RuntimeValidationHarness& validationHarness,
-                                    const RunLaunchOptions& launchOptions );
+                                    const RunLaunchOptions& launchOptions,
+                                    RunTimerState& timers,
+                                    RuntimeOverlayDiagnostics& overlays );
 
 class SceneController
 {
@@ -244,8 +262,10 @@ class SceneController
     int NextIndex() const;
     const std::vector<std::string>& Queue() const;
 
+    void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
     void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
+    const SceneLifecyclePacket& LifecyclePacket() const;
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;

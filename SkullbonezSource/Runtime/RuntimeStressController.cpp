@@ -1071,21 +1071,26 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
         SceneLoadConsumerOutputs sceneLoadOutputs;
         const bool loaded =
             sceneController
-                .Load(
-                    request,
-                    SceneLoadPolicyInputs{ config, launchOptions, defaultCinematicRender, startup, assets, workerPool },
-                    SceneLoadHostParticipants{ timers, diagnosticsRuntime, simulation },
-                    SceneLoadInteractionParticipants{ inputRouter,
-                                                      interaction,
-                                                      camera,
-                                                      attachedCamera.State(),
-                                                      runtimeTools,
-                                                      CaptureSceneLoadNavigationState( ui.SceneNavigation() ) },
-                    SceneLoadPresentationParticipants{ replayRuntime,
-                                                       sceneOwners.overlays,
-                                                       renderBackendView,
-                                                       renderer },
-                    sceneLoadOutputs )
+                .Load( request,
+                       SceneLoadPolicyInputs{ config,
+                                              launchOptions,
+                                              defaultCinematicRender,
+                                              startup,
+                                              assets,
+                                              workerPool,
+                                              timers.simulationTimer.GetTotalTime() },
+                       SceneLoadHostParticipants{ diagnosticsRuntime, simulation },
+                       SceneLoadInteractionParticipants{ inputRouter,
+                                                         interaction,
+                                                         camera,
+                                                         attachedCamera.State(),
+                                                         runtimeTools,
+                                                         CaptureSceneLoadNavigationState( ui.SceneNavigation() ) },
+                       SceneLoadPresentationParticipants{ replayRuntime,
+                                                          sceneOwners.overlays.PresentationSnapshot(),
+                                                          renderBackendView,
+                                                          renderer },
+                       sceneLoadOutputs )
                 .ok;
         if ( !legacyDevelopmentUiActive )
         {
@@ -1099,7 +1104,9 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                        *window,
                                        ui,
                                        presentationOwners.validationHarness,
-                                       launchOptions );
+                                       launchOptions,
+                                       timers,
+                                       sceneOwners.overlays );
         return loaded;
     };
 

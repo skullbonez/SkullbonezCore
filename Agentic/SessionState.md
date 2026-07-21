@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF1; Legacy remains the development default. |
+| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF2; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 1 / 13 live tasks; 8%. |
+| Active/future progress | 2 / 13 live tasks; 15%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RH5 `validate_full` passes in 179.6 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | RH5 passes mandatory CPU, full, three-repeat DX12 renderer, and one-minute graphics-stress gates; independent review is clear. OF0 is documentation-only and requires no validation. |
+| Last broad local gate | OF1 `validate_full` passes in 154.9 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | OF1 focused lifecycle tests pass 5 cases / 61 assertions; Profile build, project-filter recheck, dependency proofs, comment audit, and mapped full gate pass. |
 
 ## Live Queue
 
 NOW. The remaining 2026-07-22 architecture follow-up queue is, in binding
-order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (1/6), then
+order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (2/6), then
 `Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Render interface
 retirement closed RH0-RH5; evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`. The prior architecture-review campaign is
@@ -204,6 +204,9 @@ are not certified. Full evidence:
 | `tools\validate_fast.bat` (RH1) | 23.0 s | PASS; 338 tests / 68,642 assertions, zero warnings/errors |
 | `tools\validate_dx12_renderer.bat` (RH1) | 23.8 s | PASS; zero InfoQueue errors, all three screenshots accepted |
 | `tools\run_graphics_stress.bat 1` (RH1) | 60.9 s | PASS; 12,027 frames, 330 scene loads, PID 29132 bounded stop, empty stderr |
+| focused Profile rebuild + lifecycle doctests (OF1) | 11.0 s + 9.9 s | PASS; 5 cases / 61 assertions |
+| `tools\validate_project_filters.bat` (OF1 correction) | 2.6 s | PASS; 722 project/filter items, zero errors |
+| `tools\validate_full.bat` (OF1 final) | 154.9 s | PASS; CPU umbrella, five runtime lanes, accepted DX12 images, byte-exact physics |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -211,9 +214,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The remaining 2026-07-22 architecture follow-up campaign is 1/13 complete.
-Continue with `owner-fanout-reduction` OF1: implement the lifecycle generation
-packet, migrate timer and overlay pilots, add reset-once/failure/same-count
-coverage, and run the mapped full gate. ImGui/Tracy E17 remains accepted;
+The remaining 2026-07-22 architecture follow-up campaign is 2/13 complete.
+Continue with `owner-fanout-reduction` OF2: migrate camera, attached-camera,
+interaction, tools, replay-presentation, and input-router reactive work onto the
+ledger, then shrink the participant structs and run the mapped full plus the
+single-invocation replay visual-fidelity gate. ImGui/Tracy E17 remains accepted;
 Legacy remains the default until a separate owner decision changes that
 policy.

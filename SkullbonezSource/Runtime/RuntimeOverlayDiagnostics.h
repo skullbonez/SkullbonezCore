@@ -14,6 +14,8 @@ Glossary:
   Debug visualizers: CPU-side broadphase, collision, and physics line data
     refreshed after committed physics work and borrowed by RuntimeRenderer.
   Presentation edit: Stack-only copy committed atomically when its scope ends.
+  Lifecycle generation: Scene-load attempt identity used to publish a detached
+    presentation value at most once after clearing.
 
 Invariants:
   - The owner is allocated only during the explicit Startup phase and lives
@@ -32,6 +34,9 @@ Related:
 */
 #pragma once
 
+#include "Scene/SceneLifecycle.h"
+
+#include <cstdint>
 #include <memory>
 
 #include "Debug/BroadphaseVisualizer.h"
@@ -109,6 +114,9 @@ class RuntimeOverlayDiagnostics
                             float contactEpsilon,
                             double secondsPerFrame );
     RuntimeRenderFramePolicy BuildFramePolicy( double simulationSeconds, double totalSimulationSeconds ) const;
+    // Publishes the detached scene presentation once after a load generation
+    // reaches the clear boundary. The load transaction never receives this owner.
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunDebugState& scenePresentation );
     RunDebugState PresentationSnapshot() const;
     RuntimeOverlayPresentationEdit EditPresentation();
     RuntimeOverlayRenderResources& RenderResources();
@@ -121,6 +129,7 @@ class RuntimeOverlayDiagnostics
     Core::Profiler* m_profiler;
     RunDebugState m_presentationState;
     RuntimeOverlayRenderResources m_renderResources;
+    SceneLifecycleGenerationObserver m_scenePresentationObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

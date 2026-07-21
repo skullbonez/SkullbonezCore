@@ -13,11 +13,15 @@ Glossary:
   the generated demo scene.
   Cinematic deck: A queue of concept/cinematic scenes cycled as one authored
   visual look set.
+  Lifecycle packet: Value snapshot identifying one post-preflight load attempt
+    and the last ordered phase that attempt reached.
 
 Invariants:
   - `RunSceneState::ResetForLoad` resets per-load state but preserves queue and
     manual-run ownership held by SceneRuntime/SceneController.
   - Empty scene paths mean generated demo scene and are not filesystem paths.
+  - Lifecycle generation advances once before the first mutation of every load
+    attempt that crossed preflight, including attempts that later fail.
   - Runtime cinematic UI overrides live in scene state until explicitly saved or
     reset.
 
@@ -34,6 +38,7 @@ Related:
 #include "../../Physics/PhysicsTimestep.h"
 #include "../../Physics/SpatialGrid.h"
 #include "SceneAuthoredSetup.h"
+#include "SceneLifecycle.h"
 
 #include <string>
 #include <vector>
@@ -50,77 +55,6 @@ class SceneController;
 }
 namespace Runtime
 {
-// Concept: Lifecycle events mark scene-owned load boundaries so policy can move
-// behind SceneRuntime without changing Run's process-level sequencing.
-enum class SceneRuntimeLifecycleEvent
-{
-    None,
-    BeforeSceneUnload,
-    AfterSceneCleared,
-    BeforeScenePopulate,
-    AfterScenePopulate,
-    AfterSceneActivated,
-};
-
-// Concept: lifecycle receipts make the cold cross-owner work auditable without
-// callbacks or a retained service bag. A bit is supplied only after that
-// concrete owner has consumed the phase at the SceneController load boundary.
-enum class SceneLifecycleConsumer : uint32_t
-{
-    Diagnostics = 1u << 0,
-    RenderDevice = 1u << 1,
-    Simulation = 1u << 2,
-    Tools = 1u << 4,
-    Interaction = 1u << 5,
-    Replay = 1u << 6,
-};
-using SceneLifecycleConsumerMask = uint32_t;
-
-constexpr SceneLifecycleConsumerMask SceneLifecycleConsumerBit( SceneLifecycleConsumer consumer )
-{
-    return static_cast<SceneLifecycleConsumerMask>( consumer );
-}
-
-constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent event )
-{
-    switch ( event )
-    {
-    case SceneRuntimeLifecycleEvent::BeforeSceneUnload:
-        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
-    case SceneRuntimeLifecycleEvent::AfterSceneCleared:
-        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
-    case SceneRuntimeLifecycleEvent::AfterSceneActivated:
-        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
-    case SceneRuntimeLifecycleEvent::BeforeScenePopulate:
-    case SceneRuntimeLifecycleEvent::AfterScenePopulate:
-    case SceneRuntimeLifecycleEvent::None:
-        return 0;
-    }
-    return 0;
-}
-
-// Recoverable load failures may restart with BeforeSceneUnload from any phase;
-// all phases within one load attempt remain strictly ordered.
-constexpr bool SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent previous,
-                                                     SceneRuntimeLifecycleEvent next )
-{
-    return next == SceneRuntimeLifecycleEvent::BeforeSceneUnload ||
-           ( previous == SceneRuntimeLifecycleEvent::BeforeSceneUnload &&
-             next == SceneRuntimeLifecycleEvent::AfterSceneCleared ) ||
-           ( previous == SceneRuntimeLifecycleEvent::AfterSceneCleared &&
-             next == SceneRuntimeLifecycleEvent::BeforeScenePopulate ) ||
-           ( previous == SceneRuntimeLifecycleEvent::BeforeScenePopulate &&
-             next == SceneRuntimeLifecycleEvent::AfterScenePopulate ) ||
-           ( previous == SceneRuntimeLifecycleEvent::AfterScenePopulate &&
-             next == SceneRuntimeLifecycleEvent::AfterSceneActivated );
-}
-
-const char* SceneRuntimeLifecycleEventName( SceneRuntimeLifecycleEvent event );
 // Returns the final scene path component without allocating. The returned
 // pointer aliases the caller-owned path string.
 const char* SceneFileNameFromPath( const char* path );
@@ -192,8 +126,12 @@ class SceneRuntime
     int NextIndex() const;
     const std::vector<std::string>& Queue() const;
 
+    // Opens the generation only after preflight succeeds, before any load
+    // mutation or lifecycle event. BeginLoad later commits queue state.
+    void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
     void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
+    const SceneLifecyclePacket& LifecyclePacket() const;
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;
@@ -205,6 +143,7 @@ class SceneRuntime
     RunSceneState m_state;
     std::vector<std::string> m_queue;
     SceneRuntimeLifecycleEvent m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
+    SceneLifecyclePacket m_lifecyclePacket;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

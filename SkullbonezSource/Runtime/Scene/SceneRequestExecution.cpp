@@ -29,7 +29,6 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SceneController.h"
-#include "../RuntimeOverlayDiagnostics.h"
 #include "../RuntimeValidationHarness.h"
 #include "../InputFrame.h"
 #include "../Tools/RuntimeTools.h"
@@ -112,7 +111,8 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         case SceneRequestType::SaveCurrentDefaults:
             eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
             {
-                const RunDebugState presentationState = presentation.overlays.PresentationSnapshot();
+                const RunDebugState& presentationState =
+                    ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs );
                 const SceneLoadNavigationState& currentNavigation =
                     SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
                 const SkullbonezCore::Core::SbResult saveResult =

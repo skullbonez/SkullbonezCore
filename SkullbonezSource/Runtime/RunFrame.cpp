@@ -1034,8 +1034,9 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                                          m_renderDefaults.CinematicBaseline(),
                                                          m_startup,
                                                          m_assets,
-                                                         m_workerPool },
-                                  SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+                                                         m_workerPool,
+                                                         m_timers.simulationTimer.GetTotalTime() },
+                                  SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
                                   SceneLoadInteractionParticipants{
                                       m_inputRouter,
                                       m_interaction,
@@ -1044,7 +1045,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                       m_runtimeTools,
                                       CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
                                   SceneLoadPresentationParticipants{ m_replayRuntime,
-                                                                     *m_overlayDiagnostics,
+                                                                     m_overlayDiagnostics->PresentationSnapshot(),
                                                                      m_renderBackendView,
                                                                      m_renderer },
                                   sceneLoadOutputs )
@@ -1053,7 +1054,9 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                            m_window,
                                            *m_operatorUi,
                                            *m_validationHarness,
-                                           m_launchOptions );
+                                           m_launchOptions,
+                                           m_timers,
+                                           *m_overlayDiagnostics );
         }
         if ( !advanced )
         {
@@ -1171,8 +1174,9 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                                           m_renderDefaults.CinematicBaseline(),
                                                           m_startup,
                                                           m_assets,
-                                                          m_workerPool },
-                                   SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+                                                          m_workerPool,
+                                                          m_timers.simulationTimer.GetTotalTime() },
+                                   SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
                                    SceneLoadInteractionParticipants{
                                        m_inputRouter,
                                        m_interaction,
@@ -1181,7 +1185,7 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                        m_runtimeTools,
                                        CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
                                    SceneLoadPresentationParticipants{ m_replayRuntime,
-                                                                      *m_overlayDiagnostics,
+                                                                      m_overlayDiagnostics->PresentationSnapshot(),
                                                                       m_renderBackendView,
                                                                       m_renderer },
                                    sceneLoadOutputs )
@@ -1190,7 +1194,9 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                        m_window,
                                        *m_operatorUi,
                                        *m_validationHarness,
-                                       m_launchOptions );
+                                       m_launchOptions,
+                                       m_timers,
+                                       *m_overlayDiagnostics );
     }
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )
     {
