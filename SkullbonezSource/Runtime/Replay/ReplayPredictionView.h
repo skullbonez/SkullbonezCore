@@ -27,7 +27,7 @@ Related:
 #pragma once
 
 #include "ReplayIdentity.h"
-#include "ReplayPredictionScheduling.h"
+#include "ReplayPredictionPackets.h"
 #include "ReplayVisualPacket.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsDebugData.h"

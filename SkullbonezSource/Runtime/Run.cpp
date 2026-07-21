@@ -33,10 +33,7 @@ Related:
 #include "InputFrame.h"
 #include "Window.h"
 #include "../Core/WindowConstants.h"
-#include "Replay/ReplayOverlayLayout.h"
-#include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
-#include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
@@ -67,7 +64,6 @@ using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUITab;
-using namespace SkullbonezCore::Runtime::ReplayOverlay;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace

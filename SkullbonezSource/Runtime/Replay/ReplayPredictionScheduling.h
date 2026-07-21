@@ -25,6 +25,7 @@ Related:
 #pragma once
 
 #include "../../Core/AmortizedTask.h"
+#include "ReplayPredictionPackets.h"
 
 #include <cstdint>
 #include <optional>
@@ -114,13 +115,6 @@ class ReplayPredictionWorkerSchedule
     // Lifetime: the optional owns one in-place task. Reset first waits for its
     // in-flight slice and releases no heap allocation.
     std::optional<ReplayPredictionAmortizedTask> m_task;
-};
-
-enum class ReplayPredictionBuildMode : uint8_t
-{
-    Undecided,
-    Amortized,
-    Instant
 };
 
 enum class ReplayPredictionCoalescerAction : uint8_t

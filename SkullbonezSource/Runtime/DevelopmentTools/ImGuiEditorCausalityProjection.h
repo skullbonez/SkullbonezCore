@@ -31,7 +31,7 @@ Related:
 */
 #pragma once
 
-#include "../Replay/ReplayOverlayRenderer.h"
+#include "../Replay/ReplayOverlayPackets.h"
 
 #include <algorithm>
 #include <cstddef>

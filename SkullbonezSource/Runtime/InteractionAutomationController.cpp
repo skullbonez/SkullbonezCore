@@ -58,7 +58,7 @@ Related:
 #include "InputFrame.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
-#include "Replay/ReplayOverlayLayout.h"
+#include "Replay/ReplayOverlaySurface.h"
 #include "DemoDirectorPlayback.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"

@@ -31,6 +31,7 @@ Related:
 #pragma once
 
 #include "ReplayAuthoring.h"
+#include "ReplayOverlayPackets.h"
 #include "ReplayPrediction.h"
 #include "ReplayPresentation.h"
 #include "ReplayScrubber.h"
@@ -67,69 +68,6 @@ class RunEditorTracer;
 
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
-// Lifetime: a synchronous, read-only replay publication. References and sample
-// pointers remain valid only until the next replay update; UI composition must
-// not retain this value after the late pass.
-struct ReplayOverlayStateView
-{
-    ReplayScrubberView scrubber;
-    ReplayPredictionPresentationView prediction;
-    const RunReplayPathVisualizerState& pathVisualizer;
-    const RunReplayVelocityEditState& velocityEdit;
-    const RunReplayCauseTreeState& causeTree;
-    ReplayRecorderStats solverStats;
-    const ReplayPresentationSample* selectedPresentation = nullptr;
-    const ReplayPresentationSample* latestPresentation = nullptr;
-    const ReplaySolverFrameSample* selectedSolver = nullptr;
-    const ReplaySolverFrameSample* latestSolver = nullptr;
-    const RunReplayPredictionFrame* selectedPrediction = nullptr;
-    const ReplayPresentationSample* currentPresentation = nullptr;
-    const ReplaySolverFrameSample* currentSolver = nullptr;
-    float solverPresentTrackPosition = 1.0f;
-    std::size_t loadedSampleCount = 0u;
-    bool loadedPresentation = false;
-    bool predictionTimelineAvailable = false;
-    bool shouldRenderScrubber = false;
-    bool recordingConfigured = false;
-    bool recordingEnabled = false;
-    bool recordingLockedByHashLog = false;
-};
-
-struct ReplayOverlayRenderContext
-{
-    // Lifetime: borrowed from the current UI/text pass; overlay code must not
-    // store it after the draw call returns.
-    Rendering::Dx12TextureOwner& renderTextures;
-    Rendering::Dx12GeometryOwner& renderCommands;
-    Core::Profiler* profiler = nullptr;
-    ReplayScrubberView scrubber;
-    const ReplayPredictionPresentationView& prediction;
-    const RunReplayPathVisualizerState& pathVisualizer;
-    const RunReplayVelocityEditState& velocityEdit;
-    const RunReplayCauseTreeState& causeTree;
-    ReplayRecorderStats solverStats;
-    const ReplayPresentationSample* selectedPresentation = nullptr;
-    const ReplayPresentationSample* latestPresentation = nullptr;
-    const ReplaySolverFrameSample* selectedSolver = nullptr;
-    const ReplaySolverFrameSample* latestSolver = nullptr;
-    const RunReplayPredictionFrame* selectedPrediction = nullptr;
-    const ReplayPresentationSample* currentPresentation = nullptr;
-    const ReplaySolverFrameSample* currentSolver = nullptr;
-    float solverPresentTrackPosition = 1.0f;
-    bool loadedPresentation = false;
-    bool predictionTimelineAvailable = false;
-    bool legacyReplaySurfaceActive = true;
-    bool shouldRenderScrubber = false;
-    bool editorModeEnabled = false;
-    bool uiVisible = false;
-    bool uiMinimized = false;
-    bool scenePhysicsEnabled = false;
-    RuntimeInteractionGestureKind gesture = RuntimeInteractionGestureKind::None;
-    int screenW = 0;
-    int screenH = 0;
-    double nowSeconds = 0.0;
-};
-
 struct ReplayPathVisualizerRenderContext
 {
     // Lifetime: every reference is a frame-local borrow from the render-tool

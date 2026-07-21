@@ -58,7 +58,7 @@ Related:
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimeInteractionController.h"
-#include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayToolPackets.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"

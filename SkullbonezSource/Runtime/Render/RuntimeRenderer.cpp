@@ -54,7 +54,7 @@ Related:
 #include "../Scene/SceneTerrain.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Replay/ReplayOverlayRenderer.h"
+#include "../Replay/ReplayOverlayPackets.h"
 #include "../OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/TextureCollection.h"

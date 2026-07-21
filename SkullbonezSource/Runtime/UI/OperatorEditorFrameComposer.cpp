@@ -38,7 +38,7 @@ Related:
 #include "../RuntimeViewModel.h"
 #include "../Window.h"
 #include "../../Core/WorkerPool.h"
-#include "../Replay/ReplayOverlayRenderer.h"
+#include "../Replay/ReplayOverlayPackets.h"
 #include "../Scene/SceneRuntimeLoad.h"
 #include "../CaptureSystem.h"
 #include "../Editor/EditorTools.h"

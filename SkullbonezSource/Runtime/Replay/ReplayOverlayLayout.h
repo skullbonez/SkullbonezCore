@@ -30,6 +30,7 @@ Related:
 #pragma once
 
 #include "ReplayAuthoring.h"
+#include "ReplayOverlaySurface.h"
 #include "ReplayRecorder.h"
 #include "ReplayScrubber.h"
 #include "../RuntimeInteractionController.h"
@@ -55,12 +56,9 @@ inline constexpr float REPLAY_SCRUBBER_PREDICT_TOGGLE_WIDTH = 104.0f;
 inline constexpr float REPLAY_SCRUBBER_PREDICT_SLOT_WIDTH = 140.0f;
 inline constexpr float REPLAY_SCRUBBER_RAGDOLL_TOGGLE_WIDTH = 78.0f;
 inline constexpr float REPLAY_SCRUBBER_PAST_TOGGLE_WIDTH = 68.0f;
-inline constexpr double REPLAY_SCRUBBER_VISIBLE_SECONDS = 1.40;
 inline constexpr double REPLAY_SCRUBBER_FADE_IN_SECONDS = 0.18;
 inline constexpr double REPLAY_SCRUBBER_FADE_OUT_SECONDS = 0.24;
 inline constexpr float REPLAY_SCRUBBER_FADE_EPSILON = 0.015f;
-inline constexpr float REPLAY_PREDICTION_MIN_SECONDS = 1.0f;
-inline constexpr float REPLAY_PREDICTION_MAX_SECONDS = REPLAY_FUTURE_BUFFER_SECONDS;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_WIDTH = 312.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_MARGIN = 18.0f;
 inline constexpr float REPLAY_CAUSE_TREE_PANEL_TOP = 84.0f;
@@ -153,17 +151,11 @@ void BuildReplayCauseWindowSurface( const RunReplayCauseTreeState& state, Replay
 
 UI::UIRect ReplayScrubberPanelRect( int screenW, int screenH );
 float ReplayScrubberRowCenterY( const UI::UIRect& panel, RunReplayTrack track );
-UI::UIRect ReplayScrubberTrackRect( int screenW, int screenH, RunReplayTrack track );
 UI::UIRect ReplayScrubberSaveButtonRect( int screenW, int screenH, RunReplayTrack trackName );
 UI::UIRect ReplayScrubberLoadButtonRect( int screenW, int screenH, RunReplayTrack trackName );
-UI::UIRect ReplayScrubberBranchButtonRect( int screenW, int screenH );
-UI::UIRect ReplayScrubberPauseButtonRect( int screenW, int screenH );
-UI::UIRect ReplayScrubberVelocityEditToggleRect( int screenW, int screenH );
 UI::UIRect ReplayScrubberPredictControlRect( int screenW, int screenH );
-UI::UIRect ReplayScrubberPredictToggleRect( int screenW, int screenH );
 UI::UIRect ReplayScrubberPredictHorizonRect( int screenW, int screenH );
 UI::UIRect ReplayScrubberRagdollVisualToggleRect( int screenW, int screenH );
-UI::UIRect ReplayScrubberPastPathToggleRect( int screenW, int screenH );
 float ReplayPredictionHorizonT( float seconds );
 float ReplayPredictionHorizonFromMouse( int mouseX, const UI::UIRect& horizon );
 UI::UIRect ReplayScrubberHotZoneRect( int screenW, int screenH );

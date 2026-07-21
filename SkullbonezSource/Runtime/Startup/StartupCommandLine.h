@@ -30,7 +30,7 @@ Related:
 */
 #pragma once
 
-#include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayCaptureLimits.h"
 #include "../RunLaunchOptions.h"
 
 #include <cstddef>

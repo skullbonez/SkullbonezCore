@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at RC4; Legacy remains the development default. |
+| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at RC5; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 4 / 7 live tasks; 57%. |
+| Active/future progress | 5 / 7 live tasks; 71%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RC3 `validate_full` passes in 110.9 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | RC3 centralizes Presentation selection and separates cause-focus draw submission; focused tests pass 344/68,699, the 12-file comment audit and allocation/static proofs pass, and the single replay gate stops only at the recorded config-provenance mismatch. |
+| Last broad local gate | RC4 `validate_full` passes in 109.5 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | RC4 reduces production Replay include edges 48 → 33; focused tests pass 344/68,699, the 39-file comment audit and allocation/static proofs pass, and the single replay gate stops only at the recorded config-provenance mismatch. |
 
 ## Live Queue
 
 NOW. The remaining 2026-07-22 architecture follow-up queue is
-`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (4/7), beginning RC4.
+`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (5/7), beginning RC5.
 Render interface retirement closed RH0-RH5 and owner fan-out reduction closed
 OF0-OF5; evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md` and

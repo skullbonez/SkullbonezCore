@@ -1,7 +1,7 @@
 # Replay Subsystem Consolidation — Right-Size The Largest Domain
 
 Date: 2026-07-22
-Status: Active — 4/7 phases complete
+Status: Active — 5/7 phases complete
 Impact area: `Runtime/Replay/*` interior structure and public surface; no
 boundary, retention, or feature changes
 Owner: replay
@@ -83,7 +83,7 @@ behavioral drift is a defect in the task, never a baseline update.
   the render seam). Fold `ReplayOverlayLayout`/`ReplayOverlayRenderer`/
   `ReplayPredictionDrawing`/`ReplayPresentation` into that shape; delete
   duplicate selection logic found by RC0.
-- [ ] RC4. Header diet. Public headers stop carrying interior types; move
+- [x] RC4. Header diet. Public headers stop carrying interior types; move
   internal structs to domain-internal headers; re-verify the public-surface
   list from RC0 shrank to `ReplayRuntime` + packets, or record each
   survivor with owner/reason/deletion condition.
@@ -211,5 +211,25 @@ any allocation-adjacent file moved.
   zero DX12 errors and byte-exact physics. Comment audit checks 12 files with
   zero deferred; allocation policy scans 416 files with zero errors.
 - RC3's single 418.7 s mega invocation proves one process/generation and passes
+  16 / 72 controls, then reaches the unchanged config-provenance blocker. It
+  was not retried and no config/golden edit occurred.
+
+## RC4 Evidence — Header Diet (2026-07-22)
+
+- Full evidence is recorded in
+  [`../../Reports/2026-07-22/replay-subsystem-consolidation-rc4-header-diet.md`](../../Reports/2026-07-22/replay-subsystem-consolidation-rc4-header-diet.md).
+  The production Replay include surface fell from 48 to 33 edges (31.25%).
+- Ten typed packet/surface headers replace direct ownership-header exposure.
+  Twenty-six final edges target ReplayRuntime or bounded values/commands; seven
+  concrete Presentation/Diagnostics/Validation survivors have an owner, reason,
+  deletion condition, and review evidence.
+- ReplayRuntime's inline concrete-owner includes remain an explicit composition
+  exception: fixed allocation-free owner lifetime without PImpl heap, callback
+  pack, context bag, or mutable owner accessors.
+- Focused tests pass 344 / 68,699; `validate_fast` passes in 62.9 s and
+  `validate_full` passes in 109.5 s with zero DX12 errors and byte-exact
+  physics. Comment audit checks 39 files with zero deferred; allocation policy
+  scans 426 files with zero errors.
+- RC4's single 422.5 s mega invocation proves one process/generation and passes
   16 / 72 controls, then reaches the unchanged config-provenance blocker. It
   was not retried and no config/golden edit occurred.

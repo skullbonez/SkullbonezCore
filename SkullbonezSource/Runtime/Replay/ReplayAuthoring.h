@@ -22,6 +22,7 @@ Related:
 #pragma once
 
 #include "ReplayIdentity.h"
+#include "ReplayAuthoringPackets.h"
 #include "ReplayRecorder.h"
 #include "../../Core/Common.h"
 #include "../../Physics/PhysicsHandles.h"
@@ -72,81 +73,6 @@ struct RunCameraState;
 struct RunMousePickupState;
 enum class RunCameraMode;
 struct RuntimeInteractionGesture;
-// Invariant: replay input clamping and editor visualization share these scales
-// so the velocity gizmo cannot advertise values that authoring rejects.
-inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_MAX = 140.0f;
-inline constexpr float REPLAY_VELOCITY_EDIT_ANGULAR_MAX = 5.0f;
-inline constexpr float REPLAY_VELOCITY_EDIT_LINEAR_EXTRA = 36.0f;
-
-struct RunReplayCauseTreeRow
-{
-    RunReplayCauseTreeRowKind kind = RunReplayCauseTreeRowKind::Body;
-    Physics::PhysicsSceneObjectId id;
-    Physics::PhysicsSceneObjectId parentId;
-    Physics::PhysicsSceneObjectId counterpartId;
-    ReplayFrameIndex firstFrame = 0;
-    int depth = 0;
-    Physics::ModelRowHint modelRow;
-    Physics::ModelRowHint counterpartModelRow;
-    int contactIndex = -1;
-    int solverRowIndex = -1;
-    int pipelineIndex = -1;
-    int featureId = 0;
-    int manifoldPointCount = 0;
-    float penetration = 0.0f;
-    float normalImpulse = 0.0f;
-    float tangentImpulse = 0.0f;
-    float warmStartImpulse = 0.0f;
-    float bias = 0.0f;
-    float effectiveMass = 0.0f;
-    float frictionLimit = 0.0f;
-    Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 normal = Math::Vector::Vector3( 0.0f, 1.0f, 0.0f );
-    Math::Vector::Vector3 impulse = Math::Vector::ZERO_VECTOR;
-    bool prediction = false;
-    bool terrain = false;
-    bool warmStarted = false;
-    char name[64] = {};
-    char detail[160] = {};
-};
-
-struct RunReplayCauseTreeState
-{
-    // Runtime allocation policy: replay cause rows are rebuilt during input and
-    // render, so the vector reserves its full replay/physics budget at startup
-    // and builders fail closed instead of growing on a frame.
-    std::vector<RunReplayCauseTreeRow> rows;
-    int selectedRow = -1;
-    Physics::PhysicsSceneObjectId focusedId;
-    bool hasWindowPlacement = false;
-    int x = 0;
-    int y = 0;
-    int width = 380;
-    int height = 420;
-    float scrollY = 0.0f;
-    int dragOffsetX = 0;
-    int dragOffsetY = 0;
-    int resizeStartMouseX = 0;
-    int resizeStartMouseY = 0;
-    int resizeStartWidth = 0;
-    int resizeStartHeight = 0;
-    int mouseX = 0;
-    int mouseY = 0;
-    bool pointerBlocked = true; // Frame input says a higher-priority UI owns this pointer.
-};
-
-struct RunReplayVelocityEditState
-{
-    bool enabled = false;
-    bool keyboardAltWasDown = false;
-    int hotLinearAxis = -1;
-    int hotAngularAxis = -1;
-    float dragStartAxisT = 0.0f;
-    float dragStartAngle = 0.0f;
-    Math::Vector::Vector3 dragStartLinearVelocity = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 dragStartAngularVelocity = Math::Vector::ZERO_VECTOR;
-};
-
 struct ReplayAuthoringPredictionRequest
 {
     bool enablePrediction = false;

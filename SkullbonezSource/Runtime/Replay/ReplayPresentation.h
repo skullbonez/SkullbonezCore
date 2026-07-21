@@ -27,6 +27,8 @@ Related:
 #pragma once
 
 #include "ReplayIdentity.h"
+#include "ReplayPathPackets.h"
+#include "ReplayPresentationPackets.h"
 #include "ReplayRecorder.h"
 #include "ReplayVisualPacket.h"
 #include "../RuntimeCameraMode.h"
@@ -84,22 +86,6 @@ struct RunReplayPredictionFrame;
 struct ReplayPastTrajectoryView;
 struct ReplayPredictionPresentationView;
 
-// Read-only publication consumed by world render passes after Run has prepared
-// replay render poses, overlay records, ghosts, and focus masks. The pointers
-// and spans borrow owner storage for this render call only; passes cannot reach
-// replay mutation or scheduling authority through this value.
-struct ReplayRenderFrameView
-{
-    const ReplayPresentationSample* presentationSample = nullptr;
-    const ReplaySolverFrameSample* solverSample = nullptr;
-    const RunReplayPredictionFrame* predictionFrame = nullptr;
-    const ReplayVisualPacket* visualPacket = nullptr;
-    const std::vector<uint8_t>* focusModelMask = nullptr;
-    bool predictionEnabled = false;
-    bool liveAdvanceHeld = false;
-    bool focusFadeActive = false;
-};
-
 // Concept: this is the Presentation domain's single answer to "what should this
 // frame show?" Render-pose application and overlay drawing consume the same
 // selected/latest/current borrows instead of independently resolving scrub state.
@@ -118,24 +104,6 @@ struct ReplayPresentationSelection
     std::size_t loadedSampleCount = 0u;
     bool loadedPresentation = false;
     bool predictionTimelineAvailable = false;
-};
-
-// Value-only per-frame publication for replay diagnostics drawn by the late
-// UI/text pass. It borrows no owner, and memoryStats is populated only while
-// the Memory tab explicitly requests replay accounting.
-struct ReplayHudStatus
-{
-    SkullbonezCore::Core::MainMemoryReplayStats memoryStats;
-    int memoryPreset = 0;
-    int requestedRetentionSeconds = 0;
-    int requestedBudgetMiB = 0;
-    int presentationRetentionSeconds = 0;
-    int solverRetentionSeconds = 0;
-    float divergenceUnits = 0.0f;
-    bool memoryBudgetClamped = false;
-    bool solverWindowReduced = false;
-    bool divergenceValid = false;
-    bool memoryStatsValid = false;
 };
 
 struct ReplayOverlayBuildInput
@@ -221,29 +189,6 @@ struct ReplayWorldPointerInput
     bool directorGrabbed = false;
 };
 
-struct RunReplayPathTarget
-{
-    Physics::PhysicsSceneObjectId id;
-    Physics::ModelRowHint modelRow;
-    char name[64] = {};
-};
-
-struct RunReplayPastTrajectoryBuildState
-{
-    // Concept: retained solver paths are built from the bounded solver ring and
-    // then appended as new samples arrive. The eviction counter keeps the store
-    // from outliving the recorder window it represents.
-    Physics::PhysicsSceneObjectId targetId;
-    ReplayFrameIndex firstFrame = 0;
-    ReplayFrameIndex builtThroughFrame = 0;
-    uint64_t totalFramesEvicted = 0;
-    // Structural perf evidence: one selection rebuild is allowed; ordinary
-    // live retention must advance through version-stable incremental trims.
-    uint64_t fullRebuildCount = 0;
-    uint64_t incrementalTrimCount = 0;
-    bool valid = false;
-};
-
 enum class RunReplayCameraFocusKind
 {
     None,
@@ -279,36 +224,6 @@ struct RunReplayCameraState
     int focusSolverRowIndex = -1;
     int focusFeatureId = 0;
     bool focusTerrain = false;
-};
-
-enum class ReplayPathColorMode : uint8_t
-{
-    LaneFlat,
-    VelocityHeat,
-    TimeGradient,
-    PerObjectHue,
-    CausalDepth
-};
-
-const char* ReplayPathColorModeName( ReplayPathColorMode mode ) noexcept;
-
-struct RunReplayPathVisualizerState
-{
-    // Concept: the retained/past lane is an operator-visible overlay choice.
-    // A selected target remains the authority for *what* could draw; this flag
-    // only answers whether the solver-history lane should be emitted this
-    // frame.
-    bool hasTarget = false;
-    bool pastPathVisible = true;
-    // Invariant: the presentation owner retains a deterministic value-only
-    // mode. Draw code reads it without mutating trajectory capture or storage.
-    ReplayPathColorMode colorMode = ReplayPathColorMode::LaneFlat;
-    Physics::PhysicsSceneObjectId targetId;
-    Physics::ModelRowHint targetModelRow;
-    char targetName[64] = {};
-    std::vector<RunReplayPathTraceNode> futureNodes;
-    std::vector<RunReplayPathTarget> targets;
-    RunReplayPastTrajectoryBuildState pastTrajectory;
 };
 
 struct ReplayTrajectorySubmissionProbeStats

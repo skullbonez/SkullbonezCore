@@ -59,6 +59,9 @@ Related:
 #include "../../Physics/PhysicsSolverSnapshot.h"
 #include "../Editor/LauncherLaser.h"
 #include "ReplayEventCommand.h"
+#include "ReplayToolPackets.h"
+#include "ReplayCaptureLimits.h"
+#include "ReplayCapturePackets.h"
 
 namespace SkullbonezCore
 {
@@ -79,8 +82,6 @@ namespace Runtime
 {
 class ReplayArtifactSource;
 class SceneEntityStore;
-inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
-inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
 
 struct ReplayBranchInfo
 {
@@ -375,33 +376,6 @@ struct ReplaySolverDeltaFrame
     ReplaySolverWorldDeltaFrame world;
 };
 
-enum class ReplayLauncherFireMode : uint8_t
-{
-    Laser,
-    Projectile
-};
-
-struct ReplayRayCastLineSample
-{
-    Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
-    float ageSeconds = 0.0f;
-    bool active = false;
-    bool hit = false;
-};
-
-struct ReplayLauncherVisualSample
-{
-    std::vector<ReplayRayCastLineSample> rayLines;
-    std::vector<LauncherLaserShotSnapshot> laserShots;
-    int nextRayLine = 0;
-    int nextLaserShot = 0;
-    ReplayLauncherFireMode fireMode = ReplayLauncherFireMode::Laser;
-    bool visualizeRays = false;
-    float impulseStrength = 0.0f;
-    float projectileSpeed = 0.0f;
-};
-
 // Concept: solver samples own authoritative restore state and may project a
 // presentation sample, but presentation-only feature payloads do not belong in
 // this larger deterministic checkpoint value.
@@ -500,29 +474,6 @@ struct ReplayRecorderConfig
     int checkpointIntervalFrames = 30;
     int runtimeBodyCapacity = 0;    // Scene/run body cap for scratch reserves and retained-sample growth checks.
     std::string hashLogPath;
-};
-
-struct ReplayRecorderStats
-{
-    bool enabled = false;
-    uint64_t totalFramesCaptured = 0;
-    uint64_t totalFramesEvicted = 0;
-    ReplayFrameIndex nextFrameIndex = 0;
-    std::size_t sampleCapacity = 0;
-    std::size_t sampleCount = 0;
-    std::size_t checkpointCapacity = 0;
-    std::size_t checkpointCount = 0;
-    uint64_t latestStateHash = 0;
-};
-
-struct ReplayEventRecorderStats
-{
-    bool enabled = false;
-    uint64_t totalEventsCaptured = 0;
-    uint64_t totalEventsEvicted = 0;
-    uint32_t nextSequence = 0;
-    std::size_t eventCapacity = 0;
-    std::size_t eventCount = 0;
 };
 
 // Presentation recorder: stores visual scrub samples in a bounded ring buffer.
