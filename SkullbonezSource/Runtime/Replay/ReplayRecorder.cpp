@@ -69,6 +69,7 @@ constexpr std::size_t REPLAY_LAUNCHER_RAY_LINE_CAPACITY = 64;
 constexpr std::size_t REPLAY_LAUNCHER_LASER_SHOT_CAPACITY = 32;
 constexpr std::size_t REPLAY_RECORDER_SAMPLE_INITIAL_CAPACITY = 128u;
 constexpr std::size_t REPLAY_RECORDER_SAMPLE_GROWTH_CHUNK = 256u;
+constexpr uint32_t REPLAY_INVALID_METADATA_INDEX = ( std::numeric_limits<uint32_t>::max )();
 // Runtime allocation policy: retained replay body payloads now grow per active
 // scene size instead of preallocating every future slot at game_model_capacity.
 // Invariant: every retained recorder vector shares one aggregate 32 MiB owner
@@ -1850,6 +1851,7 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
     m_samples.clear();
     m_visualFrames.clear();
     m_visualBodyMetadata.clear();
+    m_visualMetadataIndexByModelRow.clear();
     m_visualCarryStates.clear();
     m_visualCarryActive.clear();
     m_visualCarrySeenScratch.clear();
@@ -1858,7 +1860,14 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
     m_contactCountScratch.clear();
     m_maxPenetrationScratch.clear();
     m_normalImpulseSumScratch.clear();
-    m_resolvedPresentationSamples.clear();
+    for ( ReplayPresentationSample& resolved : m_resolvedPresentationSamples )
+    {
+        resolved.bodies.clear();
+        resolved.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
+    }
+    m_nextResolvedPresentationSample = 0u;
+    m_latestResolvedPresentationSample.bodies.clear();
+    m_latestResolvedPresentationSample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     m_promotedPresentationSample.bodies.clear();
     m_resolveStateScratch.clear();
     m_resolveActiveScratch.clear();
@@ -1878,12 +1887,26 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 
     m_samples.resize( SampleCapacityFromConfig() );
     m_visualFrames.resize( m_samples.size() );
-    m_resolvedPresentationSamples.resize( m_samples.size() );
+    m_checkpoints.resize( CheckpointCapacityFromConfig() );
+    const std::size_t bodyCapacity = static_cast<std::size_t>( m_config.runtimeBodyCapacity );
+    // Runtime allocation policy: these are a fixed number of recorder working
+    // buffers, not capacity multiplied across every future retention slot.
+    // Configure runs before steady gameplay so common capture and scrub paths
+    // reuse this storage without requesting one dense allocation per tick.
+    m_visualBodyMetadata.reserve( bodyCapacity );
+    m_visualMetadataIndexByModelRow.assign( bodyCapacity, REPLAY_INVALID_METADATA_INDEX );
+    m_visualCarryStates.reserve( bodyCapacity );
+    m_visualCarryActive.reserve( bodyCapacity );
+    m_visualCarrySeenScratch.reserve( bodyCapacity );
+    m_captureBodyScratch.reserve( bodyCapacity );
     for ( ReplayPresentationSample& resolved : m_resolvedPresentationSamples )
     {
-        resolved.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
+        resolved.bodies.reserve( bodyCapacity );
     }
-    m_checkpoints.resize( CheckpointCapacityFromConfig() );
+    m_latestResolvedPresentationSample.bodies.reserve( bodyCapacity );
+    m_promotedPresentationSample.bodies.reserve( bodyCapacity );
+    m_resolveStateScratch.reserve( bodyCapacity );
+    m_resolveActiveScratch.reserve( bodyCapacity );
     ReserveReplayRecorderScratch( m_contactCountScratch,
                                   m_maxPenetrationScratch,
                                   m_normalImpulseSumScratch,
@@ -1916,6 +1939,9 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
     m_nextFrameIndex = 0;
     m_latestStateHash = 0;
     m_visualBodyMetadata.clear();
+    std::fill( m_visualMetadataIndexByModelRow.begin(),
+               m_visualMetadataIndexByModelRow.end(),
+               REPLAY_INVALID_METADATA_INDEX );
     m_visualCarryStates.clear();
     m_visualCarryActive.clear();
     m_visualCarrySeenScratch.clear();
@@ -1923,11 +1949,14 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
     m_promotedPresentationSample.bodies.clear();
     m_resolveStateScratch.clear();
     m_resolveActiveScratch.clear();
-    for ( ReplayPresentationSample& sample : m_resolvedPresentationSamples )
+    for ( ReplayPresentationSample& resolved : m_resolvedPresentationSamples )
     {
-        sample.bodies.clear();
-        sample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
+        resolved.bodies.clear();
+        resolved.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     }
+    m_nextResolvedPresentationSample = 0u;
+    m_latestResolvedPresentationSample.bodies.clear();
+    m_latestResolvedPresentationSample.frameIndex = ( std::numeric_limits<ReplayFrameIndex>::max )();
     for ( ReplayVisualDeltaFrame& frame : m_visualFrames )
     {
         frame.keyframe = false;
@@ -2060,7 +2089,7 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     sample.stateHash = hash;
     const bool forceVisualKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
     StoreVisualFramePayload( sampleSlot, sample, m_captureBodyScratch, forceVisualKeyframe, true );
-    ReplayPresentationSample& latestCapture = m_resolvedPresentationSamples[sampleSlot];
+    ReplayPresentationSample& latestCapture = m_latestResolvedPresentationSample;
     CopyPresentationHeader( sample, latestCapture );
     ReserveReplayRecorderSampleVector( latestCapture.bodies,
                                        m_captureBodyScratch.size(),
@@ -2141,9 +2170,9 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     const bool forceVisualKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
     StoreVisualFramePayload( sampleSlot, sample, m_captureBodyScratch, forceVisualKeyframe, true );
     // Why: ReportLatestCaptureMismatch consumes this same frame immediately.
-    // Keep the already-materialized body list in its resolved slot instead of
-    // replaying up to a checkpoint interval of compact presentation deltas.
-    ReplayPresentationSample& latestCapture = m_resolvedPresentationSamples[sampleSlot];
+    // Keep the already-materialized body list in the dedicated latest buffer
+    // instead of replaying up to a checkpoint interval of compact deltas.
+    ReplayPresentationSample& latestCapture = m_latestResolvedPresentationSample;
     CopyPresentationHeader( sample, latestCapture );
     ReserveReplayRecorderSampleVector( latestCapture.bodies,
                                        m_captureBodyScratch.size(),
@@ -2207,7 +2236,7 @@ void ReplayRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemor
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationSampleRecords,
-        VectorCapacityBytes( m_samples ) + VectorCapacityBytes( m_resolvedPresentationSamples ) );
+        VectorCapacityBytes( m_samples ) );
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationCheckpoints,
@@ -2230,20 +2259,22 @@ void ReplayRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemor
             SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
             VisualDeltaFrameMemoryBytes( frame ) );
     }
-    for ( const ReplayPresentationSample& sample : m_resolvedPresentationSamples )
+    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
+        categories,
+        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
+        VectorCapacityBytes( m_visualBodyMetadata ) + VectorCapacityBytes( m_visualMetadataIndexByModelRow ) +
+            VectorCapacityBytes( m_visualCarryStates ) + VectorCapacityBytes( m_visualCarryActive ) +
+            VectorCapacityBytes( m_visualCarrySeenScratch ) + VectorCapacityBytes( m_captureBodyScratch ) +
+            PresentationSampleMemoryBytes( m_latestResolvedPresentationSample ) +
+            VectorCapacityBytes( m_promotedPresentationSample.bodies ) + VectorCapacityBytes( m_resolveStateScratch ) +
+            VectorCapacityBytes( m_resolveActiveScratch ) );
+    for ( const ReplayPresentationSample& resolved : m_resolvedPresentationSamples )
     {
         SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
             categories,
             SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
-            PresentationSampleMemoryBytes( sample ) );
+            PresentationSampleMemoryBytes( resolved ) );
     }
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
-        VectorCapacityBytes( m_visualBodyMetadata ) + VectorCapacityBytes( m_visualCarryStates ) +
-            VectorCapacityBytes( m_visualCarryActive ) + VectorCapacityBytes( m_visualCarrySeenScratch ) +
-            VectorCapacityBytes( m_captureBodyScratch ) + VectorCapacityBytes( m_promotedPresentationSample.bodies ) +
-            VectorCapacityBytes( m_resolveStateScratch ) + VectorCapacityBytes( m_resolveActiveScratch ) );
 }
 
 void ReplayRecorder::CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const
@@ -2274,12 +2305,12 @@ const ReplayPresentationSample* ReplayRecorder::LatestSample() const
 
     const std::size_t offset = m_sampleCount - 1;
     const std::size_t index = ( m_sampleHead + offset ) % m_samples.size();
-    if ( m_resolvedPresentationSamples[index].frameIndex == m_samples[index].frameIndex )
+    if ( m_latestResolvedPresentationSample.frameIndex == m_samples[index].frameIndex )
     {
-        return &m_resolvedPresentationSamples[index];
+        return &m_latestResolvedPresentationSample;
     }
-    return ResolveSampleAtOffset( offset, m_resolvedPresentationSamples[index] ) ? &m_resolvedPresentationSamples[index]
-                                                                                 : nullptr;
+    return ResolveSampleAtOffset( offset, m_latestResolvedPresentationSample ) ? &m_latestResolvedPresentationSample
+                                                                               : nullptr;
 }
 
 
@@ -2294,10 +2325,10 @@ const ReplayPresentationSample* ReplayRecorder::SampleAtNormalized( float normal
     const std::size_t maxOffset = m_sampleCount - 1;
     const std::size_t offset = static_cast<std::size_t>( static_cast<float>( maxOffset ) * t + 0.5f );
     const std::size_t resolvedOffset = (std::min)( offset, maxOffset );
-    const std::size_t index = ( m_sampleHead + resolvedOffset ) % m_samples.size();
-    return ResolveSampleAtOffset( resolvedOffset, m_resolvedPresentationSamples[index] )
-               ? &m_resolvedPresentationSamples[index]
-               : nullptr;
+    ReplayPresentationSample& resolved =
+        m_resolvedPresentationSamples[m_nextResolvedPresentationSample % m_resolvedPresentationSamples.size()];
+    m_nextResolvedPresentationSample = ( m_nextResolvedPresentationSample + 1u ) % m_resolvedPresentationSamples.size();
+    return ResolveSampleAtOffset( resolvedOffset, resolved ) ? &resolved : nullptr;
 }
 
 
@@ -2322,10 +2353,6 @@ std::size_t ReplayRecorder::AcquireSampleSlotIndex()
 
     const std::size_t index = m_sampleHead;
     m_sampleHead = ( m_sampleHead + 1 ) % m_samples.size();
-    if ( index < m_resolvedPresentationSamples.size() )
-    {
-        m_resolvedPresentationSamples[index].bodies.clear();
-    }
     ++m_totalFramesEvicted;
     return index;
 }
@@ -2334,11 +2361,17 @@ std::size_t ReplayRecorder::FindOrAddVisualBodyMetadata( const ReplayBodyPresent
                                                          ReplayFrameIndex frameIndex )
 {
     const ReplayVisualBodyMetadata metadata = VisualMetadataFromBody( body );
-    for ( std::size_t i = 0; i < m_visualBodyMetadata.size(); ++i )
+    const int modelRow = body.modelRow.value;
+    const bool rowLookupValid =
+        modelRow >= 0 && static_cast<std::size_t>( modelRow ) < m_visualMetadataIndexByModelRow.size();
+    if ( rowLookupValid )
     {
-        if ( SameVisualMetadata( m_visualBodyMetadata[i], metadata ) )
+        const uint32_t cachedIndex = m_visualMetadataIndexByModelRow[static_cast<std::size_t>( modelRow )];
+        if ( cachedIndex != REPLAY_INVALID_METADATA_INDEX &&
+             static_cast<std::size_t>( cachedIndex ) < m_visualBodyMetadata.size() &&
+             SameVisualMetadata( m_visualBodyMetadata[static_cast<std::size_t>( cachedIndex )], metadata ) )
         {
-            return i;
+            return static_cast<std::size_t>( cachedIndex );
         }
     }
 
@@ -2357,7 +2390,13 @@ std::size_t ReplayRecorder::FindOrAddVisualBodyMetadata( const ReplayBodyPresent
     m_visualCarryStates.resize( requiredSize );
     m_visualCarryActive.resize( requiredSize, static_cast<uint8_t>( 0 ) );
     m_visualCarrySeenScratch.resize( requiredSize, static_cast<uint8_t>( 0 ) );
-    return requiredSize - 1u;
+    const std::size_t metadataIndex = requiredSize - 1u;
+    if ( rowLookupValid )
+    {
+        m_visualMetadataIndexByModelRow[static_cast<std::size_t>( modelRow )] =
+            CheckedVisualMetadataIndex( metadataIndex );
+    }
+    return metadataIndex;
 }
 
 void ReplayRecorder::StoreVisualFramePayload( std::size_t slotIndex,
@@ -2620,6 +2659,7 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_samples.clear();
     m_solverFrames.clear();
     m_solverBodyMetadata.clear();
+    m_solverMetadataIndexByModelRow.clear();
     m_solverCarryStates.clear();
     m_solverCarryActive.clear();
     m_solverCarrySeenScratch.clear();
@@ -2655,6 +2695,21 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_samples.resize( SampleCapacityFromConfig() );
     m_solverFrames.resize( m_samples.size() );
     m_checkpoints.resize( CheckpointCapacityFromConfig() );
+    const std::size_t bodyCapacity = static_cast<std::size_t>( m_config.runtimeBodyCapacity );
+    // Runtime allocation policy: reserve the fixed recorder working set once.
+    // Retained delta slots remain demand-sized so retention length does not
+    // multiply maximum scene capacity into startup memory.
+    m_solverBodyMetadata.reserve( bodyCapacity );
+    m_solverMetadataIndexByModelRow.assign( bodyCapacity, REPLAY_INVALID_METADATA_INDEX );
+    m_solverCarryStates.reserve( bodyCapacity );
+    m_solverCarryActive.reserve( bodyCapacity );
+    m_solverCarrySeenScratch.reserve( bodyCapacity );
+    m_solverCaptureBodies.reserve( bodyCapacity );
+    m_resolvedSolverSample.bodies.reserve( bodyCapacity );
+    m_latestResolvedSolverSample.bodies.reserve( bodyCapacity );
+    m_promotedSolverSample.bodies.reserve( bodyCapacity );
+    m_solverResolveStateScratch.reserve( bodyCapacity );
+    m_solverResolveActiveScratch.reserve( bodyCapacity );
     ReserveReplayRecorderScratch( m_contactCountScratch,
                                   m_maxPenetrationScratch,
                                   m_normalImpulseSumScratch,
@@ -2691,6 +2746,9 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
     m_nextFrameIndex = 0;
     m_latestSolverHash = 0;
     m_solverBodyMetadata.clear();
+    std::fill( m_solverMetadataIndexByModelRow.begin(),
+               m_solverMetadataIndexByModelRow.end(),
+               REPLAY_INVALID_METADATA_INDEX );
     m_solverCarryStates.clear();
     m_solverCarryActive.clear();
     m_solverCarrySeenScratch.clear();
@@ -2994,9 +3052,10 @@ void ReplaySolverRecorder::CollectMemoryCategoryBytes(
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
         categories,
         SkullbonezCore::Core::MainMemoryReplayByteCategory::SolverBodies,
-        VectorCapacityBytes( m_solverBodyMetadata ) + VectorCapacityBytes( m_solverCarryStates ) +
-            VectorCapacityBytes( m_solverCarryActive ) + VectorCapacityBytes( m_solverCarrySeenScratch ) +
-            VectorCapacityBytes( m_solverCaptureBodies ) + VectorCapacityBytes( m_resolvedSolverSample.bodies ) +
+        VectorCapacityBytes( m_solverBodyMetadata ) + VectorCapacityBytes( m_solverMetadataIndexByModelRow ) +
+            VectorCapacityBytes( m_solverCarryStates ) + VectorCapacityBytes( m_solverCarryActive ) +
+            VectorCapacityBytes( m_solverCarrySeenScratch ) + VectorCapacityBytes( m_solverCaptureBodies ) +
+            VectorCapacityBytes( m_resolvedSolverSample.bodies ) +
             VectorCapacityBytes( m_latestResolvedSolverSample.bodies ) +
             VectorCapacityBytes( m_promotedSolverSample.bodies ) + VectorCapacityBytes( m_solverResolveStateScratch ) +
             VectorCapacityBytes( m_solverResolveActiveScratch ) );
@@ -3095,11 +3154,17 @@ std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolve
                                                                ReplayFrameIndex frameIndex )
 {
     const ReplaySolverBodyMetadata metadata = SolverMetadataFromBody( body );
-    for ( std::size_t i = 0; i < m_solverBodyMetadata.size(); ++i )
+    const int modelRow = body.modelRow.value;
+    const bool rowLookupValid =
+        modelRow >= 0 && static_cast<std::size_t>( modelRow ) < m_solverMetadataIndexByModelRow.size();
+    if ( rowLookupValid )
     {
-        if ( SameSolverMetadata( m_solverBodyMetadata[i], metadata ) )
+        const uint32_t cachedIndex = m_solverMetadataIndexByModelRow[static_cast<std::size_t>( modelRow )];
+        if ( cachedIndex != REPLAY_INVALID_METADATA_INDEX &&
+             static_cast<std::size_t>( cachedIndex ) < m_solverBodyMetadata.size() &&
+             SameSolverMetadata( m_solverBodyMetadata[static_cast<std::size_t>( cachedIndex )], metadata ) )
         {
-            return i;
+            return static_cast<std::size_t>( cachedIndex );
         }
     }
 
@@ -3124,7 +3189,13 @@ std::size_t ReplaySolverRecorder::FindOrAddSolverBodyMetadata( const ReplaySolve
     m_solverCarryStates.resize( requiredSize );
     m_solverCarryActive.resize( requiredSize, static_cast<uint8_t>( 0 ) );
     m_solverCarrySeenScratch.resize( requiredSize, static_cast<uint8_t>( 0 ) );
-    return requiredSize - 1u;
+    const std::size_t metadataIndex = requiredSize - 1u;
+    if ( rowLookupValid )
+    {
+        m_solverMetadataIndexByModelRow[static_cast<std::size_t>( modelRow )] =
+            CheckedSolverMetadataIndex( metadataIndex );
+    }
+    return metadataIndex;
 }
 
 void ReplaySolverRecorder::StoreSolverFramePayload(

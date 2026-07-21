@@ -44,6 +44,7 @@ Related:
 */
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
@@ -565,6 +566,9 @@ class ReplayRecorder
     std::vector<ReplayPresentationSample> m_samples;
     std::vector<ReplayVisualDeltaFrame> m_visualFrames;
     std::vector<ReplayVisualBodyMetadata> m_visualBodyMetadata;
+    // Model rows are hints, so every fast-path hit is still validated against
+    // the stable scene id and immutable metadata before the index is reused.
+    std::vector<uint32_t> m_visualMetadataIndexByModelRow;
     std::vector<ReplayVisualBodyState> m_visualCarryStates;
     std::vector<uint8_t> m_visualCarryActive;
     std::vector<uint8_t> m_visualCarrySeenScratch;
@@ -574,7 +578,13 @@ class ReplayRecorder
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
     std::ofstream m_hashLog;
-    mutable std::vector<ReplayPresentationSample> m_resolvedPresentationSamples;
+    // Lifetime: one UI turn may compare several scrub positions plus latest.
+    // A small rotating pool preserves those simultaneous borrows without
+    // caching one full body vector per retained frame.
+    static constexpr std::size_t PRESENTATION_RESOLVE_CACHE_COUNT = 4u;
+    mutable std::array<ReplayPresentationSample, PRESENTATION_RESOLVE_CACHE_COUNT> m_resolvedPresentationSamples;
+    mutable std::size_t m_nextResolvedPresentationSample = 0u;
+    mutable ReplayPresentationSample m_latestResolvedPresentationSample;
     mutable ReplayPresentationSample m_promotedPresentationSample;
     mutable std::vector<ReplayVisualBodyState> m_resolveStateScratch;
     mutable std::vector<uint8_t> m_resolveActiveScratch;
@@ -712,6 +722,9 @@ class ReplaySolverRecorder
     std::vector<ReplaySolverFrameSample> m_samples;
     std::vector<ReplaySolverDeltaFrame> m_solverFrames;
     std::vector<ReplaySolverBodyMetadata> m_solverBodyMetadata;
+    // See the presentation track: row lookup is constant-time, then stable id
+    // and metadata validation prevent a stale row hint from aliasing a body.
+    std::vector<uint32_t> m_solverMetadataIndexByModelRow;
     std::vector<ReplaySolverBodyState> m_solverCarryStates;
     std::vector<uint8_t> m_solverCarryActive;
     std::vector<uint8_t> m_solverCarrySeenScratch;

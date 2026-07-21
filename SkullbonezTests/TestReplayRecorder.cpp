@@ -104,6 +104,27 @@ ReplaySolverFrameSample MakeSolverSample( ReplayFrameIndex frameIndex )
     sample.bodies.push_back( body );
     return sample;
 }
+
+ReplaySolverFrameSample MakeStableSolverSample( ReplayFrameIndex frameIndex, int bodyCount )
+{
+    ReplaySolverFrameSample sample;
+    sample.frameIndex = frameIndex;
+    sample.presentationHash = 0xBEEF0000ull + frameIndex;
+    sample.physicsDt = 1.0f / static_cast<float>( kReplayTicksPerSecond );
+    sample.bodies.reserve( static_cast<std::size_t>( bodyCount ) );
+    for ( int bodyIndex = 0; bodyIndex < bodyCount; ++bodyIndex )
+    {
+        ReplaySolverBodySample body;
+        body.id.value = 1000u + static_cast<uint32_t>( bodyIndex );
+        body.modelRow = SkullbonezCore::Physics::MakeModelRowHint( bodyIndex );
+        body.shapeKind = ReplayBodyShapeKind::Box;
+        body.position = Vector3( static_cast<float>( bodyIndex ), 2.0f, 3.0f );
+        body.mass = 10.0f;
+        body.inverseMass = 0.1f;
+        sample.bodies.push_back( body );
+    }
+    return sample;
+}
 } // namespace
 
 
@@ -162,6 +183,41 @@ TEST_CASE( "ReplayRecorder: Configure does not pre-reserve future sample payload
     constexpr uint64_t maxConfiguredBytes = 64ull * 1024ull * 1024ull;
     CHECK( presentation.CollectMemoryBytes() < maxConfiguredBytes );
     CHECK( solver.CollectMemoryBytes() < maxConfiguredBytes );
+}
+
+
+TEST_CASE( "ReplayRecorder: presentation resolution reuses a bounded dense-buffer pool" )
+{
+    constexpr int bodyCount = 64;
+    ReplayRecorderConfig config = SmallRecorderConfig();
+    config.runtimeBodyCapacity = bodyCount;
+
+    ReplayRecorder recorder;
+    REQUIRE( recorder.Configure( config ) );
+    const ReplayFrameIndex retainedFrames = static_cast<ReplayFrameIndex>( recorder.GetStats().sampleCapacity );
+    for ( ReplayFrameIndex frame = 0; frame < retainedFrames; ++frame )
+    {
+        recorder.CaptureFrameFromSolverSample( MakeStableSolverSample( frame, bodyCount ) );
+    }
+
+    const ReplayPresentationSample* oldest = recorder.SampleAtNormalized( 0.0f );
+    REQUIRE( oldest != nullptr );
+    REQUIRE( oldest->bodies.size() == static_cast<std::size_t>( bodyCount ) );
+    CHECK( oldest->frameIndex == 0u );
+
+    const ReplayPresentationSample* latest = recorder.LatestSample();
+    REQUIRE( latest != nullptr );
+    CHECK( latest != oldest );
+    CHECK( latest->frameIndex == retainedFrames - 1u );
+    // Lifetime: LatestSample must not overwrite a historical pointer retained
+    // by the same UI turn; this is why latest has a dedicated reusable buffer.
+    CHECK( oldest->frameIndex == 0u );
+
+    // Regression budget: one dense body cache per retained tick exceeded this
+    // bound for this fixture. Compact frames plus the fixed working-buffer pool
+    // stay comfortably below it.
+    constexpr uint64_t maxPresentationBytes = 1ull * 1024ull * 1024ull;
+    CHECK( recorder.CollectMemoryBytes() < maxPresentationBytes );
 }
 
 
