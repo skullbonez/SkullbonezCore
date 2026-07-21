@@ -848,7 +848,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
 
-    if ( ApplyRenderVsyncUICommand( RenderDeviceUICommandContext{ renderer, renderBackendView.deviceLifecycle },
+    if ( ApplyRenderVsyncUICommand( RenderDeviceUICommandContext{ renderer, renderBackendView.renderDevice },
                                     uiCommands.renderer ) )
     {
         recordUIAction( RuntimeInputAction::ToggleVsync );
@@ -1012,7 +1012,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                              config,
                                              launchOptions,
                                              renderDefaults,
-                                             renderBackendView.deviceLifecycle != nullptr,
+                                             renderBackendView.renderDevice != nullptr,
                                              timers.simulationTimer.GetTimeSinceLastStart() },
         uiCommands.sceneOptions,
         uiCommands.renderTuning,
@@ -1070,7 +1070,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     const SceneGeneratedControlPresentation sceneGeneratedPresentation{ ui.SceneNavigation().overrides, camera };
     const SceneGeneratedControlResetParticipants sceneGeneratedReset{ simulation,
                                                                       runtimeTools,
-                                                                      renderBackendView.deviceLifecycle };
+                                                                      renderBackendView.renderFrame };
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
     {
         if ( action.resetReplayTimeline )

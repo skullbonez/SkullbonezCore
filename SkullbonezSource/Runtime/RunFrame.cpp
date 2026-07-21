@@ -88,7 +88,6 @@ Related:
 #include "../Physics/PhysicsTimestep.h"
 #include "../Rendering/RenderInstanceStore.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
-#include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UI.h"
 #include "../UI/UITabEditor.h"
 
@@ -232,7 +231,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // Lifetime: borrow the startup-owned renderer once for this frame
             // turn. Narrow facets keep reset, GPU-drain, UI accounting, and
             // present from each reaching through the process-global service.
-            if ( !m_renderBackendView.deviceLifecycle || !m_renderBackendView.renderDiagnostics ||
+            if ( !m_renderBackendView.renderDevice || !m_renderBackendView.renderDiagnostics ||
                  !m_renderBackendView.renderResources || !m_renderBackendView.renderFrame ||
                  !m_renderBackendView.renderGraph || !m_renderBackendView.renderTextures ||
                  !m_renderBackendView.renderGeometry )
@@ -240,7 +239,6 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
             }
             SkullbonezCore::Rendering::Dx12Diagnostics& frameRenderDiagnostics = *m_renderBackendView.renderDiagnostics;
-            SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle = *m_renderBackendView.deviceLifecycle;
             SkullbonezCore::Rendering::Dx12ResourceBuilder& frameRenderResources = *m_renderBackendView.renderResources;
             SkullbonezCore::Rendering::Dx12FrameOwner& frameRenderOwner = *m_renderBackendView.renderFrame;
             SkullbonezCore::Rendering::Dx12GraphTransientPool& frameRenderGraph = *m_renderBackendView.renderGraph;
@@ -494,7 +492,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 {
                     CoreAllocation::RuntimeAllocationScope allocationScope(
                         CoreAllocation::RuntimeAllocationPhase::Render );
-                    finishResult = renderLifecycle.Finish();
+                    finishResult = frameRenderOwner.FinishAndReopen( frameRenderDiagnostics );
                 }
                 PROFILE_END( m_profiler, "Frame/PipelineSync" );
                 if ( !finishResult.ok )
@@ -712,7 +710,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 // declaration-only Present edge before the swap-chain owner
                 // consumes that edge and submits the frame.
                 m_renderer.FinalizeFrameGraph();
-                presentResult = renderLifecycle.Present();
+                presentResult = frameRenderOwner.Present( frameRenderDiagnostics );
             }
             PROFILE_END( m_profiler, "Frame/VsyncWait" );
             if ( !presentResult.ok )

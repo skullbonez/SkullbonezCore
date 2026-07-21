@@ -31,7 +31,7 @@ Related:
 #include "SceneController.h"
 #include "SceneRuntime.h"
 #include "../../Core/Log.h"
-#include "../../Rendering/IRenderDeviceLifecycle.h"
+#include "../../Rendering/DX12/Dx12FrameOwner.h"
 
 #include <algorithm>
 #include <cstring>
@@ -191,7 +191,7 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
                                                      const RuntimeRenderer& renderer,
                                                      const RunDebugState& debug,
                                                      const RunCameraState& camera,
-                                                     Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                     Rendering::Dx12FrameOwner* renderFrame,
                                                      bool interactiveSceneRunRequested,
                                                      int index,
                                                      bool suppressExitOnComplete,
@@ -205,11 +205,11 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
 
     result.index = index;
     result.scenePath = &controller.PathAt( index );
-    if ( renderLifecycle )
+    if ( renderFrame )
     {
         // Lane R: old scene resources may still be referenced by in-flight GPU
         // work. A failed drain must leave every scene/controller owner intact.
-        result.status = renderLifecycle->FlushGPU();
+        result.status = renderFrame->FlushGPU();
         if ( !result.status.ok )
         {
             return result;

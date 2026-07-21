@@ -63,7 +63,8 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
-#include "../../Rendering/IRenderDeviceLifecycle.h"
+#include "../../Rendering/DX12/Dx12FrameOwner.h"
+#include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/RenderRaytracingTypes.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
@@ -418,7 +419,7 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneTerrain& terrainOwner,
                                                   WorldEnvironment& world,
                                                   const SkullbonezCore::Core::EngineConfig& config,
                                                   const std::string& terrainRawPath,
-                                                  SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                  SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
                                                   SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources )
 {
     assert( renderResources );
@@ -429,9 +430,9 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneTerrain& terrainOwner,
     }
     if ( !terrainOwner.Get() || terrainOwner.IsFlatSlope() )
     {
-        if ( renderLifecycle )
+        if ( renderFrame )
         {
-            const SkullbonezCore::Core::SbResult flushResult = renderLifecycle->FlushGPU();
+            const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
             if ( !flushResult.ok )
             {
                 // Lane R: keep the currently owned terrain alive when its GPU
@@ -472,7 +473,7 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
                                                     float baseY,
                                                     float slopeX,
                                                     float slopeZ,
-                                                    SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                    SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame,
                                                     SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources )
 {
     assert( renderResources );
@@ -481,9 +482,9 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
         return SkullbonezCore::Core::SbResult::Failure( "Runtime/RunScene",
                                                         "Renderer resource factory unavailable for flat terrain." );
     }
-    if ( renderLifecycle )
+    if ( renderFrame )
     {
-        const SkullbonezCore::Core::SbResult flushResult = renderLifecycle->FlushGPU();
+        const SkullbonezCore::Core::SbResult flushResult = renderFrame->FlushGPU();
         if ( !flushResult.ok )
         {
             // Lane R: assignment below destroys the old terrain. Leave it
@@ -685,7 +686,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                  renderer,
                                  m_debug,
                                  camera,
-                                 renderBackendView.deviceLifecycle,
+                                 renderBackendView.renderFrame,
                                  request.enterInteractiveSceneRun || launchOptions.interactiveSceneRun,
                                  index,
                                  suppressExitOnComplete,
@@ -801,7 +802,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                "terrain.raw",
                                                                config.assetPaths.terrainRaw.c_str() ),
-                               renderBackendView.deviceLifecycle,
+                               renderBackendView.renderFrame,
                                renderBackendView.renderResources );
         if ( !terrainResult.ok )
         {
@@ -985,7 +986,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                      scene.GetFlatBaseY(),
                                      scene.GetFlatSlopeX(),
                                      scene.GetFlatSlopeZ(),
-                                     renderBackendView.deviceLifecycle,
+                                     renderBackendView.renderFrame,
                                      renderBackendView.renderResources );
             if ( !terrainResult.ok )
             {
@@ -1008,7 +1009,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                    assets.RegisterSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain,
                                                                    "terrain.raw",
                                                                    config.assetPaths.terrainRaw.c_str() ),
-                                   renderBackendView.deviceLifecycle,
+                                   renderBackendView.renderFrame,
                                    renderBackendView.renderResources );
             if ( !terrainResult.ok )
             {
@@ -1301,9 +1302,9 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 #endif
 
     // Runtime swap policy is chosen after config/scene overrides are resolved.
-    if ( renderBackendView.deviceLifecycle )
+    if ( renderBackendView.renderDevice )
     {
-        renderBackendView.deviceLifecycle->SetVsyncEnabled( renderer.VsyncEnabled() );
+        renderBackendView.renderDevice->SetVsyncEnabled( renderer.VsyncEnabled() );
     }
 
     // Restart timers

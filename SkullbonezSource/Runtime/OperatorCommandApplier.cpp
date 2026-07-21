@@ -32,7 +32,7 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "Scene/SceneWorld.h"
 #include "SimulationSystem.h"
-#include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../Rendering/DX12/RenderDeviceDX12.h"
 #include "../UI/UILayout.h"
 #include "../World/WorldEnvironment.h"
 #include "../Scene/AuthoredScene.h"
@@ -228,9 +228,9 @@ bool ApplyRenderVsyncUICommand( RenderDeviceUICommandContext context, const UI::
 
     const bool vsyncEnabled = !context.renderer.VsyncEnabled();
     context.renderer.SetVsyncEnabled( vsyncEnabled );
-    if ( context.deviceLifecycle )
+    if ( context.renderDevice )
     {
-        context.deviceLifecycle->SetVsyncEnabled( vsyncEnabled );
+        context.renderDevice->SetVsyncEnabled( vsyncEnabled );
     }
     return true;
 }

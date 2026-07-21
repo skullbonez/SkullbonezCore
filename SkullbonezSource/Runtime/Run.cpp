@@ -353,7 +353,7 @@ Run::~Run()
     // its first release so no owner can destroy resources after a failed wait.
     const SkullbonezCore::Core::SbResult releaseResult = m_renderer.ReleaseBackendOwnedRuntimeResources(
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
-                                                        m_renderBackendView.deviceLifecycle,
+                                                        m_renderBackendView.renderFrame,
                                                         m_renderBackendView.renderResources,
                                                         m_renderBackendView.renderTextures,
                                                         m_renderBackendView.renderGeometry,

@@ -50,7 +50,7 @@ Related:
 #include "Window.h"
 #include "../Assets/AssetSystem.h"
 #include "SimulationSystem.h"
-#include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../Rendering/DX12/RenderDeviceDX12.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Scene/AuthoredScene.h"
@@ -177,9 +177,9 @@ void ApplyUIStressAction( RuntimeFrameInteractionView& interactionOwners,
         break;
     case 8:
         renderer.SetVsyncEnabled( !renderer.VsyncEnabled() );
-        if ( renderBackendView.deviceLifecycle )
+        if ( renderBackendView.renderDevice )
         {
-            renderBackendView.deviceLifecycle->SetVsyncEnabled( renderer.VsyncEnabled() );
+            renderBackendView.renderDevice->SetVsyncEnabled( renderer.VsyncEnabled() );
         }
         break;
     case 9:
@@ -929,7 +929,7 @@ SkullbonezCore::Runtime::RunUIStressActions( RuntimeFrameHostView& host,
     const SceneGeneratedControlPresentation sceneGeneratedPresentation{ m_UI.SceneNavigation().overrides, m_camera };
     const SceneGeneratedControlResetParticipants sceneGeneratedReset{ m_simulation,
                                                                       m_runtimeTools,
-                                                                      m_renderBackendView.deviceLifecycle };
+                                                                      m_renderBackendView.renderFrame };
     const auto executeSceneGeneratedControlAction =
         [&]( const SceneRuntimeGeneratedControlAction& action ) -> SkullbonezCore::Core::SbResult
     {

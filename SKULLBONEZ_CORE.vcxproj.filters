@@ -1240,9 +1240,6 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>

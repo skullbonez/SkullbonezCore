@@ -71,7 +71,6 @@ Related:
 
 #include "../../Core/SceneCapacity.h"
 #include "../RenderCommandTypes.h"
-#include "../IRenderDeviceLifecycle.h"
 #include "../RenderDiagnosticsTypes.h"
 #include "../RenderResourceTypes.h"
 #include "../RenderRaytracingTypes.h"
@@ -682,13 +681,12 @@ class Dx12RaytracingOwner
 // Concept: RenderBackendDX12 composes concrete DX12 owners and publishes each
 // one through its narrow runtime seam.
 //
-// Public seams use engine verbs for command recording and device lifecycle;
-// resource and diagnostics work reaches concrete owners. Internally, DX12 requires the backend to make every
-// hidden GPU concept explicit: descriptor table rows, command allocators,
-// resource states, fences, upload memory, and compiled pipeline state. Texture
-// and pipeline lifetime belong to the named owners above; this class sequences
-// their work with the device/frame command stream.
-class RenderBackendDX12 : public IRenderDeviceLifecycle
+// Runtime seams publish the concrete owners below. The backend itself remains
+// the startup/shutdown composition root and is never stored as a runtime
+// capability. DX12 still requires those owners to coordinate descriptor rows,
+// command allocators, resource states, fences, upload memory, and compiled
+// pipeline state through explicit stable references.
+class RenderBackendDX12
 {
 
   private:
@@ -740,20 +738,13 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle
 
   public:
     RenderBackendDX12();
-    ~RenderBackendDX12() override
+    ~RenderBackendDX12()
     {
         Shutdown();
     }
 
-    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height ) override;
-    void Shutdown() override;
-    SkullbonezCore::Core::SbResult Present() override;
-    void SetVsyncEnabled( bool enabled ) override;
-    bool IsVsyncEnabled() const override;
-    SkullbonezCore::Core::SbResult Finish() override;
-    SkullbonezCore::Core::SbResult FlushGPU() override;
-    SkullbonezCore::Core::SbResult DrainForResourceRelease() override;
-    SkullbonezCore::Core::SbResult Resize( int width, int height ) override;
+    SkullbonezCore::Core::SbResult Init( HWND hwnd, HDC hdc, int width, int height );
+    void Shutdown();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     Dx12ImGuiRendererOwner& DevelopmentUiRenderer() noexcept
     {
@@ -793,13 +784,14 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle
     {
         return m_frameOwner;
     }
+    Dx12RenderDevice& RenderDevice() noexcept
+    {
+        return m_renderDevice;
+    }
     Dx12GraphTransientPool& GraphTransients() noexcept
     {
         return m_graphTransientPool;
     }
-
-    int GetWidth() const override;
-    int GetHeight() const override;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

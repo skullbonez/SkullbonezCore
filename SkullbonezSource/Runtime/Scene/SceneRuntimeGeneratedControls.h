@@ -39,7 +39,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderDeviceLifecycle;
+class Dx12FrameOwner;
 }
 namespace Runtime
 {
@@ -69,7 +69,7 @@ struct SceneGeneratedControlResetParticipants
     // transaction that must finish before topology is repopulated.
     SimulationSystem& simulation;
     RuntimeTools& tools;
-    Rendering::IRenderDeviceLifecycle* renderLifecycle = nullptr;
+    Rendering::Dx12FrameOwner* renderFrame = nullptr;
 };
 
 struct SceneRuntimeGeneratedControlAction

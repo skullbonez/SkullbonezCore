@@ -84,7 +84,7 @@ class RenderGpuTimingOwner;
 class Dx12GeometryOwner;
 class Dx12FrameOwner;
 class Dx12GraphTransientPool;
-class IRenderDeviceLifecycle;
+class Dx12RenderDevice;
 class Dx12Diagnostics;
 class Dx12RaytracingOwner;
 class Dx12ResourceBuilder;
@@ -190,15 +190,15 @@ enum class ObjectPassMode
 class RenderResourceLifecycleLog
 {
   public:
-    RenderResourceLifecycleLog( Rendering::IRenderDeviceLifecycle* deviceLifecycle, const RunSceneState& scene )
-        : m_deviceLifecycle( deviceLifecycle ), m_scene( scene )
+    RenderResourceLifecycleLog( Rendering::Dx12RenderDevice* renderDevice, const RunSceneState& scene )
+        : m_renderDevice( renderDevice ), m_scene( scene )
     {
     }
 
     void Write( const char* phase, const char* step ) const;
 
   private:
-    Rendering::IRenderDeviceLifecycle* m_deviceLifecycle = nullptr;
+    Rendering::Dx12RenderDevice* m_renderDevice = nullptr;
     const RunSceneState& m_scene;
 };
 

@@ -38,7 +38,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderDeviceLifecycle;
+class Dx12FrameOwner;
 }
 namespace Runtime
 {
@@ -66,7 +66,7 @@ SceneRuntimeLoadBeginResult PrepareSceneRuntimeLoad( const SceneController& cont
                                                      const RuntimeRenderer& renderer,
                                                      const RunDebugState& debug,
                                                      const RunCameraState& camera,
-                                                     Rendering::IRenderDeviceLifecycle* renderLifecycle,
+                                                     Rendering::Dx12FrameOwner* renderFrame,
                                                      bool interactiveSceneRunRequested,
                                                      int index,
                                                      bool suppressExitOnComplete,

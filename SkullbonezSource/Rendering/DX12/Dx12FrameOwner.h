@@ -266,9 +266,17 @@ class Dx12FrameOwner
         return m_diagnosticsFrame;
     }
     SkullbonezCore::Core::SbResult EnsureOpen();
+    // Presents one completed frame and advances the fence/allocator epoch.
+    SkullbonezCore::Core::SbResult Present( Dx12Diagnostics& diagnostics );
     // Drains the current recording epoch, publishes completed timer readback,
     // then reopens command recording for the next runtime operation.
     SkullbonezCore::Core::SbResult FinishAndReopen( Dx12Diagnostics& diagnostics );
+    // Runtime mutation drain: closes/submits/waits/reopens or returns Lane R.
+    SkullbonezCore::Core::SbResult FlushGPU();
+    // Terminal drain: proves release safety without reopening a failed epoch.
+    SkullbonezCore::Core::SbResult DrainForResourceRelease();
+    // Replaces swap-chain-sized resources only after a successful mutation drain.
+    SkullbonezCore::Core::SbResult Resize( int width, int height );
     SkullbonezCore::Core::SbResult SubmitClosed();
     SkullbonezCore::Core::SbResult WaitForGpu();
     SkullbonezCore::Core::SbResult FlushUploadBuffer();

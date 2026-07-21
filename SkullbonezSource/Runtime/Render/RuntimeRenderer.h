@@ -87,7 +87,7 @@ class RuntimeRenderer
     struct BackendResourceReleaseContext
     {
         const char* phaseName = nullptr;
-        Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
+        Rendering::Dx12FrameOwner* renderFrame = nullptr;
         Rendering::Dx12ResourceBuilder* renderResources = nullptr;
         Rendering::Dx12TextureOwner* renderTextures = nullptr;
         Rendering::Dx12GeometryOwner* renderGeometry = nullptr;

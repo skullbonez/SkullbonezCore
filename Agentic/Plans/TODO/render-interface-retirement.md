@@ -1,7 +1,7 @@
 # Render Interface Retirement — Admit The DX12 Engine
 
 Date: 2026-07-22
-Status: Active — 4/6 phases complete
+Status: Active — 5/6 phases complete
 Impact area: Rendering HAL headers, DX12 backend, runtime render host/passes,
 UI render context, primitive/text renderers
 Owner: rendering
@@ -76,7 +76,7 @@ renaming it. Zero virtual dispatch remains in the render submission path.
   against the concrete command recorder. Verify by inspection and by the
   perf gate that no pass regressed; this is the one slice that also runs
   `tools\validate_perf.bat`.
-- [ ] RH4. Lifecycle and cleanup. Retire `IRenderDeviceLifecycle`, delete
+- [x] RH4. Lifecycle and cleanup. Retire `IRenderDeviceLifecycle`, delete
   the final two interface headers, remove now-dead `virtual`/`override` and
   virtual destructors, and re-point `RuntimeRenderBackendView` and the
   `Run` wiring at concrete types. Update `Agentic/Tests/Dx12ArchUnitTests`
@@ -201,6 +201,40 @@ deletion-bound to RH1/RH2; none is an exception.
   guard, absolute budgets, and DX12/physics comparisons report no regression.
 - `tools\run_graphics_stress.bat 1`: PASS in 60.9 s, 12,313 frames and 338
   scene loads, empty stderr, crash-free PID-scoped timeout (PID 42836).
+
+## RH4 Evidence — Lifecycle And Cleanup (2026-07-22)
+
+- Deleted `IRenderDeviceLifecycle`, the last render interface header.
+  `RenderBackendDX12` is now a non-polymorphic startup/shutdown composition root
+  and is not published through `RuntimeRenderBackendView`.
+- Moved present, mutation drain, terminal release drain, and resize authority to
+  `Dx12FrameOwner`. Runtime receives `Dx12FrameOwner` for those transactions and
+  `Dx12RenderDevice` for extent/VSync/device state; scene, window, command,
+  stress, and resource-release consumers no longer receive their union.
+- Removed the final render `virtual`, `override`, and virtual-destructor
+  declarations. The DX12 architecture result-contract assertions now target
+  `Dx12FrameOwner` and remain in the registered mandatory CPU umbrella.
+- Comment-style audit inspected all 25 extant touched source/tool files: 25
+  compliant, zero deferred. Retired-interface, interface-class, concrete
+  virtual/override declaration, dependency-direction, and downward-Replay
+  proofs all returned no rows. No Replay growth privilege appeared or expanded.
+- Resolved the final review finding without stopping: after the first green
+  gate set, moved frame-lifecycle fatal paths still named the old aggregate
+  backend owner. Their owner labels and explanatory comments were corrected,
+  then the full renderer/runtime/stress gate set was rerun from the final tip.
+- Focused Profile x64 build: PASS in 23.9 s with zero warnings/errors.
+- `tools\validate_project_filters.bat`: PASS in 2.6 s, 721 project items and
+  721 filter items, zero errors.
+- `tools\validate_all_cpu_tests.bat`: PASS in 112.7 s; unit/coverage,
+  interaction-policy, scene-parser, and DX12 architecture lanes all passed.
+- `tools\validate_full.bat` final tip: PASS in 236.3 s; mandatory CPU umbrella,
+  all five runtime processes, zero DX12 errors, accepted screenshots, and the
+  44,401-line physics baseline byte-exact.
+- `tools\validate_dx12_renderer.bat` final tip: PASS in 23.0 s, 43 shader
+  stages fresh, zero InfoQueue errors, all three committed screenshots accepted.
+- `tools\run_graphics_stress.bat 1` final tip: PASS in 60.9 s, 12,605 frames
+  and 346 scene loads, zero upload flushes/drops, empty stderr, crash-free
+  PID-scoped timeout (PID 46552).
 
 ## Review Proof (must return no rows at RH5)
 

@@ -76,10 +76,10 @@ class Dx12BackbufferCapture;
 class Dx12GeometryOwner;
 class Dx12FrameOwner;
 class Dx12GraphTransientPool;
+class Dx12RenderDevice;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 class Dx12ImGuiRendererOwner;
 #endif
-class IRenderDeviceLifecycle;
 class Dx12Diagnostics;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
@@ -150,8 +150,8 @@ struct RenderToolOverlayView
 
 struct RuntimeRenderBackendView
 {
-    Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;       // Startup/present/resize/drain capability.
-    Rendering::Dx12FrameOwner* renderFrame = nullptr;                   // Frame/output recording owner.
+    Rendering::Dx12RenderDevice* renderDevice = nullptr;                // Extent, VSync, and native device-state owner.
+    Rendering::Dx12FrameOwner* renderFrame = nullptr;                   // Frame/output, present, drain, and resize owner.
     Rendering::Dx12GraphTransientPool* renderGraph = nullptr;           // Render-graph materialization and transition owner.
     Rendering::Dx12ResourceBuilder* renderResources = nullptr;          // Resource creation/rebuild capability.
     Rendering::Dx12TextureOwner* renderTextures = nullptr;              // Texture registry and cold texture IO owner.

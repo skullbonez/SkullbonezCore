@@ -57,7 +57,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Core/Log.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
-#include "../../Rendering/IRenderDeviceLifecycle.h"
+#include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../Rendering/RenderInstanceRenderer.h"
@@ -472,9 +472,9 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::ShaderDX12& shader,
 
 void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) const
 {
-    const bool backendReady = m_deviceLifecycle != nullptr;
-    const int backendWidth = m_deviceLifecycle ? m_deviceLifecycle->GetWidth() : 0;
-    const int backendHeight = m_deviceLifecycle ? m_deviceLifecycle->GetHeight() : 0;
+    const bool backendReady = m_renderDevice != nullptr && m_renderDevice->IsReady();
+    const int backendWidth = m_renderDevice ? m_renderDevice->Width() : 0;
+    const int backendHeight = m_renderDevice ? m_renderDevice->Height() : 0;
     SkullbonezCore::Core::Log().WriteEventf(
         "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
         "scene_index=%d load=%d",

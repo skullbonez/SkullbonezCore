@@ -36,7 +36,7 @@ Related:
 */
 #include "Window.h"
 #include "../Core/WindowConstants.h"
-#include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../Rendering/DX12/Dx12FrameOwner.h"
 #include "Input.h"
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "DevelopmentTools/ImGuiEditorOwner.h"
@@ -63,7 +63,7 @@ Window::Window()
     m_projectionFarPlane = 5500.0f;
     m_startupWindowWidth = 1800;
     m_startupWindowHeight = 1000;
-    m_resizeRenderLifecycle = nullptr;
+    m_resizeRenderFrame = nullptr;
 }
 
 
@@ -145,9 +145,9 @@ void Window::SetStartupWindowSize( int width, int height )
 }
 
 
-void Window::SetResizeRenderLifecycle( IRenderDeviceLifecycle* deviceLifecycle )
+void Window::SetResizeRenderFrameOwner( Dx12FrameOwner* renderFrame )
 {
-    m_resizeRenderLifecycle = deviceLifecycle;
+    m_resizeRenderFrame = renderFrame;
 }
 
 
@@ -179,12 +179,12 @@ SkullbonezCore::Core::SbResult Window::HandleScreenResize()
 
     // Hazard: minimized windows report zero client area; resizing the backend
     // to zero dimensions would invalidate swap-chain and projection state.
-    if ( w <= 0 || h <= 0 || !m_resizeRenderLifecycle )
+    if ( w <= 0 || h <= 0 || !m_resizeRenderFrame )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    const SkullbonezCore::Core::SbResult resizeResult = m_resizeRenderLifecycle->Resize( w, h );
+    const SkullbonezCore::Core::SbResult resizeResult = m_resizeRenderFrame->Resize( w, h );
     if ( !resizeResult.ok )
     {
         return resizeResult;

@@ -65,7 +65,8 @@ Related:
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
-#include "../../Rendering/IRenderDeviceLifecycle.h"
+#include "../../Rendering/DX12/Dx12FrameOwner.h"
+#include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderPipeline.h"
@@ -1703,7 +1704,7 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
 
 
 RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene )
-    : m_lifecycleLog( backend.deviceLifecycle, scene ), m_assets( world.assets ), m_cameras( world.cameras ),
+    : m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ), m_cameras( world.cameras ),
       m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ), m_world( world.worldEnvironment ),
       m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
@@ -2217,10 +2218,10 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
     const auto logLifecycleStep = [&]( const char* step ) { m_lifecycleLog.Write( context.phaseName, step ); };
 
-    if ( context.deviceLifecycle )
+    if ( context.renderFrame )
     {
         logLifecycleStep( "flush_before_resource_release" );
-        const SkullbonezCore::Core::SbResult flushResult = context.deviceLifecycle->DrainForResourceRelease();
+        const SkullbonezCore::Core::SbResult flushResult = context.renderFrame->DrainForResourceRelease();
         if ( !flushResult.ok )
         {
             // Lane R: return before the first release. The destructor caller

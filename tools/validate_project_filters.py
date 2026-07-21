@@ -249,7 +249,6 @@ RENDERING_PREFIXES = (
     "RenderInstanceRenderer",
     "Helper",
     "IRenderBackend",
-    "IRenderDeviceLifecycle",
     "PrimitiveBatchRenderer",
     "PrimitiveMeshBuilder",
     "RenderCommandTypes",

@@ -46,8 +46,8 @@ Related:
 #include "Rendering/DX12/RenderBackendDX12.PipelineState.h"
 #include "Rendering/DX12/RenderGraphTransientDX12.h"
 #include "Rendering/DX12/RenderDeviceDX12.h"
+#include "Rendering/DX12/Dx12FrameOwner.h"
 #include "Rendering/DX12/Dx12TextureRegistry.h"
-#include "Rendering/IRenderDeviceLifecycle.h"
 #include "Rendering/ProfilerOverlayPresenter.h"
 #include "Rendering/RenderGpuTimingOwner.h"
 #include "Rendering/RenderGraph.h"
@@ -69,9 +69,9 @@ using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 
 static_assert(
-    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
+    std::is_same<decltype( std::declval<Dx12FrameOwner&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
     "FlushGPU must return a recoverable result to every resource-mutation caller." );
-static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ),
+static_assert( std::is_same<decltype( std::declval<Dx12FrameOwner&>().DrainForResourceRelease() ),
                             SkullbonezCore::Core::SbResult>::value,
                "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
