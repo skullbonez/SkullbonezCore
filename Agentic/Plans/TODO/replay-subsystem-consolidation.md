@@ -1,7 +1,7 @@
 # Replay Subsystem Consolidation — Right-Size The Largest Domain
 
 Date: 2026-07-22
-Status: Active — 5/7 phases complete
+Status: Active — 6/7 phases complete
 Impact area: `Runtime/Replay/*` interior structure and public surface; no
 boundary, retention, or feature changes
 Owner: replay
@@ -87,7 +87,7 @@ behavioral drift is a defect in the task, never a baseline update.
   internal structs to domain-internal headers; re-verify the public-surface
   list from RC0 shrank to `ReplayRuntime` + packets, or record each
   survivor with owner/reason/deletion condition.
-- [ ] RC5. Validation placement. Confirm `ReplayValidation*` probe code
+- [x] RC5. Validation placement. Confirm `ReplayValidation*` probe code
   sits wholly in the Validation domain behind its automation gating with no
   include edge into Capture/Prediction hot paths; fix any edge found. Size
   is not judged.
@@ -233,3 +233,21 @@ any allocation-adjacent file moved.
 - RC4's single 422.5 s mega invocation proves one process/generation and passes
   16 / 72 controls, then reaches the unchanged config-provenance blocker. It
   was not retried and no config/golden edit occurred.
+
+## RC5 Evidence — Validation Placement (2026-07-22)
+
+- Full evidence is recorded in
+  [`../../Reports/2026-07-22/replay-subsystem-consolidation-rc5-validation-placement.md`](../../Reports/2026-07-22/replay-subsystem-consolidation-rc5-validation-placement.md).
+- Debug CLI probes are wholly in `ReplayValidation.Probes.cpp`, which the
+  production project builds only for Debug. Interaction report, offline
+  archive verification, and fingerprint code are restricted to Automation or
+  Debug/Automation as appropriate.
+- Capture, Timeline, Prediction, and ReplayRuntime have zero include edges to
+  ReplayValidation headers. `ReplayValidation.cpp` remains all-configuration
+  product code because it owns transactional event replay, artifact load,
+  target restore, hash verification, and rollback rather than probe bodies.
+- RC5 is documentation-only; no mapped repository gate or source comment audit
+  was required. Its single 407.4 s mega invocation proves one
+  process/generation and passes 16 / 72 controls, then reaches the unchanged
+  config-provenance blocker. It was not retried and no config/golden edit
+  occurred.
