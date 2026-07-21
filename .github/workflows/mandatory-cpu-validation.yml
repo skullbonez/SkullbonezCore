@@ -48,12 +48,13 @@ jobs:
             throw "Pinned OpenCppCoverage executable was not installed: $coverageExe"
           }
           $coverageHelp = & $coverageExe --help 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            throw "OpenCppCoverage --help failed (exit $LASTEXITCODE)"
-          }
+          # OpenCppCoverage 0.9.9.0 prints valid help/version text but returns
+          # -1618178468 from its help-only path. The real coverage invocation
+          # still owns runtime health; this bootstrap probe verifies identity.
           if (-not ($coverageHelp | Select-String -Quiet -Pattern "OpenCppCoverage Version: 0\.9\.9\.0")) {
             throw "Installed OpenCppCoverage does not report pinned version 0.9.9.0"
           }
+          exit 0
 
       - name: Run mandatory hosted CPU lane
         env:
