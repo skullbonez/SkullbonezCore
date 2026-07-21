@@ -1,7 +1,7 @@
 # Owner Fan-Out Reduction — Scene Lifecycle And Frame-View Decoupling
 
 Date: 2026-07-22
-Status: Active — 2/6 phases complete
+Status: Active — 3/6 phases complete
 Impact area: Runtime shell (`Run*`, `RuntimeFrameViews.h`), scene system
 (`SceneController`, `SceneRuntime*`), reactive owner frame entries
 Owner: runtime shell / scene lifecycle
@@ -83,7 +83,7 @@ from special case to convention.
   the load participant structs onto ledger observation. Focused tests pin
   the reset-once-per-generation contract, including failed-load and
   same-count reset edges.
-- [ ] OF2. Migrate the remaining reactive owners (camera state, attached
+- [x] OF2. Migrate the remaining reactive owners (camera state, attached
   camera, interaction workspace, runtime tools, replay presentation reset,
   input router context) onto the ledger. Shrink
   `SceneLoadInteractionParticipants` and
@@ -166,6 +166,43 @@ from special case to convention.
   unchecked files. Dependency-direction and Replay downward-include proofs all
   return zero rows. No rubber-duck pass was appropriate for this incremental
   slice; the plan-level independent review remains OF5.
+
+## OF2 Evidence — Remaining Reactive Owners (2026-07-22)
+
+- Camera state, attached-camera state, interaction workspace, runtime tools,
+  Replay clear/activation, and input cursor policy now keep owner-local
+  generation observers. `SceneController::Load` emits detached camera, debug,
+  and navigation values plus bounded completed-action values; it no longer
+  borrows any of those reactive owners.
+- The participant census is reduced 16 → 10 for OF2 and 18 → 10 overall:
+  policy keeps six transaction inputs, host keeps diagnostics and simulation,
+  presentation keeps the concrete render view and renderer, while interaction
+  contains detached values only. Completed scene requests and world changes use
+  fixed arrays so Replay still records only successful work after timeline
+  activation without entering the load graph.
+- Replay clear observation was tightened after review: it ends old replay/input
+  ownership without receiving replacement-scene cameras or terrain. Only the
+  activation observer receives populated-scene owners, preserving the old
+  clear-before-populate lifetime boundary.
+- Focused Profile builds pass in 10.4 s and 10.1 s. Focused lifecycle/input
+  doctests pass 4 cases / 56 assertions; the Replay typed-packet controls pass
+  16 cases / 72 assertions.
+- `tools\validate_full.bat` passes in 151.7 s: mandatory CPU umbrella, five
+  runtime processes, zero DX12 validation errors, accepted screenshots, and the
+  44,401-line physics CSV byte-exact comparison.
+- Non-stopping blocker: the completed one-engine replay visual-fidelity gate
+  reached the oracle in 409.3 s but failed provenance only: expected config SHA
+  `83401df03cb6e212a6a74a38e815fc550d57aa983fc9b792c2c8f4e5c784a3f4`, actual
+  `bd0bb719aad7231cf500ca9a61af7d2f017e557b1b18b7de82df7eb93a3b5d93`. OF2
+  changed neither config nor golden metadata, so no unauthorized reconciliation
+  was made. An earlier shell launch detached during the build/control phase and
+  generated no engine run; the completed invocation retained the one-process,
+  one-generation contract.
+- Comment audit: 20 touched C++ source-bearing files checked, zero deferred or
+  unchecked files. Formatting, dependency-direction, Replay downward-include,
+  allocation-shape, callback/context-bag, and exception proofs all pass. No
+  rubber-duck pass was appropriate for this incremental slice; the independent
+  plan review remains OF5.
 
 ## Acceptance
 

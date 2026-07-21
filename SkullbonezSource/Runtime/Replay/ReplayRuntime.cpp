@@ -855,10 +855,9 @@ void ReplayRuntime::ApplyInputFocusLoss( Environment::CameraCollection* cameras,
 }
 
 
-void ReplayRuntime::ClearInteractionForSceneLoad( const ReplaySceneTimelineResetOwners& owners )
+void ReplayRuntime::ClearInteractionForSceneLoad( RuntimeInteractionController& interaction, InputRouter& inputRouter )
 {
-    const RuntimeInteractionTransition transition =
-        owners.interaction.ResetForScene( InteractionExitReason::LoadScene );
+    const RuntimeInteractionTransition transition = interaction.ResetForScene( InteractionExitReason::LoadScene );
     const bool previousOwnerWasReplay = transition.previousOwner == WorldInteractionOwner::ReplayScrub ||
                                         transition.previousOwner == WorldInteractionOwner::ReplayVelocityEdit ||
                                         transition.previousOwner == WorldInteractionOwner::ReplayPrediction ||
@@ -868,18 +867,35 @@ void ReplayRuntime::ClearInteractionForSceneLoad( const ReplaySceneTimelineReset
     {
         return;
     }
-    if ( ClearInteractionForRuntimeTransition( owners.interaction, owners.inputRouter ) )
+    if ( ClearInteractionForRuntimeTransition( interaction, inputRouter ) )
     {
-        ReplayPresentationOperations::ExitInspectionCamera( m_visualPresentation,
-                                                            m_authoring,
-                                                            owners.cameras,
-                                                            owners.terrain,
-                                                            owners.camera,
-                                                            owners.normalizedRestoreMode,
-                                                            owners.attachedFollow,
-                                                            owners.directorGrabbed,
-                                                            owners.interaction,
-                                                            owners.inputRouter );
+        // Why: scene clear already invalidated the old camera collection and
+        // the detached scene camera will replace its policy below. End Replay's
+        // presentation ownership without touching the newly populated world.
+        m_visualPresentation.EndCameraInspection();
+        inputRouter.RequestCursorVisible( true );
+    }
+}
+
+
+void ReplayRuntime::ObserveSceneLifecycleAfterClear( const SceneLifecyclePacket& packet,
+                                                     RuntimeInteractionController& interaction,
+                                                     InputRouter& inputRouter )
+{
+    if ( m_sceneClearObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        ClearInteractionForSceneLoad( interaction, inputRouter );
+    }
+}
+
+
+void ReplayRuntime::ObserveSceneLifecycleAfterActivation( const SceneLifecyclePacket& packet,
+                                                          const ReplaySceneTimelineResetInput& input,
+                                                          const ReplaySceneTimelineResetOwners& owners )
+{
+    if ( m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
+    {
+        ResetSceneTimeline( input, owners );
     }
 }
 

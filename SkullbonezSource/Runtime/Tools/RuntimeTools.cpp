@@ -204,6 +204,24 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
 }
 
 
+void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+                                          SceneWorld& world,
+                                          InputRouter& inputRouter,
+                                          RuntimeInteractionController& interaction )
+{
+    if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        return;
+    }
+    // Invariant: clear typed gesture/capture state before the interaction owner
+    // publishes its new-scene workspace policy.
+    CancelMousePickup( inputRouter, interaction );
+    ClearEditorInteractionForTransition( false, world, interaction );
+    ClearEditorHistory();
+    ClearRayCastTestLines();
+}
+
+
 void RuntimeTools::CancelMousePickup( InputRouter& inputRouter, RuntimeInteractionController& interaction )
 {
     // Invariant: the controller gesture is the sole capture fact. Clear native

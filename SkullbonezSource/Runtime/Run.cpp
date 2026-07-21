@@ -574,14 +574,9 @@ void Run::Initialise()
                                m_workerPool,
                                m_timers.simulationTimer.GetTotalTime() },
         SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
-        SceneLoadInteractionParticipants{ m_inputRouter,
-                                          m_interaction,
-                                          m_camera,
-                                          m_attachedCamera.State(),
-                                          m_runtimeTools,
+        SceneLoadInteractionParticipants{ m_camera,
                                           CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-        SceneLoadPresentationParticipants{ m_replayRuntime,
-                                           m_overlayDiagnostics->PresentationSnapshot(),
+        SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
                                            m_renderBackendView,
                                            m_renderer },
         sceneLoadOutputs );
@@ -591,7 +586,14 @@ void Run::Initialise()
                                    *m_validationHarness,
                                    m_launchOptions,
                                    m_timers,
-                                   *m_overlayDiagnostics );
+                                   *m_overlayDiagnostics,
+                                   m_sceneController,
+                                   m_inputRouter,
+                                   m_interaction,
+                                   m_camera,
+                                   m_attachedCamera,
+                                   m_runtimeTools,
+                                   m_replayRuntime );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -785,14 +787,9 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                    m_workerPool,
                                    m_timers.simulationTimer.GetTotalTime() },
             SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
-            SceneLoadInteractionParticipants{ m_inputRouter,
-                                              m_interaction,
-                                              m_camera,
-                                              m_attachedCamera.State(),
-                                              m_runtimeTools,
+            SceneLoadInteractionParticipants{ m_camera,
                                               CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-            SceneLoadPresentationParticipants{ m_replayRuntime,
-                                               m_overlayDiagnostics->PresentationSnapshot(),
+            SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
                                                m_renderBackendView,
                                                m_renderer },
             sceneLoadOutputs );
@@ -802,7 +799,14 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                        *m_validationHarness,
                                        m_launchOptions,
                                        m_timers,
-                                       *m_overlayDiagnostics );
+                                       *m_overlayDiagnostics,
+                                       m_sceneController,
+                                       m_inputRouter,
+                                       m_interaction,
+                                       m_camera,
+                                       m_attachedCamera,
+                                       m_runtimeTools,
+                                       m_replayRuntime );
         if ( !loadResult.ok )
         {
             return loadResult;

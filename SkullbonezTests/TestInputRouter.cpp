@@ -21,6 +21,8 @@ Glossary:
     Page Up/Page Down flags.
   Focus resynchronization: Refocus sample that remembers held input without
     treating it as newly pressed.
+  Lifecycle generation: Scene-load identity that lets cursor intent publish
+    once after activation without polling hardware in tests.
 
 Invariants:
   - Tests use no hardware, window, renderer, physics, or dynamic action storage.
@@ -28,6 +30,8 @@ Invariants:
   - A key observed in an inactive/blocked context cannot fire until released and
     pressed again.
   - World-facing snapshots expose domain values, not physical water-control keys.
+  - Repeated activation samples for one scene generation cannot republish the
+    cursor-reset request.
 
 Related:
   - SkullbonezSource/Runtime/InputRouter.h
@@ -682,4 +686,24 @@ TEST_CASE( "Input router: pointer presentation joins owner facts with one frame"
     policy = router.EvaluatePointerPresentation( editor );
     CHECK_FALSE( policy.mouseLookOwnsCursor );
     CHECK( policy.hideNativeCursor );
+}
+
+TEST_CASE( "Input router: scene activation publishes cursor reset once per generation" )
+{
+    InputRouter router;
+    SceneLifecyclePacket packet;
+    packet.generation = 1;
+    packet.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
+
+    CHECK_FALSE( router.ObserveSceneLifecycle( packet, true ) );
+    CHECK( router.CursorVisibleRequested() );
+
+    packet.event = SceneRuntimeLifecycleEvent::AfterSceneActivated;
+    CHECK( router.ObserveSceneLifecycle( packet, true ) );
+    CHECK_FALSE( router.CursorVisibleRequested() );
+    CHECK_FALSE( router.ObserveSceneLifecycle( packet, true ) );
+
+    packet.generation = 2;
+    CHECK( router.ObserveSceneLifecycle( packet, true ) );
+    CHECK_FALSE( router.ObserveSceneLifecycle( packet, true ) );
 }

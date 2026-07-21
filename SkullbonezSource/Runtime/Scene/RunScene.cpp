@@ -4,9 +4,10 @@ Purpose:
   Loads, resets, and advances authored and generated scenes.
 
 Summary:
-  SceneController owns the cold load transaction and borrows each concrete
-  process owner only for that call. Run wires those owners but has no scene-load
-  method or callback into its private state.
+  SceneController owns the cold load transaction and borrows only the owners
+  required while scene storage is changing. It returns detached values and a
+  lifecycle generation; composition then sequences idempotent reactions at the
+  excluded camera, input, interaction, tool, Replay, UI, and validation owners.
 
 Glossary:
   CLI (Command-Line Interface): Text arguments or scripts used to launch
@@ -46,6 +47,8 @@ Related:
 #include "../Diagnostics/DiagnosticsRuntime.h"
 #include "../AttachedCameraController.h"
 #include "../InputRouter.h"
+#include "../Input.h"
+#include "../InputFrame.h"
 #include "../Replay/ReplayRuntime.h"
 #include "../RunStartupState.h"
 #include "../RunTimerState.h"
@@ -561,12 +564,21 @@ void SceneLoadConsumerOutputs::ResetForLoad()
     navigation = SceneLoadNavigationState{};
     lifecycle = SceneLifecyclePacket{};
     presentation = RunDebugState{};
+    camera = RunCameraState{};
+    completedWorldChanges = {};
+    completedWorldChangeCount = 0;
+    completedRequests = SceneRequestBatch{};
+    sceneObjectCapacity = 0;
+    generatedObjectTypeOverride = 0;
     windowTitle[0] = '\0';
     hasWindowTitle = false;
     applyAutomationGates = false;
     applyNavigation = false;
     refreshSceneBrowser = false;
     resumeGraphicsStress = false;
+    enterInspectAfterActivation = false;
+    hideCursorAfterActivation = false;
+    markEditorHistoryClean = false;
 }
 
 
@@ -576,13 +588,109 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
                                                              RuntimeValidationHarness& validationHarness,
                                                              const RunLaunchOptions& launchOptions,
                                                              RunTimerState& timers,
-                                                             RuntimeOverlayDiagnostics& overlays )
+                                                             RuntimeOverlayDiagnostics& overlays,
+                                                             SceneController& sceneController,
+                                                             InputRouter& inputRouter,
+                                                             RuntimeInteractionController& interaction,
+                                                             RunCameraState& camera,
+                                                             AttachedCameraController& attachedCamera,
+                                                             RuntimeTools& runtimeTools,
+                                                             ReplayRuntime& replayRuntime )
 {
-    // Invariant: reactive pilot owners consume the generation before external
+    // Invariant: reactive owners consume the generation before external
     // UI/validation effects. This preserves their former end-of-Load ordering
-    // without returning either owner to the transaction participant graph.
+    // without returning them to the transaction participant graph.
     timers.ObserveSceneLifecycle( outputs.lifecycle );
     overlays.ObserveSceneLifecycle( outputs.lifecycle, outputs.presentation );
+    for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
+    {
+        const SceneLoadCompletedWorldChange& change = outputs.completedWorldChanges[index];
+        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
+                                                                                     change.previousFluidHeight,
+                                                                                     change.previousFluidDensity,
+                                                                                     change.gravity,
+                                                                                     change.fluidHeight,
+                                                                                     change.fluidDensity ) );
+    }
+    runtimeTools.ObserveSceneLifecycle( outputs.lifecycle, sceneController.Scene(), inputRouter, interaction );
+    attachedCamera.ObserveSceneLifecycle( outputs.lifecycle );
+    replayRuntime.ObserveSceneLifecycleAfterClear( outputs.lifecycle, interaction, inputRouter );
+    interaction.ObserveSceneLifecycle( outputs.lifecycle, outputs.enterInspectAfterActivation );
+    camera.ObserveSceneLifecycle( outputs.lifecycle, outputs.camera );
+    if ( inputRouter.ObserveSceneLifecycle( outputs.lifecycle, outputs.hideCursorAfterActivation ) )
+    {
+        Hardware::Input::ResetMouseLookDeltas();
+    }
+    const auto replayOwners = [&]( RunCameraState& cameraOwner )
+    {
+        RunCameraMode restoreMode = replayRuntime.BuildInputView().restoreCameraMode;
+        if ( sceneController.State().isSceneMode )
+        {
+            restoreMode = restoreMode == RunCameraMode::Demo ? RunCameraMode::Scene : restoreMode;
+        }
+        else if ( restoreMode == RunCameraMode::Scene )
+        {
+            restoreMode = sceneController.Scene().SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
+        }
+        else if ( restoreMode == RunCameraMode::Demo && sceneController.Scene().SceneEntityCount() <= 0 )
+        {
+            restoreMode = RunCameraMode::Inspect;
+        }
+        return ReplaySceneTimelineResetOwners{ inputRouter,
+                                               interaction,
+                                               &sceneController.Scene().Cameras(),
+                                               sceneController.Scene().Terrain().Get(),
+                                               cameraOwner,
+                                               restoreMode,
+                                               attachedCamera.State().activeFollow,
+                                               cameraOwner.director.grabbed };
+    };
+    const ReplaySceneTimelineResetInput timelineReset =
+        DescribeReplaySceneTimeline( sceneController,
+                                     outputs.navigation.overrides,
+                                     sceneController.State(),
+                                     outputs.sceneObjectCapacity,
+                                     outputs.generatedObjectTypeOverride );
+    ReplaySceneTimelineResetOwners activationOwners = replayOwners( camera );
+    replayRuntime.ObserveSceneLifecycleAfterActivation( outputs.lifecycle, timelineReset, activationOwners );
+    if ( outputs.markEditorHistoryClean )
+    {
+        runtimeTools.Editor().history.MarkClean();
+    }
+    for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
+    {
+        const SceneRequest& request = outputs.completedRequests.requests[index];
+        ReplayOwnerEventCode eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
+        switch ( request.type )
+        {
+        case SceneRequestType::LoadBrowserIndex:
+            eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
+            break;
+        case SceneRequestType::LoadDemoScene:
+            eventCode = ReplayOwnerEventCode::SceneLoadDemo;
+            break;
+        case SceneRequestType::ResetCurrentScene:
+            eventCode = ReplayOwnerEventCode::SceneReset;
+            break;
+        case SceneRequestType::CreateScene:
+            eventCode = ReplayOwnerEventCode::SceneCreate;
+            break;
+        case SceneRequestType::SaveCurrentDefaults:
+            eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
+            break;
+        }
+        replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
+            ReplayEventKind::OwnerAction,
+            0,
+            true,
+            ReplaySceneRequestFlags( request ),
+            static_cast<int32_t>( eventCode ),
+            request.index,
+            0,
+            0,
+            0,
+            request.type == SceneRequestType::CreateScene ? request.text : ReplayOwnerEventName( eventCode ) ) );
+    }
     if ( outputs.applyAutomationGates )
     {
         validationHarness.SceneGates().ApplyConfiguration( std::move( outputs.automationGates ) );
@@ -627,12 +735,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     Threading::WorkerPool& workerPool = policy.workerPool;
     DiagnosticsRuntime& diagnosticsRuntime = host.diagnosticsRuntime;
     SimulationSystem& simulation = host.simulation;
-    InputRouter& inputRouter = interactionParticipants.inputRouter;
-    RuntimeInteractionController& interaction = interactionParticipants.interaction;
-    RunCameraState& camera = interactionParticipants.camera;
-    AttachedCameraState& attachedCamera = interactionParticipants.attachedCamera;
-    RuntimeTools& runtimeTools = interactionParticipants.runtimeTools;
-    ReplayRuntime& replayRuntime = presentation.replayRuntime;
     const RuntimeRenderBackendView& renderBackendView = presentation.renderBackendView;
     RuntimeRenderer& renderer = presentation.renderer;
 
@@ -640,8 +742,26 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     consumerOutputs.ResetForLoad();
     consumerOutputs.navigation = interactionParticipants.navigation;
     consumerOutputs.presentation = presentation.debug;
+    consumerOutputs.camera = interactionParticipants.camera;
+    consumerOutputs.sceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
+    consumerOutputs.generatedObjectTypeOverride = static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride );
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
     RunDebugState& m_debug = consumerOutputs.presentation;
+    RunCameraState& camera = consumerOutputs.camera;
+    const auto recordCompletedWorldChange = [&]( const WorldOverrideChange& change )
+    {
+        if ( consumerOutputs.completedWorldChangeCount >= consumerOutputs.completedWorldChanges.size() )
+        {
+            SB_FATAL( "Runtime/SceneController", "Fixed completed world-change capacity exhausted." );
+        }
+        consumerOutputs.completedWorldChanges[consumerOutputs.completedWorldChangeCount++] =
+            SceneLoadCompletedWorldChange{ change.previousGravity,
+                                           change.previousFluidHeight,
+                                           change.previousFluidDensity,
+                                           change.gravity,
+                                           change.fluidHeight,
+                                           change.fluidDensity };
+    };
     struct LifecycleOutputPublisher
     {
         const SceneController& controller;
@@ -677,22 +797,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     const bool preserveRuntimeState = request.preserveRuntimeState;
     SceneController& m_sceneController = *this;
     const auto SceneState = [this]() -> RunSceneState& { return State(); };
-    const auto NormalizeCameraModeForCurrentScene = [this]( RunCameraMode mode )
-    {
-        if ( State().isSceneMode )
-        {
-            return mode == RunCameraMode::Demo ? RunCameraMode::Scene : mode;
-        }
-        if ( mode == RunCameraMode::Scene )
-        {
-            return Scene().SceneEntityCount() > 0 ? RunCameraMode::Demo : RunCameraMode::Inspect;
-        }
-        if ( mode == RunCameraMode::Demo && Scene().SceneEntityCount() <= 0 )
-        {
-            return RunCameraMode::Inspect;
-        }
-        return mode;
-    };
     SkullbonezCore::Core::SbResult m_lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
     SceneController& runtime = m_sceneController;
     const SceneRuntimeLoadBeginResult loadBegin =
@@ -762,27 +866,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     m_sceneController.Scene().Cameras().Reset();
     m_sceneController.Scene().Clear();
 
-    runtimeTools.CancelMousePickup( inputRouter, interaction );
-    AttachedCameraController::Reset( attachedCamera );
-    {
-        replayRuntime.ClearInteractionForSceneLoad( ReplaySceneTimelineResetOwners{
-            inputRouter,
-            interaction,
-            &m_sceneController.Scene().Cameras(),
-            m_sceneController.Scene().Terrain().Get(),
-            camera,
-            NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
-            attachedCamera.activeFollow,
-            camera.director.grabbed } );
-        afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
-        runtimeTools.ClearEditorInteractionForTransition( false, m_sceneController.Scene(), interaction );
-        runtimeTools.ClearEditorHistory();
-        interaction.ResetForScene( InteractionExitReason::LoadScene );
-        afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction );
-    }
     camera.ResetForSceneLoad( !scenePath.empty() );
-    runtimeTools.ClearRayCastTestLines();
-    afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools );
     m_debug.ResetForSceneLoad();
     // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
 
@@ -847,12 +931,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
-            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
-                                                                                         change.previousFluidHeight,
-                                                                                         change.previousFluidDensity,
-                                                                                         change.gravity,
-                                                                                         change.fluidHeight,
-                                                                                         change.fluidDensity ) );
+            recordCompletedWorldChange( change );
         }
 
         SceneState().isSceneMode = false;
@@ -1070,12 +1149,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                                                      resetSnapshot.worldGravity,
                                                                      resetSnapshot.worldFluidHeight,
                                                                      resetSnapshot.worldFluidDensity );
-            replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildWorldOverride( change.previousGravity,
-                                                                                         change.previousFluidHeight,
-                                                                                         change.previousFluidDensity,
-                                                                                         change.gravity,
-                                                                                         change.fluidHeight,
-                                                                                         change.fluidDensity ) );
+            recordCompletedWorldChange( change );
         }
 
         SceneAuthoredSetup::SetUpCameras( BuildSceneAuthoredCameraContext( m_sceneController.Scene() ), scene );
@@ -1149,7 +1223,8 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 #endif
         if ( shouldPauseSnapshotState )
         {
-            interaction.EnterInspect();
+            consumerOutputs.enterInspectAfterActivation = true;
+            consumerOutputs.hideCursorAfterActivation = true;
             camera.mode = RunCameraMode::Inspect;
             camera.cameraTime = 0.0f;
             XZBounds unbounded;
@@ -1159,18 +1234,14 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
             unbounded.m_zMax = 99999.9f;
             uint32_t activeCam = m_sceneController.Scene().Cameras().GetSelectedCameraName();
             m_sceneController.Scene().Cameras().SetCameraXZBounds( activeCam, unbounded );
-            inputRouter.RequestCursorVisible( false );
             camera.input.xMove = 0;
             camera.input.yMove = 0;
             camera.hasMouseLookLastClient = false;
             camera.needsMouseLookReset = true;
-            Input::ResetMouseLookDeltas();
         }
     }
 
     runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
-    SceneLifecycleConsumerMask afterActivationConsumers = 0;
-
     if ( shouldPreserveRuntimeState )
     {
         RestoreSceneRuntimeResetSnapshot( m_sceneController,
@@ -1330,25 +1401,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         renderBackendView.renderDevice->SetVsyncEnabled( renderer.VsyncEnabled() );
     }
 
-    const ReplaySceneTimelineResetInput replayReset =
-        DescribeReplaySceneTimeline( m_sceneController,
-                                     sceneNavigation.overrides,
-                                     SceneState(),
-                                     SkullbonezCore::Core::ActiveSceneObjectCapacity( config ),
-                                     static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
-    replayRuntime.ResetSceneTimeline(
-        replayReset,
-        ReplaySceneTimelineResetOwners{
-            inputRouter,
-            interaction,
-            &m_sceneController.Scene().Cameras(),
-            m_sceneController.Scene().Terrain().Get(),
-            camera,
-            NormalizeCameraModeForCurrentScene( replayRuntime.BuildInputView().restoreCameraMode ),
-            attachedCamera.activeFollow,
-            camera.director.grabbed } );
-    afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
-
     const SkullbonezCore::Core::SbResult rayTracingResult =
         renderer.InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
     if ( !rayTracingResult.ok )
@@ -1356,7 +1408,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         m_lastSceneLoadResult = rayTracingResult;
         return m_lastSceneLoadResult;
     }
-    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, afterActivationConsumers );
+    runtime.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
     m_lastSceneLoadResult = SkullbonezCore::Core::SbResult::Success();
     return m_lastSceneLoadResult;
 }

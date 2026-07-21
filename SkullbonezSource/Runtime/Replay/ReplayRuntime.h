@@ -38,6 +38,8 @@ Glossary:
     capture appends beyond the configured retention window.
   Replay memory policy: Runtime-owned preset, retention, and budget request that
     resolves to concrete presentation and solver recorder windows.
+  Lifecycle generation: Scene-load identity used to separate clear-phase
+    interaction cleanup from activated-scene timeline setup.
 
 Invariants:
   - Full timeline, scrubber, presentation, prediction, and authoring state is
@@ -49,6 +51,8 @@ Invariants:
     sample storage changes.
   - Prediction worker tasks must be idle before build scratch, trajectory slots,
     or private-engine state are cleared.
+  - Clear-phase observation does not borrow replacement-scene cameras or terrain;
+    only activation may apply replay presentation against the populated scene.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp
@@ -76,6 +80,7 @@ Related:
 #include "TrajectoryStore.h"
 #include "../RuntimeCameraMode.h"
 #include "../RuntimeInteractionController.h"
+#include "../Scene/SceneLifecycle.h"
 #include "ReplayProbeState.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Core/Common.h"
@@ -239,6 +244,12 @@ class ReplayRuntime
     ReplaySceneTimelineResetResult BeginSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     ReplaySceneTimelineResetResult FinishSceneTimelineReset( const ReplaySceneTimelineResetInput& input );
     void ResetSceneTimeline( const ReplaySceneTimelineResetInput& input, const ReplaySceneTimelineResetOwners& owners );
+    void ObserveSceneLifecycleAfterClear( const SceneLifecyclePacket& packet,
+                                          RuntimeInteractionController& interaction,
+                                          InputRouter& inputRouter );
+    void ObserveSceneLifecycleAfterActivation( const SceneLifecyclePacket& packet,
+                                               const ReplaySceneTimelineResetInput& input,
+                                               const ReplaySceneTimelineResetOwners& owners );
     bool RestoreSolverSampleAsLive( const ReplayRestoreTransaction& transaction,
                                     const ReplaySolverFrameSample& sample,
                                     char* outReason,
@@ -355,7 +366,7 @@ class ReplayRuntime
                               InputRouter& inputRouter );
     // Clears replay gesture/camera state as one replay-owned scene transition.
     // The owner bundle is borrowed for this synchronous operation only.
-    void ClearInteractionForSceneLoad( const ReplaySceneTimelineResetOwners& owners );
+    void ClearInteractionForSceneLoad( RuntimeInteractionController& interaction, InputRouter& inputRouter );
     // Clears replay-owned transient state and reports whether the camera owner
     // must execute an inspection-camera exit after the state transition.
     bool ClearInteractionForRuntimeTransition( RuntimeInteractionController& interaction, InputRouter& inputRouter );
@@ -474,6 +485,8 @@ class ReplayRuntime
     ReplayPresentation m_visualPresentation;
     ReplayAuthoring m_authoring;
     ReplayPrediction m_predictionOwner;
+    SceneLifecycleGenerationObserver m_sceneClearObserver;
+    SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

@@ -97,16 +97,13 @@ class SceneLifecycleGenerationObserver
     uint64_t m_lastAppliedGeneration = 0;
 };
 
-// Concept: lifecycle receipts make remaining synchronous cross-owner work
-// auditable while OF2 migrates those owners to generation observation.
+// Concept: lifecycle receipts keep the remaining synchronous diagnostics,
+// render-device, and simulation calls auditable until OF3 evaluates them.
 enum class SceneLifecycleConsumer : uint32_t
 {
     Diagnostics = 1u << 0,
     RenderDevice = 1u << 1,
     Simulation = 1u << 2,
-    Tools = 1u << 4,
-    Interaction = 1u << 5,
-    Replay = 1u << 6,
 };
 using SceneLifecycleConsumerMask = uint32_t;
 
@@ -124,12 +121,8 @@ constexpr SceneLifecycleConsumerMask SceneLifecycleRequiredConsumers( SceneRunti
                SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
     case SceneRuntimeLifecycleEvent::AfterSceneCleared:
         return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
-               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+               SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
     case SceneRuntimeLifecycleEvent::AfterSceneActivated:
-        return SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
     case SceneRuntimeLifecycleEvent::BeforeScenePopulate:
     case SceneRuntimeLifecycleEvent::AfterScenePopulate:
     case SceneRuntimeLifecycleEvent::None:

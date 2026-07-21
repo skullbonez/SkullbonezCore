@@ -43,10 +43,12 @@ Related:
 #include "SceneRuntimeCoordinator.h"
 #include "SceneRuntimeUiOptions.h"
 #include "SceneWorld.h"
+#include "../RunCameraState.h"
 #include "../RunDebugState.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -83,6 +85,7 @@ struct SceneNavigationModel;
 } // namespace UI
 namespace Runtime
 {
+class AttachedCameraController;
 class DiagnosticsRuntime;
 class InputRouter;
 class ReplayRuntime;
@@ -136,12 +139,11 @@ struct SceneDefaultsSaveView
     const RunSceneUIOverrideState& uiOverrides;
 };
 
-// Concept: scene loading borrows four phase-oriented values instead of
-// accepting the process shell's complete owner graph as one flat call. The OF1
-// pilot carries 16 concrete owners (6 policy, 2 host, 5 interaction, and 3
-// presentation); time, navigation, and debug presentation cross as detached
-// values. Window, UI, validation, timer, and overlay effects return through
-// SceneLoadConsumerOutputs and no participant or output is retained.
+// Concept: scene loading borrows phase-oriented transaction inputs instead of
+// accepting the process shell's complete owner graph. OF2 removes every
+// interaction and Replay owner from Load: camera, navigation, time, and debug
+// presentation cross as detached values. Reactive owners consume the lifecycle
+// packet after the transaction and no participant or output is retained.
 struct SceneLoadPolicyInputs
 {
     SkullbonezCore::Core::EngineConfig& config;
@@ -161,37 +163,51 @@ struct SceneLoadHostParticipants
 
 struct SceneLoadInteractionParticipants
 {
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    RunCameraState& camera;
-    AttachedCameraState& attachedCamera;
-    RuntimeTools& runtimeTools;
+    RunCameraState camera;
     SceneLoadNavigationState navigation;
 };
 
 struct SceneLoadPresentationParticipants
 {
-    ReplayRuntime& replayRuntime;
     RunDebugState debug;
     const RuntimeRenderBackendView& renderBackendView;
     RuntimeRenderer& renderer;
 };
 
+struct SceneLoadCompletedWorldChange
+{
+    float previousGravity = 0.0f;
+    float previousFluidHeight = 0.0f;
+    float previousFluidDensity = 0.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
+};
+
 struct SceneLoadConsumerOutputs
 {
     // Value effects are accumulated synchronously and consumed immediately by
-    // the five owners intentionally excluded from the load participant graph.
+    // the reactive owners intentionally excluded from the load participant graph.
     SceneUiActivation uiActivation;
     SceneAutomationGateConfiguration automationGates;
     SceneLoadNavigationState navigation;
     SceneLifecyclePacket lifecycle;
     RunDebugState presentation;
+    RunCameraState camera;
+    std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
+    std::size_t completedWorldChangeCount = 0;
+    SceneRequestBatch completedRequests;
+    int sceneObjectCapacity = 0;
+    uint32_t generatedObjectTypeOverride = 0;
     char windowTitle[256] = {};
     bool hasWindowTitle = false;
     bool applyAutomationGates = false;
     bool applyNavigation = false;
     bool refreshSceneBrowser = false;
     bool resumeGraphicsStress = false;
+    bool enterInspectAfterActivation = false;
+    bool hideCursorAfterActivation = false;
+    bool markEditorHistoryClean = false;
 
     void ResetForLoad();
 };
@@ -226,7 +242,14 @@ void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                     RuntimeValidationHarness& validationHarness,
                                     const RunLaunchOptions& launchOptions,
                                     RunTimerState& timers,
-                                    RuntimeOverlayDiagnostics& overlays );
+                                    RuntimeOverlayDiagnostics& overlays,
+                                    SceneController& sceneController,
+                                    InputRouter& inputRouter,
+                                    RuntimeInteractionController& interaction,
+                                    RunCameraState& camera,
+                                    AttachedCameraController& attachedCamera,
+                                    RuntimeTools& runtimeTools,
+                                    ReplayRuntime& replayRuntime );
 
 class SceneController
 {

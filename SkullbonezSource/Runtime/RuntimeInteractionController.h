@@ -18,6 +18,8 @@ Glossary:
     when the active camera or tool would normally keep simulation running.
   World-settings command: Input-owned value in domain units consumed by the
     concrete world owner after routing completes.
+  Lifecycle generation: Scene-load identity that makes clear and activation
+    workspace reactions idempotent.
 
 Invariants:
   - RuntimeInteractionTransition is a diff record; callers must compare previous
@@ -30,6 +32,8 @@ Invariants:
   - Published world commands contain no physical key names or device handles.
   - BuildFramePolicy resolves all precedence; frame sequencing must not mutate
     the returned physics or camera decisions.
+  - Scene clear resets gestures before activation may enter Inspect, and each
+    action runs at most once per generation.
 
 Related:
   - SkullbonezSource/Runtime/RuntimeInteractionController.cpp
@@ -40,6 +44,7 @@ Related:
 #pragma once
 
 #include "../World/FluidSurfaceAdjustment.h"
+#include "Scene/SceneLifecycle.h"
 
 #include "RuntimeCameraMode.h"
 #include "../Physics/PhysicsHandles.h"
@@ -283,6 +288,7 @@ class RuntimeInteractionController
                                 bool mouseLookOwnsCursor );
     void CancelCameraLookGesture();
     RuntimeInteractionTransition ResetForScene( InteractionExitReason reason );
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, bool enterInspectAfterActivation );
 
     RuntimeInteractionFramePolicy BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const;
 
@@ -308,6 +314,8 @@ class RuntimeInteractionController
     PhysicsAdvanceState m_physicsAdvance = PhysicsAdvanceState::Running;
     RuntimeInteractionGesture m_gesture;
     RuntimePointerCaptureOwner m_pointerCapture = RuntimePointerCaptureOwner::None;
+    SceneLifecycleGenerationObserver m_sceneResetObserver;
+    SceneLifecycleGenerationObserver m_sceneActivationObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

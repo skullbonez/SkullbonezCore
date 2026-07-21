@@ -437,13 +437,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                               m_timers.simulationTimer.GetTotalTime() },
                        SceneLoadHostParticipants{ m_diagnosticsRuntime, m_simulation },
                        SceneLoadInteractionParticipants{
-                           m_inputRouter,
-                           m_interaction,
                            m_camera,
-                           m_attachedCamera.State(),
-                           m_runtimeTools,
                            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) },
-                       SceneLoadPresentationParticipants{ m_replayRuntime, m_debug, m_renderBackendView, m_renderer },
+                       SceneLoadPresentationParticipants{ m_debug, m_renderBackendView, m_renderer },
                        sceneLoadOutputs )
                 .ok;
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
@@ -452,7 +448,14 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                        m_validationHarness,
                                        m_launchOptions,
                                        m_timers,
-                                       sceneOwners.overlays );
+                                       sceneOwners.overlays,
+                                       m_sceneController,
+                                       m_inputRouter,
+                                       m_interaction,
+                                       m_camera,
+                                       m_attachedCamera,
+                                       m_runtimeTools,
+                                       m_replayRuntime );
         presentationEdit.Refresh();
         return loaded;
     };
@@ -1130,16 +1133,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  m_timers.simulationTimer.GetTotalTime() };
     const SceneLoadHostParticipants sceneLoadHost{ m_diagnosticsRuntime, m_simulation };
     const SceneLoadInteractionParticipants sceneLoadInteraction{
-        m_inputRouter,
-        m_interaction,
         m_camera,
-        m_attachedCamera.State(),
-        m_runtimeTools,
         CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
-    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_replayRuntime,
-                                                                   m_debug,
-                                                                   m_renderBackendView,
-                                                                   m_renderer };
+    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_debug, m_renderBackendView, m_renderer };
     SceneLoadConsumerOutputs sceneLoadOutputs;
     const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
                                                                   sceneLoadHost,
@@ -1152,7 +1148,14 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                    m_validationHarness,
                                    m_launchOptions,
                                    m_timers,
-                                   sceneOwners.overlays );
+                                   sceneOwners.overlays,
+                                   m_sceneController,
+                                   m_inputRouter,
+                                   m_interaction,
+                                   m_camera,
+                                   m_attachedCamera,
+                                   m_runtimeTools,
+                                   m_replayRuntime );
     presentationEdit.Refresh();
     if ( processedCapture || processedDefaults || processedScene )
     {

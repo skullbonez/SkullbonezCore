@@ -34,6 +34,8 @@ Invariants:
     reports empty, stale, truncated, and capacity-limited states separately.
   - Preference migration may retain bounded filters but restores the current
     panel mask and topology fingerprint.
+  - Clear and activation observers advance independently and consume each
+    lifecycle generation at most once.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
@@ -96,22 +98,19 @@ TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
     const SceneLifecycleConsumerMask beforeUnload = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
                                                     SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
     const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeScenePopulate ) == 0 );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterScenePopulate ) == 0 );
-    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneActivated ) ==
-           SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay ) );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneActivated ) == 0 );
 }
 
 TEST_CASE( "Scene lifecycle generations publish failures and repeated scene loads exactly once" )
 {
     SceneRuntime scene( std::vector<std::string>{ "alpha.scene.json" } );
     SceneLifecycleGenerationObserver clearObserver;
+    SceneLifecycleGenerationObserver activationObserver;
 
     // A failure before BeginLoad crossed no mutation boundary and publishes no
     // generation for reactive owners to consume.
@@ -136,6 +135,16 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
+    CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
     // Same index and unchanged entity count are still a distinct load attempt.
     scene.BeginLoadAttempt( 0, {} );
@@ -146,6 +155,8 @@ TEST_CASE( "Scene lifecycle generations publish failures and repeated scene load
     scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared,
                                 SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
     CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
     CHECK( clearObserver.LastAppliedGeneration() == 2 );
 }
 

@@ -25,6 +25,8 @@ Glossary:
     remembered without being reported as fresh presses.
   Transition cleanup: Ordered cancellation sent to the replay/tool owners before
     a new workspace or world-input owner begins consuming gestures.
+  Lifecycle activation: Completed scene-load phase that can publish a new
+    cursor intent and request hardware mouse-delta cleanup.
 
 Invariants:
   - BeginFrame is called once before any RoutePhase call for a device snapshot.
@@ -44,6 +46,7 @@ Invariants:
     pre-router startup state.
   - Transition cleanup borrows concrete owners synchronously and never stores
     their references or absorbs their domain state.
+  - A scene generation publishes its activation cursor intent at most once.
 
 Related:
   - InputController.h defines the existing action and context vocabulary.
@@ -53,6 +56,7 @@ Related:
 #pragma once
 
 #include "../Core/PlatformWin32.h"
+#include "Scene/SceneLifecycle.h"
 
 #include "InputController.Bindings.h"
 #include "Replay/ReplayEventCommand.h"
@@ -485,6 +489,7 @@ class InputRouter
     // edges, not in a consumer's compatibility input context.
     bool IsQuickRepeat( RuntimeInputAction action, double nowSeconds, double intervalSeconds ) const;
     void RecordTap( RuntimeInputAction action, double nowSeconds );
+    bool ObserveSceneLifecycle( const SceneLifecyclePacket& packet, bool hideCursorAfterActivation );
 
     static bool ContextsSatisfied( RuntimeInputContextMask requiredContexts, RuntimeInputContextMask activeContexts );
     static InputActionPhase PhaseForBinding( const RuntimeInputKeyBinding& binding );
@@ -523,6 +528,7 @@ class InputRouter
     bool m_pointerPresentationCommitted = false;
     bool m_hasFrame = false;
     bool m_appFocused = false;
+    SceneLifecycleGenerationObserver m_sceneActivationObserver;
     bool m_frameFocused = false;
     bool m_keyboardCaptured = false;
     bool m_mouseCaptured = false;

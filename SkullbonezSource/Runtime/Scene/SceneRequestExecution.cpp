@@ -5,8 +5,8 @@ Purpose:
 
 Summary:
   SceneController accepts owner-specific requests during input, then drains the
-  batch once with explicit cold-load dependencies. Replay records only work
-  that the concrete scene operation accepted and completed successfully.
+  batch once with explicit cold-load dependencies. Completed request values
+  return to the Replay owner only after lifecycle reactions finish.
 
 Glossary:
   Scene request batch: Fixed owner queue drained once at the post-input frame
@@ -21,8 +21,8 @@ Glossary:
 Invariants:
   - Requests after the first accepted transition are counted as rejected and
     cannot mutate the replacement scene.
-  - Replay receives only successfully completed operations and stable wire
-    codes; raw SceneRequestType ordinals are never serialized.
+  - Only successfully completed requests enter the returned fixed batch; Replay
+    converts their domain values to stable wire codes outside the transaction.
 
 Related:
   - Agentic/Reference/runtime-reference.md
@@ -30,9 +30,9 @@ Related:
 */
 #include "SceneController.h"
 #include "../RuntimeValidationHarness.h"
-#include "../InputFrame.h"
 #include "../Tools/RuntimeTools.h"
 #include "SceneRuntimeCreate.h"
+#include "../../Core/FatalError.h"
 #include "../../UI/UI.h"
 
 #include <cstddef>
@@ -53,6 +53,7 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
                                       const SceneLoadPresentationParticipants& presentation,
                                       SceneLoadConsumerOutputs& consumerOutputs )
 {
+    SceneRequestBatch completedRequests;
     SceneController& m_sceneController = *this;
     const auto executeSceneLoadRequest = [&]( const SceneLoadRequest& request )
     {
@@ -74,31 +75,22 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
     {
         const SceneRequest& request = batch.requests[requestIndex];
         bool accepted = false;
-        ReplayOwnerEventCode eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
-        int eventIndex = request.index;
-        const char* eventText = nullptr;
-
         switch ( request.type )
         {
         case SceneRequestType::LoadBrowserIndex:
-            eventCode = ReplayOwnerEventCode::SceneLoadBrowserIndex;
             accepted = executeSceneLoadRequest(
                 interaction.navigation.LoadSceneFromBrowserIndex( request.index, m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::LoadDemoScene:
-            eventCode = ReplayOwnerEventCode::SceneLoadDemo;
             accepted = executeSceneLoadRequest( interaction.navigation.LoadDemoScene( m_sceneController.Runtime() ) );
             break;
         case SceneRequestType::ResetCurrentScene:
-            eventCode = ReplayOwnerEventCode::SceneReset;
             accepted = executeSceneLoadRequest( m_sceneController.ResetCurrentScene( request.preserveUIState,
                                                                                      request.suppressExitOnComplete,
                                                                                      request.preserveRuntimeState ) );
             break;
         case SceneRequestType::CreateScene:
         {
-            eventCode = ReplayOwnerEventCode::SceneCreate;
-            eventText = request.text;
             const SceneLoadRequest createRequest =
                 CreateSceneFromUI( SceneRuntimeCreateContext{ m_sceneController }, request.text );
             accepted = executeSceneLoadRequest( createRequest );
@@ -109,31 +101,30 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
             break;
         }
         case SceneRequestType::SaveCurrentDefaults:
-            eventCode = ReplayOwnerEventCode::SceneSaveDefaults;
+        {
+            const RunDebugState& presentationState =
+                ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs );
+            const SceneLoadNavigationState& currentNavigation =
+                SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
+            const SkullbonezCore::Core::SbResult saveResult =
+                m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentationState,
+                                                                              presentation.renderer,
+                                                                              interaction.camera,
+                                                                              currentNavigation.overrides } );
+            if ( !saveResult.ok )
             {
-                const RunDebugState& presentationState =
-                    ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs );
-                const SceneLoadNavigationState& currentNavigation =
-                    SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
-                const SkullbonezCore::Core::SbResult saveResult =
-                    m_sceneController.SaveCurrentDefaults( SceneDefaultsSaveView{ presentationState,
-                                                                                  presentation.renderer,
-                                                                                  interaction.camera,
-                                                                                  currentNavigation.overrides } );
-                if ( !saveResult.ok )
-                {
-                    std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
-                    std::fflush( stderr );
-                }
-                accepted = saveResult.ok;
-                if ( accepted )
-                {
-                    // Invariant: only the completed authored write advances
-                    // the editor's clean cursor; a failed Lane-R save remains dirty.
-                    interaction.runtimeTools.Editor().history.MarkClean();
-                }
-                break;
+                std::fprintf( stderr, "[%s] %s\n", saveResult.error.owner, saveResult.error.message );
+                std::fflush( stderr );
             }
+            accepted = saveResult.ok;
+            if ( accepted )
+            {
+                // Invariant: only the completed authored write advances
+                // the editor's clean cursor; a failed Lane-R save remains dirty.
+                consumerOutputs.markEditorHistoryClean = true;
+            }
+            break;
+        }
         }
 
         // Invariant: replay observes completed owner work. Rejected browser
@@ -141,17 +132,11 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         // no serialized action that a restore could mistake for applied state.
         if ( accepted )
         {
-            presentation.replayRuntime.SubmitEvent( ReplayEventCommandOperations::BuildCommand(
-                ReplayEventKind::OwnerAction,
-                0,
-                true,
-                ReplaySceneRequestFlags( request ),
-                static_cast<int32_t>( eventCode ),
-                eventIndex,
-                0,
-                0,
-                0,
-                eventText ? eventText : ReplayOwnerEventName( eventCode ) ) );
+            if ( completedRequests.count >= SCENE_REQUEST_QUEUE_CAPACITY )
+            {
+                SB_FATAL( "Runtime/SceneController", "Fixed completed scene-request capacity exhausted." );
+            }
+            completedRequests.requests[completedRequests.count++] = request;
         }
         if ( !SceneRequestBatchContinuesAfter( request.type, accepted ) )
         {
@@ -161,5 +146,6 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
             break;
         }
     }
+    consumerOutputs.completedRequests = completedRequests;
     return batch.count > 0;
 }

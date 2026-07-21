@@ -18,12 +18,16 @@ Glossary:
     models and captures one screenshot per target at a fixed interval.
   Director playback: Presentation-only shot-list state that times authored
     camera/style phases without mutating deterministic physics.
+  Detached scene camera: Transaction-owned copy populated during scene load and
+    committed to this owner once the corresponding clear phase is observed.
 
 Invariants:
   - This shelf stores camera intent and helper timers, not authoritative camera
     pose; pose writes still go through CameraCollection.
   - `input` is frame-local memory captured by InputController and must not be
     used as a long-lived hardware snapshot.
+  - Applying a detached scene camera preserves the owner's lifecycle observer,
+    so repeated sampling cannot replay the same generation.
 
 Related:
   - SkullbonezSource/Runtime/Run.h
@@ -39,6 +43,7 @@ Related:
 #include "DemoDirector.h"
 #include "Input.h"
 #include "RuntimeCameraMode.h"
+#include "Scene/SceneLifecycle.h"
 #include "../Physics/PhysicsHandles.h"
 
 namespace SkullbonezCore
@@ -105,6 +110,20 @@ struct RunCameraState
         cameraTime = 0.0f;
     }
 
+    // Applies the detached camera policy emitted by a load once after clearing.
+    // The observer itself remains owner-local and is never copied back from the
+    // transaction value.
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunCameraState& sceneState )
+    {
+        if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+        {
+            return;
+        }
+        const SceneLifecycleGenerationObserver appliedObserver = m_sceneLifecycleObserver;
+        *this = sceneState;
+        m_sceneLifecycleObserver = appliedObserver;
+    }
+
     // Lifetime: each camera tick borrows SceneWorld once and derives Cameras and
     // Terrain locally, keeping subowner identity inside this cohesive boundary.
     void UpdateViewingOrientation( RunTimerState& timers,
@@ -124,6 +143,9 @@ struct RunCameraState
                        bool sceneMode,
                        float cameraDt,
                        float presentationAlpha );
+
+  private:
+    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 
 } // namespace Runtime
