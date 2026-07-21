@@ -1329,8 +1329,7 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     afterActivationConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
 
     const SkullbonezCore::Core::SbResult rayTracingResult =
-        renderer.InitialiseSceneRayTracing( renderBackendView,
-                                            SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
+        renderer.InitialiseSceneRayTracing( SkullbonezCore::Core::ActiveSceneObjectCapacity( config ) );
     if ( !rayTracingResult.ok )
     {
         m_lastSceneLoadResult = rayTracingResult;

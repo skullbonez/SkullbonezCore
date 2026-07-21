@@ -48,6 +48,7 @@ Related:
 #include "Rendering/DX12/RenderDeviceDX12.h"
 #include "Rendering/DX12/Dx12FrameOwner.h"
 #include "Rendering/DX12/Dx12TextureRegistry.h"
+#include "Rendering/DX12/RenderBackendDX12.h"
 #include "Rendering/ProfilerOverlayPresenter.h"
 #include "Rendering/RenderGpuTimingOwner.h"
 #include "Rendering/RenderGraph.h"
@@ -80,6 +81,12 @@ static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Cor
                "Runtime rendering must own one explicit concrete GPU timing boundary." );
 static_assert( !std::is_polymorphic_v<RenderGpuTimingOwner>,
                "GPU timing stays a concrete owner, not a new renderer callback interface." );
+static_assert( !std::is_polymorphic_v<RenderBackendDX12>,
+               "The DX12 composition root must not regrow a polymorphic renderer facade." );
+static_assert( !std::is_polymorphic_v<Dx12FrameOwner> && !std::is_polymorphic_v<Dx12GraphTransientPool> &&
+                   !std::is_polymorphic_v<Dx12ResourceBuilder> && !std::is_polymorphic_v<Dx12TextureOwner> &&
+                   !std::is_polymorphic_v<Dx12GeometryOwner> && !std::is_polymorphic_v<Dx12Diagnostics>,
+               "Concrete DX12 owners must remain non-polymorphic capability boundaries." );
 static_assert( std::is_empty_v<ProfilerOverlayPresenter>,
                "Profiler overlay presentation must not retain Core frame or command borrows." );
 static_assert( std::is_same_v<decltype( SkullbonezCore::Core::Profiler::ProfilerFrameView::markers ),

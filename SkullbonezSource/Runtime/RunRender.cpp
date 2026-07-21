@@ -165,8 +165,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // construction. Steady rendering receives no allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
     const bool replaySubmissionRendered =
-        m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
-                                                                         renderModels,
+        m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ renderModels,
                                                                          *m_operatorUi,
                                                                          framePolicy,
                                                                          replayOverlay,

@@ -326,6 +326,7 @@ struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
     SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
     SkullbonezCore::Text::TextBatch* textBatch = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
@@ -649,13 +650,13 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                  UiTextGraphCallbackData& data )
 {
-    if ( !data.uiTextPass || !data.renderDiagnostics || !data.textBatch || !data.uiRender || !data.state ||
-         !data.timers || !data.ui || !data.models || !data.diagnosticsRuntime || !data.replayHud ||
+    if ( !data.uiTextPass || !data.renderDiagnostics || !data.renderGraph || !data.textBatch || !data.uiRender ||
+         !data.state || !data.timers || !data.ui || !data.models || !data.diagnosticsRuntime || !data.replayHud ||
          !data.replayOverlayContext || !data.cinematic || !data.uiRender->IsReady() )
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
-    (void)ExecuteRequiredGraphTransitions( context, data.uiRender->graph, data.compiled, data.expectedTransitionCount );
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
     data.uiTextPass->Render( { *data.state,
                                *data.timers,
                                *data.ui,
@@ -1576,11 +1577,11 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     double secondsPerFrame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    if ( !uiRender.graph )
+    if ( !m_renderGraph )
     {
         SB_FATAL( "RunRender", "UiTextPass graph has no render command context." );
     }
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *uiRender.graph );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *m_renderGraph );
 
     const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( uiTextPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
@@ -1590,6 +1591,7 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
+    callbackData.renderGraph = m_renderGraph;
     callbackData.profiler = m_profiler;
     callbackData.textBatch = &m_textBatch;
     callbackData.uiRender = &profiledUiRender;
@@ -1644,15 +1646,15 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.sceneKineticEnergy = services.models.sceneKineticEnergy;
     frame.assets = &services.assets;
     frame.textures = &services.textures;
-    frame.renderResources = &services.renderResources;
-    frame.renderTextures = &services.renderTextures;
-    frame.renderGeometry = &services.renderGeometry;
-    frame.renderFrame = &services.renderFrame;
-    frame.renderGraph = &services.renderGraph;
-    frame.renderDiagnostics = &services.renderDiagnostics;
+    frame.renderResources = m_renderResources;
+    frame.renderTextures = m_renderTextures;
+    frame.renderGeometry = m_renderGeometry;
+    frame.renderFrame = m_renderFrame;
+    frame.renderGraph = m_renderGraph;
+    frame.renderDiagnostics = m_renderDiagnostics;
     frame.renderGpuTiming = &m_renderGpuTiming;
     frame.primitiveBatches = &PrimitiveBatches();
-    frame.renderRayTracing = services.renderRayTracing;
+    frame.renderRayTracing = m_renderRayTracing;
     frame.windowWidth = (std::max)( 1, m_window.ClientWidth() );
     frame.windowHeight = (std::max)( 1, m_window.ClientHeight() );
 
@@ -1695,23 +1697,34 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
     const RuntimeRenderServices& services = renderInputs.services;
     return RenderResourceContext{ cinematicRender,
                                   services.assets,
-                                  services.renderResources,
-                                  services.renderTextures,
-                                  services.renderGeometry,
+                                  *m_renderResources,
+                                  *m_renderTextures,
+                                  *m_renderGeometry,
                                   (std::max)( 1, m_window.ClientWidth() ),
                                   (std::max)( 1, m_window.ClientHeight() ) };
 }
 
 
-RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene )
-    : m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ), m_cameras( world.cameras ),
-      m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ), m_world( world.worldEnvironment ),
-      m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
+RuntimeRenderer::RuntimeRenderer( Rendering::Dx12RenderDevice* renderDevice,
+                                  Rendering::Dx12FrameOwner* renderFrame,
+                                  Rendering::Dx12GraphTransientPool* renderGraph,
+                                  Rendering::Dx12ResourceBuilder* renderResources,
+                                  Rendering::Dx12TextureOwner* renderTextures,
+                                  Rendering::Dx12GeometryOwner* renderGeometry,
+                                  Rendering::Dx12Diagnostics* renderDiagnostics,
+                                  Rendering::Dx12RaytracingOwner* renderRayTracing,
+                                  const RenderWorldView& world,
+                                  RunSceneState& scene )
+    : m_renderFrame( renderFrame ), m_renderGraph( renderGraph ), m_renderResources( renderResources ),
+      m_renderTextures( renderTextures ), m_renderGeometry( renderGeometry ), m_renderDiagnostics( renderDiagnostics ),
+      m_renderRayTracing( renderRayTracing ), m_lifecycleLog( renderDevice, scene ), m_assets( world.assets ),
+      m_cameras( world.cameras ), m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ),
+      m_world( world.worldEnvironment ),
+      m_primitiveBatches( std::in_place, renderResources, renderTextures, renderGeometry ),
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
-      m_renderGpuTiming( world.profiler, backend.renderDiagnostics ),
-      m_fullscreenQuadPass( m_passResources.fullscreen ),
+      m_renderGpuTiming( world.profiler, renderDiagnostics ), m_fullscreenQuadPass( m_passResources.fullscreen ),
       m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config, m_profiler ),
       m_sceneTargetPass( m_passResources.cinematicScene, m_profiler ),
       m_shadowPass( m_passResources.shadows, m_terrain, m_config, m_lifecycleLog, m_profiler ),
@@ -1759,11 +1772,10 @@ void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
 }
 
 
-SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend,
-                                                                           int modelCapacity )
+SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( int modelCapacity )
 {
-    Rendering::Dx12RaytracingOwner* rayTracing = backend.raytracing;
-    Rendering::Dx12Diagnostics* renderDiagnostics = backend.renderDiagnostics;
+    Rendering::Dx12RaytracingOwner* rayTracing = m_renderRayTracing;
+    Rendering::Dx12Diagnostics* renderDiagnostics = m_renderDiagnostics;
     const bool supported =
         renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
     if ( !supported )
@@ -1774,18 +1786,18 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
     Rendering::PrimitiveMeshGeometryView sphereGeometry = PrimitiveBatches().SphereGeometry();
     if ( sphereGeometry.instancedMeshHandle == 0 )
     {
-        if ( !backend.renderResources || !backend.renderTextures || !backend.renderGeometry )
+        if ( !m_renderResources || !m_renderTextures || !m_renderGeometry )
         {
             // Lane F: capability publication without the resource facets needed
             // to build the renderer-owned primitive mesh is invalid backend wiring.
             SB_FATAL( "RuntimeRenderer",
                       "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
-                      backend.renderResources ? 1 : 0,
-                      backend.renderGeometry ? 1 : 0 );
+                      m_renderResources ? 1 : 0,
+                      m_renderGeometry ? 1 : 0 );
         }
-        const PrimitiveRenderContext primitiveContext{ *backend.renderResources,
-                                                       *backend.renderTextures,
-                                                       *backend.renderGeometry,
+        const PrimitiveRenderContext primitiveContext{ *m_renderResources,
+                                                       *m_renderTextures,
+                                                       *m_renderGeometry,
                                                        *renderDiagnostics,
                                                        m_assets,
                                                        m_config,
@@ -1917,7 +1929,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // Invariant: Run opens graph ownership before choosing a world or text-only
     // path. RenderFrame may only append to that active frame and may never
     // replace the graph after earlier frame work has been recorded.
-    if ( m_frameGraphFinalized || m_frameGraphRenderGraph != &renderInputs.services.renderGraph )
+    if ( m_frameGraphFinalized || m_frameGraphRenderGraph != m_renderGraph )
     {
         SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
     }
@@ -1925,7 +1937,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const RuntimeRenderServices& services = renderInputs.services;
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     const ReplayRenderFrameView& replayFrame = services.replayFrame;
-    m_uiTextRayTracing = services.renderRayTracing;
+    m_uiTextRayTracing = m_renderRayTracing;
     const bool cinematicRender = services.cinematicEnabled;
     const SkullbonezCore::Core::CinematicRenderConfig& renderConfig = services.cinematic;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
@@ -1933,7 +1945,9 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
     const SkullbonezCore::Core::CinematicRenderConfig& activeShadowStyle =
         cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && services.renderReady && !policy.textOnly;
+    const bool renderReady = m_renderFrame && m_renderGraph && m_renderResources && m_renderTextures &&
+                             m_renderGeometry && m_renderDiagnostics;
+    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && renderReady && !policy.textOnly;
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
     {
@@ -1965,7 +1979,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         // If the cinematic target could not be created, this same graph-owned
         // frame edge clears the fallback backbuffer instead of reviving a
         // direct backend transition path.
-        ExecuteBackbufferAcquireThroughRenderGraph( { services.renderGraph, services.renderFrame, true } );
+        ExecuteBackbufferAcquireThroughRenderGraph( { *m_renderGraph, *m_renderFrame, true } );
     }
 
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = frame.cinematic;
@@ -1974,10 +1988,10 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     if ( activeShadowConfig )
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-        PrimitiveRenderContext primitiveContext{ services.renderResources,
-                                                 services.renderTextures,
-                                                 services.renderGeometry,
-                                                 services.renderDiagnostics,
+        PrimitiveRenderContext primitiveContext{ *m_renderResources,
+                                                 *m_renderTextures,
+                                                 *m_renderGeometry,
+                                                 *m_renderDiagnostics,
                                                  services.assets,
                                                  m_config,
                                                  PrimitiveBatches() };
@@ -2016,7 +2030,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         PROFILE_GPU_BEGIN( &m_renderGpuTiming, "Frame/Render/Skybox" );
         {
-            DRAW_CALL_TRACE_SCOPE( services.renderDiagnostics, "Frame/Render/Skybox" );
+            DRAW_CALL_TRACE_SCOPE( *m_renderDiagnostics, "Frame/Render/Skybox" );
             ExecuteSkyboxThroughRenderGraph( frame );
         }
         PROFILE_GPU_END( &m_renderGpuTiming, "Frame/Render/Skybox" );
@@ -2397,13 +2411,16 @@ void RuntimeRenderer::BeginFrameGraph( Rendering::Dx12GraphTransientPool& render
 }
 
 
-void RuntimeRenderer::PrepareUiFrameTarget( Rendering::Dx12GraphTransientPool& renderGraph,
-                                            Rendering::Dx12FrameOwner& renderFrame )
+void RuntimeRenderer::PrepareUiFrameTarget()
 {
+    if ( !m_renderGraph || !m_renderFrame )
+    {
+        SB_FATAL( "Runtime/UI", "Operator editor frame has no render command context." );
+    }
     // Text-only and ImGui-only frames do not necessarily execute a world or
     // tonemap pass. This graph callback is their normal backbuffer acquisition;
     // on ordinary frames it validates the already-render-target state.
-    ExecuteBackbufferAcquireThroughRenderGraph( { renderGraph, renderFrame, false } );
+    ExecuteBackbufferAcquireThroughRenderGraph( { *m_renderGraph, *m_renderFrame, false } );
 }
 
 
@@ -2575,20 +2592,13 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
         return false;
     }
 
-    SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame = context.backend.renderFrame;
-    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = context.backend.renderGraph;
-    SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources = context.backend.renderResources;
-    SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = context.backend.renderTextures;
-    SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = context.backend.renderGeometry;
-    SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = context.backend.renderDiagnostics;
-    const bool renderReady = renderFrame != nullptr && renderGraph != nullptr && renderResources != nullptr &&
-                             renderTextures != nullptr && renderGeometry != nullptr && renderDiagnostics != nullptr;
+    const bool renderReady = m_renderFrame != nullptr && m_renderGraph != nullptr && m_renderResources != nullptr &&
+                             m_renderTextures != nullptr && m_renderGeometry != nullptr &&
+                             m_renderDiagnostics != nullptr;
     if ( !renderReady )
     {
         return false;
     }
-    SkullbonezCore::Rendering::Dx12RaytracingOwner* renderRayTracing = context.backend.raytracing;
-
     const auto gradeNow = std::chrono::steady_clock::now();
     float gradeDtSeconds = 0.0f;
     if ( m_consequenceGradeLastTick.time_since_epoch().count() != 0 )
@@ -2625,13 +2635,5 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                                                 .framePolicy = policy,
                                                                 .skyBox = m_skyBox.get(),
                                                                 .cinematic = frameCinematic,
-                                                                .cinematicEnabled = cinematicRender,
-                                                                .renderFrame = *renderFrame,
-                                                                .renderGraph = *renderGraph,
-                                                                .renderResources = *renderResources,
-                                                                .renderTextures = *renderTextures,
-                                                                .renderGeometry = *renderGeometry,
-                                                                .renderDiagnostics = *renderDiagnostics,
-                                                                .renderRayTracing = renderRayTracing,
-                                                                .renderReady = renderReady } } );
+                                                                .cinematicEnabled = cinematicRender } } );
 }

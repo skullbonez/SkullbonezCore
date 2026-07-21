@@ -6,9 +6,9 @@ Purpose:
 
 Summary:
   Dx12GeometryOwner retains geometry handles and warmed overlay resources.
-  RenderBackendDX12 establishes a valid command epoch and lends per-operation
-  values plus the concrete diagnostics owner; geometry records draw evidence
-  without retaining the coordinator or raw diagnostic fields.
+  Backend startup binds stable device, frame, pipeline, and diagnostics owners;
+  later draws carry only operation values. Geometry records draw evidence
+  without retaining the aggregate backend or raw diagnostic fields.
 
 Glossary:
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
@@ -30,7 +30,7 @@ Invariants:
   - Dynamic, transient, and instanced draws pass their raster recipe directly
     into PSO preparation; geometry owners retain no ambient raster state.
   - GeometryOwner stores no backend pointer, callback, or polymorphic service;
-    every frame dependency is explicit at the operation boundary.
+    its startup-bound owner borrows remain valid for the device lifetime.
   - One accepted native geometry draw records one row through Dx12Diagnostics.
 
 Related:

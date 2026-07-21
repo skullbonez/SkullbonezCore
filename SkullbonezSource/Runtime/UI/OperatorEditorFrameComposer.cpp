@@ -531,11 +531,11 @@ void Render( RuntimeFrameHostView& host,
                                        replayOverlay.shouldRenderScrubber,
                                        replayRuntime.BuildInputView().hasPathTarget };
 
-    if ( !uiRender.graph || !uiRender.frame || !uiRender.textures || !uiRender.geometry )
+    if ( !uiRender.textures || !uiRender.geometry )
     {
-        SB_FATAL( "Runtime/UI", "Operator editor frame has no render command context." );
+        SB_FATAL( "Runtime/UI", "Operator editor frame has no UI render resources." );
     }
-    renderer.PrepareUiFrameTarget( *uiRender.graph, *uiRender.frame );
+    renderer.PrepareUiFrameTarget();
 
     if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
     {

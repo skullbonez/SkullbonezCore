@@ -131,8 +131,6 @@ struct UIRenderContext
     // never needs the wide renderer facade.
     Assets::AssetSystem* assets = nullptr;
     Rendering::Dx12ResourceBuilder* resources = nullptr;
-    Rendering::Dx12FrameOwner* frame = nullptr;
-    Rendering::Dx12GraphTransientPool* graph = nullptr;
     Rendering::Dx12TextureOwner* textures = nullptr;
     Rendering::Dx12GeometryOwner* geometry = nullptr;
     Rendering::Dx12Diagnostics* diagnostics = nullptr;
@@ -143,8 +141,8 @@ struct UIRenderContext
 
     bool IsReady() const
     {
-        return assets != nullptr && resources != nullptr && frame != nullptr && graph != nullptr &&
-               textures != nullptr && geometry != nullptr && diagnostics != nullptr;
+        return assets != nullptr && resources != nullptr && textures != nullptr && geometry != nullptr &&
+               diagnostics != nullptr;
     }
 };
 struct UIRenderTargetPreviewResource

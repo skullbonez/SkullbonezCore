@@ -50,7 +50,7 @@ class RuntimeRenderer;
 struct SceneRuntimeLoadBeginResult
 {
     // Lane R: a failed GPU drain leaves shouldLoad false so SceneController can
-    // report failure before it or any concrete lifecycle consumer mutates.
+    // report failure before it or any frame/resource consumer mutates.
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
     bool shouldLoad = false;
     bool makeInteractive = false;

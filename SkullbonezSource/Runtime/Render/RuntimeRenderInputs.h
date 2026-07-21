@@ -171,24 +171,6 @@ struct RuntimeRenderServices
     // snapshot instead of asking Run to reopen scene/config state.
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
     bool cinematicEnabled = false;
-    // Lifetime: concrete frame and graph owners are borrowed for this render
-    // call; pass code must not store them or recover the backend composition.
-    Rendering::Dx12FrameOwner& renderFrame;
-    Rendering::Dx12GraphTransientPool& renderGraph;
-    // Lifetime: this cold builder is valid only while the current backend is
-    // alive. RuntimeRenderer narrows it into RenderResourceContext for
-    // create/rebuild phases; draw code uses the explicit owners below.
-    Rendering::Dx12ResourceBuilder& renderResources;
-    Rendering::Dx12TextureOwner& renderTextures;
-    Rendering::Dx12GeometryOwner& renderGeometry;
-    // Lifetime: this diagnostics facet is sampled for frame-time feature
-    // decisions and draw tracing; passes must not cache capability flags across
-    // backend teardown.
-    Rendering::Dx12Diagnostics& renderDiagnostics;
-    // Optional concrete DXR owner. Null means startup did not publish the
-    // reflection owner, even if ordinary raster rendering is ready.
-    Rendering::Dx12RaytracingOwner* renderRayTracing = nullptr;
-    bool renderReady = false;
 };
 
 struct RuntimeRenderInputs

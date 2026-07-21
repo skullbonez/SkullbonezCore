@@ -241,13 +241,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
             SkullbonezCore::Rendering::Dx12Diagnostics& frameRenderDiagnostics = *m_renderBackendView.renderDiagnostics;
             SkullbonezCore::Rendering::Dx12ResourceBuilder& frameRenderResources = *m_renderBackendView.renderResources;
             SkullbonezCore::Rendering::Dx12FrameOwner& frameRenderOwner = *m_renderBackendView.renderFrame;
-            SkullbonezCore::Rendering::Dx12GraphTransientPool& frameRenderGraph = *m_renderBackendView.renderGraph;
             SkullbonezCore::Rendering::Dx12TextureOwner& frameRenderTextures = *m_renderBackendView.renderTextures;
             SkullbonezCore::Rendering::Dx12GeometryOwner& frameRenderGeometry = *m_renderBackendView.renderGeometry;
             const SkullbonezCore::UI::UIRenderContext uiRender = { &m_assets,
                                                                    &frameRenderResources,
-                                                                   &frameRenderOwner,
-                                                                   &frameRenderGraph,
                                                                    &frameRenderTextures,
                                                                    &frameRenderGeometry,
                                                                    &frameRenderDiagnostics };

@@ -97,7 +97,6 @@ class RuntimeRenderer
 
     struct FrameEntryContext
     {
-        RuntimeRenderBackendView backend;
         const RuntimeRenderModelFrameView& renderModels;
         UI::InGameUI& ui;
         RuntimeRenderFramePolicy framePolicy;
@@ -110,7 +109,16 @@ class RuntimeRenderer
         bool consequenceGradeRequested = false;           // True while replay prediction should fade into the causality look.
     };
 
-    RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene );
+    RuntimeRenderer( Rendering::Dx12RenderDevice* renderDevice,
+                     Rendering::Dx12FrameOwner* renderFrame,
+                     Rendering::Dx12GraphTransientPool* renderGraph,
+                     Rendering::Dx12ResourceBuilder* renderResources,
+                     Rendering::Dx12TextureOwner* renderTextures,
+                     Rendering::Dx12GeometryOwner* renderGeometry,
+                     Rendering::Dx12Diagnostics* renderDiagnostics,
+                     Rendering::Dx12RaytracingOwner* renderRayTracing,
+                     const RenderWorldView& world,
+                     RunSceneState& scene );
     ~RuntimeRenderer();
 
     // Runs after Core FrameBegin and before draw-call counters reset. This
@@ -146,11 +154,10 @@ class RuntimeRenderer
                                                                const SkullbonezCore::Core::EngineConfig& config,
                                                                bool dumpTextureAssets );
     // Scene activation asks the renderer to warm its optional ray-tracing
-    // geometry. Scene code supplies the retained resource/command roles, the
-    // concrete DXR owner, and a capacity value; mesh selection and capability
+    // geometry. The renderer uses its startup-bound concrete owners; scene code
+    // supplies only the active capacity while mesh selection and capability
     // checks stay here.
-    SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend,
-                                                              int modelCapacity );
+    SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( int modelCapacity );
     // Projects framebuffer metadata into values safe for the UI to retain for
     // the current draw; no framebuffer or pass-resource ownership escapes.
     RuntimeRenderTargetPreviewSnapshot BuildRenderTargetPreviewSnapshot( bool shadowsAvailable,
@@ -178,7 +185,7 @@ class RuntimeRenderer
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
     void BeginFrameGraph( Rendering::Dx12GraphTransientPool& renderGraph );
-    void PrepareUiFrameTarget( Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12FrameOwner& renderFrame );
+    void PrepareUiFrameTarget();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     SkullbonezCore::Core::SbResult RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor );
 #endif
@@ -334,6 +341,16 @@ class RuntimeRenderer
                                           bool cinematicRendering,
                                           Rendering::Dx12RaytracingOwner* renderRayTracing,
                                           double secondsPerFrame );
+    // Lifetime: startup binds the exact concrete DX12 owners used by this
+    // cohesive renderer. Frame records never republish this authority, and the
+    // pointers remain valid until the enclosing Run/backend lifetime ends.
+    Rendering::Dx12FrameOwner* m_renderFrame = nullptr;
+    Rendering::Dx12GraphTransientPool* m_renderGraph = nullptr;
+    Rendering::Dx12ResourceBuilder* m_renderResources = nullptr;
+    Rendering::Dx12TextureOwner* m_renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* m_renderGeometry = nullptr;
+    Rendering::Dx12Diagnostics* m_renderDiagnostics = nullptr;
+    Rendering::Dx12RaytracingOwner* m_renderRayTracing = nullptr;
     RenderResourceLifecycleLog m_lifecycleLog;            // Concrete renderer-owned lifecycle diagnostic writer.
     Assets::AssetSystem& m_assets;                        // Registered render asset/shader lookup owner.
     Textures::TextureCollection m_textures;               // Stable texture handle/select owner.

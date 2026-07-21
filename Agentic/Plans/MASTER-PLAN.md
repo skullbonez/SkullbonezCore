@@ -312,12 +312,19 @@ reduction (6 tasks), and replay subsystem consolidation (7 tasks). Execution
 order is 1→3 as listed; the ordering rationale and per-plan gates live in the
 campaign section below.
 
+The active/future denominator returned 19 → 13 when
+`render-interface-retirement` closed RH0-RH5 and left the ledger under rule 4.
+All ten render interfaces and five test implementations are gone; concrete DX12
+owners remain non-polymorphic, transient consumer authority is narrower than
+the RH0 baseline, and the final CPU/full/three-repeat renderer/stress evidence
+is recorded in
+`../Reports/2026-07-22/render-interface-retirement-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| `render-interface-retirement` | 5 | 6 | 83% |
 | `owner-fanout-reduction` | 0 | 6 | 0% |
 | `replay-subsystem-consolidation` | 0 | 7 | 0% |
-| **Active/future total** | **5** | **19** | **26%** |
+| **Active/future total** | **0** | **13** | **0%** |
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -389,10 +396,9 @@ smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 The architecture-review campaign registered 2026-07-20 is complete. The live
-queue is now the 2026-07-22 architecture follow-up campaign, in order:
-`render-interface-retirement` first (mechanical, cheapest gates, shrinks
-headers for everything after it), then `owner-fanout-reduction` (reshapes the
-scene-lifecycle and frame-view borrow graphs), then
+queue is now the remainder of the 2026-07-22 architecture follow-up campaign,
+in order: `owner-fanout-reduction` (reshapes the scene-lifecycle and frame-view
+borrow graphs), then
 `replay-subsystem-consolidation` (heaviest per-task gate; its
 presentation-reset seam lands once on the final lifecycle-ledger shape). Plans
 live under `TODO/`; see the campaign section below.
@@ -1229,9 +1235,13 @@ or hot-path inheritance artifacts. Execution order is binding.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-interface-retirement](TODO/render-interface-retirement.md) | Active | 5/6 | RH4 lifecycle cleanup complete; proceed to RH5 closure census/review |
-| [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Registered | 0/6 | Starts after render-interface-retirement closes |
+| [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Active | 0/6 | Proceed to OF0 census and classification |
 | [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Registered | 0/7 | Starts after owner-fanout-reduction closes |
+
+Render interface retirement closed RH0-RH5 with zero interface classes,
+narrower transient authority, clear independent review, and complete final
+gates. Closure evidence:
+[`render-interface-retirement-closure`](../Reports/2026-07-22/render-interface-retirement-closure.md).
 
 ## Features
 

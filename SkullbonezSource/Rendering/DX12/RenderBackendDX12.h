@@ -5,7 +5,8 @@ Purpose:
   geometry, and raytracing owners.
 
 Summary:
-  RenderBackendDX12 coordinates device/frame work. Dx12TextureOwner retains
+  RenderBackendDX12 constructs and tears down the concrete owners. Runtime work
+  reaches those owners directly: Dx12TextureOwner retains
   texture residency and binding state, Dx12PipelineOwner retains the ordinary
   raster recipe, Dx12GeometryOwner retains bounded geometry resources, and
   Dx12RaytracingOwner retains the optional reflection path. Dx12DescriptorHeaps
@@ -285,8 +286,10 @@ class Dx12TextureCommands
 
 // Concept: texture lifetime is independent from frame/device orchestration.
 // This owner retains the 1-based handle table, binding rows, and mip pipeline;
-// callers lend command-recording dependencies only for the duration of an
-// operation, so shutdown cannot leave a stored pointer back into the backend.
+// startup binds the stable device/frame/pipeline owners used by cold convenience
+// operations. Those non-owning links share the composing backend's address
+// lifetime and intentionally survive Shutdown() so a later Initialize() can
+// rebuild texture state without republishing the same stable owners.
 class Dx12TextureOwner
 {
   public:

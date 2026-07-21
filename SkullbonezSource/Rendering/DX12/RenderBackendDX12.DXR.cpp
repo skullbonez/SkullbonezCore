@@ -1,13 +1,13 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.DXR.cpp
 Purpose:
-  Implements the concrete DX12 raytracing owner and the backend's narrow
-  device/frame coordination around its setup, dispatch, and teardown.
+  Implements the concrete DX12 raytracing owner's setup, dispatch, and teardown.
 
 Summary:
   Dx12RaytracingOwner retains every resource and capability unique to reflected
-  ray dispatch. RenderBackendDX12 lends device/frame dependencies per operation
-  and remains the only authority that closes, submits, or fences a command list.
+  ray dispatch and borrows stable device/frame dependencies for its lifetime.
+  Dx12FrameOwner remains the only authority that closes, submits, or fences the
+  shared command list.
 
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
