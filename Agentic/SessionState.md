@@ -16,7 +16,7 @@ plan inventory.
 | Active/future progress | 0 / 0 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RC6 `validate_full` passes in 104.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | RC6 strict allocation passes with exactly two generations and zero gameplay/policy violations; independent review is clear; the one replay mega stops only at the recorded config-provenance mismatch. |
+| Validation for current edits | Authorized provenance-only reconciliation changes exactly two hash fields; the replay visual-fidelity gate now passes all 2,401 ticks and negative controls in 435.3 s. |
 
 ## Live Queue
 

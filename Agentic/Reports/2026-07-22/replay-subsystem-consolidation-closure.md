@@ -251,11 +251,22 @@ config provenance mismatch:
 - actual: `bd0bb719aad7231cf500ca9a61af7d2f017e557b1b18b7de82df7eb93a3b5d93`
 
 No RC phase retried its mega invocation and no config, golden, baseline, or
-artifact metadata was edited. The mismatch remains a recorded external
-certification blocker, but it did not stop implementation, static proof,
-strict allocation proof, independent review, or the passing final broad gate.
+artifact metadata was edited during the campaign. The mismatch remained a
+recorded external certification blocker at the RC6 tip, but it did not stop
+implementation, static proof, strict allocation proof, independent review, or
+the passing final broad gate.
 
 ## Closure
 
 RC0-RC6 are complete. The active TODO plan is removed under MASTER inventory
 rule 4; this report and the six slice reports are the durable campaign record.
+
+## Post-Closure Provenance Reconciliation
+
+The user subsequently confirmed that commit `7543b1c8`'s config-format v6
+change was valid and authorized a provenance-only update. The visual baseline's
+config hash and the causal baseline's mechanically dependent visual-baseline
+hash were reconciled; no behavioral golden field changed. The mapped replay
+visual-fidelity gate then passed all 2,401 ticks and all negative controls in
+435.3 seconds. Evidence:
+[`replay-visual-fidelity-provenance-reconciliation`](replay-visual-fidelity-provenance-reconciliation.md).

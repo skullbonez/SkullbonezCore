@@ -337,9 +337,11 @@ The active/future denominator returned 7 → 0 when
 4. Replay is assigned across six named domains, production include edges fell
 48 → 33 with explicit survivors, the unchanged three-owner reserve inventory
 passes the strict two-generation gate, and the final independent review and
-broad gate are clear. The standing visual-fidelity config-provenance mismatch
-is recorded as a non-stopping certification blocker. Evidence is in
-`../Reports/2026-07-22/replay-subsystem-consolidation-closure.md`.
+broad gate are clear. The visual-fidelity config-provenance mismatch was later
+resolved through an authorized two-field provenance reconciliation, and the
+full 2,401-tick oracle passed without behavioral golden changes. Evidence is in
+`../Reports/2026-07-22/replay-subsystem-consolidation-closure.md` and
+`../Reports/2026-07-22/replay-visual-fidelity-provenance-reconciliation.md`.
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -1251,7 +1253,7 @@ or hot-path inheritance artifacts. Execution order is binding.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [owner-fanout-reduction](../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md) | Complete | 6/6 | Ten-input scene-load boundary, ≤3-file reactive-owner path, clear independent review, and final broad/stress gates complete |
-| [replay-subsystem-consolidation](../Reports/2026-07-22/replay-subsystem-consolidation-closure.md) | Complete | 7/7 | Six domains, 48 → 33 production include edges, accepted cohesion exceptions, strict two-generation allocation proof, clear independent review, and final broad gate complete |
+| [replay-subsystem-consolidation](../Reports/2026-07-22/replay-subsystem-consolidation-closure.md) | Complete | 7/7 | Six domains, 48 → 33 production include edges, accepted cohesion exceptions, strict allocation proof, clear review, final broad gate, and reconciled 2,401-tick replay oracle complete |
 
 Render interface retirement closed RH0-RH5 with zero interface classes,
 narrower transient authority, clear independent review, and complete final
