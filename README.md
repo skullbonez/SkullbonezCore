@@ -1,27 +1,109 @@
 # SkullbonezCore
 
-SkullbonezCore is a Windows x64 C++17 graphics and physics engine originally written in 2005 and modernized into a DX12-first shader-based engine.
-
-Official production graphics API:
-- DirectX 12 with in-process InfoQueue validation
-
-OpenGL and DX11 final parity evidence has been archived on the DX12-only
-retirement branch. Runtime launches now use DX12 only; `--renderer dx12` remains
-accepted as a compatibility alias, while GL/DX11 runtime choices are retired.
+**A deterministic, DirectX 12 physics engine built from scratch by one person — started in 2005, still sharpening.**
 
 ![SkullbonezCore](https://github.com/skullbonez/SkullbonezCore/blob/main/SkullbonezCore.png)
+
+SkullbonezCore is Simon Eschbach's Windows x64 C++17 graphics and physics
+engine. It began life in 2005 and has been continuously modernized into a
+DX12-first, fixed-step, byte-exact simulation engine with its own renderer,
+contact solver, replay system, in-engine UI, and validation tooling — all
+first-party. The only third-party code in the shipped runtime is a
+single-header JSON parser and an image loader. The physics, the collision
+detection, the solver, the render graph, the replay recorder, the UI
+widgets, the profiler: handwritten, on purpose.
+
+This is not a wrapper around middleware. It is an engine in the original
+sense — and it is held to standards most commercial codebases don't attempt.
+
+## The Numbers
+
+- **Byte-exact deterministic physics.** Every validation run diffs a
+  44,401-line simulation CSV against a committed baseline — not "close
+  enough," *identical*. Multithreaded determinism is certified by an 18/18
+  process matrix across 0, 1, and 4 workers over six scenes.
+- **5,000 bodies, 1.3 ms.** The sleeping-heavy 5,000-body witness scene
+  simulates at 1.30 ms median physics frame (Profile build); 2,000 fully
+  awake bodies run at ~1.9 ms. Sleep islands with support propagation do
+  the heavy lifting.
+- **Zero heap allocation in steady gameplay.** A global static allocation
+  policy — enforced by a checker over the whole source tree — bans runtime
+  heap growth. Storage is fixed or preallocated at scene load; pool
+  exhaustion fails loudly with owner, capacity, and high-water diagnostics.
+- **Zero exceptions.** Engine code uses typed error lanes: fatal invariants,
+  recoverable results, and machine-readable probe failures. The source throw
+  count is zero and reviews keep it there.
+- **Zero warnings at `/W4`. Zero DX12 validation-layer errors.** Both are
+  hard gates, not aspirations.
+- **337 test cases, 68,634 assertions** in the broad gate, plus per-subsystem
+  coverage floors, image-baseline renderer comparison, performance baselines,
+  and a frame-exact replay fidelity oracle — the full gate runs in about
+  four minutes.
+
+## What's Inside
+
+**Physics.** A staged fixed-step pipeline — force, broadphase (spatial
+grid), narrowphase, terrain, persistent-contact solver with warm starting,
+sleep controller — operating on dense SoA body/collider stores with
+generational handles. Spheres, boxes, and baked convex hulls with authored
+mass and inertia; buoyancy and fluid drag; ragdolls and point joints;
+mutual gravity; deterministic worker-pool parallelism with fixed scratch
+and no allocation inside the tick.
+
+**Rendering.** A DX12 renderer with a render graph that owns pass
+scheduling and barrier emission end to end — single execution path, no
+hand-written barrier fallbacks. Passes declare their raster state up front
+and their PSOs precompile; the frame covers shadow mapping, water with
+planar or DXR-raytraced reflections, an HDR cinematic pipeline with
+volumetric light shafts and tonemapping, instanced geometry, and debug
+overlays. In-process InfoQueue validation runs every launch and must stay
+silent.
+
+**Replay.** Deterministic capture, timeline scrubbing, and physics
+prediction with causal analysis — why a body ended up where it did, traced
+through contact cause trees. Guarded by a frame-exact 200-box visual
+fidelity gate that a refactor cannot quietly move.
+
+**Tooling.** A first-party immediate-mode operator UI in the engine; an
+optional Dear ImGui docking editor with Tracy profiler integration in
+development builds; SkullScope, a queryable physics diagnostics pipeline
+(trace once, then ask focused frame/body/contact/island questions instead
+of grepping CSVs); a scene/asset system with versioned, deterministically
+migrated JSON schemas; and a `tools/` directory of validation gates that
+make regressions loud.
+
+## How It's Built
+
+The architecture is boring in the best way. Dependency direction is
+enforced and grep-provable: `Core → Maths → Physics/Rendering → Runtime`,
+with gameplay content quarantined in its own `Gameplay/` module so the
+engine stays an engine. The runtime shell is a composition root that owns
+concrete subsystem owners — no god objects, no service locators, no
+singletons in the frame path. Cross-system identity flows through one
+stable scene-object id; hot paths speak dense rows and typed handles.
+
+Every structural claim above was earned, not asserted: the codebase is
+developed under an evidence-based plan ledger (`Agentic/`) in which every
+campaign closes with independent adversarial review, recorded validation
+output, and byte-exact or image-identical proof that behavior did not
+move. Completed plans are deleted; git history is the archive. It is also,
+deliberately, a proving ground for AI-agent-driven engineering — the
+governance model (startup contracts, validation maps, closure gates) is
+designed so that human and machine contributors are held to the same
+uncompromising bar.
 
 ## Start Here
 
 For humans:
 1. Read `FIRST_TIME_SETUP.md` if this is a new machine.
 2. Build or validate with the scripts in `tools\`.
-3. Use `Agentic/Reference/runtime-reference.md` for command-line, scene, physics, and key-binding reference.
+3. Use `Agentic/Reference/runtime-reference.md` for command-line, scene,
+   physics, and key-binding reference.
 
 For AI agents:
 1. Follow the Agent Startup Contract in `AGENTS.md`.
-2. Load only the skill, plan, audit, report, or reference file needed for the
-   current task.
+2. Load only the skill, plan, audit, report, or reference file needed for
+   the current task.
 
 ## Build
 
@@ -41,6 +123,10 @@ Build outputs:
 - `Debug\SKULLBONEZ_CORE.exe`
 - `Profile\SKULLBONEZ_CORE.exe`
 - `Release\SKULLBONEZ_CORE.exe`
+
+Development builds can enable the ImGui/Tracy editor lane; initialize the
+pinned submodules first (`git submodule update --init --recursive`) and
+launch with `--dev-ui imgui`. The legacy in-engine UI remains the default.
 
 ## Validation
 
@@ -124,13 +210,25 @@ Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\perf_test
 | What | Path |
 |------|------|
 | Solution | `SKULLBONEZ_CORE.sln` |
-| Source | `SkullbonezSource/` |
+| Engine source | `SkullbonezSource/` (`Core`, `Maths`, `Physics`, `Rendering`, `Runtime`, `Scene`, `World`, `UI`, `Assets`, `Gameplay`) |
 | Shaders | `SkullbonezData/shaders/` |
 | Style descriptors | `SkullbonezData/styles/` |
 | Scenes | `SkullbonezData/scenes/` |
 | Baselines | `TestOutput/baselines/` |
 | Validation scripts | `tools/` |
 | Agent handoff docs | `Agentic/` |
+
+## Notes
+
+- **Platform:** Windows x64, Visual Studio 2022 (v143), C++17. DirectX 12 is
+  the only runtime renderer; the engine's GL/DX11 heritage has been retired
+  with archived parity evidence.
+- **Third-party:** runtime — nlohmann JSON, stb image; development/test
+  only — doctest, Dear ImGui (docking), Tracy. Everything else is
+  first-party. See `THIRD_PARTY_NOTICES.md`.
+- **Determinism scope:** byte-exactness is certified per pinned
+  toolchain/content envelope and across 0/1/4 workers; cross-platform and
+  rollback determinism are not claimed.
 
 ## More Detail
 
@@ -139,3 +237,8 @@ Long-form reference lives outside this file to keep first-read context small:
 - `Agentic/Reference/physics-overview.md`
 - `Agentic/Plans/`
 - `Agentic/Audits/`
+
+---
+
+*SkullbonezCore — twenty years of one engineer refusing to ship "close
+enough."*
