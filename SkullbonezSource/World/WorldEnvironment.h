@@ -66,7 +66,7 @@ class AssetSystem;
 
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12TextureOwner;
 class Dx12ResourceBuilder;
 } // namespace Rendering
 
@@ -156,7 +156,7 @@ class WorldEnvironment
     void RenderFluid( const Math::Transformation::Matrix4& view,
                       const Math::Transformation::Matrix4& proj,
                       const Math::Vector::Vector3& cameraWorld,
-                      Rendering::IRenderCommandContext& commands,
+                      Rendering::Dx12TextureOwner& textures,
                       const WaterReflectionInput& reflection,
                       const Rendering::PassRasterStateBucket& rasterState,
                       float time,

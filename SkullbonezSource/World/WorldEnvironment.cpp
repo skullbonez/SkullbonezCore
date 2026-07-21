@@ -36,7 +36,8 @@ Related:
 */
 #include "WorldEnvironment.h"
 #include "../Assets/AssetSystem.h"
-#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/RenderCommandTypes.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include <vector>
 
@@ -261,7 +262,7 @@ void WorldEnvironment::BindOceanWaterStyle( Rendering::ShaderDX12& shader,
 void WorldEnvironment::RenderFluid( const Matrix4& view,
                                     const Matrix4& proj,
                                     const Vector3& cameraWorld,
-                                    IRenderCommandContext& commands,
+                                    Dx12TextureOwner& textures,
                                     const WaterReflectionInput& reflection,
                                     const PassRasterStateBucket& rasterState,
                                     float time,
@@ -285,7 +286,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
         return;
     }
 
-    commands.BindTexture( reflection.textureHandle, 1 );
+    textures.BindTexture( reflection.textureHandle, 1 );
 
     const WaterStyleParams calmStyle = BuildCalmWaterStyle( cinematic, cinematicStyle );
     const WaterStyleParams oceanStyle = BuildOceanWaterStyle( cinematic, cinematicStyle );

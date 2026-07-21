@@ -73,7 +73,9 @@ class PhysicsDebugVisualizer;
 namespace Rendering
 {
 class Dx12BackbufferCapture;
-class IRenderCommandContext;
+class Dx12GeometryOwner;
+class Dx12FrameOwner;
+class Dx12GraphTransientPool;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 class Dx12ImGuiRendererOwner;
 #endif
@@ -81,7 +83,6 @@ class IRenderDeviceLifecycle;
 class Dx12Diagnostics;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
-class Dx12GeometryOwner;
 class Dx12RaytracingOwner;
 class Dx12ShaderDevelopment;
 } // namespace Rendering
@@ -150,7 +151,8 @@ struct RenderToolOverlayView
 struct RuntimeRenderBackendView
 {
     Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;       // Startup/present/resize/drain capability.
-    Rendering::IRenderCommandContext* renderCommands = nullptr;         // Per-frame draw-state and submission capability.
+    Rendering::Dx12FrameOwner* renderFrame = nullptr;                   // Frame/output recording owner.
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;           // Render-graph materialization and transition owner.
     Rendering::Dx12ResourceBuilder* renderResources = nullptr;          // Resource creation/rebuild capability.
     Rendering::Dx12TextureOwner* renderTextures = nullptr;              // Texture registry and cold texture IO owner.
     Rendering::Dx12GeometryOwner* renderGeometry = nullptr;             // Bounded dynamic/instanced geometry owner.

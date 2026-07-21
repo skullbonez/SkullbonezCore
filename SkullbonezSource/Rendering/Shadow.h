@@ -33,7 +33,8 @@ Related:
 */
 #pragma once
 
-#include "IRenderCommandContext.h"
+#include "RenderCommandTypes.h"
+#include "DX12/RenderBackendDX12.h"
 #include "DX12/ShaderDX12.h"
 #include "../Maths/Matrix4.h"
 #include "../Maths/Vector3.h"
@@ -118,7 +119,7 @@ struct ShadowFrameData
     Math::Vector::Vector3 lightDirectionWorld;
 
     // Opaque texture handle for the framebuffer depth attachment. Render code
-    // passes this neutral handle back to IRenderCommandContext::BindTexture
+    // passes this neutral handle back to Dx12GeometryOwner::BindTexture
     // instead of seeing the native DX12 resource or descriptor row.
     uint32_t depthTextureHandle = 0;
 
@@ -186,7 +187,7 @@ inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& proj
 }
 
 inline void ApplyShadowReceiverUniforms( ShaderDX12& shader,
-                                         IRenderCommandContext& commands,
+                                         Dx12TextureOwner& textures,
                                          const ShadowFrameData* shadow,
                                          bool receive,
                                          bool objectReceiver = false )
@@ -218,19 +219,19 @@ inline void ApplyShadowReceiverUniforms( ShaderDX12& shader,
     shader.SetInt( "uShadowMap", SHADOW_TEXTURE_SLOT );
     if ( enabled )
     {
-        commands.BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );
+        textures.BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );
     }
     else
     {
         // Pass contract: disabled receivers must not inherit an old shadow map
         // binding. The shader would skip sampling, but clearing the slot keeps
         // descriptor lifetime visible to the backend.
-        commands.BindTexture( 0, SHADOW_TEXTURE_SLOT );
+        textures.BindTexture( 0, SHADOW_TEXTURE_SLOT );
     }
 }
 
 inline void ApplyDetailShadowReceiverUniforms( ShaderDX12& shader,
-                                               IRenderCommandContext& commands,
+                                               Dx12TextureOwner& textures,
                                                const ShadowFrameData* shadow,
                                                bool receive )
 {
@@ -253,7 +254,7 @@ inline void ApplyDetailShadowReceiverUniforms( ShaderDX12& shader,
     shader.SetInt( "uDetailShadowMap", DETAIL_SHADOW_TEXTURE_SLOT );
     // Lifetime: the frame payload borrows the depth handle. Clearing t5 on the
     // disabled path prevents a descriptor from surviving its producing pass.
-    commands.BindTexture( enabled ? shadow->depthTextureHandle : 0, DETAIL_SHADOW_TEXTURE_SLOT );
+    textures.BindTexture( enabled ? shadow->depthTextureHandle : 0, DETAIL_SHADOW_TEXTURE_SLOT );
 }
 } // namespace Rendering
 } // namespace SkullbonezCore

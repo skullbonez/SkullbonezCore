@@ -489,12 +489,12 @@ void Run::Initialise()
     assert( m_renderBackendView.renderResources && "Run requires render resources before Initialise()" );
     assert( m_renderBackendView.renderTextures && "Run requires render textures before Initialise()" );
     assert( m_renderBackendView.renderGeometry && "Run requires render geometry before Initialise()" );
-    assert( m_renderBackendView.renderCommands && "Run requires render commands before Initialise()" );
+    assert( m_renderBackendView.renderFrame && m_renderBackendView.renderGraph &&
+            "Run requires frame and graph owners before Initialise()" );
     assert( m_renderBackendView.renderDiagnostics && "Run requires render diagnostics before Initialise()" );
     auto& renderResources = *m_renderBackendView.renderResources;
     auto& renderTextures = *m_renderBackendView.renderTextures;
     auto& renderGeometry = *m_renderBackendView.renderGeometry;
-    auto& renderCommands = *m_renderBackendView.renderCommands;
     const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = *m_renderBackendView.renderDiagnostics;
 
     const char* rendererName = renderDiagnostics.GetRendererName();
@@ -508,7 +508,6 @@ void Run::Initialise()
         m_renderer.InitialiseProcessResources( renderResources,
                                                renderTextures,
                                                renderGeometry,
-                                               renderCommands,
                                                m_config,
                                                m_launchOptions.dumpTextureAssets );
     if ( !rebuildResourcesResult.ok )

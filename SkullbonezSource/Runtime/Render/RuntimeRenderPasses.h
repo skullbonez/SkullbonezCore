@@ -81,13 +81,14 @@ class WorldEnvironment;
 namespace Rendering
 {
 class RenderGpuTimingOwner;
-class IRenderCommandContext;
+class Dx12GeometryOwner;
+class Dx12FrameOwner;
+class Dx12GraphTransientPool;
 class IRenderDeviceLifecycle;
 class Dx12Diagnostics;
 class Dx12RaytracingOwner;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
-class Dx12GeometryOwner;
 class RenderInstanceStore;
 struct RenderInstancePresentationRecord;
 struct RenderGraphTextureBinding;
@@ -266,7 +267,8 @@ struct RenderFrameContext
     // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
-    Rendering::IRenderCommandContext* renderCommands = nullptr;
+    Rendering::Dx12FrameOwner* renderFrame = nullptr;
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.
     Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
@@ -628,7 +630,8 @@ class ShadowPass
                           const Rendering::PrimitiveRenderContext& primitiveContext,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                          Rendering::IRenderCommandContext& renderCommands,
+                          Rendering::Dx12FrameOwner& renderFrame,
+                          Rendering::Dx12TextureOwner& renderTextures,
                           bool renderTerrain,
                           bool renderObjects,
                           const Rendering::RenderInstanceStore& renderInstances,

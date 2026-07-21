@@ -233,19 +233,25 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // turn. Narrow facets keep reset, GPU-drain, UI accounting, and
             // present from each reaching through the process-global service.
             if ( !m_renderBackendView.deviceLifecycle || !m_renderBackendView.renderDiagnostics ||
-                 !m_renderBackendView.renderResources || !m_renderBackendView.renderCommands )
+                 !m_renderBackendView.renderResources || !m_renderBackendView.renderFrame ||
+                 !m_renderBackendView.renderGraph || !m_renderBackendView.renderTextures ||
+                 !m_renderBackendView.renderGeometry )
             {
                 SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
             }
             SkullbonezCore::Rendering::Dx12Diagnostics& frameRenderDiagnostics = *m_renderBackendView.renderDiagnostics;
             SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle = *m_renderBackendView.deviceLifecycle;
             SkullbonezCore::Rendering::Dx12ResourceBuilder& frameRenderResources = *m_renderBackendView.renderResources;
+            SkullbonezCore::Rendering::Dx12FrameOwner& frameRenderOwner = *m_renderBackendView.renderFrame;
+            SkullbonezCore::Rendering::Dx12GraphTransientPool& frameRenderGraph = *m_renderBackendView.renderGraph;
+            SkullbonezCore::Rendering::Dx12TextureOwner& frameRenderTextures = *m_renderBackendView.renderTextures;
             SkullbonezCore::Rendering::Dx12GeometryOwner& frameRenderGeometry = *m_renderBackendView.renderGeometry;
-            SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands = *m_renderBackendView.renderCommands;
             const SkullbonezCore::UI::UIRenderContext uiRender = { &m_assets,
                                                                    &frameRenderResources,
+                                                                   &frameRenderOwner,
+                                                                   &frameRenderGraph,
+                                                                   &frameRenderTextures,
                                                                    &frameRenderGeometry,
-                                                                   &frameRenderCommands,
                                                                    &frameRenderDiagnostics };
             // Lifetime: the frame views are stack-only borrow maps for this
             // turn. They are never assigned to Run or passed to retained work.
@@ -508,14 +514,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
-                if ( !m_renderBackendView.renderCommands )
+                if ( !m_renderBackendView.renderGraph )
                 {
                     SB_FATAL( "RunFrame", "A rendered frame requires the startup-bound render command context." );
                 }
                 // Invariant: graph ownership begins before Render can choose
                 // the text-only early return. Every world/UI/capture path below
                 // therefore closes the same current-frame graph exactly once.
-                m_renderer.BeginFrameGraph( *m_renderBackendView.renderCommands );
+                m_renderer.BeginFrameGraph( *m_renderBackendView.renderGraph );
                 Render( renderModels, presentationAlpha );
             }
             PROFILE_END( m_profiler, "Frame/Render" );

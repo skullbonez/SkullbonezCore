@@ -1024,12 +1024,6 @@ uint32_t Dx12TextureOwner::CreateTexture2D( const uint8_t* data,
 }
 
 
-void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
-{
-    m_textureOwner.BindTexture( handle, slot );
-}
-
-
 void Dx12TextureOwner::DeleteTexture( uint32_t handle )
 {
     assert( m_resourceDevice && m_resourceFrame );

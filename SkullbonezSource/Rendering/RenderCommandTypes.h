@@ -1,19 +1,15 @@
 /*
-File: SkullbonezSource/Rendering/IRenderCommandContext.h
+File: SkullbonezSource/Rendering/RenderCommandTypes.h
 Purpose:
-  Declares the narrow render capability used to bind frame resources and submit
-  draw work with explicit operation values.
+  Declares value records shared by concrete DX12 render-command owners.
 
 Summary:
-  Command-context callers are inside the frame: they bind textures, set dynamic
-  viewport/output commands, upload typed transient spans, and ask the active
-  backend to draw with a pass-local raster bucket. Callers cannot create
-  long-lived resources, resize the device, present the swap chain, or capture
-  the back buffer.
+  Pass code carries complete raster, clear, instancing, and transient-triangle
+  values into the narrow concrete owner that records each operation. This file
+  owns no command capability and introduces no facade across those owners.
 
 Glossary:
-  Command context: Borrowed rendering surface for draw-state changes and draw
-    submission during a frame.
+  Command owner: Concrete DX12 owner responsible for one command category.
   Viewport: Pixel rectangle that maps clip-space output into the current target.
   Blend recipe: Rule for combining new pixel color with the target's old color.
   Dynamic vertex buffer: Backend-owned transient buffer used for text, overlays,
@@ -27,15 +23,17 @@ Glossary:
   Raster bucket: Pass-local value naming one complete fixed-function PSO recipe.
 
 Invariants:
-  - Callers borrow this interface only while the renderer is initialized.
+  - Callers borrow concrete command owners only while DX12 is initialized.
   - Texture and buffer handles are opaque backend-owned ids.
   - Every graphics draw derives its PSO from the bucket carried by that draw;
-    the command context owns no ambient raster setter/query authority.
+    no command owner exposes ambient raster setter/query authority.
   - Packed spans carry storage bounds. Dynamic handles/styles own their vertex
     layout, and malformed dynamic divisibility rejects the draw before upload.
 
 Related:
-  - SkullbonezSource/Rendering/DX12/Dx12ResourceBuilder.h
+  - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
+  - SkullbonezSource/Rendering/DX12/Dx12GraphTransientPool.h
+  - SkullbonezSource/Rendering/DX12/RenderBackendDX12.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
 */
 #pragma once
@@ -152,83 +150,6 @@ enum class TransientTriangleStyle
     SoftAdditiveRibbon,
     TrajectoryRibbon,
     TrajectoryRibbonDepthHint
-};
-
-class IRenderCommandContext
-{
-  public:
-    virtual ~IRenderCommandContext() = default;
-
-    virtual void SetViewport( int x, int y, int w, int h ) = 0;
-    // Clears the currently graph-acquired target using the supplied values.
-    virtual void Clear( const ClearTargetDesc& target ) = 0;
-
-    virtual void BindTexture( uint32_t handle, int slot ) = 0;
-    // Concept: graph-declared transient textures resolve through the command
-    // context so runtime passes can bind ordinary engine texture handles
-    // without learning native DX12 descriptor or resource ownership.
-    virtual RenderGraphTransientMaterializationStats
-    MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled )
-    {
-        (void)graph;
-        (void)compiled;
-        return {};
-    }
-    virtual RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const
-    {
-        (void)resource;
-        return {};
-    }
-    // Resolves an opaque engine texture handle to a non-owning token that the
-    // graph transports back to the concrete backend executor.
-    virtual RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const
-    {
-        (void)textureHandle;
-        return {};
-    }
-    // Returns the current swap-chain image plus its tracked access so the
-    // first executable graph pass can compile the normal Present -> RT edge.
-    virtual RenderGraphBackbufferBinding ResolveGraphBackbufferBinding() const
-    {
-        return {};
-    }
-    // Executes every compiled transition assigned to one callback pass. The
-    // returned count proves that declared producer/consumer edges became live.
-    virtual size_t
-    ExecuteGraphTransitions( const RenderGraph& graph, const RenderGraphCompileResult& compiled, uint32_t passIndex )
-    {
-        (void)graph;
-        (void)compiled;
-        (void)passIndex;
-        return 0;
-    }
-    virtual void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
-    {
-        (void)binding;
-        (void)passName;
-    }
-    virtual void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
-    {
-        (void)binding;
-        (void)passName;
-    }
-
-    // Precompile and draw consume the same pass-local value, so
-    // the backend never reconstructs this draw's PSO from setter history.
-    virtual bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket ) = 0;
-    virtual void UploadAndDrawDynamicVB( uint32_t handle,
-                                         std::span<const float> packedVertices,
-                                         const PassRasterStateBucket& bucket ) = 0;
-    virtual void DrawLinesColored( std::span<const float> packedVertices,
-                                   const Math::Transformation::Matrix4& viewProjection,
-                                   const PassRasterStateBucket& bucket ) = 0;
-    virtual void DrawTransientColoredTriangles( std::span<const float> packedVertices,
-                                                const Math::Transformation::Matrix4& viewProjection,
-                                                TransientTriangleStyle style,
-                                                const PassRasterStateBucket& bucket ) = 0;
-
-    virtual void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances ) = 0;
-    virtual void DrawInstancedMesh( const InstancedMeshDrawDesc& draw ) = 0;
 };
 
 } // namespace Rendering

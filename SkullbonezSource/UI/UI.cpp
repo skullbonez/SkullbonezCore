@@ -33,7 +33,7 @@ Related:
 #include "UIFrameComposition.h"
 #include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
-#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
@@ -400,7 +400,8 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     assert( render.IsReady() );
     assert( render.textBatch && "InGameUI::Draw requires RuntimeRenderer's text batch" );
     Text::TextBatch& textBatch = *render.textBatch;
-    IRenderCommandContext& renderCommands = *render.commands;
+    Dx12TextureOwner& renderTextures = *render.textures;
+    Dx12GeometryOwner& renderCommands = *render.geometry;
     Dx12Diagnostics& renderDiagnostics = *render.diagnostics;
     DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI/Draw" );
 
@@ -429,11 +430,12 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         // marker samples, selector state, and drag/resize feedback must rebuild
         // every frame.
         m_histogramDrawList.Clear();
-        const UIDrawContext histogramDraw( screenW, screenH, &m_histogramDrawList, nullptr, &textBatch );
+        const UIDrawContext histogramDraw( screenW, screenH, &m_histogramDrawList, nullptr, nullptr, &textBatch );
         ProfilerTab::DrawPerformanceHistogram( widgets.profilerTab, histogramDraw, data );
         FlushUIDrawList( m_histogramDrawList,
                          textBatch,
                          render.gpuTiming,
+                         renderTextures,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -451,7 +453,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         // index. Draw it after the F5 panel so the F6 panel can anchor under
         // the CPU histogram's current position when both are visible.
         m_memoryOverlayDrawList.Clear();
-        const UIDrawContext memoryDraw( screenW, screenH, &m_memoryOverlayDrawList, nullptr, &textBatch );
+        const UIDrawContext memoryDraw( screenW, screenH, &m_memoryOverlayDrawList, nullptr, nullptr, &textBatch );
         const float memoryX = histogramEnabled ? widgets.profilerTab.histogramPanelX : 16.0f;
         const float memoryY =
             histogramEnabled ? widgets.profilerTab.histogramPanelY + widgets.profilerTab.histogramPanelH + 8.0f : 16.0f;
@@ -459,6 +461,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         FlushUIDrawList( m_memoryOverlayDrawList,
                          textBatch,
                          render.gpuTiming,
+                         renderTextures,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -491,7 +494,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         widgets.cache.Reset();
         UIDrawList& drawList = widgets.cache.MutableDrawList();
         drawList.Clear();
-        const UIDrawContext draw( screenW, screenH, &drawList, nullptr, &textBatch );
+        const UIDrawContext draw( screenW, screenH, &drawList, nullptr, nullptr, &textBatch );
         if ( widgets.window.animationActive && widgets.window.animationToMinimized )
         {
             const UIRect animBounds = Chrome::CurrentWindowRect( widgets.window, data.now );
@@ -501,6 +504,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                 FlushUIDrawList( drawList,
                                  textBatch,
                                  render.gpuTiming,
+                                 renderTextures,
                                  renderCommands,
                                  renderDiagnostics,
                                  screenW,
@@ -569,7 +573,14 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                                           cameraModeDisabledMask );
         }
         DrawEditorObjectCounter( draw, data, screenW, screenH );
-        FlushUIDrawList( drawList, textBatch, render.gpuTiming, renderCommands, renderDiagnostics, screenW, screenH );
+        FlushUIDrawList( drawList,
+                         textBatch,
+                         render.gpuTiming,
+                         renderTextures,
+                         renderCommands,
+                         renderDiagnostics,
+                         screenW,
+                         screenH );
         drawStandaloneOverlays();
         return;
     }
@@ -642,6 +653,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
         FlushUIDrawList( widgets.cache.DrawList(),
                          textBatch,
                          render.gpuTiming,
+                         renderTextures,
                          renderCommands,
                          renderDiagnostics,
                          screenW,
@@ -655,7 +667,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
 
     UIDrawList& drawList = widgets.cache.MutableDrawList();
     drawList.Clear();
-    const UIDrawContext draw( screenW, screenH, &drawList, nullptr, &textBatch );
+    const UIDrawContext draw( screenW, screenH, &drawList, nullptr, nullptr, &textBatch );
     PROFILE_BEGIN( m_profiler, "Frame/UI/DrawBuild" );
 
     const UIRect blurBounds = { x, y, w, h };
@@ -938,6 +950,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
             FlushUIDrawList( drawList,
                              textBatch,
                              render.gpuTiming,
+                             renderTextures,
                              renderCommands,
                              renderDiagnostics,
                              screenW,
@@ -1224,7 +1237,14 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
                        { footerX, by + 16.0f, controlsW, 56.0f } );
 
     PROFILE_END( m_profiler, "Frame/UI/DrawBuild" );
-    FlushUIDrawList( drawList, textBatch, render.gpuTiming, renderCommands, renderDiagnostics, screenW, screenH );
+    FlushUIDrawList( drawList,
+                     textBatch,
+                     render.gpuTiming,
+                     renderTextures,
+                     renderCommands,
+                     renderDiagnostics,
+                     screenW,
+                     screenH );
     drawStandaloneOverlays();
     if ( drawsLiveRenderTargetPreview )
     {

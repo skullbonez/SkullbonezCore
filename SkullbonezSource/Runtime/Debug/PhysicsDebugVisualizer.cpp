@@ -34,7 +34,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/CollisionShape.h"
 #include "../../Physics/PhysicsBodyStore.h"
-#include "../../Rendering/IRenderCommandContext.h"
+#include "../../Rendering/RenderCommandTypes.h"
 #include "../../Maths/Quaternion.h"
 #include "../../World/Terrain.h"
 
@@ -569,7 +569,7 @@ void PhysicsDebugVisualizer::Update( float dt, const PhysicsDebugFrameView& view
 
 void PhysicsDebugVisualizer::Render( const PhysicsDebugFrameView& view,
                                      const Matrix4& viewProj,
-                                     IRenderCommandContext& renderCommands,
+                                     Dx12GeometryOwner& renderCommands,
                                      bool supportsDebugLines,
                                      Geometry::Terrain* terrain )
 {

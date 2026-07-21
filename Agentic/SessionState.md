@@ -11,22 +11,23 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | The prior architecture campaign is closed. The 19-task architecture follow-up campaign is active at RH3; Legacy remains the development default. |
+| Current baseline | The prior architecture campaign is closed. The 19-task architecture follow-up campaign is active at RH4; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 3 / 19 live tasks; 16%. |
+| Active/future progress | 4 / 19 live tasks; 21%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Synchronized-main `validate_full` passes in 243.7 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | RH2 passes project-filter, fast, mandatory CPU umbrella, DX12 renderer, and one-minute graphics-stress gates. RH3 command-surface work additionally requires the performance gate. |
+| Validation for current edits | RH3 passes project-filter, fast, DX12 renderer, performance, and one-minute graphics-stress gates. RH4 lifecycle cleanup additionally requires the mandatory CPU umbrella. |
 
 ## Live Queue
 
 NOW. The 2026-07-22 architecture follow-up campaign is the live queue, in
-binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (3/6),
+binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (4/6),
 then `Agentic/Plans/TODO/owner-fanout-reduction.md` (0/6), then
 `Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). RH0 is recorded
 in `Agentic/Reports/2026-07-22/render-interface-retirement-rh0-census.md`;
-RH1 retired the three cold interfaces and RH2 retired the five resource and
-diagnostics interfaces; next action is RH3 command-surface retirement. The prior architecture-review campaign is
+RH1 retired the three cold interfaces, RH2 retired the five resource and
+diagnostics interfaces, and RH3 retired the hot command interface; next action
+is RH4 lifecycle cleanup. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
@@ -213,8 +214,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The 2026-07-22 architecture follow-up campaign is 2/19 complete. Continue with
-`render-interface-retirement` RH2: retire the resource/diagnostics and
-resource-object interfaces against the RH0 concrete-owner map. ImGui/Tracy E17 remains accepted;
+The 2026-07-22 architecture follow-up campaign is 4/19 complete. Continue with
+`render-interface-retirement` RH4: retire the final lifecycle interface, update
+the DX12 architecture test, and run the registered CPU umbrella. ImGui/Tracy E17 remains accepted;
 Legacy remains the default until a separate owner decision changes that
 policy.

@@ -32,7 +32,7 @@ Related:
 #include "LauncherLaser.h"
 
 #include "../../Assets/AssetSystem.h"
-#include "../../Rendering/IRenderCommandContext.h"
+#include "../../Rendering/RenderCommandTypes.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/DX12/ShaderDX12.h"
@@ -382,7 +382,7 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
                             Assets::AssetSystem& assets,
                             Rendering::Dx12ResourceBuilder& renderResources,
                             Rendering::Dx12GeometryOwner& renderGeometry,
-                            Rendering::IRenderCommandContext& renderCommands )
+                            Rendering::Dx12GeometryOwner& renderCommands )
 {
     static_cast<void>( cameraEye );
     static_cast<void>( cameraUp );

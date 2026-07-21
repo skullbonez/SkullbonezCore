@@ -55,7 +55,7 @@ class AssetSystem;
 } // namespace Assets
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 class Dx12Diagnostics;
 class Dx12ResourceBuilder;
 class Dx12GeometryOwner;
@@ -144,12 +144,12 @@ class CollisionVisualizer
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
     Color ComputeModelColor( int modelIndex, const CollisionVisualizerFrameView& view ) const;
     void BuildSleepGroupSizes( const CollisionVisualizerFrameView& view );
-    void DrawInstances( Rendering::IRenderCommandContext& renderCommands,
+    void DrawInstances( Rendering::Dx12GeometryOwner& renderCommands,
                         uint32_t mesh,
                         int vertexCount,
                         const std::vector<float>& instanceData,
                         const Rendering::PassRasterStateBucket& rasterState );
-    void DrawHullInstance( Rendering::IRenderCommandContext& renderCommands,
+    void DrawHullInstance( Rendering::Dx12GeometryOwner& renderCommands,
                            const Math::CollisionDetection::ConvexHullShape& hull,
                            const Math::Transformation::Matrix4& model,
                            const Color& color,
@@ -178,7 +178,6 @@ class CollisionVisualizer
     void Render( Assets::AssetSystem& assets,
                  Rendering::Dx12ResourceBuilder& renderResources,
                  Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::IRenderCommandContext& renderCommands,
                  Rendering::Dx12Diagnostics& renderDiagnostics,
                  const CollisionVisualizerFrameView& view,
                  const Math::Transformation::Matrix4& cameraView,

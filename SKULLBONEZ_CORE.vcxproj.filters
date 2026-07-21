@@ -1237,7 +1237,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h">

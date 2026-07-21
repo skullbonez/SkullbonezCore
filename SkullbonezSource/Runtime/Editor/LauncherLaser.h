@@ -44,7 +44,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 class Dx12ResourceBuilder;
 class Dx12GeometryOwner;
 class ShaderDX12;
@@ -147,7 +147,7 @@ class LauncherLaser
                  Assets::AssetSystem& assets,
                  Rendering::Dx12ResourceBuilder& renderResources,
                  Rendering::Dx12GeometryOwner& renderGeometry,
-                 Rendering::IRenderCommandContext& renderCommands );
+                 Rendering::Dx12GeometryOwner& renderCommands );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

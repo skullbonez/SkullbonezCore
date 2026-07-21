@@ -26,6 +26,7 @@ Related:
 #include "UIDraw.h"
 
 #include "../Rendering/Text.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "UIDrawList.h"
 #include "UIStyle.h"
 
@@ -49,7 +50,8 @@ bool UIRect::Contains( int px, int py ) const
 UIDrawContext::UIDrawContext( int screenW,
                               int screenH,
                               UIDrawList* drawList,
-                              Rendering::IRenderCommandContext* renderCommands,
+                              Rendering::Dx12TextureOwner* renderTextures,
+                              Rendering::Dx12GeometryOwner* renderCommands,
                               Text::TextBatch* textBatch )
 {
     screenW = (std::max)( 1, screenW );
@@ -60,6 +62,7 @@ UIDrawContext::UIDrawContext( int screenW,
     m_sx = ( m_hw * 2.0f ) / static_cast<float>( screenW );
     m_sy = ( m_hh * 2.0f ) / static_cast<float>( screenH );
     m_drawList = drawList;
+    m_renderTextures = renderTextures;
     m_renderCommands = renderCommands;
     m_textBatch = textBatch;
 }
@@ -319,8 +322,9 @@ void UIDrawContext::FlushText() const
         return;
     }
 
-    assert( m_renderCommands && "UIDrawContext immediate FlushText requires render commands" );
-    Text2d::FlushText( *m_textBatch, *m_renderCommands );
+    assert( m_renderTextures && m_renderCommands &&
+            "UIDrawContext immediate FlushText requires texture and geometry owners" );
+    Text2d::FlushText( *m_textBatch, *m_renderTextures, *m_renderCommands );
 }
 
 

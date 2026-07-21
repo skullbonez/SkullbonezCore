@@ -55,7 +55,7 @@ Related:
 #include "CollisionVisualizer.h"
 #include "../../Assets/AssetKeys.h"
 #include "../../Assets/AssetSystem.h"
-#include "../../Rendering/IRenderCommandContext.h"
+#include "../../Rendering/RenderCommandTypes.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
@@ -413,7 +413,7 @@ CollisionVisualizer::Color CollisionVisualizer::ComputeModelColor( int modelInde
 }
 
 
-void CollisionVisualizer::DrawInstances( IRenderCommandContext& renderCommands,
+void CollisionVisualizer::DrawInstances( Dx12GeometryOwner& renderCommands,
                                          uint32_t mesh,
                                          int vertexCount,
                                          const std::vector<float>& instanceData,
@@ -432,7 +432,7 @@ void CollisionVisualizer::DrawInstances( IRenderCommandContext& renderCommands,
 }
 
 
-void CollisionVisualizer::DrawHullInstance( IRenderCommandContext& renderCommands,
+void CollisionVisualizer::DrawHullInstance( Dx12GeometryOwner& renderCommands,
                                             const ConvexHullShape& hull,
                                             const Matrix4& model,
                                             const Color& color,
@@ -507,7 +507,6 @@ void CollisionVisualizer::DrawHullInstance( IRenderCommandContext& renderCommand
 void CollisionVisualizer::Render( Assets::AssetSystem& assets,
                                   Rendering::Dx12ResourceBuilder& renderResources,
                                   Rendering::Dx12GeometryOwner& renderGeometry,
-                                  Rendering::IRenderCommandContext& renderCommands,
                                   Rendering::Dx12Diagnostics& renderDiagnostics,
                                   const CollisionVisualizerFrameView& view,
                                   const Matrix4& cameraView,
@@ -573,11 +572,11 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
     const PassRasterStateBucket& rasterState = translucent ? COLLISION_TRANSLUCENT_RASTER : COLLISION_OPAQUE_RASTER;
     {
         CollisionVisualizerTraceScope traceScope( renderDiagnostics, "CollisionSpheres" );
-        DrawInstances( renderCommands, m_sphereInstMesh, m_sphereVertexCount, m_sphereInstanceData, rasterState );
+        DrawInstances( renderGeometry, m_sphereInstMesh, m_sphereVertexCount, m_sphereInstanceData, rasterState );
     }
     {
         CollisionVisualizerTraceScope traceScope( renderDiagnostics, "CollisionBoxes" );
-        DrawInstances( renderCommands, m_boxInstMesh, m_boxVertexCount, m_boxInstanceData, rasterState );
+        DrawInstances( renderGeometry, m_boxInstMesh, m_boxVertexCount, m_boxInstanceData, rasterState );
     }
     {
         CollisionVisualizerTraceScope traceScope( renderDiagnostics, "CollisionHulls" );
@@ -600,7 +599,7 @@ void CollisionVisualizer::Render( Assets::AssetSystem& assets,
             {
                 color.a = m_alphaOverride;
             }
-            DrawHullInstance( renderCommands,
+            DrawHullInstance( renderGeometry,
                               *hull,
                               instances[static_cast<std::size_t>( i )].modelMatrix,
                               color,

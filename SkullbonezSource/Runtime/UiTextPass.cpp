@@ -65,11 +65,17 @@ using SkullbonezCore::UI::InGameUITab;
 namespace
 {
 void DrawUiTestPattern( SkullbonezCore::Text::TextBatch& textBatch,
-                        SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                        SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
+                        SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
                         int screenW,
                         int screenH )
 {
-    const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
+    const SkullbonezCore::UI::UIDrawContext draw( screenW,
+                                                  screenH,
+                                                  nullptr,
+                                                  &renderTextures,
+                                                  &renderCommands,
+                                                  &textBatch );
     draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
 
     constexpr float tile = 88.0f;
@@ -199,7 +205,8 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     Text2d::RebuildProjection( textBatch, (std::max)( 1, state.screenW ), (std::max)( 1, state.screenH ) );
     const int uiPassDrawCallStart = inputs.renderDiagnostics.GetFrameDrawCallCount();
     assert( inputs.uiRender.IsReady() );
-    Rendering::IRenderCommandContext& renderCommands = *inputs.uiRender.commands;
+    Rendering::Dx12TextureOwner& renderTextures = *inputs.uiRender.textures;
+    Rendering::Dx12GeometryOwner& renderCommands = *inputs.uiRender.geometry;
     UI::UIRenderContext uiRender = inputs.uiRender;
     uiRender.textBatch = &textBatch;
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -271,7 +278,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "TextOnly" );
-            Text2d::FlushText( textBatch, renderCommands );
+            Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
         return;
     }
@@ -294,7 +301,12 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, state.screenW );
         const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW,
+                                                      screenH,
+                                                      nullptr,
+                                                      &renderTextures,
+                                                      &renderCommands,
+                                                      &textBatch );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -388,7 +400,12 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
 
         const int screenW = (std::max)( 1, state.screenW );
         const int screenH = (std::max)( 1, state.screenH );
-        const SkullbonezCore::UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
+        const SkullbonezCore::UI::UIDrawContext draw( screenW,
+                                                      screenH,
+                                                      nullptr,
+                                                      &renderTextures,
+                                                      &renderCommands,
+                                                      &textBatch );
         const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
         const SkullbonezCore::UI::Style::UIRadii& radii = SkullbonezCore::UI::Style::Radii();
 
@@ -546,7 +563,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         UIData.screenH = state.screenH;
         if ( state.debug.isUITestPattern )
         {
-            DrawUiTestPattern( textBatch, renderCommands, UIData.screenW, UIData.screenH );
+            DrawUiTestPattern( textBatch, renderTextures, renderCommands, UIData.screenW, UIData.screenH );
         }
         UIData.rendererName = rendererName;
         UIData.sceneName = sceneName;
@@ -987,7 +1004,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_BEGIN( inputs.profiler, "Frame/UI/PreFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "PreFlushText" );
-            Text2d::FlushText( textBatch, renderCommands );
+            Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
         PROFILE_END( inputs.profiler, "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = uiPassDrawCallStart;
@@ -995,7 +1012,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         PROFILE_BEGIN( inputs.profiler, "Frame/UI/PostFlushText" );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Frame/UI/PostFlushText" );
-            Text2d::FlushText( textBatch, renderCommands );
+            Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
         PROFILE_END( inputs.profiler, "Frame/UI/PostFlushText" );
         if ( inputs.ui.IsVisible() )
@@ -1011,7 +1028,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "HUD" );
-            Text2d::FlushText( textBatch, renderCommands );
+            Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
         return;
     }
@@ -1060,7 +1077,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "SceneStats" );
-            Text2d::FlushText( textBatch, renderCommands );
+            Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
         return;
     }
@@ -1082,7 +1099,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerBars" );
-            Text2d::FlushText( textBatch, renderCommands );
+            Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
         return;
     }
@@ -1181,7 +1198,7 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
         RenderReplayScrubberOverlayFromInputs( inputs );
         {
             DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "Keys" );
-            Text2d::FlushText( textBatch, renderCommands );
+            Text2d::FlushText( textBatch, renderTextures, renderCommands );
         }
         return;
     }
@@ -1209,6 +1226,6 @@ void UiTextPass::Render( const UiTextPassInputs& inputs )
     RenderReplayScrubberOverlayFromInputs( inputs );
     {
         DRAW_CALL_TRACE_SCOPE( inputs.renderDiagnostics, "ProfilerOverlay" );
-        Text2d::FlushText( textBatch, renderCommands );
+        Text2d::FlushText( textBatch, renderTextures, renderCommands );
     }
 }

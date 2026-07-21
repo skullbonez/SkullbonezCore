@@ -1,7 +1,7 @@
 # Render Interface Retirement — Admit The DX12 Engine
 
 Date: 2026-07-22
-Status: Active — 3/6 phases complete
+Status: Active — 4/6 phases complete
 Impact area: Rendering HAL headers, DX12 backend, runtime render host/passes,
 UI render context, primitive/text renderers
 Owner: rendering
@@ -71,7 +71,7 @@ renaming it. Zero virtual dispatch remains in the render submission path.
   `IShader`/`IMesh`/`IFramebuffer`; devirtualize the DX12 resource types and
   update `UIRenderContext`, asset, text, and primitive-batch consumers to
   the concrete owners chosen in RH0. Renderer gate plus stress run.
-- [ ] RH3. Command surface. Retire `IRenderCommandContext` — the hot seam.
+- [x] RH3. Command surface. Retire `IRenderCommandContext` — the hot seam.
   Passes, `PrimitiveBatchRenderer`, `Text`, and UI draw submission record
   against the concrete command recorder. Verify by inspection and by the
   perf gate that no pass regressed; this is the one slice that also runs
@@ -164,6 +164,43 @@ deletion-bound to RH1/RH2; none is an exception.
 - `tools\run_graphics_stress.bat 1`: PASS in 61.1 s, 12,694 frames and 348
   scene loads, zero upload flushes/drops, empty stderr, crash-free PID-scoped
   timeout (PID 38888).
+
+## RH3 Evidence — Command Surface (2026-07-22)
+
+- Deleted `IRenderCommandContext`. Shared raster, clear, instancing, and
+  transient-triangle records now live in value-only `RenderCommandTypes.h`;
+  that header grants no command capability.
+- Split command authority across existing concrete owners instead of creating
+  a union facade: `Dx12FrameOwner` owns viewport/clear, the graph-transient
+  owner resolves graph resources and transitions, `Dx12TextureOwner` binds
+  textures, and `Dx12GeometryOwner` records dynamic/instanced submission.
+  Runtime, pass, UI, replay-overlay, text, primitive, terrain, and world
+  extension contexts borrow only the owners they use.
+- `RenderBackendDX12` no longer inherits the command interface. The geometry
+  owner binds stable device/frame/pipeline/diagnostics owners at backend setup;
+  no backend pointer, callback pack, hot virtual dispatch, or replacement
+  command facade was introduced.
+- Comment-style audit inspected all 55 extant touched source/tool files: 55
+  compliant, zero deferred. Dependency-direction and replay-boundary review
+  proofs returned no rows. No replay growth privilege appeared or expanded.
+- Resolved blockers without stopping: the first focused build could not find
+  MSBuild on `PATH`; the discovered VS 2022 toolchain then exposed four missing
+  concrete-owner includes, a world-extension owner split, and a texture-owner
+  name collision. The first project-filter gate found the new value header's
+  missing prefix. The first performance run reported a transient measured
+  regression after 88.5 s; an unchanged-source rerun passed every absolute and
+  comparison lane, so no baseline or threshold moved.
+- Focused Profile x64 build: PASS in 16.1 s with zero errors.
+- `tools\validate_project_filters.bat`: clean final PASS in 2.6 s, 722 project
+  items and 722 filter items, zero errors.
+- `tools\validate_fast.bat`: PASS in 89.4 s, Profile/Debug builds and unit
+  tests clean with zero warnings/errors.
+- `tools\validate_dx12_renderer.bat`: PASS in 24.5 s, 43 shader stages fresh,
+  zero InfoQueue errors, all three committed screenshots accepted.
+- `tools\validate_perf.bat`: unchanged-source rerun PASS in 75.0 s; allocation
+  guard, absolute budgets, and DX12/physics comparisons report no regression.
+- `tools\run_graphics_stress.bat 1`: PASS in 60.9 s, 12,313 frames and 338
+  scene loads, empty stderr, crash-free PID-scoped timeout (PID 42836).
 
 ## Review Proof (must return no rows at RH5)
 

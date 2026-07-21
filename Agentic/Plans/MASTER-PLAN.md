@@ -314,10 +314,10 @@ campaign section below.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| `render-interface-retirement` | 3 | 6 | 50% |
+| `render-interface-retirement` | 4 | 6 | 67% |
 | `owner-fanout-reduction` | 0 | 6 | 0% |
 | `replay-subsystem-consolidation` | 0 | 7 | 0% |
-| **Active/future total** | **3** | **19** | **16%** |
+| **Active/future total** | **4** | **19** | **21%** |
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -1229,7 +1229,7 @@ or hot-path inheritance artifacts. Execution order is binding.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-interface-retirement](TODO/render-interface-retirement.md) | Active | 3/6 | RH2 resource surfaces complete; proceed to RH3 command surface |
+| [render-interface-retirement](TODO/render-interface-retirement.md) | Active | 4/6 | RH3 command surface complete; proceed to RH4 lifecycle cleanup |
 | [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Registered | 0/6 | Starts after render-interface-retirement closes |
 | [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Registered | 0/7 | Starts after owner-fanout-reduction closes |
 

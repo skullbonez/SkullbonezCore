@@ -24,7 +24,7 @@ Related:
 */
 #pragma once
 
-#include "../IRenderCommandContext.h"
+#include "../RenderCommandTypes.h"
 
 #include <d3d12.h>
 #include <cstddef>

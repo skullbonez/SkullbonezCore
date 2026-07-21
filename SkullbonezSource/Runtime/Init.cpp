@@ -145,11 +145,12 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     }
 
     // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
-    // render code keeps the four retained role interfaces plus concrete cold
+    // render code keeps the lifecycle seam plus concrete frame/graph/resource
     // owners in RuntimeRenderBackendView and must release every borrow before
     // shutdown resets the backend.
     renderBackendView.deviceLifecycle = renderBackend;
-    renderBackendView.renderCommands = renderBackend;
+    renderBackendView.renderFrame = &renderBackend->Frame();
+    renderBackendView.renderGraph = &renderBackend->GraphTransients();
     renderBackendView.renderResources = &renderBackend->ResourceBuilder();
     renderBackendView.renderTextures = &renderBackend->Textures();
     renderBackendView.renderGeometry = &renderBackend->Geometry();

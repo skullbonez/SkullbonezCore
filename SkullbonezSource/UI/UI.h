@@ -90,9 +90,12 @@ class AssetSystem;
 
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 class Dx12Diagnostics;
+class Dx12FrameOwner;
+class Dx12GraphTransientPool;
 class Dx12ResourceBuilder;
+class Dx12TextureOwner;
 class Dx12GeometryOwner;
 class RenderGpuTimingOwner;
 } // namespace Rendering
@@ -128,8 +131,10 @@ struct UIRenderContext
     // never needs the wide renderer facade.
     Assets::AssetSystem* assets = nullptr;
     Rendering::Dx12ResourceBuilder* resources = nullptr;
+    Rendering::Dx12FrameOwner* frame = nullptr;
+    Rendering::Dx12GraphTransientPool* graph = nullptr;
+    Rendering::Dx12TextureOwner* textures = nullptr;
     Rendering::Dx12GeometryOwner* geometry = nullptr;
-    Rendering::IRenderCommandContext* commands = nullptr;
     Rendering::Dx12Diagnostics* diagnostics = nullptr;
     Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     // Lifetime: the late UI pass installs RuntimeRenderer's batch owner for
@@ -138,8 +143,8 @@ struct UIRenderContext
 
     bool IsReady() const
     {
-        return assets != nullptr && resources != nullptr && geometry != nullptr && commands != nullptr &&
-               diagnostics != nullptr;
+        return assets != nullptr && resources != nullptr && frame != nullptr && graph != nullptr &&
+               textures != nullptr && geometry != nullptr && diagnostics != nullptr;
     }
 };
 struct UIRenderTargetPreviewResource

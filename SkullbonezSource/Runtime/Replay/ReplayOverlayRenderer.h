@@ -40,8 +40,9 @@ Related:
 
 namespace SkullbonezCore::Rendering
 {
-class IRenderCommandContext;
-}
+class Dx12GeometryOwner;
+class Dx12TextureOwner;
+} // namespace SkullbonezCore::Rendering
 
 namespace SkullbonezCore::Core
 {
@@ -98,7 +99,8 @@ struct ReplayOverlayRenderContext
 {
     // Lifetime: borrowed from the current UI/text pass; overlay code must not
     // store it after the draw call returns.
-    Rendering::IRenderCommandContext& renderCommands;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12GeometryOwner& renderCommands;
     Core::Profiler* profiler = nullptr;
     ReplayScrubberView scrubber;
     const ReplayPredictionPresentationView& prediction;

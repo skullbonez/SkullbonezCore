@@ -75,12 +75,13 @@ class Terrain;
 
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 class Dx12Diagnostics;
+class Dx12FrameOwner;
+class Dx12GraphTransientPool;
 class Dx12RaytracingOwner;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
-class Dx12GeometryOwner;
 class RenderInstanceStore;
 class WorldRenderExtensionRegistration;
 struct RenderInstancePresentationRecord;
@@ -170,12 +171,13 @@ struct RuntimeRenderServices
     // snapshot instead of asking Run to reopen scene/config state.
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
     bool cinematicEnabled = false;
-    // Lifetime: this command facet is borrowed from the process-bound backend
-    // for exactly this render call; pass code must not store it.
-    Rendering::IRenderCommandContext& renderCommands;
+    // Lifetime: concrete frame and graph owners are borrowed for this render
+    // call; pass code must not store them or recover the backend composition.
+    Rendering::Dx12FrameOwner& renderFrame;
+    Rendering::Dx12GraphTransientPool& renderGraph;
     // Lifetime: this cold builder is valid only while the current backend is
     // alive. RuntimeRenderer narrows it into RenderResourceContext for
-    // create/rebuild phases; draw code should use renderCommands instead.
+    // create/rebuild phases; draw code uses the explicit owners below.
     Rendering::Dx12ResourceBuilder& renderResources;
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12GeometryOwner& renderGeometry;

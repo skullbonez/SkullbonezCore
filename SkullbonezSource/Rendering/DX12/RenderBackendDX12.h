@@ -70,7 +70,7 @@ Related:
 
 
 #include "../../Core/SceneCapacity.h"
-#include "../IRenderCommandContext.h"
+#include "../RenderCommandTypes.h"
 #include "../IRenderDeviceLifecycle.h"
 #include "../RenderDiagnosticsTypes.h"
 #include "../RenderResourceTypes.h"
@@ -516,7 +516,10 @@ class Dx12GeometryOwner
                                   ID3D12Resource* uploadResource,
                                   D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
                                   uint8_t* uploadPointer );
-    void BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame );
+    void BindResourceOwners( Dx12RenderDevice& device,
+                             Dx12FrameOwner& frame,
+                             Dx12PipelineOwner& pipeline,
+                             Dx12Diagnostics& diagnostics );
     uint32_t CreateInstancedMesh( const float* staticData,
                                   int staticVertCount,
                                   int staticFloatsPerVert,
@@ -535,6 +538,21 @@ class Dx12GeometryOwner
                             ID3D12GraphicsCommandList* commandList,
                             Dx12DrawGate& drawGate,
                             Dx12Diagnostics& diagnostics );
+    // Hot submission entry points coordinate this owner's bounded geometry
+    // with the stable frame/pipeline/diagnostics owners bound at startup.
+    bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket );
+    void UploadAndDrawDynamicVB( uint32_t handle,
+                                 std::span<const float> packedVertices,
+                                 const PassRasterStateBucket& bucket );
+    void DrawLinesColored( std::span<const float> packedVertices,
+                           const Math::Transformation::Matrix4& viewProjection,
+                           const PassRasterStateBucket& bucket );
+    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
+                                        const Math::Transformation::Matrix4& viewProjection,
+                                        TransientTriangleStyle style,
+                                        const PassRasterStateBucket& bucket );
+    void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances );
+    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw );
     void DestroyInstancedMesh( uint32_t handle );
     uint64_t StaticVertexBufferAddress( uint32_t handle ) const;
     int StaticVertexStride( uint32_t handle ) const;
@@ -557,6 +575,8 @@ class Dx12GeometryOwner
     std::array<std::unique_ptr<ShaderDX12>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
     Dx12RenderDevice* m_resourceDevice = nullptr;
     Dx12FrameOwner* m_resourceFrame = nullptr;
+    Dx12PipelineOwner* m_submissionPipeline = nullptr;
+    Dx12Diagnostics* m_submissionDiagnostics = nullptr;
 };
 
 struct Dx12RaytracingSetupOutcome
@@ -668,7 +688,7 @@ class Dx12RaytracingOwner
 // resource states, fences, upload memory, and compiled pipeline state. Texture
 // and pipeline lifetime belong to the named owners above; this class sequences
 // their work with the device/frame command stream.
-class RenderBackendDX12 : public IRenderDeviceLifecycle, public IRenderCommandContext
+class RenderBackendDX12 : public IRenderDeviceLifecycle
 {
 
   private:
@@ -769,39 +789,17 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle, public IRenderCommandCo
         return m_backbufferCapture;
     }
 
-    void SetViewport( int x, int y, int w, int h ) override;
-    void Clear( const ClearTargetDesc& target ) override;
-
-    void BindTexture( uint32_t handle, int slot ) override;
-    RenderGraphTransientMaterializationStats
-    MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled ) override;
-    RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const override;
-    RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const override;
-    RenderGraphBackbufferBinding ResolveGraphBackbufferBinding() const override;
-    size_t ExecuteGraphTransitions( const RenderGraph& graph,
-                                    const RenderGraphCompileResult& compiled,
-                                    uint32_t passIndex ) override;
-    void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
-    void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
+    Dx12FrameOwner& Frame() noexcept
+    {
+        return m_frameOwner;
+    }
+    Dx12GraphTransientPool& GraphTransients() noexcept
+    {
+        return m_graphTransientPool;
+    }
 
     int GetWidth() const override;
     int GetHeight() const override;
-
-    bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket ) override;
-    void UploadAndDrawDynamicVB( uint32_t handle,
-                                 std::span<const float> packedVertices,
-                                 const PassRasterStateBucket& bucket ) override;
-
-    void DrawLinesColored( std::span<const float> packedVertices,
-                           const Math::Transformation::Matrix4& viewProjection,
-                           const PassRasterStateBucket& bucket ) override;
-    void DrawTransientColoredTriangles( std::span<const float> packedVertices,
-                                        const Math::Transformation::Matrix4& viewProjection,
-                                        TransientTriangleStyle style,
-                                        const PassRasterStateBucket& bucket ) override;
-
-    void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances ) override;
-    void DrawInstancedMesh( const InstancedMeshDrawDesc& draw ) override;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

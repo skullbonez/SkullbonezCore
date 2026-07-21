@@ -33,7 +33,8 @@ Related:
 #include "../Core/PlatformWin32.h"
 #include "../Core/WindowConstants.h"
 #include "../Assets/AssetSystem.h"
-#include "IRenderCommandContext.h"
+#include "RenderCommandTypes.h"
+#include "DX12/RenderBackendDX12.h"
 #include "DX12/Dx12ResourceBuilder.h"
 #include "DX12/RenderBackendDX12.h"
 
@@ -794,7 +795,7 @@ void Text2d::RenderTextInternal( TextBatch& batch,
 }
 
 
-void Text2d::FlushText( TextBatch& batch, IRenderCommandContext& renderCommands )
+void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderCommands )
 {
     if ( batch.m_textVertexCount == 0 || !Text2d::pTextShader || !Text2d::textBatchVB )
     {
@@ -803,7 +804,7 @@ void Text2d::FlushText( TextBatch& batch, IRenderCommandContext& renderCommands 
 
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", batch.m_projection );
-    renderCommands.BindTexture( Text2d::fontTexture, 0 );
+    renderTextures.BindTexture( Text2d::fontTexture, 0 );
 
     // One GPU upload + one draw call covers the entire frame's text at all colors.
     renderCommands.UploadAndDrawDynamicVB(
@@ -858,7 +859,7 @@ void Text2d::Render2dTextColor( TextBatch& batch,
 
 
 void Text2d::Render2dQuad( TextBatch& batch,
-                           IRenderCommandContext& renderCommands,
+                           Dx12GeometryOwner& renderCommands,
                            float x0,
                            float y0,
                            float x1,
@@ -887,7 +888,7 @@ void Text2d::Render2dQuad( TextBatch& batch,
 
 
 void Text2d::BatchQuad( TextBatch& batch,
-                        IRenderCommandContext& renderCommands,
+                        Dx12GeometryOwner& renderCommands,
                         float x0,
                         float y0,
                         float x1,
@@ -953,7 +954,7 @@ void Text2d::BatchQuad( TextBatch& batch,
 
 
 void Text2d::BatchTriangle( TextBatch& batch,
-                            IRenderCommandContext& renderCommands,
+                            Dx12GeometryOwner& renderCommands,
                             float x0,
                             float y0,
                             float x1,
@@ -994,7 +995,7 @@ void Text2d::BatchTriangle( TextBatch& batch,
 }
 
 
-void Text2d::FlushQuads( TextBatch& batch, IRenderCommandContext& renderCommands )
+void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
 {
     // This is the counterpart to FlushText(); together they give exactly two
     // draw calls for an entire overlay frame (quads first, then text on top).

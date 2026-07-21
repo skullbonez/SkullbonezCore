@@ -55,7 +55,7 @@ class AssetSystem;
 }
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 class Dx12Diagnostics;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
@@ -80,7 +80,6 @@ struct PrimitiveRenderContext
     Rendering::Dx12ResourceBuilder& renderResources;
     Rendering::Dx12TextureOwner& renderTextures;
     Rendering::Dx12GeometryOwner& renderGeometry;
-    Rendering::IRenderCommandContext& renderCommands;
     Rendering::Dx12Diagnostics& renderDiagnostics;
     const Assets::AssetSystem& assets;
     const SkullbonezCore::Core::EngineConfig& config;

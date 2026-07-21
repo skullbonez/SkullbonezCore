@@ -50,7 +50,7 @@ class AssetSystem;
 }
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 class Dx12ResourceBuilder;
 class Dx12TextureOwner;
 class Dx12GeometryOwner;
@@ -130,11 +130,12 @@ class Text2d
                                    float b,
                                    const char* cRawText,
                                    ... );                                   // Queues colored SDF text for this frame's text batch.
-    static void FlushText( TextBatch& batch,
-                           Rendering::IRenderCommandContext&
-                               renderCommands );                            // Uploads queued text once so HUD strings stay one draw call.
+    static void FlushText(
+        TextBatch& batch,
+        Rendering::Dx12TextureOwner& renderTextures,
+        Rendering::Dx12GeometryOwner& renderCommands );                     // Uploads queued text once so HUD strings stay one draw call.
     static void Render2dQuad( TextBatch& batch,
-                              Rendering::IRenderCommandContext& renderCommands,
+                              Rendering::Dx12GeometryOwner& renderCommands,
                               float x0,
                               float y0,
                               float x1,
@@ -144,7 +145,7 @@ class Text2d
                               float b,
                               float a );                                    // Immediate HUD quad path for legacy call sites.
     static void BatchQuad( TextBatch& batch,
-                           Rendering::IRenderCommandContext& renderCommands,
+                           Rendering::Dx12GeometryOwner& renderCommands,
                            float x0,
                            float y0,
                            float x1,
@@ -154,7 +155,7 @@ class Text2d
                            float b,
                            float a );                                       // Queues a colored quad for the shared HUD batch.
     static void BatchTriangle( TextBatch& batch,
-                               Rendering::IRenderCommandContext& renderCommands,
+                               Rendering::Dx12GeometryOwner& renderCommands,
                                float x0,
                                float y0,
                                float x1,
@@ -165,9 +166,9 @@ class Text2d
                                float g,
                                float b,
                                float a );                                   // Queues a colored triangle in the shared HUD batch.
-    static void FlushQuads(
-        TextBatch& batch,
-        Rendering::IRenderCommandContext& renderCommands );                 // Uploads queued quads/triangles once for the frame.
+    static void
+    FlushQuads( TextBatch& batch,
+                Rendering::Dx12GeometryOwner& renderCommands );             // Uploads queued quads/triangles once for the frame.
     static SkullbonezCore::Core::SbResult
     BuildFont( TextBatch& batch,
                Rendering::Dx12ResourceBuilder& renderResources,

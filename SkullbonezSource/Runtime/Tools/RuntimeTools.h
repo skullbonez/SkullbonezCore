@@ -114,7 +114,7 @@ class WorldEnvironment;
 
 namespace SkullbonezCore::Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 } // namespace SkullbonezCore::Rendering
 
 namespace SkullbonezCore::UI
@@ -684,7 +684,7 @@ class RunEditorTracer
                                  bool activeAngular );
     void Render( const ReplayVisualPacket& packet,
                  const Math::Transformation::Matrix4& viewProjection,
-                 Rendering::IRenderCommandContext& renderCommands );
+                 Rendering::Dx12GeometryOwner& renderCommands );
 };
 
 class RuntimeTools

@@ -143,7 +143,6 @@ class RuntimeRenderer
     SkullbonezCore::Core::SbResult InitialiseProcessResources( Rendering::Dx12ResourceBuilder& renderResources,
                                                                Rendering::Dx12TextureOwner& renderTextures,
                                                                Rendering::Dx12GeometryOwner& renderGeometry,
-                                                               Rendering::IRenderCommandContext& renderCommands,
                                                                const SkullbonezCore::Core::EngineConfig& config,
                                                                bool dumpTextureAssets );
     // Scene activation asks the renderer to warm its optional ray-tracing
@@ -178,8 +177,8 @@ class RuntimeRenderer
     void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing );
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
-    void BeginFrameGraph( Rendering::IRenderCommandContext& renderCommands );
-    void PrepareUiFrameTarget( Rendering::IRenderCommandContext& renderCommands );
+    void BeginFrameGraph( Rendering::Dx12GraphTransientPool& renderGraph );
+    void PrepareUiFrameTarget( Rendering::Dx12GraphTransientPool& renderGraph, Rendering::Dx12FrameOwner& renderFrame );
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     SkullbonezCore::Core::SbResult RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor );
 #endif
@@ -217,7 +216,8 @@ class RuntimeRenderer
     };
     struct BackbufferAcquireGraphInputs
     {
-        Rendering::IRenderCommandContext& renderCommands;
+        Rendering::Dx12GraphTransientPool& renderGraph;
+        Rendering::Dx12FrameOwner& renderFrame;
         bool clearFrameTargets = false;
     };
     struct ShadowGraphInputs
@@ -380,7 +380,7 @@ class RuntimeRenderer
     Rendering::RenderGraph m_renderPassGraphScratch;
     Rendering::RenderGraphCompileResult m_renderPassCompileScratch;
     Rendering::RenderSceneSnapshot m_frameGraphSnapshot;
-    Rendering::IRenderCommandContext* m_frameGraphRenderCommands = nullptr;
+    Rendering::Dx12GraphTransientPool* m_frameGraphRenderGraph = nullptr;
     bool m_frameGraphFinalized = false;
     // Lifetime: borrowed only for the next UI pass after world rendering, then
     // refreshed or cleared before backend release and text-only frames.

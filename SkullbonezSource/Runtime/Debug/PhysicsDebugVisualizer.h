@@ -45,7 +45,7 @@ class Terrain;
 
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 }
 
 namespace Physics
@@ -119,7 +119,7 @@ class PhysicsDebugVisualizer
     // The caller owns renderer readiness and debug-line capability for the frame.
     void Render( const PhysicsDebugFrameView& view,
                  const Math::Transformation::Matrix4& viewProj,
-                 Rendering::IRenderCommandContext& renderCommands,
+                 Rendering::Dx12GeometryOwner& renderCommands,
                  bool supportsDebugLines,
                  Geometry::Terrain* terrain = nullptr );
 };

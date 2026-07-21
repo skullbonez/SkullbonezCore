@@ -1302,7 +1302,7 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 
 void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView& frame,
                                               Text::TextBatch& textBatch,
-                                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                              SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
                                               float xLeft,
                                               float yAnchor,
                                               float lineHeight,
@@ -1565,7 +1565,7 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
                                                  Text::TextBatch& textBatch,
-                                                 SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                                 SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
                                                  float xLeft,
                                                  float yBottom,
                                                  float panelWidth,
@@ -2049,7 +2049,7 @@ void RenderGpuTimingOwner::End( const char*, uint32_t )
 
 void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView&,
                                               Text::TextBatch&,
-                                              Rendering::IRenderCommandContext&,
+                                              Rendering::Dx12GeometryOwner&,
                                               float,
                                               float,
                                               float,
@@ -2062,7 +2062,7 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
 
 void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView&,
                                                  Text::TextBatch&,
-                                                 Rendering::IRenderCommandContext&,
+                                                 Rendering::Dx12GeometryOwner&,
                                                  float,
                                                  float,
                                                  float,

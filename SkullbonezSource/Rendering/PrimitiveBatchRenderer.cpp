@@ -33,7 +33,7 @@ Related:
 #include "../Assets/AssetSystem.h"
 #include "../Physics/ConvexHullShape.h"
 #include "../Core/Profiler.h"
-#include "IRenderCommandContext.h"
+#include "RenderCommandTypes.h"
 #include "DX12/Dx12ResourceBuilder.h"
 #include "DX12/RenderBackendDX12.h"
 #include "PrimitiveMeshBuilder.h"
@@ -76,9 +76,9 @@ static Dx12GeometryOwner& GeometryOwner( const PrimitiveRenderContext& context )
     return context.renderGeometry;
 }
 
-static IRenderCommandContext& Commands( const PrimitiveRenderContext& context )
+static Dx12GeometryOwner& Commands( const PrimitiveRenderContext& context )
 {
-    return context.renderCommands;
+    return context.renderGeometry;
 }
 
 static const SkullbonezCore::Assets::AssetSystem& AssetRegistry( const PrimitiveRenderContext& context )
@@ -161,7 +161,7 @@ static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, P
     // model beyond the ordinary raster ABI.
     if ( state.materialTableTexture != 0 )
     {
-        Commands( context ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+        Textures( context ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
         return;
     }
 
@@ -179,7 +179,7 @@ static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, P
     }
 
     state.materialTableTexture = Textures( context ).CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4, false, false );
-    Commands( context ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+    Textures( context ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
 }
 
 static void
@@ -370,7 +370,7 @@ static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constant
     constants.shadowFlags[2] = enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f;
     constants.shadowFlags[3] = enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f;
 
-    Commands( context ).BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
+    Textures( context ).BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
 }
 
 struct PrimitiveBatchShaderParams

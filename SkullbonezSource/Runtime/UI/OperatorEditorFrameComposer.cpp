@@ -531,11 +531,11 @@ void Render( RuntimeFrameHostView& host,
                                        replayOverlay.shouldRenderScrubber,
                                        replayRuntime.BuildInputView().hasPathTarget };
 
-    if ( !uiRender.commands )
+    if ( !uiRender.graph || !uiRender.frame || !uiRender.textures || !uiRender.geometry )
     {
         SB_FATAL( "Runtime/UI", "Operator editor frame has no render command context." );
     }
-    renderer.PrepareUiFrameTarget( *uiRender.commands );
+    renderer.PrepareUiFrameTarget( *uiRender.graph, *uiRender.frame );
 
     if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
     {
@@ -555,7 +555,8 @@ void Render( RuntimeFrameHostView& host,
             renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
                                                        uiCinematicRendering,
                                                        uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
-        const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.commands,
+        const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.textures,
+                                                                              *uiRender.geometry,
                                                                               host.profiler,
                                                                               replayOverlay.scrubber,
                                                                               replayOverlay.prediction,

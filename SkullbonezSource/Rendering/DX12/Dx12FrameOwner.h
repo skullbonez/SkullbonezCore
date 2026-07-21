@@ -41,6 +41,7 @@ Related:
 #include "RenderDeviceDX12.h"
 #include "Dx12DescriptorHeaps.h"
 #include "MeshDX12.h"
+#include "../RenderCommandTypes.h"
 #include "../RenderGraph.h"
 
 #include <array>
@@ -439,6 +440,10 @@ class Dx12FrameOwner
     ID3D12Device* Device() const;
     ID3D12GraphicsCommandList* CommandList() const;
     void ActivateShader( ShaderDX12* shader );
+    // Frame/output commands remain on the owner that already governs the
+    // recording epoch and active pipeline target.
+    void SetViewport( int x, int y, int width, int height );
+    void Clear( const ClearTargetDesc& target );
 
   private:
     friend class Dx12DiagnosticsFrame;

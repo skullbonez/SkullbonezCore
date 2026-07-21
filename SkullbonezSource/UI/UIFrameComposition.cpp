@@ -462,7 +462,8 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
                       Rendering::RenderGpuTimingOwner* gpuTiming,
-                      Rendering::IRenderCommandContext& renderCommands,
+                      Rendering::Dx12TextureOwner& renderTextures,
+                      Rendering::Dx12GeometryOwner& renderCommands,
                       Rendering::Dx12Diagnostics& renderDiagnostics,
                       int screenW,
                       int screenH,
@@ -470,7 +471,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
                       float offsetY )
 {
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
-    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderCommands, &textBatch );
+    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
     drawList.Flush( immediateDraw, offsetX, offsetY );
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
@@ -478,7 +479,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
     }
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
-        Text::Text2d::FlushText( textBatch, renderCommands );
+        Text::Text2d::FlushText( textBatch, renderTextures, renderCommands );
     }
     PROFILE_GPU_END( gpuTiming, "Frame/UI/Draw" );
 }
@@ -759,18 +760,19 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::ShaderDX12>& sha
 
     const Math::Transformation::Matrix4 proj =
         Math::Transformation::Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    Rendering::IRenderCommandContext& commands = *render.commands;
+    Rendering::Dx12TextureOwner& textures = *render.textures;
+    Rendering::Dx12GeometryOwner& geometry = *render.geometry;
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
     shader->Use();
     shader->SetMat4( "uProjection", proj );
     shader->SetInt( "uTexture", 0 );
     shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-    commands.BindTexture( resource.textureHandle, 0 );
+    textures.BindTexture( resource.textureHandle, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( *render.diagnostics, "RenderTargetPreview" );
-        commands.UploadAndDrawDynamicVB( dynamicVB, verts, PREVIEW_RASTER_STATE );
+        geometry.UploadAndDrawDynamicVB( dynamicVB, verts, PREVIEW_RASTER_STATE );
     }
-    commands.BindTexture( 0, 0 );
+    textures.BindTexture( 0, 0 );
 }
 
 

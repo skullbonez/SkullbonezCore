@@ -35,7 +35,8 @@ Related:
 
 namespace SkullbonezCore::Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
+class Dx12TextureOwner;
 class Dx12Diagnostics;
 class RenderGpuTimingOwner;
 
@@ -72,7 +73,8 @@ struct WorldRenderExtensionFrameView
     Math::Vector::Vector3 eye;
     Math::Vector::Vector3 viewCenter;
     Math::Vector::Vector3 up;
-    IRenderCommandContext& renderCommands;
+    Dx12TextureOwner& renderTextures;
+    Dx12GeometryOwner& renderGeometry;
     Dx12Diagnostics& renderDiagnostics;
     RenderGpuTimingOwner& renderGpuTiming;
     WorldSurfaceHeightView surfaceHeight;

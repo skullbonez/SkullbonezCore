@@ -596,7 +596,7 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( const char* sFileName )
 #if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::Render( const Matrix4& view,
                       const Matrix4& projection,
-                      IRenderCommandContext& commands,
+                      Dx12TextureOwner& textures,
                       const float* lightPosition,
                       const float* clipPlane,
                       const Rendering::PassRasterStateBucket& rasterState,
@@ -701,9 +701,9 @@ void Terrain::Render( const Matrix4& view,
         m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
     }
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lightPosition[3] );
-    ApplyShadowReceiverUniforms( *m_terrainShader, commands, shadow, shadow ? shadow->terrainReceives : false );
+    ApplyShadowReceiverUniforms( *m_terrainShader, textures, shadow, shadow ? shadow->terrainReceives : false );
     ApplyDetailShadowReceiverUniforms( *m_terrainShader,
-                                       commands,
+                                       textures,
                                        detailShadow,
                                        detailShadow ? detailShadow->objectsReceive : false );
 

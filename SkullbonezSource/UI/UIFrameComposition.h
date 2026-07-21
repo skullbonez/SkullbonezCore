@@ -33,9 +33,10 @@ Related:
 #include "UI.h"
 #include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
-#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/DX12/Dx12ResourceBuilder.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Maths/Matrix4.h"
 #include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../Core/Profiler.h"
@@ -118,7 +119,8 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
                       Rendering::RenderGpuTimingOwner* gpuTiming,
-                      Rendering::IRenderCommandContext& renderCommands,
+                      Rendering::Dx12TextureOwner& renderTextures,
+                      Rendering::Dx12GeometryOwner& renderCommands,
                       Rendering::Dx12Diagnostics& renderDiagnostics,
                       int screenW,
                       int screenH,

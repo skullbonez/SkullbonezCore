@@ -49,7 +49,7 @@ Related:
 #include "../Maths/Matrix4.h"
 #include "../Maths/GeometricStructures.h"
 #include "../Maths/GeometricMath.h"
-#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/Shadow.h"
 #include <memory>
 #include <cstdint>
@@ -141,7 +141,7 @@ class Terrain
 
     void Render( const Math::Transformation::Matrix4& view,
                  const Math::Transformation::Matrix4& projection,
-                 Rendering::IRenderCommandContext& commands,
+                 Rendering::Dx12TextureOwner& textures,
                  const float* lightPosition,
                  const float* clipPlane,
                  const Rendering::PassRasterStateBucket& rasterState,

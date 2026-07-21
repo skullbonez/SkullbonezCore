@@ -38,7 +38,7 @@ Related:
 */
 #include "TextureCollection.h"
 #include "../Core/FatalError.h"
-#include "../Rendering/IRenderCommandContext.h"
+#include "../Rendering/RenderCommandTypes.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "stb_image.h"
 
@@ -164,13 +164,13 @@ SkullbonezCore::Core::SbResult TextureCollection::SelectTexture( uint32_t hash )
     {
         return ensureResult;
     }
-    if ( !m_renderCommands )
+    if ( !m_renderBindings )
     {
         // Invariant: selecting a texture mutates frame draw state and therefore
         // requires the command facet for the active backend.
         SB_FATAL( "TextureCollection", "SelectTexture requires a bound render command context. hash=0x%08X", hash );
     }
-    m_renderCommands->BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
+    m_renderBindings->BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
     return SkullbonezCore::Core::SbResult::Success();
 }
 
@@ -194,13 +194,13 @@ void TextureCollection::BindAssetSystem( Assets::AssetSystem* assets )
 }
 
 
-void TextureCollection::BindRenderContexts( Dx12TextureOwner* renderResources, IRenderCommandContext* renderCommands )
+void TextureCollection::BindRenderContexts( Dx12TextureOwner* renderResources, Dx12TextureOwner* renderBindings )
 {
     // Lifetime: Run owns these backend facets and clears them before backend
     // teardown. TextureCollection keeps only opaque handles created by the same
     // resource factory.
     m_renderResources = renderResources;
-    m_renderCommands = renderCommands;
+    m_renderBindings = renderBindings;
 }
 
 

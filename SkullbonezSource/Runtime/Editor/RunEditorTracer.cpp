@@ -49,7 +49,8 @@ Related:
 #include "../../Physics/Ragdoll.h"
 #include "../../Core/Config.h"
 #include "../../Core/ByteView.h"
-#include "../../Rendering/IRenderCommandContext.h"
+#include "../../Rendering/RenderCommandTypes.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
 
 #include <algorithm>
 #include <cmath>
@@ -1379,7 +1380,7 @@ void RunEditorTracer::AddReplayVelocityGizmo( const Vector3& origin,
 
 void RunEditorTracer::Render( const ReplayVisualPacket& packet,
                               const Matrix4& viewProjection,
-                              Rendering::IRenderCommandContext& renderCommands )
+                              Rendering::Dx12GeometryOwner& renderCommands )
 {
     if ( !packet.HasGeometry() )
     {
