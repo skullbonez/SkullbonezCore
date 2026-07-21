@@ -119,7 +119,6 @@ TEST_CASE( "Terrain: collapsed height-map posts publish world-up render normals"
 
     EngineConfig config;
     config.terrainGeometry.scale = 0.0f;
-    config.terrainGeometry.renderStepSize = 1;
     AssetSystem assets;
     SkullbonezTests::NullRenderResourceFactory resources;
     std::unique_ptr<Terrain> terrain;

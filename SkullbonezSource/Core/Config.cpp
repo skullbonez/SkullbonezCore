@@ -359,7 +359,6 @@ static const ConfigSetting kCameraSettings[] = {
 static const ConfigSetting kTerrainGeometrySettings[] = {
     CONFIG_FLOAT( "terrain_scale", terrainGeometry.scale, 0.0001, 1000000.0 ),
     CONFIG_FLOAT( "terrain_height_scale", terrainGeometry.heightScale, -1000000.0, 1000000.0 ),
-    CONFIG_INT( "terrain_render_step_size", terrainGeometry.renderStepSize, 1, 1024 ),
 };
 
 static const ConfigSetting kSkyboxSettings[] = {
@@ -620,7 +619,7 @@ static const ConfigSetting kWaterRenderStyleSettings[] = {
     CONFIG_FLOAT( "ocean_perturb_strength", waterRenderStyle.oceanPerturbStrength, -1000000.0, 1000000.0 ),
 };
 
-constexpr size_t kExpectedConfigSettingCount = 212;
+constexpr size_t kExpectedConfigSettingCount = 211;
 static_assert( ArrayCount( kWindowSettings ) + ArrayCount( kCameraSettings ) + ArrayCount( kTerrainGeometrySettings ) +
                        ArrayCount( kSkyboxSettings ) + ArrayCount( kRuntimeCapacitySettings ) +
                        ArrayCount( kPhysicsExecutionSettings ) + ArrayCount( kRuntimeRenderSettings ) +
@@ -853,9 +852,9 @@ SbResult ReadConfigFormatVersion( const char* path, unsigned int& outVersion )
                                   ENGINE_CONFIG_FORMAT_VERSION,
                                   path );
     }
-    // Versions 0-5 share the key/value grammar. Versioned execution rows are
+    // Versions 0-6 share the key/value grammar. Versioned execution rows are
     // optional, so absence selects built-in defaults; the cold migration tool
-    // materializes the retained v2 row and removes the rejected v3 SIMD row.
+    // materializes the retained v2 row and removes retired ownerless rows.
     return SbResult::Success();
 }
 } // anonymous namespace

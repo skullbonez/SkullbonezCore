@@ -487,7 +487,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK( result.status.ok );
     CHECK( result.savedCount == 1 );
     CHECK( configText.find( "ordinary_sun_intensity = 9.25" ) != std::string::npos );
-    CHECK( configText.find( "format_version = 5" ) != std::string::npos );
+    CHECK( configText.find( "format_version = 6" ) != std::string::npos );
 
     store.SubmitOrdinarySave();
     fs::current_path( testRoot, filesystemError );
@@ -507,7 +507,7 @@ TEST_CASE( "RenderDefaultsStore samples values at the drain checkpoint" )
     CHECK_FALSE( filesystemError );
 }
 
-TEST_CASE( "RenderDefaultsStore v3 writers remove only the rejected SIMD row" )
+TEST_CASE( "RenderDefaultsStore legacy writers remove retired config rows" )
 {
     namespace fs = std::filesystem;
     std::error_code filesystemError;
@@ -525,6 +525,8 @@ TEST_CASE( "RenderDefaultsStore v3 writers remove only the rejected SIMD row" )
             REQUIRE( configFile.is_open() );
             configFile << "format_version = 3\n"
                           "physics_simd_kernels = 1\n"
+                          "contact_audio_master_gain = 0.5\n"
+                          "terrain_render_step_size = 1\n"
                           "owner_unknown_key = retain-me\n";
             REQUIRE( configFile.good() );
         }
@@ -555,8 +557,10 @@ TEST_CASE( "RenderDefaultsStore v3 writers remove only the rejected SIMD row" )
         }
         CHECK( result.status.ok );
         CHECK( result.savedCount == 1 );
-        CHECK( configText.find( "format_version = 5" ) != std::string::npos );
+        CHECK( configText.find( "format_version = 6" ) != std::string::npos );
         CHECK( configText.find( "physics_simd_kernels" ) == std::string::npos );
+        CHECK( configText.find( "contact_audio_" ) == std::string::npos );
+        CHECK( configText.find( "terrain_render_step_size" ) == std::string::npos );
         CHECK( configText.find( "owner_unknown_key = retain-me" ) != std::string::npos );
 
         fs::remove_all( testRoot, filesystemError );
@@ -577,7 +581,7 @@ TEST_CASE( "RenderDefaultsStore rejects future config without rewriting bytes" )
     const fs::path dataRoot = testRoot / "SkullbonezData";
     fs::create_directories( dataRoot, filesystemError );
     REQUIRE_FALSE( filesystemError );
-    const std::string originalText = "format_version = 6\nordinary_sun_intensity = 1.00\n";
+    const std::string originalText = "format_version = 7\nordinary_sun_intensity = 1.00\n";
     {
         std::ofstream configFile( dataRoot / "engine.cfg", std::ios::trunc );
         REQUIRE( configFile.is_open() );

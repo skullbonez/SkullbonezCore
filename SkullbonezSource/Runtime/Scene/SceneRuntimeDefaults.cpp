@@ -100,6 +100,20 @@ void EraseConfigLines( std::vector<std::string>& lines, const char* key )
                  lines.end() );
 }
 
+void EraseConfigLinesWithPrefix( std::vector<std::string>& lines, const char* prefix )
+{
+    const std::size_t prefixLength = std::strlen( prefix );
+    lines.erase( std::remove_if( lines.begin(),
+                                 lines.end(),
+                                 [prefix, prefixLength]( const std::string& line )
+                                 {
+                                     const std::size_t start = line.find_first_not_of( " \t" );
+                                     return start != std::string::npos && line[start] != '#' &&
+                                            line.compare( start, prefixLength, prefix ) == 0;
+                                 } ),
+                 lines.end() );
+}
+
 std::size_t OrdinaryConfigInsertIndex( const std::vector<std::string>& lines )
 {
     for ( std::size_t i = 0; i < lines.size(); ++i )
@@ -264,10 +278,12 @@ bool WriteConfigLines( const std::string& configPath, const std::vector<std::str
 
 void StampCurrentConfigVersion( std::vector<std::string>& lines )
 {
-    // Invariant: native Save Defaults is a config writer and must apply the
-    // owned v3->v4 deletion, not merely relabel v3 text as current. Unknown
-    // rows remain untouched; only the rejected SIMD toggle is removed.
+    // Invariant: native Save Defaults is a config writer and must apply owned
+    // deletion migrations, not merely relabel legacy text as current. Unknown
+    // rows remain untouched; only explicitly retired settings are removed.
     EraseConfigLines( lines, "physics_simd_kernels" );
+    EraseConfigLinesWithPrefix( lines, "contact_audio_" );
+    EraseConfigLines( lines, "terrain_render_step_size" );
 
     char version[16] = {};
     sprintf_s( version, "%u", SkullbonezCore::Core::ENGINE_CONFIG_FORMAT_VERSION );

@@ -12,10 +12,10 @@ Glossary:
   Registry row: One public key, value type/range, and SkullbonezCore::Core::EngineConfig destination.
   Stable key hash: Compact fingerprint of every dumped key in traversal order;
     it detects an omission, duplicate, rename, or reorder without copying the
-    full 220-key registry into this test.
+    full 211-key registry into this test.
 
 Invariants:
-  - The dump contains one header plus exactly 220 unique setting rows.
+  - The dump contains one header plus exactly 211 unique setting rows.
   - Rejected rows do not block later valid rows in the same file.
   - Unsupported format versions fail before any setting mutates the config.
   - Temporary fixtures are cold test artifacts and are removed after each run.
@@ -44,7 +44,7 @@ namespace
 {
 constexpr const char* kConfigInputPath = "unit_engine_config_input.cfg";
 constexpr const char* kConfigDumpPath = "unit_engine_config_dump.cfg";
-constexpr uint64_t kStableConfigKeyOrderHash = 0x76ba75e1a57fc180ull;
+constexpr uint64_t kStableConfigKeyOrderHash = 0x2f0f2661f0cbaea9ull;
 
 struct TemporaryConfigFiles
 {
@@ -124,7 +124,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
 
     REQUIRE( DumpConfig( config ) );
     const std::vector<std::string> lines = ReadLines( kConfigDumpPath );
-    REQUIRE( lines.size() == 213 );
+    REQUIRE( lines.size() == 212 );
     CHECK( lines.front() == "[config]" );
 
     uint64_t keyOrderHash = 14695981039346656037ull;
@@ -137,7 +137,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: valid file produces the stable c
         CHECK_MESSAGE( uniqueKeys.insert( key ).second, "Every config key must be dumped exactly once" );
         keyOrderHash = AppendStableHash( keyOrderHash, key );
     }
-    CHECK( uniqueKeys.size() == 212 );
+    CHECK( uniqueKeys.size() == 211 );
     CHECK( keyOrderHash == kStableConfigKeyOrderHash );
     CHECK( lines[1] == "screen_x = 2048" );
     CHECK( lines.back() == "presentation_interpolation = 1" );
@@ -178,7 +178,7 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: malformed and out-of-range value
 TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future version fails before mutation" )
 {
     TemporaryConfigFiles files;
-    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 5\nscreen_x = 2048\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "format_version = 6\nscreen_x = 2048\n" ) );
 
     SkullbonezCore::Core::EngineConfig current;
     REQUIRE( current.Load( kConfigInputPath ).ok );
@@ -186,19 +186,19 @@ TEST_CASE( "SkullbonezCore::Core::EngineConfig: current version loads and future
 
     REQUIRE( WriteTextFile(
         kConfigInputPath,
-        "format_version = 4\ncontact_audio_debug_counters = 1\nphysics_simd_kernels = 1\nscreen_x = 1600\n" ) );
+        "format_version = 5\nterrain_render_step_size = 1\nscreen_x = 1600\n" ) );
     SkullbonezCore::Core::EngineConfig previous;
     REQUIRE( previous.Load( kConfigInputPath ).ok );
     CHECK( previous.window.screenX == 1600 );
     CHECK( previous.physicsExecution.parallelMutualGravity );
 
-    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 6\n" ) );
+    REQUIRE( WriteTextFile( kConfigInputPath, "screen_x = 1234\nformat_version = 7\n" ) );
     SkullbonezCore::Core::EngineConfig future;
     const auto result = future.Load( kConfigInputPath );
     CHECK_FALSE( result.ok );
     CHECK( std::string( result.error.owner ) == "Core/EngineConfig" );
-    CHECK( std::string( result.error.message ).find( "version 6" ) != std::string::npos );
-    CHECK( std::string( result.error.message ).find( "current version 5" ) != std::string::npos );
+    CHECK( std::string( result.error.message ).find( "version 7" ) != std::string::npos );
+    CHECK( std::string( result.error.message ).find( "current version 6" ) != std::string::npos );
     CHECK( future.window.screenX == 1800 );
 }
 

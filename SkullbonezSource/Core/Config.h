@@ -26,8 +26,8 @@ Invariants:
     accepted range, dump position, and every validation-sensitive consumer.
   - `terrainRaw` selects both render and collision geometry; an asset-path move
     must still receive physics validation at the formal gate.
-  - Format version 5 removes the retired contact-audio settings. Version-4
-    files remain readable while the cold migration tool deletes those rows.
+  - Format version 6 removes the render-only terrain sampling setting. Version-5
+    files remain readable while the cold migration tool deletes that row.
 
 Related:
   - SkullbonezSource/Core/Config.cpp
@@ -48,7 +48,7 @@ namespace SkullbonezCore
 namespace Core
 {
 
-inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 5;
+inline constexpr unsigned int ENGINE_CONFIG_FORMAT_VERSION = 6;
 
 /*
     Process configuration loaded once from SkullbonezData/engine.cfg at startup.
@@ -234,13 +234,12 @@ struct PhysicsExecutionConfig
     bool parallelIntegrate = true;
 };
 
-// Heightfield scale and sampling policy shared by rendered terrain and
-// collision queries. All three values require renderer and physics proof.
+// Heightfield scale shared by rendered terrain and collision queries. Both
+// values require renderer and physics proof.
 struct TerrainGeometryConfig
 {
     float scale = 5.0f;
     float heightScale = 0.15f;
-    int renderStepSize = 2;
 };
 
 // Deterministic ranges used only by generated-scene construction. Random draws

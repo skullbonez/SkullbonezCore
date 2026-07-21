@@ -36,8 +36,6 @@ Related:
 #include "../Rendering/IRenderResourceFactory.h"
 
 #include <algorithm>
-#include <climits>
-#include <cstdlib>
 #include <memory>
 
 
@@ -74,8 +72,6 @@ Terrain::Terrain( int iMapSize,
 {
     m_mapSize = iMapSize;
     m_stepSize = iStepSize;
-    m_renderStepSize = iStepSize;
-    m_renderPostsPerSide = 0;
     m_textureWrap = iTextureWrap;
     m_isFlatSlope = false;
     m_slopeBaseY = 0.0f;
@@ -91,7 +87,6 @@ Terrain::Terrain( int iMapSize,
 
     m_postsPerSide = m_mapSize / m_stepSize;
     BindRenderContexts( config, assets, resources );
-    ConfigureRenderStepSize();
 }
 
 
@@ -118,6 +113,11 @@ SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap( const char* sFil
 
     terrain->BuildTerrain();
     terrain->BuildMesh();
+    // Lifetime: collision and every render-resource rebuild use m_postData.
+    // The source RAW bytes are no longer needed after the authoritative posts
+    // exist, so release their cold-load storage before gameplay begins.
+    terrain->m_terrainData.clear();
+    terrain->m_terrainData.shrink_to_fit();
     terrain->InitialiseTerrainShader();
     outTerrain = std::move( terrain );
     return SkullbonezCore::Core::SbResult::Success();
@@ -133,8 +133,6 @@ Terrain::Terrain( float slopeBaseY,
 {
     m_mapSize = 0;
     m_stepSize = 0;
-    m_renderStepSize = 0;
-    m_renderPostsPerSide = 0;
     m_textureWrap = 0;
     m_postsPerSide = 0;
     m_terrainSizeWorldCoords = 0;
@@ -278,45 +276,6 @@ void Terrain::ReleaseRenderResources()
     m_terrainMesh.reset();
     m_terrainShader.reset();
     m_shadowDepthShader.reset();
-}
-
-
-void Terrain::ConfigureRenderStepSize()
-{
-    int requestedStep = Config().terrainGeometry.renderStepSize;
-    requestedStep = (std::max)( 1, (std::min)( requestedStep, m_stepSize ) );
-
-    const int renderRawExtent = m_mapSize - m_stepSize;
-    int selectedStep = requestedStep;
-    if ( renderRawExtent > 0 && ( renderRawExtent % selectedStep ) != 0 )
-    {
-        int bestStep = m_stepSize;
-        int bestDelta = INT_MAX;
-        for ( int candidate = 1; candidate <= m_stepSize; ++candidate )
-        {
-            if ( ( renderRawExtent % candidate ) != 0 )
-            {
-                continue;
-            }
-
-            const int delta = abs( candidate - requestedStep );
-            if ( delta < bestDelta || ( delta == bestDelta && candidate < bestStep ) )
-            {
-                bestStep = candidate;
-                bestDelta = delta;
-            }
-        }
-
-        selectedStep = bestStep;
-        fprintf( stderr,
-                 "[terrain] terrain_render_step_size=%d adjusted to %d so the render mesh fits the physics terrain "
-                 "extent.\n",
-                 requestedStep,
-                 selectedStep );
-    }
-
-    m_renderStepSize = selectedStep;
-    m_renderPostsPerSide = renderRawExtent > 0 ? ( renderRawExtent / m_renderStepSize ) + 1 : 0;
 }
 
 
@@ -500,78 +459,6 @@ void Terrain::QueryCollisionDataUnchecked( float xPosition,
 int Terrain::GetPixelHeightAt( int xCoord, int yCoord )
 {
     return m_terrainData[xCoord + yCoord * m_mapSize];
-}
-
-
-float Terrain::SampleRenderHeightRaw( float rawX, float rawZ ) const
-{
-    if ( m_terrainData.empty() || m_mapSize <= 0 )
-    {
-        return 0.0f;
-    }
-
-    const float maxRawCoord = static_cast<float>( m_mapSize - 1 );
-    rawX = (std::max)( 0.0f, (std::min)( rawX, maxRawCoord ) );
-    rawZ = (std::max)( 0.0f, (std::min)( rawZ, maxRawCoord ) );
-
-    const int x0 = static_cast<int>( floorf( rawX ) );
-    const int z0 = static_cast<int>( floorf( rawZ ) );
-    const int x1 = (std::min)( x0 + 1, m_mapSize - 1 );
-    const int z1 = (std::min)( z0 + 1, m_mapSize - 1 );
-    const float tx = rawX - static_cast<float>( x0 );
-    const float tz = rawZ - static_cast<float>( z0 );
-
-    const float h00 = static_cast<float>( m_terrainData[x0 + z0 * m_mapSize] );
-    const float h10 = static_cast<float>( m_terrainData[x1 + z0 * m_mapSize] );
-    const float h01 = static_cast<float>( m_terrainData[x0 + z1 * m_mapSize] );
-    const float h11 = static_cast<float>( m_terrainData[x1 + z1 * m_mapSize] );
-
-    const float h0 = h00 + ( h10 - h00 ) * tx;
-    const float h1 = h01 + ( h11 - h01 ) * tx;
-    return ( h0 + ( h1 - h0 ) * tz ) * Config().terrainGeometry.heightScale * Config().terrainGeometry.scale;
-}
-
-
-Vector3 Terrain::SampleRenderNormalRaw( float rawX, float rawZ ) const
-{
-    const float rawExtent = static_cast<float>( m_mapSize - m_stepSize );
-    const float sampleStep = static_cast<float>( (std::max)( 1, m_renderStepSize ) );
-    const float left = (std::max)( 0.0f, rawX - sampleStep );
-    const float right = (std::min)( rawExtent, rawX + sampleStep );
-    const float top = (std::max)( 0.0f, rawZ - sampleStep );
-    const float bottom = (std::min)( rawExtent, rawZ + sampleStep );
-
-    const float terrainScale = Config().terrainGeometry.scale;
-    const float hLeft = SampleRenderHeightRaw( left, rawZ );
-    const float hRight = SampleRenderHeightRaw( right, rawZ );
-    const float hTop = SampleRenderHeightRaw( rawX, top );
-    const float hBottom = SampleRenderHeightRaw( rawX, bottom );
-
-    const Vector3 dx( ( right - left ) * terrainScale, hRight - hLeft, 0.0f );
-    const Vector3 dz( 0.0f, hBottom - hTop, ( bottom - top ) * terrainScale );
-    Vector3 normal = CrossProduct( dz, dx );
-
-    if ( VectorMagSquared( normal ) <= TOLERANCE * TOLERANCE )
-    {
-        return Vector3( 0.0f, 1.0f, 0.0f );
-    }
-
-    normal.Normalise();
-    if ( normal.y < 0.0f )
-    {
-        normal *= -1.0f;
-    }
-    return normal;
-}
-
-
-TerrainPost Terrain::BuildRenderPost( float rawX, float rawZ ) const
-{
-    TerrainPost post;
-    const float terrainScale = Config().terrainGeometry.scale;
-    post.vPosition.SetAll( rawX * terrainScale, SampleRenderHeightRaw( rawX, rawZ ), rawZ * terrainScale );
-    post.vNormal = SampleRenderNormalRaw( rawX, rawZ );
-    return post;
 }
 
 
@@ -1301,42 +1188,34 @@ void Terrain::GenerateNormals()
 void Terrain::BuildMesh()
 {
     // 2 triangles per quad, 6 vertices each, 8 floats per vertex (pos3 + normal3 + texcoord2)
-    int quadsPerSide = m_renderPostsPerSide - 1;
+    int quadsPerSide = m_postsPerSide - 1;
     int totalQuads = quadsPerSide * quadsPerSide;
     int totalVerts = totalQuads * 6;
 
     std::vector<float> vertexData;
     vertexData.reserve( static_cast<size_t>( totalVerts ) * 8 );
 
-    fprintf( stdout,
-             "Terrain render mesh: step=%d raw pixels, posts=%d x %d, vertices=%d\n",
-             m_renderStepSize,
-             m_renderPostsPerSide,
-             m_renderPostsPerSide,
-             totalVerts );
-
     for ( int row = 0; row < quadsPerSide; ++row )
     {
         for ( int col = 0; col < quadsPerSide; ++col )
         {
-            const float rawX0 = static_cast<float>( row * m_renderStepSize );
-            const float rawX1 = static_cast<float>( ( row + 1 ) * m_renderStepSize );
-            const float rawZ0 = static_cast<float>( col * m_renderStepSize );
-            const float rawZ1 = static_cast<float>( ( col + 1 ) * m_renderStepSize );
+            float texCoordS = ( static_cast<float>( col ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
+            float texCoordT = ( static_cast<float>( row ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
+            float texCoordSP1 =
+                ( static_cast<float>( col + 1 ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
+            float texCoordTP1 =
+                ( static_cast<float>( row + 1 ) / static_cast<float>( m_postsPerSide ) ) * m_textureWrap;
 
-            float texCoordS = ( rawZ0 / static_cast<float>( m_mapSize ) ) * m_textureWrap;
-            float texCoordT = ( rawX0 / static_cast<float>( m_mapSize ) ) * m_textureWrap;
-            float texCoordSP1 = ( rawZ1 / static_cast<float>( m_mapSize ) ) * m_textureWrap;
-            float texCoordTP1 = ( rawX1 / static_cast<float>( m_mapSize ) ) * m_textureWrap;
-
-            const TerrainPost p00 = BuildRenderPost( rawX0, rawZ0 );
-            const TerrainPost p10 = BuildRenderPost( rawX0, rawZ1 );
-            const TerrainPost p01 = BuildRenderPost( rawX1, rawZ0 );
-            const TerrainPost p11 = BuildRenderPost( rawX1, rawZ1 );
+            const int idx = row * m_postsPerSide + col;
+            const TerrainPost& p00 = m_postData[idx];
+            const TerrainPost& p10 = m_postData[idx + 1];
+            const TerrainPost& p01 = m_postData[idx + m_postsPerSide];
+            const TerrainPost& p11 = m_postData[idx + m_postsPerSide + 1];
 
             // Helper lambda: push the same floating-point world position that
-            // the render-only height sampler produces. Physics still queries
-            // the coarse cached collision grid; this denser mesh is visual.
+            // collision queries use. Render, shadows, DXR, and physics now share
+            // one post grid, so collision visualization cannot expose a second
+            // interpolated terrain surface.
             auto pushVertex = [&]( const TerrainPost& p, float s, float t )
             {
                 vertexData.push_back( p.vPosition.x );

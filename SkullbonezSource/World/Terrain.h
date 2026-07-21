@@ -14,10 +14,10 @@ Glossary:
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
   mesh's triangles.
-  RAW (Raw Heightmap): Uncompressed terrain height byte data used to author
-  coarse physics posts and denser render-only samples.
-  Terrain post: Physics-authoritative height sample on the coarse collision
-  grid.
+  RAW (Raw Heightmap): Uncompressed terrain height byte data used to author the
+  shared render/collision post grid.
+  Terrain post: Authoritative height sample shared by terrain rendering and
+  collision queries.
   Broadphase: Cheap collision pass that finds object pairs worth testing more
   precisely.
   Narrowphase: Precise collision pass that computes contact points, normals,
@@ -29,6 +29,8 @@ Glossary:
 Invariants:
   - Physics-visible behavior must remain deterministic; byte-exact baselines
     are the validation contract.
+  - Render, shadow, DXR, and collision consumers use the same post positions;
+    there is no render-only height interpolation surface.
   - Terrain color and shadow draws consume caller-owned raster buckets; terrain
     does not infer fixed-function state from renderer history.
 
@@ -196,13 +198,11 @@ class Terrain
         m_terrainMesh;                                                     // Renderer-owned terrain vertex/index storage consumed by the active shader.
     std::unique_ptr<Rendering::IShader> m_terrainShader;                   // Lit+textured m_shader program
     std::unique_ptr<Rendering::IShader> m_shadowDepthShader;
-    std::vector<TerrainPost> m_postData;                                   // Physics-authoritative coarse terrain posts
-    std::vector<std::uint8_t> m_terrainData;                               // Raw height-map bytes retained for render mesh rebuilds.
+    std::vector<TerrainPost> m_postData;                                   // Shared render/collision heightfield posts.
+    std::vector<std::uint8_t> m_terrainData;                               // Cold RAW bytes released after post construction.
     std::vector<CachedQuadData> m_cachedCollisionData;
     int m_mapSize;                                                         // Size of map (pixels length)
     int m_stepSize;                                                        // Steps size between posts
-    int m_renderStepSize;                                                  // Render-only raw-pixel step size; physics keeps m_stepSize
-    int m_renderPostsPerSide;                                              // Mesh density used for rendering, independent of physics posts.
     int m_textureWrap;                                                     // Number of times to wrap texture over m_terrain
     int m_postsPerSide;                                                    // Terrain postings per side of m_terrain
     int m_terrainSizeWorldCoords;                                          // size per side of m_terrain in world coordinates
@@ -221,11 +221,10 @@ class Terrain
     Math::Vector::Vector3 m_flatSlopeNormal;
 
     SkullbonezCore::Core::SbResult
-    LoadTerrainData( const char* sFileName );                              // RAW byte load retained for render mesh rebuilds.
+    LoadTerrainData( const char* sFileName );                              // Cold RAW byte load used to construct authoritative posts.
     const SkullbonezCore::Core::EngineConfig&
     Config() const;                                                        // Runtime config must be bound before terrain queries or rebuilds.
     void InitialiseTerrainShader();                                        // Lit terrain shader setup for the active backend.
-    void ConfigureRenderStepSize();                                        // Chooses a safe render-only terrain step size
     void BuildTerrain();                                                   // Physics-authoritative terrain posts are rebuilt from raw height data.
     void BuildCollisionCache();                                            // Precomputes per-quad triangle planes + normals for physics queries
     int GetQuadCacheIndex( float xPosition,
@@ -241,12 +240,9 @@ class Terrain
                                       float& outHeight,
                                       Math::Vector::Vector3* outNormal,
                                       Plane* outPlane );
-    float SampleRenderHeightRaw( float rawX, float rawZ ) const;
-    Math::Vector::Vector3 SampleRenderNormalRaw( float rawX, float rawZ ) const;
-    TerrainPost BuildRenderPost( float rawX, float rawZ ) const;
     void TranslatePostings();                                              // Centers authored posts into world space.
     void GenerateNormals();                                                // Post normals are shared by lighting and terrain contacts.
-    void BuildMesh();                                                      // Render-only height samples keep mesh density independent of physics posts.
+    void BuildMesh();                                                      // Builds renderer geometry from the collision-authoritative posts.
     void BuildFlatSlopeMesh();                                             // Analytic flat slope scenes bypass RAW height data but still need vertex storage.
     int GetPixelHeightAt( int xCoord, int yCoord );                        // RAW pixel height before terrain post translation.
 };
