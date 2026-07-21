@@ -1,14 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp
 Purpose:
-  Creates, transitions, and names DX12 resources and delegates the opt-in
-  offline-DXC hot-reload transaction.
+  Creates, transitions, and names DX12 resources.
 
 Summary:
   RenderBackendDX12.Resources.cpp creates, transitions, and names DX12
-  resources used by the renderer. The shader-development interface remains a
-  composition-root sequence here: ask its concrete owner to bake, drain the
-  frame owner, then let that owner stage and publish the verified generation.
+  resources used by the renderer. The concrete shader-development owner now
+  contains its cold bake, drain, stage, and publication transaction.
 
 Glossary:
   Upload arena: Frame-scoped CPU-visible staging memory used to seed default
@@ -93,32 +91,6 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
         return nullptr;
     }
     return shader;
-}
-
-
-bool RenderBackendDX12::ShaderHotReloadEnabled() const
-{
-    return m_shaderDevelopment.Enabled();
-}
-
-
-SkullbonezCore::Core::SbResult RenderBackendDX12::ReloadShadersFromSource()
-{
-    const SkullbonezCore::Core::SbResult bakeResult = m_shaderDevelopment.BakeSourceGeneration();
-    if ( !bakeResult.ok )
-    {
-        return bakeResult;
-    }
-
-    // Lifetime: all current PSOs may still be referenced by submitted command
-    // lists. Drain before the transactional owner releases either main-cache or
-    // grid-line PSOs and publishes replacement bytecode.
-    const SkullbonezCore::Core::SbResult drainResult = Finish();
-    if ( !drainResult.ok )
-    {
-        return drainResult;
-    }
-    return m_shaderDevelopment.ReloadBakedGeneration( Device() );
 }
 
 

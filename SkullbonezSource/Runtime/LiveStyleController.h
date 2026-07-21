@@ -38,7 +38,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderCaptureBackend;
+class Dx12BackbufferCapture;
 }
 namespace Runtime
 {
@@ -50,7 +50,7 @@ class LiveStyleController
     void MarkReady();
     void Tick( SceneRuntimeStyleContext context );
     bool HasPendingCapture() const;
-    void SavePendingCapture( CaptureController& capture, Rendering::IRenderCaptureBackend& backend );
+    void SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
     const char* PendingScreenshotPath() const;
     void MarkCaptureSaved();
     void MarkCaptureFailed( const char* message );

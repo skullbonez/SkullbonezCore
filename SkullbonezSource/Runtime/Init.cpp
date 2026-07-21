@@ -145,15 +145,16 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     }
 
     // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
-    // render code keeps borrowed capability facets in RuntimeRenderBackendView
-    // and must let them die before shutdown resets the owner.
+    // render code keeps the four retained role interfaces plus concrete cold
+    // owners in RuntimeRenderBackendView and must release every borrow before
+    // shutdown resets the backend.
     renderBackendView.deviceLifecycle = renderBackend;
     renderBackendView.renderCommands = renderBackend;
     renderBackendView.renderResources = renderBackend;
     renderBackendView.renderDiagnostics = renderBackend;
-    renderBackendView.captureBackend = renderBackend;
-    renderBackendView.rayTracingBackend = renderBackend;
-    renderBackendView.shaderDevelopment = renderBackend;
+    renderBackendView.backbufferCapture = &renderBackend->BackbufferCapture();
+    renderBackendView.raytracing = &renderBackend->Raytracing();
+    renderBackendView.shaderDevelopment = &renderBackend->ShaderDevelopment();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     renderBackendView.developmentUiRenderer = &renderBackend->DevelopmentUiRenderer();
 #endif

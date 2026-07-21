@@ -11,21 +11,22 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | The prior architecture campaign is closed. The 19-task architecture follow-up campaign is active at RH1; Legacy remains the development default. |
+| Current baseline | The prior architecture campaign is closed. The 19-task architecture follow-up campaign is active at RH2; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 1 / 19 live tasks; 5%. |
+| Active/future progress | 2 / 19 live tasks; 11%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Synchronized-main `validate_full` passes in 243.7 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | RH0 census is documentation-only; no repository validation required. RH1 will run `tools\validate_dx12_renderer.bat` and `tools\run_graphics_stress.bat 1` at its commit gate. |
+| Validation for current edits | RH1 passes fast/unit, project-filter, DX12 renderer, and one-minute graphics-stress gates. RH2 resource-surface edits require the renderer and bounded stress gates plus any cumulative test/tool gates. |
 
 ## Live Queue
 
 NOW. The 2026-07-22 architecture follow-up campaign is the live queue, in
-binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (1/6),
+binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (2/6),
 then `Agentic/Plans/TODO/owner-fanout-reduction.md` (0/6), then
 `Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). RH0 is recorded
 in `Agentic/Reports/2026-07-22/render-interface-retirement-rh0-census.md`;
-next action is RH1 cold-surface retirement. The prior architecture-review campaign is
+RH1 retired the three cold interfaces; next action is RH2 resource-surface
+retirement. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
@@ -201,6 +202,10 @@ are not certified. Full evidence:
 | hardened strict Replay allocation (RP3 final tip) | 16.72 s | PASS; fresh report, frame 180, exactly two generations, zero gameplay/policy violations |
 | replay query identity witness | 0.4 s | PASS; existing artifact emits `sceneObjectId: 6`, no retired label |
 | `tools\validate_fast.bat` (RP3 final tool tip) | 55.46 s | PASS; 337 tests / 68,634 assertions, zero warnings/errors |
+| `tools\validate_project_filters.bat` (RH1) | 2.6 s | PASS; 725 project/filter items, zero errors |
+| `tools\validate_fast.bat` (RH1) | 23.0 s | PASS; 338 tests / 68,642 assertions, zero warnings/errors |
+| `tools\validate_dx12_renderer.bat` (RH1) | 23.8 s | PASS; zero InfoQueue errors, all three screenshots accepted |
+| `tools\run_graphics_stress.bat 1` (RH1) | 60.9 s | PASS; 12,027 frames, 330 scene loads, PID 29132 bounded stop, empty stderr |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -208,9 +213,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The 2026-07-22 architecture follow-up campaign (19 tasks across three plans)
-is registered and unstarted. Begin with `render-interface-retirement` RH0:
-the census of all ten render interfaces, their single implementers, and every
-consumer's actually-used member subset. ImGui/Tracy E17 remains accepted;
+The 2026-07-22 architecture follow-up campaign is 2/19 complete. Continue with
+`render-interface-retirement` RH2: retire the resource/diagnostics and
+resource-object interfaces against the RH0 concrete-owner map. ImGui/Tracy E17 remains accepted;
 Legacy remains the default until a separate owner decision changes that
 policy.

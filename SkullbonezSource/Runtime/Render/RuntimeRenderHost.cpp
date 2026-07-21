@@ -24,14 +24,14 @@ Related:
 */
 #include "RuntimeRenderHost.h"
 #include "../../Core/FatalError.h"
-#include "../../Rendering/IRenderCaptureBackend.h"
+#include "../../Rendering/DX12/Dx12BackbufferCapture.h"
 
-SkullbonezCore::Rendering::IRenderCaptureBackend&
-SkullbonezCore::Runtime::RuntimeRenderBackendView::RequireCaptureBackend() const
+SkullbonezCore::Rendering::Dx12BackbufferCapture&
+SkullbonezCore::Runtime::RuntimeRenderBackendView::RequireBackbufferCapture() const
 {
-    if ( !captureBackend )
+    if ( !backbufferCapture )
     {
-        SB_FATAL( "Runtime/RenderBackendView", "Screenshot capture requires a startup-bound capture backend" );
+        SB_FATAL( "Runtime/RenderBackendView", "Screenshot capture requires a startup-bound DX12 capture owner" );
     }
-    return *captureBackend;
+    return *backbufferCapture;
 }

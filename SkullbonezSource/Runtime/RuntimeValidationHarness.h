@@ -50,7 +50,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderCaptureBackend;
+class Dx12BackbufferCapture;
 class IRenderDiagnostics;
 } // namespace Rendering
 namespace Physics
@@ -117,7 +117,7 @@ class RuntimeValidationHarness
     void MarkLiveStyleReady();
     void TickLiveStyle( SceneRuntimeStyleContext context );
     bool HasPendingLiveStyleCapture() const;
-    void SavePendingLiveStyleCapture( CaptureController& capture, Rendering::IRenderCaptureBackend& backend );
+    void SavePendingLiveStyleCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
 
     void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;

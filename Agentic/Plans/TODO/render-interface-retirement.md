@@ -1,7 +1,7 @@
 # Render Interface Retirement — Admit The DX12 Engine
 
 Date: 2026-07-22
-Status: Active — 1/6 phases complete
+Status: Active — 2/6 phases complete
 Impact area: Rendering HAL headers, DX12 backend, runtime render host/passes,
 UI render context, primitive/text renderers
 Owner: rendering
@@ -62,7 +62,7 @@ renaming it. Zero virtual dispatch remains in the render submission path.
   null/headless implementer exists for text-only runs — if one is found, RH0
   records the replacement policy (skip-at-call-site, as `Run::Render`
   already does) before any deletion starts. Documentation-only.
-- [ ] RH1. Cold surfaces. Retire `IRenderCaptureBackend`,
+- [x] RH1. Cold surfaces. Retire `IRenderCaptureBackend`,
   `IRenderShaderDevelopment`, and `IRenderRayTracing`; consumers take the
   concrete capture/shader-development/raytracing owners. Renderer gate plus
   bounded stress run.
@@ -93,6 +93,37 @@ The census corrected the registration evidence: production has one implementer
 per interface, but capture has two test implementations and resource factory,
 shader, and mesh each have one test double. All five test implementations are
 deletion-bound to RH1/RH2; none is an exception.
+
+## RH1 Evidence — Cold Surfaces (2026-07-22)
+
+- Deleted `IRenderCaptureBackend`, `IRenderShaderDevelopment`, and
+  `IRenderRayTracing`. Runtime now borrows `Dx12BackbufferCapture`,
+  `Dx12ShaderDevelopment`, and `Dx12RaytracingOwner` directly; shared
+  raytracing descriptions remain value-only in `RenderRaytracingTypes.h`.
+- Removed both capture test implementations. Capture tests now exercise the
+  pure bounded result-folding policy, so tests no longer manufacture an
+  alternate renderer implementation.
+- Moved the shader reload drain/publication transaction into
+  `Dx12ShaderDevelopment`, the high-level DXR transaction into
+  `Dx12RaytracingOwner`, and the finish/reopen transaction into
+  `Dx12FrameOwner`. No replacement facade, callback pack, or backend pointer
+  was introduced.
+- Comment-style audit inspected all 35 touched source/tool files: 35 compliant,
+  zero deferred. The retired-symbol search returned no rows.
+- Resolved blockers without stopping the campaign: the focused build exposed
+  one capture-test link dependency and one DXR member-name collision; the fast
+  gate then exposed two implementation-format rows, one header-format row, and
+  the missing filter-prefix rule for the new value header. Each was fixed and
+  the owning gate rerun to PASS. Two shell-timeout interruptions produced no
+  gate verdict; their exact MSBuild PIDs were stopped before the clean rerun.
+- `tools\validate_project_filters.bat`: PASS in 2.6 s, 725 project items and
+  725 filter items, zero errors.
+- `tools\validate_fast.bat`: PASS in 23.0 s, 338/338 tests and 68,642/68,642
+  assertions, zero warnings/errors.
+- `tools\validate_dx12_renderer.bat`: PASS in 23.8 s, 43 shader stages fresh,
+  zero InfoQueue errors, all three committed screenshots accepted.
+- `tools\run_graphics_stress.bat 1`: PASS in 60.9 s, 12,027 frames and 330
+  scene loads, empty stderr, crash-free PID-scoped timeout (PID 29132).
 
 ## Review Proof (must return no rows at RH5)
 

@@ -56,6 +56,7 @@ namespace Rendering
 class ShaderDX12;
 class Dx12PipelineOwner;
 class Dx12TextureOwner;
+class Dx12Diagnostics;
 class Dx12FrameOwner;
 struct DynamicVBDX12;
 struct InstancedMeshDX12;
@@ -264,6 +265,9 @@ class Dx12FrameOwner
         return m_diagnosticsFrame;
     }
     SkullbonezCore::Core::SbResult EnsureOpen();
+    // Drains the current recording epoch, publishes completed timer readback,
+    // then reopens command recording for the next runtime operation.
+    SkullbonezCore::Core::SbResult FinishAndReopen( Dx12Diagnostics& diagnostics );
     SkullbonezCore::Core::SbResult SubmitClosed();
     SkullbonezCore::Core::SbResult WaitForGpu();
     SkullbonezCore::Core::SbResult FlushUploadBuffer();

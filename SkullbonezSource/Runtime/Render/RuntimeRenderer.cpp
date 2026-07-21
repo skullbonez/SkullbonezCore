@@ -38,7 +38,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeRenderer.h"
-#include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
 #include "../CameraCollection.h"
@@ -336,7 +336,7 @@ struct UiTextGraphCallbackData
     const ReplayOverlay::ReplayOverlayRenderContext* replayOverlayContext = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     bool cinematicRendering = false;
-    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
+    SkullbonezCore::Rendering::Dx12RaytracingOwner* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
@@ -1571,7 +1571,7 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
     bool cinematicRendering,
-    Rendering::IRenderRayTracing* renderRayTracing,
+    Rendering::Dx12RaytracingOwner* renderRayTracing,
     double secondsPerFrame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
@@ -1756,7 +1756,7 @@ void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
 SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend,
                                                                            int modelCapacity )
 {
-    Rendering::IRenderRayTracing* rayTracing = backend.rayTracingBackend;
+    Rendering::Dx12RaytracingOwner* rayTracing = backend.raytracing;
     Rendering::IRenderDiagnostics* renderDiagnostics = backend.renderDiagnostics;
     const bool supported =
         renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
@@ -2361,7 +2361,7 @@ bool RuntimeRenderer::ShouldRenderUiText( const UiTextPassState& state, const UI
 }
 
 
-void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing )
+void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing )
 {
     m_uiTextRayTracing = renderRayTracing;
 }
@@ -2570,7 +2570,7 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     {
         return false;
     }
-    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = context.backend.rayTracingBackend;
+    SkullbonezCore::Rendering::Dx12RaytracingOwner* renderRayTracing = context.backend.raytracing;
 
     const auto gradeNow = std::chrono::steady_clock::now();
     float gradeDtSeconds = 0.0f;

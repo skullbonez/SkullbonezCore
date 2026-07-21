@@ -64,7 +64,7 @@ class EngineConfig;
 } // namespace Core
 namespace Rendering
 {
-class IRenderCaptureBackend;
+class Dx12BackbufferCapture;
 }
 namespace UI
 {
@@ -309,7 +309,7 @@ TickInteractionAutomationAfterRender( InteractionAutomationController& state,
                                       const ReplayAutomationView& replayView,
                                       const InteractionAutomationDevelopmentUiView& developmentUiView,
                                       CaptureController& capture,
-                                      Rendering::IRenderCaptureBackend& captureBackend );
+                                      Rendering::Dx12BackbufferCapture& backbufferCapture );
 bool InteractionAutomationWillCaptureAfterRender( const InteractionAutomationController& state, int frame );
 } // namespace Runtime
 } // namespace SkullbonezCore

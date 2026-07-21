@@ -52,7 +52,6 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
-#include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
 #include "../SkullbonezSource/Physics/PhysicsDebugData.h"
 #include "../SkullbonezSource/UI/UICommands.h"
 
@@ -66,41 +65,6 @@ Related:
 #include <type_traits>
 
 using namespace SkullbonezCore::Runtime;
-
-namespace
-{
-class UnsupportedCaptureBackend final : public SkullbonezCore::Rendering::IRenderCaptureBackend
-{
-  public:
-    bool SupportsBackbufferCapture() const override
-    {
-        return false;
-    }
-
-    SkullbonezCore::Core::SbResult CaptureBackbuffer( std::vector<uint8_t>&, int&, int& ) override
-    {
-        return SkullbonezCore::Core::SbResult::Failure( "Test/UnsupportedCaptureBackend", "unexpected readback" );
-    }
-};
-
-class FailingCaptureBackend final : public SkullbonezCore::Rendering::IRenderCaptureBackend
-{
-  public:
-    bool SupportsBackbufferCapture() const override
-    {
-        return true;
-    }
-
-    SkullbonezCore::Core::SbResult
-    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
-    {
-        outPixels.assign( 4, 0xff );
-        outWidth = 1;
-        outHeight = 1;
-        return SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" );
-    }
-};
-} // namespace
 
 TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
 {
@@ -306,26 +270,29 @@ TEST_CASE( "CaptureController owns a fixed request budget" )
     CHECK( capture.PendingScreenshotCount() == CAPTURE_REQUEST_QUEUE_CAPACITY );
 }
 
-TEST_CASE( "CaptureController returns only successful requests as accepted events" )
+TEST_CASE( "Capture request batches return only successful requests as accepted events" )
 {
-    CaptureController capture;
-    UnsupportedCaptureBackend backend;
-    REQUIRE( capture.QueueScreenshot( "Screenshots\\unsupported.bmp" ).ok );
-
-    const CaptureRequestBatchResult result = capture.DrainScreenshotRequests( backend );
+    CaptureRequest request;
+    strcpy_s( request.path, "Screenshots\\unsupported.bmp" );
+    CaptureRequestBatchResult result;
+    AccumulateCaptureRequestResult(
+        result,
+        request,
+        SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureSystem", "capture unsupported" ) );
     CHECK_FALSE( result.status.ok );
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
-    CHECK( capture.PendingScreenshotCount() == 0 );
 }
 
-TEST_CASE( "CaptureController preserves backend readback failure ownership" )
+TEST_CASE( "Capture request batches preserve concrete readback failure ownership" )
 {
-    CaptureController capture;
-    FailingCaptureBackend backend;
-    REQUIRE( capture.QueueScreenshot( "Screenshots\\readback_failure.bmp" ).ok );
-
-    const CaptureRequestBatchResult result = capture.DrainScreenshotRequests( backend );
+    CaptureRequest request;
+    strcpy_s( request.path, "Screenshots\\readback_failure.bmp" );
+    CaptureRequestBatchResult result;
+    AccumulateCaptureRequestResult(
+        result,
+        request,
+        SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" ) );
     CHECK_FALSE( result.status.ok );
     CHECK_EQ( std::strcmp( result.status.error.owner, "Test/Readback" ), 0 );
     CHECK_EQ( std::strcmp( result.status.error.message, "fence wait failed" ), 0 );

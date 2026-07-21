@@ -639,7 +639,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Capture );
                 m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(),
-                                                                  m_renderBackendView.RequireCaptureBackend() );
+                                                                  m_renderBackendView.RequireBackbufferCapture() );
             }
             PROFILE_END( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
 
@@ -668,7 +668,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                       m_replayRuntime.BuildAutomationView(),
                                                       automationDevelopmentUiView,
                                                       m_diagnosticsRuntime.Capture(),
-                                                      m_renderBackendView.RequireCaptureBackend() );
+                                                      m_renderBackendView.RequireBackbufferCapture() );
             if ( !automationAfterRender.status.ok )
             {
                 m_applicationExit.RequestOwnedFailure( automationAfterRender.status );
@@ -963,7 +963,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                     m_sceneController.State().currentFrame,
                                     m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
                                     scenePath ? scenePath->c_str() : nullptr },
-        m_renderBackendView.RequireCaptureBackend() );
+        m_renderBackendView.RequireBackbufferCapture() );
 
     if ( result.restartFrame )
     {
@@ -1093,7 +1093,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
                                                       m_camera.autoCycleAccum,
                                                       m_camera.autoCycleShotsTaken,
                                                       m_camera.trackBallRow.value,
-                                                      m_renderBackendView.RequireCaptureBackend() );
+                                                      m_renderBackendView.RequireBackbufferCapture() );
 
     if ( !result.captureResult.ok )
     {

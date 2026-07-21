@@ -84,7 +84,7 @@ class RenderGpuTimingOwner;
 class IRenderCommandContext;
 class IRenderDeviceLifecycle;
 class IRenderDiagnostics;
-class IRenderRayTracing;
+class Dx12RaytracingOwner;
 class IRenderResourceFactory;
 class RenderInstanceStore;
 struct RenderInstancePresentationRecord;
@@ -275,7 +275,7 @@ struct RenderFrameContext
     // Lifetime: optional DXR capability borrowed for this frame only. It stays
     // nullable so the reflection pass can fall back to planar rendering when
     // raytracing is unavailable.
-    Rendering::IRenderRayTracing* renderRayTracing = nullptr;
+    Rendering::Dx12RaytracingOwner* renderRayTracing = nullptr;
     int windowWidth = 1;                                // Active render-target width sampled from the runtime window service.
     int windowHeight = 1;                               // Active render-target height sampled from the runtime window service.
 };
@@ -439,7 +439,7 @@ struct UiTextPassInputs
     // world passes, so it receives its own snapshot instead of reopening host state.
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
     bool cinematicRendering = false;
-    Rendering::IRenderRayTracing* renderRayTracing;
+    Rendering::Dx12RaytracingOwner* renderRayTracing;
     double secondsPerFrame = 0.0;
 };
 

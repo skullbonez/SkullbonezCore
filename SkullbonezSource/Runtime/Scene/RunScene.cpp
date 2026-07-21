@@ -13,9 +13,8 @@ Glossary:
   validation and tooling paths.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
-  Render backend facets: Narrow renderer interfaces for resources, commands,
-    diagnostics, and raytracing; scene setup receives them separately instead
-    of depending on a concrete backend.
+  Render setup roles: Narrow interfaces for resources, commands, and diagnostics
+    plus the concrete DX12 raytracing owner.
   Lane R result: Recoverable scene-load or renderer-drain failure carrying
     owner/message diagnostics so load stops before unsafe resource replacement.
   Required scene contact: Authored pair gate that marks a scenario objective
@@ -26,9 +25,8 @@ Glossary:
 Invariants:
   - Command-line and scene-file spellings are user-facing compatibility
     surface.
-  - DXR reflection setup may run only after the runtime has bound the render
-    resource, command, diagnostics, and raytracing facets for the active
-    backend.
+  - DXR reflection setup may run only after runtime binds the render resource,
+    command, and diagnostics roles plus the concrete raytracing owner.
   - Scene/model/terrain destruction starts only after a successful GPU drain.
   - Load orchestration retains no caller pointer, callback, or mutable owner bag.
   - Tornado projection copies every authored field here so Gameplay never
@@ -66,7 +64,7 @@ Related:
 #include "../../Core/SbResult.h"
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
-#include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/RenderRaytracingTypes.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Scene/SceneSnapshotWriter.h"

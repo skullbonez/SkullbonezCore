@@ -378,7 +378,7 @@ bool RuntimeValidationHarness::HasPendingLiveStyleCapture() const
 
 
 void RuntimeValidationHarness::SavePendingLiveStyleCapture( CaptureController& capture,
-                                                            Rendering::IRenderCaptureBackend& backend )
+                                                            Rendering::Dx12BackbufferCapture& backend )
 {
     m_liveStyle.SavePendingCapture( capture, backend );
 }

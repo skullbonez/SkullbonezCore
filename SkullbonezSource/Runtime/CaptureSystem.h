@@ -5,22 +5,22 @@ Purpose:
 
 Summary:
   Runtime code owns screenshot trigger state, while renderer code owns pixel
-  readback. This header keeps the trigger, capture owner, and readback capability
-  narrow enough to test without a full renderer.
+  readback. Pure trigger and result-folding rules remain value seams so tests
+  do not need to impersonate a renderer.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
     resource.
   Back buffer: Swap-chain image that will be presented to the window.
-  Capture backend: Narrow renderer facet that supplies screenshot readback.
+  Capture owner: Concrete DX12 component that supplies screenshot readback.
   Due predictor: Side-effect-free trigger query used before simulation so the
     eventual captured frame can pin presentation to committed solver state.
 
 Invariants:
   - Screenshot state is per-run state; interval counters and one-shot flags are
     consumed by TickScreenshots rather than by render backends.
-  - CaptureController owns the write side effect and receives the backend facet
-    explicitly, so no callback can recover the application shell.
+  - CaptureController receives the concrete capture owner explicitly; tests
+    exercise the pure result policy instead of a renderer-shaped test double.
   - The due predictor and TickScreenshots use identical frame/time trigger rules.
 
 Related:
@@ -37,7 +37,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderCaptureBackend;
+class Dx12BackbufferCapture;
 }
 
 namespace Runtime
@@ -94,12 +94,12 @@ class CaptureSystem
     static bool IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context );
     static bool RequiresDeterministicPresentation( const RunScreenshotState& screenshot,
                                                    const RuntimeCaptureSceneContext& context );
-    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend,
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
                                                              const char* path );
     static RuntimeCaptureResult TickScreenshots( RunScreenshotState& screenshot,
                                                  const RuntimeCaptureSceneContext& context,
                                                  CaptureController& capture,
-                                                 Rendering::IRenderCaptureBackend& backend );
+                                                 Rendering::Dx12BackbufferCapture& backend );
     static RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
                                                bool isInteractiveRun,
                                                int ballCount,
@@ -108,7 +108,7 @@ class CaptureSystem
                                                int& autoCycleShotsTaken,
                                                int& trackBallIndex,
                                                CaptureController& capture,
-                                               Rendering::IRenderCaptureBackend& backend );
+                                               Rendering::Dx12BackbufferCapture& backend );
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

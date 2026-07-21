@@ -184,11 +184,23 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
 
 
 RenderBackendDX12::RenderBackendDX12()
-    : m_shaderDevelopment( m_pipelineOwner, m_textureOwner, m_geometryOwner ),
-      m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
+    : m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
+      m_shaderDevelopment( m_pipelineOwner,
+                           m_textureOwner,
+                           m_geometryOwner,
+                           m_renderDevice,
+                           m_frameOwner,
+                           m_diagnostics ),
+      m_raytracingOwner( m_renderDevice,
+                         m_descriptorHeaps,
+                         m_frameOwner,
+                         m_textureOwner,
+                         m_pipelineOwner,
+                         m_geometryOwner ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_imguiRenderer( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_pipelineOwner, m_textureOwner ),
 #endif
+      m_backbufferCapture( m_frameOwner.CaptureFrame(), m_renderDevice ),
       m_graphTransientPool( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner )
 {
 }
@@ -513,7 +525,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // all device objects exist, and rollback needs no separate rebind phase.
     // DXR is optional hardware support; fall back to raster water if the device
     // cannot expose raytracing interfaces.
-    ShutdownDXR();
+    m_raytracingOwner.ShutdownDXR();
     m_raytracingOwner.ProbeCapability( Device() );
 
     // Descriptor heap Summary:
@@ -993,7 +1005,7 @@ void RenderBackendDX12::Shutdown()
     // acceleration structures. Release them before the shared renderer objects
     // below so no raytracing object outlives the device/command-list aliases it
     // was created from.
-    ShutdownDXR();
+    m_raytracingOwner.ShutdownDXR();
 
     m_diagnostics.ReportArchitectureStats( "Shutdown", m_descriptorHeaps, m_frameOwner );
     m_graphTransientPool.ReleaseAfterTerminalDrain( "Shutdown" );
@@ -1199,49 +1211,7 @@ bool RenderBackendDX12::IsVsyncEnabled() const
 
 SkullbonezCore::Core::SbResult RenderBackendDX12::Finish()
 {
-    if ( m_frameOwner.HasFailure() )
-    {
-        return m_frameOwner.CurrentResult();
-    }
-
-    if ( !CommandList() || !m_renderDevice.GraphicsQueue() || !m_renderDevice.FrameFence().IsReady() ||
-         !m_renderDevice.CommandAllocator( m_frameOwner.AllocatorIndex() ) )
-    {
-        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
-        if ( !waitResult.ok )
-        {
-            return waitResult;
-        }
-        m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), true );
-        return SkullbonezCore::Core::SbResult::Success();
-    }
-
-    if ( m_frameOwner.IsOpen() )
-    {
-        m_frameOwner.AssertProfilerClosed( "Finish" );
-        const SkullbonezCore::Core::SbResult closeResult =
-            m_frameOwner.CommitClose( CommandList()->Close(), "Finish command list Close" );
-        if ( !closeResult.ok )
-        {
-            return closeResult;
-        }
-        const SkullbonezCore::Core::SbResult submitResult = m_frameOwner.SubmitClosed();
-        if ( !submitResult.ok )
-        {
-            return submitResult;
-        }
-    }
-    const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
-    if ( !waitResult.ok )
-    {
-        return waitResult;
-    }
-    m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), true );
-
-    // Hazard: runtime pipeline-sync calls Finish() between physics and render.
-    // That wait is allowed to drain submitted GPU work, but the next render pass
-    // still expects a recording command list for explicit barriers and draws.
-    return m_frameOwner.EnsureOpen();
+    return m_frameOwner.FinishAndReopen( m_diagnostics );
 }
 
 

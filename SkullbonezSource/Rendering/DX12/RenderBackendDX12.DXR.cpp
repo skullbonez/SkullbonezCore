@@ -64,6 +64,18 @@ Related:
 
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
+
+
+Dx12RaytracingOwner::Dx12RaytracingOwner( Dx12RenderDevice& device,
+                                          Dx12DescriptorHeaps& descriptors,
+                                          Dx12FrameOwner& frame,
+                                          Dx12TextureOwner& textures,
+                                          Dx12PipelineOwner& pipeline,
+                                          Dx12GeometryOwner& geometry )
+    : m_device( device ), m_descriptors( descriptors ), m_frame( frame ), m_textures( textures ),
+      m_rasterPipeline( pipeline ), m_geometry( geometry )
+{
+}
 using Microsoft::WRL::ComPtr;
 using SkullbonezCore::Core::SbResult;
 
@@ -596,43 +608,43 @@ void Dx12RaytracingOwner::AbortSetup( const SkullbonezCore::Core::SbResult& fail
 }
 
 
-SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( const RaytracingSetupDesc& setup )
+SkullbonezCore::Core::SbResult Dx12RaytracingOwner::InitDXR( const RaytracingSetupDesc& setup )
 {
-    if ( !m_raytracingOwner.Supported() || m_raytracingOwner.Initialized() )
+    if ( !Supported() || Initialized() )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
-    const SkullbonezCore::Core::SbResult openResult = m_frameOwner.EnsureOpen();
+    const SkullbonezCore::Core::SbResult openResult = m_frame.EnsureOpen();
     if ( !openResult.ok )
     {
         return openResult;
     }
 
-    const Dx12RaytracingSetupOutcome setupOutcome = m_raytracingOwner.BeginSetup( Device(),
-                                                                                  CommandList(),
-                                                                                  m_descriptorHeaps,
-                                                                                  m_renderDevice.Width(),
-                                                                                  m_renderDevice.Height(),
-                                                                                  setup );
+    const Dx12RaytracingSetupOutcome setupOutcome = BeginSetup( m_device.Device(),
+                                                                m_device.CommandList(),
+                                                                m_descriptors,
+                                                                m_device.Width(),
+                                                                m_device.Height(),
+                                                                setup );
     if ( setupOutcome.recordedBuildWork )
     {
         // Lifetime: only the frame/device coordinator closes, submits, and
         // fences command work. The raytracing owner reports whether it emitted
         // BLAS commands so the coordinator can prove their completion before
         // scratch memory is released.
-        m_frameOwner.AssertProfilerClosed( "InitDXR command list Close" );
+        m_frame.AssertProfilerClosed( "InitDXR command list Close" );
         const SkullbonezCore::Core::SbResult closeResult =
-            m_frameOwner.CommitClose( CommandList()->Close(), "InitDXR command list Close" );
+            m_frame.CommitClose( m_device.CommandList()->Close(), "InitDXR command list Close" );
         if ( !closeResult.ok )
         {
             return closeResult;
         }
-        const SkullbonezCore::Core::SbResult submitResult = m_frameOwner.SubmitClosed();
+        const SkullbonezCore::Core::SbResult submitResult = m_frame.SubmitClosed();
         if ( !submitResult.ok )
         {
             return submitResult;
         }
-        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
+        const SkullbonezCore::Core::SbResult waitResult = m_frame.CommitWait( m_frame.WaitForGpu() );
         if ( !waitResult.ok )
         {
             return waitResult;
@@ -641,46 +653,43 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::InitDXR( const RaytracingSetup
 
     if ( !setupOutcome.result.ok )
     {
-        m_raytracingOwner.AbortSetup( setupOutcome.result );
+        AbortSetup( setupOutcome.result );
         return setupOutcome.result;
     }
-    if ( !m_raytracingOwner.Supported() )
+    if ( !Supported() )
     {
         // Optional command-list capability failure selects raster fallback and
         // is not a fatal renderer initialization error.
         return SkullbonezCore::Core::SbResult::Success();
     }
-    const SkullbonezCore::Core::SbResult completeResult =
-        m_raytracingOwner.CompleteSetup( Device(), setup.maxInstances );
+    const SkullbonezCore::Core::SbResult completeResult = CompleteSetup( m_device.Device(), setup.maxInstances );
     if ( !completeResult.ok )
     {
-        m_raytracingOwner.AbortSetup( completeResult );
+        AbortSetup( completeResult );
         return completeResult;
     }
     // Lifetime: publish the water-facing texture handle during cold DXR setup.
     // The steady render query is a pure value read and cannot grow the texture
     // registry under the runtime allocation guard.
-    const UINT reflectionSrvIndex = m_raytracingOwner.ReflectionSrvIndex();
+    const UINT reflectionSrvIndex = ReflectionSrvIndex();
     if ( reflectionSrvIndex != 0 )
     {
-        m_raytracingOwner.PublishReflectionTextureHandle(
-            m_textureOwner.RegisterSRV( reflectionSrvIndex, m_raytracingOwner.ReflectionResource() ) );
+        PublishReflectionTextureHandle( m_textures.RegisterSRV( reflectionSrvIndex, ReflectionResource() ) );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-void RenderBackendDX12::BuildTLAS( std::span<const Matrix4> instanceTransforms )
+void Dx12RaytracingOwner::BuildTLAS( std::span<const Matrix4> instanceTransforms )
 {
-    if ( !m_raytracingOwner.Supported() || !m_frameOwner.EnsureOpen().ok )
+    if ( !Supported() || !m_frame.EnsureOpen().ok )
     {
         return;
     }
-    const SkullbonezCore::Core::SbResult buildResult = m_raytracingOwner.BuildScene( instanceTransforms );
+    const SkullbonezCore::Core::SbResult buildResult = BuildScene( instanceTransforms );
     if ( !buildResult.ok )
     {
-        [[maybe_unused]] const SkullbonezCore::Core::SbResult retainedFailure =
-            m_frameOwner.RetainFailure( buildResult );
+        [[maybe_unused]] const SkullbonezCore::Core::SbResult retainedFailure = m_frame.RetainFailure( buildResult );
     }
 }
 
@@ -892,27 +901,27 @@ Dx12RaytracingDispatchOutcome Dx12RaytracingOwner::DispatchReflections( ID3D12De
 }
 
 
-void RenderBackendDX12::DispatchReflectionRays( const WaterReflectionRayDesc& reflection )
+void Dx12RaytracingOwner::DispatchReflectionRays( const WaterReflectionRayDesc& reflection )
 {
-    if ( !m_raytracingOwner.Supported() || !m_frameOwner.EnsureOpen().ok )
+    if ( !Supported() || !m_frame.EnsureOpen().ok )
     {
         return;
     }
 
     const Dx12RaytracingDispatchOutcome dispatch =
-        m_raytracingOwner.DispatchReflections( Device(), m_descriptorHeaps, m_textureOwner, reflection );
+        DispatchReflections( m_device.Device(), m_descriptors, m_textures, reflection );
     if ( !dispatch.result.ok )
     {
         [[maybe_unused]] const SkullbonezCore::Core::SbResult retainedFailure =
-            m_frameOwner.RetainFailure( dispatch.result );
+            m_frame.RetainFailure( dispatch.result );
         return;
     }
     if ( dispatch.rasterStateInvalidated )
     {
         // The owner reports state invalidation as a value. It cannot mutate the
         // sibling raster owners or retain a path back into this coordinator.
-        m_pipelineOwner.InvalidateCommandState();
-        m_textureOwner.InvalidateBindings();
+        m_rasterPipeline.InvalidateCommandState();
+        m_textures.InvalidateBindings();
     }
 }
 
@@ -958,21 +967,21 @@ uint32_t Dx12RaytracingOwner::TakeReflectionTextureHandle()
 }
 
 
-uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
+uint32_t Dx12RaytracingOwner::GetReflectionUAVTexture() const
 {
-    return m_raytracingOwner.ReflectionTextureHandle();
+    return ReflectionTextureHandle();
 }
 
 
-uint64_t RenderBackendDX12::GetInstancedMeshStaticVBVA( uint32_t handle ) const
+uint64_t Dx12RaytracingOwner::GetInstancedMeshStaticVBVA( uint32_t handle ) const
 {
-    return m_geometryOwner.StaticVertexBufferAddress( handle );
+    return m_geometry.StaticVertexBufferAddress( handle );
 }
 
 
-int RenderBackendDX12::GetInstancedMeshStaticStride( uint32_t handle ) const
+int Dx12RaytracingOwner::GetInstancedMeshStaticStride( uint32_t handle ) const
 {
-    return m_geometryOwner.StaticVertexStride( handle );
+    return m_geometry.StaticVertexStride( handle );
 }
 
 
@@ -1030,15 +1039,15 @@ void Dx12RaytracingOwner::Shutdown()
 }
 
 
-void RenderBackendDX12::ShutdownDXR()
+void Dx12RaytracingOwner::ShutdownDXR()
 {
-    const uint32_t reflectionTextureHandle = m_raytracingOwner.TakeReflectionTextureHandle();
+    const uint32_t reflectionTextureHandle = TakeReflectionTextureHandle();
     if ( reflectionTextureHandle != 0 )
     {
         // Lifetime: the texture registry borrows this descriptor identity. Drop
         // its public handle before the owner releases the underlying reflection
         // resource so no sibling registry entry survives as a stale tombstone.
-        m_textureOwner.UnregisterSRV( reflectionTextureHandle );
+        m_textures.UnregisterSRV( reflectionTextureHandle );
     }
-    m_raytracingOwner.Shutdown();
+    Shutdown();
 }

@@ -26,7 +26,7 @@ Related:
 #include "LiveStyleController.h"
 #include "../Core/PlatformWin32.h"
 #include "CaptureController.h"
-#include "../Rendering/IRenderCaptureBackend.h"
+#include "../Rendering/DX12/Dx12BackbufferCapture.h"
 #include "Scene/SceneRuntimeStyle.h"
 #include "../Scene/AuthoredScene.h"
 #include <cstdio>
@@ -339,7 +339,7 @@ void LiveStyleController::MarkCaptureFailed( const char* message )
 }
 
 
-void LiveStyleController::SavePendingCapture( CaptureController& capture, Rendering::IRenderCaptureBackend& backend )
+void LiveStyleController::SavePendingCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend )
 {
     if ( !HasPendingCapture() )
     {

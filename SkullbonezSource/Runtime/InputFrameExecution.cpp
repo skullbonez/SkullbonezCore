@@ -74,7 +74,8 @@ Related:
 #include "SimulationSystem.h"
 #include "../UI/UI.h"
 #include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderShaderDevelopment.h"
+#include "../Rendering/DX12/Dx12BackbufferCapture.h"
+#include "../Rendering/DX12/Dx12ShaderDevelopment.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../UI/UILayout.h"
 
@@ -182,13 +183,13 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         {
             return false;
         }
-        Rendering::IRenderCaptureBackend* captureBackend = m_renderBackendView.captureBackend;
-        if ( !captureBackend )
+        Rendering::Dx12BackbufferCapture* backbufferCapture = m_renderBackendView.backbufferCapture;
+        if ( !backbufferCapture )
         {
-            // Lane F: startup binds this facet before input can submit capture work.
-            SB_FATAL( "Runtime/CaptureController", "Queued screenshot requires an active capture backend" );
+            // Lane F: startup binds this owner before input can submit capture work.
+            SB_FATAL( "Runtime/CaptureController", "Queued screenshot requires an active DX12 capture owner" );
         }
-        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( *captureBackend );
+        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( *backbufferCapture );
         if ( !batch.status.ok )
         {
             std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );

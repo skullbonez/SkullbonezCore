@@ -70,7 +70,7 @@ Related:
 #include "../Physics/PhysicsTimestep.h"
 #include "../Core/Config.h"
 #include "../Core/ByteView.h"
-#include "../Rendering/IRenderCaptureBackend.h"
+#include "../Rendering/DX12/Dx12BackbufferCapture.h"
 #include "../UI/UI.h"
 
 #pragma warning( push, 0 )
@@ -3095,7 +3095,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
     const ReplayAutomationView& replayView,
     const InteractionAutomationDevelopmentUiView& developmentUiView,
     CaptureController& capture,
-    Rendering::IRenderCaptureBackend& captureBackend )
+    Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
     SceneController& scene = sceneOwners.sceneController;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
@@ -3124,7 +3124,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
                 const SkullbonezCore::Core::SbResult captureResult =
-                    capture.SaveScreenshot( captureBackend, action.path );
+                    capture.SaveScreenshot( backbufferCapture, action.path );
                 if ( captureResult.ok )
                 {
                     state.reportWriter.AddScreenshot( action.path );

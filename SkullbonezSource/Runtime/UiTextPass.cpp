@@ -49,7 +49,7 @@ Related:
 #include "../Core/Profiler.h"
 #include "../Rendering/ProfilerOverlayPresenter.h"
 #include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderRayTracing.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Rendering/Text.h"
 #include "../UI/UI.h"
 #include "../UI/UIDraw.h"

@@ -636,9 +636,6 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Profiler.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Readback.cpp">
-      <Filter>Source Files\Rendering\DX12</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -1249,9 +1246,6 @@
     <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderCaptureBackend.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
@@ -1267,10 +1261,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h">

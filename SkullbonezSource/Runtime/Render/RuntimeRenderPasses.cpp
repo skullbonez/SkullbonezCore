@@ -58,7 +58,7 @@ Related:
 #include "../../Core/Log.h"
 #include "../../Rendering/IRenderDiagnostics.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
-#include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Rendering/IRenderResourceFactory.h"
 #include "../../Rendering/RenderInstanceRenderer.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
@@ -1097,7 +1097,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     PROFILE_GPU_SCOPED( inputs.frame.renderGpuTiming, "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection" );
     const auto renderCapabilities = RenderDiagnostics( inputs.frame ).GetCapabilities();
-    Rendering::IRenderRayTracing* rayTracing = inputs.frame.renderRayTracing;
+    Rendering::Dx12RaytracingOwner* rayTracing = inputs.frame.renderRayTracing;
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection && rayTracing &&
                                   inputs.waterRayTracingReflection && !inputs.waterNoReflection &&
                                   !inputs.collisionStateColorsVisible && !inputs.transparentBodyPass;

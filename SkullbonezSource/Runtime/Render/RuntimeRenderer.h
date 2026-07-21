@@ -142,8 +142,9 @@ class RuntimeRenderer
                                                                const SkullbonezCore::Core::EngineConfig& config,
                                                                bool dumpTextureAssets );
     // Scene activation asks the renderer to warm its optional ray-tracing
-    // geometry. Scene code supplies only the backend facets and capacity value;
-    // mesh selection, capability checks, and DXR initialization stay here.
+    // geometry. Scene code supplies the retained resource/command roles, the
+    // concrete DXR owner, and a capacity value; mesh selection and capability
+    // checks stay here.
     SkullbonezCore::Core::SbResult InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend,
                                                               int modelCapacity );
     // Projects framebuffer metadata into values safe for the UI to retain for
@@ -167,7 +168,7 @@ class RuntimeRenderer
                                                           int screenW,
                                                           int screenH );
     bool ShouldRenderUiText( const UiTextPassState& state, const UI::InGameUI& ui ) const;
-    void SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing );
+    void SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing );
     // Opens the one frame-owned graph before Run chooses world or text-only
     // rendering. The caller must close it exactly once through a finalizer below.
     void BeginFrameGraph( Rendering::IRenderCommandContext& renderCommands );
@@ -324,7 +325,7 @@ class RuntimeRenderer
                                           const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
                                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                                           bool cinematicRendering,
-                                          Rendering::IRenderRayTracing* renderRayTracing,
+                                          Rendering::Dx12RaytracingOwner* renderRayTracing,
                                           double secondsPerFrame );
     RenderResourceLifecycleLog m_lifecycleLog;            // Concrete renderer-owned lifecycle diagnostic writer.
     Assets::AssetSystem& m_assets;                        // Registered render asset/shader lookup owner.
@@ -376,7 +377,7 @@ class RuntimeRenderer
     bool m_frameGraphFinalized = false;
     // Lifetime: borrowed only for the next UI pass after world rendering, then
     // refreshed or cleared before backend release and text-only frames.
-    Rendering::IRenderRayTracing* m_uiTextRayTracing = nullptr;
+    Rendering::Dx12RaytracingOwner* m_uiTextRayTracing = nullptr;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

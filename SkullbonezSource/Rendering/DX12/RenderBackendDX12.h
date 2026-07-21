@@ -69,14 +69,12 @@ Related:
 #include "../../Core/PlatformWin32.h"
 
 
-#include "../IRenderCaptureBackend.h"
 #include "../../Core/SceneCapacity.h"
 #include "../IRenderCommandContext.h"
 #include "../IRenderDeviceLifecycle.h"
 #include "../IRenderDiagnostics.h"
 #include "../IRenderResourceFactory.h"
-#include "../IRenderRayTracing.h"
-#include "../IRenderShaderDevelopment.h"
+#include "../RenderRaytracingTypes.h"
 #include "../RenderRasterBindingContract.h"
 #include "RenderBackendDX12.CommandRecordingState.h"
 #include "RenderBackendDX12.PipelineState.h"
@@ -560,6 +558,21 @@ struct Dx12RaytracingDispatchOutcome
 class Dx12RaytracingOwner
 {
   public:
+    Dx12RaytracingOwner( Dx12RenderDevice& device,
+                         Dx12DescriptorHeaps& descriptors,
+                         Dx12FrameOwner& frame,
+                         Dx12TextureOwner& textures,
+                         Dx12PipelineOwner& pipeline,
+                         Dx12GeometryOwner& geometry );
+
+    SkullbonezCore::Core::SbResult InitDXR( const RaytracingSetupDesc& setup );
+    void DispatchReflectionRays( const WaterReflectionRayDesc& reflection );
+    void BuildTLAS( std::span<const Math::Transformation::Matrix4> instanceTransforms );
+    uint32_t GetReflectionUAVTexture() const;
+    void ShutdownDXR();
+    uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const;
+    int GetInstancedMeshStaticStride( uint32_t handle ) const;
+
     void ProbeCapability( ID3D12Device* device );
     bool Supported() const;
     bool Initialized() const;
@@ -590,6 +603,12 @@ class Dx12RaytracingOwner
     SkullbonezCore::Core::SbResult CreatePipeline();
     SkullbonezCore::Core::SbResult
     CreateReflectionTexture( ID3D12Device* device, Dx12DescriptorHeaps& descriptors, int width, int height );
+    Dx12RenderDevice& m_device;
+    Dx12DescriptorHeaps& m_descriptors;
+    Dx12FrameOwner& m_frame;
+    Dx12TextureOwner& m_textures;
+    Dx12PipelineOwner& m_rasterPipeline;
+    Dx12GeometryOwner& m_geometry;
     bool m_supported = false;
     SkullbonezCore::Core::SbResult m_featureResult = SkullbonezCore::Core::SbResult::Success();
     ID3D12Device5* m_device5 = nullptr;
@@ -626,19 +645,10 @@ class Dx12RaytracingOwner
 // resource states, fences, upload memory, and compiled pipeline state. Texture
 // and pipeline lifetime belong to the named owners above; this class sequences
 // their work with the device/frame command stream.
-// Inheritance retention: rendering owns seven role facets so runtime callers
-// receive only lifecycle, resource, command, diagnostics, capture, raytracing,
-// or shader-development authority. Command calls are per-frame/per-draw; other
-// facets are cold or diagnostic. Flattening them would republish the complete
-// backend and violate capability narrowing. Retention is covered by the dated
-// interface measurement plus DX12/perf gates.
 class RenderBackendDX12 : public IRenderDeviceLifecycle,
                           public IRenderResourceFactory,
                           public IRenderCommandContext,
-                          public IRenderDiagnostics,
-                          public IRenderCaptureBackend,
-                          public IRenderRayTracing,
-                          public IRenderShaderDevelopment
+                          public IRenderDiagnostics
 {
 
   private:
@@ -647,11 +657,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     Dx12TextureOwner m_textureOwner;
     Dx12PipelineOwner m_pipelineOwner;
     Dx12GeometryOwner m_geometryOwner;
-    // Cold-only registry and transactional shader-generation adoption. It
-    // borrows concrete shader-domain owners and has no per-frame authority.
-    Dx12ShaderDevelopment m_shaderDevelopment;
-
-    Dx12RaytracingOwner m_raytracingOwner;
     Dx12Diagnostics m_diagnostics;
 
     // The render device owns the core D3D12 lifetime: factory, device, queue,
@@ -663,6 +668,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // frame owner that borrows them for fence-proven reuse.
     Dx12DescriptorHeaps m_descriptorHeaps;
     Dx12FrameOwner m_frameOwner;
+    // Cold-only owners borrow the stable renderer owners above and retain the
+    // complete transaction authority published to runtime.
+    Dx12ShaderDevelopment m_shaderDevelopment;
+    Dx12RaytracingOwner m_raytracingOwner;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Lifetime: this development renderer borrows the preceding concrete
     // device/descriptor/frame owners and is unbound before their shutdown.
@@ -710,8 +719,18 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
         return m_imguiRenderer;
     }
 #endif
-    bool ShaderHotReloadEnabled() const override;
-    SkullbonezCore::Core::SbResult ReloadShadersFromSource() override;
+    Dx12ShaderDevelopment& ShaderDevelopment() noexcept
+    {
+        return m_shaderDevelopment;
+    }
+    Dx12RaytracingOwner& Raytracing() noexcept
+    {
+        return m_raytracingOwner;
+    }
+    Dx12BackbufferCapture& BackbufferCapture() noexcept
+    {
+        return m_backbufferCapture;
+    }
 
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( const ClearTargetDesc& target ) override;
@@ -739,13 +758,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
     void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName ) override;
 
-    SkullbonezCore::Core::SbResult
-    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override;
-    bool SupportsBackbufferCapture() const override
-    {
-        return true;
-    }
-
     int GetWidth() const override;
     int GetHeight() const override;
 
@@ -757,7 +769,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     RenderCapabilities GetCapabilities() const override
     {
         RenderCapabilities capabilities;
-        capabilities.supportsBackbufferCapture = SupportsBackbufferCapture();
+        capabilities.supportsBackbufferCapture = true;
         capabilities.supportsGpuTimers = m_diagnostics.SupportsGpuTimers();
         capabilities.supportsDxrReflection = m_raytracingOwner.Supported();
         capabilities.supportsDebugLines = true;
@@ -800,14 +812,6 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     {
         m_diagnostics.PopDrawCallTraceScope( hash );
     }
-
-    SkullbonezCore::Core::SbResult InitDXR( const RaytracingSetupDesc& setup ) override;
-    void DispatchReflectionRays( const WaterReflectionRayDesc& reflection ) override;
-    void BuildTLAS( std::span<const Math::Transformation::Matrix4> instanceTransforms ) override;
-    uint32_t GetReflectionUAVTexture() const override;
-    void ShutdownDXR() override;
-    uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const override;
-    int GetInstancedMeshStaticStride( uint32_t handle ) const override;
 
     void GpuTimerBegin( int markerIdx ) override;
     void GpuTimerEnd( int markerIdx ) override;
