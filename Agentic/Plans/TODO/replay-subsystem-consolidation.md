@@ -1,7 +1,7 @@
 # Replay Subsystem Consolidation — Right-Size The Largest Domain
 
 Date: 2026-07-22
-Status: Active — 2/7 phases complete
+Status: Active — 3/7 phases complete
 Impact area: `Runtime/Replay/*` interior structure and public surface; no
 boundary, retention, or feature changes
 Owner: replay
@@ -71,7 +71,7 @@ behavioral drift is a defect in the task, never a baseline update.
   authority consolidates with `ReplayV2Artifact` into the ArtifactIO
   domain, which alone owns format versioning and file IO. No public-surface
   change.
-- [ ] RC2. Prediction core split. Divide `ReplayPrediction.cpp` along its
+- [x] RC2. Prediction core split. Divide `ReplayPrediction.cpp` along its
   three responsibilities: worker scheduling + cancellation, isolated-future
   simulation slice, and the release/acquire publication protocol. The
   publication protocol invariants (published-prefix, cancellation waits for
@@ -175,3 +175,23 @@ any allocation-adjacent file moved.
 - Comment audit covers 11 touched source-bearing files, zero deferred. Static
   dependency, Replay-boundary, allocation, callback/context, heap, and exception
   proofs pass.
+
+## RC2 Evidence — Prediction Core Split (2026-07-22)
+
+- Full evidence is recorded in
+  [`../../Reports/2026-07-22/replay-subsystem-consolidation-rc2-prediction.md`](../../Reports/2026-07-22/replay-subsystem-consolidation-rc2-prediction.md).
+  Worker lifetime/cancellation, isolated simulation, and release/acquire
+  publication now have named owners.
+- `ReplayPrediction.cpp` fell from 4,488 to 2,083 lines; the new publication,
+  topology-publication, and scheduling units are 1,390, 1,653, and 117 lines.
+  RC6 retains review authority over the near-target core survivor.
+- The existing three reserve registrations and caps are unchanged. Moved
+  allowlist rows keep the same prediction owner/cap; the final allocation scan
+  covers 414 files with zero errors. RC6 must recollect strict two-generation
+  evidence because allocation-adjacent calls moved physically.
+- `validate_tests` passes 344 / 68,699; final `validate_fast` passes in 62.1 s;
+  final `validate_full` passes in 108.2 s with all runtime lanes and byte-exact
+  physics. Comment audit covers nine touched source-bearing files, zero deferred.
+- RC2's single 422.9 s mega-gate invocation proves one process/generation and
+  passes 16 / 72 controls, then reaches the unchanged config-provenance blocker.
+  It was not retried and no config/golden edit occurred.

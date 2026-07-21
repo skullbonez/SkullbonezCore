@@ -225,6 +225,12 @@ are not certified. Full evidence:
 | replay visual fidelity (RC1, one engine generation) | 423.6 s | BLOCKED; one process/generation and 16/72 controls pass, then unchanged config-provenance mismatch |
 | `tools\validate_full.bat` (RC1 formatting attempt) | 13.2 s | BLOCKED then resolved; one touched header needed the repository comment-alignment pass |
 | `tools\validate_full.bat` (RC1 final) | 167.4 s | PASS; CPU/coverage umbrella and five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile build + Prediction doctests (RC2) | 3.1 s + 1.9 s | PASS; zero warnings, 4 cases / 24 assertions |
+| `tools\validate_tests.bat` (RC2 final) | 11.1 s | PASS; 344 cases / 68,699 assertions, 99/99 test project/filter items |
+| `tools\validate_fast.bat` (RC2 final) | 62.1 s | PASS after formatting/filter metadata corrections; 730/730 production items, zero-warning Profile/Debug builds |
+| allocation self-test + repository scan (RC2) | 9.4 s | PASS; 414 files, zero allowlist errors; same three registered owners/caps |
+| replay visual fidelity (RC2, one engine generation) | 422.9 s | BLOCKED; launcher shape and 16/72 controls pass, then unchanged config-provenance mismatch; no retry or metadata edit |
+| `tools\validate_full.bat` (RC2 final) | 108.2 s | PASS; CPU/coverage umbrella and five runtime lanes, accepted DX12 images, byte-exact 44,401-line physics CSV |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -233,9 +239,9 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 The remaining 2026-07-22 architecture follow-up campaign is replay subsystem
-consolidation at 2/7. Begin RC2: split Prediction scheduling/cancellation,
-isolated-future simulation, and release/acquire publication while preserving the
-existing focused contracts. The OF2 replay provenance mismatch
+consolidation at 3/7. Begin RC3: consolidate Presentation into the recorded
+data-selection versus draw-submission split and remove duplicated selection
+logic found by the census. The OF2 replay provenance mismatch
 remains recorded and does not authorize a config or golden reconciliation.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.
