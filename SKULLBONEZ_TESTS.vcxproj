@@ -281,6 +281,7 @@
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeFileWriter.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\RuntimeInteractionController.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayV2Artifact.cpp" />

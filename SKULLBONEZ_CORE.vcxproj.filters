@@ -306,6 +306,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
@@ -1124,6 +1127,12 @@
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactSource.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h">

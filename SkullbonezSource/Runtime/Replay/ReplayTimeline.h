@@ -25,6 +25,7 @@ Related:
 */
 #pragma once
 
+#include "ReplayArtifactHashLog.h"
 #include "ReplayRecorder.h"
 
 #include <algorithm>
@@ -269,6 +270,9 @@ class ReplayTimeline
     ReplayRecorder m_presentation;
     ReplaySolverRecorder m_solver;
     ReplayEventRecorder m_events;
+    // ArtifactIO owns both file handles and stable CSV formatting. Timeline
+    // sequences it only after Capture publishes committed sample values.
+    ReplayArtifactHashLog m_artifactHashLog;
     ReplayMemoryPolicy m_memoryPolicy;
     RunLoadedReplayPresentationState m_loadedPresentation;
     std::string m_recordingHashLogPath;

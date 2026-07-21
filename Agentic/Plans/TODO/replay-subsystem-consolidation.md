@@ -1,7 +1,7 @@
 # Replay Subsystem Consolidation — Right-Size The Largest Domain
 
 Date: 2026-07-22
-Status: Active — 1/7 phases complete
+Status: Active — 2/7 phases complete
 Impact area: `Runtime/Replay/*` interior structure and public surface; no
 boundary, retention, or feature changes
 Owner: replay
@@ -66,7 +66,7 @@ behavioral drift is a defect in the task, never a baseline update.
   expected: `ReplayRuntime.h` and value packets only; each violation is
   listed with its consumer and target packet). Record the six-domain
   assignment for all 44 files. Documentation-only.
-- [ ] RC1. Recorder split. Separate live capture (ring ownership, tick
+- [x] RC1. Recorder split. Separate live capture (ring ownership, tick
   sampling, retained memory) from artifact serialization; serialization
   authority consolidates with `ReplayV2Artifact` into the ArtifactIO
   domain, which alone owns format versioning and file IO. No public-surface
@@ -150,3 +150,28 @@ any allocation-adjacent file moved.
 - Documentation-only. No repository validation was required or run. OF2's
   provenance-only replay mismatch remains a non-stopping blocker and authorizes
   no config or golden change.
+
+## RC1 Evidence — Capture / ArtifactIO Split (2026-07-22)
+
+- Full evidence is recorded in
+  [`../../Reports/2026-07-22/replay-subsystem-consolidation-rc1-artifactio.md`](../../Reports/2026-07-22/replay-subsystem-consolidation-rc1-artifactio.md).
+  Capture no longer owns file streams, file formatting, flush operations, or
+  public chronological-copy commands.
+- `ReplayArtifactSource` owns cold compact-ring reconstruction inside the
+  governed `ReplayV2Artifact.cpp` unit; `ReplayArtifactHashLog` owns both paired
+  hash-log streams and their stable CSV ABI. `ReplayTimeline` sequences only
+  completed sample values across the boundary.
+- Product public surface and the three-owner reserve inventory are unchanged.
+  A proposed standalone materialization source was rejected by the allocation
+  checker and moved under the existing cold ArtifactIO policy without adding an
+  allowlist row or growth privilege.
+- Focused build passes in 8.3 s; focused Replay tests pass 10 / 180.
+  `tools\validate_tests.bat` passes 343 / 68,693 in 3.7 s. Final
+  `tools\validate_full.bat` passes in 167.4 s with all CPU/coverage and five
+  runtime lanes, zero DX12 errors, accepted images, and byte-exact physics.
+- The single 423.6 s visual-fidelity invocation proves one process/generation
+  and passes 16 / 72 typed controls, then stops at the unchanged config
+  provenance mismatch. No retry or golden/config edit occurred.
+- Comment audit covers 11 touched source-bearing files, zero deferred. Static
+  dependency, Replay-boundary, allocation, callback/context, heap, and exception
+  proofs pass.

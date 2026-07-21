@@ -40,6 +40,8 @@ Related:
   - tools/replay_query.py
 */
 #include "ReplayV2Artifact.h"
+
+#include "ReplayArtifactSource.h"
 #include "../../Core/ByteView.h"
 
 #include "../RuntimeFileWriter.h"
@@ -2477,10 +2479,67 @@ bool BuildFileBytes( const std::vector<Chunk>& chunks, std::vector<uint8_t>& out
 }
 } // namespace
 
+void ReplayArtifactSource::MaterializePresentation( const ReplayRecorder& recorder,
+                                                    std::vector<ReplayPresentationSample>& outSamples )
+{
+    outSamples.clear();
+    outSamples.reserve( recorder.m_sampleCount );
+    if ( recorder.m_sampleCount == 0 || recorder.m_samples.empty() )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < recorder.m_sampleCount; ++i )
+    {
+        ReplayPresentationSample sample;
+        if ( recorder.ResolveSampleAtOffset( i, sample ) )
+        {
+            outSamples.push_back( std::move( sample ) );
+        }
+    }
+}
+
+void ReplayArtifactSource::MaterializeSolver( const ReplaySolverRecorder& recorder,
+                                              std::vector<ReplaySolverFrameSample>& outSamples )
+{
+    outSamples.clear();
+    outSamples.reserve( recorder.m_sampleCount );
+    if ( recorder.m_sampleCount == 0 || recorder.m_samples.empty() )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < recorder.m_sampleCount; ++i )
+    {
+        ReplaySolverFrameSample sample;
+        if ( recorder.ResolveSolverSampleAtOffset( i, sample ) )
+        {
+            outSamples.push_back( std::move( sample ) );
+        }
+    }
+}
+
+void ReplayArtifactSource::MaterializeEvents( const ReplayEventRecorder& recorder,
+                                              std::vector<ReplayEventSample>& outEvents )
+{
+    outEvents.clear();
+    outEvents.reserve( recorder.m_eventCount );
+    if ( recorder.m_eventCount == 0 || recorder.m_events.empty() )
+    {
+        return;
+    }
+
+    for ( std::size_t i = 0; i < recorder.m_eventCount; ++i )
+    {
+        const std::size_t index = ( recorder.m_eventHead + i ) % recorder.m_events.size();
+        outEvents.push_back( recorder.m_events[index] );
+    }
+}
+
 bool ReplayV2Artifact::SavePresentation( const ReplayRecorder& recorder, const char* path, ReplayV2SaveResult* result )
 {
     std::vector<ReplayPresentationSample> samples;
-    recorder.CopySamplesChronological( samples );
+    ReplayArtifactSource::MaterializePresentation( recorder, samples );
     if ( samples.empty() )
     {
         return false;
@@ -2554,19 +2613,19 @@ bool SavePresentationWithTracks( const ReplayRecorder& recorder,
                                  ReplayV2SaveResult* result )
 {
     std::vector<ReplayPresentationSample> samples;
-    recorder.CopySamplesChronological( samples );
+    ReplayArtifactSource::MaterializePresentation( recorder, samples );
     if ( samples.empty() )
     {
         return false;
     }
 
     std::vector<ReplaySolverFrameSample> solverSamples;
-    solverRecorder.CopySamplesChronological( solverSamples );
+    ReplayArtifactSource::MaterializeSolver( solverRecorder, solverSamples );
 
     std::vector<ReplayEventSample> eventSamples;
     if ( eventRecorder )
     {
-        eventRecorder->CopyEventsChronological( eventSamples );
+        ReplayArtifactSource::MaterializeEvents( *eventRecorder, eventSamples );
     }
 
     std::vector<Chunk> chunks;

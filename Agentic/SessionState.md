@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at RC1; Legacy remains the development default. |
+| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at RC2; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 1 / 7 live tasks; 14%. |
+| Active/future progress | 2 / 7 live tasks; 29%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | OF5 `validate_full` passes in 99.2 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | RC0 is documentation-only: 44 Replay files / 34,768 lines, four >2,000-line TUs, 48 production include edges, six-domain assignment, and unchanged three-owner reserve inventory. No validation required. OF2's Replay provenance blocker remains recorded. |
+| Last broad local gate | RC1 `validate_full` passes in 167.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | RC1 separates Capture from ArtifactIO; focused Replay tests pass 10/180, `validate_tests` passes 343/68,693, 11-file comment/static audit passes, and the three reserve owners are unchanged. The single replay gate stops only at the recorded config-provenance mismatch. |
 
 ## Live Queue
 
 NOW. The remaining 2026-07-22 architecture follow-up queue is
-`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (1/7), beginning RC1.
+`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (2/7), beginning RC2.
 Render interface retirement closed RH0-RH5 and owner fan-out reduction closed
 OF0-OF5; evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md` and
@@ -220,6 +220,11 @@ are not certified. Full evidence:
 | independent rubber-duck ownership review (OF5) | 7.3 min | PASS after remediation; ten inputs, exact render authority, ≤3-file witness, zero forbidden seams |
 | `tools\validate_full.bat` (OF5 final) | 99.2 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
 | `tools\run_graphics_stress.bat 1` (OF5 final) | 61.0 s | PASS; PID 61368 bounded stop, crash-free |
+| focused Profile build + Replay tests (RC1) | 8.3 s + 1.52 s | PASS; zero warnings, 10 cases / 180 assertions |
+| `tools\validate_tests.bat` (RC1 final) | 3.7 s | PASS; 99/99 project/filter items, 343 cases / 68,693 assertions |
+| replay visual fidelity (RC1, one engine generation) | 423.6 s | BLOCKED; one process/generation and 16/72 controls pass, then unchanged config-provenance mismatch |
+| `tools\validate_full.bat` (RC1 formatting attempt) | 13.2 s | BLOCKED then resolved; one touched header needed the repository comment-alignment pass |
+| `tools\validate_full.bat` (RC1 final) | 167.4 s | PASS; CPU/coverage umbrella and five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -228,8 +233,9 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 The remaining 2026-07-22 architecture follow-up campaign is replay subsystem
-consolidation at 1/7. Begin RC1: separate live Capture rings/tick sampling from
-ArtifactIO format/file authority without changing the public surface. The OF2 replay provenance mismatch
+consolidation at 2/7. Begin RC2: split Prediction scheduling/cancellation,
+isolated-future simulation, and release/acquire publication while preserving the
+existing focused contracts. The OF2 replay provenance mismatch
 remains recorded and does not authorize a config or golden reconciliation.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.

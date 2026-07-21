@@ -398,6 +398,8 @@ RUNTIME_REPLAY_PREFIXES = (
     "ReplayAuthoring",
     "ReplayAuthoringCauseTree",
     "ReplayAuthoringVelocity",
+    "ReplayArtifactHashLog",
+    "ReplayArtifactSource",
     "ReplayCoordination",
     "ReplayEventCommand",
     "ReplayIdentity",
