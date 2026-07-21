@@ -1,7 +1,7 @@
 # Owner Fan-Out Reduction — Scene Lifecycle And Frame-View Decoupling
 
 Date: 2026-07-22
-Status: Active — 3/6 phases complete
+Status: Active — 4/6 phases complete
 Impact area: Runtime shell (`Run*`, `RuntimeFrameViews.h`), scene system
 (`SceneController`, `SceneRuntime*`), reactive owner frame entries
 Owner: runtime shell / scene lifecycle
@@ -90,7 +90,7 @@ from special case to convention.
   `SceneLoadPresentationParticipants` to true transactional participants
   only. If this slice touches `Runtime/Replay/*`, that task additionally
   runs the replay visual-fidelity gate under inventory rule 11.
-- [ ] OF3. Consumer-output collapse. Re-derive which
+- [x] OF3. Consumer-output collapse. Re-derive which
   `SceneLoadConsumerOutputs` fields the ledger now covers; retain only
   effects that genuinely cannot be self-served (window title, UI browser
   refresh are expected survivors). Delete the covered fields and their
@@ -203,6 +203,39 @@ from special case to convention.
   allocation-shape, callback/context-bag, and exception proofs all pass. No
   rubber-duck pass was appropriate for this incremental slice; the independent
   plan review remains OF5.
+
+## OF3 Evidence — Consumer-Output Collapse (2026-07-22)
+
+- `SceneLoadConsumerOutputs` shrank from 20 physical fields to 11. The deleted
+  fields were duplicated lifecycle identity, config-derived capacity and
+  generated-object override, window-title presence, validation apply policy,
+  graphics-stress resume policy, Inspect/cursor booleans, and editor-history
+  cleanup policy.
+- Reactive application now reads `SceneController::LifecyclePacket()` directly.
+  `SceneWorld` publishes its active capacity, launch options publish the
+  generated-object override, detached camera mode is the single Inspect/cursor
+  value, and a successful defaults request is the single editor-clean fact.
+  Validation gates and graphics stress each own an idempotent generation
+  observer; their former public apply/resume methods are private.
+- The 11 retained physical fields are irreducible payloads: UI activation,
+  validation requirements, navigation plus its commit fact, authored debug and
+  camera values, bounded Replay world changes plus count, completed scene
+  requests, window title, and the durable-file browser-refresh fact. None can be
+  reconstructed by the receiving owner after a partial load or failed create.
+- Focused Profile builds pass at the final tip in 6.5 s; lifecycle/same-batch
+  doctests pass 4 cases / 51 assertions. `tools\validate_full.bat` passes in
+  147.8 s with the mandatory CPU umbrella, five runtime processes, zero DX12
+  errors, accepted screenshots, and the 44,401-line physics CSV byte-exact.
+- Non-stopping blocker resolved: a proposed validation-owner unit test could not
+  link because the CPU test target intentionally omits
+  `RuntimeValidationHarness.cpp`. The misplaced test was removed rather than
+  widening the binary; the shared generation primitive remains unit-covered and
+  the concrete owner path passed the full runtime gate.
+- Comment audit: eight touched C++ source-bearing files checked, zero deferred
+  or unchecked files. Formatting, dependency-direction, Replay downward-include,
+  allocation-shape, callback/context-bag, and exception proofs all pass. No
+  Replay source file changed, so the plan's replay mega-gate rule did not apply.
+  The independent rubber-duck review remains OF5.
 
 ## Acceptance
 

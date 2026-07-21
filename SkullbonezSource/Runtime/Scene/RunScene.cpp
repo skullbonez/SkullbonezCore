@@ -562,23 +562,14 @@ void SceneLoadConsumerOutputs::ResetForLoad()
     uiActivation = SceneUiActivation{};
     automationGates.Reset();
     navigation = SceneLoadNavigationState{};
-    lifecycle = SceneLifecyclePacket{};
     presentation = RunDebugState{};
     camera = RunCameraState{};
     completedWorldChanges = {};
     completedWorldChangeCount = 0;
     completedRequests = SceneRequestBatch{};
-    sceneObjectCapacity = 0;
-    generatedObjectTypeOverride = 0;
     windowTitle[0] = '\0';
-    hasWindowTitle = false;
-    applyAutomationGates = false;
     applyNavigation = false;
     refreshSceneBrowser = false;
-    resumeGraphicsStress = false;
-    enterInspectAfterActivation = false;
-    hideCursorAfterActivation = false;
-    markEditorHistoryClean = false;
 }
 
 
@@ -597,11 +588,14 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
                                                              RuntimeTools& runtimeTools,
                                                              ReplayRuntime& replayRuntime )
 {
+    // Lifetime: lifecycle identity stays owned by SceneController. Consumers
+    // sample this reference synchronously and retain only their generation.
+    const SceneLifecyclePacket& lifecycle = sceneController.LifecyclePacket();
     // Invariant: reactive owners consume the generation before external
     // UI/validation effects. This preserves their former end-of-Load ordering
     // without returning them to the transaction participant graph.
-    timers.ObserveSceneLifecycle( outputs.lifecycle );
-    overlays.ObserveSceneLifecycle( outputs.lifecycle, outputs.presentation );
+    timers.ObserveSceneLifecycle( lifecycle );
+    overlays.ObserveSceneLifecycle( lifecycle, outputs.presentation );
     for ( std::size_t index = 0; index < outputs.completedWorldChangeCount; ++index )
     {
         const SceneLoadCompletedWorldChange& change = outputs.completedWorldChanges[index];
@@ -612,12 +606,16 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
                                                                                      change.fluidHeight,
                                                                                      change.fluidDensity ) );
     }
-    runtimeTools.ObserveSceneLifecycle( outputs.lifecycle, sceneController.Scene(), inputRouter, interaction );
-    attachedCamera.ObserveSceneLifecycle( outputs.lifecycle );
-    replayRuntime.ObserveSceneLifecycleAfterClear( outputs.lifecycle, interaction, inputRouter );
-    interaction.ObserveSceneLifecycle( outputs.lifecycle, outputs.enterInspectAfterActivation );
-    camera.ObserveSceneLifecycle( outputs.lifecycle, outputs.camera );
-    if ( inputRouter.ObserveSceneLifecycle( outputs.lifecycle, outputs.hideCursorAfterActivation ) )
+    runtimeTools.ObserveSceneLifecycle( lifecycle, sceneController.Scene(), inputRouter, interaction );
+    attachedCamera.ObserveSceneLifecycle( lifecycle );
+    replayRuntime.ObserveSceneLifecycleAfterClear( lifecycle, interaction, inputRouter );
+    // Invariant: ResetForSceneLoad first selects Scene/Demo. Only authored
+    // snapshot pause policy changes the detached result to Inspect, so the mode
+    // is the authoritative activation value and no parallel boolean is needed.
+    const bool enterInspectAfterActivation = outputs.camera.mode == RunCameraMode::Inspect;
+    interaction.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation );
+    camera.ObserveSceneLifecycle( lifecycle, outputs.camera );
+    if ( inputRouter.ObserveSceneLifecycle( lifecycle, enterInspectAfterActivation ) )
     {
         Hardware::Input::ResetMouseLookDeltas();
     }
@@ -649,13 +647,19 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
         DescribeReplaySceneTimeline( sceneController,
                                      outputs.navigation.overrides,
                                      sceneController.State(),
-                                     outputs.sceneObjectCapacity,
-                                     outputs.generatedObjectTypeOverride );
+                                     sceneController.Scene().ActiveSceneObjectCapacity(),
+                                     static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride ) );
     ReplaySceneTimelineResetOwners activationOwners = replayOwners( camera );
-    replayRuntime.ObserveSceneLifecycleAfterActivation( outputs.lifecycle, timelineReset, activationOwners );
-    if ( outputs.markEditorHistoryClean )
+    replayRuntime.ObserveSceneLifecycleAfterActivation( lifecycle, timelineReset, activationOwners );
+    // Invariant: only a successfully completed defaults write enters this
+    // batch, so a failed Lane-R save cannot advance the editor clean cursor.
+    for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
     {
-        runtimeTools.Editor().history.MarkClean();
+        if ( outputs.completedRequests.requests[index].type == SceneRequestType::SaveCurrentDefaults )
+        {
+            runtimeTools.Editor().history.MarkClean();
+            break;
+        }
     }
     for ( std::size_t index = 0; index < outputs.completedRequests.count; ++index )
     {
@@ -691,11 +695,8 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
             0,
             request.type == SceneRequestType::CreateScene ? request.text : ReplayOwnerEventName( eventCode ) ) );
     }
-    if ( outputs.applyAutomationGates )
-    {
-        validationHarness.SceneGates().ApplyConfiguration( std::move( outputs.automationGates ) );
-    }
-    if ( outputs.hasWindowTitle )
+    validationHarness.SceneGates().ObserveSceneLifecycle( lifecycle, std::move( outputs.automationGates ) );
+    if ( outputs.windowTitle[0] != '\0' )
     {
         window.SetTitleText( outputs.windowTitle );
     }
@@ -711,10 +712,7 @@ void SkullbonezCore::Runtime::ApplySceneLoadConsumerOutputs( SceneLoadConsumerOu
         RefreshSceneBrowserList( operatorUi.SceneNavigation().browser );
     }
     ApplySceneUiActivation( operatorUi, outputs.uiActivation );
-    if ( outputs.resumeGraphicsStress )
-    {
-        validationHarness.ResumeGraphicsStressAfterSceneLoad( launchOptions );
-    }
+    validationHarness.ObserveSceneLifecycle( lifecycle, launchOptions );
 }
 
 SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& request,
@@ -743,8 +741,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     consumerOutputs.navigation = interactionParticipants.navigation;
     consumerOutputs.presentation = presentation.debug;
     consumerOutputs.camera = interactionParticipants.camera;
-    consumerOutputs.sceneObjectCapacity = SkullbonezCore::Core::ActiveSceneObjectCapacity( config );
-    consumerOutputs.generatedObjectTypeOverride = static_cast<uint32_t>( launchOptions.generatedObjectTypeOverride );
     SceneLoadNavigationState& sceneNavigation = consumerOutputs.navigation;
     RunDebugState& m_debug = consumerOutputs.presentation;
     RunCameraState& camera = consumerOutputs.camera;
@@ -762,15 +758,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
                                            change.fluidHeight,
                                            change.fluidDensity };
     };
-    struct LifecycleOutputPublisher
-    {
-        const SceneController& controller;
-        SceneLoadConsumerOutputs& outputs;
-        ~LifecycleOutputPublisher()
-        {
-            outputs.lifecycle = controller.LifecyclePacket();
-        }
-    } lifecycleOutputPublisher{ *this, consumerOutputs };
     // Operator sleep policy is physics-owned and survives ordinary scene
     // changes. The scene reset snapshot restores the same owner explicitly.
     const bool retainedPhysicsSleepEnabled = Scene().Physics().IsSleepEnabled();
@@ -861,7 +848,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
     simulation.Reset();
     afterClearConsumers |= SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation );
     renderer.ResetSceneRuntimePolicyFromConfig();
-    consumerOutputs.applyAutomationGates = true;
 
     m_sceneController.Scene().Cameras().Reset();
     m_sceneController.Scene().Clear();
@@ -968,7 +954,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         const char* rendererName =
             renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
         sprintf_s( consumerOutputs.windowTitle, "%s [%s]", TITLE_TEXT, rendererName );
-        consumerOutputs.hasWindowTitle = true;
     }
     else
     {
@@ -1209,7 +1194,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         const char* rendererName =
             renderBackendView.renderDiagnostics ? renderBackendView.renderDiagnostics->GetRendererName() : "unknown";
         sprintf_s( consumerOutputs.windowTitle, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
-        consumerOutputs.hasWindowTitle = true;
 
         // Snapshot scenes start paused in Inspect by default; authored live scenes
         // may opt out when body-state entries are just stable initial poses.
@@ -1223,8 +1207,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
 #endif
         if ( shouldPauseSnapshotState )
         {
-            consumerOutputs.enterInspectAfterActivation = true;
-            consumerOutputs.hideCursorAfterActivation = true;
             camera.mode = RunCameraMode::Inspect;
             camera.cameraTime = 0.0f;
             XZBounds unbounded;
@@ -1336,7 +1318,6 @@ SkullbonezCore::Core::SbResult SceneController::Load( const SceneLoadRequest& re
         // Invariant: scene reloads reset authored scene automation, but a
         // graphics-stress run is operator-owned and must keep running until the
         // launcher or timeout stops the process.
-        consumerOutputs.resumeGraphicsStress = true;
         SceneState().isInteractiveRun = true;
         SceneState().targetFrameCount = 0;
         SceneState().isTestComplete = false;

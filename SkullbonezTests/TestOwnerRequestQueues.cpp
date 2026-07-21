@@ -201,11 +201,14 @@ TEST_CASE( "Scene batch followers prefer presentation values emitted by a comple
     submitted.physicsDebugAlpha = 0.25f;
     SceneLoadConsumerOutputs outputs;
     outputs.presentation.physicsDebugAlpha = 0.75f;
+    SceneLifecyclePacket lifecycle;
 
-    CHECK( ScenePresentationForFollowingRequest( submitted, outputs ).physicsDebugAlpha == doctest::Approx( 0.25f ) );
-    outputs.lifecycle.generation = 1;
-    outputs.lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
-    CHECK( ScenePresentationForFollowingRequest( submitted, outputs ).physicsDebugAlpha == doctest::Approx( 0.75f ) );
+    CHECK( ScenePresentationForFollowingRequest( submitted, outputs, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.25f ) );
+    lifecycle.generation = 1;
+    lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
+    CHECK( ScenePresentationForFollowingRequest( submitted, outputs, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.75f ) );
 }
 
 TEST_CASE( "Scene navigation returns value-only accepted load decisions" )

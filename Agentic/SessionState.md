@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF3; Legacy remains the development default. |
+| Current baseline | Render interface retirement is closed. The remaining 13-task architecture follow-up campaign is active at OF4; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 3 / 13 live tasks; 23%. |
+| Active/future progress | 4 / 13 live tasks; 31%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | OF2 `validate_full` passes in 151.7 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | OF2 focused lifecycle/input tests pass 4 cases / 56 assertions; Profile builds, 20-file comment audit, static proofs, and full gate pass. Replay oracle is blocked only by the recorded config-provenance SHA mismatch. |
+| Last broad local gate | OF3 `validate_full` passes in 147.8 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | OF3 collapsed consumer outputs 20→11; focused tests pass 4 cases / 51 assertions, Profile builds, eight-file comment audit, static proofs, and full gate pass. OF2's Replay provenance blocker remains recorded. |
 
 ## Live Queue
 
 NOW. The remaining 2026-07-22 architecture follow-up queue is, in binding
-order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (3/6), then
+order: `Agentic/Plans/TODO/owner-fanout-reduction.md` (4/6), then
 `Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Render interface
 retirement closed RH0-RH5; evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`. The prior architecture-review campaign is
@@ -210,6 +210,8 @@ are not certified. Full evidence:
 | focused Profile rebuild + lifecycle/input doctests (OF2) | 10.1 s + 1.9 s | PASS; 4 cases / 56 assertions |
 | replay visual fidelity (OF2, one completed engine generation) | 409.3 s | BLOCKED; behavior reached oracle, config provenance expected `83401d…a3f4`, actual `bd0bb7…5d93`; no config/golden edit in OF2 |
 | `tools\validate_full.bat` (OF2 final) | 151.7 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile rebuild + lifecycle/same-batch doctests (OF3) | 6.5 s + 1.8 s | PASS; 4 cases / 51 assertions |
+| `tools\validate_full.bat` (OF3 final) | 147.8 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -217,10 +219,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The remaining 2026-07-22 architecture follow-up campaign is 3/13 complete.
-Continue with `owner-fanout-reduction` OF3: collapse lifecycle-covered
-`SceneLoadConsumerOutputs` fields and retain only effects that cannot be
-self-served. The OF2 replay provenance mismatch remains recorded and does not
+The remaining 2026-07-22 architecture follow-up campaign is 4/13 complete.
+Continue with `owner-fanout-reduction` OF4: measure every frame-view consumer,
+remove unread fields, convert copied UI facts to values, and inline views with
+two or fewer members. The OF2 replay provenance mismatch remains recorded and does not
 authorize a config or golden reconciliation. ImGui/Tracy E17 remains accepted;
 Legacy remains the default until a separate owner decision changes that
 policy.

@@ -115,6 +115,18 @@ void SceneAutomationGateTracker::ApplyConfiguration( SceneAutomationGateConfigur
 }
 
 
+void SceneAutomationGateTracker::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+                                                        SceneAutomationGateConfiguration&& configuration )
+{
+    // Lifetime: the caller may offer a detached configuration on every apply
+    // boundary; only a newly cleared generation transfers its vector storage.
+    if ( m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        ApplyConfiguration( std::move( configuration ) );
+    }
+}
+
+
 void SceneAutomationGateTracker::UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon )
 {
     if ( m_configuration.m_requiredContacts.empty() )
@@ -393,6 +405,19 @@ void RuntimeValidationHarness::ResumeGraphicsStressAfterSceneLoad( const RunLaun
     m_graphicsStress.ResumeAfterSceneLoad( launchOptions.graphicsStressSeed,
                                            launchOptions.graphicsStressActions,
                                            launchOptions.graphicsStressSceneIntervalFrames );
+}
+
+
+void RuntimeValidationHarness::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+                                                      const RunLaunchOptions& launchOptions )
+{
+    // Invariant: a reload may be sampled more than once, but the stress random
+    // stream and cadence resume exactly once after population reaches commit.
+    if ( launchOptions.graphicsStress &&
+         m_graphicsStressSceneObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterScenePopulate ) )
+    {
+        ResumeGraphicsStressAfterSceneLoad( launchOptions );
+    }
 }
 
 

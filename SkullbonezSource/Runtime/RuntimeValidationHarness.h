@@ -7,7 +7,8 @@ Summary:
   RuntimeValidationHarness groups external validation controls that mutate or
   observe runtime state. Run sequences startup, frame, capture, scene-reload,
   gate observation, and exit operations without retaining concrete controller
-  state elsewhere.
+  state elsewhere. Scene-dependent validation state reacts once to the
+  SceneController-owned lifecycle generation.
 
 Glossary:
   Live style: Control-folder protocol that applies style JSON and requests a
@@ -18,6 +19,8 @@ Glossary:
     state without becoming scene business state.
   Resume: Scene-load transition that preserves the stress random stream and
     counters while restoring launch cadence.
+  Lifecycle generation: Scene-load identity used to replace caller-owned
+    apply/reset flags with idempotent validation-owner reactions.
 
 Invariants:
   - The owner is allocated only during Startup and lives for the process.
@@ -26,6 +29,8 @@ Invariants:
   - Graphics-stress random state advances only through the owned controller.
   - Scene reload resumes stress without resetting its persistent counters.
   - Scene-gate rows are private to the harness and rebuilt for each load.
+  - Gate replacement and graphics-stress resume each run at most once for their
+    relevant phase of a lifecycle generation.
 
 Related:
   - SkullbonezSource/Runtime/Run.cpp
@@ -43,6 +48,7 @@ Related:
 #include "GraphicsStressController.h"
 #include "LiveStyleController.h"
 #include "Scene/SceneAutomationGateConfiguration.h"
+#include "Scene/SceneLifecycle.h"
 #include "../Physics/SpatialGrid.h"
 #include "../Physics/PhysicsDebugData.h"
 
@@ -93,7 +99,7 @@ struct SceneAutomationGateStatus
 class SceneAutomationGateTracker
 {
   public:
-    void ApplyConfiguration( SceneAutomationGateConfiguration configuration );
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, SceneAutomationGateConfiguration&& configuration );
 
     void UpdateRequiredContacts( SceneAutomationGatePhysicsView physics, float contactEpsilon );
     void UpdateRequiredBroadphaseXCells( const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells,
@@ -102,10 +108,12 @@ class SceneAutomationGateTracker
     void PrintMissingRequirements() const;
 
   private:
+    void ApplyConfiguration( SceneAutomationGateConfiguration configuration );
     bool RequiredContactsComplete() const;
     bool RequiredBroadphaseXCellsComplete() const;
 
     SceneAutomationGateConfiguration m_configuration;
+    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 
 class RuntimeValidationHarness
@@ -119,7 +127,7 @@ class RuntimeValidationHarness
     bool HasPendingLiveStyleCapture() const;
     void SavePendingLiveStyleCapture( CaptureController& capture, Rendering::Dx12BackbufferCapture& backend );
 
-    void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet, const RunLaunchOptions& launchOptions );
     void PrintGraphicsStressExitSummary( int currentSceneFrame ) const;
     void ExecuteGraphicsStressFrame( RuntimeFrameHostView& host,
                                      RuntimeFrameInteractionView& interactionOwners,
@@ -134,9 +142,11 @@ class RuntimeValidationHarness
     const SceneAutomationGateTracker& SceneGates() const;
 
   private:
+    void ResumeGraphicsStressAfterSceneLoad( const RunLaunchOptions& launchOptions );
     LiveStyleController m_liveStyle;
     GraphicsStressController m_graphicsStress;
     SceneAutomationGateTracker m_sceneGates;
+    SceneLifecycleGenerationObserver m_graphicsStressSceneObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

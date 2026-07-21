@@ -186,28 +186,20 @@ struct SceneLoadCompletedWorldChange
 
 struct SceneLoadConsumerOutputs
 {
-    // Value effects are accumulated synchronously and consumed immediately by
-    // the reactive owners intentionally excluded from the load participant graph.
+    // Concept: only payloads that cannot be reconstructed by an observing
+    // owner remain here. Lifecycle identity, capacity, owner reset policy, and
+    // apply-once state come directly from SceneController or the target owner.
     SceneUiActivation uiActivation;
     SceneAutomationGateConfiguration automationGates;
     SceneLoadNavigationState navigation;
-    SceneLifecyclePacket lifecycle;
     RunDebugState presentation;
     RunCameraState camera;
     std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
     std::size_t completedWorldChangeCount = 0;
     SceneRequestBatch completedRequests;
-    int sceneObjectCapacity = 0;
-    uint32_t generatedObjectTypeOverride = 0;
     char windowTitle[256] = {};
-    bool hasWindowTitle = false;
-    bool applyAutomationGates = false;
     bool applyNavigation = false;
     bool refreshSceneBrowser = false;
-    bool resumeGraphicsStress = false;
-    bool enterInspectAfterActivation = false;
-    bool hideCursorAfterActivation = false;
-    bool markEditorHistoryClean = false;
 
     void ResetForLoad();
 };
@@ -226,9 +218,10 @@ inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const
 // policy produced by the completed load, even though the overlay owner applies
 // that detached value only after ExecutePending returns.
 inline const RunDebugState& ScenePresentationForFollowingRequest( const RunDebugState& submitted,
-                                                                  const SceneLoadConsumerOutputs& outputs )
+                                                                  const SceneLoadConsumerOutputs& outputs,
+                                                                  const SceneLifecyclePacket& lifecycle )
 {
-    return SceneLifecycleReached( outputs.lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
+    return SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
                ? outputs.presentation
                : submitted;
 }

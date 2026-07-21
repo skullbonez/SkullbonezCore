@@ -103,7 +103,7 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
         case SceneRequestType::SaveCurrentDefaults:
         {
             const RunDebugState& presentationState =
-                ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs );
+                ScenePresentationForFollowingRequest( presentation.debug, consumerOutputs, LifecyclePacket() );
             const SceneLoadNavigationState& currentNavigation =
                 SceneNavigationForFollowingRequest( interaction.navigation, consumerOutputs );
             const SkullbonezCore::Core::SbResult saveResult =
@@ -117,12 +117,6 @@ bool SceneController::ExecutePending( const SceneLoadPolicyInputs& policy,
                 std::fflush( stderr );
             }
             accepted = saveResult.ok;
-            if ( accepted )
-            {
-                // Invariant: only the completed authored write advances
-                // the editor's clean cursor; a failed Lane-R save remains dirty.
-                consumerOutputs.markEditorHistoryClean = true;
-            }
             break;
         }
         }

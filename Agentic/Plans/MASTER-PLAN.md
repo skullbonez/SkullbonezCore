@@ -322,9 +322,9 @@ is recorded in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| `owner-fanout-reduction` | 3 | 6 | 50% |
+| `owner-fanout-reduction` | 4 | 6 | 67% |
 | `replay-subsystem-consolidation` | 0 | 7 | 0% |
-| **Active/future total** | **3** | **13** | **23%** |
+| **Active/future total** | **4** | **13** | **31%** |
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -1235,7 +1235,7 @@ or hot-path inheritance artifacts. Execution order is binding.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Active | 3/6 | OF2 reactive owners complete with replay provenance blocker recorded; proceed to OF3 output collapse |
+| [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Active | 4/6 | OF3 consumer outputs collapsed 20→11; proceed to OF4 frame-view diet |
 | [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Registered | 0/7 | Starts after owner-fanout-reduction closes |
 
 Render interface retirement closed RH0-RH5 with zero interface classes,
