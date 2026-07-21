@@ -21,6 +21,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          submodules: recursive
 
       - name: Record hosted-runner context
         shell: pwsh
