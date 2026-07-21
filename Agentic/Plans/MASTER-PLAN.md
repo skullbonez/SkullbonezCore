@@ -322,8 +322,8 @@ is recorded in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| `replay-subsystem-consolidation` | 0 | 7 | 0% |
-| **Active/future total** | **0** | **7** | **0%** |
+| `replay-subsystem-consolidation` | 1 | 7 | 14% |
+| **Active/future total** | **1** | **7** | **14%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1243,7 +1243,7 @@ or hot-path inheritance artifacts. Execution order is binding.
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [owner-fanout-reduction](../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md) | Complete | 6/6 | Ten-input scene-load boundary, ≤3-file reactive-owner path, clear independent review, and final broad/stress gates complete |
-| [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Active | 0/7 | Begin RC0 census and six-domain map |
+| [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Active | 1/7 | RC0 mapped 44 files / 34,768 lines and 48 production include edges; proceed to RC1 Capture/ArtifactIO split |
 
 Render interface retirement closed RH0-RH5 with zero interface classes,
 narrower transient authority, clear independent review, and complete final

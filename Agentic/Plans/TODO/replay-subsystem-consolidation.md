@@ -1,7 +1,7 @@
 # Replay Subsystem Consolidation — Right-Size The Largest Domain
 
 Date: 2026-07-22
-Status: Registered — 0/7 phases complete
+Status: Active — 1/7 phases complete
 Impact area: `Runtime/Replay/*` interior structure and public surface; no
 boundary, retention, or feature changes
 Owner: replay
@@ -60,7 +60,7 @@ behavioral drift is a defect in the task, never a baseline update.
 
 ## Phases
 
-- [ ] RC0. Census and domain map. Inventory every replay file with line
+- [x] RC0. Census and domain map. Inventory every replay file with line
   counts, the concrete responsibilities inside each oversized TU, and every
   non-replay file that includes a replay header (the public-surface list —
   expected: `ReplayRuntime.h` and value packets only; each violation is
@@ -126,3 +126,27 @@ that change `SkullbonezTests/TestReplay*` run `tools\validate_tests.bat`
 first. RC6 runs `tools\validate_full.bat` from the closure tip. Strict
 two-generation replay allocation evidence is re-collected at RC6 only if
 any allocation-adjacent file moved.
+
+## RC0 Evidence — Census And Domain Map (2026-07-22)
+
+- The final-source census is recorded in
+  [`../../Reports/2026-07-22/replay-subsystem-consolidation-rc0-census.md`](../../Reports/2026-07-22/replay-subsystem-consolidation-rc0-census.md):
+  44 tracked files / 34,768 lines assigned exactly once across Capture,
+  Timeline, Prediction, ArtifactIO, Presentation, and Validation.
+- Four translation units exceed the ~2,000-line target:
+  `ReplayPrediction.cpp` 4,488, `ReplayRecorder.cpp` 3,617,
+  `ReplayV2Artifact.cpp` 2,940, and `ReplayPredictionDrawing.cpp` 2,084. The
+  census records their concrete responsibility splits and owning phases.
+- The production public-surface baseline is 48 include edges from 25 files to
+  17 Replay headers. Five are provisional public owner/value headers; twelve
+  are interior leaks with consumer and target packet/API recorded for RC4.
+  Ten test files contribute 14 separately recorded white-box edges.
+- `TrajectoryStore` is assigned to Prediction: `ReplayPrediction` exclusively
+  mutates it, its prefix protocol is Prediction-owned, and all growth uses
+  `replay_prediction_working_set`; Timeline only supplies immutable samples.
+- The three-owner reserve inventory is unchanged: 32 MiB recorder, 8 MiB solver
+  snapshot, and 256 MiB prediction working set, all Replay-phase with existing
+  high-water counters and exhaustion rules.
+- Documentation-only. No repository validation was required or run. OF2's
+  provenance-only replay mismatch remains a non-stopping blocker and authorizes
+  no config or golden change.

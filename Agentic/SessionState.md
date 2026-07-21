@@ -11,17 +11,17 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner` |
-| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at RC0; Legacy remains the development default. |
+| Current baseline | Render interface retirement and owner fan-out reduction are closed. Replay subsystem consolidation is active at RC1; Legacy remains the development default. |
 | Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 0 / 7 live tasks; 0%. |
+| Active/future progress | 1 / 7 live tasks; 14%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | OF5 `validate_full` passes in 99.2 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | OF5 closes at ten transaction inputs with a ≤3-file reactive-owner witness; focused tests pass 6 cases / 177 assertions, 14-file comment audit and static proofs pass, and one-minute DX12 stress is crash-free. OF2's Replay provenance blocker remains recorded. |
+| Validation for current edits | RC0 is documentation-only: 44 Replay files / 34,768 lines, four >2,000-line TUs, 48 production include edges, six-domain assignment, and unchanged three-owner reserve inventory. No validation required. OF2's Replay provenance blocker remains recorded. |
 
 ## Live Queue
 
 NOW. The remaining 2026-07-22 architecture follow-up queue is
-`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7), beginning at RC0.
+`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (1/7), beginning RC1.
 Render interface retirement closed RH0-RH5 and owner fan-out reduction closed
 OF0-OF5; evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md` and
@@ -228,9 +228,8 @@ targeted Automation and final full passes.
 ## Next Handoff
 
 The remaining 2026-07-22 architecture follow-up campaign is replay subsystem
-consolidation at 0/7. Begin RC0: inventory all Replay files, oversized-TU
-responsibilities, non-Replay include consumers, six-domain assignments, and
-the `TrajectoryStore` ownership decision. The OF2 replay provenance mismatch
+consolidation at 1/7. Begin RC1: separate live Capture rings/tick sampling from
+ArtifactIO format/file authority without changing the public surface. The OF2 replay provenance mismatch
 remains recorded and does not authorize a config or golden reconciliation.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.
