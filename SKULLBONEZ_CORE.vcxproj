@@ -240,11 +240,6 @@
     <ClCompile>
       <ForcedIncludeFiles>$(ProjectDir)SkullbonezSource\Core\FloatingPointContract.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>call "$(ProjectDir)tools\bake_shaders.bat"
-if errorlevel 1 exit /b %errorlevel%</Command>
-      <Message>Baking shipping shaders and refreshing generated metadata...</Message>
-    </PreBuildEvent>
     <PostBuildEvent>
       <Command>copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxcompiler.dll" "$(OutDir)dxcompiler.dll" &gt;nul
 copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</Command>
@@ -972,6 +967,22 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <None Include="SkullbonezData\styles\_concept_base.style.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ItemGroup>
+    <ShaderBakeRasterSource Include="$(ProjectDir)SkullbonezData\shaders\*.hlsl"
+                            Exclude="$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(ProjectDir)SkullbonezData\shaders\reflect.rt.hlsl" />
+    <ShaderBakeInput Include="$(ProjectDir)tools\bake_shaders.bat;$(ProjectDir)tools\bake_shaders.py;@(ShaderBakeRasterSource);$(ProjectDir)SkullbonezData\shaders\generate_mips.hlsl;$(WindowsSdkDir)bin\10.0.26100.0\x64\dxc.exe" />
+    <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).vs.dxil')" />
+    <ShaderBakeOutput Include="@(ShaderBakeRasterSource-&gt;'%(RootDir)%(Directory)%(Filename).ps.dxil')" />
+    <ShaderBakeOutput Include="$(ProjectDir)SkullbonezData\shaders\generate_mips.cs.dxil;$(ProjectDir)SkullbonezData\shaders\shader_manifest.json;$(ProjectDir)SkullbonezSource\Rendering\DX12\GeneratedShaderReflection.h" />
+  </ItemGroup>
+  <Target Name="BakeShippingShaders"
+          BeforeTargets="PrepareForBuild"
+          Inputs="@(ShaderBakeInput)"
+          Outputs="@(ShaderBakeOutput)">
+    <Message Importance="High" Text="Shader inputs changed; baking shipping shaders and refreshing generated metadata..." />
+    <Exec Command="call &quot;$(ProjectDir)tools\bake_shaders.bat&quot;" />
+    <Touch Files="@(ShaderBakeOutput)" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
   </ImportGroup>
