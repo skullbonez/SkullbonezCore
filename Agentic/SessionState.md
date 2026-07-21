@@ -1,6 +1,6 @@
 # SkullbonezCore Session State
 
-Date: 2026-07-21
+Date: 2026-07-22
 
 Keep this file operational and short. Detailed evidence belongs in plans,
 reports, and git history. `Agentic/Plans/MASTER-PLAN.md` is the authoritative
@@ -12,17 +12,21 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-21st-july` |
 | Current baseline | All active/future MASTER plans are closed. The owner accepted ImGui/Tracy E17 after the clean current-tip assisted playtest; Legacy remains the development default. |
-| Current objective | None; await new owner direction. |
-| Active/future progress | 0 / 0 live tasks; 100% by the no-live-plan convention. |
+| Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
+| Active/future progress | 0 / 19 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | Synchronized-main `validate_full` passes in 243.7 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | Documentation-only E17 owner-acceptance closure; no repository validation required. |
+| Validation for current edits | Documentation-only campaign registration (three plans, MASTER-PLAN, this file); no repository validation required. |
 
 ## Live Queue
 
-NOW. No live local implementation plan remains. The architecture-review
-campaign is closed through replay policy, and the owner accepted ImGui/Tracy
-E17 for extended hands-on use on 2026-07-21. Closure evidence is in
+NOW. The 2026-07-22 architecture follow-up campaign is the live queue, in
+binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (0/6),
+then `Agentic/Plans/TODO/owner-fanout-reduction.md` (0/6), then
+`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Next action is
+the RH0 interface/consumer census. The prior architecture-review campaign is
+closed through replay policy, and the owner accepted ImGui/Tracy E17 for
+extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
 
 `dependency-direction-restoration` is closed 6/6 and archived in
@@ -203,7 +207,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-No live implementation plan remains. ImGui/Tracy E17 is accepted and closed at
-18/18; all architecture-review plans are also closed with their independent
-reviews and cumulative gates clear. Await new owner direction. Legacy remains
-the default until a separate owner decision changes that policy.
+The 2026-07-22 architecture follow-up campaign (19 tasks across three plans)
+is registered and unstarted. Begin with `render-interface-retirement` RH0:
+the census of all ten render interfaces, their single implementers, and every
+consumer's actually-used member subset. ImGui/Tracy E17 remains accepted;
+Legacy remains the default until a separate owner decision changes that
+policy.

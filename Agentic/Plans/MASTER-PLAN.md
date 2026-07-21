@@ -305,9 +305,19 @@ development default; no retirement or default switch was authorized. Closure
 evidence is in
 `../Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
 
+The denominator grew 0 → 19 on 2026-07-22 when the owner registered the
+three-plan architecture follow-up campaign from the 2026-07-22 architecture
+review conversation: render interface retirement (6 tasks), owner fan-out
+reduction (6 tasks), and replay subsystem consolidation (7 tasks). Execution
+order is 1→3 as listed; the ordering rationale and per-plan gates live in the
+campaign section below.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| **Active/future total** | **0** | **0** | **100% (no live plans)** |
+| `render-interface-retirement` | 0 | 6 | 0% |
+| `owner-fanout-reduction` | 0 | 6 | 0% |
+| `replay-subsystem-consolidation` | 0 | 7 | 0% |
+| **Active/future total** | **0** | **19** | **0%** |
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -378,8 +388,14 @@ physics, performance, replay fidelity, one-minute graphics stress, and marker
 smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
-The architecture-review campaign registered 2026-07-20 is complete; no live
-implementation queue remains.
+The architecture-review campaign registered 2026-07-20 is complete. The live
+queue is now the 2026-07-22 architecture follow-up campaign, in order:
+`render-interface-retirement` first (mechanical, cheapest gates, shrinks
+headers for everything after it), then `owner-fanout-reduction` (reshapes the
+scene-lifecycle and frame-view borrow graphs), then
+`replay-subsystem-consolidation` (heaviest per-task gate; its
+presentation-reset seam lands once on the final lifecycle-ledger shape). Plans
+live under `TODO/`; see the campaign section below.
 Dependency-direction restoration, allocation-namespace restoration,
 physics-facade unification, physics-settings snapshot, Run::Execute
 de-accretion, render-graph completion, Render HAL modernization, and gameplay
@@ -1183,6 +1199,39 @@ this campaign; the owner accepted E17 separately on 2026-07-21.
 Execution order was binding (biggest wins first). All eight architecture-review
 campaign plans are closed with exact evidence and independent review. No live
 execution row remains; E17 extended owner acceptance is also complete.
+
+## Architecture Follow-Up Campaign (2026-07-22)
+
+Source: the owner-requested critical architecture review of 2026-07-22
+(chat review of the post-campaign tip; no report file — the plan documents
+carry the dated evidence). The review found no living god object and named
+three remaining structural debts: coupling made legible rather than reduced
+(18-owner scene-load borrow graph, four hand-rolled frame-view structs), a
+ten-interface render HAL with exactly one implementation each and a
+seven-interface `RenderBackendDX12` aggregation monolith, and replay as the
+largest single domain (34,735 lines, the repository's two biggest TUs) with
+interleaved interior domains.
+
+Owner decisions ratified at registration: DX12 is the terminal runtime
+backend and the abstract render interface layer is retired (supersedes the
+retained-HAL exception recorded at `render-hal-modernization` M0/M5); the
+scene-lifecycle ledger pattern replaces reactive owners' presence in the
+load borrow graph; replay is consolidated behind `ReplayRuntime` plus typed
+value packets with six named interior domains, behavior frozen.
+
+Standing rules binding every plan in this campaign: zero behavioral
+baseline, golden, screenshot, replay, or physics CSV refresh; every DX12
+slice runs the bounded graphics-stress proof per inventory rule 10;
+replay-facing slices run the one-invocation mega gate per inventory rule
+11; one independent rubber-duck review per plan at closure; no new
+compatibility spellings, forwarding wrappers, context bags, callback packs,
+or hot-path inheritance artifacts. Execution order is binding.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [render-interface-retirement](TODO/render-interface-retirement.md) | Registered | 0/6 | Start with RH0 census |
+| [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Registered | 0/6 | Starts after render-interface-retirement closes |
+| [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Registered | 0/7 | Starts after owner-fanout-reduction closes |
 
 ## Features
 
