@@ -36,7 +36,7 @@ Related:
 namespace SkullbonezCore::Rendering
 {
 class IRenderCommandContext;
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 class RenderGpuTimingOwner;
 
 class WorldSurfaceHeightView
@@ -73,7 +73,7 @@ struct WorldRenderExtensionFrameView
     Math::Vector::Vector3 viewCenter;
     Math::Vector::Vector3 up;
     IRenderCommandContext& renderCommands;
-    IRenderDiagnostics& renderDiagnostics;
+    Dx12Diagnostics& renderDiagnostics;
     RenderGpuTimingOwner& renderGpuTiming;
     WorldSurfaceHeightView surfaceHeight;
 };

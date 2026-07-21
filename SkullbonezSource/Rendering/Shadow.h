@@ -34,7 +34,7 @@ Related:
 #pragma once
 
 #include "IRenderCommandContext.h"
-#include "IShader.h"
+#include "DX12/ShaderDX12.h"
 #include "../Maths/Matrix4.h"
 #include "../Maths/Vector3.h"
 #include "../Physics/ConvexHullShape.h"
@@ -185,7 +185,7 @@ inline void SnapShadowProjectionToTexelGrid( Math::Transformation::Matrix4& proj
     projection.m[13] += ( snappedTexelY - originTexelY ) / halfMapSize;
 }
 
-inline void ApplyShadowReceiverUniforms( IShader& shader,
+inline void ApplyShadowReceiverUniforms( ShaderDX12& shader,
                                          IRenderCommandContext& commands,
                                          const ShadowFrameData* shadow,
                                          bool receive,
@@ -229,7 +229,7 @@ inline void ApplyShadowReceiverUniforms( IShader& shader,
     }
 }
 
-inline void ApplyDetailShadowReceiverUniforms( IShader& shader,
+inline void ApplyDetailShadowReceiverUniforms( ShaderDX12& shader,
                                                IRenderCommandContext& commands,
                                                const ShadowFrameData* shadow,
                                                bool receive )

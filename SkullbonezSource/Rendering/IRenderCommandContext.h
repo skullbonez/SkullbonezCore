@@ -35,7 +35,7 @@ Invariants:
     layout, and malformed dynamic divisibility rejects the draw before upload.
 
 Related:
-  - SkullbonezSource/Rendering/IRenderResourceFactory.h
+  - SkullbonezSource/Rendering/DX12/Dx12ResourceBuilder.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderInputs.h
 */
 #pragma once

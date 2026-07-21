@@ -11,8 +11,10 @@ Glossary:
   Billboard: Camera-facing quad built from a world-space segment and view
     direction.
   Ribbon: Thin render strip used for the laser core and glow.
-  Render resource factory: Renderer capability borrowed only while creating
-    laser-owned shader resources.
+  Resource builder: Cold renderer owner borrowed only while compiling the
+    laser shader.
+  Geometry owner: Renderer owner borrowed while creating or destroying the
+    laser vertex buffer.
   Render command context: Per-frame renderer capability borrowed only while
     precompiling and drawing laser vertices with the pass-owned additive bucket.
   Snapshot: Compact replay record of visible launcher feedback.
@@ -43,8 +45,9 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class IRenderCommandContext;
-class IRenderResourceFactory;
-class IShader;
+class Dx12ResourceBuilder;
+class Dx12GeometryOwner;
+class ShaderDX12;
 } // namespace Rendering
 namespace Assets
 {
@@ -86,11 +89,13 @@ class LauncherLaser
     std::array<Shot, MAX_SHOTS> m_shots = {};
     int m_nextShot = 0;
     std::vector<float> m_vertices;
-    std::unique_ptr<Rendering::IShader> m_shader;
+    std::unique_ptr<Rendering::ShaderDX12> m_shader;
     uint32_t m_dynamicVB = 0;
     bool m_rasterStatePrepared = false;
 
-    void EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
+    void EnsureResources( Assets::AssetSystem& assets,
+                          Rendering::Dx12ResourceBuilder& renderResources,
+                          Rendering::Dx12GeometryOwner& renderGeometry );
     void EmitVertex( const Math::Vector::Vector3& p, float r, float g, float b, float a );
     void EmitQuad( const Math::Vector::Vector3& a,
                    const Math::Vector::Vector3& b,
@@ -123,9 +128,9 @@ class LauncherLaser
     LauncherLaser();
     ~LauncherLaser();
 
-    // Lifetime: pass a live resource factory from the backend-release phase to
+    // Lifetime: pass a live geometry owner from the backend-release phase to
     // destroy GPU handles; nullptr means clear CPU-side state only.
-    void ResetResources( Rendering::IRenderResourceFactory* renderResources );
+    void ResetResources( Rendering::Dx12GeometryOwner* renderGeometry );
     void Clear();
     void Fire( const Math::Vector::Vector3& rayOrigin,
                const Math::Vector::Vector3& rayDirection,
@@ -140,7 +145,8 @@ class LauncherLaser
                  const Math::Vector::Vector3& cameraEye,
                  const Math::Vector::Vector3& cameraUp,
                  Assets::AssetSystem& assets,
-                 Rendering::IRenderResourceFactory& renderResources,
+                 Rendering::Dx12ResourceBuilder& renderResources,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
                  Rendering::IRenderCommandContext& renderCommands );
 };
 } // namespace Runtime

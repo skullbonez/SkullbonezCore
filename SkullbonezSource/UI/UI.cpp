@@ -34,8 +34,9 @@ Related:
 #include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/IRenderCommandContext.h"
-#include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderResourceFactory.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
+#include "../Rendering/DX12/Dx12ResourceBuilder.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Maths/Matrix4.h"
 #include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../Core/Profiler.h"
@@ -191,10 +192,10 @@ void InGameUI::SetMouseOverride( bool enabled, int x, int y )
 {
     m_windowInteraction.SetMouseOverride( enabled, x, y );
 }
-void InGameUI::ResetResources( IRenderResourceFactory* resources )
+void InGameUI::ResetResources( Dx12GeometryOwner* geometry )
 {
     m_windowInteraction.ResetPresentationResources();
-    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB, resources );
+    ResetRenderTargetPreviewResources( m_renderTargetPreviewShader, m_renderTargetPreviewVB, geometry );
 }
 void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
                                   const InGameUIFrameData& data,
@@ -400,7 +401,7 @@ void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& rende
     assert( render.textBatch && "InGameUI::Draw requires RuntimeRenderer's text batch" );
     Text::TextBatch& textBatch = *render.textBatch;
     IRenderCommandContext& renderCommands = *render.commands;
-    IRenderDiagnostics& renderDiagnostics = *render.diagnostics;
+    Dx12Diagnostics& renderDiagnostics = *render.diagnostics;
     DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI/Draw" );
 
     const int screenW = (std::max)( 1, data.screenW );

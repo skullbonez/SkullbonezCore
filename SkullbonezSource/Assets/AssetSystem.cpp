@@ -34,7 +34,12 @@ Related:
 #include "AssetKeys.h"
 #include "../Core/Config.h"
 #include "../Core/FatalError.h"
-#include "../Rendering/IRenderResourceFactory.h"
+// Why: the standalone CPU test executable compiles source-registry behavior
+// without linking DX12 object code. Product builds retain the concrete shader path.
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
+#include "../Rendering/DX12/Dx12ResourceBuilder.h"
+#include "../Rendering/DX12/ShaderDX12.h"
+#endif
 
 #include <cstring>
 #include <utility>
@@ -514,8 +519,9 @@ const std::vector<ShaderSourceAsset>& AssetSystem::GetShaderSourceAssets() const
     return m_shaderAssets;
 }
 
-std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( Rendering::IRenderResourceFactory& renderResources,
-                                                               const char* logicalNameOrBaseName ) const
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
+std::unique_ptr<Rendering::ShaderDX12> AssetSystem::CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
+                                                                  const char* logicalNameOrBaseName ) const
 {
     // Invariant: empty shader keys are owner API violations. A non-empty miss
     // can still use the built-in compatibility map or explicit base-name path.
@@ -529,6 +535,7 @@ std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( Rendering::IRende
     return renderResources.CreateShader( shader ? shader->baseName.c_str()
                                                 : ( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName ) );
 }
+#endif
 
 
 const AssetLibrarySourceAsset& AssetSystem::RegisterAssetLibrarySourceAsset( const char* logicalName,

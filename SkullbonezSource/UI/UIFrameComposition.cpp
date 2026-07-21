@@ -30,6 +30,7 @@ Related:
   - UI.cpp owns the surrounding UI frame.
 */
 #include "UIFrameComposition.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Assets/AssetKeys.h"
 #include "../Rendering/RenderGpuTimingOwner.h"
 
@@ -462,7 +463,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
                       Rendering::RenderGpuTimingOwner* gpuTiming,
                       Rendering::IRenderCommandContext& renderCommands,
-                      Rendering::IRenderDiagnostics& renderDiagnostics,
+                      Rendering::Dx12Diagnostics& renderDiagnostics,
                       int screenW,
                       int screenH,
                       float offsetX,
@@ -672,7 +673,7 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
 }
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
+void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                          uint32_t& dynamicVB,
                                          const UIRenderContext& render )
 {
@@ -695,28 +696,28 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& sh
     if ( dynamicVB == 0 )
     {
         const int attribs[] = { 2, 2 };
-        dynamicVB = render.resources->CreateDynamicVB( attribs, 2, 6 );
+        dynamicVB = render.geometry->CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
+void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                         uint32_t& dynamicVB,
-                                        Rendering::IRenderResourceFactory* resources )
+                                        Rendering::Dx12GeometryOwner* geometry )
 {
     shader.reset();
     if ( dynamicVB != 0 )
     {
-        if ( resources )
+        if ( geometry )
         {
-            resources->DestroyDynamicVB( dynamicVB );
+            geometry->DestroyDynamicVB( dynamicVB );
         }
         dynamicVB = 0;
     }
 }
 
 
-void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader,
+void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                      uint32_t& dynamicVB,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,

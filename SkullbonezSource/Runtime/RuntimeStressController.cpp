@@ -51,8 +51,8 @@ Related:
 #include "../Assets/AssetSystem.h"
 #include "SimulationSystem.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
-#include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderResourceFactory.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Scene/AuthoredScene.h"
 #include "../Core/WorkerPool.h"
 #include "../UI/UI.h"
@@ -1019,7 +1019,7 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                                                            RuntimeFrameSceneView& sceneOwners,
                                                            RuntimeFramePresentationView& presentationOwners,
                                                            ReplayRuntime& replayRuntime,
-                                                           const Rendering::IRenderDiagnostics& renderDiagnostics,
+                                                           const Rendering::Dx12Diagnostics& renderDiagnostics,
                                                            bool legacyDevelopmentUiActive )
 {
     GraphicsStressController& stress = m_graphicsStress;
@@ -1126,20 +1126,20 @@ void RuntimeValidationHarness::ExecuteGraphicsStressFrame( RuntimeFrameHostView&
                       stress.DescriptorResizeCount() );
         }
         stress.RecordDescriptorResize();
-        if ( !renderBackendView.renderResources )
+        if ( !renderBackendView.renderTextures )
         {
-            SB_FATAL( "GraphicsStress", "Descriptor churn requires the render-resource factory." );
+            SB_FATAL( "GraphicsStress", "Descriptor churn requires the DX12 texture owner." );
         }
         const uint8_t churnPixel[4] = { 255u, 0u, 255u, 255u };
         const uint32_t churnTexture =
-            renderBackendView.renderResources->CreateTexture2D( churnPixel, 1, 1, 4, false, false );
+            renderBackendView.renderTextures->CreateTexture2D( churnPixel, 1, 1, 4, false, false );
         if ( churnTexture == 0 )
         {
             SB_FATAL( "GraphicsStress",
                       "Descriptor churn texture creation failed. request=%d",
                       stress.DescriptorResizeCount() );
         }
-        renderBackendView.renderResources->DeleteTexture( churnTexture );
+        renderBackendView.renderTextures->DeleteTexture( churnTexture );
         stress.RecordTextureChurn();
     }
     if ( stress.ShouldVerifyDescriptorChurn() )

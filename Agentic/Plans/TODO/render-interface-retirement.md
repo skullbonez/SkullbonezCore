@@ -1,7 +1,7 @@
 # Render Interface Retirement — Admit The DX12 Engine
 
 Date: 2026-07-22
-Status: Active — 2/6 phases complete
+Status: Active — 3/6 phases complete
 Impact area: Rendering HAL headers, DX12 backend, runtime render host/passes,
 UI render context, primitive/text renderers
 Owner: rendering
@@ -66,7 +66,7 @@ renaming it. Zero virtual dispatch remains in the render submission path.
   `IRenderShaderDevelopment`, and `IRenderRayTracing`; consumers take the
   concrete capture/shader-development/raytracing owners. Renderer gate plus
   bounded stress run.
-- [ ] RH2. Resource surfaces. Retire `IRenderResourceFactory`,
+- [x] RH2. Resource surfaces. Retire `IRenderResourceFactory`,
   `IRenderDiagnostics`, and the resource-object interfaces
   `IShader`/`IMesh`/`IFramebuffer`; devirtualize the DX12 resource types and
   update `UIRenderContext`, asset, text, and primitive-batch consumers to
@@ -77,7 +77,7 @@ renaming it. Zero virtual dispatch remains in the render submission path.
   perf gate that no pass regressed; this is the one slice that also runs
   `tools\validate_perf.bat`.
 - [ ] RH4. Lifecycle and cleanup. Retire `IRenderDeviceLifecycle`, delete
-  all ten interface headers, remove now-dead `virtual`/`override` and
+  the final two interface headers, remove now-dead `virtual`/`override` and
   virtual destructors, and re-point `RuntimeRenderBackendView` and the
   `Run` wiring at concrete types. Update `Agentic/Tests/Dx12ArchUnitTests`
   expectations in the same commit (registered CPU umbrella target).
@@ -124,6 +124,46 @@ deletion-bound to RH1/RH2; none is an exception.
   zero InfoQueue errors, all three committed screenshots accepted.
 - `tools\run_graphics_stress.bat 1`: PASS in 60.9 s, 12,027 frames and 330
   scene loads, empty stderr, crash-free PID-scoped timeout (PID 29132).
+
+## RH2 Evidence — Resource Surfaces (2026-07-22)
+
+- Deleted `IRenderResourceFactory`, `IRenderDiagnostics`, `IShader`, `IMesh`,
+  and `IFramebuffer`. Static meshes, shaders, and framebuffers are concrete
+  DX12 objects; shared framebuffer and diagnostics records live in the
+  value-only `RenderResourceTypes.h` and `RenderDiagnosticsTypes.h` headers.
+- Split the former resource-factory reach into `Dx12ResourceBuilder` for cold
+  shader/static-mesh/framebuffer construction, `Dx12TextureOwner` for texture
+  IO, and `Dx12GeometryOwner` for bounded dynamic/instanced geometry. Runtime,
+  UI, text, collision visualization, and launcher laser contexts now name only
+  the concrete owners they use.
+- Published `Dx12Diagnostics` directly. It owns draw/visibility traces, timer
+  and platform-profiler operations, capability queries, and read-only memory
+  snapshots; `RenderBackendDX12` no longer inherits or forwards the diagnostic
+  surface.
+- Deleted `TestRenderResourceDoubles.h`. Terrain tests use physics-only value
+  construction, while the main and standalone scene-parser CPU projects
+  explicitly exclude native renderer object code through the same
+  `SKULLBONEZ_RENDER_FREE_TESTS` lane.
+- Comment-style audit inspected all 69 touched source/tool files: 69 compliant,
+  zero deferred. The five retired-symbol search returned no rows; only the
+  command and lifecycle interface rows expected for RH3/RH4 remain.
+- Resolved blockers without stopping: the initial focused build forced the
+  absent v143 toolset; concrete devirtualization then exposed consumer-owner
+  mismatches and CPU-test link dependencies; the first fast gate found 13
+  formatting rows; and the first CPU umbrella found the standalone scene-parser
+  project missing the renderer-free definition. Each was corrected and its
+  complete owning gate rerun to PASS.
+- `tools\validate_project_filters.bat`: PASS in 2.8 s, 722 project items and
+  722 filter items, zero errors.
+- `tools\validate_fast.bat`: PASS in 86.9 s, 338/338 tests and 68,641/68,641
+  assertions, Profile/Debug builds with zero warnings/errors.
+- `tools\validate_all_cpu_tests.bat`: PASS in 73.9 s; unit/coverage,
+  interaction-policy, scene-parser, and DX12 architecture lanes all passed.
+- `tools\validate_dx12_renderer.bat`: PASS in 24.4 s, 43 shader stages fresh,
+  zero InfoQueue errors, all three committed screenshots accepted.
+- `tools\run_graphics_stress.bat 1`: PASS in 61.1 s, 12,694 frames and 348
+  scene loads, zero upload flushes/drops, empty stderr, crash-free PID-scoped
+  timeout (PID 38888).
 
 ## Review Proof (must return no rows at RH5)
 

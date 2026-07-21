@@ -191,6 +191,13 @@ RenderBackendDX12::RenderBackendDX12()
                            m_renderDevice,
                            m_frameOwner,
                            m_diagnostics ),
+      m_resourceBuilder( m_renderDevice,
+                         m_pipelineOwner,
+                         m_textureOwner,
+                         m_descriptorHeaps,
+                         m_frameOwner,
+                         m_shaderDevelopment,
+                         m_diagnostics ),
       m_raytracingOwner( m_renderDevice,
                          m_descriptorHeaps,
                          m_frameOwner,
@@ -203,132 +210,16 @@ RenderBackendDX12::RenderBackendDX12()
       m_backbufferCapture( m_frameOwner.CaptureFrame(), m_renderDevice ),
       m_graphTransientPool( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner )
 {
-}
-
-
-RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
-{
-    // Concept: this snapshot mixes engine-owned cache counters with DXGI's
-    // adapter-memory counters. The engine counters identify which renderer
-    // tables are growing; the DXGI counters say whether the graphics kernel is
-    // charging local or non-local video memory to this process.
-    RenderMemoryStats stats;
-    strcpy_s( stats.backendName, sizeof( stats.backendName ), "DirectX 12" );
-    stats.available = Device() != nullptr;
-    stats.recreationGeneration = m_renderDevice.RecreationGeneration();
-    if ( !stats.available )
-    {
-        return stats;
-    }
-
-    const Dx12CpuDescriptorAllocatorStats rtvStats = m_descriptorHeaps.RtvStats();
-    const Dx12CpuDescriptorAllocatorStats dsvStats = m_descriptorHeaps.DsvStats();
-    const Dx12DescriptorAllocatorStats srvStats = m_descriptorHeaps.GetStats();
-    stats.rtvDescriptorsUsed = rtvStats.used;
-    stats.rtvDescriptorsCapacity = rtvStats.capacity;
-    stats.dsvDescriptorsUsed = dsvStats.used;
-    stats.dsvDescriptorsCapacity = dsvStats.capacity;
-    stats.srvStaticDescriptorsUsed = srvStats.staticUsed;
-    stats.srvStaticDescriptorsCapacity = srvStats.staticCapacity;
-    stats.srvStaticDescriptorsHighWater = srvStats.staticHighWater;
-    stats.srvTransientDescriptorsUsedThisFrame = srvStats.transientUsedThisFrame;
-    stats.srvTransientDescriptorsCapacityPerFrame = srvStats.transientCapacityPerFrame;
-    stats.srvTransientDescriptorsPeakThisRun = srvStats.transientPeakThisRun;
-
-    for ( int frameIndex = 0; frameIndex < Dx12FrameOwner::FRAME_COUNT; ++frameIndex )
-    {
-        const Dx12UploadArenaStats uploadStats = m_frameOwner.Uploads().GetStats( static_cast<UINT>( frameIndex ) );
-        stats.uploadCapacityBytes += uploadStats.capacityBytes;
-        stats.uploadUsedBytes += uploadStats.usedBytes;
-        stats.uploadPeakBytes = (std::max)( stats.uploadPeakBytes, uploadStats.peakBytes );
-        for ( std::size_t categoryIndex = 0; categoryIndex < RENDER_UPLOAD_CATEGORY_COUNT; ++categoryIndex )
-        {
-            stats.uploadCategoryUsedBytes[categoryIndex] += uploadStats.categoryUsedBytes[categoryIndex];
-            stats.uploadCategoryPeakBytes[categoryIndex] = (std::max)( stats.uploadCategoryPeakBytes[categoryIndex],
-                                                                       uploadStats.categoryPeakBytes[categoryIndex] );
-        }
-    }
-    stats.uploadFlushCount = m_frameOwner.UploadFlushCount();
-    stats.uploadDropCount = m_frameOwner.UploadDropCount();
-
-    const Dx12ReadbackBufferStats timerReadbackStats = m_diagnostics.TimerReadbackStats();
-    if ( timerReadbackStats.ready )
-    {
-        stats.timerReadbackBytes = timerReadbackStats.sizeBytes;
-    }
-
-    stats.textureRegistryCount = m_textureOwner.RegistryCount();
-    stats.textureRegistryCapacity = m_textureOwner.RegistryCapacity();
-    stats.dynamicVertexBufferCount = m_geometryOwner.DynamicCount();
-    stats.dynamicVertexBufferCapacity = m_geometryOwner.DynamicCapacity();
-    stats.instancedMeshCount = m_geometryOwner.InstancedCount();
-    stats.instancedMeshCapacity = m_geometryOwner.InstancedCapacity();
-    stats.psoCacheCount = m_pipelineOwner.CacheCount();
-    stats.psoCacheHitCount = m_pipelineOwner.CacheHitCount();
-    stats.psoCacheMissCount = m_pipelineOwner.CacheMissCount();
-    stats.precompiledPsoCount = m_pipelineOwner.PrecompiledPsoCount();
-    stats.graphTransientCount = m_graphTransientPool.Size();
-    stats.graphTransientCapacity = m_graphTransientPool.Capacity();
-
-    if ( IDXGIFactory4* factory = m_renderDevice.Factory() )
-    {
-        // Why: multi-GPU machines can expose several adapters. Match the
-        // device LUID instead of sampling adapter 0 so stress logs describe the
-        // GPU actually backing this DX12 device.
-        const LUID deviceLuid = Device()->GetAdapterLuid();
-        ComPtr<IDXGIAdapter3> activeAdapter;
-        for ( UINT adapterIndex = 0;; ++adapterIndex )
-        {
-            ComPtr<IDXGIAdapter1> adapter;
-            const HRESULT enumResult = factory->EnumAdapters1( adapterIndex, adapter.GetAddressOf() );
-            if ( enumResult == DXGI_ERROR_NOT_FOUND )
-            {
-                break;
-            }
-            if ( FAILED( enumResult ) )
-            {
-                continue;
-            }
-
-            DXGI_ADAPTER_DESC1 desc = {};
-            if ( FAILED( adapter->GetDesc1( &desc ) ) || desc.AdapterLuid.HighPart != deviceLuid.HighPart ||
-                 desc.AdapterLuid.LowPart != deviceLuid.LowPart )
-            {
-                continue;
-            }
-
-            (void)adapter.As( &activeAdapter );
-            break;
-        }
-
-        if ( activeAdapter )
-        {
-            DXGI_QUERY_VIDEO_MEMORY_INFO localInfo = {};
-            DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo = {};
-            const bool localAvailable =
-                SUCCEEDED( activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
-            const bool nonLocalAvailable = SUCCEEDED(
-                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo ) );
-            stats.adapterMemoryAvailable = localAvailable || nonLocalAvailable;
-            if ( localAvailable )
-            {
-                stats.localBudgetBytes = static_cast<uint64_t>( localInfo.Budget );
-                stats.localCurrentUsageBytes = static_cast<uint64_t>( localInfo.CurrentUsage );
-                stats.localCurrentReservationBytes = static_cast<uint64_t>( localInfo.CurrentReservation );
-                stats.localAvailableForReservationBytes = static_cast<uint64_t>( localInfo.AvailableForReservation );
-            }
-            if ( nonLocalAvailable )
-            {
-                stats.nonLocalBudgetBytes = static_cast<uint64_t>( nonLocalInfo.Budget );
-                stats.nonLocalCurrentUsageBytes = static_cast<uint64_t>( nonLocalInfo.CurrentUsage );
-                stats.nonLocalCurrentReservationBytes = static_cast<uint64_t>( nonLocalInfo.CurrentReservation );
-                stats.nonLocalAvailableForReservationBytes =
-                    static_cast<uint64_t>( nonLocalInfo.AvailableForReservation );
-            }
-        }
-    }
-
-    return stats;
+    m_textureOwner.BindResourceOwners( m_renderDevice, m_frameOwner, m_pipelineOwner );
+    m_geometryOwner.BindResourceOwners( m_renderDevice, m_frameOwner );
+    m_diagnostics.BindSources( m_renderDevice,
+                               m_descriptorHeaps,
+                               m_frameOwner,
+                               m_textureOwner,
+                               m_pipelineOwner,
+                               m_geometryOwner,
+                               m_graphTransientPool,
+                               m_raytracingOwner );
 }
 
 
@@ -644,7 +535,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     {
         return genMipsResult;
     }
-    m_geometryOwner.AdoptGridLineShader( CreateShader( "shaders/grid_line" ) );
+    m_geometryOwner.AdoptGridLineShader( m_resourceBuilder.CreateShader( "shaders/grid_line" ) );
     if ( !m_geometryOwner.EnsureGridLinePipeline( Device(), m_pipelineOwner, DXGI_FORMAT_R8G8B8A8_UNORM ) ||
          !m_geometryOwner.EnsureGridLinePipeline( Device(), m_pipelineOwner, DXGI_FORMAT_R16G16B16A16_FLOAT ) )
     {
@@ -660,7 +551,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     {
         m_geometryOwner.AdoptTransientTriangleShader(
             style,
-            CreateShader( Dx12GeometryOwner::TransientShaderBaseName( style ) ) );
+            m_resourceBuilder.CreateShader( Dx12GeometryOwner::TransientShaderBaseName( style ) ) );
         if ( !m_geometryOwner.HasTransientTriangleShader( style ) )
         {
             return SkullbonezCore::Core::SbResult::Failure(

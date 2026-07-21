@@ -28,12 +28,20 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "Terrain.h"
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 #include "../Assets/AssetKeys.h"
 #include "../Assets/AssetSystem.h"
+#endif
 #include "../Core/FatalError.h"
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 #include "../Core/Profiler.h"
+#endif
 #include "../Core/SbResult.h"
-#include "../Rendering/IRenderResourceFactory.h"
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
+#include "../Rendering/DX12/Dx12ResourceBuilder.h"
+#include "../Rendering/DX12/MeshDX12.h"
+#include "../Rendering/DX12/ShaderDX12.h"
+#endif
 
 #include <algorithm>
 #include <memory>
@@ -63,12 +71,35 @@ using FileHandle = std::unique_ptr<FILE, FileCloser>;
 } // namespace
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 Terrain::Terrain( int iMapSize,
                   int iStepSize,
                   int iTextureWrap,
                   const SkullbonezCore::Core::EngineConfig& config,
                   SkullbonezCore::Assets::AssetSystem& assets,
-                  IRenderResourceFactory& resources )
+                  Dx12ResourceBuilder& resources )
+    : Terrain( iMapSize, iStepSize, iTextureWrap, config, &assets, &resources )
+{
+}
+#endif
+
+
+Terrain::Terrain( PhysicsOnlyHeightMapTag,
+                  int iMapSize,
+                  int iStepSize,
+                  int iTextureWrap,
+                  const SkullbonezCore::Core::EngineConfig& config )
+    : Terrain( iMapSize, iStepSize, iTextureWrap, config, nullptr, nullptr )
+{
+}
+
+
+Terrain::Terrain( int iMapSize,
+                  int iStepSize,
+                  int iTextureWrap,
+                  const SkullbonezCore::Core::EngineConfig& config,
+                  SkullbonezCore::Assets::AssetSystem* assets,
+                  Dx12ResourceBuilder* resources )
 {
     m_mapSize = iMapSize;
     m_stepSize = iStepSize;
@@ -86,17 +117,43 @@ Terrain::Terrain( int iMapSize,
     m_terrainSizeWorldCoords = ( ( m_mapSize - m_stepSize ) / m_stepSize ) * m_stepSize;
 
     m_postsPerSide = m_mapSize / m_stepSize;
-    BindRenderContexts( config, assets, resources );
+    m_config = &config;
+    m_assets = assets;
+    m_resources = resources;
 }
 
 
+SkullbonezCore::Core::SbResult Terrain::TryCreatePhysicsFromHeightMap( const char* sFileName,
+                                                                       int iMapSize,
+                                                                       int iStepSize,
+                                                                       int iTextureWrap,
+                                                                       const SkullbonezCore::Core::EngineConfig& config,
+                                                                       std::unique_ptr<Terrain>& outTerrain )
+{
+    outTerrain.reset();
+    std::unique_ptr<Terrain> terrain =
+        std::make_unique<Terrain>( PhysicsOnlyHeightMapTag{}, iMapSize, iStepSize, iTextureWrap, config );
+    const SkullbonezCore::Core::SbResult loadResult = terrain->LoadTerrainData( sFileName );
+    if ( !loadResult.ok )
+    {
+        return loadResult;
+    }
+    terrain->BuildTerrain();
+    terrain->m_terrainData.clear();
+    terrain->m_terrainData.shrink_to_fit();
+    outTerrain = std::move( terrain );
+    return SkullbonezCore::Core::SbResult::Success();
+}
+
+
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap( const char* sFileName,
                                                                 int iMapSize,
                                                                 int iStepSize,
                                                                 int iTextureWrap,
                                                                 const SkullbonezCore::Core::EngineConfig& config,
                                                                 SkullbonezCore::Assets::AssetSystem& assets,
-                                                                IRenderResourceFactory& resources,
+                                                                Dx12ResourceBuilder& resources,
                                                                 std::unique_ptr<Terrain>& outTerrain )
 {
     // Concept: RAW terrain files are external asset input. The factory keeps
@@ -122,14 +179,34 @@ SkullbonezCore::Core::SbResult Terrain::TryCreateFromHeightMap( const char* sFil
     outTerrain = std::move( terrain );
     return SkullbonezCore::Core::SbResult::Success();
 }
+#endif
+
+
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
+Terrain::Terrain( float slopeBaseY,
+                  float slopeX,
+                  float slopeZ,
+                  const SkullbonezCore::Core::EngineConfig& config,
+                  SkullbonezCore::Assets::AssetSystem& assets,
+                  Dx12ResourceBuilder& resources )
+    : Terrain( slopeBaseY, slopeX, slopeZ, config, &assets, &resources )
+{
+}
+#endif
+
+
+Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ, const SkullbonezCore::Core::EngineConfig& config )
+    : Terrain( slopeBaseY, slopeX, slopeZ, config, nullptr, nullptr )
+{
+}
 
 
 Terrain::Terrain( float slopeBaseY,
                   float slopeX,
                   float slopeZ,
                   const SkullbonezCore::Core::EngineConfig& config,
-                  SkullbonezCore::Assets::AssetSystem& assets,
-                  IRenderResourceFactory& resources )
+                  SkullbonezCore::Assets::AssetSystem* assets,
+                  Dx12ResourceBuilder* resources )
 {
     m_mapSize = 0;
     m_stepSize = 0;
@@ -148,7 +225,9 @@ Terrain::Terrain( float slopeBaseY,
     }
     m_flatSlopePlane.m_normal = m_flatSlopeNormal;
     m_flatSlopePlane.m_distance = m_flatSlopeNormal.y * m_slopeBaseY;
-    BindRenderContexts( config, assets, resources );
+    m_config = &config;
+    m_assets = assets;
+    m_resources = resources;
 
     // Max height at the 4 corners of the flat slope play area
     float h00 = slopeBaseY;
@@ -158,8 +237,13 @@ Terrain::Terrain( float slopeBaseY,
     m_maxTerrainHeight = (std::max)( (std::max)( h00, h10 ), (std::max)( h01, h11 ) );
     m_minTerrainHeight = (std::min)( (std::min)( h00, h10 ), (std::min)( h01, h11 ) );
 
-    BuildFlatSlopeMesh();
-    InitialiseTerrainShader();
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
+    if ( m_resources && m_assets )
+    {
+        BuildFlatSlopeMesh();
+        InitialiseTerrainShader();
+    }
+#endif
 }
 
 
@@ -168,9 +252,10 @@ Terrain::~Terrain()
 }
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                   SkullbonezCore::Assets::AssetSystem& assets,
-                                  IRenderResourceFactory& resources )
+                                  Dx12ResourceBuilder& resources )
 {
     // Lifetime: Terrain keeps these as rebuild-only borrows owned by Run and
     // refreshed by the render pass before lazy resource recreation.
@@ -245,7 +330,7 @@ void Terrain::ResetRenderResources()
 
 void Terrain::EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
                                      SkullbonezCore::Assets::AssetSystem& assets,
-                                     IRenderResourceFactory& resources )
+                                     Dx12ResourceBuilder& resources )
 {
     BindRenderContexts( config, assets, resources );
     if ( !m_terrainMesh || !m_terrainShader )
@@ -277,6 +362,15 @@ void Terrain::ReleaseRenderResources()
     m_terrainShader.reset();
     m_shadowDepthShader.reset();
 }
+#endif
+
+#if defined( SKULLBONEZ_RENDER_FREE_TESTS )
+const SkullbonezCore::Core::EngineConfig& Terrain::Config() const
+{
+    assert( m_config );
+    return *m_config;
+}
+#endif
 
 
 void Terrain::BuildTerrain()
@@ -499,6 +593,7 @@ SkullbonezCore::Core::SbResult Terrain::LoadTerrainData( const char* sFileName )
 }
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::Render( const Matrix4& view,
                       const Matrix4& projection,
                       IRenderCommandContext& commands,
@@ -673,6 +768,7 @@ void Terrain::RenderShadowDepth( Core::Profiler* profiler,
 
     m_terrainMesh->Draw( rasterState );
 }
+#endif
 
 
 float Terrain::GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin )
@@ -1185,6 +1281,7 @@ void Terrain::GenerateNormals()
 }
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::BuildMesh()
 {
     // 2 triangles per quad, 6 vertices each, 8 floats per vertex (pos3 + normal3 + texcoord2)
@@ -1192,6 +1289,19 @@ void Terrain::BuildMesh()
     int totalQuads = quadsPerSide * quadsPerSide;
     int totalVerts = totalQuads * 6;
 
+    std::vector<float> vertexData = BuildRenderVertexData();
+
+    assert( m_resources );
+    m_terrainMesh = m_resources->CreateMesh( vertexData.data(), totalVerts, true, true );
+}
+#endif
+
+
+std::vector<float> Terrain::BuildRenderVertexData() const
+{
+    const int quadsPerSide = m_postsPerSide - 1;
+    const int totalQuads = quadsPerSide * quadsPerSide;
+    const int totalVerts = totalQuads * 6;
     std::vector<float> vertexData;
     vertexData.reserve( static_cast<size_t>( totalVerts ) * 8 );
 
@@ -1240,15 +1350,11 @@ void Terrain::BuildMesh()
         }
     }
 
-    assert( m_resources );
-    m_terrainMesh = m_resources->CreateMesh( vertexData.data(),
-                                             totalVerts,
-                                             true, // hasNormals
-                                             true  // hasTexCoords
-    );
+    return vertexData;
 }
 
 
+#if !defined( SKULLBONEZ_RENDER_FREE_TESTS )
 void Terrain::BuildFlatSlopeMesh()
 {
     // Generate a 40x40 quad grid over [0,1000] x [0,1000]
@@ -1306,3 +1412,4 @@ void Terrain::BuildFlatSlopeMesh()
     assert( m_resources );
     m_terrainMesh = m_resources->CreateMesh( vertexData.data(), totalVerts, true, true );
 }
+#endif

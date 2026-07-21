@@ -76,7 +76,7 @@ static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().Dr
                "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
-static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, IRenderDiagnostics*>,
+static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, Dx12Diagnostics*>,
                "Runtime rendering must own one explicit concrete GPU timing boundary." );
 static_assert( !std::is_polymorphic_v<RenderGpuTimingOwner>,
                "GPU timing stays a concrete owner, not a new renderer callback interface." );

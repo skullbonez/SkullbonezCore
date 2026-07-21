@@ -87,7 +87,7 @@ Related:
 #include "../Physics/PhysicsDiagnosticsSink.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Rendering/RenderInstanceStore.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/IRenderDeviceLifecycle.h"
 #include "../UI/UI.h"
 #include "../UI/UITabEditor.h"
@@ -237,14 +237,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
             }
-            SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
-                *m_renderBackendView.renderDiagnostics;
+            SkullbonezCore::Rendering::Dx12Diagnostics& frameRenderDiagnostics = *m_renderBackendView.renderDiagnostics;
             SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle = *m_renderBackendView.deviceLifecycle;
-            SkullbonezCore::Rendering::IRenderResourceFactory& frameRenderResources =
-                *m_renderBackendView.renderResources;
+            SkullbonezCore::Rendering::Dx12ResourceBuilder& frameRenderResources = *m_renderBackendView.renderResources;
+            SkullbonezCore::Rendering::Dx12GeometryOwner& frameRenderGeometry = *m_renderBackendView.renderGeometry;
             SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands = *m_renderBackendView.renderCommands;
             const SkullbonezCore::UI::UIRenderContext uiRender = { &m_assets,
                                                                    &frameRenderResources,
+                                                                   &frameRenderGeometry,
                                                                    &frameRenderCommands,
                                                                    &frameRenderDiagnostics };
             // Lifetime: the frame views are stack-only borrow maps for this

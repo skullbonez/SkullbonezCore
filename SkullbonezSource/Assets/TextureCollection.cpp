@@ -39,7 +39,7 @@ Related:
 #include "TextureCollection.h"
 #include "../Core/FatalError.h"
 #include "../Rendering/IRenderCommandContext.h"
-#include "../Rendering/IRenderResourceFactory.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "stb_image.h"
 
 #include <memory>
@@ -194,8 +194,7 @@ void TextureCollection::BindAssetSystem( Assets::AssetSystem* assets )
 }
 
 
-void TextureCollection::BindRenderContexts( IRenderResourceFactory* renderResources,
-                                            IRenderCommandContext* renderCommands )
+void TextureCollection::BindRenderContexts( Dx12TextureOwner* renderResources, IRenderCommandContext* renderCommands )
 {
     // Lifetime: Run owns these backend facets and clears them before backend
     // teardown. TextureCollection keeps only opaque handles created by the same

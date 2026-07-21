@@ -53,7 +53,6 @@
 #include "../SkullbonezSource/Runtime/Replay/ReplayTimeline.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneEntityStore.h"
 #include "../SkullbonezSource/World/Terrain.h"
-#include "TestRenderResourceDoubles.h"
 
 #include <cmath>
 #include <memory>
@@ -127,9 +126,7 @@ std::string FullArtifactPath()
 SkullbonezCore::Geometry::Terrain& FlatCoverageTerrain()
 {
     static SkullbonezCore::Core::EngineConfig config;
-    static SkullbonezCore::Assets::AssetSystem assets;
-    static SkullbonezTests::NullRenderResourceFactory resources;
-    static SkullbonezCore::Geometry::Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
+    static SkullbonezCore::Geometry::Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     return terrain;
 }
 
@@ -390,11 +387,11 @@ TEST_CASE( "Coverage floor contract: every object manifold shape pair publishes 
     CheckContactPair( a, hull, b, box );
     CheckContactPair( a, hull, b, hull );
 
-    ObjectContactBodyView far = b;
-    far.position = Vector3( 30.0f, 0.0f, 0.0f );
+    ObjectContactBodyView farBody = b;
+    farBody.position = Vector3( 30.0f, 0.0f, 0.0f );
     ObjectContactManifold separated;
-    CHECK_FALSE( BuildObjectContactManifold( a, sphere, far, sphere, 0, 1, 0.0f, separated ) );
-    CHECK_FALSE( BuildObjectContactManifold( a, sphere, far, hull, 0, 1, 0.0f, separated ) );
+    CHECK_FALSE( BuildObjectContactManifold( a, sphere, farBody, sphere, 0, 1, 0.0f, separated ) );
+    CHECK_FALSE( BuildObjectContactManifold( a, sphere, farBody, hull, 0, 1, 0.0f, separated ) );
 
     ObjectContactBodyView moving = a;
     moving.position = Vector3( -5.0f, 0.0f, 0.0f );

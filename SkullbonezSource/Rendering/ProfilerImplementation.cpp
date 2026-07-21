@@ -25,14 +25,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Profiler.h
-  - SkullbonezSource/Rendering/IRenderDiagnostics.h
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/Text.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Profiler.h"
 #include "../Core/FatalError.h"
-#include "IRenderDiagnostics.h"
+#include "DX12/Dx12Diagnostics.h"
 #include "ProfilerOverlayPresenter.h"
 #include "RenderGpuTimingOwner.h"
 #include "../Core/TracyClientOwner.h"
@@ -654,7 +654,7 @@ Profiler::ProfilerFrameView Profiler::FrameView() const
 }
 
 
-RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, IRenderDiagnostics* diagnostics )
+RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagnostics* diagnostics )
     : m_profiler( profiler ), m_diagnostics( diagnostics ), m_markerEpoch( profiler ? profiler->MarkerEpoch() : 0 )
 {
 }
@@ -2021,7 +2021,7 @@ void Profiler::WritePerfCSVRow( FILE*, int, int ) const
 }
 
 
-RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, IRenderDiagnostics* diagnostics )
+RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagnostics* diagnostics )
     : m_profiler( profiler ), m_diagnostics( diagnostics )
 {
 }

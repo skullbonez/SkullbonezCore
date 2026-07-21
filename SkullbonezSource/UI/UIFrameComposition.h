@@ -34,8 +34,8 @@ Related:
 #include "../Runtime/InputRouter.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/IRenderCommandContext.h"
-#include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderResourceFactory.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
+#include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../Maths/Matrix4.h"
 #include "../Runtime/Debug/PhysicsDebugVisualizer.h"
 #include "../Core/Profiler.h"
@@ -119,7 +119,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
                       Rendering::RenderGpuTimingOwner* gpuTiming,
                       Rendering::IRenderCommandContext& renderCommands,
-                      Rendering::IRenderDiagnostics& renderDiagnostics,
+                      Rendering::Dx12Diagnostics& renderDiagnostics,
                       int screenW,
                       int screenH,
                       float offsetX = 0.0f,
@@ -153,15 +153,15 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
                               const UIRect* avoidBounds = nullptr );
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
+void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                          uint32_t& dynamicVB,
                                          const UIRenderContext& render );
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
+void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                         uint32_t& dynamicVB,
-                                        Rendering::IRenderResourceFactory* resources );
+                                        Rendering::Dx12GeometryOwner* geometry );
 
-void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader,
+void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                      uint32_t& dynamicVB,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,

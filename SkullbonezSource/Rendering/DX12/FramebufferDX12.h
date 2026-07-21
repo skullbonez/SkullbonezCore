@@ -34,7 +34,7 @@ Related:
 #pragma once
 
 
-#include "../IFramebuffer.h"
+#include "../RenderResourceTypes.h"
 #include <d3d12.h>
 #include <cstdint>
 #include <vector>
@@ -64,7 +64,7 @@ class Dx12ResourceRelease;
     expresses that through separate resources and descriptors: an RTV for color
     writes, a DSV for depth writes, and SRVs for later shader reads.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class FramebufferDX12 : public IFramebuffer
+class FramebufferDX12
 {
 
   private:
@@ -103,35 +103,35 @@ class FramebufferDX12 : public IFramebuffer
                      Dx12DrawGate& drawGate,
                      Dx12ResourceRelease& resourceRelease,
                      FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
-    ~FramebufferDX12() override;
+    ~FramebufferDX12();
 
     bool Create( int width, int height );
 
     // The render graph owns resource states. These methods bind/restore output
     // descriptors only and never emit barriers.
-    void Bind() const override;
-    void Unbind() const override;
-    uint32_t GetColorTextureHandle() const override
+    void Bind() const;
+    void Unbind() const;
+    uint32_t GetColorTextureHandle() const
     {
         return m_texHandle;
     }
-    uint32_t GetDepthTextureHandle() const override
+    uint32_t GetDepthTextureHandle() const
     {
         return m_depthTexHandle;
     }
-    FramebufferColorFormat GetColorFormat() const override
+    FramebufferColorFormat GetColorFormat() const
     {
         return m_colorFormat;
     }
-    int GetWidth() const override
+    int GetWidth() const
     {
         return m_width;
     }
-    int GetHeight() const override
+    int GetHeight() const
     {
         return m_height;
     }
-    void ResetResources() override;
+    void ResetResources();
 
     ID3D12Resource* GetColorResource() const
     {

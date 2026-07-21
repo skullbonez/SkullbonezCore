@@ -76,9 +76,11 @@ class Terrain;
 namespace Rendering
 {
 class IRenderCommandContext;
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 class Dx12RaytracingOwner;
-class IRenderResourceFactory;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
+class Dx12GeometryOwner;
 class RenderInstanceStore;
 class WorldRenderExtensionRegistration;
 struct RenderInstancePresentationRecord;
@@ -171,14 +173,16 @@ struct RuntimeRenderServices
     // Lifetime: this command facet is borrowed from the process-bound backend
     // for exactly this render call; pass code must not store it.
     Rendering::IRenderCommandContext& renderCommands;
-    // Lifetime: this factory facet is valid only while the current backend is
+    // Lifetime: this cold builder is valid only while the current backend is
     // alive. RuntimeRenderer narrows it into RenderResourceContext for
     // create/rebuild phases; draw code should use renderCommands instead.
-    Rendering::IRenderResourceFactory& renderResources;
+    Rendering::Dx12ResourceBuilder& renderResources;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12GeometryOwner& renderGeometry;
     // Lifetime: this diagnostics facet is sampled for frame-time feature
     // decisions and draw tracing; passes must not cache capability flags across
     // backend teardown.
-    Rendering::IRenderDiagnostics& renderDiagnostics;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
     // Optional concrete DXR owner. Null means startup did not publish the
     // reflection owner, even if ordinary raster rendering is ready.
     Rendering::Dx12RaytracingOwner* renderRayTracing = nullptr;

@@ -73,7 +73,7 @@ Related:
 #include "../Physics/PhysicsBodyStore.h"
 #include "SimulationSystem.h"
 #include "../UI/UI.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/DX12/Dx12BackbufferCapture.h"
 #include "../Rendering/DX12/Dx12ShaderDevelopment.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"

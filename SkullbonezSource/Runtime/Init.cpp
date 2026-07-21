@@ -150,8 +150,10 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     // shutdown resets the backend.
     renderBackendView.deviceLifecycle = renderBackend;
     renderBackendView.renderCommands = renderBackend;
-    renderBackendView.renderResources = renderBackend;
-    renderBackendView.renderDiagnostics = renderBackend;
+    renderBackendView.renderResources = &renderBackend->ResourceBuilder();
+    renderBackendView.renderTextures = &renderBackend->Textures();
+    renderBackendView.renderGeometry = &renderBackend->Geometry();
+    renderBackendView.renderDiagnostics = &renderBackend->Diagnostics();
     renderBackendView.backbufferCapture = &renderBackend->BackbufferCapture();
     renderBackendView.raytracing = &renderBackend->Raytracing();
     renderBackendView.shaderDevelopment = &renderBackend->ShaderDevelopment();

@@ -65,8 +65,8 @@ Related:
 #include "../../Core/WorkerPool.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/RenderRaytracingTypes.h"
-#include "../../Rendering/IRenderDiagnostics.h"
-#include "../../Rendering/IRenderResourceFactory.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
+#include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../Scene/SceneSnapshotWriter.h"
 #include "../../UI/UI.h"
 #include "../../Scene/AuthoredScene.h"
@@ -97,7 +97,7 @@ using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::Hardware::Input;
 using SkullbonezCore::Math::Vector::Vector3;
-using SkullbonezCore::Rendering::IMesh;
+using SkullbonezCore::Rendering::MeshDX12;
 using namespace SkullbonezCore::Runtime::RunInternal;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
@@ -419,7 +419,7 @@ SkullbonezCore::Core::SbResult UseDefaultTerrain( SceneTerrain& terrainOwner,
                                                   const SkullbonezCore::Core::EngineConfig& config,
                                                   const std::string& terrainRawPath,
                                                   SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
-                                                  SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
+                                                  SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources )
 {
     assert( renderResources );
     if ( !renderResources )
@@ -473,7 +473,7 @@ SkullbonezCore::Core::SbResult UseFlatSlopeTerrain( SceneTerrain& terrainOwner,
                                                     float slopeX,
                                                     float slopeZ,
                                                     SkullbonezCore::Rendering::IRenderDeviceLifecycle* renderLifecycle,
-                                                    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources )
+                                                    SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources )
 {
     assert( renderResources );
     if ( !renderResources )

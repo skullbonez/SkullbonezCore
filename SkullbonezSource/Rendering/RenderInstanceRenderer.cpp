@@ -41,7 +41,7 @@ Related:
 #include "../Physics/ColliderStore.h"
 #include "../Maths/Frustum.h"
 #include "PrimitiveBatchRenderer.h"
-#include "IRenderDiagnostics.h"
+#include "DX12/Dx12Diagnostics.h"
 #include "RenderInstanceStore.h"
 
 #include <algorithm>

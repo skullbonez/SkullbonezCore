@@ -64,7 +64,7 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
-#include "../../Rendering/IRenderDiagnostics.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderGraph.h"
@@ -203,7 +203,7 @@ struct CinematicPostGraphCallbackData
     TonemapPass* tonemapPass = nullptr;
     const RenderFrameContext* frame = nullptr;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
-    SkullbonezCore::Rendering::IFramebuffer* sceneTarget = nullptr;
+    SkullbonezCore::Rendering::FramebufferDX12* sceneTarget = nullptr;
     SkullbonezCore::Rendering::RenderGraphTextureBinding volumetricLight;
     size_t volumetricTransitionCount = 0;
     size_t tonemapTransitionCount = 0;
@@ -323,7 +323,7 @@ struct SkyboxGraphCallbackData
 struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
-    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
     SkullbonezCore::Text::TextBatch* textBatch = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
@@ -538,9 +538,11 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket,
                       textureResult.error.message );
         return;
     }
-    assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets &&
-            frame.primitiveBatches );
+    assert( frame.renderResources && frame.renderTextures && frame.renderGeometry && frame.renderCommands &&
+            frame.renderDiagnostics && frame.assets && frame.primitiveBatches );
     const PrimitiveRenderContext primitiveContext{ *frame.renderResources,
+                                                   *frame.renderTextures,
+                                                   *frame.renderGeometry,
                                                    *frame.renderCommands,
                                                    *frame.renderDiagnostics,
                                                    *frame.assets,
@@ -888,7 +890,7 @@ struct GraphFramebufferResources
 
 GraphFramebufferResources AddGraphFramebuffer( SkullbonezCore::Rendering::RenderGraph& graph,
                                                const RenderFrameContext& frame,
-                                               const Rendering::IFramebuffer* target,
+                                               const Rendering::FramebufferDX12* target,
                                                const char* colorName,
                                                const char* depthName )
 {
@@ -1454,7 +1456,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 {
     const RenderFrameContext& frame = inputs.frame;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    Rendering::IFramebuffer* sceneTarget = m_passResources.cinematicScene.hdrTarget.get();
+    Rendering::FramebufferDX12* sceneTarget = m_passResources.cinematicScene.hdrTarget.get();
     const Rendering::RenderGraphResourceHandle sceneColor = graph.AddExternalResource(
         "CinematicSceneColor",
         Rendering::RenderGraphResourceAccess::RenderTarget,
@@ -1560,7 +1562,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 
 
 void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
-    Rendering::IRenderDiagnostics& renderDiagnostics,
+    Rendering::Dx12Diagnostics& renderDiagnostics,
     const UI::UIRenderContext& uiRender,
     const UiTextPassState& state,
     RunTimerState& timers,
@@ -1644,6 +1646,8 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.assets = &services.assets;
     frame.textures = &services.textures;
     frame.renderResources = &services.renderResources;
+    frame.renderTextures = &services.renderTextures;
+    frame.renderGeometry = &services.renderGeometry;
     frame.renderCommands = &services.renderCommands;
     frame.renderDiagnostics = &services.renderDiagnostics;
     frame.renderGpuTiming = &m_renderGpuTiming;
@@ -1692,6 +1696,8 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
     return RenderResourceContext{ cinematicRender,
                                   services.assets,
                                   services.renderResources,
+                                  services.renderTextures,
+                                  services.renderGeometry,
                                   (std::max)( 1, m_window.ClientWidth() ),
                                   (std::max)( 1, m_window.ClientHeight() ) };
 }
@@ -1700,7 +1706,7 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
 RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene )
     : m_lifecycleLog( backend.deviceLifecycle, scene ), m_assets( world.assets ), m_cameras( world.cameras ),
       m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ), m_world( world.worldEnvironment ),
-      m_primitiveBatches( std::in_place, backend.renderResources ),
+      m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
@@ -1757,7 +1763,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
                                                                            int modelCapacity )
 {
     Rendering::Dx12RaytracingOwner* rayTracing = backend.raytracing;
-    Rendering::IRenderDiagnostics* renderDiagnostics = backend.renderDiagnostics;
+    Rendering::Dx12Diagnostics* renderDiagnostics = backend.renderDiagnostics;
     const bool supported =
         renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
     if ( !supported )
@@ -1768,7 +1774,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
     Rendering::PrimitiveMeshGeometryView sphereGeometry = PrimitiveBatches().SphereGeometry();
     if ( sphereGeometry.instancedMeshHandle == 0 )
     {
-        if ( !backend.renderResources || !backend.renderCommands )
+        if ( !backend.renderResources || !backend.renderTextures || !backend.renderGeometry || !backend.renderCommands )
         {
             // Lane F: capability publication without the resource facets needed
             // to build the renderer-owned primitive mesh is invalid backend wiring.
@@ -1778,6 +1784,8 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
                       backend.renderCommands ? 1 : 0 );
         }
         const PrimitiveRenderContext primitiveContext{ *backend.renderResources,
+                                                       *backend.renderTextures,
+                                                       *backend.renderGeometry,
                                                        *backend.renderCommands,
                                                        *renderDiagnostics,
                                                        m_assets,
@@ -1792,7 +1800,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    Rendering::IMesh* terrainMesh = m_terrain.Get()->GetMesh();
+    Rendering::MeshDX12* terrainMesh = m_terrain.Get()->GetMesh();
     const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
     const uint32_t sphereHandle = sphereGeometry.instancedMeshHandle;
     const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
@@ -1847,7 +1855,7 @@ RuntimeRenderTargetPreviewSnapshot RuntimeRenderer::BuildRenderTargetPreviewSnap
                                                                                       bool volumetricAvailable ) const
 {
     RuntimeRenderTargetPreviewSnapshot snapshot;
-    const auto append = [&]( const char* label, const Rendering::IFramebuffer* target, bool depth, bool available )
+    const auto append = [&]( const char* label, const Rendering::FramebufferDX12* target, bool depth, bool available )
     {
         assert( snapshot.count < static_cast<int>( snapshot.targets.size() ) );
         RuntimeRenderTargetPreview& preview = snapshot.targets[static_cast<size_t>( snapshot.count++ )];
@@ -1968,6 +1976,8 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
         PrimitiveRenderContext primitiveContext{ services.renderResources,
+                                                 services.renderTextures,
+                                                 services.renderGeometry,
                                                  services.renderCommands,
                                                  services.renderDiagnostics,
                                                  services.assets,
@@ -2152,7 +2162,8 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 }
 
 
-void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources )
+void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12TextureOwner* renderTextures,
+                                                    Rendering::Dx12GeometryOwner* renderGeometry )
 {
     // Lifetime: release pass-owned GPU resources while the renderer backend is
     // still alive. The order keeps consumers ahead of their producers, so cached
@@ -2165,8 +2176,8 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     m_waterPass.ReleaseGpuResources();
     m_terrainPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
-    m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
-    m_uiTextPass.ReleaseGpuResources( m_textBatch, renderResources );
+    m_fullscreenQuadPass.ReleaseGpuResources( renderGeometry );
+    m_uiTextPass.ReleaseGpuResources( m_textBatch, renderTextures, renderGeometry );
     m_uiTextRayTracing = nullptr;
 }
 
@@ -2236,13 +2247,13 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             m_primitiveBatches.reset();
             break;
         case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources( context.renderResources );
+            m_collisionVisualizer.ResetResources( context.renderGeometry );
             break;
         case BackendResourceStep::UIResources:
-            context.ui.ResetResources( context.renderResources );
+            context.ui.ResetResources( context.renderGeometry );
             break;
         case BackendResourceStep::RenderPassResources:
-            ReleaseBackendOwnedResources( context.renderResources );
+            ReleaseBackendOwnedResources( context.renderTextures, context.renderGeometry );
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -2268,7 +2279,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             }
             break;
         case BackendResourceStep::LauncherLaser:
-            context.tools.Laser().ResetResources( context.renderResources );
+            context.tools.Laser().ResetResources( context.renderGeometry );
             break;
         }
     }
@@ -2277,13 +2288,15 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
 
 SkullbonezCore::Core::SbResult
-RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& renderResources,
+RuntimeRenderer::InitialiseProcessResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                             Rendering::Dx12TextureOwner& renderTextures,
+                                             Rendering::Dx12GeometryOwner& renderGeometry,
                                              Rendering::IRenderCommandContext& renderCommands,
                                              const SkullbonezCore::Core::EngineConfig& config,
                                              bool dumpTextureAssets )
 {
     m_textures.BindAssetSystem( &m_assets );
-    m_textures.BindRenderContexts( &renderResources, &renderCommands );
+    m_textures.BindRenderContexts( &renderTextures, &renderCommands );
     enum class RebuildStep
     {
         RecreateHelperOwner,
@@ -2310,7 +2323,7 @@ RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& 
         switch ( phase.step )
         {
         case RebuildStep::RecreateHelperOwner:
-            m_primitiveBatches.emplace( &renderResources );
+            m_primitiveBatches.emplace( &renderResources, &renderTextures, &renderGeometry );
             break;
         case RebuildStep::RegisterBuiltInSources:
             m_assets.RegisterBuiltInSourceAssets( config );
@@ -2344,14 +2357,16 @@ RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& 
 }
 
 
-SkullbonezCore::Core::SbResult
-RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
-                                        const Assets::AssetSystem& assets,
-                                        int screenW,
-                                        int screenH )
+SkullbonezCore::Core::SbResult RuntimeRenderer::EnsureUiTextResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                                                       Rendering::Dx12TextureOwner& renderTextures,
+                                                                       Rendering::Dx12GeometryOwner& renderGeometry,
+                                                                       const Assets::AssetSystem& assets,
+                                                                       int screenW,
+                                                                       int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( m_textBatch, renderResources, assets, screenW, screenH );
+    return m_uiTextPass
+        .EnsureGpuResources( m_textBatch, renderResources, renderTextures, renderGeometry, assets, screenW, screenH );
 }
 
 
@@ -2488,7 +2503,7 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
 }
 
 
-void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
+void RuntimeRenderer::RenderUiText( Rendering::Dx12Diagnostics& renderDiagnostics,
                                     const UI::UIRenderContext& uiRender,
                                     const UiTextPassState& state,
                                     RunTimerState& timers,
@@ -2563,9 +2578,12 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     }
 
     SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = context.backend.renderCommands;
-    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = context.backend.renderResources;
-    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = context.backend.renderDiagnostics;
-    const bool renderReady = renderCommands != nullptr && renderResources != nullptr && renderDiagnostics != nullptr;
+    SkullbonezCore::Rendering::Dx12ResourceBuilder* renderResources = context.backend.renderResources;
+    SkullbonezCore::Rendering::Dx12TextureOwner* renderTextures = context.backend.renderTextures;
+    SkullbonezCore::Rendering::Dx12GeometryOwner* renderGeometry = context.backend.renderGeometry;
+    SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = context.backend.renderDiagnostics;
+    const bool renderReady = renderCommands != nullptr && renderResources != nullptr && renderTextures != nullptr &&
+                             renderGeometry != nullptr && renderDiagnostics != nullptr;
     if ( !renderReady )
     {
         return false;
@@ -2611,6 +2629,8 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                                                 .cinematicEnabled = cinematicRender,
                                                                 .renderCommands = *renderCommands,
                                                                 .renderResources = *renderResources,
+                                                                .renderTextures = *renderTextures,
+                                                                .renderGeometry = *renderGeometry,
                                                                 .renderDiagnostics = *renderDiagnostics,
                                                                 .renderRayTracing = renderRayTracing,
                                                                 .renderReady = renderReady } } );

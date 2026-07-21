@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Rendering/DrawCallTrace.cpp
-  - SkullbonezSource/Rendering/IRenderDiagnostics.h
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
 */
 #pragma once
 

@@ -39,7 +39,7 @@ Related:
 #include "../../Core/Config.h"
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
-#include "../../Rendering/IFramebuffer.h"
+#include "../../Rendering/DX12/FramebufferDX12.h"
 #include "../../Rendering/Shadow.h"
 #include "RenderPresentationSettings.h"
 #include "../RuntimeInteractionController.h"
@@ -83,9 +83,11 @@ namespace Rendering
 class RenderGpuTimingOwner;
 class IRenderCommandContext;
 class IRenderDeviceLifecycle;
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 class Dx12RaytracingOwner;
-class IRenderResourceFactory;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
+class Dx12GeometryOwner;
 class RenderInstanceStore;
 struct RenderInstancePresentationRecord;
 struct RenderGraphTextureBinding;
@@ -258,14 +260,16 @@ struct RenderFrameContext
     Textures::TextureCollection* textures = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for lazy debug resource
     // creation in this frame only.
-    Rendering::IRenderResourceFactory* renderResources = nullptr;
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for this frame only. It is
     // non-null after RuntimeRenderer::BuildRenderFrameContext(), and pass code
     // must not store it beyond the current RenderFrame call.
     Rendering::IRenderCommandContext* renderCommands = nullptr;
     // Lifetime: borrowed from RuntimeRenderInputs for capability checks and
     // tracing decisions in this frame only.
-    Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
     // Lifetime: RuntimeRenderer-owned concrete GPU timing boundary borrowed by
     // pass recording for this frame only.
     Rendering::RenderGpuTimingOwner* renderGpuTiming = nullptr;
@@ -287,7 +291,9 @@ struct RenderResourceContext
     // draw methods keep using RenderFrameContext.
     bool cinematicEnabled = false;
     Assets::AssetSystem& assets;
-    Rendering::IRenderResourceFactory& renderResources;
+    Rendering::Dx12ResourceBuilder& renderResources;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12GeometryOwner& renderGeometry;
     int windowWidth = 1;                                // Active render-target width used for resize-sensitive GPU objects.
     int windowHeight = 1;                               // Active render-target height used for resize-sensitive GPU objects.
 };
@@ -427,7 +433,7 @@ struct UiTextPassInputs
     const UiTextPassState& state;
     RunTimerState& timers;
     UI::InGameUI& ui;
-    Rendering::IRenderDiagnostics& renderDiagnostics;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
     SkullbonezCore::Core::Profiler* profiler = nullptr; // UI snapshot source; null when profiling is compiled out.
     Text::TextBatch& textBatch;                         // RuntimeRenderer-owned mutable vertex/projection state.
     const UI::UIRenderContext& uiRender;
@@ -515,7 +521,7 @@ class FullscreenQuadPass
     }
 
     void EnsureGpuResources( const RenderResourceContext& resources );
-    void ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources );
+    void ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry );
     uint32_t QuadVB() const;
 
   private:
@@ -618,7 +624,7 @@ class ShadowPass
                                                      const Rendering::RenderInstanceStore& renderInstances,
                                                      Threading::WorkerPool* renderWorkerPool,
                                                      bool shadowParallelPrep );
-    void RenderShadowMap( Rendering::IFramebuffer& target,
+    void RenderShadowMap( Rendering::FramebufferDX12& target,
                           const Rendering::PrimitiveRenderContext& primitiveContext,
                           const Rendering::ShadowFrameData& shadowFrame,
                           const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -889,11 +895,15 @@ class UiTextPass
     }
 
     SkullbonezCore::Core::SbResult EnsureGpuResources( Text::TextBatch& textBatch,
-                                                       Rendering::IRenderResourceFactory& renderResources,
+                                                       Rendering::Dx12ResourceBuilder& renderResources,
+                                                       Rendering::Dx12TextureOwner& renderTextures,
+                                                       Rendering::Dx12GeometryOwner& renderGeometry,
                                                        const Assets::AssetSystem& assets,
                                                        int screenW,
                                                        int screenH );
-    void ReleaseGpuResources( Text::TextBatch& textBatch, Rendering::IRenderResourceFactory* renderResources );
+    void ReleaseGpuResources( Text::TextBatch& textBatch,
+                              Rendering::Dx12TextureOwner* renderTextures,
+                              Rendering::Dx12GeometryOwner* renderGeometry );
     bool ShouldRender( const UiTextPassState& state, const UI::InGameUI& ui ) const;
     void Render( const UiTextPassInputs& inputs );
 };

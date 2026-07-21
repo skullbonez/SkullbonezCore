@@ -142,7 +142,7 @@ bool IsGridLineRasterState( const RasterStateDesc& raster )
 // --- Dx12GeometryOwner methods ---
 
 
-void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<IShader> shader )
+void Dx12GeometryOwner::AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader )
 {
     m_gridLineShader = std::move( shader );
 }
@@ -459,7 +459,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
         return;
     }
 
-    IShader* transientShader = m_transientTriangleShaders[TransientTriangleStyleIndex( style )].get();
+    ShaderDX12* transientShader = m_transientTriangleShaders[TransientTriangleStyleIndex( style )].get();
     if ( !transientShader )
     {
         return;
@@ -525,7 +525,7 @@ void Dx12GeometryOwner::DrawTransientColoredTriangles( std::span<const float> pa
 }
 
 
-void Dx12GeometryOwner::AdoptTransientTriangleShader( TransientTriangleStyle style, std::unique_ptr<IShader> shader )
+void Dx12GeometryOwner::AdoptTransientTriangleShader( TransientTriangleStyle style, std::unique_ptr<ShaderDX12> shader )
 {
     const std::size_t index = TransientTriangleStyleIndex( style );
     m_transientTriangleShaders[index] = std::move( shader );
@@ -826,7 +826,7 @@ void Dx12GeometryOwner::Shutdown()
 {
     InvalidateGridLinePipelinesForShaderReload();
     m_gridLineShader.reset();
-    for ( std::unique_ptr<IShader>& shader : m_transientTriangleShaders )
+    for ( std::unique_ptr<ShaderDX12>& shader : m_transientTriangleShaders )
     {
         shader.reset();
     }
@@ -843,12 +843,7 @@ void Dx12GeometryOwner::Shutdown()
 }
 
 
-// --- RenderBackendDX12 geometry facet coordination ---
-
-uint32_t RenderBackendDX12::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
-{
-    return m_geometryOwner.CreateDynamicVB( attribComponents, numAttribs, maxVertices );
-}
+// --- RenderBackendDX12 draw coordination ---
 
 
 bool RenderBackendDX12::PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket )
@@ -884,12 +879,6 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle,
         m_diagnostics,
         bucket.raster );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
-}
-
-
-void RenderBackendDX12::DestroyDynamicVB( uint32_t handle )
-{
-    m_geometryOwner.DestroyDynamicVB( handle );
 }
 
 
@@ -956,7 +945,14 @@ void RenderBackendDX12::DrawTransientColoredTriangles( std::span<const float> pa
 }
 
 
-uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
+void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame )
+{
+    m_resourceDevice = &device;
+    m_resourceFrame = &frame;
+}
+
+
+uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
                                                  int staticVertCount,
                                                  int staticFloatsPerVert,
                                                  int /*maxInstances*/,
@@ -967,28 +963,28 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData,
                                                  const int* staticAttribSizes,
                                                  int numStaticAttribs )
 {
-    if ( !m_frameOwner.EnsureOpen().ok )
+    assert( m_resourceDevice && m_resourceFrame );
+    if ( !m_resourceFrame->EnsureOpen().ok )
     {
         return 0;
     }
     const UINT64 bytes = static_cast<UINT64>( staticVertCount ) * staticFloatsPerVert * sizeof( float );
     const D3D12_GPU_VIRTUAL_ADDRESS address =
-        m_frameOwner.UploadReservations().ReserveUpload( bytes, 4, RenderUploadCategory::DynamicVertex );
-    return m_geometryOwner.CreateInstancedMesh(
-        staticData,
-        staticVertCount,
-        staticFloatsPerVert,
-        instanceFloats,
-        instanceStartAttrib,
-        instanceAttribSizes,
-        numInstanceAttribs,
-        staticAttribSizes,
-        numStaticAttribs,
-        Device(),
-        CommandList(),
-        m_frameOwner.Uploads().Resource( m_frameOwner.AllocatorIndex() ),
-        address,
-        address ? m_frameOwner.UploadReservations().UploadPointer( address ) : nullptr );
+        m_resourceFrame->UploadReservations().ReserveUpload( bytes, 4, RenderUploadCategory::DynamicVertex );
+    return CreateInstancedMesh( staticData,
+                                staticVertCount,
+                                staticFloatsPerVert,
+                                instanceFloats,
+                                instanceStartAttrib,
+                                instanceAttribSizes,
+                                numInstanceAttribs,
+                                staticAttribSizes,
+                                numStaticAttribs,
+                                m_resourceDevice->Device(),
+                                m_resourceDevice->CommandList(),
+                                m_resourceFrame->Uploads().Resource( m_resourceFrame->AllocatorIndex() ),
+                                address,
+                                address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr );
 }
 
 
@@ -1028,10 +1024,4 @@ void RenderBackendDX12::DrawInstancedMesh( const InstancedMeshDrawDesc& draw )
     }
     m_geometryOwner.DrawInstancedMesh( draw, CommandList(), m_frameOwner.DrawGate(), m_diagnostics );
     m_frameOwner.UploadReservations().CancelPendingConstantUpload();
-}
-
-
-void RenderBackendDX12::DestroyInstancedMesh( uint32_t handle )
-{
-    m_geometryOwner.DestroyInstancedMesh( handle );
 }

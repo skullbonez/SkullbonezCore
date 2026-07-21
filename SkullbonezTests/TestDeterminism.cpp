@@ -16,8 +16,8 @@
 //     body-store poses and velocities.
 //   Body replay state: Store-owned body row fields restored through
 //     PhysicsEngine::RestoreReplayBodyState.
-//   Null render resource factory: Inert backend capability needed only to
-//     satisfy the Terrain constructor signature in this focused harness.
+//   Physics-only terrain: CPU-domain analytic slope used without renderer
+//     construction or a backend test double.
 //   Property check: Tolerance-based unit assertion over a physics rule that
 //     should hold across implementation details, rather than a golden row match.
 //   Kinetic energy: Translational plus angular motion energy used here as a
@@ -63,10 +63,8 @@
 #include "../SkullbonezSource/Physics/PhysicsDiagnosticsSink.h"
 #include "../SkullbonezSource/Gameplay/TornadoGameplay.h"
 #include "../SkullbonezSource/Physics/PhysicsWorldForces.h"
-#include "../SkullbonezSource/Rendering/IRenderResourceFactory.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
 #include "../SkullbonezSource/World/Terrain.h"
-#include "TestRenderResourceDoubles.h"
 
 #include <algorithm>
 #include <array>
@@ -197,9 +195,7 @@ Terrain& FlatTestTerrain()
     // storage keeps the borrowed terrain and config valid across repeated
     // engine resets without depending on process-global configuration.
     static SkullbonezCore::Core::EngineConfig config = MakeDeterministicConfig();
-    static SkullbonezCore::Assets::AssetSystem assets;
-    static SkullbonezTests::NullRenderResourceFactory resources;
-    static Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
+    static Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     return terrain;
 }
 

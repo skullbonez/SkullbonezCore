@@ -56,10 +56,10 @@ Related:
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/Log.h"
-#include "../../Rendering/IRenderDiagnostics.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/IRenderDeviceLifecycle.h"
 #include "../../Rendering/DX12/RenderBackendDX12.h"
-#include "../../Rendering/IRenderResourceFactory.h"
+#include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../Rendering/RenderInstanceRenderer.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGpuTimingOwner.h"
@@ -213,9 +213,14 @@ SkullbonezCore::Rendering::IRenderCommandContext& RenderCommands( const RenderFr
     return *frame.renderCommands;
 }
 
-SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderResourceContext& resources )
+SkullbonezCore::Rendering::Dx12ResourceBuilder& RenderResources( const RenderResourceContext& resources )
 {
     return resources.renderResources;
+}
+
+SkullbonezCore::Rendering::Dx12GeometryOwner& RenderGeometry( const RenderResourceContext& resources )
+{
+    return resources.renderGeometry;
 }
 
 SkullbonezCore::Assets::AssetSystem& RenderAssets( const RenderFrameContext& frame )
@@ -266,10 +271,16 @@ bool ResolveRenderTextureHandle( Textures::TextureCollection& textures,
     return true;
 }
 
-SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderFrameContext& frame )
+SkullbonezCore::Rendering::Dx12ResourceBuilder& RenderResources( const RenderFrameContext& frame )
 {
-    assert( frame.renderResources && "RenderFrameContext requires a render resource factory" );
+    assert( frame.renderResources && "RenderFrameContext requires a resource builder" );
     return *frame.renderResources;
+}
+
+SkullbonezCore::Rendering::Dx12GeometryOwner& RenderGeometry( const RenderFrameContext& frame )
+{
+    assert( frame.renderGeometry && "RenderFrameContext requires a geometry owner" );
+    return *frame.renderGeometry;
 }
 
 PrimitiveRenderContext PrimitiveRenderContextForFrame( const RenderFrameContext& frame,
@@ -278,6 +289,8 @@ PrimitiveRenderContext PrimitiveRenderContextForFrame( const RenderFrameContext&
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
     assert( frame.primitiveBatches && "RenderFrameContext requires a primitive batch renderer" );
     return PrimitiveRenderContext{ RenderResources( frame ),
+                                   *frame.renderTextures,
+                                   *frame.renderGeometry,
                                    RenderCommands( frame ),
                                    *frame.renderDiagnostics,
                                    RenderAssets( frame ),
@@ -291,7 +304,7 @@ PrimitiveBatchRenderer& PrimitiveBatchRendererForFrame( const RenderFrameContext
     return *frame.primitiveBatches;
 }
 
-SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
+SkullbonezCore::Rendering::Dx12Diagnostics& RenderDiagnostics( const RenderFrameContext& frame )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
     return *frame.renderDiagnostics;
@@ -351,7 +364,7 @@ void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& rende
     renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, rasterState );
 }
 
-void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
+void BindSkyPassParams( SkullbonezCore::Rendering::ShaderDX12& shader,
                         const Matrix4& view,
                         const Matrix4& projection,
                         const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
@@ -374,7 +387,7 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
 }
 
-void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
+void BindVolumetricPassParams( SkullbonezCore::Rendering::ShaderDX12& shader,
                                const Vector3& eye,
                                const Matrix4& viewProjection,
                                const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -398,7 +411,7 @@ void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.fogDensity );
 }
 
-void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
+void BindTonemapPassParams( SkullbonezCore::Rendering::ShaderDX12& shader,
                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                             float frustumNear,
                             float frustumFar,
@@ -470,16 +483,16 @@ void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resour
         // Full-screen shaders draw one rectangle; each vertex stores screen xy
         // plus uv, and every pass gives that same geometry its own shader meaning.
         const int attribs[] = { 2, 2 };
-        m_resources.quadVB = RenderResources( resources ).CreateDynamicVB( attribs, 2, 6 );
+        m_resources.quadVB = RenderGeometry( resources ).CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
 
-void FullscreenQuadPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources )
+void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry )
 {
-    if ( renderResources && m_resources.quadVB != 0 )
+    if ( renderGeometry && m_resources.quadVB != 0 )
     {
-        renderResources->DestroyDynamicVB( m_resources.quadVB );
+        renderGeometry->DestroyDynamicVB( m_resources.quadVB );
     }
     m_resources.quadVB = 0;
 }
@@ -586,7 +599,7 @@ void ReflectionPass::ReleaseGpuResources()
 {
     LogResourceLifecycleStep( "reflection_reset", "reflection_target" );
     // Lifetime: ResetResources gives the backend a chance to release device
-    // objects before the unique_ptr destructor drops the renderer-neutral shell.
+    // objects before the unique_ptr destructor drops the concrete target owner.
     if ( m_resources.target )
     {
         m_resources.target->ResetResources();
@@ -610,14 +623,14 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
     }
     PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/EnsureResources" );
 
-    // Concept: the shadow map is a renderer-neutral depth framebuffer. It is
+    // Concept: the shadow map is a concrete DX12 depth framebuffer. It is
     // intentionally owned outside the cinematic HDR target because the same
     // light-space depth texture is useful in normal backbuffer rendering,
     // cinematic rendering, and screenshot/perf scenes. The cinematic config
     // still supplies map size and bias/softness values, but the feature itself
     // is no longer gated by the cinematic post-processing path.
     const int mapSize = std::clamp( cinematic.shadow.mapSize, 256, 8192 );
-    auto ensureTarget = [&]( std::unique_ptr<Rendering::IFramebuffer>& target )
+    auto ensureTarget = [&]( std::unique_ptr<Rendering::FramebufferDX12>& target )
     {
         const bool needsTarget = !target || target->GetWidth() != mapSize || target->GetHeight() != mapSize;
         if ( needsTarget )
@@ -825,7 +838,7 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
 }
 
 
-void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
+void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
                                   const PrimitiveRenderContext& primitiveContext,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -1220,6 +1233,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
                 m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
                                               RenderResources( inputs.frame ),
+                                              RenderGeometry( inputs.frame ),
                                               renderCommands,
                                               RenderDiagnostics( inputs.frame ),
                                               frameView,
@@ -1292,6 +1306,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
                                           RenderResources( inputs.frame ),
+                                          RenderGeometry( inputs.frame ),
                                           renderCommands,
                                           RenderDiagnostics( inputs.frame ),
                                           frameView,
@@ -1517,6 +1532,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                         inputs.frame.up,
                                         m_assets,
                                         RenderResources( inputs.frame ),
+                                        RenderGeometry( inputs.frame ),
                                         RenderCommands( inputs.frame ) );
 
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )

@@ -633,9 +633,6 @@
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Pipeline.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Profiler.cpp">
-      <Filter>Source Files\Rendering\DX12</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
@@ -1237,13 +1234,7 @@
     <ClInclude Include="SkullbonezSource\Core\Profiler.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IShader.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IMesh.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h">
@@ -1252,7 +1243,7 @@
     <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h">
@@ -1264,8 +1255,8 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h">
-      <Filter>Header Files\Rendering</Filter>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h">
       <Filter>Header Files\Rendering</Filter>

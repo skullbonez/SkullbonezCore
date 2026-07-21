@@ -988,26 +988,37 @@ void Dx12TextureOwner::ReportStaleHandle( uint32_t handle ) const
 }
 
 
-uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data,
-                                             int width,
-                                             int height,
-                                             int channels,
-                                             bool generateMips,
-                                             bool linearFilter )
+void Dx12TextureOwner::BindResourceOwners( Dx12RenderDevice& device,
+                                           Dx12FrameOwner& frame,
+                                           Dx12PipelineOwner& pipeline )
 {
+    m_resourceDevice = &device;
+    m_resourceFrame = &frame;
+    m_resourcePipeline = &pipeline;
+}
+
+
+uint32_t Dx12TextureOwner::CreateTexture2D( const uint8_t* data,
+                                            int width,
+                                            int height,
+                                            int channels,
+                                            bool generateMips,
+                                            bool linearFilter )
+{
+    assert( m_resourceDevice && m_resourceFrame && m_resourcePipeline );
     bool graphicsStateInvalidated = false;
-    Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
-    const uint32_t handle = m_textureOwner.CreateTexture2D( textureCommands,
-                                                            data,
-                                                            width,
-                                                            height,
-                                                            channels,
-                                                            generateMips,
-                                                            linearFilter,
-                                                            graphicsStateInvalidated );
+    Dx12TextureCommands textureCommands( *m_resourceDevice, *m_resourceFrame );
+    const uint32_t handle = CreateTexture2D( textureCommands,
+                                             data,
+                                             width,
+                                             height,
+                                             channels,
+                                             generateMips,
+                                             linearFilter,
+                                             graphicsStateInvalidated );
     if ( graphicsStateInvalidated )
     {
-        m_pipelineOwner.InvalidateCommandState();
+        m_resourcePipeline->InvalidateCommandState();
     }
     return handle;
 }
@@ -1019,8 +1030,9 @@ void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
 }
 
 
-void RenderBackendDX12::DeleteTexture( uint32_t handle )
+void Dx12TextureOwner::DeleteTexture( uint32_t handle )
 {
-    Dx12TextureCommands textureCommands( m_renderDevice, m_frameOwner );
-    m_textureOwner.DeleteTexture( textureCommands, handle );
+    assert( m_resourceDevice && m_resourceFrame );
+    Dx12TextureCommands textureCommands( *m_resourceDevice, *m_resourceFrame );
+    DeleteTexture( textureCommands, handle );
 }

@@ -72,8 +72,8 @@ Related:
 #include "../../Core/SceneCapacity.h"
 #include "../IRenderCommandContext.h"
 #include "../IRenderDeviceLifecycle.h"
-#include "../IRenderDiagnostics.h"
-#include "../IRenderResourceFactory.h"
+#include "../RenderDiagnosticsTypes.h"
+#include "../RenderResourceTypes.h"
 #include "../RenderRaytracingTypes.h"
 #include "../RenderRasterBindingContract.h"
 #include "RenderBackendDX12.CommandRecordingState.h"
@@ -82,9 +82,12 @@ Related:
 #include "RenderGraphTransientDX12.h"
 #include "RenderDeviceDX12.h"
 #include "Dx12BackbufferCapture.h"
+#include "Dx12ResourceBuilder.h"
 #include "Dx12GraphTransientPool.h"
 #include "Dx12TextureRegistry.h"
 #include "MeshDX12.h"
+#include "ShaderDX12.h"
+#include "FramebufferDX12.h"
 #include "Dx12DescriptorHeaps.h"
 #include "Dx12Diagnostics.h"
 #include "Dx12ShaderDevelopment.h"
@@ -288,6 +291,7 @@ class Dx12TextureCommands
 class Dx12TextureOwner
 {
   public:
+    void BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame, Dx12PipelineOwner& pipeline );
     SkullbonezCore::Core::SbResult Initialize( Dx12TextureCommands& commands );
     SkullbonezCore::Core::SbResult PrepareGenerateMipsShaderReload( ID3D12Device* device,
                                                                     ID3D12PipelineState*& candidate );
@@ -301,8 +305,11 @@ class Dx12TextureOwner
                               bool generateMips,
                               bool linearFilter,
                               bool& graphicsStateInvalidated );
+    uint32_t
+    CreateTexture2D( const uint8_t* data, int width, int height, int channels, bool generateMips, bool linearFilter );
     void BindTexture( uint32_t handle, int slot );
     void DeleteTexture( Dx12TextureCommands& commands, uint32_t handle );
+    void DeleteTexture( uint32_t handle );
     UINT RegisterSRV( UINT srvIndex, ID3D12Resource* resource );
     UINT UnregisterSRV( uint32_t handle );
     void ClearBoundSlotsForSrv( UINT srvIndex );
@@ -338,6 +345,9 @@ class Dx12TextureOwner
     UINT m_genMipsNullUAV = UINT_MAX;
     bool m_texBindingsDirty = true;
     mutable bool m_staleHandleReported = false;
+    Dx12RenderDevice* m_resourceDevice = nullptr;
+    Dx12FrameOwner* m_resourceFrame = nullptr;
+    Dx12PipelineOwner* m_resourcePipeline = nullptr;
 };
 
 // Concept: a pipeline is the complete draw recipe, not a collection of backend
@@ -464,9 +474,9 @@ class Dx12GeometryOwner
                                          Dx12DrawGate& drawGate,
                                          const RasterStateDesc& declaredRasterState );
     void DestroyDynamicVB( uint32_t handle );
-    void AdoptGridLineShader( std::unique_ptr<IShader> shader );
+    void AdoptGridLineShader( std::unique_ptr<ShaderDX12> shader );
     bool EnsureGridLinePipeline( ID3D12Device* device, Dx12PipelineOwner& pipeline, DXGI_FORMAT rtvFormat );
-    void AdoptTransientTriangleShader( TransientTriangleStyle style, std::unique_ptr<IShader> shader );
+    void AdoptTransientTriangleShader( TransientTriangleStyle style, std::unique_ptr<ShaderDX12> shader );
     static const char* TransientShaderBaseName( TransientTriangleStyle style );
     bool HasTransientTriangleShader( TransientTriangleStyle style ) const;
     void InvalidateGridLinePipelinesForShaderReload();
@@ -506,6 +516,17 @@ class Dx12GeometryOwner
                                   ID3D12Resource* uploadResource,
                                   D3D12_GPU_VIRTUAL_ADDRESS uploadAddress,
                                   uint8_t* uploadPointer );
+    void BindResourceOwners( Dx12RenderDevice& device, Dx12FrameOwner& frame );
+    uint32_t CreateInstancedMesh( const float* staticData,
+                                  int staticVertCount,
+                                  int staticFloatsPerVert,
+                                  int maxInstances,
+                                  int instanceFloats,
+                                  int instanceStartAttrib,
+                                  const int* instanceAttribSizes,
+                                  int numInstanceAttribs,
+                                  const int* staticAttribSizes = nullptr,
+                                  int numStaticAttribs = 0 );
     void UploadInstanceData( uint32_t handle,
                              std::span<const float> packedInstances,
                              D3D12_GPU_VIRTUAL_ADDRESS address,
@@ -530,10 +551,12 @@ class Dx12GeometryOwner
     static constexpr size_t TRANSIENT_TRIANGLE_STYLE_COUNT = 4;
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
-    std::unique_ptr<IShader> m_gridLineShader;
+    std::unique_ptr<ShaderDX12> m_gridLineShader;
     std::array<GridLinePSODX12, MAX_GRID_LINE_PSOS> m_gridLinePSOs = {};
     size_t m_gridLinePSOCount = 0;
-    std::array<std::unique_ptr<IShader>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
+    std::array<std::unique_ptr<ShaderDX12>, TRANSIENT_TRIANGLE_STYLE_COUNT> m_transientTriangleShaders;
+    Dx12RenderDevice* m_resourceDevice = nullptr;
+    Dx12FrameOwner* m_resourceFrame = nullptr;
 };
 
 struct Dx12RaytracingSetupOutcome
@@ -636,19 +659,16 @@ class Dx12RaytracingOwner
 // releases the graph pool. Descriptor rows come from the backend descriptor
 // allocators and are reused with the slot; they must not be mixed into
 // material/object texture ownership.
-// Concept: RenderBackendDX12 composes the concrete DX12 owners behind the
-// engine-facing capability interfaces.
+// Concept: RenderBackendDX12 composes concrete DX12 owners and publishes each
+// one through its narrow runtime seam.
 //
-// The public interfaces use engine verbs: set a shader, set textures, draw
-// meshes, present the frame. Internally, DX12 requires the backend to make every
+// Public seams use engine verbs for command recording and device lifecycle;
+// resource and diagnostics work reaches concrete owners. Internally, DX12 requires the backend to make every
 // hidden GPU concept explicit: descriptor table rows, command allocators,
 // resource states, fences, upload memory, and compiled pipeline state. Texture
 // and pipeline lifetime belong to the named owners above; this class sequences
 // their work with the device/frame command stream.
-class RenderBackendDX12 : public IRenderDeviceLifecycle,
-                          public IRenderResourceFactory,
-                          public IRenderCommandContext,
-                          public IRenderDiagnostics
+class RenderBackendDX12 : public IRenderDeviceLifecycle, public IRenderCommandContext
 {
 
   private:
@@ -671,6 +691,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     // Cold-only owners borrow the stable renderer owners above and retain the
     // complete transaction authority published to runtime.
     Dx12ShaderDevelopment m_shaderDevelopment;
+    Dx12ResourceBuilder m_resourceBuilder;
     Dx12RaytracingOwner m_raytracingOwner;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     // Lifetime: this development renderer borrows the preceding concrete
@@ -723,6 +744,22 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     {
         return m_shaderDevelopment;
     }
+    Dx12ResourceBuilder& ResourceBuilder() noexcept
+    {
+        return m_resourceBuilder;
+    }
+    Dx12TextureOwner& Textures() noexcept
+    {
+        return m_textureOwner;
+    }
+    Dx12GeometryOwner& Geometry() noexcept
+    {
+        return m_geometryOwner;
+    }
+    Dx12Diagnostics& Diagnostics() noexcept
+    {
+        return m_diagnostics;
+    }
     Dx12RaytracingOwner& Raytracing() noexcept
     {
         return m_raytracingOwner;
@@ -735,18 +772,7 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( const ClearTargetDesc& target ) override;
 
-    std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
-    std::unique_ptr<IMesh>
-    CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) override;
-    std::unique_ptr<IFramebuffer>
-    CreateFramebuffer( int width,
-                       int height,
-                       FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 ) override;
-
-    uint32_t
-    CreateTexture2D( const uint8_t* data, int w, int h, int channels, bool generateMips, bool linearFilter ) override;
     void BindTexture( uint32_t handle, int slot ) override;
-    void DeleteTexture( uint32_t handle ) override;
     RenderGraphTransientMaterializationStats
     MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled ) override;
     RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const override;
@@ -761,72 +787,10 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
     int GetWidth() const override;
     int GetHeight() const override;
 
-    const char* GetRendererName() const override
-    {
-        return "DirectX 12";
-    }
-    RenderMemoryStats GetRenderMemoryStats() const override;
-    RenderCapabilities GetCapabilities() const override
-    {
-        RenderCapabilities capabilities;
-        capabilities.supportsBackbufferCapture = true;
-        capabilities.supportsGpuTimers = m_diagnostics.SupportsGpuTimers();
-        capabilities.supportsDxrReflection = m_raytracingOwner.Supported();
-        capabilities.supportsDebugLines = true;
-        return capabilities;
-    }
-
-    void ResetFrameDrawCalls() override
-    {
-        m_diagnostics.ResetFrameDrawCalls();
-    }
-    void RecordDrawCall( const DrawCallRecord& record ) override
-    {
-        m_diagnostics.RecordDrawCall( record );
-    }
-    void RecordDrawCall()
-    {
-        RecordDrawCall( DrawCallRecord() );
-    }
-    int GetFrameDrawCallCount() const override
-    {
-        return m_diagnostics.FrameDrawCallCount();
-    }
-    void RecordVisibility( RenderVisibilityView view, int candidates, int submitted, int culled, int draws ) override
-    {
-        m_diagnostics.RecordVisibility( view, candidates, submitted, culled, draws );
-    }
-    RenderVisibilityStats GetFrameVisibilityStats() const override
-    {
-        return m_diagnostics.FrameVisibilityStats();
-    }
-    DrawCallTraceSnapshot GetFrameDrawCallTrace() const override
-    {
-        return m_diagnostics.FrameDrawCallTrace();
-    }
-    void PushDrawCallTraceScope( const char* fullPathOrLeaf, uint32_t hash ) override
-    {
-        m_diagnostics.PushDrawCallTraceScope( fullPathOrLeaf, hash );
-    }
-    void PopDrawCallTraceScope( uint32_t hash ) override
-    {
-        m_diagnostics.PopDrawCallTraceScope( hash );
-    }
-
-    void GpuTimerBegin( int markerIdx ) override;
-    void GpuTimerEnd( int markerIdx ) override;
-    void GpuTimerInvalidate() override;
-    bool GpuTimerRead( int markerIdx, float& outMs ) override;
-    void PlatformProfilerGpuBegin( const char* name, uint32_t hash ) override;
-    void PlatformProfilerGpuEnd() override;
-    void PlatformProfilerGpuMarker( const char* name, uint32_t hash ) override;
-
-    uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     bool PrecompileDynamicVBRasterState( uint32_t handle, const PassRasterStateBucket& bucket ) override;
     void UploadAndDrawDynamicVB( uint32_t handle,
                                  std::span<const float> packedVertices,
                                  const PassRasterStateBucket& bucket ) override;
-    void DestroyDynamicVB( uint32_t handle ) override;
 
     void DrawLinesColored( std::span<const float> packedVertices,
                            const Math::Transformation::Matrix4& viewProjection,
@@ -836,19 +800,8 @@ class RenderBackendDX12 : public IRenderDeviceLifecycle,
                                         TransientTriangleStyle style,
                                         const PassRasterStateBucket& bucket ) override;
 
-    uint32_t CreateInstancedMesh( const float* staticData,
-                                  int staticVertCount,
-                                  int staticFloatsPerVert,
-                                  int maxInstances,
-                                  int instanceFloats,
-                                  int instanceStartAttrib,
-                                  const int* instanceAttribSizes,
-                                  int numInstanceAttribs,
-                                  const int* staticAttribSizes = nullptr,
-                                  int numStaticAttribs = 0 ) override;
     void UploadInstanceData( uint32_t handle, std::span<const float> packedInstances ) override;
     void DrawInstancedMesh( const InstancedMeshDrawDesc& draw ) override;
-    void DestroyInstancedMesh( uint32_t handle ) override;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

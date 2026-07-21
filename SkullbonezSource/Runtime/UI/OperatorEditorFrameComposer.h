@@ -34,7 +34,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 }
 namespace UI
 {
@@ -64,7 +64,7 @@ void Render( RuntimeFrameHostView& host,
              ReplayRuntime& replayRuntime,
              const RuntimeUiTextFrameFacts& facts,
              const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-             Rendering::IRenderDiagnostics& renderDiagnostics,
+             Rendering::Dx12Diagnostics& renderDiagnostics,
              const UI::UIRenderContext& uiRender,
              const RuntimeRenderModelFrameView& renderModels );
 } // namespace OperatorEditorFrameComposer

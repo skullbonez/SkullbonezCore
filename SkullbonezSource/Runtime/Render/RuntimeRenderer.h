@@ -88,7 +88,9 @@ class RuntimeRenderer
     {
         const char* phaseName = nullptr;
         Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
-        Rendering::IRenderResourceFactory* renderResources = nullptr;
+        Rendering::Dx12ResourceBuilder* renderResources = nullptr;
+        Rendering::Dx12TextureOwner* renderTextures = nullptr;
+        Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
         UI::InGameUI& ui;
         RuntimeTools& tools;
     };
@@ -135,9 +137,12 @@ class RuntimeRenderer
                                                      const SkullbonezCore::Core::EngineConfig& config ) const;
     bool RenderFrameEntry( const FrameEntryContext& context );
     bool RenderFrame( const RuntimeRenderInputs& renderInputs );
-    void ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources );
+    void ReleaseBackendOwnedResources( Rendering::Dx12TextureOwner* renderTextures,
+                                       Rendering::Dx12GeometryOwner* renderGeometry );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );
-    SkullbonezCore::Core::SbResult InitialiseProcessResources( Rendering::IRenderResourceFactory& renderResources,
+    SkullbonezCore::Core::SbResult InitialiseProcessResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                                               Rendering::Dx12TextureOwner& renderTextures,
+                                                               Rendering::Dx12GeometryOwner& renderGeometry,
                                                                Rendering::IRenderCommandContext& renderCommands,
                                                                const SkullbonezCore::Core::EngineConfig& config,
                                                                bool dumpTextureAssets );
@@ -163,7 +168,9 @@ class RuntimeRenderer
         return *m_primitiveBatches;
     }
 
-    SkullbonezCore::Core::SbResult EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
+    SkullbonezCore::Core::SbResult EnsureUiTextResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                                          Rendering::Dx12TextureOwner& renderTextures,
+                                                          Rendering::Dx12GeometryOwner& renderGeometry,
                                                           const Assets::AssetSystem& assets,
                                                           int screenW,
                                                           int screenH );
@@ -182,7 +189,7 @@ class RuntimeRenderer
     // Validates a restart frame with no Present edge, then releases every
     // callback/resource borrow before capture automation can replace the scene.
     void FinalizeCaptureOnlyFrameGraph();
-    void RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
+    void RenderUiText( Rendering::Dx12Diagnostics& renderDiagnostics,
                        const UI::UIRenderContext& uiRender,
                        const UiTextPassState& state,
                        RunTimerState& timers,
@@ -314,7 +321,7 @@ class RuntimeRenderer
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
-    void ExecuteUiTextThroughRenderGraph( Rendering::IRenderDiagnostics& renderDiagnostics,
+    void ExecuteUiTextThroughRenderGraph( Rendering::Dx12Diagnostics& renderDiagnostics,
                                           const UI::UIRenderContext& uiRender,
                                           const UiTextPassState& state,
                                           RunTimerState& timers,

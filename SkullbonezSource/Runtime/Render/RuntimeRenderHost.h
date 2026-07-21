@@ -78,8 +78,10 @@ class IRenderCommandContext;
 class Dx12ImGuiRendererOwner;
 #endif
 class IRenderDeviceLifecycle;
-class IRenderDiagnostics;
-class IRenderResourceFactory;
+class Dx12Diagnostics;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
+class Dx12GeometryOwner;
 class Dx12RaytracingOwner;
 class Dx12ShaderDevelopment;
 } // namespace Rendering
@@ -149,8 +151,10 @@ struct RuntimeRenderBackendView
 {
     Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;       // Startup/present/resize/drain capability.
     Rendering::IRenderCommandContext* renderCommands = nullptr;         // Per-frame draw-state and submission capability.
-    Rendering::IRenderResourceFactory* renderResources = nullptr;       // Resource creation/rebuild capability.
-    Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;         // Capability, draw-trace, timer, and memory snapshots.
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;          // Resource creation/rebuild capability.
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;              // Texture registry and cold texture IO owner.
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;             // Bounded dynamic/instanced geometry owner.
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;            // Capability, draw-trace, timer, and memory snapshots.
     Rendering::Dx12BackbufferCapture* backbufferCapture = nullptr;      // Concrete screenshot/readback owner.
     Rendering::Dx12RaytracingOwner* raytracing = nullptr;               // Optional concrete reflection owner.
     Rendering::Dx12ShaderDevelopment* shaderDevelopment = nullptr;      // Explicit offline-DXC reload owner.

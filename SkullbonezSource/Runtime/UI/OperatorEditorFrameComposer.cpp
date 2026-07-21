@@ -48,7 +48,7 @@ Related:
 #include "../../Core/Profiler.h"
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsApi.h"
-#include "../../Rendering/IRenderDiagnostics.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../UI/UI.h"
 #include "../../UI/UITabEditor.h"
@@ -202,7 +202,7 @@ void Render( RuntimeFrameHostView& host,
              ReplayRuntime& replayRuntime,
              const RuntimeUiTextFrameFacts& facts,
              const ReplayOverlay::ReplayOverlayStateView& replayOverlay,
-             SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics,
+             SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics,
              const SkullbonezCore::UI::UIRenderContext& uiRender,
              const RuntimeRenderModelFrameView& renderModels )
 {

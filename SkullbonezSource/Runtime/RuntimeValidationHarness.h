@@ -51,7 +51,7 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class Dx12BackbufferCapture;
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 } // namespace Rendering
 namespace Physics
 {
@@ -126,7 +126,7 @@ class RuntimeValidationHarness
                                      RuntimeFrameSceneView& sceneOwners,
                                      RuntimeFramePresentationView& presentationOwners,
                                      ReplayRuntime& replayRuntime,
-                                     const Rendering::IRenderDiagnostics& renderDiagnostics,
+                                     const Rendering::Dx12Diagnostics& renderDiagnostics,
                                      // Prevents scene churn from reactivating the
                                      // dormant Legacy surface during ImGui stress.
                                      bool legacyDevelopmentUiActive );

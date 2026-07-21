@@ -28,7 +28,7 @@ Related:
 
 #include "../Core/FatalError.h"
 #include "../Rendering/IRenderCommandContext.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/RenderGpuTimingOwner.h"
 #include "../Rendering/RenderRasterBindingContract.h"
 

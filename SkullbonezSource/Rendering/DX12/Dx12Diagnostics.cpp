@@ -29,15 +29,233 @@ Related:
 
 #include "Dx12DescriptorHeaps.h"
 #include "Dx12FrameOwner.h"
+#include "RenderBackendDX12.h"
 #include "../RenderRasterBindingContract.h"
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
+#include "../../Core/PlatformProfiler.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <wrl/client.h>
 
 using namespace SkullbonezCore::Rendering;
+using Microsoft::WRL::ComPtr;
+
+void Dx12Diagnostics::BindSources( Dx12RenderDevice& device,
+                                   Dx12DescriptorHeaps& descriptors,
+                                   Dx12FrameOwner& frame,
+                                   Dx12TextureOwner& textures,
+                                   Dx12PipelineOwner& pipeline,
+                                   Dx12GeometryOwner& geometry,
+                                   Dx12GraphTransientPool& graphTransients,
+                                   Dx12RaytracingOwner& raytracing )
+{
+    m_device = &device;
+    m_descriptors = &descriptors;
+    m_frame = &frame;
+    m_textures = &textures;
+    m_pipeline = &pipeline;
+    m_geometry = &geometry;
+    m_graphTransients = &graphTransients;
+    m_raytracing = &raytracing;
+}
+
+RenderCapabilities Dx12Diagnostics::GetCapabilities() const
+{
+    RenderCapabilities capabilities;
+    capabilities.supportsBackbufferCapture = true;
+    capabilities.supportsGpuTimers = SupportsGpuTimers();
+    capabilities.supportsDxrReflection = m_raytracing && m_raytracing->Supported();
+    capabilities.supportsDebugLines = true;
+    return capabilities;
+}
+
+RenderMemoryStats Dx12Diagnostics::GetRenderMemoryStats() const
+{
+    // Concept: one value snapshot combines bounded engine tables with the
+    // operating system's memory charge for the adapter backing this device.
+    // It observes every owner but cannot resize or mutate any of them.
+    RenderMemoryStats stats;
+    strcpy_s( stats.backendName, sizeof( stats.backendName ), "DirectX 12" );
+    stats.available = m_device && m_device->Device();
+    stats.recreationGeneration = m_device ? m_device->RecreationGeneration() : 0;
+    if ( !stats.available || !m_descriptors || !m_frame || !m_textures || !m_pipeline || !m_geometry ||
+         !m_graphTransients )
+    {
+        return stats;
+    }
+
+    const Dx12CpuDescriptorAllocatorStats rtvStats = m_descriptors->RtvStats();
+    const Dx12CpuDescriptorAllocatorStats dsvStats = m_descriptors->DsvStats();
+    const Dx12DescriptorAllocatorStats srvStats = m_descriptors->GetStats();
+    stats.rtvDescriptorsUsed = rtvStats.used;
+    stats.rtvDescriptorsCapacity = rtvStats.capacity;
+    stats.dsvDescriptorsUsed = dsvStats.used;
+    stats.dsvDescriptorsCapacity = dsvStats.capacity;
+    stats.srvStaticDescriptorsUsed = srvStats.staticUsed;
+    stats.srvStaticDescriptorsCapacity = srvStats.staticCapacity;
+    stats.srvStaticDescriptorsHighWater = srvStats.staticHighWater;
+    stats.srvTransientDescriptorsUsedThisFrame = srvStats.transientUsedThisFrame;
+    stats.srvTransientDescriptorsCapacityPerFrame = srvStats.transientCapacityPerFrame;
+    stats.srvTransientDescriptorsPeakThisRun = srvStats.transientPeakThisRun;
+
+    for ( int frameIndex = 0; frameIndex < Dx12FrameOwner::FRAME_COUNT; ++frameIndex )
+    {
+        const Dx12UploadArenaStats uploadStats = m_frame->Uploads().GetStats( static_cast<UINT>( frameIndex ) );
+        stats.uploadCapacityBytes += uploadStats.capacityBytes;
+        stats.uploadUsedBytes += uploadStats.usedBytes;
+        stats.uploadPeakBytes = (std::max)( stats.uploadPeakBytes, uploadStats.peakBytes );
+        for ( std::size_t categoryIndex = 0; categoryIndex < RENDER_UPLOAD_CATEGORY_COUNT; ++categoryIndex )
+        {
+            stats.uploadCategoryUsedBytes[categoryIndex] += uploadStats.categoryUsedBytes[categoryIndex];
+            stats.uploadCategoryPeakBytes[categoryIndex] = (std::max)( stats.uploadCategoryPeakBytes[categoryIndex],
+                                                                       uploadStats.categoryPeakBytes[categoryIndex] );
+        }
+    }
+    stats.uploadFlushCount = m_frame->UploadFlushCount();
+    stats.uploadDropCount = m_frame->UploadDropCount();
+    const Dx12ReadbackBufferStats timerStats = TimerReadbackStats();
+    stats.timerReadbackBytes = timerStats.ready ? timerStats.sizeBytes : 0;
+    stats.textureRegistryCount = m_textures->RegistryCount();
+    stats.textureRegistryCapacity = m_textures->RegistryCapacity();
+    stats.dynamicVertexBufferCount = m_geometry->DynamicCount();
+    stats.dynamicVertexBufferCapacity = m_geometry->DynamicCapacity();
+    stats.instancedMeshCount = m_geometry->InstancedCount();
+    stats.instancedMeshCapacity = m_geometry->InstancedCapacity();
+    stats.psoCacheCount = m_pipeline->CacheCount();
+    stats.psoCacheHitCount = m_pipeline->CacheHitCount();
+    stats.psoCacheMissCount = m_pipeline->CacheMissCount();
+    stats.precompiledPsoCount = m_pipeline->PrecompiledPsoCount();
+    stats.graphTransientCount = m_graphTransients->Size();
+    stats.graphTransientCapacity = m_graphTransients->Capacity();
+
+    if ( IDXGIFactory4* factory = m_device->Factory() )
+    {
+        // Why: adapter zero is not necessarily the adapter that created the
+        // device. Match the device LUID before sampling graphics-kernel budgets.
+        const LUID deviceLuid = m_device->Device()->GetAdapterLuid();
+        ComPtr<IDXGIAdapter3> activeAdapter;
+        for ( UINT adapterIndex = 0;; ++adapterIndex )
+        {
+            ComPtr<IDXGIAdapter1> adapter;
+            const HRESULT enumResult = factory->EnumAdapters1( adapterIndex, adapter.GetAddressOf() );
+            if ( enumResult == DXGI_ERROR_NOT_FOUND )
+            {
+                break;
+            }
+            DXGI_ADAPTER_DESC1 desc = {};
+            if ( FAILED( enumResult ) || FAILED( adapter->GetDesc1( &desc ) ) ||
+                 desc.AdapterLuid.HighPart != deviceLuid.HighPart || desc.AdapterLuid.LowPart != deviceLuid.LowPart )
+            {
+                continue;
+            }
+            (void)adapter.As( &activeAdapter );
+            break;
+        }
+        if ( activeAdapter )
+        {
+            DXGI_QUERY_VIDEO_MEMORY_INFO localInfo = {};
+            DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo = {};
+            const bool localAvailable =
+                SUCCEEDED( activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
+            const bool nonLocalAvailable = SUCCEEDED(
+                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo ) );
+            stats.adapterMemoryAvailable = localAvailable || nonLocalAvailable;
+            if ( localAvailable )
+            {
+                stats.localBudgetBytes = static_cast<uint64_t>( localInfo.Budget );
+                stats.localCurrentUsageBytes = static_cast<uint64_t>( localInfo.CurrentUsage );
+                stats.localCurrentReservationBytes = static_cast<uint64_t>( localInfo.CurrentReservation );
+                stats.localAvailableForReservationBytes = static_cast<uint64_t>( localInfo.AvailableForReservation );
+            }
+            if ( nonLocalAvailable )
+            {
+                stats.nonLocalBudgetBytes = static_cast<uint64_t>( nonLocalInfo.Budget );
+                stats.nonLocalCurrentUsageBytes = static_cast<uint64_t>( nonLocalInfo.CurrentUsage );
+                stats.nonLocalCurrentReservationBytes = static_cast<uint64_t>( nonLocalInfo.CurrentReservation );
+                stats.nonLocalAvailableForReservationBytes =
+                    static_cast<uint64_t>( nonLocalInfo.AvailableForReservation );
+            }
+        }
+    }
+    return stats;
+}
+
+void Dx12Diagnostics::GpuTimerBegin( int markerIndex )
+{
+    if ( m_frame )
+    {
+        GpuTimerBegin( m_frame->DiagnosticsFrame(), markerIndex );
+    }
+}
+
+void Dx12Diagnostics::GpuTimerEnd( int markerIndex )
+{
+    if ( m_frame )
+    {
+        GpuTimerEnd( m_frame->DiagnosticsFrame(), markerIndex );
+    }
+}
+
+void Dx12Diagnostics::GpuTimerInvalidate()
+{
+    if ( m_frame )
+    {
+        GpuTimerInvalidate( m_frame->DiagnosticsFrame() );
+    }
+}
+
+bool Dx12Diagnostics::GpuTimerRead( int markerIndex, float& outMilliseconds )
+{
+    return m_frame && GpuTimerRead( m_frame->DiagnosticsFrame(), markerIndex, outMilliseconds );
+}
+
+void Dx12Diagnostics::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
+{
+    if ( m_frame && SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
+    {
+        m_frame->BeginProfilerEvent( name, hash );
+    }
+}
+
+void Dx12Diagnostics::PlatformProfilerGpuEnd()
+{
+    if ( m_frame )
+    {
+        m_frame->EndProfilerEvent();
+    }
+}
+
+void Dx12Diagnostics::PlatformProfilerGpuMarker( const char* name, uint32_t hash )
+{
+    if ( !m_frame || !m_device || !SkullbonezCore::Core::PlatformProfiler::IsEnabled() )
+    {
+        return;
+    }
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+    if ( !m_device->CommandList() || !m_frame->EnsureOpen().ok )
+    {
+        return;
+    }
+    char markerNameBuffer[SkullbonezCore::Core::PlatformProfiler::MAX_DECORATED_MARKER_NAME_CHARS];
+    const char* markerName =
+        SkullbonezCore::Core::PlatformProfiler::AreDetailedRangesEnabled()
+            ? SkullbonezCore::Core::PlatformProfiler::DecorateMarkerName( name,
+                                                                          "_GPU",
+                                                                          markerNameBuffer,
+                                                                          sizeof( markerNameBuffer ) )
+            : name;
+    PIXSetMarker( m_device->CommandList(),
+                  SkullbonezCore::Core::PlatformProfiler::ColorForMarker( markerName, hash ),
+                  "%s",
+                  markerName );
+#else
+    (void)name;
+    (void)hash;
+#endif
+}
 
 SkullbonezCore::Core::SbResult Dx12Diagnostics::InitializeGpuTimers( ID3D12Device* device, ID3D12CommandQueue* queue )
 {

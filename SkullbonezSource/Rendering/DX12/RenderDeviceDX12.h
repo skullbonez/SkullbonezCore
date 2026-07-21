@@ -45,7 +45,7 @@ Related:
 #include "../../Core/PlatformWin32.h"
 
 #include "../../Core/SbResult.h"
-#include "../IRenderDiagnostics.h"
+#include "../RenderDiagnosticsTypes.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 
 #include <cstdint>

@@ -48,7 +48,7 @@ Related:
 #include "../Physics/PhysicsDebugData.h"
 #include "../Core/Profiler.h"
 #include "../Rendering/ProfilerOverlayPresenter.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Rendering/Text.h"
 #include "../UI/UI.h"
@@ -154,18 +154,29 @@ void RenderReplayDivergenceCounter( const UiTextPassInputs& inputs )
 } // namespace
 
 SkullbonezCore::Core::SbResult UiTextPass::EnsureGpuResources( Text::TextBatch& textBatch,
-                                                               Rendering::IRenderResourceFactory& renderResources,
+                                                               Rendering::Dx12ResourceBuilder& renderResources,
+                                                               Rendering::Dx12TextureOwner& renderTextures,
+                                                               Rendering::Dx12GeometryOwner& renderGeometry,
                                                                const Assets::AssetSystem& assets,
                                                                int screenW,
                                                                int screenH )
 {
-    return Text2d::BuildFont( textBatch, renderResources, assets, screenW, screenH, "Verdana" );
+    return Text2d::BuildFont( textBatch,
+                              renderResources,
+                              renderTextures,
+                              renderGeometry,
+                              assets,
+                              screenW,
+                              screenH,
+                              "Verdana" );
 }
 
 
-void UiTextPass::ReleaseGpuResources( Text::TextBatch& textBatch, Rendering::IRenderResourceFactory* renderResources )
+void UiTextPass::ReleaseGpuResources( Text::TextBatch& textBatch,
+                                      Rendering::Dx12TextureOwner* renderTextures,
+                                      Rendering::Dx12GeometryOwner* renderGeometry )
 {
-    Text2d::DeleteFont( textBatch, renderResources );
+    Text2d::DeleteFont( textBatch, renderTextures, renderGeometry );
 }
 
 

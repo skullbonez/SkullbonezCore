@@ -41,7 +41,7 @@ class AssetSystem;
 }
 namespace Rendering
 {
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 }
 namespace Threading
 {

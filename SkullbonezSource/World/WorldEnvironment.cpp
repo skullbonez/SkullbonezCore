@@ -37,7 +37,7 @@ Related:
 #include "WorldEnvironment.h"
 #include "../Assets/AssetSystem.h"
 #include "../Rendering/IRenderCommandContext.h"
-#include "../Rendering/IRenderResourceFactory.h"
+#include "../Rendering/DX12/Dx12ResourceBuilder.h"
 #include <vector>
 
 
@@ -105,7 +105,7 @@ void WorldEnvironment::BindRuntimeConfig( const SkullbonezCore::Core::EngineConf
 
 void WorldEnvironment::BindRenderContexts( const SkullbonezCore::Core::EngineConfig& config,
                                            SkullbonezCore::Assets::AssetSystem& assets,
-                                           IRenderResourceFactory& resources )
+                                           Dx12ResourceBuilder& resources )
 {
     // Lifetime: water keeps rebuild-only borrows owned by Run and refreshed by
     // WaterPass before lazy resource recreation.
@@ -220,7 +220,7 @@ WorldEnvironment::BuildOceanWaterStyle( bool cinematic,
 }
 
 
-void WorldEnvironment::BindCommonWaterStyle( Rendering::IShader& shader,
+void WorldEnvironment::BindCommonWaterStyle( Rendering::ShaderDX12& shader,
                                              const WaterStyleParams& style,
                                              const Vector3& cameraWorld,
                                              const WaterReflectionInput& reflection ) const
@@ -238,7 +238,7 @@ void WorldEnvironment::BindCommonWaterStyle( Rendering::IShader& shader,
 }
 
 
-void WorldEnvironment::BindCalmWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style ) const
+void WorldEnvironment::BindCalmWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style ) const
 {
     shader.SetInt( "uWaterMode", WaterModeUniformValue( style.mode ) );
     shader.SetVec4( "uBasinMask", style.basinCenterX, style.basinCenterZ, style.basinRadiusX, style.basinRadiusZ );
@@ -246,7 +246,7 @@ void WorldEnvironment::BindCalmWaterStyle( Rendering::IShader& shader, const Wat
 }
 
 
-void WorldEnvironment::BindOceanWaterStyle( Rendering::IShader& shader,
+void WorldEnvironment::BindOceanWaterStyle( Rendering::ShaderDX12& shader,
                                             const WaterStyleParams& style,
                                             float time,
                                             bool flatWater ) const
@@ -473,7 +473,7 @@ void WorldEnvironment::ResetRenderResources()
 
 void WorldEnvironment::EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
                                               SkullbonezCore::Assets::AssetSystem& assets,
-                                              IRenderResourceFactory& resources )
+                                              Dx12ResourceBuilder& resources )
 {
     BindRenderContexts( config, assets, resources );
     if ( !m_calmMesh || !m_oceanMesh || !m_calmShader || !m_oceanShader )

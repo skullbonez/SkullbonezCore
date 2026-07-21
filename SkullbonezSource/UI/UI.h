@@ -39,8 +39,8 @@ Related:
 #include "../Core/MainMemoryStats.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Runtime/Scene/SceneControllerState.h"
-#include "../Rendering/IShader.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/DX12/ShaderDX12.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
@@ -91,8 +91,9 @@ class AssetSystem;
 namespace Rendering
 {
 class IRenderCommandContext;
-class IRenderDiagnostics;
-class IRenderResourceFactory;
+class Dx12Diagnostics;
+class Dx12ResourceBuilder;
+class Dx12GeometryOwner;
 class RenderGpuTimingOwner;
 } // namespace Rendering
 
@@ -126,9 +127,10 @@ struct UIRenderContext
     // Resource creation, draw commands, and draw tracing stay split so the UI
     // never needs the wide renderer facade.
     Assets::AssetSystem* assets = nullptr;
-    Rendering::IRenderResourceFactory* resources = nullptr;
+    Rendering::Dx12ResourceBuilder* resources = nullptr;
+    Rendering::Dx12GeometryOwner* geometry = nullptr;
     Rendering::IRenderCommandContext* commands = nullptr;
-    Rendering::IRenderDiagnostics* diagnostics = nullptr;
+    Rendering::Dx12Diagnostics* diagnostics = nullptr;
     Rendering::RenderGpuTimingOwner* gpuTiming = nullptr;
     // Lifetime: the late UI pass installs RuntimeRenderer's batch owner for
     // this synchronous draw only. Run's wider frame context leaves it null.
@@ -136,7 +138,8 @@ struct UIRenderContext
 
     bool IsReady() const
     {
-        return assets != nullptr && resources != nullptr && commands != nullptr && diagnostics != nullptr;
+        return assets != nullptr && resources != nullptr && geometry != nullptr && commands != nullptr &&
+               diagnostics != nullptr;
     }
 };
 struct UIRenderTargetPreviewResource
@@ -329,7 +332,7 @@ class InGameUI
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
-    void ResetResources( Rendering::IRenderResourceFactory* resources );
+    void ResetResources( Rendering::Dx12GeometryOwner* geometry );
     SceneNavigationModel& SceneNavigation()
     {
         return m_sceneNavigation;
@@ -366,7 +369,7 @@ class InGameUI
     UIWindowInteractionOwner m_windowInteraction;
     UIDrawList m_histogramDrawList;
     UIDrawList m_memoryOverlayDrawList;
-    std::unique_ptr<Rendering::IShader> m_renderTargetPreviewShader;
+    std::unique_ptr<Rendering::ShaderDX12> m_renderTargetPreviewShader;
     uint32_t m_renderTargetPreviewVB = 0;
     void DrawHitboxOverlay( const UIDrawContext& draw,
                             const InGameUIFrameData& data,

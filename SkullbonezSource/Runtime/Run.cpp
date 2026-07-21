@@ -46,7 +46,7 @@ Related:
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../UI/UI.h"
 #include "../World/Terrain.h"
 
@@ -355,6 +355,8 @@ Run::~Run()
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
                                                         m_renderBackendView.deviceLifecycle,
                                                         m_renderBackendView.renderResources,
+                                                        m_renderBackendView.renderTextures,
+                                                        m_renderBackendView.renderGeometry,
                                                         *m_operatorUi,
                                                         m_runtimeTools } );
     if ( !releaseResult.ok )
@@ -485,11 +487,15 @@ void Run::Initialise()
     }
 
     assert( m_renderBackendView.renderResources && "Run requires render resources before Initialise()" );
+    assert( m_renderBackendView.renderTextures && "Run requires render textures before Initialise()" );
+    assert( m_renderBackendView.renderGeometry && "Run requires render geometry before Initialise()" );
     assert( m_renderBackendView.renderCommands && "Run requires render commands before Initialise()" );
     assert( m_renderBackendView.renderDiagnostics && "Run requires render diagnostics before Initialise()" );
     auto& renderResources = *m_renderBackendView.renderResources;
+    auto& renderTextures = *m_renderBackendView.renderTextures;
+    auto& renderGeometry = *m_renderBackendView.renderGeometry;
     auto& renderCommands = *m_renderBackendView.renderCommands;
-    const SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics = *m_renderBackendView.renderDiagnostics;
+    const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = *m_renderBackendView.renderDiagnostics;
 
     const char* rendererName = renderDiagnostics.GetRendererName();
     char titleText[256];
@@ -500,6 +506,8 @@ void Run::Initialise()
     // Build renderer-owned resources from source asset records.
     const SkullbonezCore::Core::SbResult rebuildResourcesResult =
         m_renderer.InitialiseProcessResources( renderResources,
+                                               renderTextures,
+                                               renderGeometry,
                                                renderCommands,
                                                m_config,
                                                m_launchOptions.dumpTextureAssets );
@@ -537,8 +545,12 @@ void Run::Initialise()
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
-    const SkullbonezCore::Core::SbResult uiTextResourceResult =
-        m_renderer.EnsureUiTextResources( renderResources, m_assets, cfg.window.screenX, cfg.window.screenY );
+    const SkullbonezCore::Core::SbResult uiTextResourceResult = m_renderer.EnsureUiTextResources( renderResources,
+                                                                                                  renderTextures,
+                                                                                                  renderGeometry,
+                                                                                                  m_assets,
+                                                                                                  cfg.window.screenX,
+                                                                                                  cfg.window.screenY );
     if ( !uiTextResourceResult.ok )
     {
         m_lastSceneLoadResult = uiTextResourceResult;

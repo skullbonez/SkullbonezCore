@@ -85,7 +85,7 @@ class TracyClientOwner;
 } // namespace Core
 namespace Rendering
 {
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 }
 namespace Threading
 {
