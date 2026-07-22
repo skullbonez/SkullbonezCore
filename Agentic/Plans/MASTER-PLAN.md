@@ -375,10 +375,13 @@ the broad gate pass without a golden, baseline, schema, config, or reserve
 inventory change. Closure evidence is recorded in
 `../Reports/2026-07-22/replay-deduplication-closure.md`.
 
-| Plan | Done | Tasks | Plan complete |
-|---|---:|---:|---:|
-| [wide-signature-reduction](TODO/wide-signature-reduction.md) | 3 | 5 | 60% |
-| **Active/future total** | **3** | **5** | **60%** |
+The active/future denominator returned 5 → 0 when
+`wide-signature-reduction` closed W0-W4 and left the ledger under rule 4. The
+repeatable threshold-7 inventory falls 301 → 285, all 16 ruled defects are
+replaced by bounded domain values or typed policy, every survivor retains an
+owner ruling, and the independent no-bag review and final broad gate are clear.
+Evidence is recorded in
+`../Reports/2026-07-23/wide-signature-reduction-closure.md`.
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -468,16 +471,11 @@ physics, performance, replay fidelity, one-minute graphics stress, and marker
 smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
-The architecture-review campaign registered 2026-07-20 and the 2026-07-22
-architecture follow-up campaign (render interface retirement, owner fan-out
-reduction, replay subsystem consolidation) are complete. The live queue is
-the 2026-07-22 architecture follow-up round-2 campaign. Physics standalone-
-world unification, Run frame-phase decomposition, and RuntimeRenderer
-decomposition are closed; the remaining binding order is
-`replay-deduplication-audit` (heaviest per-task gate; sweeps the post-renderer
-Presentation shape), then `wide-signature-reduction` (its inventory must
-measure the final tree). Plans live under `TODO/`; see the round-2 campaign
-section below.
+The architecture-review campaign and both 2026-07-22 architecture follow-up
+campaigns are complete. The round-2 sequence closed Physics standalone-world
+unification, Run frame-phase decomposition, RuntimeRenderer decomposition,
+Replay deduplication, and wide-signature reduction in binding order. Closure
+reports are linked from the round-2 campaign section below.
 Dependency-direction restoration, allocation-namespace restoration,
 physics-facade unification, physics-settings snapshot, Run::Execute
 de-accretion, render-graph completion, Render HAL modernization, and gameplay
@@ -1357,7 +1355,7 @@ a census records. Execution order is binding: 1 physics unification,
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [replay-deduplication-audit](../Reports/2026-07-22/replay-deduplication-closure.md) | Complete | 4/4 | C1-C5 consolidated; C6-C7 retained; all Replay/full gates pass |
-| [wide-signature-reduction](TODO/wide-signature-reduction.md) | Active | 3/5 | W3 implement DX12 descriptor/policy and Replay diagnostic records |
+| [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
 
 ## Features
 

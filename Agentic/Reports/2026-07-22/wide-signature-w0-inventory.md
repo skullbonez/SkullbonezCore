@@ -43,11 +43,15 @@ receiving an unrelated historical ruling.
 
 ## Verification
 
-- The self-test plus final full scan pass in 28.48 seconds. Their captured
-  stdout contains `PASS: wide-signature inventory self-test`,
+- The corrected self-test plus final full scan pass in 26.71 seconds. The
+  captured `w1_inventory_correction.log` contains
+  `PASS: wide-signature inventory self-test`,
   `PASS: wide-signature rows=301 threshold=7`, and `EXIT=0`; the scan writes
   the repeatable JSON artifact under
-  `TestOutput/validation/wide_signatures/`.
+  `TestOutput/validation/wide_signatures/`. The earlier 28.48-second
+  `w0_inventory_final.log` reported 303 rows before W1 identified two
+  constructor-style matrix initializers as false positives; it is superseded
+  by the corrected run and is not evidence for this 301-row table.
 - `tools\validate_fast.bat`: PASS in 23.46 seconds; 346/346
   doctest cases and 68,715/68,715 assertions pass, both builds report zero
   warnings/errors, and the captured log ends with
