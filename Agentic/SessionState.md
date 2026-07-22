@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Begin `run-execute-frame-phase-decomposition` RX0: document the exact current frame-order/read-write census before extraction. |
-| Active/future progress | 0 / 19 live tasks; 0%. |
+| Current objective | Implement `run-execute-frame-phase-decomposition` RX1: extract the frame turn according to the RX0 order oracle without behavior or ordering changes. |
+| Active/future progress | 1 / 19 live tasks; 5%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | PU4 `validate_full` passes in 148.16 s: 345 doctests / 68,702 assertions, coverage floors, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | PU4 passes `validate_fast` (29.04 s), direct coverage (18.64 s), `validate_physics` (23.25 s), and `validate_full` (148.16 s). Closure docs require no additional validation. |
+| Validation for current edits | RX0 is documentation-only and requires no repository validation. RX1 will require its focused build/check plus the mapped `tools\validate_full.bat` pre-commit gate. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 0/19 with
-binding order: `run-execute-frame-phase-decomposition` (0/4), `runtime-renderer-decomposition`
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 1/19 with
+binding order: `run-execute-frame-phase-decomposition` (1/4), `runtime-renderer-decomposition`
 (6), `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -245,9 +245,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Begin `run-execute-frame-phase-decomposition` RX0: use the current CodeGraph
-index and actual `Run::Execute` source to record the exact ordered frame phases,
-read/write state, line ranges, and conditional-build owners before any move.
+Implement `run-execute-frame-phase-decomposition` RX1 from the completed census:
+extract the frame turn into private `Run` phase methods while preserving the
+exact source order, early-continue edges, error strings, and exit codes.
 Follow the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.
