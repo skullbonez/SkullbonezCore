@@ -10,18 +10,18 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner` |
+| Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Begin the 2026-07-22 architecture follow-up round-2 campaign: `physics-standalone-world-unification` PU0 is the next task. |
-| Active/future progress | 0 / 24 live tasks; 0%. |
+| Current objective | Continue `physics-standalone-world-unification`: PU0 census is complete and PU1 decision record is next. |
+| Active/future progress | 1 / 24 live tasks; 4%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RC6 `validate_full` passes in 104.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | Authorized provenance-only reconciliation changes exactly two hash fields; the replay visual-fidelity gate now passes all 2,401 ticks and negative controls in 435.3 s. |
+| Validation for current edits | PU0 changes plans/session documentation only; no repository validation required. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is registered at
-0/24 with binding order: `physics-standalone-world-unification` (5),
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 1/24 with
+binding order: `physics-standalone-world-unification` (1/5),
 `run-execute-frame-phase-decomposition` (4), `runtime-renderer-decomposition`
 (6), `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
@@ -246,10 +246,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Begin `physics-standalone-world-unification` PU0: census every symbol in
-`PhysicsApi.h`/`PhysicsApi.cpp` and every consumer (production, tests, tools,
-validation scripts), classifying contract types versus standalone-only
-simulation code. Follow the round-2 campaign's binding order and standing
+Continue `physics-standalone-world-unification` PU1: ratify the retained live
+contract, delete-only standalone surface, and exact `PhysicsEngine`-backed smoke
+transition. PU0 proved that the current standalone island path is implemented
+rather than stubbed, and that the printed hashes are not hardcoded or compared
+by any test/tool. Follow the round-2 campaign's binding order and standing
 rules in `Agentic/Plans/MASTER-PLAN.md`. ImGui/Tracy E17 remains accepted;
 Legacy remains the default until a separate owner decision changes that
 policy.
