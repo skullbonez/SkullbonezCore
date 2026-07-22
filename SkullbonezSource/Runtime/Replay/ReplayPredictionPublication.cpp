@@ -651,6 +651,84 @@ bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySa
     return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;
 }
 
+std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
+                                                     std::size_t frameCount,
+                                                     ReplayFrameIndex revealFrame,
+                                                     Physics::PhysicsSceneObjectId rootId,
+                                                     int rootModelIndex,
+                                                     std::span<const RunReplayPathTraceNode> futureNodes,
+                                                     const SceneEntityStore& entities,
+                                                     std::span<ReplayPredictionAffectedBodyTrail> outTrails )
+{
+    frameCount = (std::min)( frameCount, frames.size() );
+    if ( frameCount < 2 || rootId.value == 0 || outTrails.empty() )
+    {
+        return 0;
+    }
+
+    const auto idIsAlreadyPublished = [futureNodes]( Physics::PhysicsSceneObjectId id )
+    {
+        for ( const RunReplayPathTraceNode& node : futureNodes )
+        {
+            if ( node.id.value == id.value )
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Concept: affected-body trails are visual evidence, not contact authority.
+    // The future-node cache is authoritative when it already names a body; this
+    // bounded fallback derives only bodies whose motion is visible by revealFrame.
+    std::size_t trailCount = 0;
+    const RunReplayPredictionFrame& firstFrame = frames.front();
+    for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
+    {
+        if ( trailCount >= outTrails.size() )
+        {
+            break;
+        }
+        if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
+             initialBody.modelRow.value == rootModelIndex || idIsAlreadyPublished( initialBody.id ) ||
+             ReplayModelIndexIsRagdollPart( entities, initialBody.modelRow.value ) )
+        {
+            continue;
+        }
+
+        for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
+        {
+            // Why: delaying construction until the first revealed motion keeps
+            // both marker publication and drawing from pre-spawning the body.
+            if ( frames[frameSlot].frameIndex > revealFrame )
+            {
+                break;
+            }
+
+            const RunReplayPredictionBodySample* body =
+                FindReplayPredictionBodyByIdWithHint( frames[frameSlot], initialBody.id, initialBody.modelRow.value );
+            if ( !body || !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
+            {
+                continue;
+            }
+
+            ReplayPredictionAffectedBodyTrail& trail = outTrails[trailCount++];
+            trail.id = initialBody.id;
+            trail.modelRow.value = body->modelRow.value;
+            trail.firstFrameSlot = frameSlot;
+            trail.firstFrame = frames[frameSlot].frameIndex;
+            trail.lastMotionFrame = frames[frameSlot].frameIndex;
+            trail.previous = initialBody.position;
+            trail.entryPosition = initialBody.position;
+            trail.entryOrientation = initialBody.orientation;
+            trail.entryOrientation.Normalise();
+            break;
+        }
+    }
+
+    return trailCount;
+}
+
 // Concept: rest is decided by how the story ends, never by a momentary pause.
 //
 // A body has a resting pose only when the COMPLETED prediction ends with it

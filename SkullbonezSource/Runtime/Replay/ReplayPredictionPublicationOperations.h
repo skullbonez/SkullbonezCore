@@ -4,14 +4,16 @@ Purpose:
   Declares the Prediction domain's internal publication operations.
 
 Summary:
-  Scheduling and isolated simulation call these narrow operations without
-  owning trajectory, baseline, topology, marker, or sample-lookup policy.
+  Scheduling, publication, and drawing call these narrow operations without
+  taking ownership of trajectory, baseline, topology, marker, or lookup state.
 
 Glossary:
   Published prefix: Contiguous prediction frames whose completed rows are
     visible to readers after a release/acquire publication step.
   Topology publication: Bounded cause-tree and trajectory values derived only
     from the published frame prefix.
+  Affected-body trail: Bounded fallback evidence for a moving body that is not
+    already represented by the published causal topology.
   Model row hint: Sample-local shortcut repaired against stable scene identity;
     never durable identity itself.
 
@@ -20,6 +22,7 @@ Invariants:
   - Published frame rows are written before any prefix or derived topology is exposed.
   - Solver lookup preserves its legacy negative-row scan; prediction lookup
     rejects negative rows before scanning.
+  - Trail derivation writes only to caller-owned spans and never allocates.
 
 Related:
   - ReplayPredictionPublication.cpp
@@ -29,6 +32,8 @@ Related:
 #pragma once
 
 #include "ReplayPrediction.h"
+
+#include <span>
 
 namespace SkullbonezCore
 {
@@ -44,6 +49,21 @@ struct ReplayPastRootRebuildContext
     ReplayFrameIndex firstFrame = 0;
     bool hasSample = false;
     bool ok = true;
+};
+
+struct ReplayPredictionAffectedBodyTrail
+{
+    Physics::PhysicsSceneObjectId id;
+    Physics::ModelRowHint modelRow;
+    std::size_t firstFrameSlot = 0;
+    ReplayFrameIndex firstFrame = 0;
+    int causalDepth = 1;
+    // Concept: entry is the body's in-place pose before the predicted impulse;
+    // lastMotionFrame controls when the completed-buffer rest pose may appear.
+    ReplayFrameIndex lastMotionFrame = 0;
+    Math::Vector::Vector3 previous = Math::Vector::ZERO_VECTOR;
+    Math::Vector::Vector3 entryPosition = Math::Vector::ZERO_VECTOR;
+    Math::Orientation::Quaternion entryOrientation = Math::Orientation::IDENTITY_QUATERNION;
 };
 
 // Concept: solver samples and prediction frames share one value-only lookup
@@ -156,6 +176,14 @@ void UpdateReplayPredictionTrajectoryStore( RunReplayPredictionState& prediction
                                             bool usingBuildFrames,
                                             Physics::PhysicsSceneObjectId rootId );
 bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body );
+std::size_t BuildReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,
+                                                     std::size_t frameCount,
+                                                     ReplayFrameIndex revealFrame,
+                                                     Physics::PhysicsSceneObjectId rootId,
+                                                     int rootModelIndex,
+                                                     std::span<const RunReplayPathTraceNode> futureNodes,
+                                                     const SceneEntityStore& entities,
+                                                     std::span<ReplayPredictionAffectedBodyTrail> outTrails );
 bool ReplayPredictionBodyRestingPose( const std::vector<RunReplayPredictionFrame>& frames,
                                       std::size_t frameCount,
                                       Physics::PhysicsSceneObjectId id,

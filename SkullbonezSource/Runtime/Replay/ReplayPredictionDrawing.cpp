@@ -64,7 +64,6 @@ constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = REPLAY_VISUAL_FUTURE_NODE_C
 constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 1;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
-constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 // Units: simulation distance per second. This presentation-only tuning point
 // puts ordinary launched bodies near the middle of the heat ramp while leaving
 // high-energy impacts visibly red.
@@ -181,11 +180,6 @@ uint16_t ReplayPredictionChildTrajectoryBranch( std::size_t nodeIndex, bool usin
     const std::size_t branchBase = usingBuildFrames ? REPLAY_PATH_MAX_FUTURE_NODES : 0u;
     return static_cast<uint16_t>(
         (std::min)( branchBase + nodeIndex, static_cast<std::size_t>( ( std::numeric_limits<uint16_t>::max )() ) ) );
-}
-
-bool ReplayPredictionBodyHasVisibleLinearMotion( const RunReplayPredictionBodySample& body )
-{
-    return VectorMagSquared( body.linearVelocity ) >= REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ;
 }
 
 float ReplayPathFrameT( ReplayFrameIndex frame, ReplayFrameIndex start, ReplayFrameIndex end )
@@ -1214,117 +1208,6 @@ void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPrediction
             hasPrevious = true;
         }
     }
-}
-
-struct ReplayPredictionAffectedBodyTrail
-{
-    Physics::PhysicsSceneObjectId id;
-    ModelRowHint modelRow;
-    std::size_t firstFrameSlot = 0;
-    ReplayFrameIndex firstFrame = 0;
-    int causalDepth = 1;
-    // Concept: same two-box causal story as ReplayPathChildDrawState. Entry is
-    // the body's in-place pose from prediction frame 0 (yellow, fixed);
-    // lastMotionFrame times when the grey resting box may pop in. The grey
-    // pose itself always comes from the completed buffer's final frame.
-    ReplayFrameIndex lastMotionFrame = 0;
-    Vector3 previous = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    Vector3 entryPosition = SkullbonezCore::Math::Vector::ZERO_VECTOR;
-    Quaternion entryOrientation = IDENTITY_QUATERNION;
-};
-
-bool ReplayPredictionIdInFutureNodes( std::span<const RunReplayPathTraceNode> nodes, Physics::PhysicsSceneObjectId id )
-{
-    for ( const RunReplayPathTraceNode& node : nodes )
-    {
-        if ( node.id.value == id.value )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-std::size_t BuildReplayPredictionAffectedBodyTrails(
-    std::span<const RunReplayPredictionFrame> frames,
-    std::size_t frameCount,
-    ReplayFrameIndex revealFrame,
-    Physics::PhysicsSceneObjectId rootId,
-    int rootModelIndex,
-    std::span<const RunReplayPathTraceNode> futureNodes,
-    const SceneEntityStore& collection,
-    std::array<ReplayPredictionAffectedBodyTrail, REPLAY_PATH_MAX_FUTURE_NODES>& trails )
-{
-    frameCount = (std::min)( frameCount, frames.size() );
-    if ( frameCount < 2 || rootId.value == 0 )
-    {
-        return 0;
-    }
-
-    // Concept: affected-body trails are visual evidence, not contact authority.
-    //
-    // The future-node cache feeds both the cause window and child path renderer.
-    // This pass exists only as a visual fallback while that cache has not yet
-    // published a body; it skips ids already represented by either contact- or
-    // motion-derived nodes.
-    std::size_t trailCount = 0;
-    const RunReplayPredictionFrame& firstFrame = frames.front();
-    for ( const RunReplayPredictionBodySample& initialBody : firstFrame.bodies )
-    {
-        if ( trailCount >= REPLAY_PATH_MAX_FUTURE_NODES )
-        {
-            break;
-        }
-        if ( initialBody.id.value == 0 || initialBody.id.value == rootId.value ||
-             initialBody.modelRow.value == rootModelIndex ||
-             ReplayPredictionIdInFutureNodes( futureNodes, initialBody.id ) )
-        {
-            continue;
-        }
-        if ( ReplayModelIndexIsRagdollPart( collection, initialBody.modelRow.value ) )
-        {
-            continue;
-        }
-
-        for ( std::size_t frameSlot = 1; frameSlot < frameCount; ++frameSlot )
-        {
-            // Why: a body whose first movement lies past the reveal cursor is
-            // not part of the story yet. Skipping it here keeps its trail and
-            // outline from pre-spawning ahead of the causal unfold.
-            if ( frames[frameSlot].frameIndex > revealFrame )
-            {
-                break;
-            }
-
-            const RunReplayPredictionBodySample* body =
-                FindReplayPredictionBodyByIdWithHint( frames[frameSlot], initialBody.id, initialBody.modelRow.value );
-            if ( !body )
-            {
-                continue;
-            }
-            if ( !ReplayPredictionBodyHasVisibleLinearMotion( *body ) )
-            {
-                continue;
-            }
-
-            // Why: entry is the body's IN-PLACE pose from prediction frame 0 â€”
-            // the wall exactly as the live scene knows it. Never a sampled
-            // pose from after the impulse arrived.
-            ReplayPredictionAffectedBodyTrail& trail = trails[trailCount++];
-            trail.id = initialBody.id;
-            trail.modelRow.value = body->modelRow.value;
-            trail.firstFrameSlot = frameSlot;
-            trail.firstFrame = frames[frameSlot].frameIndex;
-            trail.lastMotionFrame = frames[frameSlot].frameIndex;
-            trail.previous = initialBody.position;
-            trail.entryPosition = initialBody.position;
-            trail.entryOrientation = initialBody.orientation;
-            trail.entryOrientation.Normalise();
-            break;
-        }
-    }
-
-    return trailCount;
 }
 
 void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPredictionFrame> frames,

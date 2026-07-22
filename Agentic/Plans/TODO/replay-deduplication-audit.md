@@ -207,6 +207,32 @@ golden refresh.
 - Replay/downward-include and dependency-direction proofs return zero rows; no
   allocation inventory or policy file changed.
 
+### C4 — Affected-body trail derivation
+
+- Moved the shared affected-body trail value and derivation into
+  `ReplayPredictionPublicationOperations`. Topology marker publication and
+  Drawing submission remain separate callers, but both now pass read-only
+  frame/node spans and a caller-owned bounded output span to one algorithm.
+- The shared pass preserves the exact root/model/ragdoll/future-node filters,
+  reveal-edge cutoff, stable-id hint repair, visible-motion threshold, entry
+  pose, normalized orientation, first-motion slot/frame, and capacity order.
+  Drawing's second visible-motion implementation and both copied trail/node
+  helpers are deleted.
+- Touched-source comment audit: 4 / 4 source-bearing files checked, 0 deferred.
+  The shared header documents the affected-trail vocabulary, caller-owned
+  buffer lifetime, and no-allocation invariant; deletion-only callers retain
+  compliant learning headers.
+- Focused final Profile solution build passed in 4.32 seconds with zero
+  warnings/errors. The direct Replay doctest filter passed in 1.91 seconds:
+  53 / 53 cases and 791 / 791 assertions.
+- C4's sole `tools\validate_replay_visual_fidelity.bat` invocation passed in
+  444.30 seconds: one engine process, one prediction generation and
+  presentation, 2,401 ticks, 17 / 17 typed controls (75 assertions), every
+  negative/determinism control, and no golden refresh.
+- Replay/downward-include and dependency-direction proofs return zero rows.
+  No reserve registration, allocation-policy file, owner, phase, cap, counter,
+  or growth API changed.
+
 ## Dependencies And Decisions
 
 - Fourth in the round-2 campaign binding order (heaviest per-task gate lands
