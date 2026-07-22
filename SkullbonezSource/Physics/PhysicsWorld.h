@@ -89,6 +89,7 @@ class PhysicsBodyStore;
 struct ColliderRecord;
 struct PhysicsBodyRecord;
 struct PhysicsPointJointCreateDesc;
+struct PhysicsPointJointUpdateDesc;
 struct PhysicsDiagnosticsView;
 struct PhysicsWorldForces;
 struct SleepSupportPropagationContext;
@@ -110,7 +111,7 @@ class PhysicsWorld
     // only reusable physics-side release scratch and application policy.
     ExternalForceStage m_externalForceStage;
     // Concrete broadphase owner retains the grid, pair output, and diagnostic
-    // cell keys. The facade borrows its candidate span for the remaining stages.
+    // cell keys. The sequencer borrows its candidate span for the remaining stages.
     PhysicsBroadphaseStage m_broadphase;
     // Narrowphase owns bounded pair/island scratch. The sequencer commits typed
     // events in pair order because they target sleep and diagnostics owners.
@@ -136,18 +137,21 @@ class PhysicsWorld
     // owner. PhysicsWorld only sequences its typed fixed-step operations.
     PhysicsSleepController m_sleepController;
     // Diagnostic rows, collision visuals, and cold output live behind one
-    // concrete owner; this facade only supplies synchronous physics views.
+    // concrete owner; PhysicsWorld only supplies synchronous physics views.
     PhysicsStepDiagnostics m_stepDiagnostics;
 
   private:
     void CommitObjectNarrowphaseEvent( const ObjectNarrowphaseEvent& event );
+    void AdvancePointJointHandleGeneration();
 
-    // Stay-behind: point joints are a facade-owned top-level constraint lane;
-    // the solver and sleep owner borrow the dense rows synchronously.
+    // Point joints are PhysicsWorld-owned solver state; the solver and sleep
+    // owner borrow the dense rows synchronously.
     std::vector<PointJointConstraint> m_pointJointConstraints;
+    uint32_t m_nextPointJointHandleIndex = 0u;
+    uint32_t m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
 #ifdef _DEBUG
-    // Stay-behind: scoped diagnostic suppression is a facade policy override,
-    // while every diagnostic row and output sink belongs to its concrete owner.
+    // Scoped diagnostic suppression is a sequencer policy override, while every
+    // diagnostic row and output sink belongs to its concrete owner.
     bool m_diagnosticsSuppressed = false;
 #endif
 
@@ -216,6 +220,8 @@ class PhysicsWorld
     // Deletion pre-pass: no constraint may retain a body handle after retirement.
     void DestroyPointJointsForBody( PhysicsBodyHandle body );
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
+    bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
+    bool DestroyConstraint( PhysicsConstraintHandle constraint );
     const std::vector<PointJointConstraint>& GetPointJointConstraints() const;
     void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, int modelCount ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, int modelCount );

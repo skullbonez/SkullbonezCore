@@ -276,12 +276,12 @@ retain their existing one-process lane wiring.
   deterministic hashes). Record how smoke hash expectations transition: they
   derive from the engine path after re-host, updated in the same commit, and
   are lifecycle evidence, not physics-behavior baselines.
-- [ ] PU2 — Re-host the smoke. Implement the engine-backed smoke path per
+- [x] PU2 — Re-host the smoke. Implement the engine-backed smoke path per
   PU1, keep `--physics-standalone-smoke` (or its successor flag) exiting
   zero with meaningful lifecycle/determinism assertions, and keep the
   validation lane wiring (`validate_physics`, `validate_full`) intact in the
   same commit.
-- [ ] PU3 — Delete the standalone simulation. Remove
+- [x] PU3 — Delete the standalone simulation. Remove
   `PhysicsStandaloneWorld`, its scratch stores, its contact/island
   generation, and every dead helper; retain only contract types with live
   consumers. No `*Compatibility`/`*Bridge` respellings. Project files and
@@ -314,6 +314,30 @@ retain their existing one-process lane wiring.
 - Per implementation task: focused build plus the targeted doctest/smoke run
   answering that task's question.
 - PU2/PU3/PU4 pre-commit: `tools\validate_physics.bat` (byte-exact CSV plus
-  standalone-smoke lane) and, at PU4 closure, `tools\validate_full.bat`.
+  engine-lifecycle-smoke lane) and, at PU4 closure, `tools\validate_full.bat`.
 - No behavioral baseline, golden, screenshot, or replay refresh. Divergence
   is reverted, never normalized.
+
+## PU2-PU3 Implementation Evidence (2026-07-22)
+
+- `PhysicsStandaloneWorld`, its result/step/activation/update/view types, and
+  `PhysicsApi.cpp` are deleted. Project/filter metadata and the two obsolete
+  allocation exceptions are removed; live source has no compatibility wrapper
+  or second `Step()` owner.
+- `PhysicsEngine` now owns stable point-joint update/destroy commands and
+  conservative fixed-scratch ray/AABB queries. The startup probe runs two fresh
+  heap-owned engines through the production step with an explicit flat terrain
+  owner and inline zero-worker pool.
+- The exact accepted lifecycle state is two bodies, two colliders, one step,
+  one broadphase result, one terrain contact, two island rows, final position
+  `(3.25, 2, 0)`, final velocity `(1, 0, 0)`, and hash
+  `0x466576DF4B00186F` on both fresh runs.
+- Touched-file comment audit: 14 retained source files checked, zero deferred;
+  stale standalone/facade ownership wording was removed. The deleted
+  `PhysicsApi.cpp` has no retained comment surface.
+- Focused Debug build passed (18.21 s); focused smoke passed (3.31 s).
+  Pre-commit gates passed: `tools\validate_fast.bat` (76.55 s, zero warnings),
+  allocation checker self-test plus repository scan (9.34 s, 425 files, zero
+  allowlist errors), and `tools\validate_physics.bat` (26.15 s, exact smoke
+  hash and 44,401-line byte-exact CSV). All dependency-direction and downward
+  Replay-include proofs returned no rows. No baseline/golden file changed.

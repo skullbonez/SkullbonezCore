@@ -3,7 +3,7 @@
 @rem Purpose:
 @rem   Documents and runs the validate_physics.bat developer/validation helper script.
 @rem
-@rem Mental model:
+@rem Summary:
 @rem   Tools are command-line guardrails around builds, validation, screenshots,
 @rem   diagnostics, and artifact handling. They make the safe path repeatable and
 @rem   keep output bounded for humans and agents.
@@ -11,16 +11,16 @@
 @rem Glossary:
 @rem   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
 @rem   output and local queries.
-@rem   Standalone smoke: Small executable path that proves the public physics API
-@rem   can be constructed and stepped without runtime/window/renderer setup.
+@rem   Engine lifecycle smoke: Small executable path that proves the shipping
+@rem   PhysicsEngine can be constructed and stepped without window/renderer setup.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
 @rem Invariants:
 @rem   - Tool output should be bounded and readable because agents and humans use
 @rem   it for decisions.
-@rem   - The standalone smoke must run before the scene regression so API
-@rem   isolation failures are visible apart from scene loading or rendering.
+@rem   - The engine lifecycle smoke must run before the scene regression so
+@rem   owner-lifecycle failures are visible apart from scene loading or rendering.
 @rem
 @rem Related:
 @rem   - AGENTS.md
@@ -32,7 +32,7 @@ setlocal enabledelayedexpansion
 REM ===============================================================
 REM  validate_physics.bat - Core physics determinism regression test.
 REM  Use for: normal physics, collision, solver, rigid body changes.
-REM  Runtime: standalone smoke, one authored varied-scene launch, and baseline comparison.
+REM  Runtime: engine lifecycle smoke, one authored varied-scene launch, and baseline comparison.
 REM ===============================================================
 
 set "REPO=%~dp0.."
@@ -53,10 +53,10 @@ if /I "%SKULLBONEZ_ASSUME_DEBUG_BUILT%"=="1" (
     if errorlevel 1 exit /b 1
 )
 
-echo [2/5] Running standalone physics API smoke...
+echo [2/5] Running PhysicsEngine lifecycle smoke...
 "%REPO%\Debug\SKULLBONEZ_CORE.exe" --physics-standalone-smoke
 if errorlevel 1 (
-    echo FAIL: standalone physics smoke failed.
+    echo FAIL: PhysicsEngine lifecycle smoke failed.
     exit /b 2
 )
 

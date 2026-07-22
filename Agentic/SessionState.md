@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Continue `physics-standalone-world-unification`: PU0-PU1 are complete and PU2 engine-backed smoke re-host is next. |
-| Active/future progress | 2 / 24 live tasks; 8%. |
+| Current objective | Close `physics-standalone-world-unification` PU4: independent ownership review, final broad gate, closure evidence, and plan deletion. |
+| Active/future progress | 4 / 24 live tasks; 17%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RC6 `validate_full` passes in 104.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
-| Validation for current edits | PU0 changes plans/session documentation only; no repository validation required. |
+| Validation for current edits | PU2-PU3 pass `validate_fast` (76.55 s), allocation self-test/repo scan (9.34 s), and `validate_physics` (26.15 s; exact engine hash plus byte-exact 44,401-line CSV). |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 2/24 with
-binding order: `physics-standalone-world-unification` (2/5),
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 4/24 with
+binding order: `physics-standalone-world-unification` (4/5),
 `run-execute-frame-phase-decomposition` (4), `runtime-renderer-decomposition`
 (6), `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
@@ -246,11 +246,11 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `physics-standalone-world-unification` PU2: re-host the validation
-smoke on two exact fresh `PhysicsEngine` runs, add only the stable point-joint
-lifecycle and fixed-scratch ray/AABB query commands ratified by PU1, and keep
-the existing CLI/validation lane. The public standalone result/function are
-deleted when the startup-local engine result lands. Follow the round-2
-campaign's binding order and standing rules in `Agentic/Plans/MASTER-PLAN.md`.
+Close `physics-standalone-world-unification` PU4: run one independent
+rubber-duck ownership review over the final logical physics API/smoke surface,
+resolve every credible finding, run `tools\validate_full.bat`, record closure,
+delete the completed TODO plan, and advance the binding queue to
+`run-execute-frame-phase-decomposition` RX0. Follow the round-2 campaign's
+standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.

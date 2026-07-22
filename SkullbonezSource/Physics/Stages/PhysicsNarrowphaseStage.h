@@ -73,7 +73,7 @@ enum class ObjectNarrowphaseEventKind : uint8_t
 struct ObjectNarrowphaseEvent
 {
     // Invariant: worker passes fill one event per candidate-pair slot; the
-    // facade commits those slots later in original pair order.
+    // PhysicsWorld sequencer commits those slots later in original pair order.
     ObjectNarrowphaseEventKind kind = ObjectNarrowphaseEventKind::None;
     PhysicsPipelineRecord pipelineRecord;
     int collisionTimeBodyA = -1;

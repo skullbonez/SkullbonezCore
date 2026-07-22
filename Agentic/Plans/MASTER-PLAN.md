@@ -331,12 +331,12 @@ rationale and per-plan gates live in the campaign section below.
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | 2 | 5 | 40% |
+| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | 4 | 5 | 80% |
 | [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | 0 | 4 | 0% |
 | [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | 0 | 6 | 0% |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 0 | 4 | 0% |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **2** | **24** | **8%** |
+| **Active/future total** | **4** | **24** | **17%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1315,7 +1315,7 @@ a census records. Execution order is binding: 1 physics unification,
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | In progress | 2/5 | PU1 decision complete; re-host the smoke on `PhysicsEngine` in PU2 |
+| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | In progress | 4/5 | PU2-PU3 implementation complete; independent review and final broad gate in PU4 |
 | [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | Registered | 0/4 | Starts after physics unification closes; RX0 frame-order census |
 | [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | Registered | 0/6 | Starts after frame-phase decomposition closes; RR0 baseline census |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Starts after renderer RR2 lands (or records the pending seam); RD0 census |

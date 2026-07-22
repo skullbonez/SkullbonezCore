@@ -75,9 +75,6 @@
     <ClCompile Include="SkullbonezSource\Physics\PersistentContactSolver.cpp">
       <Filter>Source Files\Solver</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp">
       <Filter>Source Files\Bodies</Filter>
     </ClCompile>

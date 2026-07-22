@@ -6,7 +6,7 @@ Purpose:
 Summary:
   This owner performs the exact swept-contact and wake decisions formerly
   embedded in PhysicsWorld. It retains bounded island/event scratch while the
-  facade commits value events in original pair order.
+  PhysicsWorld sequencer commits value events in original pair order.
 
 Glossary:
   CCD refinement: Exact-manifold search around a conservative swept hit time.

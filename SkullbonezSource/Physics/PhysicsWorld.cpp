@@ -75,6 +75,7 @@ Related:
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 
 using namespace SkullbonezCore::Physics;
 using SkullbonezCore::Math::Vector::Vector3;
@@ -363,6 +364,7 @@ void PhysicsWorld::Clear()
     m_terrain.Clear();
     m_narrowphase.Clear();
     m_pointJointConstraints.clear();
+    AdvancePointJointHandleGeneration();
 }
 
 
@@ -718,8 +720,8 @@ void PhysicsWorld::RunSolverPhysics( PhysicsBodyStore& bodyStore,
     std::span<const int> awakeBodyIndices = m_sleepController.GetAwakeBodyIndices();
 
     // Sleep owns threshold interpretation and returns the exact squared-speed
-    // and counter values consumed by narrowphase and island transitions. The
-    // facade only sequences that typed policy across the two consumers.
+    // and counter values consumed by narrowphase and island transitions.
+    // PhysicsWorld only sequences that typed policy across the two consumers.
     const PhysicsSleepStepPolicy sleepPolicy = m_sleepController.ResolveStepPolicy( settings.sleep );
 
     if ( probeDormantUnderwaterLocks )
@@ -1020,14 +1022,26 @@ void PhysicsWorld::EndCollisionVisualFrame()
 void PhysicsWorld::ClearPointJointConstraints()
 {
     m_pointJointConstraints.clear();
+    AdvancePointJointHandleGeneration();
+}
+
+
+void PhysicsWorld::AdvancePointJointHandleGeneration()
+{
+    ++m_pointJointHandleGeneration;
+    if ( m_pointJointHandleGeneration == 0u )
+    {
+        m_pointJointHandleGeneration = PHYSICS_HANDLE_INITIAL_GENERATION;
+    }
+    m_nextPointJointHandleIndex = 0u;
 }
 
 
 void PhysicsWorld::DestroyPointJointsForBody( PhysicsBodyHandle body )
 {
     // Invariant: remove every joint that names the retiring handle before the
-    // body slot can be reused. Runtime joint rows are dense and are not retained
-    // as stable identity outside the physics owner.
+    // body slot can be reused. Runtime joint rows are dense, but moving a row
+    // retains its stable handle so unrelated callers are never retargeted.
     for ( std::size_t index = 0; index < m_pointJointConstraints.size(); )
     {
         const PointJointConstraint& constraint = m_pointJointConstraints[index];
@@ -1065,11 +1079,75 @@ PhysicsConstraintHandle PhysicsWorld::CreatePointJoint( const PhysicsPointJointC
     constraint.groupId = desc.groupId;
     constraint.flags = desc.flags;
 
+    // Lane F: exhausting the monotonic handle space would let a stale command
+    // retarget a new joint. A scene cannot approach this limit legitimately.
+    if ( m_nextPointJointHandleIndex == ( std::numeric_limits<uint32_t>::max )() )
+    {
+        SB_FATAL( "Physics/PointJoint", "Constraint handle index exhausted before a lifecycle clear" );
+    }
     PhysicsConstraintHandle handle;
-    handle.index = static_cast<uint32_t>( m_pointJointConstraints.size() );
-    handle.generation = PHYSICS_HANDLE_INITIAL_GENERATION;
+    handle.index = m_nextPointJointHandleIndex++;
+    handle.generation = m_pointJointHandleGeneration;
+    constraint.handle = handle;
     m_pointJointConstraints.push_back( constraint );
     return handle;
+}
+
+
+bool PhysicsWorld::UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc )
+{
+    const auto found =
+        std::find_if( m_pointJointConstraints.begin(),
+                      m_pointJointConstraints.end(),
+                      [&]( const PointJointConstraint& constraint ) { return constraint.handle == desc.constraint; } );
+    if ( found == m_pointJointConstraints.end() )
+    {
+        return false;
+    }
+
+    PointJointConstraint& joint = *found;
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_BODIES )
+    {
+        joint.SetBodies( desc.bodyA, desc.bodyB );
+    }
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_ANCHORS )
+    {
+        joint.localAnchorA = desc.localAnchorA;
+        joint.localAnchorB = desc.localAnchorB;
+    }
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_SOLVER )
+    {
+        joint.slack = desc.slack;
+        joint.stiffness = desc.stiffness;
+        joint.damping = desc.damping;
+    }
+    if ( desc.updateMask & PHYSICS_POINT_JOINT_UPDATE_GROUP )
+    {
+        joint.groupId = desc.groupId;
+        joint.flags = desc.flags;
+    }
+    return true;
+}
+
+
+bool PhysicsWorld::DestroyConstraint( PhysicsConstraintHandle constraint )
+{
+    const auto found = std::find_if( m_pointJointConstraints.begin(),
+                                     m_pointJointConstraints.end(),
+                                     [&]( const PointJointConstraint& joint ) { return joint.handle == constraint; } );
+    if ( found == m_pointJointConstraints.end() )
+    {
+        return false;
+    }
+
+    // Invariant: compaction moves the complete row, including its stable
+    // handle, so a surviving constraint keeps its identity.
+    if ( found + 1 != m_pointJointConstraints.end() )
+    {
+        *found = m_pointJointConstraints.back();
+    }
+    m_pointJointConstraints.pop_back();
+    return true;
 }
 
 

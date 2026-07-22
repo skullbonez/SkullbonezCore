@@ -91,8 +91,8 @@ class ColliderStore
     bool RefreshBodyBindings( const PhysicsBodyStore& bodyStore );
     PhysicsColliderHandle CreateColliderRecord( const ColliderRecord& initialRecord );
     // Authoring edits replace row contents through the stable collider handle,
-    // so callers do not need to expose model-order slots at the physics facade
-    // boundary.
+    // so callers do not need to expose model-order slots at the PhysicsEngine
+    // owner boundary.
     bool UpdateRecordForHandle( PhysicsColliderHandle handle, const ColliderRecord& record );
     bool UpdateRecordForModelIndex( int modelIndex, const ColliderRecord& record );
     // Runtime config updates material scalars in-place instead of rebuilding

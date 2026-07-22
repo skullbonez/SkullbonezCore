@@ -177,7 +177,6 @@
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Profile-WPO|x64'">false</WholeProgramOptimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\Physics\PhysicsApi.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsBodyStore.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\PhysicsDiagnosticsSink.cpp" />
     <ClCompile Include="SkullbonezSource\Physics\Diagnostics\SkullScope.cpp" />

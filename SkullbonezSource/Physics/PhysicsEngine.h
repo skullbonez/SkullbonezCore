@@ -6,7 +6,7 @@ Purpose:
 Summary:
   PhysicsEngine is the single runtime-facing physics owner. It coordinates cold
   authored descriptors, dense body/collider stores, PhysicsWorld stepping, replay
-  restore, and immutable diagnostics queries without a second forwarding facade.
+  restore, and immutable diagnostics queries without a second simulation owner.
 
 Glossary:
   Owner boundary: Public command/query surface that retains the state and
@@ -66,6 +66,11 @@ struct PhysicsAuthoredBodyRefreshView;
 struct PhysicsAuthoredBodyRegistration;
 struct PhysicsBodyUpdateDesc;
 struct PhysicsColliderCreateDesc;
+struct PhysicsBroadphaseCellQueryDesc;
+struct PhysicsBroadphaseQueryResultView;
+struct PhysicsPointJointUpdateDesc;
+struct PhysicsRayCastDesc;
+struct PhysicsRayCastHit;
 struct PhysicsMaterial;
 
 class PhysicsEngine
@@ -175,6 +180,14 @@ class PhysicsEngine
     // Creates a point joint from physics body handles and rejects stale or
     // same-body endpoints before the solver stores its internal row.
     PhysicsConstraintHandle CreatePointJoint( const PhysicsPointJointCreateDesc& desc );
+    // Updates or retires one exact stable constraint handle. Dense solver-row
+    // compaction never changes the identity of surviving point joints.
+    bool UpdatePointJoint( const PhysicsPointJointUpdateDesc& desc );
+    bool DestroyConstraint( PhysicsConstraintHandle constraint );
+    // Conservative store queries return stable typed identities without
+    // exposing mutable body/collider or broadphase-owner state.
+    PhysicsRayCastHit RayCast( const PhysicsRayCastDesc& desc ) const;
+    PhysicsBroadphaseQueryResultView QueryBroadphaseCells( const PhysicsBroadphaseCellQueryDesc& desc ) const;
     void CaptureReplaySolverSnapshot( PhysicsSolverSnapshot& outSnapshot, PhysicsBodyCount bodyCount ) const;
     bool RestoreReplaySolverSnapshot( const PhysicsSolverSnapshot& snapshot, PhysicsBodyCount bodyCount );
     PhysicsDiagnosticsView GetDiagnosticsView() const;
@@ -227,6 +240,8 @@ class PhysicsEngine
     bool m_hasLastWorldForces = false;                      // False until the first physics step supplies world forces.
     PhysicsBodyIndexList m_fixedTreeReleaseWakeBodies{      // Fixed owner-edge wake list; never grows during release.
                                                        "PhysicsEngine fixed-tree release output" };
+    mutable PhysicsBodyHandleList m_broadphaseQueryScratch{ // Borrowed query result, replaced by the next query.
+                                                            "PhysicsEngine broadphase query results" };
 };
 } // namespace Physics
 } // namespace SkullbonezCore

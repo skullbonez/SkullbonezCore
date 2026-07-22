@@ -5,12 +5,13 @@
       "path": "SkullbonezSource/Runtime/Startup/StartupProbeHarnesses.cpp",
       "patterns": [
         "std::make_unique<SkullbonezCore::Runtime::SceneController>",
-        "std::make_unique<PhysicsBodyStore>"
+        "std::make_unique<PhysicsBodyStore>",
+        "std::make_unique<PhysicsEngine>"
       ],
-      "owner": "Standalone physics smoke bootstrap",
+      "owner": "Physics engine lifecycle smoke bootstrap",
       "phase": "startup_validation",
-      "reason": "The runtime handle smoke constructs isolated runtime owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
-      "cap": "Three owner allocations when --physics-standalone-smoke is requested.",
+      "reason": "The engine lifecycle and runtime-handle probes construct isolated owners before WorkerPool, Window, renderer, or Run startup; fixed-array physics stores stay off the bounded launcher stack.",
+      "cap": "Two sequential PhysicsEngine owners plus one SceneController and one PhysicsBodyStore owner when --physics-standalone-smoke is requested.",
       "removal_or_wrapper_plan": "Keep this validation-only path outside steady gameplay and retain explicit heap ownership for MAX_SCENE_OBJECTS fixed stores."
     },
     {
@@ -304,11 +305,11 @@
         ".push_back(",
         ".resize("
       ],
-      "owner": "Standalone physics API and cold validation probe",
-      "phase": "cold_validation_and_preallocated_public_views",
-      "reason": "Public query/contact vectors are bounded standalone-world storage; the validation-only smoke allocates its fixed-array world off the launcher stack before any gameplay phase.",
-      "cap": "At most nine scenario-specific PhysicsStandaloneWorld owners per synchronous smoke invocation; public view/contact rows remain bounded by MAX_SCENE_OBJECTS and fixed constraint/query inputs.",
-      "removal_or_wrapper_plan": "Keep the smoke owner cold; replace public view vectors with fixed stores if the standalone API is promoted into steady runtime."
+      "owner": "ColliderStore cold authoring storage",
+      "phase": "startup_preallocation_and_scene_mutation",
+      "reason": "Collider records and generation tables are sized during cold scene authoring; steady gameplay reads the preallocated dense store without growing it.",
+      "cap": "Bounded by MAX_SCENE_OBJECTS collider rows and handle-generation slots.",
+      "removal_or_wrapper_plan": "Replace the remaining cold vectors with fixed-capacity storage, then remove these patterns."
     },
     {
       "path": "SkullbonezSource/Physics/DisjointSet.h",
@@ -327,31 +328,6 @@
         ".assign(",
         ".push_back(",
         ".reserve("
-      ],
-      "owner": "Physics preallocated/replay static STL surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
-    },
-    {
-      "path": "SkullbonezSource/Physics/PhysicsApi.cpp",
-      "patterns": [
-        ".assign(",
-        ".push_back(",
-        ".resize(",
-        "std::make_unique<PhysicsStandaloneWorld>"
-      ],
-      "owner": "Physics preallocated/replay static STL surface",
-      "phase": "startup_preallocation_scene_load_replay",
-      "reason": "Existing physics vectors are pre-sized or reserved around scene/model capacity, public API views, debug traces, or replay snapshot paths; unapproved steady gameplay heap traffic is still caught by the runtime allocation guard.",
-      "cap": "Bounded by scene model/body/contact capacities or replay snapshot hard caps; no new physics runtime allocation exception is approved by this row.",
-      "removal_or_wrapper_plan": "Replace hot physics vectors with fixed stores or bounded scratch arrays, then remove the matching allowlist patterns."
-    },
-    {
-      "path": "SkullbonezSource/Physics/PhysicsApi.h",
-      "patterns": [
-        "std::vector<"
       ],
       "owner": "Physics preallocated/replay static STL surface",
       "phase": "startup_preallocation_scene_load_replay",

@@ -27,7 +27,7 @@ Invariants:
     thresholds, and worker hashes match the certified P2 implementation.
   - Borrowed contexts and returned force pointers are valid only during the
     enclosing fixed step; the force pointer expires on the next prepare/clear.
-  - Integration borrows the facade-owned CCD clock and mutates no retained
+  - Integration borrows the PhysicsWorld-owned CCD clock and mutates no retained
     stage state.
   - Awake spans are synchronous borrows and preserve model-order arithmetic.
 
