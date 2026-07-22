@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: In progress — PU0 complete
+State: In progress — PU0-PU1 complete
 Ledger tasks: 5 (PU0-PU4)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -42,8 +42,9 @@ Prior rulings this plan supersedes or touches:
 One simulation. The public physics API surface (descriptors, handles, masked
 updates, views, activation commands, ray cast, broadphase query) survives as
 the contract, but every stepped behavior behind it is `PhysicsEngine`'s real
-solver. The duplicate Euler integrator, duplicate contact generation, and the
-stubbed island view are deleted with no compatibility spelling left behind.
+solver. The duplicate Euler integrator, duplicate contact generation, and
+duplicate island generation are deleted with no compatibility spelling left
+behind.
 
 ## Non-Goals
 
@@ -161,6 +162,104 @@ atomic deletion, and stable-handle mutation. PU1 must preserve meaningful
 lifecycle/determinism assertions while transitioning expected state to the real
 engine path; there is no committed standalone hash oracle to refresh.
 
+## PU1 Decision Record (2026-07-22)
+
+Owner decision: delete-and-re-host is final. `PhysicsEngine`/`PhysicsWorld` is
+the only stepped simulation; `PhysicsStandaloneWorld` is not taught the real
+solver, wrapped, aliased, or renamed. PU0 found no external standalone-world
+consumer that needs a transition seam.
+
+### Retained Contract
+
+The final `PhysicsApi.h` retains only contract values with a live production
+consumer or a required engine-backed smoke/query use:
+
+- body: `PhysicsBodyMotionKind`, `PhysicsBodyCreateDesc`,
+  `PhysicsBodyUpdateMask` and values, `PhysicsBodyUpdateDesc`, and
+  `MakePhysicsBodyCreateDesc()`;
+- collider: `PhysicsColliderCreateDesc` and `MakeColliderCreateDesc()`;
+- authored registration/refresh: `PhysicsAuthoredBodyRegistration` and
+  `PhysicsAuthoredBodyRefreshView`;
+- point joint: `PhysicsPointJointCreateDesc`,
+  `PhysicsPointJointUpdateMask` and values, and
+  `PhysicsPointJointUpdateDesc`;
+- production-store queries: `PhysicsRayCastDesc`, `PhysicsRayCastHit`,
+  `PhysicsBroadphaseCellQueryDesc`, and
+  `PhysicsBroadphaseQueryResultView`.
+
+The former body/collider/point-joint collection projections do not survive as
+parallel cache types. `PhysicsEngine::ReadBodies()`, `ReadColliders()`, and
+`ReadPointJointConstraints()` are the existing canonical immutable views;
+`GetDiagnosticsView()` remains the production contact/island diagnostic view.
+The standalone step/activation packets, collider-update packet, contact/island
+projections, dead diagnostics wrapper, smoke result, and all associated masks,
+helpers, caches, and forward declarations are deleted. Explicit engine methods
+(`WakeBody`, `SeedBodyAsleep`, `SetSleepEnabled`) remain the activation command
+surface; a generic command variant would weaken that typed boundary.
+
+`PhysicsApi.cpp` has no surviving implementation responsibility after the
+move: the header's two descriptor builders remain inline, engine query logic
+lives with `PhysicsEngine`, and cold smoke logic lives with the startup probe.
+PU3 therefore deletes `PhysicsApi.cpp` and both project/filter rows rather than
+leaving an empty or forwarding translation unit.
+
+### Public-Contract-To-Engine Map
+
+| Contract point | Production owner after PU2 | Decision |
+|---|---|---|
+| Create body + collider | `PhysicsEngine::RegisterAuthoredBody()` | Existing atomic command; smoke asserts both handles and owned rows. |
+| Update body | `PhysicsEngine::UpdateAuthoredBody()` | Existing masked command; stale handles must fail. |
+| Update collider | `PhysicsEngine::UpdateAuthoredBodyAndCollider()` | Existing atomic body/collider edit; no independent collider authority is added. |
+| Destroy body + collider | `PhysicsEngine::DestroyAuthoredBody()` | Existing atomic command also removes connected point joints; smoke asserts stale body/collider identity and survivor stability. |
+| Create point joint | `PhysicsEngine::CreatePointJoint()` | Existing command. |
+| Update/destroy point joint | New `PhysicsEngine::{UpdatePointJoint,DestroyConstraint}()` commands owned by `PhysicsWorld` | `PointJointConstraint` carries its stable typed handle. Update/destroy resolve the exact handle; erasing a dense row cannot retarget another live handle. The world advances its constraint generation across `Clear()` and assigns monotonic indices within an epoch. |
+| Activation | Existing `WakeBody()`, `SeedBodyAsleep()`, `SetSleepEnabled()` | Smoke checks real store/sleep views; no standalone command packet. |
+| Step | Existing `PhysicsEngine::Step()` with an inline, zero-worker `WorkerPool` | Runs the shipping stage order and real solver; no second integrator. |
+| Ray cast | New `PhysicsEngine::RayCast(PhysicsRayCastDesc)` | Read-only conservative query over the engine-owned collider/body stores; stable collider-row tie order and no heap growth. |
+| Broadphase AABB query | New `PhysicsEngine::QueryBroadphaseCells(PhysicsBroadphaseCellQueryDesc)` | Read-only candidate query over real engine stores with a `PhysicsFixedList` scratch member; deterministic body-store order and no dynamic growth. It is a public candidate query, not a second broadphase simulation. |
+| Immutable views | Existing `PhysicsEngine::Read*` and `GetDiagnosticsView()` | No duplicate caches or mutable authority escape. |
+
+The query methods may use geometry-only helpers moved into
+`PhysicsEngine.cpp`; none may integrate bodies, generate contacts/islands, or
+mutate solver state. `RuntimeTools` migration to the new ray query is not
+required for this plan because it has different launcher/tool behavior and is
+not a consumer of the old API.
+
+### Smoke Transition
+
+`--physics-standalone-smoke` and its underscore alias remain accepted because
+they are validation/operator entry points, but the implementation and report
+identify an engine lifecycle smoke. The public `PhysicsStandaloneSmokeResult`
+and `RunPhysicsStandaloneSmoke()` disappear. A startup-local
+`PhysicsEngineLifecycleSmokeResult` runs the scenario against a heap-owned
+`PhysicsEngine`; the existing `PhysicsRuntimeHandleSmokeResult` continues to
+prove the scene/render mirror.
+
+The engine lifecycle scenario exercises body/collider create-update-destroy,
+point-joint create-update-destroy and cascade deletion, activation commands,
+one or more real production steps, ray cast, broadphase query, and immutable
+views. It runs twice from fresh engine state in the same process. Each run
+hashes stable handles, exact body hot state, collider records, point-joint
+records, query results, and selected production contact/island diagnostics;
+both hashes and all explicit lifecycle assertions must match.
+
+Hash transition ruling:
+
+- there is no old committed or hardcoded hash expectation to refresh;
+- the old printed standalone `contactHash`, `islandHash`, and
+  `deterministicHash` are deleted with the duplicate simulation;
+- the new printed hash derives solely from the production-engine scenario and
+  is accepted only when two fresh runs match byte-exactly in one process;
+- exact expected counts/state for the new scenario land with PU2 and are
+  lifecycle evidence, not a physics CSV, replay, screenshot, or behavioral
+  golden; no baseline/golden file may change.
+
+The allocation-policy metadata moves the cold owner allowance from
+`PhysicsApi.cpp` to the startup probe and deletes the header vector allowance.
+The coverage-floor scope ruling is rewritten to name the engine lifecycle
+smoke. `validate_physics.bat`, `validate_full.bat`, and `validate_select.bat`
+retain their existing one-process lane wiring.
+
 ## Phases
 
 - [x] PU0 — Census. Inventory every symbol in `PhysicsApi.h`/`PhysicsApi.cpp`
@@ -169,7 +268,7 @@ engine path; there is no committed standalone hash oracle to refresh.
   class (production, tests, tools, validation scripts) and record what the
   standalone smoke actually asserts (hardcoded expected hashes vs internal
   invariants). Deliverable: classification table committed in this plan.
-- [ ] PU1 — Decision record. From PU0, ratify the target: contract types are
+- [x] PU1 — Decision record. From PU0, ratify the target: contract types are
   retained (relocated if needed), `PhysicsStandaloneWorld` is deleted, and
   the smoke probe is re-hosted as a `PhysicsEngine`-backed lifecycle smoke
   exercising the same public contract points (create/update/destroy bodies,
