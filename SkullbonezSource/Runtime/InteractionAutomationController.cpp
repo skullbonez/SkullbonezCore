@@ -8,6 +8,11 @@ Summary:
   replay, camera, director-shot, and world-input code that an operator would
   use, while concrete input/report owners publish device snapshots and evidence.
 
+Mental model:
+  A frame-indexed script produces synthetic device state and typed owner
+  commands, then observes copied runtime facts after rendering. The controller
+  never becomes an alternate gameplay, replay, editor, or window owner.
+
 Glossary:
   World click: Automation request that projects a screen-space click into the
   scene and routes it through the active runtime owner.
@@ -2573,6 +2578,38 @@ InteractionAutomationController::ApplyDevelopmentUiCommands( const InteractionAu
         }
     }
     return result;
+}
+
+SkullbonezCore::Core::SbResult
+InteractionAutomationController::SubmitOperatorEditorReplayCommand( const InteractionAutomationFrameResult& frame,
+                                                                    UI::OperatorEditorCommandQueues& commands ) const
+{
+    if ( !frame.hasOperatorEditorReplayCommand )
+    {
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+    return UI::SubmitOperatorEditorCommand( commands.replay, frame.operatorEditorReplayCommand );
+}
+
+InteractionAutomationDevelopmentUiView
+InteractionAutomationController::BuildDevelopmentUiView( const DevelopmentTools::ImGuiEditorStatus& editor,
+                                                         bool legacyVisible,
+                                                         bool legacyReplayPresentationActive ) const
+{
+    InteractionAutomationDevelopmentUiView view;
+    view.available = editor.initialized;
+    view.selectedImGui = editor.selectedSurface == DevelopmentUiMode::ImGui;
+    view.legacyVisible = legacyVisible;
+    view.imguiVisible = editor.visible;
+    view.legacyReplayPresentationActive = legacyReplayPresentationActive;
+    view.panelVisibilityMask = editor.panelVisibilityMask;
+    view.layoutResetCount = editor.layoutResetCount;
+    view.automationFocusCount = editor.automationFocusCount;
+    view.appliedDpiScale = editor.appliedDpiScale;
+    view.rendererDescriptorHighWater = editor.rendererDescriptorHighWater;
+    view.gameViewportRecreations = editor.gameViewportRecreations;
+    view.preferencesRecovered = editor.preferencesRecovered;
+    return view;
 }
 #endif
 

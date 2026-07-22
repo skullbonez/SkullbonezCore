@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Implement `run-execute-frame-phase-decomposition` RX2: consolidate conditional-build assembly behind the existing automation and ImGui owners without changing behavior. |
-| Active/future progress | 2 / 19 live tasks; 11%. |
+| Current objective | Close `run-execute-frame-phase-decomposition` RX3 with the mandatory independent logical-Run ownership review and final broad gate. |
+| Active/future progress | 3 / 19 live tasks; 16%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RX1 final `validate_full` passes in 125.57 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RX1 also passes direct Profile (8.41 s), Automation (8.28 s), and focused proceed-policy doctest (1/1, 9 assertions, 0.02 s). RX2 requires direct Automation plus `tools\validate_full.bat`. |
+| Last broad local gate | RX2 final `validate_full` passes in 129.65 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | RX2 also passes direct Profile (8.62 s), Automation (10.35 s), Release (33.34 s), and focused ImGui routing doctest (1/1, 29 assertions, 0.02 s). RX3 requires independent review and final `tools\validate_full.bat`. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 2/19 with
-binding order: `run-execute-frame-phase-decomposition` (2/4), `runtime-renderer-decomposition`
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 3/19 with
+binding order: `run-execute-frame-phase-decomposition` (3/4), `runtime-renderer-decomposition`
 (6), `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -245,9 +245,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Implement `run-execute-frame-phase-decomposition` RX2: use the extracted phase
-boundaries to consolidate automation and development-UI assembly behind their
-existing owners, leaving whole build-guarded phase calls and no reach-back.
+Close `run-execute-frame-phase-decomposition` RX3: run one independent review
+over the complete logical `Run` surface, fix any authority or ordering finding,
+then record the final broad-gate evidence and advance to renderer decomposition.
 Follow the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.

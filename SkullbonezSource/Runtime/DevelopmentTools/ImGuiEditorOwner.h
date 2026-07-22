@@ -11,6 +11,11 @@ Summary:
   typed command/input values; mutable scene, replay, rendering, physics,
   and editor owners never enter this presentation owner.
 
+Mental model:
+  The editor is a presentation endpoint. It consumes immutable frame facts,
+  retains only UI-local state, and publishes complete input/command/status
+  values that runtime owners can apply without reaching back into ImGui.
+
 Glossary:
   Editor frame input: Value-only display facts borrowed for one synchronous
     ImGui frame.
@@ -65,6 +70,11 @@ class Dx12ImGuiRendererOwner;
 namespace SkullbonezCore::Runtime::ReplayOverlay
 {
 struct ReplayOverlayStateView;
+}
+
+namespace SkullbonezCore::Runtime
+{
+struct UiInputCaptureIntent;
 }
 
 namespace SkullbonezCore::Runtime::DevelopmentTools
@@ -137,6 +147,7 @@ struct ImGuiEditorStatus
     bool frameActive = false;
     bool dockingEnabled = false;
     bool platformViewportsEnabled = false;
+    DevelopmentUiMode selectedSurface = DevelopmentUiMode::Legacy;
     int layoutVersion = 0;
     uint64_t completedFrames = 0u;
     uint64_t sharedViewFingerprint = 0u;
@@ -220,7 +231,9 @@ class ImGuiEditorOwner
     ImGuiEditorNativeMessageRoute
     HandleNativeMessage( HWND window, UINT message, WPARAM wParam, LPARAM lParam ) noexcept;
     ImGuiEditorInputCapture CopyInputCapture() const noexcept;
-    ImGuiEditorInputFrameState ConsumeInputFrameState() noexcept;
+    // Publishes the completed editor frame as the generic value consumed by
+    // InputRouter; the input owner remains authoritative for arbitration.
+    UiInputCaptureIntent ConsumeInputCaptureIntent() noexcept;
     void SetGameViewportInputState( bool hovered, bool focused ) noexcept;
 
     bool BeginFrame( const ImGuiEditorFrameInput& input );
@@ -233,6 +246,7 @@ class ImGuiEditorOwner
     ImGuiEditorStatus CopyStatus() const noexcept;
 
   private:
+    ImGuiEditorInputFrameState ConsumeInputFrameState() noexcept;
     void ApplyDpiStyle( float dpiScale );
     void BuildDefaultDockLayout( uint32_t rootDockId, float width, float height, bool requestedReset );
     void ResetDefaultPanelVisibility() noexcept;

@@ -80,7 +80,6 @@ Related:
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 #include "DevelopmentTools/ImGuiEditorOwner.h"
 #endif
-#include "OperatorCommandApplier.h"
 #include "Scene/SceneRuntimeStyle.h"
 
 #include "../Core/FatalError.h"
@@ -364,28 +363,14 @@ Run::FrameInputPhaseResult Run::RunInputPhase( RuntimeFrameHostView& host,
     SkullbonezCore::UI::OperatorEditorCommandQueues developmentEditorCommands;
     bool legacyDevelopmentUiActive = true;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
-    // Concept: native messages were already offered to ImGui while the queue
-    // drained. The previous editor frame supplies this turn's capture intent.
-    const DevelopmentTools::ImGuiEditorInputFrameState imguiInput = m_imguiEditor.ConsumeInputFrameState();
-    developmentUiCapture = UiInputCaptureIntent{ imguiInput.capture.mouse,
-                                                 imguiInput.capture.keyboard,
-                                                 imguiInput.capture.text,
-                                                 imguiInput.nativePointerStateTouched };
-    developmentUiCapture.gameViewportMappingActive = imguiInput.gameViewport.valid;
-    developmentUiCapture.gameViewportMinX = imguiInput.gameViewport.imageMinX;
-    developmentUiCapture.gameViewportMinY = imguiInput.gameViewport.imageMinY;
-    developmentUiCapture.gameViewportWidth = imguiInput.gameViewport.imageWidth;
-    developmentUiCapture.gameViewportHeight = imguiInput.gameViewport.imageHeight;
-    developmentUiCapture.gameViewportDpiScale = imguiInput.gameViewport.dpiScale;
-    developmentUiCapture.gameViewportSourceWidth = imguiInput.gameViewport.sourceWidth;
-    developmentUiCapture.gameViewportSourceHeight = imguiInput.gameViewport.sourceHeight;
+    developmentUiCapture = m_imguiEditor.ConsumeInputCaptureIntent();
     developmentEditorCommands = m_imguiEditor.ConsumeOperatorEditorCommands();
 #if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
-    if ( automationBeforeInput && automationBeforeInput->hasOperatorEditorReplayCommand )
+    if ( automationBeforeInput )
     {
         const SkullbonezCore::Core::SbResult submitStatus =
-            UI::SubmitOperatorEditorCommand( developmentEditorCommands.replay,
-                                             automationBeforeInput->operatorEditorReplayCommand );
+            m_interactionAutomation.SubmitOperatorEditorReplayCommand( *automationBeforeInput,
+                                                                       developmentEditorCommands );
         if ( !submitStatus.ok )
         {
             m_applicationExit.RequestOwnedFailure( submitStatus );
@@ -679,18 +664,9 @@ void Run::RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction,
     InteractionAutomationDevelopmentUiView automationDevelopmentUiView;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     const DevelopmentTools::ImGuiEditorStatus imguiAutomationStatus = m_imguiEditor.CopyStatus();
-    automationDevelopmentUiView.available = imguiAutomationStatus.initialized;
-    automationDevelopmentUiView.selectedImGui = m_imguiEditor.SelectedSurface() == DevelopmentUiMode::ImGui;
-    automationDevelopmentUiView.legacyVisible = m_operatorUi->IsVisible();
-    automationDevelopmentUiView.imguiVisible = imguiAutomationStatus.visible;
-    automationDevelopmentUiView.legacyReplayPresentationActive = legacyDevelopmentUiActive;
-    automationDevelopmentUiView.panelVisibilityMask = imguiAutomationStatus.panelVisibilityMask;
-    automationDevelopmentUiView.layoutResetCount = imguiAutomationStatus.layoutResetCount;
-    automationDevelopmentUiView.automationFocusCount = imguiAutomationStatus.automationFocusCount;
-    automationDevelopmentUiView.appliedDpiScale = imguiAutomationStatus.appliedDpiScale;
-    automationDevelopmentUiView.rendererDescriptorHighWater = imguiAutomationStatus.rendererDescriptorHighWater;
-    automationDevelopmentUiView.gameViewportRecreations = imguiAutomationStatus.gameViewportRecreations;
-    automationDevelopmentUiView.preferencesRecovered = imguiAutomationStatus.preferencesRecovered;
+    automationDevelopmentUiView = m_interactionAutomation.BuildDevelopmentUiView( imguiAutomationStatus,
+                                                                                  m_operatorUi->IsVisible(),
+                                                                                  legacyDevelopmentUiActive );
 #endif
     const InteractionAutomationFrameResult automationAfterRender =
         TickInteractionAutomationAfterRender( m_interactionAutomation,

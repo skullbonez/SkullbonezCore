@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: In progress; RX0-RX1 complete
+State: In progress; RX0-RX2 complete
 Ledger tasks: 4 (RX0-RX3)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -144,6 +144,37 @@ RX1 is move-only and must preserve these control facts exactly:
   44,401-line physics CSV byte-exactly. Earlier preflight attempts stopped only
   on the two repository formatting stages before any behavioral lane ran.
 
+## RX2 Conditional-Ownership Evidence (2026-07-22)
+
+- `ImGuiEditorOwner::ConsumeInputCaptureIntent` now publishes the completed
+  capture classes, native-pointer touch, and fitted game-viewport mapping as
+  one existing `UiInputCaptureIntent`. `RunInputPhase` no longer reconstructs
+  the editor's twelve-field input value. The raw ImGui-specific frame accessor
+  is private.
+- `InteractionAutomationController::SubmitOperatorEditorReplayCommand` now
+  interprets whether its own frame result carries a replay command and submits
+  through the existing bounded operator queue. `Run` retains only recoverable
+  failure routing.
+- `InteractionAutomationController::BuildDevelopmentUiView` now projects copied
+  `ImGuiEditorStatus` plus Legacy visibility/presentation facts into the exact
+  after-render assertion view. `ImGuiEditorStatus` carries its selected surface
+  as a value; automation never borrows the editor owner or renderer.
+- Conditional islands in frame code now contain whole owner calls and Run-owned
+  surface/failure sequencing. No new owner, context bag, callback, retained
+  reference, heap path, compatibility spelling, or `Run` member was added;
+  `Run::Execute` remains the same 75-line phase schedule.
+- Touched-source comment audit: `ImGuiEditorOwner.h/.cpp`,
+  `InteractionAutomationController.h/.cpp`, and `RunFrame.cpp` checked 5/5;
+  touched-file pass needs no checklist path, with zero deferred/unchecked files
+  and no wording requiring owner approval.
+- Focused build evidence: Profile passed in 8.62 s, Automation in 10.35 s, and
+  Release in 33.34 s, all with successful exit. The ImGui input-routing doctest
+  passed 1/1 with 29 assertions in 0.02 s.
+- Final `tools\validate_full.bat` passed in 129.65 s on the final public/private
+  API surface: all CPU/coverage work and five runtime lanes passed, DX12
+  reported zero validation errors and accepted committed images, physics kept
+  hash `0x953D97A226665242`, and the 44,401-line CSV matched byte-exactly.
+
 ## Phases
 
 - [x] RX0 — Frame-order census. Document the current `Execute` body as an
@@ -157,7 +188,7 @@ RX1 is move-only and must preserve these control facts exactly:
   frame views by reference. `Execute` retains the loop, exit latch
   resolution, and phase sequence only. Move-only: identical call order,
   identical strings, identical exit codes.
-- [ ] RX2 — Conditional-build consolidation. Relocate automation and
+- [x] RX2 — Conditional-build consolidation. Relocate automation and
   development-UI intent assembly currently inlined in `Execute` into the
   owners that already hold that authority, so conditional builds guard whole
   phase calls rather than interleaved statement islands. No behavior change;

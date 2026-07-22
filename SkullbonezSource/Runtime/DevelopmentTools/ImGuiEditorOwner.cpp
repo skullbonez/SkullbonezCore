@@ -10,6 +10,11 @@ Summary:
   delegates DX12 device resources and draw recording to the concrete renderer
   owner and delegates native event translation to the pinned Win32 backend.
 
+Mental model:
+  One owner surrounds every Dear ImGui call with the sole current context. Each
+  completed frame leaves behind bounded presentation, input, command, and
+  status values; no runtime subsystem borrows the context or widget state.
+
 Glossary:
   Embedded vector fallback: Dear ImGui's pinned, scalable built-in font used
     when the optional repository font asset is absent or invalid.
@@ -42,6 +47,7 @@ Related:
 */
 #include "ImGuiEditorOwner.h"
 #include "ImGuiEditorCausalityProjection.h"
+#include "../InputRouter.h"
 
 #include "../../Core/Allocation/DevelopmentToolAllocation.h"
 #include "../../Core/FatalError.h"
@@ -655,6 +661,26 @@ ImGuiEditorInputFrameState ImGuiEditorOwner::ConsumeInputFrameState() noexcept
     state.nativePointerStateTouched = m_nativePointerStateTouched;
     m_nativePointerStateTouched = false;
     return state;
+}
+
+UiInputCaptureIntent ImGuiEditorOwner::ConsumeInputCaptureIntent() noexcept
+{
+    const ImGuiEditorInputFrameState input = ConsumeInputFrameState();
+    // Concept: the editor owns the fitted viewport geometry and completed-frame
+    // capture request. Publish them together so Run does not reinterpret either.
+    UiInputCaptureIntent intent{ input.capture.mouse,
+                                 input.capture.keyboard,
+                                 input.capture.text,
+                                 input.nativePointerStateTouched };
+    intent.gameViewportMappingActive = input.gameViewport.valid;
+    intent.gameViewportMinX = input.gameViewport.imageMinX;
+    intent.gameViewportMinY = input.gameViewport.imageMinY;
+    intent.gameViewportWidth = input.gameViewport.imageWidth;
+    intent.gameViewportHeight = input.gameViewport.imageHeight;
+    intent.gameViewportDpiScale = input.gameViewport.dpiScale;
+    intent.gameViewportSourceWidth = input.gameViewport.sourceWidth;
+    intent.gameViewportSourceHeight = input.gameViewport.sourceHeight;
+    return intent;
 }
 
 void ImGuiEditorOwner::SetGameViewportInputState( bool hovered, bool focused ) noexcept
@@ -2956,6 +2982,7 @@ ImGuiEditorStatus ImGuiEditorOwner::CopyStatus() const noexcept
     status.frameActive = m_frameActive;
     status.dockingEnabled = m_context != nullptr;
     status.platformViewportsEnabled = false;
+    status.selectedSurface = m_selectedSurface;
     status.layoutVersion = LAYOUT_VERSION;
     status.completedFrames = m_completedFrames;
     status.sharedViewFingerprint = m_sharedViewFingerprint;
