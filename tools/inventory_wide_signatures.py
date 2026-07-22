@@ -407,6 +407,26 @@ def classify_parameters(parameters: tuple[str, ...]) -> str:
     return ", ".join(f"{name}={count}" for name, count in counts.items())
 
 
+def parameters_look_declarative(parameters: tuple[str, ...]) -> bool:
+    """Reject constructor-style value initializers without rejecting unnamed parameter types."""
+    if not parameters:
+        return True
+    expression_count = 0
+    for raw in parameters:
+        parameter = strip_top_level_default(raw).strip()
+        words = WORD_RE.findall(parameter)
+        numeric_only = not words and bool(re.search(r"\d", parameter))
+        member_expression = "." in parameter or "->" in parameter
+        arithmetic_expression = bool(re.search(r"(?:\+|/|%|(?<!-)-(?!>))", parameter))
+        if numeric_only or member_expression or arithmetic_expression:
+            expression_count += 1
+    # Why: `Type value(a, b, ...)` has the same prefix/suffix shape as a
+    # function declaration. A true parameter list can contain an expression
+    # (for example an array extent), but a list made entirely of value
+    # expressions is an initializer and must not enter the inventory.
+    return expression_count != len(parameters)
+
+
 def scan_file(path: Path, repo: Path) -> tuple[list[Candidate], dict[tuple[str, int], int]]:
     text = path.read_text(encoding="utf-8", errors="strict")
     masked = mask_cpp(text)
@@ -428,6 +448,8 @@ def scan_file(path: Path, repo: Path) -> tuple[list[Candidate], dict[tuple[str, 
         arity = len(parameters)
         shaped, is_definition = declaration_suffix(masked, closing, paren_pairs)
         if not shaped:
+            continue
+        if not parameters_look_declarative(parameters):
             continue
         class_name = enclosing_class(opening, classes)
         prefix_ok, prefix = declaration_prefix(masked, name_start, qualified_name, class_name)
@@ -607,6 +629,172 @@ def csv_text(rows: list[dict[str, object]]) -> str:
     return stream.getvalue()
 
 
+W1_DEFECT_RULES = (
+    {
+        "files": ("SkullbonezSource/UI/UI.cpp", "SkullbonezSource/UI/UIWindowInteractionOwner.cpp"),
+        "names": ("InGameUI::UpdateInput", "UIWindowInteractionOwner::UpdateInput"),
+        "category": "missing-domain-value-record",
+        "wave": "W2/UI-input",
+        "reason": (
+            "The same immutable device, viewport, editor, camera, and scene-selection snapshot crosses the UI facade "
+            "and interaction owner; one UI-owned input-frame value has a real per-frame lifetime and one writer."
+        ),
+    },
+    {
+        "files": ("SkullbonezSource/Physics/PhysicsBodyStore.cpp", "SkullbonezSource/Physics/PhysicsEngine.cpp"),
+        "names": ("PhysicsBodyStore::RestoreReplayBodyState", "PhysicsEngine::RestoreReplayBodyState"),
+        "category": "missing-domain-value-record",
+        "wave": "W2/physics-restore",
+        "reason": (
+            "One Physics-owned pose, velocity, mass, and inertia restore value is forwarded unchanged through the "
+            "engine facade into the body store; the value is not a Replay type and grants no owner authority."
+        ),
+    },
+    {
+        "files": ("SkullbonezSource/Rendering/DX12/RenderBackendDX12.DynamicGeometry.cpp", "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"),
+        "names": ("Dx12GeometryOwner::CreateInstancedMesh",),
+        "category": "missing-domain-value-record",
+        "wave": "W3/DX12-mesh",
+        "reason": (
+            "Static layout and upload-location values repeat across the public and native DX12 overload boundary; "
+            "named mesh-layout and upload records express those two lifetimes without borrowing another owner."
+        ),
+    },
+    {
+        "files": ("SkullbonezSource/Rendering/DX12/RenderBackendDX12.Textures.cpp", "SkullbonezSource/Rendering/DX12/RenderBackendDX12.h"),
+        "names": ("Dx12TextureOwner::CreateTexture2D",),
+        "category": "flag-policy-value",
+        "wave": "W3/DX12-texture",
+        "reason": (
+            "Mip generation and filtering are creation policy while pixel data and extent are one upload value; "
+            "typed policy plus a texture-upload record removes positional booleans and preserves cold ownership."
+        ),
+    },
+    {
+        "files": ("SkullbonezSource/Rendering/RenderCommandTypes.h",),
+        "names": ("MakePassRasterStateBucket",),
+        "category": "flag-policy-value",
+        "wave": "W3/DX12-raster",
+        "reason": (
+            "RasterStateDesc already owns depth-test, depth-write, and blend policy; the helper should accept that "
+            "domain value instead of reconstructing it from three positional booleans."
+        ),
+    },
+    {
+        "files": (
+            "SkullbonezSource/Runtime/Diagnostics/DiagnosticsRuntime.cpp",
+            "SkullbonezSource/Runtime/RuntimeDiagnostics.cpp",
+        ),
+        "names": (
+            "DiagnosticsRuntime::LogReplayRestoreResult",
+            "RuntimeDiagnostics::LogReplayRestoreResult",
+            "DiagnosticsRuntime::LogReplayScrubProbe",
+            "RuntimeDiagnostics::LogReplayScrubProbe",
+            "DiagnosticsRuntime::LogReplayRestoreProbe",
+            "RuntimeDiagnostics::LogReplayRestoreProbe",
+        ),
+        "category": "missing-domain-value-record",
+        "wave": "W3/replay-diagnostics",
+        "reason": (
+            "Each complete diagnostic schema is forwarded field-for-field through two logging layers. Converting both "
+            "layers together is new evidence beyond the prior ruling and gives each bounded log row one value lifetime."
+        ),
+    },
+)
+
+
+W1_FAMILY_REASONS = {
+    "Assets": "Cold asset decode publishes one slot transaction; explicit source, extent, channel, and decode policy values stay locally readable.",
+    "Maths": "The 3x3 scalar constructor is the canonical fixed matrix shape; aggregating nine ordered cells adds no domain boundary.",
+    "Physics": "Physics hot-path and stage operations keep compact stores, spans, scalar policy, and outputs explicit; wrapping them would create a hot-path bag or hide mutation authority.",
+    "Rendering": "The concrete render command or cold resource boundary records one fixed GPU operation; explicit resources, geometry, and raster values preserve binding and lifetime visibility.",
+    "Runtime": "The top-level runtime, replay, validation, or stress transaction sequences exact owners synchronously; a wrapper would be a multi-owner context bag with no independent value lifetime.",
+    "Scene": "The parser transaction consumes one authored schema row and writes one scene-owned result; explicit path and component outputs preserve error attribution.",
+    "UI": "The immediate UI draw/input transaction consumes explicit layout, color, hit-test, and widget values once; a broad widget argument record would merely rename local geometry.",
+    "World": "Terrain classification or rendering is a bounded geometry transaction over explicit hot values; an aggregate would obscure units and branch inputs without gaining ownership.",
+}
+
+
+def w1_ruling(row: dict[str, object]) -> dict[str, str]:
+    file_name = str(row["file"])
+    name = str(row["name"])
+    for rule in W1_DEFECT_RULES:
+        if file_name in rule["files"] and name in rule["names"]:
+            return {"category": str(rule["category"]), "wave": str(rule["wave"]), "reason": str(rule["reason"])}
+    prior = str(row["prior_disposition"])
+    if prior != "none":
+        return {"category": "accepted-with-reason", "wave": "none", "reason": prior}
+    area = file_name.split("/")[1]
+    return {
+        "category": "intentional-transaction-boundary",
+        "wave": "none",
+        "reason": W1_FAMILY_REASONS[area],
+    }
+
+
+def w1_markdown(rows: list[dict[str, object]]) -> str:
+    rulings = [w1_ruling(row) for row in rows]
+    category_counts = collections.Counter(ruling["category"] for ruling in rulings)
+    wave_counts = collections.Counter(ruling["wave"] for ruling in rulings if ruling["wave"] != "none")
+    output = [
+        "# Wide Signature W1 Owner Rulings",
+        "",
+        "Date: 2026-07-23",
+        "Owner: skullbonez",
+        "Source inventory: `Agentic/Reports/2026-07-22/wide-signature-w0-inventory.md`",
+        "",
+        "## Ratified Rubric",
+        "",
+        "| Disposition | Meaning |",
+        "|---|---|",
+        "| `intentional-transaction-boundary` | Explicit width preserves one synchronous operation, ordering, units, hot data, or exact owner authority. |",
+        "| `missing-domain-value-record` | Parameters already travel as one cohesive value with a real owner and lifetime. |",
+        "| `flag-policy-value` | Positional booleans are policy and should become a typed enum/value. |",
+        "| `ownership-smell-routed` | Authority belongs to another owner/plan; cross-link instead of duplicating work. |",
+        "| `accepted-with-reason` | A prior or row-specific reason proves width is load-bearing. |",
+        "",
+        "A descriptor is allowed only when it is a named domain value with one writer and no retained owner authority. "
+        "No row is routed as an ownership smell: current evidence either identifies a bounded value/policy refactor in this plan "
+        "or proves an explicit transaction boundary. The corrected scan removed two matrix initializers before these rulings.",
+        "",
+        "## Totals",
+        "",
+        "| Disposition | Rows |",
+        "|---|---:|",
+    ]
+    for category in (
+        "intentional-transaction-boundary",
+        "missing-domain-value-record",
+        "flag-policy-value",
+        "ownership-smell-routed",
+        "accepted-with-reason",
+    ):
+        output.append(f"| `{category}` | {category_counts.get(category, 0)} |")
+    output.extend(["", "| Refactor wave/family | Rows |", "|---|---:|"])
+    for wave, count in sorted(wave_counts.items()):
+        output.append(f"| `{wave}` | {count} |")
+    output.extend(
+        [
+            "",
+            "## Row-Level Rulings",
+            "",
+            "Every corrected W0 row appears exactly once below. Matching-arity call counts remain lexical evidence, not deletion authority.",
+            "",
+            "| Signature | Sites | Arity | Calls | Disposition | Wave | Owner reason |",
+            "|---|---|---:|---:|---|---|---|",
+        ]
+    )
+    for row, ruling in zip(rows, rulings):
+        signature = str(row["signature"]).replace("|", "\\|")
+        sites = "<br>".join(f"`{site}`" for site in row["sites"])
+        reason = ruling["reason"].replace("|", "\\|")
+        output.append(
+            f"| `{signature}` | {sites} | {row['arity']} | {row['lexical_matching_arity_calls']} | "
+            f"`{ruling['category']}` | `{ruling['wave']}` | {reason} |"
+        )
+    return "\n".join(output) + "\n"
+
+
 def self_test() -> None:
     sample = r'''
 class Owner {
@@ -626,6 +814,19 @@ const char* literal = "Fake(1,2,3,4,5,6,7)";
     assert classify_parameters(("World& world", "const Vector3& point", "bool enabled")) == (
         "owner-borrow=1, value=1, flag=1"
     )
+    assert parameters_look_declarative(("float", "float", "bool enabled"))
+    assert not parameters_look_declarative(("1.0f", "0.0f", "-2.0f"))
+    assert not parameters_look_declarative(("v.x + a", "v.y - b", "v.z / scale"))
+    defect_row = {
+        "file": "SkullbonezSource/Physics/PhysicsEngine.cpp",
+        "name": "PhysicsEngine::RestoreReplayBodyState",
+        "prior_disposition": "old accepted reason",
+    }
+    assert w1_ruling(defect_row)["wave"] == "W2/physics-restore"
+    carried_row = {"file": "SkullbonezSource/Runtime/X.cpp", "name": "X", "prior_disposition": "carry"}
+    assert w1_ruling(carried_row)["category"] == "accepted-with-reason"
+    family_row = {"file": "SkullbonezSource/UI/X.cpp", "name": "X", "prior_disposition": "none"}
+    assert w1_ruling(family_row)["category"] == "intentional-transaction-boundary"
     scoped = Candidate("sample.cpp", 1, "PhysicsEngine::Step", "Step", "PhysicsEngine", "method", 7, (), "", True)
     unique = Candidate("sample.cpp", 2, "ReplayAuthoring::Tick", "Tick", "ReplayAuthoring", "method", 7, (), "", True)
     prior = {"Step": "unrelated simple-name ruling", "Tick": "unique carried ruling"}
@@ -638,7 +839,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path("."), help="Repository root (default: current directory)")
     parser.add_argument("--threshold", type=int, default=7, help="Minimum parameter count (default: 7)")
-    parser.add_argument("--format", choices=("markdown", "json", "csv"), default="markdown")
+    parser.add_argument("--format", choices=("markdown", "json", "csv", "w1-markdown"), default="markdown")
     parser.add_argument("--output", type=Path, help="Optional output path; stdout is used otherwise")
     parser.add_argument(
         "--prior-report",
@@ -662,6 +863,8 @@ def main() -> int:
         rendered = json.dumps(rows, indent=2) + "\n"
     elif args.format == "csv":
         rendered = csv_text(rows)
+    elif args.format == "w1-markdown":
+        rendered = w1_markdown(rows)
     else:
         rendered = markdown(rows)
     if args.output:

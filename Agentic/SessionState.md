@@ -12,17 +12,18 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Replay deduplication is closed: C1-C5 share owning implementations, C6-C7 retain ruled lifetimes, and every Replay/full gate passes. Legacy remains the development default. |
-| Current objective | Complete `wide-signature-reduction` W1: apply the ratified rubric and owner disposition to all 303 W0 rows. |
-| Active/future progress | 1 / 5 live tasks; 20%. |
+| Current objective | Complete `wide-signature-reduction` W2: UI input-frame and Physics body-restore value records. |
+| Active/future progress | 2 / 5 live tasks; 40%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RD3 final `validate_full` passes in 136.17 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | W0 tool self-test and repeatable 303-row scan pass in 28.48 s with explicit stdout PASS lines and `EXIT=0`. Tool-mapped `validate_fast` passes in 23.46 s: 346/346 cases, 68,715/68,715 assertions, zero warnings/errors. |
+| Validation for current edits | W1 corrected scanner/rulings pass in 26.52 s; mapped `validate_fast` passes in 24.32 s with 346/346 cases, 68,715 assertions, zero warnings/errors. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 1/5 with
-`wide-signature-reduction` W1-W4 remaining. W0's repeatable final-tree sweep
-found 303 signatures: 276 at 7-11 parameters and 27 at 12 or more. The live
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 2/5 with
+`wide-signature-reduction` W2-W4 remaining. W1 ruled every one of W0's 301
+corrected signatures and selected 16 defect rows across six bounded families.
+The live
 plan is under `Agentic/Plans/TODO/`; the
 campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -285,8 +286,10 @@ are not certified. Full evidence:
 | replay visual fidelity (RD3 final) | 471.77 s | PASS; one process/generation/presentation, 2,401 ticks, all controls |
 | `tools\validate_physics.bat` (RD3 final) | 23.08 s | PASS; 44,401-line CSV byte-exact |
 | `tools\validate_full.bat` (RD3 final) | 136.17 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors |
-| wide-signature W0 self-test + final scan | 28.48 s | PASS; explicit stdout self-test/303-row PASS lines and `EXIT=0` |
+| wide-signature W1-corrected self-test + scan | 26.71 s | PASS; explicit stdout self-test/301-row PASS lines and `EXIT=0` |
 | `tools\validate_fast.bat` (wide-signature W0) | 23.46 s | PASS; 346 cases / 68,715 assertions, zero warnings/errors, captured terminal pass line |
+| wide-signature W1 corrected scan + rulings | 26.52 s | PASS; 301/301 rows ruled, explicit stdout PASS and `EXIT=0` |
+| `tools\validate_fast.bat` (wide-signature W1) | 24.32 s | PASS; 346 cases / 68,715 assertions, zero warnings/errors |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -294,8 +297,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-reduction` W1 from the 303-row W0 inventory. Apply the
-ratified rubric to every row, carry prior accepted reasons only where the
-current signature still matches, route genuine ownership smells to their owner,
-and identify the W2/W3 refactor waves without introducing a context bag. Follow
-the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
+Complete `wide-signature-reduction` W2. Introduce one UI-owned input-frame
+value across the facade/interaction-owner boundary and one Physics-owned body
+restore value across the engine/store boundary. Neither record may retain
+mutable owner authority or become a generic context bag. Follow the round-2
+campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.

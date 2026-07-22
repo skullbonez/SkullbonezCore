@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: W0 complete; W1 owner rulings pending
+State: W0-W1 complete; W2 implementation active
 Ledger tasks: 5 (W0-W4)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -65,7 +65,7 @@ future reviews cite instead of re-litigating.
   parameters: signature, file:line, arity, parameter kinds (owner borrows vs
   values vs flags), call-site count, and any prior-inventory disposition.
   Committed as a dated table in this plan. Documentation/tooling task.
-- [ ] W1 — Rubric and rulings. Ratify the classification rubric
+- [x] W1 — Rubric and rulings. Ratify the classification rubric
   (transaction boundary with intentional explicit width; missing domain
   value record; flag-soup needing an enum/policy value; genuine ownership
   smell routed to an owning plan; accepted-with-reason) and apply it with
@@ -87,14 +87,14 @@ future reviews cite instead of re-litigating.
 ## W0 Evidence (2026-07-22)
 
 The repeatable scanner is `tools/inventory_wide_signatures.py`; the complete
-303-row dated table is committed in
+301-row dated table is committed in
 [`wide-signature-w0-inventory`](../../Reports/2026-07-22/wide-signature-w0-inventory.md).
 The report is the plan's authoritative table because embedding 140 KiB of
 generated Markdown here would obscure the W1 decisions and W2/W3 ledger.
 
-The tracked-source pass completes in about 30 seconds and reports 276 rows in
+The corrected tracked-source pass completes in about 30 seconds and reports 274 rows in
 the previously unruled 7-11 band plus 27 rows at 12 or more parameters. It
-conservatively carries 129 prior dispositions and leaves 174 rows for W1;
+conservatively carries 129 prior dispositions and leaves 172 rows for W1;
 ambiguous simple-name matches are deliberately left unrouted. The largest area
 is Runtime (148), followed by UI (63), Physics (38), and Rendering (38).
 
@@ -102,10 +102,10 @@ The registration spot checks reconcile with the post-campaign tree:
 `ApplySceneLoadConsumerOutputs` is currently 16 parameters; the old wide
 `RuntimeRenderer` constructor and UI-text methods are below threshold or gone;
 `PhysicsEngine::Step` remains at 7 and receives no unrelated prior ruling.
-Nineteen zero-call lexical rows remain in the table for explicit W1 inspection;
+Seventeen zero-call lexical rows remain in the table for explicit W1 inspection;
 zero is not treated as deletion authority.
 
-The tool self-test and final 303-row scan pass in 28.48 seconds, with explicit
+The W1-corrected self-test and final 301-row scan pass in 26.71 seconds, with explicit
 stdout PASS lines and an `EXIT=0` footer in the captured log. The mapped
 `tools\validate_fast.bat` gate completes in 23.46 seconds with
 346/346 doctest cases, 68,715/68,715 assertions, zero build warnings/errors,
@@ -113,6 +113,27 @@ and the terminal `VALIDATE_FAST: ALL PASSED` line. Its captured log is
 `TestOutput/validation/wide_signatures/w0_validate_fast_final.log`. The one touched
 source-bearing tool was inspected against the repository comment standard:
 1/1 checked, 0 deferred; this W0 evidence section is the checklist record.
+
+## W1 Evidence (2026-07-23)
+
+The corrected row-level owner table is
+[`wide-signature-w1-rulings`](../../Reports/2026-07-23/wide-signature-w1-rulings.md).
+All 301 real signatures have exactly one rubric disposition: 159 intentional
+transaction boundaries, 126 accepted-with-reason rows, 13 missing domain-value
+rows, and 3 flag/policy rows. No ownership smell is routed elsewhere because
+the current source either proves an explicit synchronous transaction or has a
+bounded value/policy fix owned by this plan.
+
+The 16 ruled defect rows form six implementation families. W2 owns UI input
+(2 rows) and Physics body restore state (2). W3 owns DX12 instanced-mesh
+creation (3), texture creation policy (2), raster-state construction (1), and
+Replay diagnostic schemas (6). The W1 correction also hardened the scanner
+against constructor-style variable initializers; its self-test and corrected
+301-row/rulings generation pass in 26.52 seconds with explicit stdout PASS and
+`EXIT=0` evidence. Tool-mapped `tools\validate_fast.bat` passes in 24.32
+seconds with 346/346 cases, 68,715/68,715 assertions, zero warnings/errors,
+and an explicit `VALIDATE_FAST: ALL PASSED` / `EXIT=0` log footer. Comment
+inspection is 1/1 touched source-bearing tool checked, 0 deferred.
 
 ## Dependencies And Decisions
 

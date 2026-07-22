@@ -22,12 +22,12 @@ receiving an unrelated historical ruling.
 
 | Measure | Count |
 |---|---:|
-| Total signatures | 303 |
-| 7-11 parameter band | 276 |
+| Total signatures | 301 |
+| 7-11 parameter band | 274 |
 | At least 12 parameters | 27 |
 | Conservative prior dispositions carried | 129 |
-| Rows requiring W1 disposition | 174 |
-| Zero matching-arity lexical calls | 19 |
+| Rows requiring W1 disposition | 172 |
+| Zero matching-arity lexical calls | 17 |
 
 | Area | Count |
 |---|---:|
@@ -37,7 +37,7 @@ receiving an unrelated historical ruling.
 | Rendering | 38 |
 | World | 7 |
 | Scene | 3 |
-| Maths | 3 |
+| Maths | 1 |
 | Gameplay | 2 |
 | Assets | 1 |
 
@@ -45,7 +45,7 @@ receiving an unrelated historical ruling.
 
 - The self-test plus final full scan pass in 28.48 seconds. Their captured
   stdout contains `PASS: wide-signature inventory self-test`,
-  `PASS: wide-signature rows=303 threshold=7`, and `EXIT=0`; the scan writes
+  `PASS: wide-signature rows=301 threshold=7`, and `EXIT=0`; the scan writes
   the repeatable JSON artifact under
   `TestOutput/validation/wide_signatures/`.
 - `tools\validate_fast.bat`: PASS in 23.46 seconds; 346/346
@@ -55,7 +55,7 @@ receiving an unrelated historical ruling.
 - Comment-standard inspection: 1/1 touched source-bearing tool checked,
   0 deferred.
 
-The 19 zero-call rows are retained for W1: they may be public declarations,
+The 17 zero-call rows are retained for W1: they may be public declarations,
 function-pointer use, template-dependent calls, dead APIs, or lexical misses.
 W1 must inspect them rather than treating zero as deletion authority.
 
@@ -170,10 +170,8 @@ W1 must inspect them rather than treating zero as deletion authority.
 | `bool Dx12PipelineOwner::PrepareDraw( ID3D12Device* device, ID3D12GraphicsCommandList* commandList, Dx12CommandRecordingState& recording, Dx12TextureOwner& textures, VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb, const RasterStateDesc& rasterState )` | `SkullbonezSource/Rendering/DX12/RenderBackendDX12.Pipeline.cpp:551`<br>`SkullbonezSource/Rendering/DX12/RenderBackendDX12.h:363` (method) | 9 | owner-borrow=1, value=7, flag=1 | 1 | none |
 | `bool HandleContentClick( UIOptionsTabState& state, InGameUIInputResult& result, int& activeSlider, int mouseX, int mouseY, float contentX, float rowBase, float contentW, int modelCapacity )` | `SkullbonezSource/UI/UITabOptions.cpp:94`<br>`SkullbonezSource/UI/UITabOptions.h:58` (function) | 9 | owner-borrow=0, value=9, flag=0 | 1 | none |
 | `bool HandleReplayPredictionHorizonPressed( ReplayPrediction& predictionOwner, ReplayScrubber& scrubber, InputRouter& inputRouter, RuntimeInteractionController& interaction, const SkullbonezCore::UI::UIRect& horizon, int mouseX, int mouseY, double now, bool& outEnterInteractive )` | `SkullbonezSource/Runtime/Replay/ReplayScrubberTools.cpp:1093` (function) | 9 | owner-borrow=2, value=6, flag=1 | 1 | Keep: cohesive replay data; frame views broaden hot/owner boundaries. |
-| `const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f )` | `SkullbonezSource/Maths/RotationMatrix.h:93` (function) | 9 | owner-borrow=0, value=9, flag=0 | 0 | none |
 | `void LauncherLaser::EmitBillboardQuad( const Vector3& center, const Vector3& right, const Vector3& up, float halfWidth, float halfHeight, float r, float g, float bl, float alpha )` | `SkullbonezSource/Runtime/Editor/LauncherLaser.cpp:274`<br>`SkullbonezSource/Runtime/Editor/LauncherLaser.h:116` (method) | 9 | owner-borrow=0, value=9, flag=0 | 1 | Keep: cohesive geometry/selection/body/event payload. |
 | `PhysicsBodyCreateDesc MakeEditorBodyDesc( const CollisionShape& shape, const Vector3& position, const Quaternion& orientation, const Vector3& linearVelocity, const Vector3& angularVelocity, const Vector3& rotationalInertia, float mass, float restitution, Geometry::Terrain* terrain )` | `SkullbonezSource/Runtime/Editor/RunEditorObjectPlacement.cpp:103` (function) | 9 | owner-borrow=0, value=9, flag=0 | 8 | Keep: cohesive geometry/selection/body/event payload. |
-| `RotationMatrix matrix( ( vAxis.x * vAxis.x * ( 1 - cosTheta ) + cosTheta ), ( vAxis.x * vAxis.y * ( 1 - cosTheta ) + vAxis.z * sinTheta ), ( vAxis.x * vAxis.z * ( 1 - cosTheta ) - vAxis.y * sinTheta ), ( vAxis.x * vAxis.y * ( 1 - cosTheta ) - vAxis.z * sinTheta ), ( vAxis.y * vAxis.y * ( 1 - cosTheta ) + cosTheta ), ( vAxis.y * vAxis.z * ( 1 - cosTheta ) + vAxis.x * sinTheta ), ( vAxis.x * vAxis.z * ( 1 - cosTheta ) + vAxis.y * sinTheta ), ( vAxis.y * vAxis.z * ( 1 - cosTheta ) - vAxis.x * sinTheta ), ( vAxis.z * vAxis.z * ( 1 - cosTheta ) + cosTheta ) )` | `SkullbonezSource/Maths/RotationMatrix.h:145` (function) | 9 | owner-borrow=0, value=9, flag=0 | 0 | none |
 | `bool MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList, const float* data, int vertexCount, int floatsPerVert, VertexFormat12 format, D3D12_GPU_VIRTUAL_ADDRESS uploadAddr, uint8_t* uploadPtr, ID3D12Resource* uploadBuffer )` | `SkullbonezSource/Rendering/DX12/MeshDX12.cpp:61`<br>`SkullbonezSource/Rendering/DX12/MeshDX12.h:89` (method) | 9 | owner-borrow=0, value=9, flag=0 | 1 | none |
 | `void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView& frame, Text::TextBatch& textBatch, SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands, float xLeft, float yAnchor, float lineHeight, float fSize, float fps, bool rightAnchored )` | `SkullbonezSource/Rendering/ProfilerImplementation.cpp:1303`<br>`SkullbonezSource/Rendering/ProfilerOverlayPresenter.h:40` (method) | 9 | owner-borrow=1, value=7, flag=1 | 0 | none |
 | `void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView&, Text::TextBatch&, Rendering::Dx12GeometryOwner&, float, float, float, float, float, bool )` | `SkullbonezSource/Rendering/ProfilerImplementation.cpp:2050` (method) | 9 | owner-borrow=1, value=7, flag=1 | 0 | none |
