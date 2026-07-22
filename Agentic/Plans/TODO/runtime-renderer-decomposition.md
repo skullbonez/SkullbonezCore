@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: In progress; RR0-RR3 complete
+State: In progress; RR0-RR4 complete
 Ledger tasks: 6 (RR0-RR5)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -229,6 +229,60 @@ are the validation-sensitive invariants.
   matched byte-exactly. No baseline, golden, screenshot, replay artifact, or
   provenance metadata changed.
 
+## RR4 Authoritative Shrink Census (2026-07-22)
+
+The authoritative post-extraction surface is `RuntimeRenderer.h` at 319 text
+lines plus its 2,341-line implementation. CodeGraph was current, and every
+count below was confirmed against the actual declarations and direct include
+rows.
+
+| Measure | RR0 | RR4 | Delta |
+|---|---:|---:|---:|
+| `RuntimeRenderer` data members | 46 | 26 | -20 (-43%) |
+| Constructor parameters | 10 | 3 | -7 (-70%) |
+| Ordinary methods with at least seven parameters | 2 | 0 | -2 (-100%) |
+| Direct `RuntimeRenderer.h` includers | 8 | 8 | 0 |
+
+The 26 members are one `RenderResourceLifecycle`; four world/policy borrows or
+values (`m_cameras`, `m_window`, `m_presentationSettings`, `m_world`); four
+debug/profiling borrows; one bounded DXR transform array; eleven cohesive pass
+instances; and five one-live-graph scratch/state members. Every survivor has a
+direct construction, frame, pass, policy, diagnostics, or teardown use; no dead
+renderer member remains.
+
+The widest surviving ordinary methods have arity three:
+`BuildModelFrameView`, `BuildRenderFrameContext`, and
+`FinalizeFrameGraphInternal`. Each takes one cohesive operation's values; there
+is no surviving seven-or-more-argument method requiring an exception reason.
+The constructor's three parameters are the established backend owner view,
+world owner view, and scene state for lifecycle diagnostics.
+
+Direct fan-in remains the same eight files recorded in RR0. `Run.h` owns the
+renderer; input, command, and stress consumers apply renderer policy;
+`RunScene.cpp` performs scene activation; `SceneRuntimeReset.cpp` and
+`ReplayRestoreService.h` participate in typed restore transactions; and
+`RuntimeRenderer.cpp` is the implementation. No new renderer includer was
+introduced by the resource owner.
+
+RR4 also narrowed the lifecycle owner's retained backend record from the full
+process `RuntimeRenderBackendView` to seven exact backend-epoch capabilities:
+frame, graph, resource creation, texture, geometry, diagnostics, and optional
+ray tracing. Capture, shader-development, development-UI, and the device borrow
+do not survive there; the device is borrowed only by the lifecycle log.
+
+- Touched-source comment audit: `RenderResourceLifecycle.h/.cpp` and
+  `RuntimeRenderer.cpp` checked 3/3; no checklist path was required and zero
+  files were deferred or unchecked.
+- Focused Profile build passed in 17.1 s with zero warnings/errors.
+  `tools\validate_dx12_renderer.bat` passed in 39.8 s with zero InfoQueue
+  errors and all three committed images accepted.
+- `tools\run_graphics_stress.bat 1` completed crash-free in 60.9 s and stopped
+  only by PID 46552's scoped timeout. Final `tools\validate_full.bat` passed in
+  118.7 s with the CPU/coverage umbrella, all five runtime lanes, unchanged DX12
+  images, physics hash `0x953D97A226665242`, and the 44,401-line CSV byte-exact.
+  No baseline, golden, screenshot, replay artifact, or provenance metadata
+  changed.
+
 ## Phases
 
 - [x] RR0 — Baseline census. Record member inventory (count and domain),
@@ -253,7 +307,7 @@ are the validation-sensitive invariants.
   constructor toward owner views already established by the frame views.
   Preview-snapshot projection moves with whichever seam RR0 shows it
   belongs to.
-- [ ] RR4 — Member and signature shrink. With RR1-RR3 landed, delete
+- [x] RR4 — Member and signature shrink. With RR1-RR3 landed, delete
   now-unneeded members/borrows, re-count the RR0 inventory, and record the
   deltas. Any surviving ≥7-argument method gets an individual recorded
   reason (mirroring the wide-call inventory discipline).

@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Implement `runtime-renderer-decomposition` RR4: delete any now-unused renderer borrows and record the authoritative RR0-to-RR4 member, constructor, wide-signature, and fan-in deltas. |
-| Active/future progress | 4 / 15 live tasks; 27%. |
+| Current objective | Implement `runtime-renderer-decomposition` RR5: independent ownership review over the logical renderer surface, remediate any credible finding, run the closure gate sequence, and publish the closure report. |
+| Active/future progress | 5 / 15 live tasks; 33%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RR3 final `validate_full` passes in 121.2 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RR3 also passes `validate_fast` (58.2 s), allocation policy (9.3 s), dedicated DX12 (24.7 s), and one-minute stress (60.9 s; PID 47480). RR4 is an inventory/shrink task. |
+| Last broad local gate | RR4 final `validate_full` passes in 118.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | RR4 also passes a focused Profile build (17.1 s), dedicated DX12 (39.8 s), and one-minute stress (60.9 s; PID 46552). RR5 requires independent review, three repeat DX12 gates, stress, and full closure validation. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 4/15 with
-binding order: `runtime-renderer-decomposition` (4/6),
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 5/15 with
+binding order: `runtime-renderer-decomposition` (5/6),
 `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -244,6 +244,10 @@ are not certified. Full evidence:
 | `tools\validate_dx12_renderer.bat` (RR3) | 24.7 s | PASS; zero InfoQueue errors and all three committed images accepted |
 | `tools\run_graphics_stress.bat 1` (RR3) | 60.9 s | PASS; PID 47480 bounded stop, crash-free |
 | `tools\validate_full.bat` (RR3 final) | 121.2 s | PASS; CPU/coverage and five runtime lanes, accepted DX12 images, byte-exact physics |
+| focused Profile build (RR4 final) | 17.1 s | PASS; zero warnings/errors after exact backend-view narrowing |
+| `tools\validate_dx12_renderer.bat` (RR4) | 39.8 s | PASS; zero InfoQueue errors and all three committed images accepted |
+| `tools\run_graphics_stress.bat 1` (RR4) | 60.9 s | PASS; PID 46552 bounded stop, crash-free |
+| `tools\validate_full.bat` (RR4 final) | 118.7 s | PASS; CPU/coverage and five runtime lanes, accepted DX12 images, byte-exact physics |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -251,9 +255,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Implement `runtime-renderer-decomposition` RR4: remove any now-unused renderer
-borrows, re-count the RR0 member/signature/fan-in inventory against the current
-tree, and record exact deltas plus reasons for every surviving wide method.
+Implement `runtime-renderer-decomposition` RR5: run one independent rubber-duck
+ownership review over the complete renderer surface, remediate any credible
+finding, then complete the three-repeat DX12, stress, and full closure gates.
 Follow the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.

@@ -44,8 +44,15 @@ namespace Rendering = SkullbonezCore::Rendering;
 RenderResourceLifecycle::RenderResourceLifecycle( RuntimeRenderBackendView backend,
                                                   const RenderWorldView& world,
                                                   const RunSceneState& scene )
-    : m_backend( backend ), m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ),
-      m_terrain( world.terrain ), m_config( world.config ),
+    : m_backend{ backend.renderFrame,
+                 backend.renderGraph,
+                 backend.renderResources,
+                 backend.renderTextures,
+                 backend.renderGeometry,
+                 backend.renderDiagnostics,
+                 backend.raytracing },
+      m_lifecycleLog( backend.renderDevice, scene ), m_assets( world.assets ), m_terrain( world.terrain ),
+      m_config( world.config ),
       m_primitiveBatches( std::in_place, backend.renderResources, backend.renderTextures, backend.renderGeometry ),
       m_gpuTiming( world.profiler, backend.renderDiagnostics ), m_uiTextPass( world.profiler, m_gpuTiming )
 {

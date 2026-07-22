@@ -64,6 +64,20 @@ class RenderResourceLifecycle
   private:
     friend class RuntimeRenderer;
 
+    // Concept: only capabilities that participate in renderer resource setup,
+    // frame recording, or release survive construction. Capture, shader
+    // development, and development-UI owners remain at the composition root.
+    struct BackendEpochOwners
+    {
+        Rendering::Dx12FrameOwner* renderFrame = nullptr;
+        Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+        Rendering::Dx12ResourceBuilder* renderResources = nullptr;
+        Rendering::Dx12TextureOwner* renderTextures = nullptr;
+        Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
+        Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+        Rendering::Dx12RaytracingOwner* raytracing = nullptr;
+    };
+
     // Lifetime: teardown remains ordered by RuntimeRenderer because pass
     // consumers must release between these owned phases. Each command mutates
     // only state genuinely owned here; it never reaches back into Run.
@@ -73,7 +87,7 @@ class RenderResourceLifecycle
     void ReleaseTextureResources();
     void ReleaseSkyResources();
 
-    const RuntimeRenderBackendView& Backend() const
+    const BackendEpochOwners& Backend() const
     {
         return m_backend;
     }
@@ -131,7 +145,7 @@ class RenderResourceLifecycle
     // Concept: this is a cohesive backend-epoch owner, not a generic service
     // bag. Every member either creates, names, previews, or releases resources
     // whose handles become invalid together when the backend is rebuilt.
-    RuntimeRenderBackendView m_backend;
+    BackendEpochOwners m_backend;
     RenderResourceLifecycleLog m_lifecycleLog;
     Assets::AssetSystem& m_assets;
     Textures::TextureCollection m_textures;

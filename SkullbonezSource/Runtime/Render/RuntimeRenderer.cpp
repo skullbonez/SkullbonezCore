@@ -1783,7 +1783,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
     const SkullbonezCore::Core::CinematicRenderConfig& activeShadowStyle =
         cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const RuntimeRenderBackendView& backend = m_resources.Backend();
+    const auto& backend = m_resources.Backend();
     const bool renderReady = backend.renderFrame && backend.renderGraph && backend.renderResources &&
                              backend.renderTextures && backend.renderGeometry && backend.renderDiagnostics;
     const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && renderReady && !policy.textOnly;
@@ -2067,7 +2067,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
         { "launcher_laser", BackendResourceStep::LauncherLaser },
     };
 
-    const RuntimeRenderBackendView& backend = m_resources.Backend();
+    const auto& backend = m_resources.Backend();
     const auto logLifecycleStep = [&]( const char* step ) { m_resources.Log().Write( context.phaseName, step ); };
 
     if ( backend.renderFrame )
@@ -2147,7 +2147,7 @@ void RuntimeRenderer::BeginFrameGraph( Rendering::Dx12GraphTransientPool& render
 
 void RuntimeRenderer::PrepareUiFrameTarget()
 {
-    const RuntimeRenderBackendView& backend = m_resources.Backend();
+    const auto& backend = m_resources.Backend();
     if ( !backend.renderGraph || !backend.renderFrame )
     {
         SB_FATAL( "Runtime/UI", "Operator editor frame has no render command context." );
@@ -2304,7 +2304,7 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
         return false;
     }
 
-    const RuntimeRenderBackendView& backend = m_resources.Backend();
+    const auto& backend = m_resources.Backend();
     const bool renderReady = backend.renderFrame != nullptr && backend.renderGraph != nullptr &&
                              backend.renderResources != nullptr && backend.renderTextures != nullptr &&
                              backend.renderGeometry != nullptr && backend.renderDiagnostics != nullptr;
