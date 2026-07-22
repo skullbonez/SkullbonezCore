@@ -3,7 +3,7 @@
 Date: 2026-07-22
 Branch: `nightrunner-22nd-JUL-26`
 Task: `replay-deduplication-audit` RD0
-Result: Complete census; seven owner rulings required in RD1
+Result: Complete census; all seven candidates ruled in RD1
 
 ## Outcome
 
@@ -168,6 +168,18 @@ RD1 must record exactly one of `dedup-now`, `cohesion-retain`, or `defer` for
 C1-C7. A single owner acceptance of the RD0 recommendations is sufficient. Any
 different ruling should name the candidate ID; no source work starts before
 those decisions are committed.
+
+## RD1 Owner Decision (2026-07-22)
+
+The owner authorized the recommendations, conditional on all Replay tests
+passing before closure. C1-C5 are `dedup-now`; C6-C7 are
+`cohesion-retain`; none are deferred. The owning plan defines the complete
+closure test surface and records why the scrub entry point is not run a second
+time beside its authoritative visual-fidelity owner.
+
+RD1's sole visual-fidelity invocation passed in 430.23 seconds with one engine
+process/generation, 2,401 ticks, 17 cases / 75 assertions, every negative and
+determinism control, and zero golden refresh.
 
 ## Validation
 

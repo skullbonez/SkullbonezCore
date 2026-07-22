@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: RD0 complete; awaiting RD1 owner rulings
+State: RD1 complete; RD2 implementation active
 Ledger tasks: 4 (RD0-RD3)
 
 ## Framing (Owner Statement, 2026-07-22)
@@ -63,7 +63,7 @@ behavior frozen throughout.
   records file:line evidence, the prior ruling covering it (if any), and
   whether the finding is new evidence against that ruling. Documentation
   deliverable committed in this plan; no source change.
-- [ ] RD1 — Owner rulings. Present the census; the owner rules each
+- [x] RD1 — Owner rulings. Present the census; the owner rules each
   confirmed duplicate as dedup-now, cohesion-retain (with recorded reason),
   or defer. Rulings that contradict a prior R-/RC-era ruling name the new
   evidence explicitly. Documentation-only task.
@@ -88,6 +88,29 @@ direct copied mechanics; two are overlapping values with documented separate
 lifetimes. Prior codec/hash/Validation cohesion rulings remain binding where no
 new evidence appeared.
 
+## RD1 Owner Rulings (2026-07-22)
+
+The owner authorized the RD0 recommendations with the condition that all
+Replay tests pass before closure:
+
+| Candidate | Ruling | Binding reason |
+|---|---|---|
+| C1 | `dedup-now` | Timing, budget, reveal, and refresh-window mechanics must have one Prediction-owned implementation. |
+| C2 | `dedup-now` | Capacity/reserve accounting must have one Prediction-owned implementation without changing owner, cap, phase, or counters. |
+| C3 | `dedup-now` | Stable-id/model-row lookup and pose leaves must be shared value operations, not file-local copies. |
+| C4 | `dedup-now` | Affected-body filtering/trail derivation is the same algorithm and may differ only at its Prediction/Presentation callers. |
+| C5 | `dedup-now` | Overlay values must compose the canonical Presentation selection/state rather than flattening it again. |
+| C6 | `cohesion-retain` | The immutable cursor deliberately crosses the Presentation-to-Prediction boundary without borrowing mutable path state. |
+| C7 | `cohesion-retain` | Baseline comparison poses and retained visual markers have different lifetimes and archive rows. |
+
+No candidate is deferred. C1-C5 are the complete RD2 implementation scope;
+C6-C7 remain documented intentional value overlap.
+
+RD1's sole `tools\validate_replay_visual_fidelity.bat` invocation passed in
+430.23 seconds: one engine process, one prediction generation, 2,401 ticks,
+17/17 typed cases (75 assertions), every negative/determinism control, and no
+golden refresh.
+
 ## Dependencies And Decisions
 
 - Fourth in the round-2 campaign binding order (heaviest per-task gate lands
@@ -108,6 +131,8 @@ new evidence appeared.
   its gates.
 - Independent review is clear on both standing replay questions and census
   completeness.
+- Every Replay test lane defined below passes at RD3; no historical scrub alias
+  is invoked separately from its authoritative visual-fidelity owner.
 
 ## Validation
 
@@ -121,3 +146,9 @@ new evidence appeared.
   non-replay file touched.
 - RD3 closure: `tools\validate_full.bat` plus the strict allocation proof
   used by RC closure (three registered owners, zero policy violations).
+- Owner condition for RD3: run `tools\validate_tests.bat` (including every
+  `TestReplay*` case), `tools\validate_replay_v2_artifact.bat`,
+  `tools\validate_replay_allocation_policy.bat`, the task's one permitted
+  `tools\validate_replay_visual_fidelity.bat`, and `tools\validate_full.bat`.
+  `tools\validate_replay_scrub.bat` is only a delegating alias for visual
+  fidelity and is not a second test invocation.

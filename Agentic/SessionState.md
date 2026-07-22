@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Obtain and commit `replay-deduplication-audit` RD1 owner rulings for census candidates C1-C7 before any source consolidation. |
-| Active/future progress | 1 / 9 live tasks; 11%. |
+| Current objective | Implement `replay-deduplication-audit` RD2: deduplicate C1-C5 in logical commits while preserving all Replay behavior; C6-C7 retain cohesion. |
+| Active/future progress | 2 / 9 live tasks; 22%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RR5 final `validate_full` passes in 145.30 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, physics hash `0x953D97A226665242`, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RD0's sole replay visual-fidelity invocation passes in 432.83 s: one process/generation, 2,401 ticks, 17/17 typed controls, all negative/determinism controls, and no golden refresh. |
+| Validation for current edits | RD1's sole replay visual-fidelity invocation passes in 430.23 s: one process/generation, 2,401 ticks, 17/17 typed controls (75 assertions), all negative/determinism controls, and no golden refresh. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 1/9 with
-binding order: `replay-deduplication-audit` (RD0 complete; RD1-RD3 remain), then
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 2/9 with
+binding order: `replay-deduplication-audit` (RD0/RD1 complete; RD2/RD3 remain), then
 `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -255,6 +255,7 @@ are not certified. Full evidence:
 | three final `tools\validate_dx12_renderer.bat` repeats (RR5) | 23.23 / 23.38 / 23.34 s | PASS; every repeat reported zero InfoQueue errors and accepted all committed images |
 | `tools\run_graphics_stress.bat 1` (RR5) | 60.91 s | PASS; PID 61432 bounded stop, crash-free |
 | replay visual fidelity (RD0, sole invocation) | 432.83 s | PASS; one process/generation, 2,401 ticks, 17 cases / 75 assertions, all controls, zero refresh |
+| replay visual fidelity (RD1, sole invocation) | 430.23 s | PASS; one process/generation, 2,401 ticks, 17 cases / 75 assertions, all controls, zero refresh |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -262,9 +263,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Obtain `replay-deduplication-audit` RD1 owner rulings for C1-C7 in
-`Agentic/Reports/2026-07-22/replay-deduplication-rd0-census.md`, then commit the
-documentation-only rulings before RD2 changes any source. Follow the round-2
-campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`. ImGui/Tracy E17
-remains accepted; Legacy remains the default until a separate owner decision
-changes that policy.
+Implement `replay-deduplication-audit` RD2 C1-C5 in logical commits. The owner
+accepted the recommendations conditional on every Replay doctest, focused v2
+artifact gate, strict allocation gate, authoritative visual-fidelity oracle,
+and final broad gate passing before closure. C6-C7 retain cohesion. Follow the
+round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
