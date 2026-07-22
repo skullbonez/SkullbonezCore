@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: Registered, not started
+State: RD0 complete; awaiting RD1 owner rulings
 Ledger tasks: 4 (RD0-RD3)
 
 ## Framing (Owner Statement, 2026-07-22)
@@ -54,7 +54,7 @@ behavior frozen throughout.
 
 ## Phases
 
-- [ ] RD0 — Duplication census. Sweep all 64 files for: repeated selection /
+- [x] RD0 — Duplication census. Sweep all 64 files for: repeated selection /
   filtering / interpolation logic across Prediction and Presentation;
   parallel serialization or hashing mechanics across Recorder, V2Artifact,
   and fingerprint code; overlapping value-packet shapes across the
@@ -76,6 +76,17 @@ behavior frozen throughout.
   questions (no downward include appeared; no growth privilege appeared or
   expanded outside the inventory) plus this plan's own question: does any
   census candidate remain unruled. Final gates below.
+
+## RD0 Evidence (2026-07-22)
+
+The exhaustive census is recorded in
+[`replay-deduplication-rd0-census`](../../Reports/2026-07-22/replay-deduplication-rd0-census.md).
+It reconciles the current 64-file / 36,475-line tree, covers the intended eleven
+value-packet headers despite the current eight-file `*Packets.h` suffix count,
+and leaves seven candidate IDs (C1-C7) for owner disposition in RD1. Five are
+direct copied mechanics; two are overlapping values with documented separate
+lifetimes. Prior codec/hash/Validation cohesion rulings remain binding where no
+new evidence appeared.
 
 ## Dependencies And Decisions
 

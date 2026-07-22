@@ -353,11 +353,19 @@ independently verified, and the final full, repeated DX12, and stress gates are
 clear. Evidence is recorded in
 `../Reports/2026-07-22/runtime-renderer-decomposition-closure.md`.
 
+`replay-deduplication-audit` completed RD0 on 2026-07-22. The exhaustive
+64-file census identifies seven owner-decision candidates: five direct copied
+Prediction/Presentation mechanics and two overlapping packet values with
+separate-lifetime evidence. Prior codec/hash and Validation placement rulings
+remain binding where the audit found no new evidence. RD1 awaits owner rulings;
+evidence is in
+`../Reports/2026-07-22/replay-deduplication-rd0-census.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 0 | 4 | 0% |
+| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 1 | 4 | 25% |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **0** | **9** | **0%** |
+| **Active/future total** | **1** | **9** | **11%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1335,7 +1343,7 @@ a census records. Execution order is binding: 1 physics unification,
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Renderer closure landed; execute RD0 census |
+| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Active; awaiting owner | 1/4 | Rule C1-C7 in RD1; then implement dedup-now decisions |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | Registered | 0/5 | Last; W0 inventory measures the post-campaign tree |
 
 ## Features
