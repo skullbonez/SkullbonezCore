@@ -377,8 +377,8 @@ inventory change. Closure evidence is recorded in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **0** | **5** | **0%** |
+| [wide-signature-reduction](TODO/wide-signature-reduction.md) | 1 | 5 | 20% |
+| **Active/future total** | **1** | **5** | **20%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1357,7 +1357,7 @@ a census records. Execution order is binding: 1 physics unification,
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
 | [replay-deduplication-audit](../Reports/2026-07-22/replay-deduplication-closure.md) | Complete | 4/4 | C1-C5 consolidated; C6-C7 retained; all Replay/full gates pass |
-| [wide-signature-reduction](TODO/wide-signature-reduction.md) | Registered | 0/5 | Last; W0 inventory measures the post-campaign tree |
+| [wide-signature-reduction](TODO/wide-signature-reduction.md) | Active | 1/5 | W1 classify and rule all 303 W0 signatures |
 
 ## Features
 

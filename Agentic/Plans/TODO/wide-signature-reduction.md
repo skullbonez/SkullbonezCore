@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: Registered, not started
+State: W0 complete; W1 owner rulings pending
 Ledger tasks: 5 (W0-W4)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -59,7 +59,7 @@ future reviews cite instead of re-litigating.
 
 ## Phases
 
-- [ ] W0 — Inventory (the deep dive). Build or adapt a repeatable sweep
+- [x] W0 — Inventory (the deep dive). Build or adapt a repeatable sweep
   (script under `tools/`, or a recorded rg/clang-query method) that lists
   every function/method/constructor in `SkullbonezSource/` with ≥7
   parameters: signature, file:line, arity, parameter kinds (owner borrows vs
@@ -83,6 +83,36 @@ future reviews cite instead of re-litigating.
   ≥7-arg row must be ruled (accepted reason or cross-linked plan). One
   independent review over the inventory honesty and the no-bag rule.
   Final broad gate.
+
+## W0 Evidence (2026-07-22)
+
+The repeatable scanner is `tools/inventory_wide_signatures.py`; the complete
+303-row dated table is committed in
+[`wide-signature-w0-inventory`](../../Reports/2026-07-22/wide-signature-w0-inventory.md).
+The report is the plan's authoritative table because embedding 140 KiB of
+generated Markdown here would obscure the W1 decisions and W2/W3 ledger.
+
+The tracked-source pass completes in about 30 seconds and reports 276 rows in
+the previously unruled 7-11 band plus 27 rows at 12 or more parameters. It
+conservatively carries 129 prior dispositions and leaves 174 rows for W1;
+ambiguous simple-name matches are deliberately left unrouted. The largest area
+is Runtime (148), followed by UI (63), Physics (38), and Rendering (38).
+
+The registration spot checks reconcile with the post-campaign tree:
+`ApplySceneLoadConsumerOutputs` is currently 16 parameters; the old wide
+`RuntimeRenderer` constructor and UI-text methods are below threshold or gone;
+`PhysicsEngine::Step` remains at 7 and receives no unrelated prior ruling.
+Nineteen zero-call lexical rows remain in the table for explicit W1 inspection;
+zero is not treated as deletion authority.
+
+The tool self-test and final 303-row scan pass in 28.48 seconds, with explicit
+stdout PASS lines and an `EXIT=0` footer in the captured log. The mapped
+`tools\validate_fast.bat` gate completes in 23.46 seconds with
+346/346 doctest cases, 68,715/68,715 assertions, zero build warnings/errors,
+and the terminal `VALIDATE_FAST: ALL PASSED` line. Its captured log is
+`TestOutput/validation/wide_signatures/w0_validate_fast_final.log`. The one touched
+source-bearing tool was inspected against the repository comment standard:
+1/1 checked, 0 deferred; this W0 evidence section is the checklist record.
 
 ## Dependencies And Decisions
 
