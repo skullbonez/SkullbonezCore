@@ -1,32 +1,50 @@
 ---
 name: orchestrator
-description: Coordinate SkullbonezCore plan implementation in the main Codex agent, using sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, or asks Codex to complete one or more Agentic/Plans items, then validate, commit, and push each accepted plan.
+description: Run SkullbonezCore's persistent MASTER-PLAN implementation queue in the main Codex agent, using a deterministic Night Runner branch and sub-agents only for rubber-duck review. Use when the user asks for the orchestrator, night runner, nightrunner, overnight runner, queued plan runner, MASTER-PLAN runner, or asks Codex to complete one or more Agentic/Plans items, then continue through blockers, validate, commit, and push each accepted plan.
 ---
 
 # Orchestrator
 
-Coordinate a SkullbonezCore plan queue without the retired repository-owned
-JSON/Python state machine. This skill is coordinator-only: it resolves plan
-scope and branch policy, implements each plan in the main agent, saves any
-independent `$rubber-duck` critique for the end of a major completed plan or
-whole-job checkpoint, runs the required final validation gate, and
-commits/pushes one accepted slice at a time.
+Coordinate the persistent SkullbonezCore MASTER-PLAN queue without the retired
+repository-owned JSON/Python state machine. Resolve the Night Runner branch and
+goal before edits, implement plans in the main agent, continue past documented
+blockers, save any independent `$rubber-duck` critique for a major completed
+plan or whole-job checkpoint, run required final gates, and commit/push one
+accepted slice or blocker record at a time.
 
 ## Inputs
 
-Accept any number of plan names in the user's requested order. Normalize bare
-names by adding `.md`, and resolve them under `Agentic/Plans/` unless the user
-gives a path. If a plan cannot be found, search by stem with
+Default to `Agentic/Plans/MASTER-PLAN.md` when the user invokes the orchestrator
+without naming a plan. Treat `masterplan.md`, `master-plan.md`, and any casing
+variants as aliases for that exact authoritative path.
+
+Accept explicitly named plans in the user's requested order. Normalize other
+bare names by adding `.md`, and resolve them under `Agentic/Plans/` unless the
+user gives a path. If a plan cannot be found, search by stem with
 `rg --files Agentic/Plans` and ask only if multiple plausible matches remain.
 
-Determine the branch before edits:
+## Night Runner Bootstrap
 
-- If the user gives a branch name, use that exact branch name. Do not add,
-  remove, normalize, prefix, suffix, or replace any part of the requested name.
-- If the current branch is already `nightrunner-*`, reuse it unless the user
-  asked for a different branch.
-- Otherwise create `nightrunner-<local-date-slug>`, such as
-  `nightrunner-20th-june`.
+Resolve and verify the branch before any implementation edit:
+
+1. If the user explicitly gives a branch name, use that exact spelling.
+2. Otherwise run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File Agentic/Skills/orchestrator/scripts/resolve_nightrunner_branch.ps1 -Apply
+```
+
+3. Reuse the current branch when it is already a canonical or legacy Night
+   Runner branch. Recognition is case-insensitive and includes
+   `nightrunner-*`, `night-runner-*`, and `*-night-runner`.
+4. When the current branch is not a Night Runner branch, reuse today's branch
+   if it exists locally or under `origin`; otherwise create it from the current
+   tip. The canonical format is
+   `nightrunner-<ordinal-day>-<MMM>-<YY>`, with an uppercase English month and
+   local calendar date. For 2026-07-22 it is `nightrunner-22nd-JUL-26`.
+5. Run `git branch --show-current` again and require it to equal the resolver's
+   output before editing. Never improvise another date spelling or duplicate a
+   Night Runner branch.
 
 ## Startup
 
@@ -42,6 +60,58 @@ Follow the SkullbonezCore startup contract before any edit:
 
 Do not force-push, rebase, rewrite history, merge PRs, or commit/push on
 `main` without explicit confirmation.
+
+## Persistent Goal And Queue
+
+Treat an explicit orchestrator invocation as authorization to create a goal for
+the orchestration run. After branch verification and before plan edits:
+
+1. Inspect the current goal when goal tools are available.
+2. Reuse an active goal that already covers completing
+   `Agentic/Plans/MASTER-PLAN.md` on the selected Night Runner branch.
+3. Otherwise create this objective:
+
+```text
+Complete Agentic/Plans/MASTER-PLAN.md on <branch> in binding priority order; validate, commit, and push accepted slices; record genuine blockers and continue with the next dependency-safe item without stopping.
+```
+
+4. If an unrelated unfinished goal prevents goal creation, record that tooling
+   conflict as a blocker and continue the MASTER-PLAN queue. Create the intended
+   goal as soon as the goal slot becomes available; do not abandon repository
+   work because goal metadata is temporarily unavailable.
+5. Keep the goal active while any actionable MASTER-PLAN work remains. One
+   blocked item never blocks or completes the whole goal.
+
+Use `Agentic/Plans/MASTER-PLAN.md` as the live queue. Read its Current Execution
+Priority, Portfolio Progress Ledger, plan-state tables, and linked `TODO/`
+plans. Select the next unfinished, dependency-safe item in binding order. Ignore
+`Agentic/Plans/WNF/` unless the owner explicitly reactivates an item. Re-read
+MASTER-PLAN after every pushed slice because the queue and denominator may have
+changed.
+
+## Blocker Continuation
+
+Do not stop the orchestration run when one item is blocked. First exhaust safe,
+in-scope attempts and alternatives. When a blocker is genuine:
+
+1. Leave the owning task or phase incomplete.
+2. Mark its MASTER-PLAN state `Blocked` and record the owner, cause, evidence,
+   exact unblock condition, unchanged verified count, and affected dependents
+   in the owning plan and MASTER-PLAN's existing state/next-action fields.
+3. Never stage broken or unvalidated implementation. If the blocked attempt
+   left unsafe partial changes, preserve bounded evidence, then remove only
+   changes created by that attempt. Never alter pre-existing user-owned work.
+4. Commit and push the documentation-only blocker record with the appropriate
+   `MASTER-PLAN` progress subject. Do not count it as completed work or silently
+   change the portfolio denominator.
+5. Skip blocked dependents, select the next independent dependency-safe item,
+   and continue immediately.
+
+Finish only when every actionable item is complete or every remaining item is
+explicitly blocked and no independent safe work remains. Mark the overall goal
+complete only for true MASTER-PLAN completion. Mark it blocked only when goal
+tool rules permit it and the entire remaining queue is at an impasse; otherwise
+leave it active and report the blocker inventory.
 
 ## Sub-Agent Tools
 
@@ -133,8 +203,9 @@ Return findings with file/line references and a clear verdict.
     baseline/report/session-state updates.
 11. Push normally. Never force-push.
 
-Only advance to the next plan after the current plan is reviewed, validated as
-required, committed, and pushed.
+Advance after the current item is either reviewed, validated, committed, and
+pushed, or its blocker record is committed and pushed under Blocker
+Continuation. A single plan failure is not a terminal condition.
 
 ## Validation Discipline
 
@@ -160,6 +231,8 @@ Report:
 - Validation commands and key result lines, or "documentation-only, no
   validation required."
 - Any skipped plan, blocker, dirty user-owned file, or residual risk.
+- Goal status plus the next actionable MASTER-PLAN item, or proof that only
+  explicitly blocked work remains.
 - Total elapsed wall-clock time and timings for long builds, validations,
   launches, or investigations.
 - A final rubber-duck accounting table, one row per review pass. If no review
