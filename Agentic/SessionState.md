@@ -11,22 +11,24 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
-| Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Implement `replay-deduplication-audit` RD2: deduplicate C1-C5 in logical commits while preserving all Replay behavior; C6-C7 retain cohesion. |
-| Active/future progress | 2 / 9 live tasks; 22%. |
+| Current baseline | Replay deduplication is closed: C1-C5 share owning implementations, C6-C7 retain ruled lifetimes, and every Replay/full gate passes. Legacy remains the development default. |
+| Current objective | Start `wide-signature-reduction` W0: inventory every current-tip signature with at least seven parameters and carry forward prior owner rulings. |
+| Active/future progress | 0 / 5 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RR5 final `validate_full` passes in 145.30 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, physics hash `0x953D97A226665242`, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RD2 C3 passes format, 346 tests / 68,707 assertions, focused lookup-policy coverage, and its sole visual oracle: one generation/presentation, 2,401 ticks, and every control. |
+| Last broad local gate | RD3 final `validate_full` passes in 136.17 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | RD3 passes 346 tests / 68,715 assertions, v2 artifact restore, strict allocation, one-process visual fidelity, physics determinism, and the broad gate. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 2/9 with
-binding order: `replay-deduplication-audit` (RD0/RD1 complete; RD2/RD3 remain), then
-`wide-signature-reduction` (5). Plans
-live under `Agentic/Plans/TODO/`; the campaign section in
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 0/5 with
+only `wide-signature-reduction` W0-W4 remaining. Its W0 inventory measures the
+final post-Replay tree. The live plan is under `Agentic/Plans/TODO/`; the
+campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
 including that replay is the engine's most important subsystem and its audit
-is an internal-quality pass, not a slimming exercise. The prior 2026-07-22
+was an internal-quality pass, not a slimming exercise. Replay deduplication
+closed RD0-RD3 with evidence in
+`Agentic/Reports/2026-07-22/replay-deduplication-closure.md`. The prior 2026-07-22
 architecture follow-up campaign is closed: render interface retirement closed
 RH0-RH5, owner fan-out reduction closed OF0-OF5, and Replay subsystem
 consolidation closed RC0-RC6. Evidence is in
@@ -275,6 +277,13 @@ are not certified. Full evidence:
 | `tools\validate_format.bat` (RD2 C5 final) | 13.42 s | PASS; all implementation and header formatting clean |
 | `tools\validate_tests.bat` (RD2 C5 final) | 3.42 s | PASS; 346 cases / 68,707 assertions, zero warnings/errors |
 | replay visual fidelity (RD2 C5, sole invocation) | 443.75 s | PASS; one process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
+| Profile startup log probe (RD3) | 4.49 s build + 3.13 s run | PASS; stdout ERROR, stderr FATAL, exit 1, no modal/hang |
+| `tools\validate_tests.bat` (RD3 final) | 10.54 s | PASS; 346 cases / 68,715 assertions |
+| strict Replay allocation (RD3 final) | 12.78 s | PASS; two-generation policy clean |
+| `tools\validate_replay_v2_artifact.bat` (RD3 final) | 54.67 s | PASS; save/restore and hash verification |
+| replay visual fidelity (RD3 final) | 471.77 s | PASS; one process/generation/presentation, 2,401 ticks, all controls |
+| `tools\validate_physics.bat` (RD3 final) | 23.08 s | PASS; 44,401-line CSV byte-exact |
+| `tools\validate_full.bat` (RD3 final) | 136.17 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -282,9 +291,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-deduplication-audit` with RD3 independent review and final
-Replay/full closure gates; RD2 C1-C5 are implemented and fully gated. The owner
-accepted the recommendations conditional on every Replay doctest, focused v2
-artifact gate, strict allocation gate, authoritative visual-fidelity oracle,
-and final broad gate passing before closure. C6-C7 retain cohesion. Follow the
-round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
+Start `wide-signature-reduction` W0 from the final post-Replay tree. Build the
+repeatable current-tip inventory for every signature with at least seven
+parameters, carrying forward the 2026-07-15 accepted reasons unless new
+evidence exists. Follow the round-2 campaign's standing rules in
+`Agentic/Plans/MASTER-PLAN.md`.

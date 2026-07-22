@@ -61,7 +61,6 @@ namespace
 {
 constexpr double REPLAY_PREDICTION_MAX_WORK_MILLISECONDS = 5.0;
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
-constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 1;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 // Units: simulation distance per second. This presentation-only tuning point
@@ -411,15 +410,6 @@ float ReplayTrajectorySegmentSpeed( const ReplayTrajectoryPoint& previous, const
     return std::sqrt( VectorMagSquared( current.position - previous.position ) ) / elapsedSeconds;
 }
 
-std::size_t ReplayPathStrideForSampleCount( std::size_t sampleCount )
-{
-    if ( sampleCount <= REPLAY_PATH_MAX_SEGMENTS )
-    {
-        return 1;
-    }
-    return ( sampleCount + REPLAY_PATH_MAX_SEGMENTS - 1 ) / REPLAY_PATH_MAX_SEGMENTS;
-}
-
 struct ReplayPredictionDrawFrameWindow
 {
     ReplayFrameIndex lastFrame = 0;
@@ -449,7 +439,7 @@ PublishedReplayPredictionDrawFrameWindow( const ReplayPredictionPresentationView
 
     window.lastFrame = frames[frameCount - 1].frameIndex;
     window.revealFrame = (std::min)( window.lastFrame, prediction.revealFrame );
-    window.sampleStride = ReplayPathStrideForSampleCount( frameCount );
+    window.sampleStride = ReplayPredictionPathStrideForSampleCount( frameCount );
     return window;
 }
 
@@ -1078,7 +1068,7 @@ void DrawReplayPastRootTrajectoryFromStore( const ReplayPredictionPresentationVi
     const ReplayFrameIndex firstFrame = record->points[0].frameIndex;
     const ReplayFrameIndex lastFrame = record->points[pointCount - 1u].frameIndex;
     const ReplayFrameIndex clampedPresent = std::clamp( presentFrame, firstFrame, lastFrame );
-    const std::size_t sampleStride = ReplayPathStrideForSampleCount( pointCount );
+    const std::size_t sampleStride = ReplayPredictionPathStrideForSampleCount( pointCount );
     // Concept: a single PastRoot store record contains the retained solver
     // window. Draw-time presentFrame only recolors the already-published prefix
     // into "history" and "recorded future" halves; it never rebuilds samples.
@@ -1146,7 +1136,7 @@ void DrawReplayPredictionRagdollTorsoTrails( std::span<const RunReplayPrediction
     }
 
     const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
-    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
+    const std::size_t sampleStride = ReplayPredictionPathStrideForSampleCount( frameCount );
     for ( int modelIndex = 0; modelIndex < modelCount; ++modelIndex )
     {
         const SceneEntityRecord* entity = collection.TryGet( modelIndex );
@@ -1237,7 +1227,7 @@ void DrawReplayPredictionAffectedBodyTrails( std::span<const RunReplayPrediction
     }
 
     const ReplayFrameIndex lastFrame = frames[frameCount - 1].frameIndex;
-    const std::size_t sampleStride = ReplayPathStrideForSampleCount( frameCount );
+    const std::size_t sampleStride = ReplayPredictionPathStrideForSampleCount( frameCount );
     for ( std::size_t trailIndex = 0; trailIndex < trailCount; ++trailIndex )
     {
         ReplayPredictionAffectedBodyTrail& trail = trails[trailIndex];

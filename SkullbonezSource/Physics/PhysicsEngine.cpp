@@ -388,7 +388,18 @@ void PhysicsEngine::LoadBodyDescriptors( const std::vector<PhysicsBodyCreateDesc
 PhysicsAuthoredBodyRegistration PhysicsEngine::RegisterAuthoredBody( const PhysicsBodyCreateDesc& bodyDesc,
                                                                      PhysicsColliderCreateDesc colliderDesc )
 {
+    // Invariant: authored registration must never let an invalid variant reach
+    // std::visit, whose exception-disabled failure otherwise loses the owning
+    // subsystem and descriptor stage from captured automation logs.
+    if ( bodyDesc.shape.valueless_by_exception() )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Cannot register authored body: input collision shape is valueless." );
+    }
     PhysicsBodyCreateDesc authoredDesc = bodyDesc;
+    if ( authoredDesc.shape.valueless_by_exception() )
+    {
+        SB_FATAL( "Physics/PhysicsEngine", "Cannot register authored body: copied collision shape is valueless." );
+    }
     ApplyAuthoredBodyPolicy( authoredDesc );
     m_authoredBodyDescs.push_back( authoredDesc );
     const PhysicsBodyHandle body = m_bodyStore.CreateBodyRecord( authoredDesc, m_world.IsPhysicsSleepEnabled() );

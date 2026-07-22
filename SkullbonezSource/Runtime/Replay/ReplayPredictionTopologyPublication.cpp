@@ -65,7 +65,6 @@ namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations
 namespace
 {
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
-constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 constexpr float REPLAY_PREDICTION_CHILD_LINEAR_SPEED_SQ = 8.0f * 8.0f;
 constexpr float REPLAY_PREDICTION_CHILD_ACTIVATION_DISTANCE = 0.05f;
@@ -76,19 +75,9 @@ constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
     static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
-// Concept: TrajectoryStore records are the future line-draw source. Branch
-// ordinal 0 is the committed prediction; branch 1 is the in-progress build
-// preview; child branches are offset by source so same-target refreshes do not
-// overwrite the old visible future before the published prefix catches up.
-std::size_t ReplayPathStrideForSampleCount( std::size_t sampleCount )
-{
-    if ( sampleCount <= REPLAY_PATH_MAX_SEGMENTS )
-    {
-        return 1;
-    }
-    return ( sampleCount + REPLAY_PATH_MAX_SEGMENTS - 1 ) / REPLAY_PATH_MAX_SEGMENTS;
-}
-
+// Concept: topology publication and drawing sample the same revealed prefix.
+// The Prediction-owned stride operation keeps both consumers at one bounded
+// density without giving either consumer ownership of the sampling policy.
 struct ReplayPredictionDrawFrameWindow
 {
     ReplayFrameIndex lastFrame = 0;
@@ -113,7 +102,7 @@ PrepareReplayPredictionDrawFrameWindow( RunReplayPredictionState& prediction,
     // against this one reveal clamp for the selected prediction prefix.
     window.lastFrame = frames[frameCount - 1].frameIndex;
     window.revealFrame = ReplayPredictionRevealFrameIndex( prediction, window.lastFrame );
-    window.sampleStride = ReplayPathStrideForSampleCount( frameCount );
+    window.sampleStride = ReplayPredictionPathStrideForSampleCount( frameCount );
     return window;
 }
 } // namespace

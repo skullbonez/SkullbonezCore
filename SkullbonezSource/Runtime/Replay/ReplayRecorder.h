@@ -399,6 +399,20 @@ struct ReplaySolverFrameSample
     bool checkpointBoundary = false;
 };
 
+// Deterministic digest of a fully materialized solver sample. Artifact loading
+// uses this same function to verify payload integrity before mutating live state.
+struct ReplaySolverHashBreakdown
+{
+    uint64_t world = 0;
+    uint64_t counts = 0;
+    uint64_t launcher = 0;
+    uint64_t snapshot = 0;
+    uint64_t bodies = 0;
+};
+
+ReplaySolverHashBreakdown ReplaySolverHashBreakdownForSample( const ReplaySolverFrameSample& sample ) noexcept;
+uint64_t ReplaySolverHashForSample( const ReplaySolverFrameSample& sample ) noexcept;
+
 struct ReplayCheckpointSummary
 {
     ReplayFrameIndex frameIndex = 0;

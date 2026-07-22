@@ -79,6 +79,15 @@ constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
 
 } // namespace
 
+std::size_t ReplayPredictionPathStrideForSampleCount( std::size_t sampleCount ) noexcept
+{
+    if ( sampleCount <= REPLAY_PATH_MAX_SEGMENTS )
+    {
+        return 1;
+    }
+    return ( sampleCount + REPLAY_PATH_MAX_SEGMENTS - 1 ) / REPLAY_PATH_MAX_SEGMENTS;
+}
+
 void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction )
 {
     prediction.futureNodeCache.futureNodes.clear();

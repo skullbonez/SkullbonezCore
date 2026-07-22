@@ -174,7 +174,6 @@ bool StepPredictionEngineTick( PhysicsEngine& engine,
 // Why: the 200-brick prediction scene needs more than the old 100-node cap to
 // show the full contact spread instead of clipping the visual explanation.
 constexpr std::size_t REPLAY_PATH_MAX_FUTURE_NODES = REPLAY_VISUAL_FUTURE_NODE_CAPACITY;
-constexpr std::size_t REPLAY_PATH_MAX_SEGMENTS = 260;
 constexpr std::size_t REPLAY_RIBBON_SEGMENTS_PER_PATH_SEGMENT = 1;
 constexpr float REPLAY_PATH_MIN_SEGMENT_DISTANCE_SQ = 0.0001f;
 // Why: rest markers and auxiliary trails still need an instantaneous "moving"

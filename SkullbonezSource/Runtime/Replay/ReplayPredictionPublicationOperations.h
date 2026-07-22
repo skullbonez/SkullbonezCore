@@ -140,6 +140,10 @@ bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelI
 int ReplayRagdollTorsoModelIndexForPart( const SceneEntityStore& entities, int modelIndex );
 Math::Vector::Vector3 ReplayNormalizeOr( Math::Vector::Vector3 value, const Math::Vector::Vector3& fallback );
 
+// Concept: publication and drawing share one bounded sampling policy so the
+// prepared topology and emitted ribbons cannot drift to different densities.
+std::size_t ReplayPredictionPathStrideForSampleCount( std::size_t sampleCount ) noexcept;
+
 ReplayFrameIndex ReplayOldestFrameFromStats( const ReplayRecorderStats& stats );
 int ReplayTrajectoryFrameNumberForReserve( ReplayFrameIndex frameIndex );
 ReplayTrajectoryRecordKey ReplayPastRootTrajectoryKey( Physics::PhysicsSceneObjectId targetId );

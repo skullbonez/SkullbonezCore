@@ -425,6 +425,16 @@ TEST_CASE( "Tornado owner edits and replay restore reuse bounded vortex storage"
     gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, system, 2.0f );
     CHECK( gameplay.GetSystemConfig().vortices.data() == storage );
     CHECK( gameplay.GetSystemConfig().vortices.capacity() == capacity );
+
+    SkullbonezCore::Gameplay::TornadoSystemConfig disabledSystem;
+    gameplay.SetReplayState( captureSeconds, cooldownSeconds, {}, disabledSystem, 3.0f );
+    REQUIRE( gameplay.CaptureSeconds().size() == captureSeconds.size() );
+    REQUIRE( gameplay.EjectCooldownSeconds().size() == cooldownSeconds.size() );
+    for ( std::size_t i = 0; i < captureSeconds.size(); ++i )
+    {
+        CHECK( gameplay.CaptureSeconds()[i] == captureSeconds[i] );
+        CHECK( gameplay.EjectCooldownSeconds()[i] == cooldownSeconds[i] );
+    }
 }
 
 TEST_CASE( "Replay prediction world reset preserves reserved Gameplay snapshot storage" )

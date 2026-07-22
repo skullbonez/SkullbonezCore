@@ -1549,7 +1549,47 @@ uint64_t HashSolverWorldSnapshot( uint64_t hash, const SkullbonezCore::Runtime::
     hash = HashInt64Vector( hash, physics.collisionCellKeys );
     return hash;
 }
+
+ReplaySolverHashBreakdown BuildSolverHashBreakdown( const ReplayWorldPresentationSample& world,
+                                                    int modelCount,
+                                                    uint16_t contactCount,
+                                                    uint16_t pipelineRecordCount,
+                                                    const ReplayLauncherVisualSample& launcherVisual,
+                                                    const ReplaySolverWorldSnapshot& worldSnapshot,
+                                                    const std::vector<ReplaySolverBodySample>& bodies )
+{
+    ReplaySolverHashBreakdown result;
+    result.world = HashWorld( FNV64_OFFSET, world );
+    result.counts = HashInt( result.world, modelCount );
+    result.counts = HashInt( result.counts, static_cast<int>( contactCount ) );
+    result.counts = HashInt( result.counts, static_cast<int>( pipelineRecordCount ) );
+    result.launcher = HashLauncherControlState( result.counts, launcherVisual );
+    result.snapshot = HashSolverWorldSnapshot( result.launcher, worldSnapshot );
+    result.bodies = result.snapshot;
+    for ( const ReplaySolverBodySample& body : bodies )
+    {
+        result.bodies = HashSolverBodySample( result.bodies, body );
+    }
+    return result;
+}
 } // namespace
+
+uint64_t SkullbonezCore::Runtime::ReplaySolverHashForSample( const ReplaySolverFrameSample& sample ) noexcept
+{
+    return ReplaySolverHashBreakdownForSample( sample ).bodies;
+}
+
+ReplaySolverHashBreakdown
+SkullbonezCore::Runtime::ReplaySolverHashBreakdownForSample( const ReplaySolverFrameSample& sample ) noexcept
+{
+    return BuildSolverHashBreakdown( sample.world,
+                                     sample.worldSnapshot.physics.modelCount,
+                                     sample.contactCount,
+                                     sample.pipelineRecordCount,
+                                     sample.launcherVisual,
+                                     sample.worldSnapshot,
+                                     sample.bodies );
+}
 
 ReplayEventCommand SkullbonezCore::Runtime::ReplayEventCommandOperations::BuildCommand( ReplayEventKind kind,
                                                                                         ReplayFrameIndex frameIndex,
@@ -2813,14 +2853,6 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     presentationHash = HashInt( presentationHash, static_cast<int>( sample.contactCount ) );
     presentationHash = HashInt( presentationHash, static_cast<int>( sample.pipelineRecordCount ) );
 
-    uint64_t solverHash = FNV64_OFFSET;
-    solverHash = HashWorld( solverHash, sample.world );
-    solverHash = HashInt( solverHash, static_cast<int>( modelCount ) );
-    solverHash = HashInt( solverHash, static_cast<int>( sample.contactCount ) );
-    solverHash = HashInt( solverHash, static_cast<int>( sample.pipelineRecordCount ) );
-    solverHash = HashLauncherControlState( solverHash, sample.launcherVisual );
-    solverHash = HashSolverWorldSnapshot( solverHash, m_solverCaptureWorldSnapshot );
-
     for ( int i = 0; i < modelCount; ++i )
     {
         const std::size_t bodyIndex = static_cast<std::size_t>( i );
@@ -2840,10 +2872,17 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
             bodyIndex < m_normalImpulseSumScratch.size() ? m_normalImpulseSumScratch[bodyIndex] : 0.0f;
 
         presentationHash = HashSolverBodyPresentationFields( presentationHash, body );
-        solverHash = HashSolverBodySample( solverHash, body );
         m_solverCaptureBodies.push_back( body );
     }
 
+    const uint64_t solverHash = BuildSolverHashBreakdown( sample.world,
+                                                          static_cast<int>( modelCount ),
+                                                          sample.contactCount,
+                                                          sample.pipelineRecordCount,
+                                                          sample.launcherVisual,
+                                                          m_solverCaptureWorldSnapshot,
+                                                          m_solverCaptureBodies )
+                                    .bodies;
     sample.presentationHash = presentationHash;
     sample.solverHash = solverHash;
     const bool forceSolverKeyframe = sample.checkpointBoundary || m_sampleCount == 1u;
