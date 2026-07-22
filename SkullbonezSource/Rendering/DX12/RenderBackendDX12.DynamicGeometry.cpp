@@ -559,48 +559,37 @@ const char* Dx12GeometryOwner::TransientShaderBaseName( TransientTriangleStyle s
 }
 
 
-uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
-                                                 int staticVertCount,
-                                                 int staticFloatsPerVert,
-                                                 int instanceFloats,
-                                                 int instanceStartAttrib,
-                                                 const int* instanceAttribSizes,
-                                                 int numInstanceAttribs,
-                                                 const int* staticAttribSizes,
-                                                 int numStaticAttribs,
-                                                 ID3D12Device* device,
-                                                 ID3D12GraphicsCommandList* commandList,
-                                                 ID3D12Resource* uploadResource,
-                                                 D3D12_GPU_VIRTUAL_ADDRESS uploadAddr,
-                                                 uint8_t* uploadPointer )
+uint32_t Dx12GeometryOwner::CreateInstancedMesh( const InstancedMeshCreateDesc& mesh,
+                                                 const InstancedMeshUploadTarget& upload )
 {
-    if ( !device || !commandList || !uploadResource || uploadAddr == 0 || !uploadPointer )
+    if ( !upload.device || !upload.commandList || !upload.uploadResource || upload.uploadAddress == 0 ||
+         !upload.uploadPointer )
     {
         return 0;
     }
 
     InstancedMeshDX12 im = {};
-    im.staticFloatsPerVert = staticFloatsPerVert;
-    im.staticStride = staticFloatsPerVert * (int)sizeof( float );
-    im.instanceFloats = instanceFloats;
-    im.instanceStride = instanceFloats * (int)sizeof( float );
-    im.instanceStartAttrib = instanceStartAttrib;
-    im.numInstanceAttribs = numInstanceAttribs;
-    im.numStaticAttribs = numStaticAttribs;
-    for ( int i = 0; i < numInstanceAttribs && i < 8; ++i )
+    im.staticFloatsPerVert = mesh.staticFloatsPerVertex;
+    im.staticStride = mesh.staticFloatsPerVertex * (int)sizeof( float );
+    im.instanceFloats = mesh.instanceFloats;
+    im.instanceStride = mesh.instanceFloats * (int)sizeof( float );
+    im.instanceStartAttrib = mesh.instanceStartAttribute;
+    im.numInstanceAttribs = static_cast<int>( mesh.instanceAttributeSizes.size() );
+    im.numStaticAttribs = static_cast<int>( mesh.staticAttributeSizes.size() );
+    for ( int i = 0; i < im.numInstanceAttribs && i < 8; ++i )
     {
-        im.instanceAttribSizes[i] = instanceAttribSizes[i];
+        im.instanceAttribSizes[i] = mesh.instanceAttributeSizes[static_cast<std::size_t>( i )];
     }
-    for ( int i = 0; i < numStaticAttribs && i < 8; ++i )
+    for ( int i = 0; i < im.numStaticAttribs && i < 8; ++i )
     {
-        im.staticAttribSizes[i] = staticAttribSizes[i];
+        im.staticAttribSizes[i] = mesh.staticAttributeSizes[static_cast<std::size_t>( i )];
     }
 
     // Create the static (shared) vertex buffer on the GPU-only default heap.
     // This holds geometry that does not change, such as sphere or box mesh
     // vertices. It is uploaded once and reused across instance batches.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    UINT64 dataSize = (UINT64)staticVertCount * staticFloatsPerVert * sizeof( float );
+    UINT64 dataSize = (UINT64)mesh.staticVertexCount * mesh.staticFloatsPerVertex * sizeof( float );
 
     D3D12_HEAP_PROPERTIES defaultHeap = {};
     defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -618,12 +607,12 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
     // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-    const HRESULT staticBufferResult = device->CreateCommittedResource( &defaultHeap,
-                                                                        D3D12_HEAP_FLAG_NONE,
-                                                                        &bufDesc,
-                                                                        D3D12_RESOURCE_STATE_COMMON,
-                                                                        nullptr,
-                                                                        IID_PPV_ARGS( &im.staticVB ) );
+    const HRESULT staticBufferResult = upload.device->CreateCommittedResource( &defaultHeap,
+                                                                               D3D12_HEAP_FLAG_NONE,
+                                                                               &bufDesc,
+                                                                               D3D12_RESOURCE_STATE_COMMON,
+                                                                               nullptr,
+                                                                               IID_PPV_ARGS( &im.staticVB ) );
     if ( FAILED( staticBufferResult ) || !im.staticVB )
     {
         // Lane R: instanced mesh handles already use 0 as "no backend mesh".
@@ -632,7 +621,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
         SkullbonezCore::Core::Log().WriteEventf(
             "dx12_instanced_static_vertex_buffer_create_failed hresult=0x%08X vertices=%d stride=%d",
             static_cast<unsigned int>( FAILED( staticBufferResult ) ? staticBufferResult : E_FAIL ),
-            staticVertCount,
+            mesh.staticVertexCount,
             im.staticStride );
         SkullbonezCore::Core::Log().FlushAll();
         if ( im.staticVB )
@@ -649,12 +638,12 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
     // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
-    memcpy( uploadPointer, staticData, (size_t)dataSize );
-    commandList->CopyBufferRegion( im.staticVB,
-                                   0,
-                                   uploadResource,
-                                   uploadAddr - uploadResource->GetGPUVirtualAddress(),
-                                   dataSize );
+    memcpy( upload.uploadPointer, mesh.staticVertices, (size_t)dataSize );
+    upload.commandList->CopyBufferRegion( im.staticVB,
+                                          0,
+                                          upload.uploadResource,
+                                          upload.uploadAddress - upload.uploadResource->GetGPUVirtualAddress(),
+                                          dataSize );
     // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
     // combined read state used for both vertex fetch and raytracing BLAS build SRV access.
     D3D12_RESOURCE_BARRIER barrier = {};
@@ -664,7 +653,7 @@ uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
     barrier.Transition.StateAfter =
         D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    commandList->ResourceBarrier( 1, &barrier );
+    upload.commandList->ResourceBarrier( 1, &barrier );
 
     im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();
     im.staticVBV.SizeInBytes = (UINT)dataSize;
@@ -957,39 +946,23 @@ void Dx12GeometryOwner::BindResourceOwners( Dx12RenderDevice& device,
 }
 
 
-uint32_t Dx12GeometryOwner::CreateInstancedMesh( const float* staticData,
-                                                 int staticVertCount,
-                                                 int staticFloatsPerVert,
-                                                 int /*maxInstances*/,
-                                                 int instanceFloats,
-                                                 int instanceStartAttrib,
-                                                 const int* instanceAttribSizes,
-                                                 int numInstanceAttribs,
-                                                 const int* staticAttribSizes,
-                                                 int numStaticAttribs )
+uint32_t Dx12GeometryOwner::CreateInstancedMesh( const InstancedMeshCreateDesc& mesh )
 {
     assert( m_resourceDevice && m_resourceFrame );
     if ( !m_resourceFrame->EnsureOpen().ok )
     {
         return 0;
     }
-    const UINT64 bytes = static_cast<UINT64>( staticVertCount ) * staticFloatsPerVert * sizeof( float );
+    const UINT64 bytes = static_cast<UINT64>( mesh.staticVertexCount ) * mesh.staticFloatsPerVertex * sizeof( float );
     const D3D12_GPU_VIRTUAL_ADDRESS address =
         m_resourceFrame->UploadReservations().ReserveUpload( bytes, 4, RenderUploadCategory::DynamicVertex );
-    return CreateInstancedMesh( staticData,
-                                staticVertCount,
-                                staticFloatsPerVert,
-                                instanceFloats,
-                                instanceStartAttrib,
-                                instanceAttribSizes,
-                                numInstanceAttribs,
-                                staticAttribSizes,
-                                numStaticAttribs,
-                                m_resourceDevice->Device(),
-                                m_resourceDevice->CommandList(),
-                                m_resourceFrame->Uploads().Resource( m_resourceFrame->AllocatorIndex() ),
-                                address,
-                                address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr );
+    const InstancedMeshUploadTarget upload{
+        m_resourceDevice->Device(),
+        m_resourceDevice->CommandList(),
+        m_resourceFrame->Uploads().Resource( m_resourceFrame->AllocatorIndex() ),
+        address,
+        address ? m_resourceFrame->UploadReservations().UploadPointer( address ) : nullptr };
+    return CreateInstancedMesh( mesh, upload );
 }
 
 

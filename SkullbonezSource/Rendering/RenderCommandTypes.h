@@ -132,16 +132,9 @@ struct ClearTargetDesc
 
 // Pass code names the bucket id while spelling out the complete fixed-function
 // recipe. Defaults deliberately match an opaque depth-tested mesh draw.
-constexpr PassRasterStateBucket MakePassRasterStateBucket( uint8_t id,
-                                                           bool depthTest,
-                                                           bool depthWrite,
-                                                           bool blendEnabled,
-                                                           BlendFactor sourceBlend = BlendFactor::One,
-                                                           BlendFactor destinationBlend = BlendFactor::Zero,
-                                                           CullMode cullMode = CullMode::Back,
-                                                           DepthBiasDesc depthBias = {} )
+constexpr PassRasterStateBucket MakePassRasterStateBucket( uint8_t id, RasterStateDesc raster = {} )
 {
-    return { { id }, { depthTest, depthWrite, blendEnabled, sourceBlend, destinationBlend, cullMode, depthBias, {} } };
+    return { { id }, raster };
 }
 
 enum class TransientTriangleStyle

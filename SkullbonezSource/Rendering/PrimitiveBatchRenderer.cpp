@@ -124,18 +124,13 @@ struct InstancedShadowDepthConstants
     float clipPlane[4];
 };
 
-constexpr PassRasterStateBucket PRIMITIVE_OPAQUE_RASTER = MakePassRasterStateBucket( 0, true, true, false );
+constexpr PassRasterStateBucket PRIMITIVE_OPAQUE_RASTER = MakePassRasterStateBucket( 0, { true, true, false } );
 constexpr PassRasterStateBucket PRIMITIVE_TRANSPARENT_RASTER =
-    MakePassRasterStateBucket( 1, true, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+    MakePassRasterStateBucket( 1, { true, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha } );
 // Shadow bias mirrors the pass-owned recipe: constant units first, then slope.
-constexpr PassRasterStateBucket PRIMITIVE_SHADOW_RASTER = MakePassRasterStateBucket( 2,
-                                                                                     true,
-                                                                                     true,
-                                                                                     false,
-                                                                                     BlendFactor::One,
-                                                                                     BlendFactor::Zero,
-                                                                                     CullMode::Back,
-                                                                                     { true, 4.0f, 2.0f } );
+constexpr PassRasterStateBucket PRIMITIVE_SHADOW_RASTER = MakePassRasterStateBucket(
+    2,
+    { true, true, false, BlendFactor::One, BlendFactor::Zero, CullMode::Back, { true, 4.0f, 2.0f } } );
 
 static const PassRasterStateBucket& PrimitiveVisibleRasterState( bool isTransparent )
 {
@@ -178,7 +173,8 @@ static void EnsureMaterialTableTexture( const PrimitiveRenderContext& context, P
         rows[i * 4 + 3] = MaterialByte( material.stylization );
     }
 
-    state.materialTableTexture = Textures( context ).CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4, false, false );
+    state.materialTableTexture = Textures( context ).CreateTexture2D(
+        { rows, MATERIAL_TABLE_WIDTH, 1, 4, TextureMipPolicy::SingleLevel, TextureFilterPolicy::Nearest } );
     Textures( context ).BindTexture( state.materialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
 }
 
@@ -821,17 +817,8 @@ void PrimitiveBatchRenderer::BuildSphereMesh( const PrimitiveRenderContext& cont
     int staticAttribSizes[] = { 3, 3, 2 };
     // Instance layout: model matrix plus three float4 material rows, starting at location 3.
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.sphereInstMesh =
-        GeometryOwner( context ).CreateInstancedMesh( verts.data(),
-                                                      m_state.sphereVertexCount,
-                                                      8,
-                                                      SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
-                                                      INSTANCE_FLOATS,
-                                                      3,
-                                                      instanceAttribSizes,
-                                                      8,
-                                                      staticAttribSizes,
-                                                      3 );
+    m_state.sphereInstMesh = GeometryOwner( context ).CreateInstancedMesh(
+        { verts.data(), m_state.sphereVertexCount, 8, INSTANCE_FLOATS, 3, instanceAttribSizes, staticAttribSizes } );
 
     m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
@@ -855,17 +842,13 @@ void PrimitiveBatchRenderer::BuildLowPolySphereMesh( const PrimitiveRenderContex
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.lowPolySphereInstMesh =
-        GeometryOwner( context ).CreateInstancedMesh( verts.data(),
-                                                      m_state.lowPolySphereVertexCount,
-                                                      8,
-                                                      SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
-                                                      INSTANCE_FLOATS,
-                                                      3,
-                                                      instanceAttribSizes,
-                                                      8,
-                                                      staticAttribSizes,
-                                                      3 );
+    m_state.lowPolySphereInstMesh = GeometryOwner( context ).CreateInstancedMesh( { verts.data(),
+                                                                                    m_state.lowPolySphereVertexCount,
+                                                                                    8,
+                                                                                    INSTANCE_FLOATS,
+                                                                                    3,
+                                                                                    instanceAttribSizes,
+                                                                                    staticAttribSizes } );
 
     m_state.sphereInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
@@ -1054,17 +1037,8 @@ void PrimitiveBatchRenderer::BuildBoxMesh( const PrimitiveRenderContext& context
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.boxInstMesh =
-        GeometryOwner( context ).CreateInstancedMesh( verts.data(),
-                                                      m_state.boxVertexCount,
-                                                      8,
-                                                      SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
-                                                      INSTANCE_FLOATS,
-                                                      3,
-                                                      instanceAttribSizes,
-                                                      8,
-                                                      staticAttribSizes,
-                                                      3 );
+    m_state.boxInstMesh = GeometryOwner( context ).CreateInstancedMesh(
+        { verts.data(), m_state.boxVertexCount, 8, INSTANCE_FLOATS, 3, instanceAttribSizes, staticAttribSizes } );
 
     m_state.boxInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }
@@ -1282,17 +1256,8 @@ void PrimitiveBatchRenderer::BuildPineMesh( const PrimitiveRenderContext& contex
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4, 4 };
-    m_state.pineInstMesh =
-        GeometryOwner( context ).CreateInstancedMesh( verts.data(),
-                                                      m_state.pineVertexCount,
-                                                      8,
-                                                      SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
-                                                      INSTANCE_FLOATS,
-                                                      3,
-                                                      instanceAttribSizes,
-                                                      8,
-                                                      staticAttribSizes,
-                                                      3 );
+    m_state.pineInstMesh = GeometryOwner( context ).CreateInstancedMesh(
+        { verts.data(), m_state.pineVertexCount, 8, INSTANCE_FLOATS, 3, instanceAttribSizes, staticAttribSizes } );
 
     m_state.pineInstanceData.reserve( SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS * INSTANCE_FLOATS );
 }

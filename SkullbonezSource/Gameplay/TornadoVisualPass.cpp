@@ -51,12 +51,12 @@ constexpr float FX_KIND_RIBBON = 0.0f;
 constexpr float FX_KIND_DUST = 1.0f;
 constexpr Rendering::PassRasterStateBucket VISUAL_RASTER =
     Rendering::MakePassRasterStateBucket( 0,
-                                          true,
-                                          false,
-                                          true,
-                                          Rendering::BlendFactor::SrcAlpha,
-                                          Rendering::BlendFactor::OneMinusSrcAlpha,
-                                          Rendering::CullMode::None );
+                                          { true,
+                                            false,
+                                            true,
+                                            Rendering::BlendFactor::SrcAlpha,
+                                            Rendering::BlendFactor::OneMinusSrcAlpha,
+                                            Rendering::CullMode::None } );
 
 float Clamp01( float value )
 {

@@ -96,28 +96,28 @@ constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_OFFSET = 1469598103934665603
 constexpr uint64_t REPLAY_TRAJECTORY_SUBMISSION_FNV_PRIME = 1099511628211ull;
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_RIBBON_DEPTH_HINT_RASTER =
     SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
-                                                          false,
-                                                          false,
-                                                          true,
-                                                          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
-                                                          SkullbonezCore::Rendering::BlendFactor::One,
-                                                          SkullbonezCore::Rendering::CullMode::None );
+                                                          { false,
+                                                            false,
+                                                            true,
+                                                            SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                                            SkullbonezCore::Rendering::BlendFactor::One,
+                                                            SkullbonezCore::Rendering::CullMode::None } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_RIBBON_VISIBLE_RASTER =
     SkullbonezCore::Rendering::MakePassRasterStateBucket( 1,
-                                                          true,
-                                                          false,
-                                                          true,
-                                                          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
-                                                          SkullbonezCore::Rendering::BlendFactor::One,
-                                                          SkullbonezCore::Rendering::CullMode::None );
+                                                          { true,
+                                                            false,
+                                                            true,
+                                                            SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+                                                            SkullbonezCore::Rendering::BlendFactor::One,
+                                                            SkullbonezCore::Rendering::CullMode::None } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket REPLAY_LINE_RASTER =
     SkullbonezCore::Rendering::MakePassRasterStateBucket( 2,
-                                                          false,
-                                                          false,
-                                                          false,
-                                                          SkullbonezCore::Rendering::BlendFactor::One,
-                                                          SkullbonezCore::Rendering::BlendFactor::Zero,
-                                                          SkullbonezCore::Rendering::CullMode::None );
+                                                          { false,
+                                                            false,
+                                                            false,
+                                                            SkullbonezCore::Rendering::BlendFactor::One,
+                                                            SkullbonezCore::Rendering::BlendFactor::Zero,
+                                                            SkullbonezCore::Rendering::CullMode::None } );
 
 void HashReplaySubmissionBytes( uint64_t& hash, SkullbonezCore::Core::ByteView bytes )
 {

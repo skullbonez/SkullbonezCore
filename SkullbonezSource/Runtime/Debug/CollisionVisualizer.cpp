@@ -78,9 +78,9 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
-constexpr PassRasterStateBucket COLLISION_OPAQUE_RASTER = MakePassRasterStateBucket( 0, true, true, false );
+constexpr PassRasterStateBucket COLLISION_OPAQUE_RASTER = MakePassRasterStateBucket( 0, { true, true, false } );
 constexpr PassRasterStateBucket COLLISION_TRANSLUCENT_RASTER =
-    MakePassRasterStateBucket( 1, true, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+    MakePassRasterStateBucket( 1, { true, false, true, BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha } );
 
 // Why: the legacy DRAW_CALL_TRACE_SCOPE macro still reaches through the global
 // renderer accessor. This local scope records the same child labels through the
@@ -197,16 +197,8 @@ void CollisionVisualizer::BuildSphereMesh( Dx12GeometryOwner& renderGeometry )
     // layout stays compatible with the normal renderer's position/normal/uv slots.
     int staticAttribSizes[] = { 3, 3 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    m_sphereInstMesh = renderGeometry.CreateInstancedMesh( verts.data(),
-                                                           m_sphereVertexCount,
-                                                           6,
-                                                           SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
-                                                           INSTANCE_FLOATS,
-                                                           3,
-                                                           instanceAttribSizes,
-                                                           5,
-                                                           staticAttribSizes,
-                                                           2 );
+    m_sphereInstMesh = renderGeometry.CreateInstancedMesh(
+        { verts.data(), m_sphereVertexCount, 6, INSTANCE_FLOATS, 3, instanceAttribSizes, staticAttribSizes } );
 }
 
 
@@ -228,16 +220,8 @@ void CollisionVisualizer::BuildBoxMesh( Dx12GeometryOwner& renderGeometry )
     //   location 7:    debug color
     int staticAttribSizes[] = { 3, 3 };
     int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    m_boxInstMesh = renderGeometry.CreateInstancedMesh( verts.data(),
-                                                        m_boxVertexCount,
-                                                        6,
-                                                        SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS,
-                                                        INSTANCE_FLOATS,
-                                                        3,
-                                                        instanceAttribSizes,
-                                                        5,
-                                                        staticAttribSizes,
-                                                        2 );
+    m_boxInstMesh = renderGeometry.CreateInstancedMesh(
+        { verts.data(), m_boxVertexCount, 6, INSTANCE_FLOATS, 3, instanceAttribSizes, staticAttribSizes } );
 }
 
 

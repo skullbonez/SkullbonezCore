@@ -50,7 +50,7 @@ namespace
 {
 constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Count );
 constexpr PassRasterStateBucket PHYSICS_DEBUG_LINE_RASTER =
-    MakePassRasterStateBucket( 0, false, false, false, BlendFactor::One, BlendFactor::Zero, CullMode::None );
+    MakePassRasterStateBucket( 0, { false, false, false, BlendFactor::One, BlendFactor::Zero, CullMode::None } );
 
 float ShapeAxisLength( const ColliderRecord& collider, int axis )
 {

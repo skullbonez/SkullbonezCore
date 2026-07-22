@@ -91,33 +91,34 @@ constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;
 constexpr unsigned int RENDER_TEXTURE_SLOT_3 = 1u << 3;
 constexpr unsigned int RENDER_TEXTURE_SLOT_5 = 1u << 5;
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket FULLSCREEN_OPAQUE_RASTER =
-    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, false, false, false );
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, { false, false, false } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket SHADOW_DEPTH_RASTER =
     SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
-                                                          true,
-                                                          true,
-                                                          false,
-                                                          SkullbonezCore::Rendering::BlendFactor::One,
-                                                          SkullbonezCore::Rendering::BlendFactor::Zero,
-                                                          SkullbonezCore::Rendering::CullMode::Back,
-                                                          { true, 4.0f, 2.0f } );
+                                                          { true,
+                                                            true,
+                                                            false,
+                                                            SkullbonezCore::Rendering::BlendFactor::One,
+                                                            SkullbonezCore::Rendering::BlendFactor::Zero,
+                                                            SkullbonezCore::Rendering::CullMode::Back,
+                                                            { true, 4.0f, 2.0f } } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket WATER_RASTER =
-    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
-                                                          true,
-                                                          false,
-                                                          true,
-                                                          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
-                                                          SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha );
+    SkullbonezCore::Rendering::MakePassRasterStateBucket(
+        0,
+        { true,
+          false,
+          true,
+          SkullbonezCore::Rendering::BlendFactor::SrcAlpha,
+          SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket TERRAIN_RASTER =
-    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, true, true, false );
+    SkullbonezCore::Rendering::MakePassRasterStateBucket( 0, { true, true, false } );
 constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER =
     SkullbonezCore::Rendering::MakePassRasterStateBucket( 0,
-                                                          false,
-                                                          false,
-                                                          false,
-                                                          SkullbonezCore::Rendering::BlendFactor::One,
-                                                          SkullbonezCore::Rendering::BlendFactor::Zero,
-                                                          SkullbonezCore::Rendering::CullMode::None );
+                                                          { false,
+                                                            false,
+                                                            false,
+                                                            SkullbonezCore::Rendering::BlendFactor::One,
+                                                            SkullbonezCore::Rendering::BlendFactor::Zero,
+                                                            SkullbonezCore::Rendering::CullMode::None } );
 
 void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
                                     unsigned int keptSlots )
