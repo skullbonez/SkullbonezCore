@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: RD1 complete; RD2 implementation active
+State: RD2 complete; RD3 closure pending
 Ledger tasks: 4 (RD0-RD3)
 
 ## Framing (Owner Statement, 2026-07-22)
@@ -67,7 +67,7 @@ behavior frozen throughout.
   confirmed duplicate as dedup-now, cohesion-retain (with recorded reason),
   or defer. Rulings that contradict a prior R-/RC-era ruling name the new
   evidence explicitly. Documentation-only task.
-- [ ] RD2 — Implementation of dedup-now rulings. One logical consolidation
+- [x] RD2 — Implementation of dedup-now rulings. One logical consolidation
   per commit; byte-frozen behavior proven per commit by the plan's gates.
   If RD1 yields zero dedup-now rulings, RD2 closes as a recorded no-op and
   the plan's result is a certified-clean census.
@@ -232,6 +232,37 @@ golden refresh.
 - Replay/downward-include and dependency-direction proofs return zero rows.
   No reserve registration, allocation-policy file, owner, phase, cap, counter,
   or growth API changed.
+
+### C5 — Canonical Presentation selection and overlay composition
+
+- Moved `ReplayPresentationSelection` into the Presentation packet header so it
+  remains the one value-only answer to selected/latest/current timeline state.
+  `ReplayOverlayStateView` now composes that canonical value instead of copying
+  its eleven fields.
+- `ReplayOverlayRenderContext` now borrows the immutable overlay state view
+  rather than flattening ten selection fields plus scrubber, prediction, path,
+  velocity, cause-tree, and solver state again. Legacy rendering, ImGui, and the
+  compact causality projection consume the same composed selection.
+- Definition/field census finds exactly one `ReplayPresentationSelection` and
+  zero flattened selection fields in `ReplayOverlayPackets.h`. The narrower
+  `ReplayRenderFrameView` remains unchanged as required by the C5 ruling.
+- Touched-source comment audit: 9 / 9 source-bearing files checked, 0 deferred.
+  Presentation packets document selection vocabulary and frame-local lifetime;
+  overlay packets document synchronous composition/borrowing without mutable
+  owner authority.
+- Focused final Profile solution build passed in 11.37 seconds with zero
+  warnings/errors. The direct Replay doctest filter passed in 2.32 seconds:
+  53 / 53 cases and 791 / 791 assertions. The compact causality projection
+  test passed in 0.02 seconds: 1 / 1 case and 16 / 16 assertions.
+- Final `tools\validate_format.bat` passed in 13.42 seconds. Final
+  `tools\validate_tests.bat` passed in 3.42 seconds: 346 / 346 cases and
+  68,707 / 68,707 assertions, zero warnings/errors.
+- C5's sole `tools\validate_replay_visual_fidelity.bat` invocation passed in
+  443.75 seconds: one engine process, one prediction generation and
+  presentation, 2,401 ticks, 17 / 17 typed controls (75 assertions), every
+  negative/determinism control, and no golden refresh.
+- Replay/downward-include and dependency-direction proofs return zero rows; no
+  allocation inventory, policy file, owner privilege, or growth API changed.
 
 ## Dependencies And Decisions
 

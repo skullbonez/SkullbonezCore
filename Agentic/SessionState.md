@@ -271,6 +271,10 @@ are not certified. Full evidence:
 | replay visual fidelity (RD2 C3, sole invocation) | 439.01 s | PASS; one process/generation/presentation, 2,401 ticks, all controls, zero refresh |
 | focused Profile build + Replay doctests (RD2 C4) | 4.32 s + 1.91 s | PASS; zero warnings/errors, 53 cases / 791 assertions |
 | replay visual fidelity (RD2 C4, sole invocation) | 444.30 s | PASS; one process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
+| focused Profile build + Replay/causality doctests (RD2 C5) | 11.37 s + 2.32 s + 0.02 s | PASS; zero warnings/errors, 53 Replay cases / 791 assertions and 1 causality case / 16 assertions |
+| `tools\validate_format.bat` (RD2 C5 final) | 13.42 s | PASS; all implementation and header formatting clean |
+| `tools\validate_tests.bat` (RD2 C5 final) | 3.42 s | PASS; 346 cases / 68,707 assertions, zero warnings/errors |
+| replay visual fidelity (RD2 C5, sole invocation) | 443.75 s | PASS; one process/generation/presentation, 2,401 ticks, all positive/negative controls, zero refresh |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -278,8 +282,8 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-deduplication-audit` RD2 with C5; C1-C4 are implemented and
-fully gated. The owner
+Continue `replay-deduplication-audit` with RD3 independent review and final
+Replay/full closure gates; RD2 C1-C5 are implemented and fully gated. The owner
 accepted the recommendations conditional on every Replay doctest, focused v2
 artifact gate, strict allocation gate, authoritative visual-fidelity oracle,
 and final broad gate passing before closure. C6-C7 retain cohesion. Follow the

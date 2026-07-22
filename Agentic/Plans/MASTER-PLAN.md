@@ -367,11 +367,16 @@ on the condition that every Replay doctest, focused v2 artifact gate, strict
 allocation gate, authoritative visual-fidelity oracle, and final broad gate
 pass before closure.
 
+RD2 completed on 2026-07-22. C1-C5 now have one owning implementation or
+canonical composed value, while C6-C7 retain their ruled separate lifetimes.
+Each logical consolidation passed its sole visual-fidelity oracle; RD3 final
+independent review and the owner-conditioned Replay/full gate set remain.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 2 | 4 | 50% |
+| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 3 | 4 | 75% |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **2** | **9** | **22%** |
+| **Active/future total** | **3** | **9** | **33%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1349,7 +1354,7 @@ a census records. Execution order is binding: 1 physics unification,
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Active | 2/4 | Implement C1-C5 in RD2; C6-C7 retain cohesion |
+| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Active | 3/4 | RD3 independent review and final Replay/full gates |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | Registered | 0/5 | Last; W0 inventory measures the post-campaign tree |
 
 ## Features

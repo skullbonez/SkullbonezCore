@@ -135,6 +135,7 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
 {
     ImGuiEditorCausalityContext context;
     const RunReplayCauseTreeState& tree = replay.causeTree;
+    const ReplayPresentationSelection& selection = replay.selection;
     context.totalRowCount = tree.rows.size();
 
     const auto setTick = [&]( const auto* sample ) -> bool
@@ -147,11 +148,11 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
         context.hasReplayTick = true;
         return true;
     };
-    if ( !setTick( replay.selectedPrediction ) && !setTick( replay.selectedSolver ) &&
-         !setTick( replay.selectedPresentation ) && !setTick( replay.currentSolver ) &&
-         !setTick( replay.currentPresentation ) && !setTick( replay.latestSolver ) )
+    if ( !setTick( selection.selectedPrediction ) && !setTick( selection.selectedSolver ) &&
+         !setTick( selection.selectedPresentation ) && !setTick( selection.currentSolver ) &&
+         !setTick( selection.currentPresentation ) && !setTick( selection.latestSolver ) )
     {
-        (void)setTick( replay.latestPresentation );
+        (void)setTick( selection.latestPresentation );
     }
     if ( !context.hasReplayTick && replay.prediction.sourceFrame != 0 )
     {
@@ -183,8 +184,8 @@ BuildImGuiEditorCausalityContext( const ReplayOverlay::ReplayOverlayStateView& r
                                     replay.prediction.targetId.value == replay.pathVisualizer.targetId.value;
     const std::size_t nodeCount =
         usePredictionNodes ? replay.prediction.futureNodes.size() : replay.pathVisualizer.futureNodes.size();
-    const std::size_t contactCount = replay.currentSolver
-                                         ? replay.currentSolver->worldSnapshot.physics.persistentContacts.size()
+    const std::size_t contactCount = selection.currentSolver
+                                         ? selection.currentSolver->worldSnapshot.physics.persistentContacts.size()
                                          : std::size_t{ 0u };
     const std::size_t estimatedRows = 1u + ( usePredictionNodes ? nodeCount * 2u : nodeCount ) + contactCount * 3u;
     const bool capacityLimited =
