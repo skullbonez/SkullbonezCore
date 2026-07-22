@@ -1,22 +1,28 @@
 /*
 File: ReplayPredictionScheduling.h
 Purpose:
-  Defines allocation-free scheduling decisions for replay prediction builds.
+  Defines allocation-free scheduling, budget, and reveal decisions for replay
+  prediction builds and presentation.
 
 Summary:
   The worker schedule owns one in-place task, its in-flight join, and bounded
-  submissions. Pure decisions select build mode and coalesce dirty requests.
+  submissions. Shared operations select build mode, coalesce dirty requests,
+  measure pass budgets, and advance the presentation reveal cursor.
 
 Glossary:
   Instant build: One worker submission that completes the remaining horizon.
   Amortized build: Small worker submissions spread across render frames.
   Latest-wins restart: One pending rebuild bit representing every newer edit.
+  Reveal cursor: Monotonic presentation frame reached by the prediction clock.
+  Budget pass: Named prediction stage whose elapsed-time exhaustion is counted.
 
 Invariants:
-  - Scheduling decisions are pure and the schedule allocates no runtime memory.
+  - Build-mode/coalescer decisions are pure and the schedule allocates no runtime memory.
+  - Reveal operations mutate only the prediction-owned reveal clock.
   - Reset waits for an in-flight slice before releasing the task's stable borrows.
   - Instant work is never cancelled for a velocity refresh; the newest request
     begins after the current private-engine build completes.
+  - Every caller uses the same steady-clock budget and reveal policy.
 
 Related:
   - ReplayPrediction.h stores the scheduling state.
@@ -25,8 +31,13 @@ Related:
 #pragma once
 
 #include "../../Core/AmortizedTask.h"
+#include "../../Core/MainMemoryStats.h"
+#include "../../Physics/PhysicsHandles.h"
+#include "ReplayIdentity.h"
 #include "ReplayPredictionPackets.h"
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <thread>
@@ -45,6 +56,8 @@ class WorkerPool;
 namespace Runtime
 {
 class ReplayPrediction;
+struct ReplayPredictionUpdateResult;
+struct RunReplayPredictionState;
 
 // Concept: one submitted slice borrows only the stable prediction owner,
 // immutable config, worker pool, and captured model count. The schedule waits
@@ -127,6 +140,20 @@ enum class ReplayPredictionCoalescerAction : uint8_t
 
 namespace ReplayPredictionSchedulingOperations
 {
+double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::time_point& start );
+bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds );
+bool ReplayPredictionBudgetExpiredForPass( ReplayPredictionUpdateResult& result,
+                                           SkullbonezCore::Core::MainMemoryReplayBudgetPass pass,
+                                           const std::chrono::steady_clock::time_point& start,
+                                           double budgetMilliseconds );
+double ReplayPredictionRemainingMilliseconds( const std::chrono::steady_clock::time_point& start,
+                                              double budgetMilliseconds );
+double ReplayPredictionRevealSecondsPerSecond( const RunReplayPredictionState& prediction );
+ReplayFrameIndex ReplayPredictionRevealFrameIndex( RunReplayPredictionState& prediction,
+                                                   ReplayFrameIndex lastAvailableFrame );
+std::size_t ReplayPredictionBuildPresentationFrameCountForRefresh( RunReplayPredictionState& prediction,
+                                                                   Physics::PhysicsSceneObjectId requestedTargetId );
+
 inline ReplayPredictionBuildMode
 ChooseReplayPredictionBuildMode( double measuredTicksPerMs, int remainingTicks, double instantBudgetMs ) noexcept
 {

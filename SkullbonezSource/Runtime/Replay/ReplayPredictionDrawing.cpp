@@ -52,6 +52,7 @@ using namespace SkullbonezCore::Physics;
 namespace Physics = SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations;
+using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
 using SkullbonezCore::Math::Vector::Vector3;
 
 namespace
@@ -161,16 +162,6 @@ void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
     }
 
     tracer.AddReplayBaselinePathSegment( start, end, r, g, b );
-}
-
-double ReplayPredictionElapsedMilliseconds( const std::chrono::steady_clock::time_point& start )
-{
-    return std::chrono::duration<double, std::milli>( std::chrono::steady_clock::now() - start ).count();
-}
-
-bool ReplayPredictionBudgetExpired( const std::chrono::steady_clock::time_point& start, double budgetMilliseconds )
-{
-    return budgetMilliseconds > 0.0 && ReplayPredictionElapsedMilliseconds( start ) >= budgetMilliseconds;
 }
 
 template <typename FrameSample, typename BodySample>

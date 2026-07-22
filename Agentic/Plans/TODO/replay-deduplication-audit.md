@@ -111,6 +111,39 @@ RD1's sole `tools\validate_replay_visual_fidelity.bat` invocation passed in
 17/17 typed cases (75 assertions), every negative/determinism control, and no
 golden refresh.
 
+## RD2 Implementation Evidence (2026-07-22)
+
+### C1 — Prediction timing, budget, reveal, and refresh policy
+
+- Centralized all seven C1 operations in the existing
+  `ReplayPredictionSchedulingOperations` owner; Prediction orchestration,
+  topology publication, and drawing now call that implementation. The stricter
+  refresh precondition (`valid requested id`, same target, and at least two
+  committed frames) is preserved.
+- Deleted the file-local copies from `ReplayPrediction.cpp`,
+  `ReplayPredictionPublication.cpp`,
+  `ReplayPredictionTopologyPublication.cpp`, and
+  `ReplayPredictionDrawing.cpp`. A definition census finds exactly one body for
+  each operation, all in `ReplayPredictionScheduling.cpp`.
+- Touched-source comment audit: 6 / 6 source-bearing files checked against the
+  comment-style guide, 0 deferred. The scheduling owner documents the shared
+  clock units, accounting order, reveal monotonicity, refresh invariant, and
+  state mutation boundary; deletion-only callers retain compliant learning
+  headers.
+- Focused final Profile solution build passed in 3.56 seconds with zero
+  warnings/errors. The direct Replay doctest filter passed in 1.87 seconds:
+  52 / 52 cases and 786 / 786 assertions.
+- Final `tools\validate_format.bat` passed in 13.37 seconds. Final
+  `tools\validate_tests.bat` passed in 11.34 seconds: 345 / 345 cases,
+  68,702 / 68,702 assertions, zero warnings/errors.
+- C1's sole `tools\validate_replay_visual_fidelity.bat` invocation passed in
+  442.68 seconds: one engine process, one prediction generation and
+  presentation, 2,401 ticks, 17 / 17 typed controls (75 assertions), every
+  negative/determinism control, and no golden refresh.
+- Replay/downward-include and dependency-direction proofs return zero rows.
+  No reserve registration, allocation-policy file, owner, phase, cap, or
+  counter changed.
+
 ## Dependencies And Decisions
 
 - Fourth in the round-2 campaign binding order (heaviest per-task gate lands
