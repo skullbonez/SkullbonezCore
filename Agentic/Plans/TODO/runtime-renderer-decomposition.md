@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: Registered, not started
+State: In progress; RR0 complete
 Ledger tasks: 6 (RR0-RR5)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -49,9 +49,77 @@ widest method signatures drop measurably against the RR0 baseline.
 - No render-graph architecture change (one live graph, declaration-only
   Present edge — `render-graph-completion` closure stands).
 
+## RR0 Baseline Census (2026-07-22, starting tip 88d78670)
+
+The authoritative starting surface is
+`SkullbonezSource/Runtime/Render/RuntimeRenderer.h` (407 text lines) plus its
+2,639-line implementation. CodeGraph was current at the census and reported
+eight direct users; the counts below were confirmed against the actual header
+and direct include rows.
+
+### Data-member denominator
+
+`RuntimeRenderer` starts with **46 data members**. Multi-line declarations
+count once. Nested frame/context/input records are type declarations, not
+owner state, and are excluded.
+
+| Domain | Count | Exact members | RR ruling |
+|---|---:|---|---|
+| Concrete DX12 owner borrows and lifecycle log | 8 | `m_renderFrame`, `m_renderGraph`, `m_renderResources`, `m_renderTextures`, `m_renderGeometry`, `m_renderDiagnostics`, `m_renderRayTracing`, `m_lifecycleLog` | RR3 resource-lifecycle surface |
+| World, scene, policy, and backend-lifetime resources | 11 | `m_assets`, `m_textures`, `m_cameras`, `m_terrain`, `m_skyBox`, `m_window`, `m_passResources`, `m_config`, `m_presentationSettings`, `m_world`, `m_primitiveBatches` | Keep only resources genuinely shared by renderer passes; RR3/RR4 decide survivors |
+| Debug and GPU profiling | 5 | `m_collisionVisualizer`, `m_broadphaseVisualizer`, `m_physicsDebugVisualizer`, `m_profiler`, `m_renderGpuTiming` | Typed debug/pass borrows may remain; RR4 recounts |
+| Replay consequence-grade animation | 2 | `m_consequenceGradeStrength`, `m_consequenceGradeLastTick` | Must leave the renderer in RR2 |
+| DXR frame scratch | 1 | `m_dxrReflectionTransforms` | Renderer-owned bounded pass scratch |
+| World/cinematic pass instances | 11 | `m_fullscreenQuadPass`, `m_skyPass`, `m_sceneTargetPass`, `m_shadowPass`, `m_reflectionPass`, `m_objectPass`, `m_terrainPass`, `m_waterPass`, `m_debugOverlayPass`, `m_volumetricPass`, `m_tonemapPass` | Core renderer authority; stays cohesive |
+| UI text pass infrastructure | 2 | `m_textBatch`, `m_uiTextPass` | RR1 extraction candidate |
+| Live frame-graph scratch and state | 5 | `m_renderPassGraphScratch`, `m_renderPassCompileScratch`, `m_frameGraphSnapshot`, `m_frameGraphRenderGraph`, `m_frameGraphFinalized` | One-live-graph invariant; stays with orchestration |
+| UI-text ray-tracing borrow | 1 | `m_uiTextRayTracing` | RR1/RR3 remove or relocate with UI text resources |
+| **Total** | **46** |  | RR4 acceptance denominator |
+
+### Constructor and wide-call denominators
+
+The constructor starts at **10 parameters**: eight concrete DX12 owner
+pointers, one `RenderWorldView`, and one `RunSceneState`. The world view already
+groups stable owner borrows; RR3 must not replace the remaining arguments with
+an unowned service bag.
+
+Exactly **two ordinary methods have seven or more parameters**:
+
+| Method | Arity | Domains mixed at the starting tip | Planned owner |
+|---|---:|---|---|
+| `RenderUiText` | 12 | DX12 diagnostics, UI render facts, UI pass state, timers, operator UI, render models, diagnostics runtime, replay HUD, replay overlay, cinematic config/policy, frame delta | RR1 UI-text composition owner; target <=6 |
+| `ExecuteUiTextThroughRenderGraph` | 13 | The same 12 domains plus the ray-tracing owner borrow | RR1 UI-text pass owner/resource seam; target <=6 |
+
+The constructor is tracked separately from the wide-method count. No other
+public or private `RuntimeRenderer` method reaches seven parameters;
+`EnsureUiTextResources` is the next widest at six.
+
+### Direct include fan-in denominator
+
+Direct fan-in is **8 files**:
+
+| Direct includer | Reason for dependency |
+|---|---|
+| `Runtime/Render/RuntimeRenderer.cpp` | owner implementation |
+| `Runtime/Run.h` | owns the single process renderer |
+| `Runtime/InputFrameExecution.cpp` | applies renderer-facing input commands |
+| `Runtime/OperatorCommandApplier.cpp` | applies concrete render-device/UI commands |
+| `Runtime/RuntimeStressController.cpp` | applies bounded graphics-stress mutations |
+| `Runtime/Scene/RunScene.cpp` | scene activation/resource warmup and reset sequencing |
+| `Runtime/Scene/SceneRuntimeReset.cpp` | captures/restores presentation policy values |
+| `Runtime/Replay/ReplayRestoreService.h` | replay restore transaction borrows the concrete renderer |
+
+Only `RenderDevelopmentUi` is declaration-guarded by
+`SKULLBONEZ_DEVELOPMENT_TOOLS`; no data member is conditionally compiled.
+Replay currently crosses both the UI-text signatures and the consequence-grade
+state, while resource lifecycle and frame-graph orchestration share the same
+owner. These are the RR1-RR3 extraction seams; the one-live-graph order,
+declaration-only Present edge, DX12 image thresholds, and zero-InfoQueue rule
+are the validation-sensitive invariants.
+
 ## Phases
 
-- [ ] RR0 — Baseline census. Record member inventory (count and domain),
+- [x] RR0 — Baseline census. Record member inventory (count and domain),
   constructor arity, the ≥7-argument method inventory, and include fan-in
   for `RuntimeRenderer.h` at the starting tip. These numbers are the
   acceptance denominators.

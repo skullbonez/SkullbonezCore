@@ -345,10 +345,10 @@ final broad gate are clear. Evidence is recorded in
 
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | 0 | 6 | 0% |
+| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | 1 | 6 | 17% |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 0 | 4 | 0% |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **0** | **15** | **0%** |
+| **Active/future total** | **1** | **15** | **7%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1326,7 +1326,7 @@ a census records. Execution order is binding: 1 physics unification,
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | Registered | 0/6 | Starts after frame-phase decomposition closes; RR0 baseline census |
+| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | In progress | 1/6 | RR0 baseline pinned; RR1 extract UI-text composition |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Starts after renderer RR2 lands (or records the pending seam); RD0 census |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | Registered | 0/5 | Last; W0 inventory measures the post-campaign tree |
 

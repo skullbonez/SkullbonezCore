@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Begin `runtime-renderer-decomposition` RR0: census the current renderer/runtime surface, state, callers, conditional seams, and validation-sensitive behavior before extraction. |
-| Active/future progress | 0 / 15 live tasks; 0%. |
+| Current objective | Implement `runtime-renderer-decomposition` RR1: extract UI-text composition behind one named per-frame value record while RuntimeRenderer retains only graph scheduling. |
+| Active/future progress | 1 / 15 live tasks; 7%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RX3 final `validate_full` passes in 101.8 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RX3's independent logical-Run review is clean; all four dependency/replay proofs return no rows. Closure docs require no additional validation. RR0 is documentation-only census work. |
+| Validation for current edits | RR0 is documentation-only census work and requires no validation. RR1 is DX12-touching and requires focused build/test evidence, `tools\validate_dx12_renderer.bat`, and `tools\run_graphics_stress.bat 1` at its pre-commit gate. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 0/15 with
-binding order: `runtime-renderer-decomposition` (0/6),
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 1/15 with
+binding order: `runtime-renderer-decomposition` (1/6),
 `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -245,10 +245,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Begin `runtime-renderer-decomposition` RR0: use the current CodeGraph index and
-actual RuntimeRenderer/RunRender source to record the exact owner surface,
-state, callers, conditional seams, and validation-sensitive behavior before
-moving authority.
+Implement `runtime-renderer-decomposition` RR1: move UI/HUD/replay-text
+composition into a cohesive UI-text pass owner with one named per-frame value
+record, leaving RuntimeRenderer only the graph-scheduling call and no UI-text
+signature wider than six parameters.
 Follow the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.
