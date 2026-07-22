@@ -8,6 +8,11 @@ Summary:
   public header, keep edits anchored on local owner boundaries and call
   direction and on the glossary/invariants below.
 
+Mental model:
+  Run is the process composition root and sequencer. It borrows concrete owners,
+  constructs stack-only frame views, and calls narrow phases without becoming
+  the storage owner for input, scene, replay, rendering, or UI policy.
+
 Glossary:
   Attached camera target: Runtime follow selection where Run owns the selected
     identity while physics stores own live target pose and motion.
@@ -20,6 +25,8 @@ Glossary:
     failure reported with owner/message diagnostics instead of exceptions.
   Probe failure: CLI validation failure reported as bounded result/report data
     so automation exits nonzero without throwing through the frame loop.
+  Frame phase result: Small value-only decision passed between adjacent frame
+    phases; it is never retained as process or subsystem state.
 
 Invariants:
   - Run is the composition root for process-lifetime runtime systems.
@@ -100,6 +107,11 @@ namespace Runtime
 class Window;
 class RuntimeOverlayDiagnostics;
 class RuntimeValidationHarness;
+struct InteractionAutomationFrameResult;
+struct RuntimeFrameHostView;
+struct RuntimeFrameInteractionView;
+struct RuntimeFramePresentationView;
+struct RuntimeFrameSceneView;
 struct RuntimeRenderModelFrameView;
 
 /* -- Skullbonez Run
@@ -158,6 +170,51 @@ class Run
     std::unique_ptr<RuntimeValidationHarness> m_validationHarness;         // Owns opt-in live-style and graphics-stress controls.
     RuntimeRenderBackendView m_renderBackendView;                          // Borrowed active renderer capabilities for renderer users.
     RuntimeRenderer m_renderer;                                            // Owns runtime render passes and frame render ordering.
+
+    // Concept: these value-only results carry decisions between adjacent frame
+    // phases. They are stack state, not replacement owners or retained context.
+    struct FrameInputPhaseResult;
+    struct FrameSimulationPhaseResult;
+    struct FrameRenderPhaseResult;
+    struct FramePresentationFacts;
+
+    bool PumpFrameMessages( int& messageExitCode );                        // Bounded Win32 drain; true ends the frame loop.
+    double BeginFrameTurn();                                               // Starts timing/profiling and validates renderer composition.
+    RuntimeFrameHostView BuildFrameHostView();                             // Constructs this turn's process-service borrow slice.
+    RuntimeFrameInteractionView BuildFrameInteractionView();               // Constructs this turn's input/UI borrow slice.
+    RuntimeFrameSceneView BuildFrameSceneView();                           // Constructs this turn's scene-policy borrow slice.
+    RuntimeFramePresentationView BuildFramePresentationView();             // Constructs this turn's render/validation borrow slice.
+    void BeginFrameDiagnosticsPhase();                                     // Publishes prior GPU timing, then resets draw counters.
+#if defined( SKULLBONEZ_AUTOMATION_DIAGNOSTICS )
+    InteractionAutomationFrameResult RunAutomationBeforeInputPhase( RuntimeFrameInteractionView& interaction,
+                                                                    RuntimeFrameSceneView& scene );
+#endif
+    FrameInputPhaseResult RunInputPhase( RuntimeFrameHostView& host,
+                                         RuntimeFrameInteractionView& interaction,
+                                         RuntimeFrameSceneView& scene,
+                                         RuntimeFramePresentationView& presentation,
+                                         const InteractionAutomationFrameResult* automationBeforeInput );
+    FrameSimulationPhaseResult RunSimulationPhase( RuntimeFrameSceneView& scene,
+                                                   double secondsPerFrame,
+                                                   const SceneFrameProceedPolicy& proceedPolicy );
+    FrameRenderPhaseResult PrepareRenderPhase( RuntimeFrameHostView& host,
+                                               RuntimeFrameInteractionView& interaction,
+                                               RuntimeFrameSceneView& scene,
+                                               RuntimeFramePresentationView& presentation,
+                                               bool legacyDevelopmentUiActive,
+                                               const FrameSimulationPhaseResult& simulation );
+    RuntimeRenderModelFrameView PublishRenderModelsPhase();
+    void RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha );
+    SkullbonezCore::Core::SbResult RenderOperatorUiPhase( RuntimeFrameHostView& host,
+                                                          RuntimeFrameInteractionView& interaction,
+                                                          RuntimeFrameSceneView& scene,
+                                                          RuntimeFramePresentationView& presentation,
+                                                          const RuntimeRenderModelFrameView& renderModels,
+                                                          const FramePresentationFacts& facts );
+    void RunPostDrawDiagnosticsPhase( RuntimeFrameInteractionView& interaction, bool legacyDevelopmentUiActive );
+    void FinishFrameWorkPhase( const SceneFrameProceedPolicy& proceedPolicy );
+    SkullbonezCore::Core::SbResult PresentFramePhase();
+    bool CompleteFramePhase( const SceneFrameProceedPolicy& proceedPolicy );
 
     void
     Render( const RuntimeRenderModelFrameView& renderModels,

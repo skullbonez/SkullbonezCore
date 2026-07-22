@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: In progress; RX0 census complete
+State: In progress; RX0-RX1 complete
 Ledger tasks: 4 (RX0-RX3)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -111,13 +111,46 @@ RX1 is move-only and must preserve these control facts exactly:
 7. Pipeline-sync, viewport, ImGui, and Present failures retain their current
    stop-timer/end-profiler/owned-failure result paths and exact error strings.
 
+## RX1 Implementation Evidence (2026-07-22)
+
+- `Run::Execute` is 75 formatted physical lines (`RunFrame.cpp:772-845` at
+  the validated tree). It retains the early exit latch, bounded loop, one
+  steady-gameplay allocation scope, four stack-view factories, named phase
+  sequence, restart edges, and final message-code resolution.
+- The RX0 spans map to `PumpFrameMessages`, `BeginFrameTurn`, the four
+  `BuildFrame*View` factories, `BeginFrameDiagnosticsPhase`,
+  `RunAutomationBeforeInputPhase`, `RunInputPhase`, `RunSimulationPhase`,
+  `PrepareRenderPhase`, `PublishRenderModelsPhase`, `RenderWorldPhase`,
+  `RenderOperatorUiPhase`, `RunPostDrawDiagnosticsPhase`,
+  `FinishFrameWorkPhase`, `PresentFramePhase`, and `CompleteFramePhase`.
+- Four narrow nested result values carry only adjacent phase decisions. No
+  `Run` data member, owner type, callback, retained host pointer, or broad
+  context bag was added. The view factories return the existing non-copyable
+  frame-view types and construct each exactly once per turn.
+- The move preserves both restart edges: screenshot completion still skips
+  auto-cycle/timing/Present/completion, while scene advance still occurs after
+  successful Present and perf bookkeeping. Pipeline-sync, viewport, ImGui, and
+  Present failures retain the same owned-failure resolution paths.
+- Touched-source comment audit: `Run.h` and `RunFrame.cpp` checked 2/2, no
+  checklist path required for a touched-file pass, zero deferred/unchecked
+  files, and no term awaiting human wording.
+- Focused evidence: Profile build passed with zero warnings/errors in 8.41 s;
+  direct Automation build passed with zero warnings/errors in 8.28 s; the
+  complete-frame proceed-policy doctest passed 1/1 with 9 assertions in 0.02 s.
+- Final pre-commit gate: `tools\validate_full.bat` passed on the final formatted
+  source in 125.57 s. It accepted all CPU/coverage floors and five runtime
+  lanes, reported zero DX12 validation errors, accepted all committed images,
+  retained physics lifecycle hash `0x953D97A226665242`, and matched the
+  44,401-line physics CSV byte-exactly. Earlier preflight attempts stopped only
+  on the two repository formatting stages before any behavioral lane ran.
+
 ## Phases
 
 - [x] RX0 — Frame-order census. Document the current `Execute` body as an
   ordered phase list with exact line ranges, the state each span reads and
   writes, and every `#ifdef` region's true owner. This census is the
   extraction map and the review oracle for "nothing moved out of order".
-- [ ] RX1 — Extract the frame turn. Pull the per-frame body into named
+- [x] RX1 — Extract the frame turn. Pull the per-frame body into named
   private phase methods per the RX0 map (e.g. pump/drain, frame-begin +
   view construction, automation-before-input, input turn, simulation,
   capture-and-advance, render, present/frame-end), each taking existing
