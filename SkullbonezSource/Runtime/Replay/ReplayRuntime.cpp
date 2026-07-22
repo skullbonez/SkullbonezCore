@@ -323,15 +323,23 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
     }
 
 #ifdef _DEBUG
-    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene,
-                                                   sample,
-                                                   restoredSolverHash,
-                                                   restoredPresentationHash,
-                                                   restoredBodyCount,
-                                                   hashCaptured,
-                                                   hashMatched,
-                                                   !hashMatched,
-                                                   fallbackRestored );
+    ReplayRestoreProbeDiagnostic restoreProbe;
+    restoreProbe.targetReplayFrame = sample.frameIndex;
+    restoreProbe.targetSceneFrame = sample.sceneFrame;
+    restoreProbe.targetSolverHash = sample.solverHash;
+    restoreProbe.targetPresentationHash = sample.presentationHash;
+    restoreProbe.targetBodyCount = sample.bodies.size();
+    restoreProbe.restoredSolverHash = restoredSolverHash;
+    restoreProbe.restoredPresentationHash = restoredPresentationHash;
+    restoreProbe.restoredBodyCount = restoredBodyCount;
+    restoreProbe.contactCount = sample.contactCount;
+    restoreProbe.pipelineRecordCount = sample.pipelineRecordCount;
+    restoreProbe.checkpointBoundary = sample.checkpointBoundary;
+    restoreProbe.hashCaptured = hashCaptured;
+    restoreProbe.hashMatched = hashMatched;
+    restoreProbe.fallbackAttempted = !hashMatched;
+    restoreProbe.fallbackRestored = fallbackRestored;
+    transaction.diagnostics.LogReplayRestoreProbe( transaction.sampleOwners.scene, restoreProbe );
 #endif
 
     // Hazard: a recoverable restore failure may return only after the live

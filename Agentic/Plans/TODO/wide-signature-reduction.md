@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: W0-W2 complete; W3 implementation active
+State: W0-W3 complete; W4 closure active
 Ledger tasks: 5 (W0-W4)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -75,7 +75,7 @@ future reviews cite instead of re-litigating.
   defect rows outside render/replay-gated files (scene, runtime, physics
   cold paths), one logical signature family per commit, each with its
   mapped gate.
-- [ ] W3 — Refactor wave B. Implement the remaining ruled defect rows,
+- [x] W3 — Refactor wave B. Implement the remaining ruled defect rows,
   including any render- or replay-gated files with their mandatory extra
   gates (DX12 stress per rule 10; replay mega gate per rule 11 where
   replay-facing).
@@ -166,6 +166,30 @@ allocation policy 4.22 seconds PASS; v2 artifact 33.16 seconds PASS; Replay
 scrub 431.04 seconds PASS. Dependency-direction and downward-Replay-include
 proofs return no rows, and no growth privilege appears. Comment audit: 8/8
 touched source-bearing files checked, 0 deferred.
+
+## W3 Evidence (2026-07-23)
+
+DX12/resource family: `Texture2DUploadDesc`, `InstancedMeshCreateDesc`, and
+the existing `RasterStateDesc` now carry texture, mesh-layout, and raster
+recipes into their concrete owners. The removed `maxInstances` argument was
+unused; filtering remains explicit while the shader contract owns the fixed
+sampler. The inventory falls 297 → 291 with all six ruled DX12/raster rows
+gone. Profile builds pass with zero warnings/errors; `validate_full` passes in
+181.62 seconds, including zero DX12 validation errors and accepted screenshots.
+Graphics stress passes in 60.95 seconds, and Replay visual fidelity passes in
+432.22 seconds. Static dependency and Replay-boundary proofs return no rows.
+Comment audit: 16/16 touched source-bearing files checked, 0 deferred.
+
+Replay-diagnostics family: `ReplayScrubProbeDiagnostic`,
+`ReplayRestoreProbeDiagnostic`, and `ReplayRestoreResultDiagnostic` are
+bounded Runtime value schemas with synchronous string borrows and no Replay,
+scene, or diagnostics owner authority. The inventory falls 291 → 285 with all
+six ruled diagnostic rows gone. Profile builds pass with zero warnings/errors;
+`validate_full` passes in 137.75 seconds. All Replay gates pass from final
+source: allocation policy 4.20 seconds, v2 artifact 33.32 seconds, visual
+fidelity 426.94 seconds, and scrub 426.16 seconds. Comment audit: 7/7 touched
+source-bearing files checked, 0 deferred. No baseline, golden, screenshot, or
+Replay artifact was refreshed in either W3 family.
 
 ## Dependencies And Decisions
 

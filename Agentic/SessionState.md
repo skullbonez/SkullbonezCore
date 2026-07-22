@@ -12,18 +12,18 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Replay deduplication is closed: C1-C5 share owning implementations, C6-C7 retain ruled lifetimes, and every Replay/full gate passes. Legacy remains the development default. |
-| Current objective | Complete `wide-signature-reduction` W3: DX12 descriptor/policy and Replay diagnostic value families. |
-| Active/future progress | 3 / 5 live tasks; 60%. |
+| Current objective | Complete `wide-signature-reduction` W4: final inventory, independent no-bag review, and closure gate. |
+| Active/future progress | 4 / 5 live tasks; 80%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RD3 final `validate_full` passes in 136.17 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | W2 closed at 297 rows. Physics restore passes full, Replay visual, allocation, v2-artifact, and scrub gates; static boundary proofs are empty and no growth privilege appears. |
+| Last broad local gate | W3 final `validate_full` passes in 137.75 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | W3 closed at 285 rows. All Replay gates pass: allocation, v2 artifact, visual fidelity, and scrub; the DX12 family also passes 60.95 s graphics stress. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 3/5 with
-`wide-signature-reduction` W3-W4 remaining. W2 removed the four ruled UI-input
-and Physics-restore rows without introducing a context bag; W3 owns the 12
-remaining DX12 and Replay-diagnostic rows across four bounded families.
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 4/5 with
+`wide-signature-reduction` W4 remaining. W2 and W3 removed all 16 ruled defect
+rows without introducing a context bag; the final inventory contains 285
+accepted rows for independent closure review.
 The live
 plan is under `Agentic/Plans/TODO/`; the
 campaign section in

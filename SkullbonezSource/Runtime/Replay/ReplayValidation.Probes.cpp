@@ -975,18 +975,32 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::TickScrubProbe( const ReplayRe
             "replay scrub probe did not restore the live model after applying the selected sample" );
     }
 
-    transaction.diagnostics.LogReplayScrubProbe( transaction.sampleOwners.scene,
-                                                 *selected,
-                                                 *live,
-                                                 *selectedBody,
-                                                 *liveBody,
-                                                 probe.normalized,
-                                                 bestDistanceSquared,
-                                                 applied,
-                                                 restored,
-                                                 preLiveDeltaSquared,
-                                                 appliedDeltaSquared,
-                                                 restoredDeltaSquared );
+    ReplayScrubProbeDiagnostic scrubDiagnostic;
+    scrubDiagnostic.selectedReplayFrame = selected->frameIndex;
+    scrubDiagnostic.liveReplayFrame = live->frameIndex;
+    scrubDiagnostic.selectedSceneFrame = selected->sceneFrame;
+    scrubDiagnostic.liveSceneFrame = live->sceneFrame;
+    scrubDiagnostic.selectedStateHash = selected->stateHash;
+    scrubDiagnostic.liveStateHash = live->stateHash;
+    scrubDiagnostic.bodyId = selectedBody->id.value;
+    scrubDiagnostic.modelIndex = liveBody->modelRow.value;
+    scrubDiagnostic.bodyName = selectedBody->name;
+    scrubDiagnostic.selectedPosition[0] = selectedBody->position.x;
+    scrubDiagnostic.selectedPosition[1] = selectedBody->position.y;
+    scrubDiagnostic.selectedPosition[2] = selectedBody->position.z;
+    scrubDiagnostic.livePosition[0] = liveBody->position.x;
+    scrubDiagnostic.livePosition[1] = liveBody->position.y;
+    scrubDiagnostic.livePosition[2] = liveBody->position.z;
+    scrubDiagnostic.normalized = probe.normalized;
+    scrubDiagnostic.distanceSquared = bestDistanceSquared;
+    scrubDiagnostic.selectedBodyCount = selected->bodies.size();
+    scrubDiagnostic.liveBodyCount = live->bodies.size();
+    scrubDiagnostic.applied = applied;
+    scrubDiagnostic.restored = restored;
+    scrubDiagnostic.preLiveDeltaSquared = preLiveDeltaSquared;
+    scrubDiagnostic.appliedDeltaSquared = appliedDeltaSquared;
+    scrubDiagnostic.restoredDeltaSquared = restoredDeltaSquared;
+    transaction.diagnostics.LogReplayScrubProbe( transaction.sampleOwners.scene, scrubDiagnostic );
 
     probe.completed = true;
     printf(

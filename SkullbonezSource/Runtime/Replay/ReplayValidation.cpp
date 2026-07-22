@@ -348,25 +348,26 @@ void LogReplayV2TargetRestoreDiagnostic( DiagnosticsRuntime& diagnosticsRuntime,
     const ReplayFrameIndex targetFrame = diagnosticTarget
                                              ? diagnosticTarget->frameIndex
                                              : ( requestedFrame == latestNonCheckpointTarget ? 0 : requestedFrame );
-    diagnosticsRuntime.LogReplayRestoreResult( scene,
-                                               restoreSource,
-                                               targetFrame,
-                                               diagnosticTarget ? diagnosticTarget->sceneFrame : scene.currentFrame,
-                                               diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0,
-                                               diagnosticTarget ? diagnosticTarget->solverHash : 0,
-                                               diagnosticTarget ? diagnosticTarget->presentationHash : 0,
-                                               diagnosticTarget ? diagnosticTarget->bodyCount : 0,
-                                               restoredSolverHash,
-                                               restoredPresentationHash,
-                                               restoredBodyCount,
-                                               diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0,
-                                               diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0,
-                                               diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false,
-                                               hashCaptured,
-                                               hashMatched,
-                                               fallbackAttempted,
-                                               fallbackRestored,
-                                               failureReason );
+    ReplayRestoreResultDiagnostic result;
+    result.restoreSource = restoreSource;
+    result.targetReplayFrame = targetFrame;
+    result.targetSceneFrame = diagnosticTarget ? diagnosticTarget->sceneFrame : scene.currentFrame;
+    result.checkpointReplayFrame = diagnosticCheckpoint ? diagnosticCheckpoint->frameIndex : 0;
+    result.targetSolverHash = diagnosticTarget ? diagnosticTarget->solverHash : 0;
+    result.targetPresentationHash = diagnosticTarget ? diagnosticTarget->presentationHash : 0;
+    result.targetBodyCount = diagnosticTarget ? diagnosticTarget->bodyCount : 0;
+    result.restoredSolverHash = restoredSolverHash;
+    result.restoredPresentationHash = restoredPresentationHash;
+    result.restoredBodyCount = restoredBodyCount;
+    result.contactCount = diagnosticCheckpoint ? diagnosticCheckpoint->contactCount : 0;
+    result.pipelineRecordCount = diagnosticCheckpoint ? diagnosticCheckpoint->pipelineRecordCount : 0;
+    result.checkpointBoundary = diagnosticCheckpoint ? diagnosticCheckpoint->checkpointBoundary : false;
+    result.hashCaptured = hashCaptured;
+    result.hashMatched = hashMatched;
+    result.fallbackAttempted = fallbackAttempted;
+    result.fallbackRestored = fallbackRestored;
+    result.failureReason = failureReason;
+    diagnosticsRuntime.LogReplayRestoreResult( scene, result );
 #else
     (void)diagnosticsRuntime;
     (void)scene;
