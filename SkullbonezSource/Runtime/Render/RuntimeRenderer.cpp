@@ -115,20 +115,6 @@ float LerpFloat( float from, float to, float t )
     return from + ( to - from ) * t;
 }
 
-float ApproachFloat( float current, float target, float dtSeconds, float secondsToTarget )
-{
-    if ( secondsToTarget <= 0.0f )
-    {
-        return target;
-    }
-    const float step = std::clamp( dtSeconds / secondsToTarget, 0.0f, 1.0f );
-    if ( current < target )
-    {
-        return (std::min)( target, current + step );
-    }
-    return (std::max)( target, current - step );
-}
-
 void ApplyConsequenceGrade( SkullbonezCore::Core::CinematicRenderConfig& cinematic, float strength )
 {
     const float s = std::clamp( strength, 0.0f, 1.0f );
@@ -2517,23 +2503,12 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
     {
         return false;
     }
-    const auto gradeNow = std::chrono::steady_clock::now();
-    float gradeDtSeconds = 0.0f;
-    if ( m_consequenceGradeLastTick.time_since_epoch().count() != 0 )
-    {
-        gradeDtSeconds =
-            std::clamp( std::chrono::duration<float>( gradeNow - m_consequenceGradeLastTick ).count(), 0.0f, 0.10f );
-    }
-    m_consequenceGradeLastTick = gradeNow;
-    const float consequenceGradeTarget = context.consequenceGradeRequested ? 1.0f : 0.0f;
-    m_consequenceGradeStrength =
-        ApproachFloat( m_consequenceGradeStrength, consequenceGradeTarget, gradeDtSeconds, 1.0f );
-
     SkullbonezCore::Core::CinematicRenderConfig frameCinematic = context.cinematic;
-    ApplyConsequenceGrade( frameCinematic, m_consequenceGradeStrength );
+    const float consequenceGradeStrength = std::clamp( context.consequenceGradeStrength, 0.0f, 1.0f );
+    ApplyConsequenceGrade( frameCinematic, consequenceGradeStrength );
 
     const bool cinematicRender =
-        ( context.cinematicRequested || m_consequenceGradeStrength > 0.01f ) && renderReady && !policy.textOnly;
+        ( context.cinematicRequested || consequenceGradeStrength > 0.01f ) && renderReady && !policy.textOnly;
     // Why: this call constructs the one-frame render record directly. Field
     // labels keep every live borrow visible and prevent positional drift when
     // RuntimeRenderServices changes; RenderFrame does not retain the record.

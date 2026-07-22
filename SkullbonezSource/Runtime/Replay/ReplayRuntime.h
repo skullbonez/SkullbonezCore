@@ -193,6 +193,9 @@ class ReplayRuntime
                         const Math::Vector::Vector3& cameraTranslation,
                         const Math::Vector::Vector3& cameraUp,
                         uint64_t replayReserveGrowthEvents );
+    // Domain command: advances ReplayPresentation's consequence fade once for
+    // a frame that will reach world rendering and returns a copied scalar.
+    float AdvanceConsequenceGrade( bool requested ) noexcept;
     void CompleteRenderFrame( bool submissionRendered,
                               int sceneFrame,
                               uint64_t replayReserveGrowthEvents,

@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Implement `runtime-renderer-decomposition` RR2: move consequence-grade fade state and wall-clock animation to the Replay presentation domain and cross one frame value into rendering. |
-| Active/future progress | 2 / 15 live tasks; 13%. |
+| Current objective | Implement `runtime-renderer-decomposition` RR3: separate process/scene renderer resource lifecycle from frame orchestration and shrink constructor/backend borrows without creating a service bag. |
+| Active/future progress | 3 / 15 live tasks; 20%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RR1 final `validate_full` passes in 122.6 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RR1 also passes final Profile (10.8 s), Automation (11.5 s), dedicated DX12 (55.8 s), and one-minute graphics stress (61.1 s). RR2 additionally requires the one-invocation replay visual-fidelity mega gate. |
+| Last broad local gate | RR2 final `validate_full` passes in 108.0 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | RR2 also passes replay doctests (52/52), dedicated DX12 (56.6 s), one-minute stress (61.1 s), and its sole replay visual-fidelity invocation (445.6 s; one engine process/generation). RR3 is DX12-touching. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 2/15 with
-binding order: `runtime-renderer-decomposition` (2/6),
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 3/15 with
+binding order: `runtime-renderer-decomposition` (3/6),
 `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -245,10 +245,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Implement `runtime-renderer-decomposition` RR2: move consequence-grade strength
-and its wall-clock fade to the Replay presentation owner, crossing a copied
-per-frame grade value into RuntimeRenderer without changing replay visuals or
-refreshing the golden manifest.
+Implement `runtime-renderer-decomposition` RR3: separate process and scene
+resource lifecycle behind a cohesive renderer-owned surface, shrink constructor
+and backend borrows where the RR0 census permits, and keep preview projection
+with its actual resource owner.
 Follow the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.

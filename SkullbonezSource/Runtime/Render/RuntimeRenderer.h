@@ -18,8 +18,8 @@ Glossary:
     water, post effects, and UI/text.
   Lane R result: Recoverable resource setup or GPU-drain failure reported
     through an owner/message result instead of throwing through the render owner.
-  Consequence grade: Frame-local dark/cool presentation override used when
-    replay prediction wants causal overlays to dominate the image.
+  Consequence grade: Replay-owned [0,1] scalar copied into one frame to make
+    causal overlays dominate the image; RuntimeRenderer stores no fade state.
   Resource context: Creation/rebuild-only view of the renderer factory and
   resize-sensitive dimensions.
   Backend-owned resource: GPU object that must be released before backend
@@ -56,7 +56,6 @@ Related:
 #include "../../Rendering/WorldRenderExtension.h"
 
 #include <array>
-#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -108,7 +107,7 @@ class RuntimeRenderer
         const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
         float presentationAlpha = 1.0f;                   // Exact solver state is 1; live frames may use the accumulator fraction.
         bool cinematicRequested = false;
-        bool consequenceGradeRequested = false;           // True while replay prediction should fade into the causality look.
+        float consequenceGradeStrength = 0.0f;            // Replay-owned [0,1] fade copied for this frame.
     };
 
     RuntimeRenderer( Rendering::Dx12RenderDevice* renderDevice,
@@ -353,9 +352,6 @@ class RuntimeRenderer
     Physics::PhysicsDebugVisualizer& m_physicsDebugVisualizer;
     SkullbonezCore::Core::Profiler* m_profiler = nullptr; // Startup-bound diagnostics source; null in non-profile builds.
     Rendering::RenderGpuTimingOwner m_renderGpuTiming;    // Concrete renderer query/event owner; Core receives values only.
-    float m_consequenceGradeStrength = 0.0f;              // Render-owned fade strength for the frame-local consequence grade.
-    std::chrono::steady_clock::time_point
-        m_consequenceGradeLastTick;                       // Wall-clock anchor for the grade crossfade; zero means uninitialized.
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
         m_dxrReflectionTransforms =
             {};                                           // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance upload.

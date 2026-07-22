@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: In progress; RR0-RR1 complete
+State: In progress; RR0-RR2 complete
 Ledger tasks: 6 (RR0-RR5)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -153,6 +153,40 @@ are the validation-sensitive invariants.
   matched byte-exactly. No baseline, golden, screenshot, or replay artifact was
   refreshed.
 
+## RR2 Replay Grade Ownership Evidence (2026-07-22)
+
+- `ReplayPresentation` now owns `m_consequenceGradeStrength` and its
+  `steady_clock` anchor. `AdvanceConsequenceGrade` preserves the original
+  clamped 0.10-second delta and one-second approach policy.
+- `ReplayRuntime::AdvanceConsequenceGrade` is the subsystem domain command;
+  `RunRender` invokes it immediately before world entry and preserves the old
+  text-only pause. `FrameEntryContext` crosses one copied `[0,1]` strength.
+- RuntimeRenderer retains only render policy: clamp the copied scalar, apply the
+  existing cinematic grade values, and schedule cinematic rendering while the
+  strength is visible. It has zero consequence-grade data members or clocks;
+  its provisional member denominator is 42 before RR4's authoritative recount.
+- No replay store, growth registration, phase gate, cap, high-water counter, or
+  reserve inventory changed. No downward Replay include, context/callback pack,
+  broad owner borrow, compatibility spelling, or heap/growth call appeared.
+- Touched-source comment audit: `ReplayPresentation.h/.cpp`,
+  `ReplayRuntime.h/.cpp`, `RunRender.cpp`, and `RuntimeRenderer.h/.cpp` checked
+  7/7; this touched-file pass needs no checklist path, with zero deferred or
+  unchecked files and no wording awaiting owner approval.
+- Focused Profile build passed in 11.2 s. The focused replay doctest selection
+  passed 52/52 cases and 786 assertions in 2.1 s.
+- `tools\validate_dx12_renderer.bat` passed in 56.6 s with zero InfoQueue
+  errors and unchanged accepted images. `tools\run_graphics_stress.bat 1`
+  completed crash-free in 61.1 s and stopped only by PID 61936's timeout.
+- The one permitted `tools\validate_replay_visual_fidelity.bat` invocation
+  passed in 445.6 s: launcher shape proved one engine process and one prediction
+  generation; the authoritative 2,401-tick run, causal reveal/durable artifact,
+  and every negative/false-pass control passed.
+- Final `tools\validate_full.bat` passed in 108.0 s: CPU/coverage and all five
+  runtime lanes passed, DX12 again reported zero errors and accepted committed
+  images, physics retained hash `0x953D97A226665242`, and the 44,401-line CSV
+  matched byte-exactly. No baseline, golden, screenshot, replay artifact, or
+  provenance metadata changed.
+
 ## Phases
 
 - [x] RR0 — Baseline census. Record member inventory (count and domain),
@@ -165,7 +199,7 @@ are the validation-sensitive invariants.
   receives one named per-frame value record; `RuntimeRenderer` retains only
   the graph scheduling call. Target: no UI-text path signature above six
   parameters.
-- [ ] RR2 — Replay presentation grading relocation. Move consequence-grade
+- [x] RR2 — Replay presentation grading relocation. Move consequence-grade
   fade state and its wall-clock animation to the replay presentation
   boundary (`ReplayPresentation` domain), crossing into the renderer as a
   per-frame value in the existing frame-entry record. Replay-facing task:

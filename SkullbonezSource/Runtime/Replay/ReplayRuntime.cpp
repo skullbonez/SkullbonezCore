@@ -614,6 +614,11 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
              focusFadeActive };
 }
 
+float ReplayRuntime::AdvanceConsequenceGrade( bool requested ) noexcept
+{
+    return m_visualPresentation.AdvanceConsequenceGrade( requested );
+}
+
 void ReplayRuntime::CompleteRenderFrame( bool submissionRendered,
                                          int sceneFrame,
                                          uint64_t replayReserveGrowthEvents,

@@ -164,6 +164,11 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // Invariant: Gameplay preallocates its bounded visual maximum during owner
     // construction. Steady rendering receives no allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
+    // Why: text-only frames never reached the old renderer-owned clock update.
+    // Preserve that pause while asking replay presentation for the copied fade
+    // value immediately before the world-render entry.
+    const float consequenceGradeStrength =
+        framePolicy.textOnly ? 0.0f : m_replayRuntime.AdvanceConsequenceGrade( replayPredictionEnabled );
     const bool replaySubmissionRendered =
         m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ renderModels,
                                                                          *m_operatorUi,
@@ -174,7 +179,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
                                                                          activeCinematic,
                                                                          presentationAlpha,
                                                                          cinematicRequested,
-                                                                         replayPredictionEnabled } );
+                                                                         consequenceGradeStrength } );
     m_replayRuntime.CompleteRenderFrame( replaySubmissionRendered,
                                          m_sceneController.State().currentFrame,
                                          replayGrowthEventCount,
