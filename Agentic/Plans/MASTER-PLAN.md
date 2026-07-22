@@ -336,13 +336,19 @@ pins full point-joint/query/contact/island state, and the independent review and
 final broad gate are clear. Evidence is recorded in
 `../Reports/2026-07-22/physics-standalone-world-unification-closure.md`.
 
+The active/future denominator returned 19 → 15 when
+`run-execute-frame-phase-decomposition` closed RX0-RX3 and left the ledger
+under rule 4. `Run::Execute` is a 74-line phase schedule, the sensitive frame
+order and restart edges are pinned, and the independent ownership review and
+final broad gate are clear. Evidence is recorded in
+`../Reports/2026-07-22/run-execute-frame-phase-decomposition-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | 3 | 4 | 75% |
 | [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | 0 | 6 | 0% |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 0 | 4 | 0% |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **3** | **19** | **16%** |
+| **Active/future total** | **0** | **15** | **0%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -436,9 +442,8 @@ The architecture-review campaign registered 2026-07-20 and the 2026-07-22
 architecture follow-up campaign (render interface retirement, owner fan-out
 reduction, replay subsystem consolidation) are complete. The live queue is
 the 2026-07-22 architecture follow-up round-2 campaign. Physics standalone-
-world unification is closed; the remaining binding order is
-`run-execute-frame-phase-decomposition` (frame loop; renderer work rebases on
-it), `runtime-renderer-decomposition` (DX12-heavy),
+world unification and Run frame-phase decomposition are closed; the remaining
+binding order is `runtime-renderer-decomposition` (DX12-heavy),
 `replay-deduplication-audit` (heaviest per-task gate; sweeps the
 post-renderer Presentation shape), then `wide-signature-reduction` (its
 inventory must measure the final tree). Plans live under `TODO/`; see the
@@ -1321,7 +1326,6 @@ a census records. Execution order is binding: 1 physics unification,
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | In progress | 3/4 | RX2 validated; RX3 independent ownership review and closure |
 | [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | Registered | 0/6 | Starts after frame-phase decomposition closes; RR0 baseline census |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Starts after renderer RR2 lands (or records the pending seam); RD0 census |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | Registered | 0/5 | Last; W0 inventory measures the post-campaign tree |
