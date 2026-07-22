@@ -16,7 +16,7 @@ plan inventory.
 | Active/future progress | 2 / 9 live tasks; 22%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RR5 final `validate_full` passes in 145.30 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, physics hash `0x953D97A226665242`, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RD2 C2 passes fast, static/strict allocation, focused Replay tests, and its sole visual oracle: two-generation allocation is clean; one visual generation/presentation produces 2,401 ticks and passes every control. |
+| Validation for current edits | RD2 C3 passes format, 346 tests / 68,707 assertions, focused lookup-policy coverage, and its sole visual oracle: one generation/presentation, 2,401 ticks, and every control. |
 
 ## Live Queue
 
@@ -265,6 +265,10 @@ are not certified. Full evidence:
 | `tools\validate_fast.bat` (RD2 C2 final) | 44.73 s | PASS; format/metadata and zero-warning Profile/Debug builds |
 | strict two-generation Replay allocation (RD2 C2) | 15.98 s | PASS; frame 180, exactly two generations, zero gameplay/policy violations |
 | replay visual fidelity (RD2 C2, sole invocation) | 430.84 s | PASS; one process/generation/presentation, 2,401 ticks, all controls, zero refresh |
+| focused Profile build + Replay doctests (RD2 C3) | 4.19 s + 2.41 s | PASS; zero build errors, 53 cases / 791 assertions including lookup policy |
+| `tools\validate_format.bat` (RD2 C3 final) | 13.48 s | PASS; all implementation and header formatting clean |
+| `tools\validate_tests.bat` (RD2 C3 final) | 8.75 s | PASS; 346 cases / 68,707 assertions, zero warnings/errors |
+| replay visual fidelity (RD2 C3, sole invocation) | 439.01 s | PASS; one process/generation/presentation, 2,401 ticks, all controls, zero refresh |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -272,7 +276,7 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Continue `replay-deduplication-audit` RD2 with C3-C5 in logical commits; C1-C2
+Continue `replay-deduplication-audit` RD2 with C4-C5 in logical commits; C1-C3
 are implemented and fully gated. The owner
 accepted the recommendations conditional on every Replay doctest, focused v2
 artifact gate, strict allocation gate, authoritative visual-fidelity oracle,

@@ -27,6 +27,7 @@ Related:
 #include "ReplayOverlayRenderer.h"
 #include "ReplayAuthoring.h"
 #include "ReplayPrediction.h"
+#include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPresentation.h"
 #include "ReplayPresentationSubmission.h"
 #include "../Editor/EditorTools.h"
@@ -52,6 +53,7 @@ using namespace SkullbonezCore::Physics;
 namespace Physics = SkullbonezCore::Physics;
 using namespace SkullbonezCore::Runtime::ReplayOverlay;
 using namespace SkullbonezCore::Runtime::ReplayPresentationSubmissionOperations;
+using namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
 using SkullbonezCore::Math::Vector::Vector3;
 
@@ -162,87 +164,6 @@ void AddOrAccountReplayBaselinePathSegment( RunEditorTracer& tracer,
     }
 
     tracer.AddReplayBaselinePathSegment( start, end, r, g, b );
-}
-
-template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
-{
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.id.value == id.value )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
-{
-    if constexpr ( !AllowNegativeModelIndex )
-    {
-        if ( modelIndex < 0 )
-        {
-            return nullptr;
-        }
-    }
-    if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
-    {
-        const BodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-const RunReplayPredictionBodySample* FindReplayPredictionBodyById( const RunReplayPredictionFrame& frame,
-                                                                   Physics::PhysicsSceneObjectId id )
-{
-    return FindReplayBodyByIdInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample>( frame, id );
-}
-
-const RunReplayPredictionBodySample* FindReplayPredictionBodyByModelIndex( const RunReplayPredictionFrame& frame,
-                                                                           int modelIndex )
-{
-    return FindReplayBodyByModelIndexInSample<RunReplayPredictionFrame, RunReplayPredictionBodySample, false>(
-        frame,
-        modelIndex );
-}
-
-bool ReplayModelIndexIsRagdollPart( const SceneEntityStore& entities, int modelIndex )
-{
-    // Hazard: physics debug contacts use -1 for terrain/world counterparts.
-    // That sentinel is not a scene row and must never reach group metadata.
-    if ( modelIndex < 0 || modelIndex >= entities.Count() )
-    {
-        return false;
-    }
-    const SceneEntityRecord* entity = entities.TryGet( modelIndex );
-    return entity && entity->behaviorGroup.kind == SceneBehaviorGroupKind::SimpleRagdoll;
-}
-
-const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
-                                                                           Physics::PhysicsSceneObjectId id,
-                                                                           int modelIndex )
-{
-    if ( const RunReplayPredictionBodySample* body = FindReplayPredictionBodyByModelIndex( frame, modelIndex ) )
-    {
-        if ( body->id.value == id.value )
-        {
-            return body;
-        }
-    }
-    return FindReplayPredictionBodyById( frame, id );
 }
 
 ReplayTrajectoryRecordKey

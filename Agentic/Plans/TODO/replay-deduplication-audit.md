@@ -175,6 +175,38 @@ golden refresh.
   golden refresh.
 - Replay/downward-include and dependency-direction proofs return zero rows.
 
+### C3 — Stable-id, model-row, ragdoll, and pose value leaves
+
+- Centralized sample-shaped id/model-row lookup templates and concrete solver /
+  prediction wrappers in `ReplayPredictionPublicationOperations`. Publication,
+  Topology, Drawing, and Authoring now share stable-id lookup, fast-hint repair,
+  prediction negative-row rejection, solver legacy negative-row scan, ragdoll
+  classification/root resolution, hint fallback, and vector normalization.
+- The implementation sweep found an additional exact template copy in
+  `ReplayAuthoringCauseTree.cpp` beyond RD0's three named files and folded it
+  into the binding C3 ruling. CauseFocus's distinct rejection of negative
+  terrain/world rows remains explicit as
+  `FindReplayNonNegativeBodyByModelIndex`, but delegates its scan to the shared
+  template with `AllowNegativeModelIndex=false`. Two duplicated, unused solver
+  orientation leaves were deleted rather than given a new API.
+- Touched-source comment audit: 7 / 7 source-bearing files checked, 0 deferred.
+  The shared header documents stable identity, hint lifetime, negative-row
+  policy, and value-only/no-callback ownership; CauseFocus documents why its
+  stricter policy remains separate.
+- Focused final Profile solution build passed in 4.19 seconds with zero errors.
+  The direct Replay doctest filter passed in 2.41 seconds: 53 / 53 cases and
+  791 / 791 assertions. New coverage pins stable-id lookup, fallback scan, and
+  both sides of the negative-row policy.
+- Final `tools\validate_format.bat` passed in 13.48 seconds. Final
+  `tools\validate_tests.bat` passed in 8.75 seconds: 346 / 346 cases,
+  68,707 / 68,707 assertions, zero warnings/errors.
+- C3's sole `tools\validate_replay_visual_fidelity.bat` invocation passed in
+  439.01 seconds: one process/generation/presentation, 2,401 ticks, 17 / 17
+  typed controls (75 assertions), every negative/determinism control, and no
+  golden refresh.
+- Replay/downward-include and dependency-direction proofs return zero rows; no
+  allocation inventory or policy file changed.
+
 ## Dependencies And Decisions
 
 - Fourth in the round-2 campaign binding order (heaviest per-task gate lands

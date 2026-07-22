@@ -97,66 +97,6 @@ void ClearReplayPredictionFutureNodeCache( RunReplayPredictionState& prediction 
 }
 
 
-// Concept: retained replay and prediction samples share body identity rules.
-//
-// Physics::PhysicsSceneObjectId is authority; modelIndex is a cache hint into the current sample.
-// Invariant: solver lookup preserves its legacy negative-sentinel scan, while
-// prediction lookup rejects negative hints before scanning.
-template <typename FrameSample, typename BodySample>
-const BodySample* FindReplayBodyByIdInSample( const FrameSample& sample, Physics::PhysicsSceneObjectId id )
-{
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.id.value == id.value )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-const BodySample* FindReplayBodyByModelIndexInSample( const FrameSample& sample, int modelIndex )
-{
-    if constexpr ( !AllowNegativeModelIndex )
-    {
-        if ( modelIndex < 0 )
-        {
-            return nullptr;
-        }
-    }
-
-    if ( modelIndex >= 0 && modelIndex < static_cast<int>( sample.bodies.size() ) )
-    {
-        const BodySample& body = sample.bodies[static_cast<std::size_t>( modelIndex )];
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-
-    for ( const BodySample& body : sample.bodies )
-    {
-        if ( body.modelRow.value == modelIndex )
-        {
-            return &body;
-        }
-    }
-    return nullptr;
-}
-
-template <typename FrameSample, typename BodySample, bool AllowNegativeModelIndex>
-Physics::PhysicsSceneObjectId SceneObjectIdForModelIndexInSample( const FrameSample& sample, int modelIndex )
-{
-    if ( const BodySample* body =
-             FindReplayBodyByModelIndexInSample<FrameSample, BodySample, AllowNegativeModelIndex>( sample,
-                                                                                                   modelIndex ) )
-    {
-        return body->id;
-    }
-    return Physics::PhysicsSceneObjectId{};
-}
-
 const ReplaySolverBodySample* FindReplayBodyById( const ReplaySolverFrameSample& sample,
                                                   Physics::PhysicsSceneObjectId id )
 {
@@ -236,13 +176,6 @@ Vector3 ReplayNormalizeOr( Vector3 value, const Vector3& fallback )
     }
     value /= sqrtf( magSq );
     return value;
-}
-
-Quaternion ReplaySolverBodyOrientation( const ReplaySolverBodySample& body )
-{
-    Quaternion orientation( body.orientation[0], body.orientation[1], body.orientation[2], body.orientation[3] );
-    orientation.Normalise();
-    return orientation;
 }
 
 const RunReplayPredictionBodySample* FindReplayPredictionBodyByIdWithHint( const RunReplayPredictionFrame& frame,
