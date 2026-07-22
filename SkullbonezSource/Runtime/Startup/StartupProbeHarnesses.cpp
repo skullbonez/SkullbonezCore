@@ -630,18 +630,20 @@ PhysicsRuntimeHandleSmokeResult RunPhysicsRuntimeHandleSmokeSample()
                                                                static_cast<std::size_t>( bodyBIndexBeforeDelete ) )
                                     : PhysicsBodyHotState{};
     const SkullbonezCore::Math::Vector::Vector3 liveOnlyPosition( 42.0f, 17.0f, -3.0f );
-    const bool seededLiveOnlyState = bodyBBeforeDelete && bodyBIndexBeforeDelete >= 0 &&
-                                     physics.RestoreReplayBodyState( bodyB,
-                                                                     bodyBBeforeDelete->sceneObjectId,
-                                                                     bodyBHotBeforeDelete.fixed,
-                                                                     liveOnlyPosition,
-                                                                     bodyBHotBeforeDelete.orientation,
-                                                                     bodyBHotBeforeDelete.linearVelocity,
-                                                                     bodyBHotBeforeDelete.angularVelocity,
-                                                                     bodyBBeforeDelete->mass,
-                                                                     bodyBHotBeforeDelete.inverseMass,
-                                                                     bodyBBeforeDelete->rotationalInertia,
-                                                                     bodyBHotBeforeDelete.inverseRotationalInertia );
+    const PhysicsBodyRestoreState liveOnlyRestore{
+        bodyB,
+        bodyBBeforeDelete ? bodyBBeforeDelete->sceneObjectId : PhysicsSceneObjectId{},
+        bodyBHotBeforeDelete.fixed,
+        liveOnlyPosition,
+        bodyBHotBeforeDelete.orientation,
+        bodyBHotBeforeDelete.linearVelocity,
+        bodyBHotBeforeDelete.angularVelocity,
+        bodyBBeforeDelete ? bodyBBeforeDelete->mass : 0.0f,
+        bodyBHotBeforeDelete.inverseMass,
+        bodyBBeforeDelete ? bodyBBeforeDelete->rotationalInertia : SkullbonezCore::Math::Vector::ZERO_VECTOR,
+        bodyBHotBeforeDelete.inverseRotationalInertia };
+    const bool seededLiveOnlyState =
+        bodyBBeforeDelete && bodyBIndexBeforeDelete >= 0 && physics.RestoreReplayBodyState( liveOnlyRestore );
     const bool destroyedBodyA = collection->Scene().DestroySceneEntity( bodyA );
     const PhysicsBodyRecord* survivingBody = collection->Scene().BodyStore().RecordForHandle( bodyB );
     const int survivingBodyIndex = collection->Scene().BodyStore().ModelIndexForHandle( bodyB );

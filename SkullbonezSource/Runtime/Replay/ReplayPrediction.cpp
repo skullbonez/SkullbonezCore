@@ -304,17 +304,18 @@ bool ApplyReplayPredictionBodyState( PhysicsEngine& physicsEngine,
         {
             return false;
         }
-        if ( !physicsEngine.RestoreReplayBodyState( bodyHandle,
-                                                    backup.id,
-                                                    backup.fixed,
-                                                    backup.position,
-                                                    backup.orientation,
-                                                    backup.linearVelocity,
-                                                    backup.angularVelocity,
-                                                    backup.mass,
-                                                    backup.inverseMass,
-                                                    backup.rotationalInertia,
-                                                    backup.inverseRotationalInertia ) )
+        const PhysicsBodyRestoreState restore{ bodyHandle,
+                                               backup.id,
+                                               backup.fixed,
+                                               backup.position,
+                                               backup.orientation,
+                                               backup.linearVelocity,
+                                               backup.angularVelocity,
+                                               backup.mass,
+                                               backup.inverseMass,
+                                               backup.rotationalInertia,
+                                               backup.inverseRotationalInertia };
+        if ( !physicsEngine.RestoreReplayBodyState( restore ) )
         {
             return false;
         }

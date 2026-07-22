@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: W0-W1 complete; W2 implementation active
+State: W0-W2 complete; W3 implementation active
 Ledger tasks: 5 (W0-W4)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -71,7 +71,7 @@ future reviews cite instead of re-litigating.
   smell routed to an owning plan; accepted-with-reason) and apply it with
   the owner to every W0 row. Rows routed to other plans are cross-linked,
   not duplicated. Documentation task.
-- [ ] W2 — Refactor wave A. Implement the highest-value dedup of ruled
+- [x] W2 — Refactor wave A. Implement the highest-value dedup of ruled
   defect rows outside render/replay-gated files (scene, runtime, physics
   cold paths), one logical signature family per commit, each with its
   mapped gate.
@@ -135,18 +135,37 @@ seconds with 346/346 cases, 68,715/68,715 assertions, zero warnings/errors,
 and an explicit `VALIDATE_FAST: ALL PASSED` / `EXIT=0` log footer. Comment
 inspection is 1/1 touched source-bearing tool checked, 0 deferred.
 
-## W2 Evidence (2026-07-23, active)
+## W2 Evidence (2026-07-23)
 
 UI-input family: Runtime now writes one immutable `InGameUIInputFrame`; the
 InGameUI facade and `UIWindowInteractionOwner` consume it synchronously. The
 record carries no mutable subsystem owner, and its scene-name span cannot
 outlive the frame. The inventory falls 301 → 299 with both ruled UI rows gone.
 Focused Profile build passes in 11.63 seconds. Final mapped
-`tools\validate_full.bat` passes from final source in 124.39 seconds with 346/346 tests, all CPU
+`tools\validate_full.bat` passes from final source in 124.39 seconds with
+346/346 tests, all CPU
 coverage and five engine processes, byte-exact 44,401-line physics output, and
 zero warnings/errors. The first 7.12-second invocation stopped in preflight on
 `InputFrame.cpp` formatting; the touched file was formatted before the clean
 rerun. Comment audit: 5/5 touched source-bearing files checked, 0 deferred.
+
+Physics-restore family: `PhysicsBodyRestoreState` is a Physics-owned identity,
+pose, velocity, mass, and inertia value consumed by `PhysicsEngine` and
+`PhysicsBodyStore`; it contains no Replay type or owner authority. Both ruled
+restore rows disappear and the inventory falls 299 → 297. Focused Profile
+build passes in 10.44 seconds and 53/53 Replay doctests (799 assertions) pass
+in 2.47 seconds. The first compile (22.78 seconds) found three namespace
+qualifiers, and the first full invocation (13.55 seconds) stopped on touched
+header formatting; both were corrected before final gates.
+
+Final Physics-family evidence: `validate_format` 13.94 seconds PASS;
+`validate_full` 178.81 seconds PASS with 346/346 tests, all five runtime lanes,
+and byte-exact 44,401-line physics output; Replay visual fidelity 427.18
+seconds PASS with one process/generation/presentation and all controls;
+allocation policy 4.22 seconds PASS; v2 artifact 33.16 seconds PASS; Replay
+scrub 431.04 seconds PASS. Dependency-direction and downward-Replay-include
+proofs return no rows, and no growth privilege appears. Comment audit: 8/8
+touched source-bearing files checked, 0 deferred.
 
 ## Dependencies And Decisions
 

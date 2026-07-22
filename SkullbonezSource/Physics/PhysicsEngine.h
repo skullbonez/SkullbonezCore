@@ -113,17 +113,7 @@ class PhysicsEngine
     bool TrimCollidersToCount( PhysicsColliderCount colliderCount );
     // Store-owned replay restore command. Callers resolve a body handle at the
     // owner edge so physics does not accept transient model slots as authority.
-    bool RestoreReplayBodyState( PhysicsBodyHandle body,
-                                 PhysicsSceneObjectId sceneObjectId,
-                                 bool fixed,
-                                 const Math::Vector::Vector3& position,
-                                 const Math::Orientation::Quaternion& orientation,
-                                 const Math::Vector::Vector3& linearVelocity,
-                                 const Math::Vector::Vector3& angularVelocity,
-                                 float mass,
-                                 float inverseMass,
-                                 const Math::Vector::Vector3& rotationalInertia,
-                                 const Math::Vector::Vector3& inverseRotationalInertia );
+    bool RestoreReplayBodyState( const PhysicsBodyRestoreState& restore );
     // Rebinds existing collider rows from physics body identity. Missing collider
     // rows are a topology bug, not a cue to rebuild shape facts from authoring
     // storage.

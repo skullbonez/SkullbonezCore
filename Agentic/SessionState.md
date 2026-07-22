@@ -12,17 +12,18 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Replay deduplication is closed: C1-C5 share owning implementations, C6-C7 retain ruled lifetimes, and every Replay/full gate passes. Legacy remains the development default. |
-| Current objective | Complete `wide-signature-reduction` W2: UI input-frame and Physics body-restore value records. |
-| Active/future progress | 2 / 5 live tasks; 40%. |
+| Current objective | Complete `wide-signature-reduction` W3: DX12 descriptor/policy and Replay diagnostic value families. |
+| Active/future progress | 3 / 5 live tasks; 60%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RD3 final `validate_full` passes in 136.17 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | W2 UI-input family removes both ruled rows (301→299). Profile build passes in 11.63 s; final-tip mapped full gate passes in 124.39 s with all CPU/five runtime lanes and zero warnings/errors. |
+| Validation for current edits | W2 closed at 297 rows. Physics restore passes full, Replay visual, allocation, v2-artifact, and scrub gates; static boundary proofs are empty and no growth privilege appears. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 2/5 with
-`wide-signature-reduction` W2-W4 remaining. W1 ruled every one of W0's 301
-corrected signatures and selected 16 defect rows across six bounded families.
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 3/5 with
+`wide-signature-reduction` W3-W4 remaining. W2 removed the four ruled UI-input
+and Physics-restore rows without introducing a context bag; W3 owns the 12
+remaining DX12 and Replay-diagnostic rows across four bounded families.
 The live
 plan is under `Agentic/Plans/TODO/`; the
 campaign section in
@@ -295,6 +296,17 @@ are not certified. Full evidence:
 | `tools\validate_full.bat` (wide-signature W2 UI first attempt) | 7.12 s | BLOCKED then resolved; one touched file needed formatting |
 | `tools\validate_full.bat` (wide-signature W2 UI input) | 131.72 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
 | `tools\validate_full.bat` (wide-signature W2 UI final tip) | 124.39 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
+| Profile build (wide-signature W2 Physics first attempt) | 22.78 s | BLOCKED then resolved; three missing namespace qualifiers |
+| Profile build (wide-signature W2 Physics final) | 10.44 s | PASS; zero warnings/errors |
+| focused Replay doctests (wide-signature W2 Physics) | 2.47 s | PASS; 53 cases / 799 assertions |
+| corrected inventory (wide-signature W2 Physics) | 26.62 s | PASS; 297 rows, both restore targets absent |
+| `tools\validate_full.bat` (wide-signature W2 Physics first attempt) | 13.55 s | BLOCKED then resolved; touched header formatting |
+| `tools\validate_format.bat` (wide-signature W2 Physics) | 13.94 s | PASS |
+| `tools\validate_full.bat` (wide-signature W2 Physics final) | 178.81 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
+| Replay visual fidelity (wide-signature W2 Physics) | 427.18 s | PASS; one process/generation/presentation, 2,401 ticks, all controls |
+| Replay allocation policy (wide-signature W2 Physics) | 4.22 s | PASS; strict two-generation policy clean |
+| Replay v2 artifact (wide-signature W2 Physics) | 33.16 s | PASS |
+| Replay scrub (wide-signature W2 Physics) | 431.04 s | PASS; one-presentation fidelity and all false-pass controls |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -302,8 +314,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Complete `wide-signature-reduction` W2. Introduce one UI-owned input-frame
-value across the facade/interaction-owner boundary and one Physics-owned body
-restore value across the engine/store boundary. Neither record may retain
-mutable owner authority or become a generic context bag. Follow the round-2
-campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
+Complete `wide-signature-reduction` W3. Replace the ruled DX12 mesh, texture,
+and raster call shapes with named Rendering-owned values, then replace the six
+Replay diagnostic forwarding rows with bounded schema records. Run mandatory
+DX12 stress and Replay gates without introducing owner bags or growth
+privileges. Follow the round-2 campaign's standing rules in
+`Agentic/Plans/MASTER-PLAN.md`.

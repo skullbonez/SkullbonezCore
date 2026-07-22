@@ -87,6 +87,7 @@ using SkullbonezCore::Physics::PhysicsBodyHandle;
 using SkullbonezCore::Physics::PhysicsBodyHotState;
 using SkullbonezCore::Physics::PhysicsBodyMotionKind;
 using SkullbonezCore::Physics::PhysicsBodyRecord;
+using SkullbonezCore::Physics::PhysicsBodyRestoreState;
 using SkullbonezCore::Physics::PhysicsBodyStore;
 using SkullbonezCore::Physics::PhysicsEngine;
 using SkullbonezCore::Physics::PhysicsSceneObjectId;
@@ -878,17 +879,17 @@ void RestoreMicroWorldSnapshot( PhysicsEngine& engine, const MicroWorldSnapshot&
                                                  MakePhysicsBodyCountFromNonNegativeInt( kMicroBodyCount ) ) );
     for ( const BodyReplayState& state : snapshot.bodies )
     {
-        REQUIRE( engine.RestoreReplayBodyState( state.handle,
-                                                state.sceneObjectId,
-                                                state.fixed,
-                                                state.position,
-                                                state.orientation,
-                                                state.linearVelocity,
-                                                state.angularVelocity,
-                                                state.mass,
-                                                state.inverseMass,
-                                                state.rotationalInertia,
-                                                state.inverseRotationalInertia ) );
+        REQUIRE( engine.RestoreReplayBodyState( PhysicsBodyRestoreState{ state.handle,
+                                                                         state.sceneObjectId,
+                                                                         state.fixed,
+                                                                         state.position,
+                                                                         state.orientation,
+                                                                         state.linearVelocity,
+                                                                         state.angularVelocity,
+                                                                         state.mass,
+                                                                         state.inverseMass,
+                                                                         state.rotationalInertia,
+                                                                         state.inverseRotationalInertia } ) );
     }
 }
 
@@ -909,17 +910,17 @@ void RestoreMicroWorldReplaySample( PhysicsEngine& engine, const ReplaySolverFra
         const PhysicsBodyRecord* record =
             SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordForModelIndex( body.modelRow.value );
         REQUIRE( record != nullptr );
-        REQUIRE( engine.RestoreReplayBodyState( record->handle,
-                                                body.id,
-                                                body.fixed,
-                                                body.position,
-                                                orientation,
-                                                body.linearVelocity,
-                                                body.angularVelocity,
-                                                body.mass,
-                                                body.inverseMass,
-                                                body.rotationalInertia,
-                                                body.inverseRotationalInertia ) );
+        REQUIRE( engine.RestoreReplayBodyState( PhysicsBodyRestoreState{ record->handle,
+                                                                         body.id,
+                                                                         body.fixed,
+                                                                         body.position,
+                                                                         orientation,
+                                                                         body.linearVelocity,
+                                                                         body.angularVelocity,
+                                                                         body.mass,
+                                                                         body.inverseMass,
+                                                                         body.rotationalInertia,
+                                                                         body.inverseRotationalInertia } ) );
     }
 }
 

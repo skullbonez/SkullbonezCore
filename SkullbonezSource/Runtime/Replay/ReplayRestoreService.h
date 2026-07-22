@@ -152,17 +152,18 @@ class ReplayRestoreService
                                                        body.orientation[1],
                                                        body.orientation[2],
                                                        body.orientation[3] );
-            if ( !physics.RestoreReplayBodyState( resolvedBodies[bodyIndex],
-                                                  body.id,
-                                                  body.fixed,
-                                                  body.position,
-                                                  orientation,
-                                                  body.linearVelocity,
-                                                  body.angularVelocity,
-                                                  body.mass,
-                                                  body.inverseMass,
-                                                  body.rotationalInertia,
-                                                  body.inverseRotationalInertia ) )
+            const Physics::PhysicsBodyRestoreState restore{ resolvedBodies[bodyIndex],
+                                                            body.id,
+                                                            body.fixed,
+                                                            body.position,
+                                                            orientation,
+                                                            body.linearVelocity,
+                                                            body.angularVelocity,
+                                                            body.mass,
+                                                            body.inverseMass,
+                                                            body.rotationalInertia,
+                                                            body.inverseRotationalInertia };
+            if ( !physics.RestoreReplayBodyState( restore ) )
             {
                 SB_FATAL( "Runtime/ReplayRestore",
                           "Replay body commit failed after stable-id preflight; live state may be partially restored" );

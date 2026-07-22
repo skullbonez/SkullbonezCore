@@ -1498,35 +1498,25 @@ bool PhysicsBodyStore::TrimToCount( int bodyCount )
 //
 // Presentation owners may cache draw-facing state, but the body record must not
 // reload pose, velocity, mass, or inertia from presentation rows.
-bool PhysicsBodyStore::RestoreReplayBodyState( PhysicsBodyHandle body,
-                                               PhysicsSceneObjectId sceneObjectId,
-                                               bool fixed,
-                                               const Vector3& position,
-                                               const Math::Orientation::Quaternion& orientation,
-                                               const Vector3& linearVelocity,
-                                               const Vector3& angularVelocity,
-                                               float mass,
-                                               float inverseMass,
-                                               const Vector3& rotationalInertia,
-                                               const Vector3& inverseRotationalInertia )
+bool PhysicsBodyStore::RestoreReplayBodyState( const PhysicsBodyRestoreState& restore )
 {
-    PhysicsBodyRecord* record = MutableRecordForHandle( body );
-    if ( !record || record->sceneObjectId != sceneObjectId )
+    PhysicsBodyRecord* record = MutableRecordForHandle( restore.body );
+    if ( !record || record->sceneObjectId != restore.sceneObjectId )
     {
         return false;
     }
 
-    const int modelIndex = ModelIndexForHandle( body );
+    const int modelIndex = ModelIndexForHandle( restore.body );
     PhysicsBodyHotState hot = HotStateForModelIndex( modelIndex );
-    hot.position = position;
-    hot.orientation = orientation;
-    hot.linearVelocity = linearVelocity;
-    hot.angularVelocity = angularVelocity;
-    record->mass = mass;
-    hot.inverseMass = fixed ? 0.0f : inverseMass;
-    record->rotationalInertia = rotationalInertia;
-    hot.inverseRotationalInertia = fixed ? ZERO_VECTOR : inverseRotationalInertia;
-    hot.fixed = fixed;
+    hot.position = restore.position;
+    hot.orientation = restore.orientation;
+    hot.linearVelocity = restore.linearVelocity;
+    hot.angularVelocity = restore.angularVelocity;
+    record->mass = restore.mass;
+    hot.inverseMass = restore.fixed ? 0.0f : restore.inverseMass;
+    record->rotationalInertia = restore.rotationalInertia;
+    hot.inverseRotationalInertia = restore.fixed ? ZERO_VECTOR : restore.inverseRotationalInertia;
+    hot.fixed = restore.fixed;
     record->pendingImpulse = ZERO_VECTOR;
     record->pendingImpulseApplicationPoint = ZERO_VECTOR;
     record->hasPendingImpulse = false;

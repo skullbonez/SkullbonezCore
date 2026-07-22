@@ -604,29 +604,9 @@ bool PhysicsEngine::TrimCollidersToCount( PhysicsColliderCount colliderCount )
 }
 
 
-bool PhysicsEngine::RestoreReplayBodyState( PhysicsBodyHandle body,
-                                            PhysicsSceneObjectId sceneObjectId,
-                                            bool fixed,
-                                            const Math::Vector::Vector3& position,
-                                            const Math::Orientation::Quaternion& orientation,
-                                            const Math::Vector::Vector3& linearVelocity,
-                                            const Math::Vector::Vector3& angularVelocity,
-                                            float mass,
-                                            float inverseMass,
-                                            const Math::Vector::Vector3& rotationalInertia,
-                                            const Math::Vector::Vector3& inverseRotationalInertia )
+bool PhysicsEngine::RestoreReplayBodyState( const PhysicsBodyRestoreState& restore )
 {
-    const bool restored = m_bodyStore.RestoreReplayBodyState( body,
-                                                              sceneObjectId,
-                                                              fixed,
-                                                              position,
-                                                              orientation,
-                                                              linearVelocity,
-                                                              angularVelocity,
-                                                              mass,
-                                                              inverseMass,
-                                                              rotationalInertia,
-                                                              inverseRotationalInertia );
+    const bool restored = m_bodyStore.RestoreReplayBodyState( restore );
     if ( restored )
     {
         m_world.InvalidateBodyTopology();
