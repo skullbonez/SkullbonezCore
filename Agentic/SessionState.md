@@ -12,17 +12,17 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Implement `runtime-renderer-decomposition` RR5: independent ownership review over the logical renderer surface, remediate any credible finding, run the closure gate sequence, and publish the closure report. |
-| Active/future progress | 5 / 15 live tasks; 33%. |
+| Current objective | Implement `replay-deduplication-audit` RD0: census Replay Timeline/Presentation/Validation duplication and classify each repeated surface before any deletion. |
+| Active/future progress | 0 / 9 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RR4 final `validate_full` passes in 118.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RR4 also passes a focused Profile build (17.1 s), dedicated DX12 (39.8 s), and one-minute stress (60.9 s; PID 46552). RR5 requires independent review, three repeat DX12 gates, stress, and full closure validation. |
+| Last broad local gate | RR5 final `validate_full` passes in 145.30 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, physics hash `0x953D97A226665242`, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | RR5 also passes three final repeat DX12 gates (23.23/23.38/23.34 s, zero errors, accepted images) and one-minute stress (60.91 s; PID 61432); independent review is clear after two remediations. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 5/15 with
-binding order: `runtime-renderer-decomposition` (5/6),
-`replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 0/9 with
+binding order: `replay-deduplication-audit` (4), then
+`wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
 including that replay is the engine's most important subsystem and its audit
@@ -32,7 +32,9 @@ RH0-RH5, owner fan-out reduction closed OF0-OF5, and Replay subsystem
 consolidation closed RC0-RC6. Evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`,
 `Agentic/Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`, and
-`Agentic/Reports/2026-07-22/replay-subsystem-consolidation-closure.md`. The prior architecture-review campaign is
+`Agentic/Reports/2026-07-22/replay-subsystem-consolidation-closure.md`.
+RuntimeRenderer decomposition also closed RR0-RR5; evidence is in
+`Agentic/Reports/2026-07-22/runtime-renderer-decomposition-closure.md`. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
@@ -248,6 +250,10 @@ are not certified. Full evidence:
 | `tools\validate_dx12_renderer.bat` (RR4) | 39.8 s | PASS; zero InfoQueue errors and all three committed images accepted |
 | `tools\run_graphics_stress.bat 1` (RR4) | 60.9 s | PASS; PID 46552 bounded stop, crash-free |
 | `tools\validate_full.bat` (RR4 final) | 118.7 s | PASS; CPU/coverage and five runtime lanes, accepted DX12 images, byte-exact physics |
+| focused Profile build (RR5 remediation final) | 8.17 s | PASS; zero warnings/errors after extracting `RenderModelFramePublisher` |
+| `tools\validate_full.bat` (RR5 final) | 145.30 s | PASS; CPU/coverage and five runtime lanes, zero DX12 errors, accepted images, physics hash `0x953D97A226665242`, byte-exact 44,401-line CSV |
+| three final `tools\validate_dx12_renderer.bat` repeats (RR5) | 23.23 / 23.38 / 23.34 s | PASS; every repeat reported zero InfoQueue errors and accepted all committed images |
+| `tools\run_graphics_stress.bat 1` (RR5) | 60.91 s | PASS; PID 61432 bounded stop, crash-free |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -255,9 +261,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Implement `runtime-renderer-decomposition` RR5: run one independent rubber-duck
-ownership review over the complete renderer surface, remediate any credible
-finding, then complete the three-repeat DX12, stress, and full closure gates.
+Implement `replay-deduplication-audit` RD0: record the complete repeated helper,
+value-shape, validation, and presentation surface across Replay Timeline,
+Presentation, and Validation, and classify each row before changing behavior.
 Follow the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.

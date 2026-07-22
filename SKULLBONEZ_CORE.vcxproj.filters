@@ -471,6 +471,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\LiveStyleController.cpp">
       <Filter>Source Files\Runtime\Settings</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.cpp">
+      <Filter>Source Files\Runtime\Render</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Render\RenderResourceLifecycle.cpp">
       <Filter>Source Files\Runtime\Render</Filter>
     </ClCompile>
@@ -1061,6 +1064,9 @@
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderInputs.h">
+      <Filter>Header Files\Runtime\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Render\RenderModelFramePublisher.h">
       <Filter>Header Files\Runtime\Render</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.h">

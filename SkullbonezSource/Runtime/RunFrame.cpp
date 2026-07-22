@@ -63,6 +63,7 @@ Related:
 #include "RuntimeValidationHarness.h"
 #include "RuntimeFrameViews.h"
 #include "RuntimeViewModel.h"
+#include "Render/RenderModelFramePublisher.h"
 #include "UI/OperatorEditorFrameComposer.h"
 #include "Window.h"
 #include "../Core/WorkerPool.h"
@@ -508,7 +509,7 @@ Run::FrameRenderPhaseResult Run::PrepareRenderPhase( RuntimeFrameHostView& host,
 
 RuntimeRenderModelFrameView Run::PublishRenderModelsPhase()
 {
-    return m_renderer.BuildModelFrameView( m_sceneController.Scene(), m_workerPool, m_config );
+    return PublishRenderModelFrame( m_sceneController.Scene(), m_workerPool, m_config );
 }
 
 void Run::RenderWorldPhase( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )

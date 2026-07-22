@@ -47,10 +47,8 @@ Related:
 #include "../RunCameraState.h"
 #include "../RunTimerState.h"
 #include "../RuntimeDiagnostics.h"
-#include "../Diagnostics/SceneMemoryDiagnostics.h"
 #include "../RuntimeOverlayDiagnostics.h"
 #include "../Window.h"
-#include "../Scene/SceneWorld.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Debug/CollisionVisualizer.h"
 #include "../Scene/SceneTerrain.h"
@@ -63,13 +61,10 @@ Related:
 #include "../../Core/FatalError.h"
 #include "../../Core/Log.h"
 #include "../../Core/Profiler.h"
-#include "../../Physics/ColliderStore.h"
-#include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Rendering/DX12/Dx12FrameOwner.h"
 #include "../../Rendering/DX12/RenderDeviceDX12.h"
-#include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderPipeline.h"
 #include "../../UI/UI.h"
@@ -2256,39 +2251,6 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
 void RuntimeRenderer::RenderUiText( const UiTextPassInputs& inputs )
 {
     ExecuteUiTextThroughRenderGraph( inputs );
-}
-
-
-RuntimeRenderModelFrameView
-RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene,
-                                      Threading::WorkerPool& workerPool,
-                                      const SkullbonezCore::Core::EngineConfig& config ) const
-{
-    PhysicsEngine& physics = scene.Physics();
-    return RuntimeRenderModelFrameView{
-        scene.MutableRenderInstances(),
-        SkullbonezCore::Physics::PhysicsEngine::ReadColliders( physics ),
-        SkullbonezCore::Physics::PhysicsEngine::ReadBodies( physics ),
-        physics,
-        scene.BuildWorldExtensionDebugLines(),
-        scene.RenderPresentationRecords(),
-        SkullbonezCore::Physics::PhysicsEngine::ReadCollisionVisualContacts( physics ),
-        SkullbonezCore::Physics::PhysicsEngine::ReadSleepStates( physics ),
-        SkullbonezCore::Physics::PhysicsEngine::ReadSleepIslandVisualIds( physics ),
-        SkullbonezCore::Physics::PhysicsEngine::ReadSleepSupportedStates( physics ),
-        SkullbonezCore::Physics::PhysicsEngine::ReadSleepInhibitedStates( physics ),
-        SkullbonezCore::Physics::PhysicsEngine::ReadDebugContacts( physics ),
-        SkullbonezCore::Physics::PhysicsEngine::ReadPipelineTrace( physics ),
-        &workerPool,
-        scene.SceneEntityCount(),
-        config.runtimeRender.renderCollisionVolumes,
-        config.runtimeRender.shadowParallelPrep,
-        scene.GetSceneKineticEnergy(),
-        CollectSceneMemoryStats( SceneMemoryDiagnosticsView{ scene.Entities(),
-                                                             scene.CollectGameplayMemoryBytes(),
-                                                             scene.CollectGameplayDebugMemoryBytes(),
-                                                             physics,
-                                                             scene.RenderInstances() } ) };
 }
 
 

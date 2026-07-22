@@ -59,18 +59,6 @@ Related:
 
 namespace SkullbonezCore
 {
-namespace Runtime
-{
-class SceneWorld;
-}
-namespace Physics
-{
-class PhysicsEngine;
-}
-namespace Threading
-{
-class WorkerPool;
-}
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 namespace Runtime::DevelopmentTools
 {
@@ -124,10 +112,6 @@ class RuntimeRenderer
     void ResetSceneRuntimePolicyFromConfig();
 
     void EnsureFrameResources( const RenderResourceContext& resources );
-    // Packages model-owned render/debug views before the frame passes consume them.
-    RuntimeRenderModelFrameView BuildModelFrameView( Runtime::SceneWorld& scene,
-                                                     Threading::WorkerPool& workerPool,
-                                                     const SkullbonezCore::Core::EngineConfig& config ) const;
     bool RenderFrameEntry( const FrameEntryContext& context );
     bool RenderFrame( const RuntimeRenderInputs& renderInputs );
     SkullbonezCore::Core::SbResult ReleaseBackendOwnedRuntimeResources( const BackendResourceReleaseContext& context );

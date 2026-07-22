@@ -343,12 +343,21 @@ order and restart edges are pinned, and the independent ownership review and
 final broad gate are clear. Evidence is recorded in
 `../Reports/2026-07-22/run-execute-frame-phase-decomposition-closure.md`.
 
+The active/future denominator returned 15 to 9 when
+`runtime-renderer-decomposition` closed RR0-RR5 and left the ledger under
+rule 4. `RuntimeRenderer` now owns pass instances and frame-graph order behind
+a cohesive backend-resource lifecycle owner; UI text, Replay consequence
+grading, and scene/render frame publication have explicit boundaries. The
+46-to-26 member, 10-to-3 constructor, and 2-to-0 wide-method reductions are
+independently verified, and the final full, repeated DX12, and stress gates are
+clear. Evidence is recorded in
+`../Reports/2026-07-22/runtime-renderer-decomposition-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | 5 | 6 | 83% |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 0 | 4 | 0% |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **5** | **15** | **33%** |
+| **Active/future total** | **0** | **9** | **0%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -442,12 +451,12 @@ The architecture-review campaign registered 2026-07-20 and the 2026-07-22
 architecture follow-up campaign (render interface retirement, owner fan-out
 reduction, replay subsystem consolidation) are complete. The live queue is
 the 2026-07-22 architecture follow-up round-2 campaign. Physics standalone-
-world unification and Run frame-phase decomposition are closed; the remaining
-binding order is `runtime-renderer-decomposition` (DX12-heavy),
-`replay-deduplication-audit` (heaviest per-task gate; sweeps the
-post-renderer Presentation shape), then `wide-signature-reduction` (its
-inventory must measure the final tree). Plans live under `TODO/`; see the
-round-2 campaign section below.
+world unification, Run frame-phase decomposition, and RuntimeRenderer
+decomposition are closed; the remaining binding order is
+`replay-deduplication-audit` (heaviest per-task gate; sweeps the post-renderer
+Presentation shape), then `wide-signature-reduction` (its inventory must
+measure the final tree). Plans live under `TODO/`; see the round-2 campaign
+section below.
 Dependency-direction restoration, allocation-namespace restoration,
 physics-facade unification, physics-settings snapshot, Run::Execute
 de-accretion, render-graph completion, Render HAL modernization, and gameplay
@@ -1326,8 +1335,7 @@ a census records. Execution order is binding: 1 physics unification,
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | In progress | 5/6 | RR4 validated; RR5 independent review and closure gates |
-| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Starts after renderer RR2 lands (or records the pending seam); RD0 census |
+| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Renderer closure landed; execute RD0 census |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | Registered | 0/5 | Last; W0 inventory measures the post-campaign tree |
 
 ## Features
