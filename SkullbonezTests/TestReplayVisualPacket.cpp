@@ -6,8 +6,9 @@ Purpose:
 Summary:
   Small stack-owned typed records and float arrays model production packet
   spans. Tests prove semantic, causal-topology, and ghost changes are reported
-  before geometry and that reordered or truncated submission buffers identify
-  their exact owner lane and float.
+  before geometry, that reordered or truncated submission buffers identify
+  their exact owner lane and float, and that an in-flight worker cannot change
+  the prepared prefix halfway through one rendered frame.
 
 Glossary:
   Packet span: Non-owning view of one ordered production submission stream.
@@ -16,6 +17,8 @@ Glossary:
 Invariants:
   - Packet comparison is bit-exact and order-sensitive.
   - A count mismatch cannot alias an equal common prefix.
+  - Presentation keeps the frame prefix prepared on the frame thread even if
+    the worker publishes more prediction rows before rendering consumes it.
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h
@@ -24,6 +27,7 @@ Related:
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacket.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayVisualPacketFingerprint.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.h"
 
 #include <array>
 #include <bit>
@@ -33,6 +37,24 @@ Related:
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketFingerprintOperations;
 using namespace SkullbonezCore::Runtime::ReplayVisualPacketOperations;
+
+TEST_CASE( "Replay visual presentation keeps one prepared worker prefix for the rendered frame" )
+{
+    ReplayPredictionPublication workerPublication;
+    ReplayPredictionPresentationPublication presentationPublication;
+    workerPublication.PublishSlot( 0u, 4u );
+    workerPublication.PublishSlot( 1u, 4u );
+    presentationPublication.Prepare( workerPublication.PublishedCount( 4u ), 4u );
+    REQUIRE( presentationPublication.PresentedCount( workerPublication.PublishedCount( 4u ), 4u ) == 2u );
+
+    // Hazard: the worker may release another completed slot between the frame
+    // thread's preparation pass and the renderer's packet build. That slot is
+    // next-frame input; exposing it now makes child topology blink while its
+    // trajectory cache still describes the two-row prepared prefix.
+    workerPublication.PublishSlot( 2u, 4u );
+    CHECK( workerPublication.PublishedCount( 4u ) == 3u );
+    CHECK( presentationPublication.PresentedCount( workerPublication.PublishedCount( 4u ), 4u ) == 2u );
+}
 
 TEST_CASE( "Replay visual archive semantic hash stays canonical and content-sensitive" )
 {

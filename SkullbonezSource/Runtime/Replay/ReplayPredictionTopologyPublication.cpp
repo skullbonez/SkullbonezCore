@@ -1561,8 +1561,19 @@ void PrepareReplayPredictionOverlay( RunReplayPredictionState& prediction,
     const bool usingBuildFrames = prediction.BuildPrefixShouldBePresented();
     const std::vector<RunReplayPredictionFrame>& activePredictionFrames =
         usingBuildFrames ? prediction.build.buildFrames : prediction.simulation.frames;
-    const std::size_t activePredictionFrameCount =
-        usingBuildFrames ? prediction.PublishedBuildFrameCount() : activePredictionFrames.size();
+    std::size_t activePredictionFrameCount = activePredictionFrames.size();
+    if ( usingBuildFrames )
+    {
+        // Invariant: the frame thread owns this latch. A worker may release more
+        // rows after preparation, but topology, trajectories, markers, ghosts,
+        // and packet headers must all keep this one coherent prefix until the
+        // next preparation pass.
+        const std::size_t workerPublishedCount = prediction.PublishedBuildFrameCount();
+        prediction.build.presentationPublication.Prepare( workerPublishedCount, activePredictionFrames.size() );
+        activePredictionFrameCount =
+            prediction.build.presentationPublication.PresentedCount( workerPublishedCount,
+                                                                     activePredictionFrames.size() );
+    }
     if ( activePredictionFrameCount < 2 )
     {
         return;

@@ -1198,6 +1198,34 @@ void ReplayPresentation::PublishVisualPacket( ReplayVisualPacket packet,
                                               const ReplaySolverFrameSample* latestSolver,
                                               uint64_t replayReserveGrowthEvents )
 {
+    const bool samePresentation = m_trajectorySubmissionProbe.presentationKeyValid &&
+                                  m_trajectorySubmissionProbe.presentationTargetId == prediction.targetId.value &&
+                                  m_trajectorySubmissionProbe.presentationSourceFrame == prediction.sourceFrame;
+    if ( !samePresentation )
+    {
+        m_trajectorySubmissionProbe.presentationTargetId = prediction.targetId.value;
+        m_trajectorySubmissionProbe.presentationSourceFrame = prediction.sourceFrame;
+        m_trajectorySubmissionProbe.futureTreeReadinessDropCount = 0;
+        m_trajectorySubmissionProbe.futureTreeReadySeen = false;
+        m_trajectorySubmissionProbe.futureTreeReadyLastFrame = false;
+        m_trajectorySubmissionProbe.presentationKeyValid = prediction.targetId.value != 0;
+    }
+    if ( m_trajectorySubmissionProbe.presentationKeyValid )
+    {
+        // Hazard: a ready-to-not-ready transition makes child trajectories
+        // disappear for one rendered frame. This probe covers the live worker
+        // publication phase that the deterministic completed-build oracle does
+        // not exercise.
+        if ( m_trajectorySubmissionProbe.futureTreeReadySeen && m_trajectorySubmissionProbe.futureTreeReadyLastFrame &&
+             !prediction.futureTreeReady )
+        {
+            ++m_trajectorySubmissionProbe.futureTreeReadinessDropCount;
+        }
+        m_trajectorySubmissionProbe.futureTreeReadySeen =
+            m_trajectorySubmissionProbe.futureTreeReadySeen || prediction.futureTreeReady;
+        m_trajectorySubmissionProbe.futureTreeReadyLastFrame = prediction.futureTreeReady;
+    }
+
     packet.header.sourceFrame = prediction.sourceFrame;
     packet.header.revealFrame = prediction.revealFrame;
     packet.header.targetId = m_pathVisualizer.targetId;

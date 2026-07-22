@@ -9,9 +9,12 @@ Summary:
 
 Glossary:
   Published prefix: Contiguous prediction rows safe for readers.
+  Prepared prefix: Published rows whose dependent presentation caches were
+    rebuilt together for the current rendered frame.
 
 Invariants:
   - Worker publication retains the release/acquire prefix protocol.
+  - Presentation consumers cannot observe rows beyond the prepared prefix.
   - Prediction owns its private engine and never mutates live physics stores.
   - Cancellation waits for an in-flight worker slice before clearing state.
 
@@ -189,6 +192,7 @@ struct RunReplayPredictionBuildState
     std::size_t buildPresentationFrameCount = 2u;
     ReplayPredictionWorkerSchedule schedule;
     ReplayPredictionPublication publication;
+    ReplayPredictionPresentationPublication presentationPublication;
 };
 
 // Concept: this owner contains the private engine and every mutable value used
@@ -332,7 +336,10 @@ class ReplayPrediction
         view.usingBuildFrames = m_state.BuildPrefixShouldBePresented();
         if ( view.usingBuildFrames )
         {
-            view.frames = { m_state.build.buildFrames.data(), m_state.PublishedBuildFrameCount() };
+            const std::size_t presentedFrameCount =
+                m_state.build.presentationPublication.PresentedCount( m_state.PublishedBuildFrameCount(),
+                                                                      m_state.build.buildFrames.size() );
+            view.frames = { m_state.build.buildFrames.data(), presentedFrameCount };
         }
         else
         {
@@ -532,6 +539,7 @@ inline bool RunReplayPredictionState::FutureTreeReadyForDraw( Physics::PhysicsSc
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
 {
     build.publication.Reset();
+    build.presentationPublication.Reset();
     build.buildPresentationFrameCount = 2u;
 }
 

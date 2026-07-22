@@ -723,6 +723,11 @@ def determinism_contract(report: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(
             f"trajectory reserve grew during proof: start={reserve_start} end={reserve_end}"
         )
+    if final.get("predictionFutureTreeReadinessDropCount") != 0:
+        raise ValueError(
+            "live prediction child trajectories became unready after publication: "
+            f"drops={final.get('predictionFutureTreeReadinessDropCount')}"
+        )
     if final["predictionHorizonSeconds"] != EXPECTED_HORIZON_SECONDS:
         raise ValueError(f"prediction horizon drifted: {final['predictionHorizonSeconds']}")
     if not scene_data.get("playback", {}).get("fixedStep"):

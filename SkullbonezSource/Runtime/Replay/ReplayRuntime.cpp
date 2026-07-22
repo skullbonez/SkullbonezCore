@@ -365,9 +365,9 @@ bool ReplayRuntime::RestoreSolverSampleAsLive( const ReplayRestoreTransaction& t
 void ReplayRuntime::AppendOverlayTrace( PhysicsEngine& physics,
                                         const SceneEntityStore& entities,
                                         RunEditorTracer& tracer,
+                                        const ReplayPredictionPresentationView& prediction,
                                         const ReplayOverlayBuildInput& input )
 {
-    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     const ReplaySolverFrameSample* currentSolverSample = CurrentSolverScrubSample();
     const ReplaySolverFrameSample* presentSample = currentSolverSample;
     if ( !presentSample )
@@ -576,7 +576,11 @@ ReplayRuntime::PrepareRenderFrame( Rendering::RenderInstanceStore& renderInstanc
         }
     }
 
-    AppendOverlayTrace( physics, entities, tracer, ReplayOverlayBuildInput{ editorModeEnabled, gesture, sceneFrame } );
+    AppendOverlayTrace( physics,
+                        entities,
+                        tracer,
+                        prediction,
+                        ReplayOverlayBuildInput{ editorModeEnabled, gesture, sceneFrame } );
     (void)m_visualPresentation.BuildPredictionGhostDrawRequests( prediction,
                                                                  presentationRecords,
                                                                  PhysicsEngine::ReadBodies( physics ) );
@@ -644,12 +648,13 @@ ReplayVisualPacket ReplayRuntime::BuildVisualProjectionForValidation(
     uint64_t replayReserveGrowthEvents )
 {
     RunEditorTracer& tracer = runtimeTools.EditorTracer();
+    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     AppendOverlayTrace(
         physics,
         entities,
         tracer,
+        prediction,
         ReplayOverlayBuildInput{ runtimeTools.Editor().editorModeEnabled, RuntimeInteractionGesture{}, 0 } );
-    const ReplayPredictionPresentationView prediction = m_predictionOwner.PresentationView();
     (void)m_visualPresentation.BuildPredictionGhostDrawRequests( prediction, presentationRecords, bodyStore );
     ReplayVisualPacket packet = tracer.BuildReplayVisualPacket( cameraEye, cameraUp );
     m_visualPresentation.PublishVisualPacket( packet,

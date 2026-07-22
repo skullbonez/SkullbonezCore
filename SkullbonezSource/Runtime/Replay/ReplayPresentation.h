@@ -242,6 +242,14 @@ struct ReplayTrajectorySubmissionProbeStats
     uint32_t segmentCount = 0;
     uint64_t reserveGrowthEventsAtStart = 0;
     uint64_t reserveGrowthEventsAtEnd = 0;
+    // Live-publication coherence probe: once a prediction's child tree is
+    // render-ready, it must remain ready for every later frame of that run.
+    uint64_t presentationTargetId = 0;
+    ReplayFrameIndex presentationSourceFrame = 0;
+    uint32_t futureTreeReadinessDropCount = 0;
+    bool presentationKeyValid = false;
+    bool futureTreeReadySeen = false;
+    bool futureTreeReadyLastFrame = false;
 };
 
 // Value-only selection applied by the presentation owner after cause-tree hit

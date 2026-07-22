@@ -332,6 +332,7 @@ class ReplayRuntime
     void AppendOverlayTrace( Physics::PhysicsEngine& physics,
                              const SceneEntityStore& entities,
                              RunEditorTracer& tracer,
+                             const ReplayPredictionPresentationView& prediction,
                              const ReplayOverlayBuildInput& input );
     // Routes value-only pointer facts through replay path selection. Store and
     // camera owners are explicit one-call borrows, not fields in the command.

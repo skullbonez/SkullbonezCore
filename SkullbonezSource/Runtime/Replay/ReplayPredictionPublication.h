@@ -5,13 +5,17 @@ Purpose:
 
 Summary:
   A worker fills pre-sized frame slots and release-publishes one contiguous
-  prefix. Frame-thread readers acquire that cursor before inspecting rows.
+  prefix. The frame thread latches one prepared prefix so every presentation
+  consumer sees the same rows until the next preparation pass.
 
 Glossary:
   Published prefix: Contiguous build-frame slots safe for readers.
+  Prepared prefix: Published rows whose topology and trajectories were brought
+    into coherence by the frame thread for one render pass.
 
 Invariants:
   - A slot is published only after its frame and trajectory writes complete.
+  - Worker publication cannot expand the prepared prefix during rendering.
   - Reset invalidates the whole prefix and clears the worker-failure signal.
 
 Related:
@@ -63,6 +67,29 @@ class ReplayPredictionPublication
   private:
     std::atomic<std::size_t> m_publishedCount{ 0 };
     std::atomic<bool> m_workerFailed{ false };
+};
+
+class ReplayPredictionPresentationPublication
+{
+  public:
+    void Prepare( std::size_t publishedCount, std::size_t frameCapacity ) noexcept
+    {
+        m_preparedCount = publishedCount < frameCapacity ? publishedCount : frameCapacity;
+    }
+
+    std::size_t PresentedCount( std::size_t publishedCount, std::size_t frameCapacity ) const noexcept
+    {
+        const std::size_t boundedPublished = publishedCount < frameCapacity ? publishedCount : frameCapacity;
+        return m_preparedCount < boundedPublished ? m_preparedCount : boundedPublished;
+    }
+
+    void Reset() noexcept
+    {
+        m_preparedCount = 0u;
+    }
+
+  private:
+    std::size_t m_preparedCount = 0u;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

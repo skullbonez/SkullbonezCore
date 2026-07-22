@@ -1564,6 +1564,7 @@ SkullbonezCore::Runtime::InteractionAutomationReportWriter::Write( const Interac
         { "predictionTrajectorySteadyStateNoReserveGrowth", predictionSubmissionProbe.noReserveGrowth },
         { "predictionTrajectoryReserveGrowthEventsAtStart", predictionSubmissionProbe.reserveGrowthEventsAtStart },
         { "predictionTrajectoryReserveGrowthEventsAtEnd", predictionSubmissionProbe.reserveGrowthEventsAtEnd },
+        { "predictionFutureTreeReadinessDropCount", predictionSubmissionProbe.futureTreeReadinessDropCount },
         { "predictionFutureNodeCount", static_cast<int>( predictionState.futureNodeCache.futureNodes.size() ) },
         { "predictionAuthoredWallBrickCount", predictionAuthoredWallBrickCount },
         { "predictionAffectedWallBrickCount", predictionAffectedWallBrickCount },
