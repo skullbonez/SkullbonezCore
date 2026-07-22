@@ -144,6 +144,37 @@ golden refresh.
   No reserve registration, allocation-policy file, owner, phase, cap, or
   counter changed.
 
+### C2 — Prediction capacity, accounting, and reserve policy
+
+- Centralized overflow-checked capacity bytes, vector/frame-payload accounting,
+  world-snapshot/frame-category/engine memory estimates, debug-contact growth
+  rounding, vector reserve, and batched frame-payload reserve in the existing
+  `ReplayPredictionReserveOperations` owner. Prediction orchestration and
+  Publication call the same operations; Topology's dead capacity constants and
+  Publication's dead copied implementation are deleted.
+- The `replay_prediction_working_set` registration descriptor is byte-equivalent
+  to its parent: owner, Replay phase, 256 MiB hard cap, unbounded counted-growth
+  setting, and reason are unchanged. The allocation allowlist only relocates
+  the two existing `.reserve()` sites to `ReplayPredictionReserve.h`; it grants
+  no new API or owner privilege.
+- Touched-source comment audit: 5 / 5 source-bearing files checked, 0 deferred.
+  The reserve owner documents byte units, scope ordering, shared-cap behavior,
+  batched frame payloads, denial behavior, and accounting ownership; the three
+  deletion-only callers retain compliant learning headers.
+- Focused Profile solution build passed in 10.86 seconds with zero errors; the
+  direct Replay doctest filter passed 52 / 52 cases and 786 / 786 assertions.
+- Allocation-policy self-test and 429-file repository scan passed in 9.20
+  seconds with zero allowlist errors. `tools\validate_fast.bat` passed in 44.73
+  seconds with clean format/metadata and zero-warning Profile/Debug builds.
+- `tools\validate_replay_allocation_policy.bat` passed in 15.98 seconds:
+  exactly two prediction generations through frame 180, zero gameplay
+  allocations, and zero reserve-policy violations.
+- C2's sole `tools\validate_replay_visual_fidelity.bat` invocation passed in
+  430.84 seconds: one process/generation/presentation, 2,401 ticks, 17 / 17
+  typed controls (75 assertions), every negative/determinism control, and no
+  golden refresh.
+- Replay/downward-include and dependency-direction proofs return zero rows.
+
 ## Dependencies And Decisions
 
 - Fourth in the round-2 campaign binding order (heaviest per-task gate lands

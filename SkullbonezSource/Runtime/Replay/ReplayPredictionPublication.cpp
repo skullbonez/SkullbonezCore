@@ -25,8 +25,6 @@ Related:
 #include "ReplayOverlayLayout.h"
 #include "ReplayPredictionReserve.h"
 #include "ReplayScrubber.h"
-#include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Config.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"
@@ -63,8 +61,6 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace CoreAllocation = SkullbonezCore::Core::Allocation;
-
 namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations
 {
 namespace
@@ -80,186 +76,6 @@ constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
 constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
     static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
-
-constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
-    static_cast<int>( ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
-constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
-constexpr int REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT = 8;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
-
-template <typename T> bool ReplayPredictionCapacityBytes( std::size_t capacity, uint64_t& outBytes )
-{
-    constexpr uint64_t elementBytes = static_cast<uint64_t>( sizeof( T ) );
-    const uint64_t maxCapacity = ( std::numeric_limits<uint64_t>::max )() / elementBytes;
-    if ( capacity > maxCapacity )
-    {
-        return false;
-    }
-    outBytes = static_cast<uint64_t>( capacity ) * elementBytes;
-    return true;
-}
-
-template <typename T> uint64_t ReplayPredictionVectorCapacityBytes( const std::vector<T>& values )
-{
-    uint64_t bytes = 0;
-    return ReplayPredictionCapacityBytes<T>( values.capacity(), bytes ) ? bytes : 0;
-}
-
-uint64_t ReplayPredictionWorldSnapshotMemoryBytes( const SkullbonezCore::Runtime::ReplaySolverWorldSnapshot& snapshot )
-{
-    const SkullbonezCore::Physics::PhysicsSolverSnapshot& physics = snapshot.physics;
-    uint64_t bytes = 0;
-    bytes += ReplayPredictionVectorCapacityBytes( physics.timeRemaining );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepInhibitedThisFrame );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepState );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepCounter );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.underwaterSleepLocked );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoCaptureSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( snapshot.tornadoEjectCooldownSeconds );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionVisualContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandAssignedVisualId );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepSupportEdges );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandParent );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandRank );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasAwake );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandHasSupportAnchor );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandEligible );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.sleepIslandCanSleep );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCache );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.persistentRestingContactCounts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.debugContacts );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.pipelineTrace );
-    bytes += ReplayPredictionVectorCapacityBytes( physics.collisionCellKeys );
-    return bytes;
-}
-
-void AddReplayPredictionFrameCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories,
-                                            const RunReplayPredictionFrame& frame )
-{
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionFrameBodies,
-        ReplayPredictionVectorCapacityBytes( frame.bodies ) );
-    SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes(
-        categories,
-        SkullbonezCore::Core::MainMemoryReplayByteCategory::PredictionDebugContacts,
-        ReplayPredictionVectorCapacityBytes( frame.debugContacts ) );
-}
-
-template <typename T>
-bool ReplayPredictionFramePayloadBytes( std::size_t frameCount, std::size_t capacityPerFrame, uint64_t& outBytes )
-{
-    uint64_t bytesPerFrame = 0;
-    if ( !ReplayPredictionCapacityBytes<T>( capacityPerFrame, bytesPerFrame ) )
-    {
-        return false;
-    }
-    const uint64_t maxValue = ( std::numeric_limits<uint64_t>::max )();
-    const uint64_t maxFrameCount = bytesPerFrame > 0 ? maxValue / bytesPerFrame : maxValue;
-    if ( frameCount > maxFrameCount )
-    {
-        return false;
-    }
-    outBytes = static_cast<uint64_t>( frameCount ) * bytesPerFrame;
-    return true;
-}
-
-std::size_t RoundUpReplayPredictionCapacity( std::size_t requestedCapacity, std::size_t chunk )
-{
-    if ( chunk == 0 || requestedCapacity == 0 )
-    {
-        return requestedCapacity;
-    }
-    const std::size_t remainder = requestedCapacity % chunk;
-    return remainder == 0 ? requestedCapacity : requestedCapacity + ( chunk - remainder );
-}
-
-std::size_t ReplayPredictionInitialDebugContactCapacity( int modelCount )
-{
-    const std::size_t modelScaled = static_cast<std::size_t>( (std::max)( modelCount, 1 ) ) * 8u;
-    return std::clamp( modelScaled,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN,
-                       REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX );
-}
-
-std::size_t ReplayPredictionNextDebugContactCapacity( std::size_t currentCapacity, std::size_t requiredCapacity )
-{
-    const std::size_t chunked =
-        RoundUpReplayPredictionCapacity( requiredCapacity, REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK );
-    const std::size_t doubled =
-        currentCapacity > 0 ? currentCapacity * 2u : REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN;
-    return (std::max)( chunked, doubled );
-}
-
-uint64_t ReplayPredictionEngineMemoryBytes( const PhysicsEngine& engine )
-{
-    // Why: seeding the private engine copies several physics-owned vectors.
-    // Estimate the live working set before requesting the replay growth scope so
-    // those copy allocations are approved under one bounded prediction owner.
-    uint64_t bytes = static_cast<uint64_t>( sizeof( PhysicsEngine ) );
-    bytes += engine.CollectPhysicsWorldMemoryBytes();
-    bytes += engine.CollectDebugAndBroadphaseMemoryBytes();
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadBodies( engine ).RecordCapacity() ) *
-             sizeof( PhysicsBodyRecord );
-    bytes += static_cast<uint64_t>( SkullbonezCore::Physics::PhysicsEngine::ReadColliders( engine ).RecordCapacity() ) *
-             sizeof( ColliderRecord );
-    return bytes;
-}
-
-int ReplayPredictionEngineReserveBytes( const PhysicsEngine& engine )
-{
-    const uint64_t bytes = ReplayPredictionEngineMemoryBytes( engine );
-    if ( bytes == 0 || bytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) ||
-         bytes > static_cast<uint64_t>( ( std::numeric_limits<int>::max )() ) )
-    {
-        return 0;
-    }
-    return static_cast<int>( bytes );
-}
-
-template <typename T>
-bool ReserveReplayPredictionVector( std::vector<T>& values,
-                                    std::size_t requestedCapacity,
-                                    int frameNumber,
-                                    const char* targetName )
-{
-    if ( requestedCapacity <= values.capacity() )
-    {
-        return true;
-    }
-    uint64_t oldBytes = 0;
-    uint64_t requestedBytes = 0;
-    if ( !ReplayPredictionCapacityBytes<T>( values.capacity(), oldBytes ) ||
-         !ReplayPredictionCapacityBytes<T>( requestedCapacity, requestedBytes ) ||
-         requestedBytes > static_cast<uint64_t>( REPLAY_PREDICTION_RESERVE_HARD_BYTES ) )
-    {
-        return false;
-    }
-
-    CoreAllocation::RuntimeReserveGrowthResult result = {};
-    if ( !RequestReplayPredictionReserveGrowth( targetName,
-                                                frameNumber,
-                                                static_cast<int>( oldBytes ),
-                                                static_cast<int>( requestedBytes ),
-                                                1,
-                                                result ) )
-    {
-        return false;
-    }
-
-    const CoreAllocation::RuntimeReserveOwnerHandle owner = ReplayPredictionReserveOwner();
-    CoreAllocation::RuntimeAllocationScope replayAllocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
-    CoreAllocation::RuntimeReserveOwnerScope ownerScope( owner );
-    CoreAllocation::RuntimeReserveGrowthScope growthScope( owner, CoreAllocation::RuntimeReservePhase::Replay, result );
-    values.reserve( requestedCapacity );
-    return requestedCapacity <= values.capacity();
-}
 
 } // namespace
 

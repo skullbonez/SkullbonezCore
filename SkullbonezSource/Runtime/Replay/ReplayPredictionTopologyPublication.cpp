@@ -22,10 +22,7 @@ Related:
 #include "../Scene/SceneEntityStore.h"
 #include "../Editor/EditorHullAssets.h"
 #include "ReplayOverlayLayout.h"
-#include "ReplayPredictionReserve.h"
 #include "ReplayScrubber.h"
-#include "../../Core/Allocation/RuntimeAllocationTracker.h"
-#include "../../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../../Core/Config.h"
 #include "../../Core/SceneCapacity.h"
 #include "../../Physics/ColliderStore.h"
@@ -48,7 +45,6 @@ Related:
 #include <memory>
 
 using namespace SkullbonezCore::Runtime;
-using namespace SkullbonezCore::Runtime::ReplayPredictionReserveOperations;
 using namespace SkullbonezCore::Runtime::ReplayPredictionSchedulingOperations;
 using namespace SkullbonezCore::Runtime::ReplayScrubberOperations;
 namespace Gameplay = SkullbonezCore::Gameplay;
@@ -64,8 +60,6 @@ using SkullbonezCore::Assets::EditorHullAssetDefaultsToContactRelease;
 using SkullbonezCore::Assets::EditorHullAssetPath;
 using SkullbonezCore::Assets::EditorHullAssetToken;
 using SkullbonezCore::Math::Vector::Vector3;
-namespace CoreAllocation = SkullbonezCore::Core::Allocation;
-
 namespace SkullbonezCore::Runtime::ReplayPredictionPublicationOperations
 {
 namespace
@@ -81,14 +75,6 @@ constexpr double REPLAY_PREDICTION_REST_GRACE_SECONDS = 0.4;
 constexpr ReplayFrameIndex REPLAY_PREDICTION_REST_GRACE_FRAMES =
     static_cast<ReplayFrameIndex>( REPLAY_PREDICTION_REST_GRACE_SECONDS / PHYSICS_FIXED_DT );
 constexpr float REPLAY_PREDICTION_REST_POSITION_EPSILON_SQ = 0.5f * 0.5f;
-
-constexpr int REPLAY_PREDICTION_FRAME_CAPACITY =
-    static_cast<int>( ReplayOverlay::REPLAY_PREDICTION_MAX_SECONDS / PHYSICS_FIXED_DT ) + 2;
-constexpr int REPLAY_PREDICTION_PATH_BUDGET = 100;
-constexpr int REPLAY_PREDICTION_TICKS_PER_WORKER_SUBMIT = 8;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MIN = 512u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_INITIAL_MAX = 2048u;
-constexpr std::size_t REPLAY_PREDICTION_DEBUG_CONTACT_GROWTH_CHUNK = 4096u;
 
 // Concept: retained replay and prediction samples share body identity rules.
 //

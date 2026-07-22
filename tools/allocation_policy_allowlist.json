@@ -132,6 +132,17 @@
       "removal_or_wrapper_plan": "Keep prediction growth behind RequestReplayPredictionReserveGrowth/ReserveReplayPredictionVector or replace the working set with a fixed prediction arena."
     },
     {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionReserve.h",
+      "patterns": [
+        ".reserve("
+      ],
+      "owner": "ReplayPrediction private working set",
+      "phase": "replay",
+      "reason": "C2 centralizes the existing vector and batched frame-payload reserve calls behind replay_prediction_working_set; their request bytes, phase gate, owner scopes, and growth counters are unchanged.",
+      "cap": "The existing replay_prediction_working_set registration remains capped at 256 MiB with its existing high-water and growth counters.",
+      "removal_or_wrapper_plan": "Move prediction buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
+    },
+    {
       "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
       "patterns": [
         "std::make_unique<PhysicsEngine>"
@@ -1140,12 +1151,11 @@
       "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.cpp",
       "patterns": [
         ".push_back(",
-        ".reserve(",
         ".resize("
       ],
       "owner": "ReplayPrediction private working set",
       "phase": "replay",
-      "reason": "RC2 moved the existing trajectory and baseline publication growth calls behind the same replay_prediction_working_set owner; no registration, phase gate, cap, or counter changed.",
+      "reason": "RC2 moved the existing trajectory and baseline publication growth calls behind the same replay_prediction_working_set owner; C2 relocated its reserve primitive to ReplayPredictionReserve.h without changing registration, phase gate, cap, or counters.",
       "cap": "The existing replay_prediction_working_set registration remains capped at 256 MiB with its existing high-water and growth counters.",
       "removal_or_wrapper_plan": "Move publication buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
     },
