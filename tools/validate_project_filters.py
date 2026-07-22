@@ -445,6 +445,7 @@ RUNTIME_REPLAY_PREFIXES = (
 )
 
 RUNTIME_RENDER_PREFIXES = (
+    "RenderResourceLifecycle",
     "RenderDefaultsStore",
     "RenderPresentationSettings",
     "RunRender",

@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: In progress; RR0-RR2 complete
+State: In progress; RR0-RR3 complete
 Ledger tasks: 6 (RR0-RR5)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -187,6 +187,48 @@ are the validation-sensitive invariants.
   matched byte-exactly. No baseline, golden, screenshot, replay artifact, or
   provenance metadata changed.
 
+## RR3 Resource-Lifecycle Evidence (2026-07-22)
+
+- `RenderResourceLifecycle` is the concrete backend-epoch owner under
+  `Runtime/Render/`. It owns the established `RuntimeRenderBackendView`,
+  lifecycle log, texture collection, skybox, pass-resource aggregate,
+  primitive-batch cache, GPU timing owner, and `UiTextPass`; its asset, terrain,
+  and config references are the long-lived owners required to rebuild those
+  resources. Renderer-only accessors are private and granted only to
+  `RuntimeRenderer`, so external lifecycle consumers cannot acquire raw backend
+  authority through the new surface.
+- Process initialization, UI-text resource setup, scene DXR warmup, render-target
+  preview projection, and lifecycle-owned release commands moved into the new
+  owner. `RuntimeRenderer` retains the ordered cross-owner drain/release recipe
+  because pass consumers must still release between lifecycle phases; it does
+  not duplicate the moved resource state or call back into `Run`.
+- The `RuntimeRenderer` constructor fell from 10 parameters to three: the
+  established backend owner view, the established world owner view, and scene
+  state used by lifecycle diagnostics. Its provisional member count is 26
+  before RR4's authoritative recount, down from the RR0 baseline of 46.
+- The existing cold skybox and primitive-batch allocation-policy rows moved to
+  the owning implementation without changing phase, cap, or exception count.
+  The allocation self-test/repository scan passed in 9.3 s over 427 files with
+  30 direct-heap, 129 dynamic-member, and 646 growth findings all accounted for
+  and zero allowlist errors.
+- Touched-source comment audit: `RenderResourceLifecycle.h/.cpp`,
+  `RuntimeRenderer.h/.cpp`, `Run.cpp`, `RunRender.cpp`, `RunScene.cpp`, and
+  `OperatorEditorFrameComposer.cpp` checked 8/8; this touched-file pass needs no
+  checklist path, with zero deferred/unchecked files. The one-line project
+  filter-prefix registration is a trivial metadata edit, not a substantial
+  tool-script body change.
+- The final focused Profile build passed in 17.1 s with zero warnings/errors.
+  `tools\validate_fast.bat` passed in 58.2 s after the repository formatter and
+  project-filter metadata were reconciled.
+- `tools\validate_dx12_renderer.bat` passed in 24.7 s with zero InfoQueue
+  errors and all three committed images accepted. `tools\run_graphics_stress.bat 1`
+  completed crash-free in 60.9 s and stopped only by PID 47480's scoped timeout.
+- Final `tools\validate_full.bat` passed in 121.2 s: CPU/coverage and all five
+  runtime lanes passed, DX12 again reported zero errors and accepted committed
+  images, physics retained hash `0x953D97A226665242`, and the 44,401-line CSV
+  matched byte-exactly. No baseline, golden, screenshot, replay artifact, or
+  provenance metadata changed.
+
 ## Phases
 
 - [x] RR0 — Baseline census. Record member inventory (count and domain),
@@ -204,7 +246,7 @@ are the validation-sensitive invariants.
   boundary (`ReplayPresentation` domain), crossing into the renderer as a
   per-frame value in the existing frame-entry record. Replay-facing task:
   runs the rule-11 mega gate.
-- [ ] RR3 — Resource-lifecycle seam. Separate process/scene resource
+- [x] RR3 — Resource-lifecycle seam. Separate process/scene resource
   lifecycle (`InitialiseProcessResources`, `EnsureUiTextResources`,
   ray-tracing warmup, release paths) from frame orchestration behind a
   cohesive resource-lifecycle surface on the renderer, shrinking the

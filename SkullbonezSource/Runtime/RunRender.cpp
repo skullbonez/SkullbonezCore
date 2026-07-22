@@ -44,7 +44,7 @@ namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 void Run::Render( const RuntimeRenderModelFrameView& renderModels, float presentationAlpha )
 {
     const RunDebugState debug = m_overlayDiagnostics->PresentationSnapshot();
-    m_renderer.SetUiTextRayTracingCapability( nullptr );
+    m_renderer.ResourceLifecycle().SetUiTextRayTracingCapability( nullptr );
 
     // In text_only mode all 3D rendering is skipped. UiTextPass handles the display.
     if ( debug.isTextOnly )

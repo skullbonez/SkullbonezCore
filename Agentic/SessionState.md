@@ -12,16 +12,16 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | Implement `runtime-renderer-decomposition` RR3: separate process/scene renderer resource lifecycle from frame orchestration and shrink constructor/backend borrows without creating a service bag. |
-| Active/future progress | 3 / 15 live tasks; 20%. |
+| Current objective | Implement `runtime-renderer-decomposition` RR4: delete any now-unused renderer borrows and record the authoritative RR0-to-RR4 member, constructor, wide-signature, and fan-in deltas. |
+| Active/future progress | 4 / 15 live tasks; 27%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | RR2 final `validate_full` passes in 108.0 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | RR2 also passes replay doctests (52/52), dedicated DX12 (56.6 s), one-minute stress (61.1 s), and its sole replay visual-fidelity invocation (445.6 s; one engine process/generation). RR3 is DX12-touching. |
+| Last broad local gate | RR3 final `validate_full` passes in 121.2 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, exact physics hash, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | RR3 also passes `validate_fast` (58.2 s), allocation policy (9.3 s), dedicated DX12 (24.7 s), and one-minute stress (60.9 s; PID 47480). RR4 is an inventory/shrink task. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 3/15 with
-binding order: `runtime-renderer-decomposition` (3/6),
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is at 4/15 with
+binding order: `runtime-renderer-decomposition` (4/6),
 `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
 live under `Agentic/Plans/TODO/`; the campaign section in
 `Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
@@ -238,6 +238,12 @@ are not certified. Full evidence:
 | allocation self-test + repository scan (RC2) | 9.4 s | PASS; 414 files, zero allowlist errors; same three registered owners/caps |
 | replay visual fidelity (RC2, one engine generation) | 422.9 s | BLOCKED; launcher shape and 16/72 controls pass, then unchanged config-provenance mismatch; no retry or metadata edit |
 | `tools\validate_full.bat` (RC2 final) | 108.2 s | PASS; CPU/coverage umbrella and five runtime lanes, accepted DX12 images, byte-exact 44,401-line physics CSV |
+| focused Profile build (RR3 final) | 17.1 s | PASS; zero warnings/errors after lifecycle extraction and formatting |
+| `tools\validate_fast.bat` (RR3 final) | 58.2 s | PASS; format, 743/743 project/filter items, tests, and Profile/Debug builds |
+| allocation self-test + repository scan (RR3) | 9.3 s | PASS; 427 files, zero allowlist errors; existing cold-owner rows relocated only |
+| `tools\validate_dx12_renderer.bat` (RR3) | 24.7 s | PASS; zero InfoQueue errors and all three committed images accepted |
+| `tools\run_graphics_stress.bat 1` (RR3) | 60.9 s | PASS; PID 47480 bounded stop, crash-free |
+| `tools\validate_full.bat` (RR3 final) | 121.2 s | PASS; CPU/coverage and five runtime lanes, accepted DX12 images, byte-exact physics |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -245,10 +251,9 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-Implement `runtime-renderer-decomposition` RR3: separate process and scene
-resource lifecycle behind a cohesive renderer-owned surface, shrink constructor
-and backend borrows where the RR0 census permits, and keep preview projection
-with its actual resource owner.
+Implement `runtime-renderer-decomposition` RR4: remove any now-unused renderer
+borrows, re-count the RR0 member/signature/fan-in inventory against the current
+tree, and record exact deltas plus reasons for every surviving wide method.
 Follow the round-2 campaign's standing rules in `Agentic/Plans/MASTER-PLAN.md`.
 ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
 owner decision changes that policy.

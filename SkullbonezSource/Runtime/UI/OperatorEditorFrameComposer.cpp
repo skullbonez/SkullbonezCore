@@ -442,7 +442,7 @@ void Render( RuntimeFrameHostView& host,
                                                                      config.runtimeRender.presentationInterpolation,
                                                                      facts.presentationPinned,
                                                                      facts.presentationAlpha } );
-        renderTargetPreviews = renderer.BuildRenderTargetPreviewSnapshot(
+        renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
             sharedShadows,
             sharedCinematicRendering,
             sharedCinematicRendering && sharedCinematic.volumetricLightingEnabled );
@@ -537,7 +537,7 @@ void Render( RuntimeFrameHostView& host,
     }
     renderer.PrepareUiFrameTarget();
 
-    if ( renderer.ShouldRenderUiText( uiTextState, ui ) )
+    if ( renderer.ResourceLifecycle().ShouldRenderUiText( uiTextState, ui ) )
     {
         runtimeViewModel =
             RuntimeViewModelBuilder::Build( RuntimeViewModelContext{ sceneController.State(),
@@ -551,10 +551,10 @@ void Render( RuntimeFrameHostView& host,
         const bool uiCinematicRendering = IsSceneCinematicRenderingEnabled( scene, config, launchOptions, debug, true );
         const bool shadowsAvailable =
             uiCinematicRendering ? uiCinematic.shadow.enabled : config.ordinaryRender.shadow.enabled;
-        renderTargetPreviews =
-            renderer.BuildRenderTargetPreviewSnapshot( shadowsAvailable,
-                                                       uiCinematicRendering,
-                                                       uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
+        renderTargetPreviews = renderer.ResourceLifecycle().BuildRenderTargetPreviewSnapshot(
+            shadowsAvailable,
+            uiCinematicRendering,
+            uiCinematicRendering && uiCinematic.volumetricLightingEnabled );
         const ReplayOverlay::ReplayOverlayRenderContext replayOverlayContext{ *uiRender.textures,
                                                                               *uiRender.geometry,
                                                                               host.profiler,
