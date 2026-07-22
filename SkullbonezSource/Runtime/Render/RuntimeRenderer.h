@@ -7,6 +7,8 @@ Summary:
   RuntimeRenderer owns pass objects and backend-resource lifetime. One live
   RenderGraph owns the frame pass order. Five named owner views supply lifetime-stable dependencies;
   immutable per-frame records carry submission facts and completed overlays.
+  UiTextPass owns its font batch and presentation capabilities; this class
+  contributes only the late graph-scheduling edge for UI text.
   A content-neutral extension scope lets higher composition append one typed
   world pass at the renderer-owned post-water scheduling point.
 
@@ -32,6 +34,7 @@ Invariants:
   - Backend resource release begins only after a successful GPU drain, then
     keeps consumer passes ahead of producer passes.
   - The world-extension registration is consumed before its stack scope ends.
+  - UI-text input is one stack record consumed synchronously by UiTextPass.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h
@@ -51,7 +54,6 @@ Related:
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderSceneSnapshot.h"
 #include "../../Rendering/WorldRenderExtension.h"
-#include "../../Rendering/Text.h"
 
 #include <array>
 #include <chrono>
@@ -195,25 +197,17 @@ class RuntimeRenderer
     // Validates a restart frame with no Present edge, then releases every
     // callback/resource borrow before capture automation can replace the scene.
     void FinalizeCaptureOnlyFrameGraph();
-    void RenderUiText( Rendering::Dx12Diagnostics& renderDiagnostics,
-                       const UI::UIRenderContext& uiRender,
-                       const UiTextPassState& state,
-                       RunTimerState& timers,
-                       UI::InGameUI& ui,
-                       const RuntimeRenderModelFrameView& models,
-                       DiagnosticsRuntime& diagnosticsRuntime,
-                       const ReplayHudStatus& replayHud,
-                       const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
-                       const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                       bool cinematicRendering,
-                       double dSecondsPerFrame );
+    // Schedules the cohesive UI-text owner with one stack-only frame record.
+    // RuntimeRenderer owns graph order, not HUD/replay/operator composition.
+    void RenderUiText( const UiTextPassInputs& inputs );
 
   private:
     struct CinematicPostFrameOutput
     {
         bool volumetricPassExecuted = false;              // Volumetric callback was scheduled for this post chain.
         bool volumetricReady = false;                     // Volumetric target was produced and can be sampled by tonemap.
-        uint32_t volumetricTextureHandle = 0;             // Renderer texture handle resolved from the graph-managed transient SRV.
+        uint32_t volumetricTextureHandle =
+            0;                                            // Renderer texture handle resolved from the graph-managed transient Shader Resource View (SRV).
         uint32_t volumetricWidth = 0;                     // Materialized graph transient width for diagnostics.
         uint32_t volumetricHeight = 0;                    // Materialized graph transient height for diagnostics.
     };
@@ -328,19 +322,7 @@ class RuntimeRenderer
     void ExecuteReplayGhostsThroughRenderGraph( const ReplayGhostGraphInputs& inputs );
     bool ExecuteDebugOverlayThroughRenderGraph( const DebugOverlayGraphInputs& inputs );
     CinematicPostFrameOutput ExecuteCinematicPostThroughRenderGraph( const CinematicPostGraphInputs& inputs );
-    void ExecuteUiTextThroughRenderGraph( Rendering::Dx12Diagnostics& renderDiagnostics,
-                                          const UI::UIRenderContext& uiRender,
-                                          const UiTextPassState& state,
-                                          RunTimerState& timers,
-                                          UI::InGameUI& ui,
-                                          const RuntimeRenderModelFrameView& models,
-                                          DiagnosticsRuntime& diagnosticsRuntime,
-                                          const ReplayHudStatus& replayHud,
-                                          const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
-                                          const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                          bool cinematicRendering,
-                                          Rendering::Dx12RaytracingOwner* renderRayTracing,
-                                          double secondsPerFrame );
+    void ExecuteUiTextThroughRenderGraph( const UiTextPassInputs& inputs );
     // Lifetime: startup binds the exact concrete DX12 owners used by this
     // cohesive renderer. Frame records never republish this authority, and the
     // pointers remain valid until the enclosing Run/backend lifetime ends.
@@ -375,7 +357,8 @@ class RuntimeRenderer
     std::chrono::steady_clock::time_point
         m_consequenceGradeLastTick;                       // Wall-clock anchor for the grade crossfade; zero means uninitialized.
     std::array<Math::Transformation::Matrix4, SkullbonezCore::Scene::Capacity::MAX_SCENE_OBJECTS>
-        m_dxrReflectionTransforms = {};                   // Scratch matrices for DXR TLAS instance upload.
+        m_dxrReflectionTransforms =
+            {};                                           // Scratch matrices for DXR Top-Level Acceleration Structure (TLAS) instance upload.
     FullscreenQuadPass m_fullscreenQuadPass;              // Shared full-screen vertex buffer pass used by sky/post effects.
     SkyPass m_skyPass;                                    // Background sky pass, reused by reflection and scene target passes.
     SceneTargetPass m_sceneTargetPass;                    // Cinematic HDR scene-target begin/release pass.
@@ -387,10 +370,7 @@ class RuntimeRenderer
     DebugOverlayPass m_debugOverlayPass;                  // Broadphase and physics debug overlay pass.
     VolumetricPass m_volumetricPass;                      // Half-resolution cinematic light-shaft pass.
     TonemapPass m_tonemapPass;                            // HDR-to-backbuffer resolve pass.
-    // Lifetime: fixed-capacity CPU vertex/projection state lives with the
-    // renderer process owner and is synchronously borrowed by UI/text calls.
-    Text::TextBatch m_textBatch;
-    UiTextPass m_uiTextPass;                              // HUD/UI/text pass.
+    UiTextPass m_uiTextPass;                              // Cohesive HUD/UI/text resources and composition owner.
     // Runtime allocation policy: one owner scratch graph accumulates the whole
     // frame. Pass labels are borrowed literals and pass/resource lists are
     // bounded, so steady render frames do not create graph heaps.
@@ -399,9 +379,6 @@ class RuntimeRenderer
     Rendering::RenderSceneSnapshot m_frameGraphSnapshot;
     Rendering::Dx12GraphTransientPool* m_frameGraphRenderGraph = nullptr;
     bool m_frameGraphFinalized = false;
-    // Lifetime: borrowed only for the next UI pass after world rendering, then
-    // refreshed or cleared before backend release and text-only frames.
-    Rendering::Dx12RaytracingOwner* m_uiTextRayTracing = nullptr;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

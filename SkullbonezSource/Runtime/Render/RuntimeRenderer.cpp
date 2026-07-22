@@ -30,6 +30,8 @@ Invariants:
     framebuffers, shaders, and dynamic vertex buffers can own backend objects.
   - Pass input/output structs borrow data for one frame only. Do not cache
     pointers returned from ShadowPassOutput or ReflectionPassOutput consumers.
+  - UI-text scheduling carries one stack frame record. Font, profiler/timing,
+    and ray-tracing presentation capabilities remain inside UiTextPass.
 
 Related:
   - SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h declares pass contracts.
@@ -325,22 +327,8 @@ struct SkyboxGraphCallbackData
 struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
-    SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
     SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
-    SkullbonezCore::Core::Profiler* profiler = nullptr;
-    SkullbonezCore::Text::TextBatch* textBatch = nullptr;
-    const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
-    const UiTextPassState* state = nullptr;
-    RunTimerState* timers = nullptr;
-    SkullbonezCore::UI::InGameUI* ui = nullptr;
-    const RuntimeRenderModelFrameView* models = nullptr;
-    DiagnosticsRuntime* diagnosticsRuntime = nullptr;
-    const ReplayHudStatus* replayHud = nullptr;
-    const ReplayOverlay::ReplayOverlayRenderContext* replayOverlayContext = nullptr;
-    const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
-    bool cinematicRendering = false;
-    SkullbonezCore::Rendering::Dx12RaytracingOwner* renderRayTracing = nullptr;
-    double secondsPerFrame = 0.0;
+    const UiTextPassInputs* inputs = nullptr;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
 };
@@ -650,28 +638,12 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                  UiTextGraphCallbackData& data )
 {
-    if ( !data.uiTextPass || !data.renderDiagnostics || !data.renderGraph || !data.textBatch || !data.uiRender ||
-         !data.state || !data.timers || !data.ui || !data.models || !data.diagnosticsRuntime || !data.replayHud ||
-         !data.replayOverlayContext || !data.cinematic || !data.uiRender->IsReady() )
+    if ( !data.uiTextPass || !data.renderGraph || !data.inputs || !data.inputs->uiRender.IsReady() )
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
     (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
-    data.uiTextPass->Render( { *data.state,
-                               *data.timers,
-                               *data.ui,
-                               *data.renderDiagnostics,
-                               data.profiler,
-                               *data.textBatch,
-                               *data.uiRender,
-                               *data.models,
-                               *data.diagnosticsRuntime,
-                               *data.replayHud,
-                               *data.replayOverlayContext,
-                               *data.cinematic,
-                               data.cinematicRendering,
-                               data.renderRayTracing,
-                               data.secondsPerFrame } );
+    data.uiTextPass->Render( *data.inputs );
 }
 
 void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
@@ -1561,20 +1533,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 }
 
 
-void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
-    Rendering::Dx12Diagnostics& renderDiagnostics,
-    const UI::UIRenderContext& uiRender,
-    const UiTextPassState& state,
-    RunTimerState& timers,
-    UI::InGameUI& ui,
-    const RuntimeRenderModelFrameView& models,
-    DiagnosticsRuntime& diagnosticsRuntime,
-    const ReplayHudStatus& replayHud,
-    const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
-    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-    bool cinematicRendering,
-    Rendering::Dx12RaytracingOwner* renderRayTracing,
-    double secondsPerFrame )
+void RuntimeRenderer::ExecuteUiTextThroughRenderGraph( const UiTextPassInputs& inputs )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
     if ( !m_renderGraph )
@@ -1586,26 +1545,10 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( uiTextPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
 
-    UI::UIRenderContext profiledUiRender = uiRender;
-    profiledUiRender.gpuTiming = &m_renderGpuTiming;
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
-    callbackData.renderDiagnostics = &renderDiagnostics;
     callbackData.renderGraph = m_renderGraph;
-    callbackData.profiler = m_profiler;
-    callbackData.textBatch = &m_textBatch;
-    callbackData.uiRender = &profiledUiRender;
-    callbackData.state = &state;
-    callbackData.timers = &timers;
-    callbackData.ui = &ui;
-    callbackData.models = &models;
-    callbackData.diagnosticsRuntime = &diagnosticsRuntime;
-    callbackData.replayHud = &replayHud;
-    callbackData.replayOverlayContext = &replayOverlayContext;
-    callbackData.cinematic = &cinematic;
-    callbackData.cinematicRendering = cinematicRendering;
-    callbackData.renderRayTracing = renderRayTracing;
-    callbackData.secondsPerFrame = secondsPerFrame;
+    callbackData.inputs = &inputs;
     graph.SetPassCallback<ExecuteUiTextGraphCallback>( uiTextPass, callbackData, true, "Frame/UI" );
 
     // Invariant: UI/text always lands on the presentable backbuffer. Text-only
@@ -1749,7 +1692,7 @@ RuntimeRenderer::RuntimeRenderer( Rendering::Dx12RenderDevice* renderDevice,
                      m_passResources.fullscreen,
                      m_config,
                      m_profiler ),
-      m_uiTextPass()
+      m_uiTextPass( m_profiler, m_renderGpuTiming )
 {
     m_renderPassGraphScratch.ReserveForRuntimePassGraph();
     m_renderPassCompileScratch.ReserveForRuntimePassGraph();
@@ -1937,7 +1880,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const RuntimeRenderServices& services = renderInputs.services;
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     const ReplayRenderFrameView& replayFrame = services.replayFrame;
-    m_uiTextRayTracing = m_renderRayTracing;
+    m_uiTextPass.SetRayTracingCapability( m_renderRayTracing );
     const bool cinematicRender = services.cinematicEnabled;
     const SkullbonezCore::Core::CinematicRenderConfig& renderConfig = services.cinematic;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
@@ -2189,8 +2132,7 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12TextureOwner*
     m_terrainPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
     m_fullscreenQuadPass.ReleaseGpuResources( renderGeometry );
-    m_uiTextPass.ReleaseGpuResources( m_textBatch, renderTextures, renderGeometry );
-    m_uiTextRayTracing = nullptr;
+    m_uiTextPass.ReleaseGpuResources( renderTextures, renderGeometry );
 }
 
 
@@ -2376,8 +2318,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::EnsureUiTextResources( Rendering
                                                                        int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass
-        .EnsureGpuResources( m_textBatch, renderResources, renderTextures, renderGeometry, assets, screenW, screenH );
+    return m_uiTextPass.EnsureGpuResources( renderResources, renderTextures, renderGeometry, assets, screenW, screenH );
 }
 
 
@@ -2389,7 +2330,7 @@ bool RuntimeRenderer::ShouldRenderUiText( const UiTextPassState& state, const UI
 
 void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing )
 {
-    m_uiTextRayTracing = renderRayTracing;
+    m_uiTextPass.SetRayTracingCapability( renderRayTracing );
 }
 
 
@@ -2518,32 +2459,9 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
 }
 
 
-void RuntimeRenderer::RenderUiText( Rendering::Dx12Diagnostics& renderDiagnostics,
-                                    const UI::UIRenderContext& uiRender,
-                                    const UiTextPassState& state,
-                                    RunTimerState& timers,
-                                    UI::InGameUI& ui,
-                                    const RuntimeRenderModelFrameView& models,
-                                    DiagnosticsRuntime& diagnosticsRuntime,
-                                    const ReplayHudStatus& replayHud,
-                                    const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
-                                    const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                    bool cinematicRendering,
-                                    double dSecondsPerFrame )
+void RuntimeRenderer::RenderUiText( const UiTextPassInputs& inputs )
 {
-    (void)ExecuteUiTextThroughRenderGraph( renderDiagnostics,
-                                           uiRender,
-                                           state,
-                                           timers,
-                                           ui,
-                                           models,
-                                           diagnosticsRuntime,
-                                           replayHud,
-                                           replayOverlayContext,
-                                           cinematic,
-                                           cinematicRendering,
-                                           m_uiTextRayTracing,
-                                           dSecondsPerFrame );
+    ExecuteUiTextThroughRenderGraph( inputs );
 }
 
 
@@ -2582,7 +2500,7 @@ RuntimeRenderer::BuildModelFrameView( SkullbonezCore::Runtime::SceneWorld& scene
 
 bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
 {
-    m_uiTextRayTracing = nullptr;
+    m_uiTextPass.SetRayTracingCapability( nullptr );
     const ReplayRenderFrameView& replayFrame = context.replayOverlay.replayFrame;
     RuntimeTools& runtimeTools = context.toolOverlay.tools;
     const RuntimeRenderFramePolicy& policy = context.framePolicy;

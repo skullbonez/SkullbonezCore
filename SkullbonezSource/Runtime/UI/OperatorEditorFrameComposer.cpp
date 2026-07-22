@@ -592,18 +592,21 @@ void Render( RuntimeFrameHostView& host,
         {
             CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Render );
             DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Frame/UI" );
-            renderer.RenderUiText( renderDiagnostics,
-                                   uiRender,
-                                   uiTextState,
-                                   timers,
-                                   ui,
-                                   renderModels,
-                                   diagnosticsRuntime,
-                                   replayHud,
-                                   replayOverlayContext,
-                                   uiCinematic,
-                                   uiCinematicRendering,
-                                   facts.secondsPerFrame );
+            // Lifetime: every reference in this stack record remains valid until
+            // the renderer executes the synchronous UI-text graph callback below.
+            const UiTextPassInputs uiTextInputs{ uiTextState,
+                                                 timers,
+                                                 ui,
+                                                 renderDiagnostics,
+                                                 uiRender,
+                                                 renderModels,
+                                                 diagnosticsRuntime,
+                                                 replayHud,
+                                                 replayOverlayContext,
+                                                 uiCinematic,
+                                                 uiCinematicRendering,
+                                                 facts.secondsPerFrame };
+            renderer.RenderUiText( uiTextInputs );
         }
         PROFILE_END( host.profiler, "Frame/UI" );
         const int uiDrawCallEnd = renderDiagnostics.GetFrameDrawCallCount();

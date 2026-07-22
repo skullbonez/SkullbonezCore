@@ -2,7 +2,7 @@
 
 Date: 2026-07-22
 Owner: skullbonez
-State: In progress; RR0 complete
+State: In progress; RR0-RR1 complete
 Ledger tasks: 6 (RR0-RR5)
 
 ## Problem And Evidence (2026-07-22, main tip 0c5263e1)
@@ -117,13 +117,49 @@ owner. These are the RR1-RR3 extraction seams; the one-live-graph order,
 declaration-only Present edge, DX12 image thresholds, and zero-InfoQueue rule
 are the validation-sensitive invariants.
 
+## RR1 UI-Text Ownership Evidence (2026-07-22)
+
+- `UiTextPassInputs` is the one named stack-only frame record at the public
+  `RenderUiText` boundary, the private `ExecuteUiTextThroughRenderGraph`
+  boundary, and the synchronous graph callback. Both formerly wide renderer
+  methods fell from 12/13 parameters to one.
+- `UiTextPass` now owns its fixed-capacity `TextBatch`, startup-bound profiler
+  and GPU-timing links, and the optional ray-tracing presentation capability.
+  RuntimeRenderer no longer stores `m_textBatch` or `m_uiTextRayTracing`; its
+  member denominator is provisionally 44 before the authoritative RR4 recount.
+- RuntimeRenderer retains the one-live-graph scheduling work: declare the late
+  backbuffer write, attach the callback, compile transitions, and execute the
+  new callback range. HUD, operator UI, replay HUD/overlay values, cinematic
+  facts, diagnostics, models, timers, and frame delta cross as one record.
+- Replay remains the owner of `ReplayHudStatus`; the operator composer requests
+  that value once and places it in the frame record. The UI-text owner consumes
+  values and does not borrow ReplayRuntime or reach back into replay authority.
+- No UI-text path signature exceeds six parameters. `EnsureGpuResources` is
+  six; release, predicate, capability, render, and renderer scheduling calls are
+  one or two. No callback pack, context/service bag, heap/growth path, new owner
+  reach-back, downward Replay include, or replay allocation privilege appeared.
+- Touched-source comment audit: `RuntimeRenderPasses.h`, `RuntimeRenderer.h/.cpp`,
+  `OperatorEditorFrameComposer.cpp`, and `UiTextPass.cpp` checked 5/5; this
+  touched-file pass needs no checklist path, with zero deferred/unchecked files
+  and no wording awaiting owner approval.
+- Focused builds passed: Profile 11.8 s before formatting, final formatted
+  Profile 10.8 s, and Automation 11.5 s, all with zero warnings/errors.
+- `tools\validate_dx12_renderer.bat` passed in 55.8 s with zero InfoQueue
+  errors and all three committed images accepted. `tools\run_graphics_stress.bat 1`
+  completed crash-free in 61.1 s and stopped only by its recorded PID timeout.
+- Final `tools\validate_full.bat` passed in 122.6 s: CPU/coverage and all five
+  runtime lanes passed, DX12 again reported zero errors and accepted committed
+  images, physics retained hash `0x953D97A226665242`, and the 44,401-line CSV
+  matched byte-exactly. No baseline, golden, screenshot, or replay artifact was
+  refreshed.
+
 ## Phases
 
 - [x] RR0 — Baseline census. Record member inventory (count and domain),
   constructor arity, the ≥7-argument method inventory, and include fan-in
   for `RuntimeRenderer.h` at the starting tip. These numbers are the
   acceptance denominators.
-- [ ] RR1 — UI text composition extraction. Move `RenderUiText` /
+- [x] RR1 — UI text composition extraction. Move `RenderUiText` /
   `ExecuteUiTextThroughRenderGraph` composition (HUD, operator UI text,
   replay HUD status assembly) into a cohesive UI-text pass owner that
   receives one named per-frame value record; `RuntimeRenderer` retains only
