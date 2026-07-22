@@ -320,9 +320,23 @@ the RH0 baseline, and the final CPU/full/three-repeat renderer/stress evidence
 is recorded in
 `../Reports/2026-07-22/render-interface-retirement-closure.md`.
 
+The denominator grew 0 → 24 on 2026-07-22 when the owner registered the
+five-plan architecture follow-up round-2 campaign from the same-day
+architecture review conversation (chat review at main tip 0c5263e1; the plan
+documents carry the dated evidence): physics standalone-world unification
+(5 tasks), Run::Execute frame-phase decomposition (4 tasks), RuntimeRenderer
+decomposition (6 tasks), replay deduplication audit (4 tasks), and wide
+signature reduction (5 tasks). Execution order is 1→5 as listed; the ordering
+rationale and per-plan gates live in the campaign section below.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| **Active/future total** | **0** | **0** | **0%** |
+| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | 0 | 5 | 0% |
+| [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | 0 | 4 | 0% |
+| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | 0 | 6 | 0% |
+| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 0 | 4 | 0% |
+| [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
+| **Active/future total** | **0** | **24** | **0%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -412,13 +426,17 @@ physics, performance, replay fidelity, one-minute graphics stress, and marker
 smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
-The architecture-review campaign registered 2026-07-20 is complete. The live
-queue is now the remainder of the 2026-07-22 architecture follow-up campaign,
-in order: `owner-fanout-reduction` (reshapes the scene-lifecycle and frame-view
-borrow graphs), then
-`replay-subsystem-consolidation` (heaviest per-task gate; its
-presentation-reset seam lands once on the final lifecycle-ledger shape). Plans
-live under `TODO/`; see the campaign section below.
+The architecture-review campaign registered 2026-07-20 and the 2026-07-22
+architecture follow-up campaign (render interface retirement, owner fan-out
+reduction, replay subsystem consolidation) are complete. The live queue is
+the 2026-07-22 architecture follow-up round-2 campaign, in binding order:
+`physics-standalone-world-unification` (isolated dual-simulation kill),
+`run-execute-frame-phase-decomposition` (frame loop; renderer work rebases
+on it), `runtime-renderer-decomposition` (DX12-heavy),
+`replay-deduplication-audit` (heaviest per-task gate; sweeps the
+post-renderer Presentation shape), then `wide-signature-reduction` (its
+inventory must measure the final tree). Plans live under `TODO/`; see the
+round-2 campaign section below.
 Dependency-direction restoration, allocation-namespace restoration,
 physics-facade unification, physics-settings snapshot, Run::Execute
 de-accretion, render-graph completion, Render HAL modernization, and gameplay
@@ -1259,6 +1277,49 @@ Render interface retirement closed RH0-RH5 with zero interface classes,
 narrower transient authority, clear independent review, and complete final
 gates. Closure evidence:
 [`render-interface-retirement-closure`](../Reports/2026-07-22/render-interface-retirement-closure.md).
+
+## Architecture Follow-Up Campaign Round 2 (2026-07-22)
+
+Source: the owner-requested critical architecture review of 2026-07-22 at
+main tip 0c5263e1 (chat review; the plan documents carry the dated
+evidence). The review found the classic god objects closed and named the
+remaining debts this campaign owns: a second physics simulation
+(`PhysicsStandaloneWorld`, 2,226-line `PhysicsApi.cpp`, one production
+consumer) diverging from the production solver; `Run::Execute` as a
+~570-line god function over completed state decomposition; `RuntimeRenderer`
+as the next god object forming (~50 members, replay presentation state,
+11-13-argument UI-text signatures); possible duplicated logic inside the
+36,332-line replay subsystem; and an unruled 7-11-argument signature band
+left by the 2026-07-15 wide-call inventory.
+
+Owner decisions ratified at registration: the production solver is the only
+physics simulation — the standalone world is deleted and its smoke re-hosted
+on `PhysicsEngine`; `Run::Execute` phases stay on `Run` (a FrameDriver owner
+is rejected as a forwarding shape); replay grading state belongs to the
+Replay presentation domain; **replay is the engine's most important
+subsystem — the dedup plan is an internal-quality pass, not a slimming
+exercise, and size alone is not a finding**; the wide-signature inventory
+threshold is ≥7 parameters with rulings allowed to accept width.
+
+Standing rules binding every plan in this campaign: zero behavioral
+baseline, golden, screenshot, replay, or physics CSV refresh — divergence is
+reverted, never normalized; every DX12 slice runs the bounded
+graphics-stress proof per inventory rule 10; replay-facing slices run the
+one-invocation mega gate per inventory rule 11; one independent rubber-duck
+review per plan at closure; no new compatibility spellings, forwarding
+wrappers, context bags, callback packs, or hot-path inheritance artifacts;
+prior R-/RC-era cohesion rulings are re-litigated only with the new evidence
+a census records. Execution order is binding: 1 physics unification,
+2 frame-phase decomposition, 3 renderer decomposition, 4 replay dedup audit,
+5 wide-signature reduction.
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | Registered | 0/5 | Start PU0 census of `PhysicsApi.*` symbols and consumers |
+| [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | Registered | 0/4 | Starts after physics unification closes; RX0 frame-order census |
+| [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | Registered | 0/6 | Starts after frame-phase decomposition closes; RR0 baseline census |
+| [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Starts after renderer RR2 lands (or records the pending seam); RD0 census |
+| [wide-signature-reduction](TODO/wide-signature-reduction.md) | Registered | 0/5 | Last; W0 inventory measures the post-campaign tree |
 
 ## Features
 

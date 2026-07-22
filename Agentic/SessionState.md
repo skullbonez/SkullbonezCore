@@ -12,18 +12,25 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner` |
 | Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
-| Current objective | No active/future MASTER-plan task. Preserve the closed architecture boundaries and recorded deletion conditions. |
-| Active/future progress | 0 / 0 live tasks; 0%. |
+| Current objective | Begin the 2026-07-22 architecture follow-up round-2 campaign: `physics-standalone-world-unification` PU0 is the next task. |
+| Active/future progress | 0 / 24 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RC6 `validate_full` passes in 104.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
 | Validation for current edits | Authorized provenance-only reconciliation changes exactly two hash fields; the replay visual-fidelity gate now passes all 2,401 ticks and negative controls in 435.3 s. |
 
 ## Live Queue
 
-NOW. There is no active/future MASTER-plan task. The 2026-07-22 architecture
-follow-up campaign is closed: render interface retirement closed RH0-RH5,
-owner fan-out reduction closed OF0-OF5, and Replay subsystem consolidation
-closed RC0-RC6. Evidence is in
+NOW. The 2026-07-22 architecture follow-up round-2 campaign is registered at
+0/24 with binding order: `physics-standalone-world-unification` (5),
+`run-execute-frame-phase-decomposition` (4), `runtime-renderer-decomposition`
+(6), `replay-deduplication-audit` (4), `wide-signature-reduction` (5). Plans
+live under `Agentic/Plans/TODO/`; the campaign section in
+`Agentic/Plans/MASTER-PLAN.md` carries the ratified owner decisions,
+including that replay is the engine's most important subsystem and its audit
+is an internal-quality pass, not a slimming exercise. The prior 2026-07-22
+architecture follow-up campaign is closed: render interface retirement closed
+RH0-RH5, owner fan-out reduction closed OF0-OF5, and Replay subsystem
+consolidation closed RC0-RC6. Evidence is in
 `Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`,
 `Agentic/Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`, and
 `Agentic/Reports/2026-07-22/replay-subsystem-consolidation-closure.md`. The prior architecture-review campaign is
@@ -239,10 +246,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The remaining 2026-07-22 architecture follow-up campaign is replay subsystem
-consolidation at 3/7. Begin RC3: consolidate Presentation into the recorded
-data-selection versus draw-submission split and remove duplicated selection
-logic found by the census. The OF2 replay provenance mismatch
-remains recorded and does not authorize a config or golden reconciliation.
-ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
-owner decision changes that policy.
+Begin `physics-standalone-world-unification` PU0: census every symbol in
+`PhysicsApi.h`/`PhysicsApi.cpp` and every consumer (production, tests, tools,
+validation scripts), classifying contract types versus standalone-only
+simulation code. Follow the round-2 campaign's binding order and standing
+rules in `Agentic/Plans/MASTER-PLAN.md`. ImGui/Tracy E17 remains accepted;
+Legacy remains the default until a separate owner decision changes that
+policy.
