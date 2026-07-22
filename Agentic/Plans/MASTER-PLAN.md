@@ -329,14 +329,20 @@ decomposition (6 tasks), replay deduplication audit (4 tasks), and wide
 signature reduction (5 tasks). Execution order is 1→5 as listed; the ordering
 rationale and per-plan gates live in the campaign section below.
 
+The active/future denominator returned 24 → 19 when
+`physics-standalone-world-unification` closed PU0-PU4 and left the ledger under
+rule 4. `PhysicsEngine` is the only simulation owner, the engine lifecycle smoke
+pins full point-joint/query/contact/island state, and the independent review and
+final broad gate are clear. Evidence is recorded in
+`../Reports/2026-07-22/physics-standalone-world-unification-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | 4 | 5 | 80% |
 | [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | 0 | 4 | 0% |
 | [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | 0 | 6 | 0% |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | 0 | 4 | 0% |
 | [wide-signature-reduction](TODO/wide-signature-reduction.md) | 0 | 5 | 0% |
-| **Active/future total** | **4** | **24** | **17%** |
+| **Active/future total** | **0** | **19** | **0%** |
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -429,10 +435,10 @@ smoke all pass. Closure evidence is in
 The architecture-review campaign registered 2026-07-20 and the 2026-07-22
 architecture follow-up campaign (render interface retirement, owner fan-out
 reduction, replay subsystem consolidation) are complete. The live queue is
-the 2026-07-22 architecture follow-up round-2 campaign, in binding order:
-`physics-standalone-world-unification` (isolated dual-simulation kill),
-`run-execute-frame-phase-decomposition` (frame loop; renderer work rebases
-on it), `runtime-renderer-decomposition` (DX12-heavy),
+the 2026-07-22 architecture follow-up round-2 campaign. Physics standalone-
+world unification is closed; the remaining binding order is
+`run-execute-frame-phase-decomposition` (frame loop; renderer work rebases on
+it), `runtime-renderer-decomposition` (DX12-heavy),
 `replay-deduplication-audit` (heaviest per-task gate; sweeps the
 post-renderer Presentation shape), then `wide-signature-reduction` (its
 inventory must measure the final tree). Plans live under `TODO/`; see the
@@ -1315,7 +1321,6 @@ a census records. Execution order is binding: 1 physics unification,
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [physics-standalone-world-unification](TODO/physics-standalone-world-unification.md) | In progress | 4/5 | PU2-PU3 implementation complete; independent review and final broad gate in PU4 |
 | [run-execute-frame-phase-decomposition](TODO/run-execute-frame-phase-decomposition.md) | Registered | 0/4 | Starts after physics unification closes; RX0 frame-order census |
 | [runtime-renderer-decomposition](TODO/runtime-renderer-decomposition.md) | Registered | 0/6 | Starts after frame-phase decomposition closes; RR0 baseline census |
 | [replay-deduplication-audit](TODO/replay-deduplication-audit.md) | Registered | 0/4 | Starts after renderer RR2 lands (or records the pending seam); RD0 census |

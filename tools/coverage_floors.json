@@ -11,7 +11,7 @@
       "date": "2026-07-17",
       "owner": "unit-test-coverage-campaign U10",
       "scope": "SkullbonezSource/Physics/PhysicsApi.*",
-      "decision": "Keep the standalone facade in validate_all_cpu_tests rather than the main doctest coverage floor.",
+      "decision": "Keep the shipping PhysicsEngine lifecycle smoke in validate_physics rather than the main doctest coverage floor.",
       "reason": "The PhysicsEngine lifecycle smoke owns the shipping engine's body, collider, constraint, query, contact, island, and activation matrix in the physics gate; duplicating that large fixed-store probe in every doctest run would not improve the store floor."
     },
     {

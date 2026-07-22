@@ -65,7 +65,7 @@ namespace
 {
 constexpr uint64_t PHYSICS_SMOKE_FNV_OFFSET_BASIS = 14695981039346656037ull;
 constexpr uint64_t PHYSICS_SMOKE_FNV_PRIME = 1099511628211ull;
-constexpr uint64_t PHYSICS_ENGINE_LIFECYCLE_EXPECTED_HASH = 0x466576DF4B00186Full;
+constexpr uint64_t PHYSICS_ENGINE_LIFECYCLE_EXPECTED_HASH = 0x953D97A226665242ull;
 
 uint64_t HashPhysicsSmokeU32( uint64_t hash, uint32_t value )
 {
@@ -220,9 +220,22 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     const bool updatedJoint = engine.UpdatePointJoint( jointUpdate );
     const bool destroyedFirstJoint = engine.DestroyConstraint( firstJoint );
     const auto& compactedJoints = PhysicsEngine::ReadPointJointConstraints( engine );
-    const bool survivorHandleStable = compactedJoints.size() == 1u && compactedJoints[0].handle == survivorJoint &&
-                                      compactedJoints[0].localAnchorA == jointUpdate.localAnchorA &&
-                                      compactedJoints[0].groupId == jointUpdate.groupId;
+    PointJointConstraint survivorRecord;
+    const bool survivorRecordCaptured = compactedJoints.size() == 1u;
+    if ( survivorRecordCaptured )
+    {
+        survivorRecord = compactedJoints[0];
+    }
+    // Invariant: verify the live compacted row, not the input packet. Otherwise
+    // a field-specific update regression could repeat deterministically and
+    // leave the smoke hash unchanged.
+    const bool survivorHandleStable =
+        survivorRecordCaptured && survivorRecord.handle == survivorJoint &&
+        survivorRecord.bodyA == survivorJointDesc.bodyA && survivorRecord.bodyB == survivorJointDesc.bodyB &&
+        survivorRecord.localAnchorA == jointUpdate.localAnchorA &&
+        survivorRecord.localAnchorB == jointUpdate.localAnchorB && survivorRecord.slack == jointUpdate.slack &&
+        survivorRecord.stiffness == jointUpdate.stiffness && survivorRecord.damping == jointUpdate.damping &&
+        survivorRecord.groupId == jointUpdate.groupId && survivorRecord.flags == jointUpdate.flags;
     const bool destroyedSurvivorJoint = engine.DestroyConstraint( survivorJoint );
     const bool staleConstraintRejected =
         !engine.UpdatePointJoint( jointUpdate ) && !engine.DestroyConstraint( survivorJoint );
@@ -232,11 +245,24 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     PhysicsBodyUpdateDesc staleBodyUpdate;
     staleBodyUpdate.body = fixed.body;
     staleBodyUpdate.updateMask = PHYSICS_BODY_UPDATE_POSE;
-    const bool cascadeLifecycle = cascadeJoint.IsValid() && destroyedFixedBody &&
-                                  !engine.UpdateAuthoredBody( staleBodyUpdate ) &&
-                                  !PhysicsEngine::ReadBodies( engine ).Contains( fixed.body ) &&
-                                  PhysicsEngine::ReadColliders( engine ).RecordForHandle( fixed.collider ) == nullptr &&
-                                  PhysicsEngine::ReadPointJointConstraints( engine ).empty();
+    PhysicsPointJointUpdateDesc cascadeStaleUpdate;
+    cascadeStaleUpdate.constraint = cascadeJoint;
+    const bool cascadeLifecycle =
+        cascadeJoint.IsValid() && destroyedFixedBody && !engine.UpdateAuthoredBody( staleBodyUpdate ) &&
+        !PhysicsEngine::ReadBodies( engine ).Contains( fixed.body ) &&
+        PhysicsEngine::ReadColliders( engine ).RecordForHandle( fixed.collider ) == nullptr &&
+        PhysicsEngine::ReadPointJointConstraints( engine ).empty() && !engine.UpdatePointJoint( cascadeStaleUpdate ) &&
+        !engine.DestroyConstraint( cascadeJoint );
+
+    PhysicsPointJointCreateDesc clearJointDesc;
+    clearJointDesc.bodyA = dynamic.body;
+    clearJointDesc.bodyB = transient.body;
+    const PhysicsConstraintHandle clearJoint = engine.CreatePointJoint( clearJointDesc );
+    PhysicsPointJointUpdateDesc clearStaleUpdate;
+    clearStaleUpdate.constraint = clearJoint;
+    engine.ClearPointJointConstraints();
+    const bool clearLifecycle = clearJoint.IsValid() && PhysicsEngine::ReadPointJointConstraints( engine ).empty() &&
+                                !engine.UpdatePointJoint( clearStaleUpdate ) && !engine.DestroyConstraint( clearJoint );
 
     engine.SeedBodyAsleep( dynamic.body );
     const int dynamicRow = PhysicsEngine::ReadBodies( engine ).ModelIndexForHandle( dynamic.body );
@@ -321,9 +347,16 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
         hash = HashPhysicsSmokeFloat( hash, collider.boundingRadius );
         hash = HashPhysicsSmokeFloat( hash, collider.restitution );
     }
-    hash = HashPhysicsSmokeHandle( hash, survivorJoint );
-    hash = HashPhysicsSmokeVector( hash, jointUpdate.localAnchorA );
-    hash = HashPhysicsSmokeU32( hash, jointUpdate.groupId );
+    hash = HashPhysicsSmokeHandle( hash, survivorRecord.handle );
+    hash = HashPhysicsSmokeHandle( hash, survivorRecord.bodyA );
+    hash = HashPhysicsSmokeHandle( hash, survivorRecord.bodyB );
+    hash = HashPhysicsSmokeVector( hash, survivorRecord.localAnchorA );
+    hash = HashPhysicsSmokeVector( hash, survivorRecord.localAnchorB );
+    hash = HashPhysicsSmokeFloat( hash, survivorRecord.slack );
+    hash = HashPhysicsSmokeFloat( hash, survivorRecord.stiffness );
+    hash = HashPhysicsSmokeFloat( hash, survivorRecord.damping );
+    hash = HashPhysicsSmokeU32( hash, survivorRecord.groupId );
+    hash = HashPhysicsSmokeU32( hash, survivorRecord.flags );
     hash = HashPhysicsSmokeHandle( hash, rayHit.body );
     hash = HashPhysicsSmokeHandle( hash, rayHit.collider );
     hash = HashPhysicsSmokeFloat( hash, rayHit.distance );
@@ -354,7 +387,7 @@ PhysicsEngineLifecycleScenarioResult RunPhysicsEngineLifecycleScenario()
     result.lifecycleChecksPassed =
         created && updatedBodyAndCollider && firstJoint.IsValid() && survivorJoint.IsValid() && updatedJoint &&
         destroyedFirstJoint && survivorHandleStable && destroyedSurvivorJoint && staleConstraintRejected &&
-        cascadeLifecycle && result.activationChecksPassed && result.rayCastHit && broadphaseMatched;
+        cascadeLifecycle && clearLifecycle && result.activationChecksPassed && result.rayCastHit && broadphaseMatched;
     // Invariant: the physics gate pins one exact shipping-engine state, not
     // merely agreement between two runs that could repeat the same regression.
     const bool expectedState =
