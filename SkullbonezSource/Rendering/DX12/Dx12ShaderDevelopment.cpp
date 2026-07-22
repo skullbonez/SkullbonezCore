@@ -6,7 +6,7 @@ Purpose:
 Summary:
   The owner launches the repository's pinned bake tool, validates replacement
   bytecode for every registered raster shader, stages the generate-mips compute
-  PSO, and then performs a no-fail publication after the caller drains the GPU.
+  PSO, drains the frame owner, and then performs a no-fail publication.
 
 Glossary:
   Offline DXC bake: Repository tool invocation that creates one pinned manifest
@@ -40,8 +40,12 @@ using namespace SkullbonezCore::Rendering;
 
 Dx12ShaderDevelopment::Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline,
                                               Dx12TextureOwner& textures,
-                                              Dx12GeometryOwner& geometry )
-    : m_pipeline( pipeline ), m_textures( textures ), m_geometry( geometry )
+                                              Dx12GeometryOwner& geometry,
+                                              Dx12RenderDevice& device,
+                                              Dx12FrameOwner& frame,
+                                              Dx12Diagnostics& diagnostics )
+    : m_pipeline( pipeline ), m_textures( textures ), m_geometry( geometry ), m_device( device ), m_frame( frame ),
+      m_diagnostics( diagnostics )
 {
 }
 
@@ -49,6 +53,26 @@ Dx12ShaderDevelopment::Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline,
 bool Dx12ShaderDevelopment::Enabled() const
 {
     return DevShaderHotReloadEnabled();
+}
+
+
+SkullbonezCore::Core::SbResult Dx12ShaderDevelopment::ReloadShadersFromSource()
+{
+    const SkullbonezCore::Core::SbResult bakeResult = BakeSourceGeneration();
+    if ( !bakeResult.ok )
+    {
+        return bakeResult;
+    }
+
+    // Lifetime: every current PSO may still be referenced by submitted command
+    // lists. The shader owner publishes no replacement until the frame owner
+    // proves those lists complete and reopens the recording epoch.
+    const SkullbonezCore::Core::SbResult drainResult = m_frame.FinishAndReopen( m_diagnostics );
+    if ( !drainResult.ok )
+    {
+        return drainResult;
+    }
+    return ReloadBakedGeneration( m_device.Device() );
 }
 
 

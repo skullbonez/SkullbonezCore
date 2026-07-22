@@ -30,6 +30,7 @@ Related:
   - UI.cpp owns the surrounding UI frame.
 */
 #include "UIFrameComposition.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
 #include "../Assets/AssetKeys.h"
 #include "../Rendering/RenderGpuTimingOwner.h"
 
@@ -461,15 +462,16 @@ uint32_t BuildUIInteractionSignature( int mouseX,
 void FlushUIDrawList( const UIDrawList& drawList,
                       Text::TextBatch& textBatch,
                       Rendering::RenderGpuTimingOwner* gpuTiming,
-                      Rendering::IRenderCommandContext& renderCommands,
-                      Rendering::IRenderDiagnostics& renderDiagnostics,
+                      Rendering::Dx12TextureOwner& renderTextures,
+                      Rendering::Dx12GeometryOwner& renderCommands,
+                      Rendering::Dx12Diagnostics& renderDiagnostics,
                       int screenW,
                       int screenH,
                       float offsetX,
                       float offsetY )
 {
     PROFILE_GPU_BEGIN( gpuTiming, "Frame/UI/Draw" );
-    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderCommands, &textBatch );
+    const UIDrawContext immediateDraw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
     drawList.Flush( immediateDraw, offsetX, offsetY );
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Widgets" );
@@ -477,7 +479,7 @@ void FlushUIDrawList( const UIDrawList& drawList,
     }
     {
         DRAW_CALL_TRACE_SCOPE( renderDiagnostics, "Text" );
-        Text::Text2d::FlushText( textBatch, renderCommands );
+        Text::Text2d::FlushText( textBatch, renderTextures, renderCommands );
     }
     PROFILE_GPU_END( gpuTiming, "Frame/UI/Draw" );
 }
@@ -672,7 +674,7 @@ void DrawEditorObjectCounter( const UIDrawContext& draw,
 }
 
 
-void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
+void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                          uint32_t& dynamicVB,
                                          const UIRenderContext& render )
 {
@@ -695,28 +697,28 @@ void EnsureRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& sh
     if ( dynamicVB == 0 )
     {
         const int attribs[] = { 2, 2 };
-        dynamicVB = render.resources->CreateDynamicVB( attribs, 2, 6 );
+        dynamicVB = render.geometry->CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
 
-void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::IShader>& shader,
+void ResetRenderTargetPreviewResources( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                         uint32_t& dynamicVB,
-                                        Rendering::IRenderResourceFactory* resources )
+                                        Rendering::Dx12GeometryOwner* geometry )
 {
     shader.reset();
     if ( dynamicVB != 0 )
     {
-        if ( resources )
+        if ( geometry )
         {
-            resources->DestroyDynamicVB( dynamicVB );
+            geometry->DestroyDynamicVB( dynamicVB );
         }
         dynamicVB = 0;
     }
 }
 
 
-void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader,
+void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::ShaderDX12>& shader,
                                      uint32_t& dynamicVB,
                                      const UIDrawContext& draw,
                                      const UIRenderTargetPreviewResource& resource,
@@ -758,18 +760,19 @@ void DrawRenderTargetPreviewTexture( std::unique_ptr<Rendering::IShader>& shader
 
     const Math::Transformation::Matrix4 proj =
         Math::Transformation::Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
-    Rendering::IRenderCommandContext& commands = *render.commands;
+    Rendering::Dx12TextureOwner& textures = *render.textures;
+    Rendering::Dx12GeometryOwner& geometry = *render.geometry;
     const int mode = resource.depth ? 2 : ( resource.hdr ? 1 : 0 );
     shader->Use();
     shader->SetMat4( "uProjection", proj );
     shader->SetInt( "uTexture", 0 );
     shader->SetVec4( "uPreviewParams", static_cast<float>( mode ), 1.0f, 2.2f, 0.0f );
-    commands.BindTexture( resource.textureHandle, 0 );
+    textures.BindTexture( resource.textureHandle, 0 );
     {
         DRAW_CALL_TRACE_SCOPE( *render.diagnostics, "RenderTargetPreview" );
-        commands.UploadAndDrawDynamicVB( dynamicVB, verts, PREVIEW_RASTER_STATE );
+        geometry.UploadAndDrawDynamicVB( dynamicVB, verts, PREVIEW_RASTER_STATE );
     }
-    commands.BindTexture( 0, 0 );
+    textures.BindTexture( 0, 0 );
 }
 
 

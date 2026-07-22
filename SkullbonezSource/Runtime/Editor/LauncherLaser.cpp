@@ -13,8 +13,10 @@ Glossary:
     direction.
   Ribbon: Thin quad strip used to render one laser streak.
   Afterimage: Fading visual trail that remains briefly after the shot.
-  Render resource factory: Renderer capability borrowed only while creating or
-    releasing laser-owned shader resources.
+  Resource builder: Cold renderer owner borrowed only while compiling the
+    laser shader.
+  Geometry owner: Renderer owner borrowed while creating or destroying the
+    laser vertex buffer.
   Render command context: Per-frame renderer capability borrowed only while
     drawing laser vertices and temporarily changing draw state.
   Shader handle: Runtime id that resolves to a renderer-owned shader resource.
@@ -30,9 +32,10 @@ Related:
 #include "LauncherLaser.h"
 
 #include "../../Assets/AssetSystem.h"
-#include "../../Rendering/IRenderCommandContext.h"
-#include "../../Rendering/IRenderResourceFactory.h"
-#include "../../Rendering/IShader.h"
+#include "../../Rendering/RenderCommandTypes.h"
+#include "../../Rendering/DX12/Dx12ResourceBuilder.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
+#include "../../Rendering/DX12/ShaderDX12.h"
 
 #include <algorithm>
 #include <cmath>
@@ -88,11 +91,11 @@ LauncherLaser::~LauncherLaser()
     ResetResources( nullptr );
 }
 
-void LauncherLaser::ResetResources( Rendering::IRenderResourceFactory* renderResources )
+void LauncherLaser::ResetResources( Rendering::Dx12GeometryOwner* renderGeometry )
 {
-    if ( renderResources && m_dynamicVB != 0 )
+    if ( renderGeometry && m_dynamicVB != 0 )
     {
-        renderResources->DestroyDynamicVB( m_dynamicVB );
+        renderGeometry->DestroyDynamicVB( m_dynamicVB );
     }
 
     m_dynamicVB = 0;
@@ -106,7 +109,9 @@ void LauncherLaser::Clear()
     m_nextShot = 0;
 }
 
-void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources )
+void LauncherLaser::EnsureResources( Assets::AssetSystem& assets,
+                                     Rendering::Dx12ResourceBuilder& renderResources,
+                                     Rendering::Dx12GeometryOwner& renderGeometry )
 {
     if ( !m_shader )
     {
@@ -116,7 +121,7 @@ void LauncherLaser::EnsureResources( Assets::AssetSystem& assets, Rendering::IRe
     if ( m_dynamicVB == 0 )
     {
         const int attribs[] = { 3, 4 };
-        m_dynamicVB = renderResources.CreateDynamicVB( attribs, 2, MAX_VERTICES );
+        m_dynamicVB = renderGeometry.CreateDynamicVB( attribs, 2, MAX_VERTICES );
     }
 }
 
@@ -375,8 +380,9 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
                             const Vector3& cameraEye,
                             const Vector3& cameraUp,
                             Assets::AssetSystem& assets,
-                            Rendering::IRenderResourceFactory& renderResources,
-                            Rendering::IRenderCommandContext& renderCommands )
+                            Rendering::Dx12ResourceBuilder& renderResources,
+                            Rendering::Dx12GeometryOwner& renderGeometry,
+                            Rendering::Dx12GeometryOwner& renderCommands )
 {
     static_cast<void>( cameraEye );
     static_cast<void>( cameraUp );
@@ -391,7 +397,7 @@ void LauncherLaser::Render( const Matrix4& viewProjection,
         return;
     }
 
-    EnsureResources( assets, renderResources );
+    EnsureResources( assets, renderResources, renderGeometry );
     if ( !m_shader || m_dynamicVB == 0 )
     {
         return;

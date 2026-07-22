@@ -256,6 +256,23 @@ const std::vector<std::string>& SceneRuntime::Queue() const
 }
 
 
+void SceneRuntime::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
+{
+    // Hazard: generation zero is the observer sentinel. Wrapping would make a
+    // real load invisible and could suppress every once-per-generation reset.
+    if ( m_lifecyclePacket.generation == UINT64_MAX )
+    {
+        SB_FATAL( "Runtime/SceneRuntime", "Scene lifecycle generation exhausted." );
+    }
+    ++m_lifecyclePacket.generation;
+    m_lifecyclePacket.event = SceneRuntimeLifecycleEvent::None;
+    m_lifecyclePacket.policy = lifecyclePolicy;
+    m_lifecyclePacket.sceneIndex = index;
+    m_lifecyclePacket.sceneMode = false;
+    m_lastLifecycleEvent = SceneRuntimeLifecycleEvent::None;
+}
+
+
 void SceneRuntime::BeginLoad( int index )
 {
     m_state.currentSceneIndex = index;
@@ -265,9 +282,9 @@ void SceneRuntime::BeginLoad( int index )
 
 void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers )
 {
-    // Hazard: recoverable population failures deliberately leave the previous
-    // scene cleared, so a later BeforeSceneUnload may restart from any phase.
-    // Every phase inside one attempt must still remain strictly ordered.
+    // Hazard: accepting a skipped or repeated phase would publish plausible
+    // but false progress to every generation observer. A retry must begin a new
+    // generation before it can emit BeforeSceneUnload again.
     if ( !SceneRuntimeLifecycleTransitionValid( m_lastLifecycleEvent, event ) )
     {
         SB_FATAL( "Runtime/SceneRuntime",
@@ -285,6 +302,14 @@ void SceneRuntime::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Scene
                   consumers );
     }
     m_lastLifecycleEvent = event;
+    m_lifecyclePacket.event = event;
+    m_lifecyclePacket.sceneMode = m_state.isSceneMode;
+}
+
+
+const SceneLifecyclePacket& SceneRuntime::LifecyclePacket() const
+{
+    return m_lifecyclePacket;
 }
 
 

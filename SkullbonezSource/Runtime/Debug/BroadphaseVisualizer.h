@@ -38,7 +38,7 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 }
 
 namespace Physics
@@ -138,7 +138,7 @@ class BroadphaseVisualizer
     // Generates line vertex data and submits it through the frame command context.
     // The caller owns renderer readiness and debug-line capability for the frame.
     void Render( const Math::Transformation::Matrix4& viewProj,
-                 Rendering::IRenderCommandContext& renderCommands,
+                 Rendering::Dx12GeometryOwner& renderCommands,
                  bool supportsDebugLines );
 };
 } // namespace Physics

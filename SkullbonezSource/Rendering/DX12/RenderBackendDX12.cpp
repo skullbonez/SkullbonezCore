@@ -184,177 +184,79 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
 
 
 RenderBackendDX12::RenderBackendDX12()
-    : m_shaderDevelopment( m_pipelineOwner, m_textureOwner, m_geometryOwner ),
-      m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
+    : m_frameOwner( m_renderDevice, m_pipelineOwner, m_textureOwner, m_descriptorHeaps ),
+      m_shaderDevelopment( m_pipelineOwner,
+                           m_textureOwner,
+                           m_geometryOwner,
+                           m_renderDevice,
+                           m_frameOwner,
+                           m_diagnostics ),
+      m_resourceBuilder( m_renderDevice,
+                         m_pipelineOwner,
+                         m_textureOwner,
+                         m_descriptorHeaps,
+                         m_frameOwner,
+                         m_shaderDevelopment,
+                         m_diagnostics ),
+      m_raytracingOwner( m_renderDevice,
+                         m_descriptorHeaps,
+                         m_frameOwner,
+                         m_textureOwner,
+                         m_pipelineOwner,
+                         m_geometryOwner ),
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
       m_imguiRenderer( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_pipelineOwner, m_textureOwner ),
 #endif
+      m_backbufferCapture( m_frameOwner.CaptureFrame(), m_renderDevice ),
       m_graphTransientPool( m_renderDevice, m_descriptorHeaps, m_frameOwner, m_textureOwner, m_pipelineOwner )
 {
-}
-
-
-RenderMemoryStats RenderBackendDX12::GetRenderMemoryStats() const
-{
-    // Concept: this snapshot mixes engine-owned cache counters with DXGI's
-    // adapter-memory counters. The engine counters identify which renderer
-    // tables are growing; the DXGI counters say whether the graphics kernel is
-    // charging local or non-local video memory to this process.
-    RenderMemoryStats stats;
-    strcpy_s( stats.backendName, sizeof( stats.backendName ), "DirectX 12" );
-    stats.available = Device() != nullptr;
-    stats.recreationGeneration = m_renderDevice.RecreationGeneration();
-    if ( !stats.available )
-    {
-        return stats;
-    }
-
-    const Dx12CpuDescriptorAllocatorStats rtvStats = m_descriptorHeaps.RtvStats();
-    const Dx12CpuDescriptorAllocatorStats dsvStats = m_descriptorHeaps.DsvStats();
-    const Dx12DescriptorAllocatorStats srvStats = m_descriptorHeaps.GetStats();
-    stats.rtvDescriptorsUsed = rtvStats.used;
-    stats.rtvDescriptorsCapacity = rtvStats.capacity;
-    stats.dsvDescriptorsUsed = dsvStats.used;
-    stats.dsvDescriptorsCapacity = dsvStats.capacity;
-    stats.srvStaticDescriptorsUsed = srvStats.staticUsed;
-    stats.srvStaticDescriptorsCapacity = srvStats.staticCapacity;
-    stats.srvStaticDescriptorsHighWater = srvStats.staticHighWater;
-    stats.srvTransientDescriptorsUsedThisFrame = srvStats.transientUsedThisFrame;
-    stats.srvTransientDescriptorsCapacityPerFrame = srvStats.transientCapacityPerFrame;
-    stats.srvTransientDescriptorsPeakThisRun = srvStats.transientPeakThisRun;
-
-    for ( int frameIndex = 0; frameIndex < Dx12FrameOwner::FRAME_COUNT; ++frameIndex )
-    {
-        const Dx12UploadArenaStats uploadStats = m_frameOwner.Uploads().GetStats( static_cast<UINT>( frameIndex ) );
-        stats.uploadCapacityBytes += uploadStats.capacityBytes;
-        stats.uploadUsedBytes += uploadStats.usedBytes;
-        stats.uploadPeakBytes = (std::max)( stats.uploadPeakBytes, uploadStats.peakBytes );
-        for ( std::size_t categoryIndex = 0; categoryIndex < RENDER_UPLOAD_CATEGORY_COUNT; ++categoryIndex )
-        {
-            stats.uploadCategoryUsedBytes[categoryIndex] += uploadStats.categoryUsedBytes[categoryIndex];
-            stats.uploadCategoryPeakBytes[categoryIndex] = (std::max)( stats.uploadCategoryPeakBytes[categoryIndex],
-                                                                       uploadStats.categoryPeakBytes[categoryIndex] );
-        }
-    }
-    stats.uploadFlushCount = m_frameOwner.UploadFlushCount();
-    stats.uploadDropCount = m_frameOwner.UploadDropCount();
-
-    const Dx12ReadbackBufferStats timerReadbackStats = m_diagnostics.TimerReadbackStats();
-    if ( timerReadbackStats.ready )
-    {
-        stats.timerReadbackBytes = timerReadbackStats.sizeBytes;
-    }
-
-    stats.textureRegistryCount = m_textureOwner.RegistryCount();
-    stats.textureRegistryCapacity = m_textureOwner.RegistryCapacity();
-    stats.dynamicVertexBufferCount = m_geometryOwner.DynamicCount();
-    stats.dynamicVertexBufferCapacity = m_geometryOwner.DynamicCapacity();
-    stats.instancedMeshCount = m_geometryOwner.InstancedCount();
-    stats.instancedMeshCapacity = m_geometryOwner.InstancedCapacity();
-    stats.psoCacheCount = m_pipelineOwner.CacheCount();
-    stats.psoCacheHitCount = m_pipelineOwner.CacheHitCount();
-    stats.psoCacheMissCount = m_pipelineOwner.CacheMissCount();
-    stats.precompiledPsoCount = m_pipelineOwner.PrecompiledPsoCount();
-    stats.graphTransientCount = m_graphTransientPool.Size();
-    stats.graphTransientCapacity = m_graphTransientPool.Capacity();
-
-    if ( IDXGIFactory4* factory = m_renderDevice.Factory() )
-    {
-        // Why: multi-GPU machines can expose several adapters. Match the
-        // device LUID instead of sampling adapter 0 so stress logs describe the
-        // GPU actually backing this DX12 device.
-        const LUID deviceLuid = Device()->GetAdapterLuid();
-        ComPtr<IDXGIAdapter3> activeAdapter;
-        for ( UINT adapterIndex = 0;; ++adapterIndex )
-        {
-            ComPtr<IDXGIAdapter1> adapter;
-            const HRESULT enumResult = factory->EnumAdapters1( adapterIndex, adapter.GetAddressOf() );
-            if ( enumResult == DXGI_ERROR_NOT_FOUND )
-            {
-                break;
-            }
-            if ( FAILED( enumResult ) )
-            {
-                continue;
-            }
-
-            DXGI_ADAPTER_DESC1 desc = {};
-            if ( FAILED( adapter->GetDesc1( &desc ) ) || desc.AdapterLuid.HighPart != deviceLuid.HighPart ||
-                 desc.AdapterLuid.LowPart != deviceLuid.LowPart )
-            {
-                continue;
-            }
-
-            (void)adapter.As( &activeAdapter );
-            break;
-        }
-
-        if ( activeAdapter )
-        {
-            DXGI_QUERY_VIDEO_MEMORY_INFO localInfo = {};
-            DXGI_QUERY_VIDEO_MEMORY_INFO nonLocalInfo = {};
-            const bool localAvailable =
-                SUCCEEDED( activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &localInfo ) );
-            const bool nonLocalAvailable = SUCCEEDED(
-                activeAdapter->QueryVideoMemoryInfo( 0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &nonLocalInfo ) );
-            stats.adapterMemoryAvailable = localAvailable || nonLocalAvailable;
-            if ( localAvailable )
-            {
-                stats.localBudgetBytes = static_cast<uint64_t>( localInfo.Budget );
-                stats.localCurrentUsageBytes = static_cast<uint64_t>( localInfo.CurrentUsage );
-                stats.localCurrentReservationBytes = static_cast<uint64_t>( localInfo.CurrentReservation );
-                stats.localAvailableForReservationBytes = static_cast<uint64_t>( localInfo.AvailableForReservation );
-            }
-            if ( nonLocalAvailable )
-            {
-                stats.nonLocalBudgetBytes = static_cast<uint64_t>( nonLocalInfo.Budget );
-                stats.nonLocalCurrentUsageBytes = static_cast<uint64_t>( nonLocalInfo.CurrentUsage );
-                stats.nonLocalCurrentReservationBytes = static_cast<uint64_t>( nonLocalInfo.CurrentReservation );
-                stats.nonLocalAvailableForReservationBytes =
-                    static_cast<uint64_t>( nonLocalInfo.AvailableForReservation );
-            }
-        }
-    }
-
-    return stats;
+    m_textureOwner.BindResourceOwners( m_renderDevice, m_frameOwner, m_pipelineOwner );
+    m_geometryOwner.BindResourceOwners( m_renderDevice, m_frameOwner, m_pipelineOwner, m_diagnostics );
+    m_diagnostics.BindSources( m_renderDevice,
+                               m_descriptorHeaps,
+                               m_frameOwner,
+                               m_textureOwner,
+                               m_pipelineOwner,
+                               m_geometryOwner,
+                               m_graphTransientPool,
+                               m_raytracingOwner );
 }
 
 
 RenderGraphTransientMaterializationStats
-RenderBackendDX12::MaterializeGraphTransientResources( const RenderGraph& graph,
-                                                       const RenderGraphCompileResult& compiled )
+Dx12GraphTransientPool::MaterializeGraphTransientResources( const RenderGraph& graph,
+                                                            const RenderGraphCompileResult& compiled )
 {
-    return m_graphTransientPool.Materialize( graph, compiled );
+    return Materialize( graph, compiled );
 }
 
 
-RenderGraphTextureBinding RenderBackendDX12::ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const
+RenderGraphTextureBinding Dx12GraphTransientPool::ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const
 {
-    return m_graphTransientPool.Resolve( resource );
+    return Resolve( resource );
 }
 
 
-RenderGraphNativeResourceToken RenderBackendDX12::ResolveGraphResourceToken( uint32_t textureHandle ) const
+RenderGraphNativeResourceToken Dx12GraphTransientPool::ResolveGraphResourceToken( uint32_t textureHandle ) const
 {
-    return RenderGraphNativeResourceToken::From( m_textureOwner.ResolveResource( textureHandle ) );
+    return RenderGraphNativeResourceToken::From( m_textures.ResolveResource( textureHandle ) );
 }
 
 
-RenderGraphBackbufferBinding RenderBackendDX12::ResolveGraphBackbufferBinding() const
+RenderGraphBackbufferBinding Dx12GraphTransientPool::ResolveGraphBackbufferBinding() const
 {
     RenderGraphBackbufferBinding binding;
-    binding.nativeResource =
-        RenderGraphNativeResourceToken::From( m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() ) );
-    binding.currentAccess = m_frameOwner.BackBufferAccess();
+    binding.nativeResource = RenderGraphNativeResourceToken::From( m_frame.RenderTarget( m_frame.FrameIndex() ) );
+    binding.currentAccess = m_frame.BackBufferAccess();
     return binding;
 }
 
 
-size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
-                                                   const RenderGraphCompileResult& compiled,
-                                                   uint32_t passIndex )
+size_t Dx12GraphTransientPool::ExecuteGraphTransitions( const RenderGraph& graph,
+                                                        const RenderGraphCompileResult& compiled,
+                                                        uint32_t passIndex )
 {
-    size_t emittedCount = m_graphTransientPool.ExecuteTransitions( graph, compiled, passIndex );
+    size_t emittedCount = ExecuteTransitions( graph, compiled, passIndex );
     if ( passIndex >= graph.Passes().size() )
     {
         SB_FATAL( "RenderBackendDX12", "Graph transition requested an invalid pass. pass=%u", passIndex );
@@ -379,7 +281,7 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
                       graph.Passes()[passIndex].name,
                       resource.name );
         }
-        if ( !m_frameOwner.CanRecord() && !m_frameOwner.EnsureOpen().ok )
+        if ( !m_frame.CanRecord() && !m_frame.EnsureOpen().ok )
         {
             SB_FATAL( "RenderBackendDX12",
                       "Compiled external transition could not open command recording. pass=%s resource=%s",
@@ -387,8 +289,8 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
                       resource.name );
         }
 
-        const bool isCurrentBackbuffer = nativeResource == m_frameOwner.RenderTarget( m_frameOwner.FrameIndex() );
-        if ( isCurrentBackbuffer && transition.before != m_frameOwner.BackBufferAccess() )
+        const bool isCurrentBackbuffer = nativeResource == m_frame.RenderTarget( m_frame.FrameIndex() );
+        if ( isCurrentBackbuffer && transition.before != m_frame.BackBufferAccess() )
         {
             // Hazard: graph compilation uses the tracked access sampled by the
             // wrapper. A mismatch means an untracked frame-edge transition ran
@@ -396,7 +298,7 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
             SB_FATAL( "RenderBackendDX12",
                       "Compiled backbuffer transition has stale before-state. pass=%s tracked=%s compiled=%s",
                       graph.Passes()[passIndex].name,
-                      ToString( m_frameOwner.BackBufferAccess() ),
+                      ToString( m_frame.BackBufferAccess() ),
                       ToString( transition.before ) );
         }
 
@@ -405,7 +307,7 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
         if ( transition.before == RenderGraphResourceAccess::UnorderedAccess )
         {
             Dx12RenderGraphUavBarrierDesc uavDesc;
-            uavDesc.commandList = m_frameOwner.CommandList();
+            uavDesc.commandList = m_frame.CommandList();
             uavDesc.resource = nativeResource;
             const Dx12RenderGraphUavBarrierRecord uavRecord =
                 ExecuteDx12RenderGraphUavBarrier( "Dx12GraphCompiledExternal",
@@ -422,7 +324,7 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
         }
 
         Dx12RenderGraphSingleTransitionDesc transitionDesc;
-        transitionDesc.commandList = m_frameOwner.CommandList();
+        transitionDesc.commandList = m_frame.CommandList();
         transitionDesc.resource = nativeResource;
         transitionDesc.before = transition.before;
         transitionDesc.after = transition.after;
@@ -441,8 +343,8 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
         }
         if ( isCurrentBackbuffer )
         {
-            m_frameOwner.SetBackBufferAccess( transition.after );
-            m_pipelineOwner.InvalidateTargets();
+            m_frame.SetBackBufferAccess( transition.after );
+            m_pipeline.InvalidateTargets();
         }
         ++emittedCount;
     }
@@ -450,15 +352,17 @@ size_t RenderBackendDX12::ExecuteGraphTransitions( const RenderGraph& graph,
 }
 
 
-void RenderBackendDX12::BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+void Dx12GraphTransientPool::BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding,
+                                                            const char* passName )
 {
-    m_graphTransientPool.BeginRenderTarget( binding, passName );
+    BeginRenderTarget( binding, passName );
 }
 
 
-void RenderBackendDX12::EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName )
+void Dx12GraphTransientPool::EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding,
+                                                          const char* passName )
 {
-    m_graphTransientPool.EndRenderTarget( binding, passName );
+    EndRenderTarget( binding, passName );
 }
 
 // --- Init / Shutdown ---
@@ -513,7 +417,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     // all device objects exist, and rollback needs no separate rebind phase.
     // DXR is optional hardware support; fall back to raster water if the device
     // cannot expose raytracing interfaces.
-    ShutdownDXR();
+    m_raytracingOwner.ShutdownDXR();
     m_raytracingOwner.ProbeCapability( Device() );
 
     // Descriptor heap Summary:
@@ -632,7 +536,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     {
         return genMipsResult;
     }
-    m_geometryOwner.AdoptGridLineShader( CreateShader( "shaders/grid_line" ) );
+    m_geometryOwner.AdoptGridLineShader( m_resourceBuilder.CreateShader( "shaders/grid_line" ) );
     if ( !m_geometryOwner.EnsureGridLinePipeline( Device(), m_pipelineOwner, DXGI_FORMAT_R8G8B8A8_UNORM ) ||
          !m_geometryOwner.EnsureGridLinePipeline( Device(), m_pipelineOwner, DXGI_FORMAT_R16G16B16A16_FLOAT ) )
     {
@@ -648,7 +552,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, 
     {
         m_geometryOwner.AdoptTransientTriangleShader(
             style,
-            CreateShader( Dx12GeometryOwner::TransientShaderBaseName( style ) ) );
+            m_resourceBuilder.CreateShader( Dx12GeometryOwner::TransientShaderBaseName( style ) ) );
         if ( !m_geometryOwner.HasTransientTriangleShader( style ) )
         {
             return SkullbonezCore::Core::SbResult::Failure(
@@ -926,7 +830,7 @@ void RenderBackendDX12::Shutdown()
 
     // Wait for all GPU work to complete (command queue + pending presents).
     const SkullbonezCore::Core::SbResult initialDrainResult =
-        m_frameOwner.HasFailure() ? DrainForResourceRelease() : m_frameOwner.WaitForGpu();
+        m_frameOwner.HasFailure() ? m_frameOwner.DrainForResourceRelease() : m_frameOwner.WaitForGpu();
     if ( !initialDrainResult.ok )
     {
         // Lane F: releasing any backend object after this point could race a
@@ -993,7 +897,7 @@ void RenderBackendDX12::Shutdown()
     // acceleration structures. Release them before the shared renderer objects
     // below so no raytracing object outlives the device/command-list aliases it
     // was created from.
-    ShutdownDXR();
+    m_raytracingOwner.ShutdownDXR();
 
     m_diagnostics.ReportArchitectureStats( "Shutdown", m_descriptorHeaps, m_frameOwner );
     m_graphTransientPool.ReleaseAfterTerminalDrain( "Shutdown" );
@@ -1072,10 +976,10 @@ void RenderBackendDX12::Shutdown()
 // --- Frame Management ---
 
 
-SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
+SkullbonezCore::Core::SbResult Dx12FrameOwner::Present( Dx12Diagnostics& diagnostics )
 {
     SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/Present", ::HashStr( "Frame/DX12/Present" ) );
-    SkullbonezCore::Core::SbResult stateResult = m_frameOwner.EnsureOpen();
+    SkullbonezCore::Core::SbResult stateResult = EnsureOpen();
     if ( !stateResult.ok )
     {
         return stateResult;
@@ -1083,30 +987,30 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
 
     // Opportunistically consume the previous frame's resolved timer buffer before writing
     // new query results into the same readback resource.
-    m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), false );
+    diagnostics.ConsumeGpuTimerReadback( DiagnosticsFrame(), false );
 
     // Resolve GPU timer queries — only resolve contiguous ranges of slots that actually
     // had EndQuery recorded this frame. Resolving unwritten slots triggers D3D12 error 1319.
-    const bool resolvedTimerSlotsThisFrame = m_diagnostics.ResolveWrittenGpuTimers( m_frameOwner.DiagnosticsFrame() );
+    const bool resolvedTimerSlotsThisFrame = diagnostics.ResolveWrittenGpuTimers( DiagnosticsFrame() );
 
     // Frame-edge exception: Present coordinates command-list close, submission,
     // swap-chain flip, and fence advancement after all executable graph passes.
     // It is not command-recording frame work and therefore retains this one
     // explicit RenderTarget -> Present transition.
-    m_frameOwner.TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
-    if ( m_frameOwner.HasFailure() )
+    TransitionBackbuffer( "PresentBackbuffer", RenderGraphResourceAccess::Present );
+    if ( HasFailure() )
     {
-        return m_frameOwner.CurrentResult();
+        return CurrentResult();
     }
 
     // Close the command list — finalizes the recorded commands. A closed command list can be
     // submitted to the GPU. No more commands can be recorded until Reset is called.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-close
-    m_frameOwner.AssertProfilerClosed( "Present" );
+    AssertProfilerClosed( "Present" );
     {
         SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/CommandRecording/Close",
                                        ::HashStr( "Frame/DX12/CommandRecording/Close" ) );
-        stateResult = m_frameOwner.CommitClose( CommandList()->Close(), "Present command list Close" );
+        stateResult = CommitClose( CommandList()->Close(), "Present command list Close" );
     }
     if ( !stateResult.ok )
     {
@@ -1116,7 +1020,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // Submit the completed command list to the GPU for execution. The GPU processes commands
     // asynchronously — this call returns immediately while the GPU works in the background.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-executecommandlists
-    stateResult = m_frameOwner.SubmitClosed();
+    stateResult = SubmitClosed();
     if ( !stateResult.ok )
     {
         return stateResult;
@@ -1125,24 +1029,23 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // Present the frame — flips the swap chain to show the just-rendered back buffer on screen.
     // Sync interval is configurable so perf scenes can disable V-Sync while visual scenes keep it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
-    const UINT syncInterval = m_renderDevice.VsyncEnabled() ? 1u : 0u;
-    const UINT presentFlags =
-        ( !m_renderDevice.VsyncEnabled() && m_renderDevice.AllowTearing() ) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
+    const UINT syncInterval = m_device.VsyncEnabled() ? 1u : 0u;
+    const UINT presentFlags = ( !m_device.VsyncEnabled() && m_device.AllowTearing() ) ? DXGI_PRESENT_ALLOW_TEARING : 0u;
     HRESULT presentResult = S_OK;
     {
         SKORE_TRACY_SCOPED_OWNER_ZONE( "Frame/DX12/SwapChainPresent", ::HashStr( "Frame/DX12/SwapChainPresent" ) );
-        presentResult = SwapChain()->Present( syncInterval, presentFlags );
+        presentResult = m_device.SwapChain()->Present( syncInterval, presentFlags );
     }
     if ( IsDx12DeviceLostResult( presentResult ) )
     {
-        m_renderDevice.ReportDeviceLost( "Present", presentResult );
-        return m_frameOwner.RetainDeviceLoss( "Present", presentResult );
+        m_device.ReportDeviceLost( "Present", presentResult );
+        return RetainDeviceLoss( "Present", presentResult );
     }
     const SkullbonezCore::Core::SbResult presentFailure =
         Dx12BackendOperationResult( presentResult, "SwapChain Present failed" );
     if ( !presentFailure.ok )
     {
-        return m_frameOwner.RetainFailure( presentFailure );
+        return RetainFailure( presentFailure );
     }
 
     // Signal the fence with the current frame's value. When the GPU reaches
@@ -1151,123 +1054,63 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Present()
     // has completed before reusing this frame's command allocator, upload arena,
     // and transient descriptor range.
     UINT64 presentFenceValue = 0;
-    const SkullbonezCore::Core::SbResult signalResult = m_frameOwner.SignalFrame( presentFenceValue );
+    const SkullbonezCore::Core::SbResult signalResult = SignalFrame( presentFenceValue );
     if ( !signalResult.ok )
     {
         return signalResult;
     }
-    m_frameOwner.SetFrameFenceValue( m_frameOwner.AllocatorIndex(), presentFenceValue );
-    m_frameOwner.AssignRetirementFence( presentFenceValue );
+    SetFrameFenceValue( AllocatorIndex(), presentFenceValue );
+    AssignRetirementFence( presentFenceValue );
 
     // Timer readback can be mapped once this frame's signal fence is reached.
     // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
     // non-blocking TryConsume at the top of Present), do a blocking consume now to avoid
     // permanently losing that frame's GPU timing data by overwriting readFenceValue.
-    m_diagnostics.PublishResolvedGpuTimerFence( resolvedTimerSlotsThisFrame, presentFenceValue );
+    diagnostics.PublishResolvedGpuTimerFence( resolvedTimerSlotsThisFrame, presentFenceValue );
 
     // Advance to next frame's allocator and swap chain buffer.
-    m_frameOwner.AdvanceFrameIndices();
-    m_pipelineOwner.SetCurrentColorTarget( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ) );
+    AdvanceFrameIndices();
+    m_pipeline.SetCurrentColorTarget( m_descriptors.BackBufferRtv( FrameIndex() ) );
 
     // Charge allocator/upload/descriptor pacing to Present/VsyncWait instead of
     // letting the first render command of the next frame hit this wait mid-frame.
-    const UINT64 nextFrameFenceValue = m_frameOwner.FrameFenceValue( m_frameOwner.AllocatorIndex() );
-    if ( nextFrameFenceValue > m_renderDevice.FrameFence().CompletedValue() )
+    const UINT64 nextFrameFenceValue = FrameFenceValue( AllocatorIndex() );
+    if ( nextFrameFenceValue > m_device.FrameFence().CompletedValue() )
     {
-        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.WaitForFrameFence( nextFrameFenceValue );
+        const SkullbonezCore::Core::SbResult waitResult = WaitForFrameFence( nextFrameFenceValue );
         if ( !waitResult.ok )
         {
             return waitResult;
         }
     }
-    m_frameOwner.ReleaseCompletedRetirements( false );
+    ReleaseCompletedRetirements( false );
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-void RenderBackendDX12::SetVsyncEnabled( bool enabled )
+SkullbonezCore::Core::SbResult Dx12FrameOwner::FlushGPU()
 {
-    m_renderDevice.SetVsyncEnabled( enabled );
-}
-
-
-bool RenderBackendDX12::IsVsyncEnabled() const
-{
-    return m_renderDevice.VsyncEnabled();
-}
-
-
-SkullbonezCore::Core::SbResult RenderBackendDX12::Finish()
-{
-    if ( m_frameOwner.HasFailure() )
+    if ( HasFailure() )
     {
-        return m_frameOwner.CurrentResult();
+        return CurrentResult();
     }
 
-    if ( !CommandList() || !m_renderDevice.GraphicsQueue() || !m_renderDevice.FrameFence().IsReady() ||
-         !m_renderDevice.CommandAllocator( m_frameOwner.AllocatorIndex() ) )
-    {
-        const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
-        if ( !waitResult.ok )
-        {
-            return waitResult;
-        }
-        m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), true );
-        return SkullbonezCore::Core::SbResult::Success();
-    }
-
-    if ( m_frameOwner.IsOpen() )
-    {
-        m_frameOwner.AssertProfilerClosed( "Finish" );
-        const SkullbonezCore::Core::SbResult closeResult =
-            m_frameOwner.CommitClose( CommandList()->Close(), "Finish command list Close" );
-        if ( !closeResult.ok )
-        {
-            return closeResult;
-        }
-        const SkullbonezCore::Core::SbResult submitResult = m_frameOwner.SubmitClosed();
-        if ( !submitResult.ok )
-        {
-            return submitResult;
-        }
-    }
-    const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
-    if ( !waitResult.ok )
-    {
-        return waitResult;
-    }
-    m_diagnostics.ConsumeGpuTimerReadback( m_frameOwner.DiagnosticsFrame(), true );
-
-    // Hazard: runtime pipeline-sync calls Finish() between physics and render.
-    // That wait is allowed to drain submitted GPU work, but the next render pass
-    // still expects a recording command list for explicit barriers and draws.
-    return m_frameOwner.EnsureOpen();
-}
-
-
-SkullbonezCore::Core::SbResult RenderBackendDX12::FlushGPU()
-{
-    if ( m_frameOwner.HasFailure() )
-    {
-        return m_frameOwner.CurrentResult();
-    }
-
-    if ( !CommandList() || !m_renderDevice.GraphicsQueue() || !m_renderDevice.FrameFence().IsReady() ||
-         !m_renderDevice.CommandAllocator( m_frameOwner.AllocatorIndex() ) )
+    if ( !CommandList() || !m_device.GraphicsQueue() || !m_device.FrameFence().IsReady() ||
+         !m_device.CommandAllocator( AllocatorIndex() ) )
     {
         // Lane R: an active resource-mutation drain cannot claim success unless
         // it can both wait for submitted work and reopen the recording epoch.
-        return m_frameOwner.RetainFailure( SkullbonezCore::Core::SbResult::Failure(
+        return RetainFailure( SkullbonezCore::Core::SbResult::Failure(
             "Rendering/DX12",
             "FlushGPU requires a complete command queue, fence, allocator, and command list." ) );
     }
 
-    Dx12GpuDrainProgress drainProgress( m_frameOwner.IsOpen() );
+    Dx12GpuDrainProgress drainProgress( IsOpen() );
     if ( drainProgress.RequiresClose() )
     {
-        m_frameOwner.AssertProfilerClosed( "FlushGPU" );
+        AssertProfilerClosed( "FlushGPU" );
         const SkullbonezCore::Core::SbResult closeResult =
-            m_frameOwner.CommitClose( CommandList()->Close(), "FlushGPU command list Close" );
+            CommitClose( CommandList()->Close(), "FlushGPU command list Close" );
         if ( !closeResult.ok )
         {
             return closeResult;
@@ -1276,75 +1119,75 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::FlushGPU()
         {
             // Lane F: this local sequence can advance only after the successful
             // Close above; disagreement means the engine's ordering proof broke.
-            SB_FATAL( "RenderBackendDX12", "FlushGPU drain order rejected a successful command-list Close." );
+            SB_FATAL( "Dx12FrameOwner", "FlushGPU drain order rejected a successful command-list Close." );
         }
 
-        const SkullbonezCore::Core::SbResult submitResult = m_frameOwner.SubmitClosed();
+        const SkullbonezCore::Core::SbResult submitResult = SubmitClosed();
         if ( !submitResult.ok )
         {
             return submitResult;
         }
         if ( !drainProgress.CommitSubmission() )
         {
-            SB_FATAL( "RenderBackendDX12", "FlushGPU drain order rejected command-list submission." );
+            SB_FATAL( "Dx12FrameOwner", "FlushGPU drain order rejected command-list submission." );
         }
     }
 
     if ( !drainProgress.CanWait() )
     {
-        SB_FATAL( "RenderBackendDX12", "FlushGPU attempted a fence wait before submission ordering completed." );
+        SB_FATAL( "Dx12FrameOwner", "FlushGPU attempted a fence wait before submission ordering completed." );
     }
 
     // Hazard: ExecuteCommandLists has no success result. SubmitClosedCommandList
     // already marked the work live; if this drain fence fails, both the sticky
     // Lane R result and m_submittedWork block mutation, reuse, and unfenced release.
-    const SkullbonezCore::Core::SbResult waitResult = m_frameOwner.CommitWait( m_frameOwner.WaitForGpu() );
+    const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
     if ( !waitResult.ok )
     {
         return waitResult;
     }
     if ( !drainProgress.CommitWait() || !drainProgress.CanReopen() )
     {
-        SB_FATAL( "RenderBackendDX12", "FlushGPU drain order rejected a successful fence wait." );
+        SB_FATAL( "Dx12FrameOwner", "FlushGPU drain order rejected a successful fence wait." );
     }
 
     // Hazard: scene swaps and graphics stress call this in the middle of the
     // runtime loop. Reopen only after the full wait, and return its failure so
     // no caller treats a closed/failed epoch as permission to destroy resources.
-    const SkullbonezCore::Core::SbResult reopenResult = m_frameOwner.EnsureOpen();
+    const SkullbonezCore::Core::SbResult reopenResult = EnsureOpen();
     if ( !reopenResult.ok )
     {
         return reopenResult;
     }
     if ( !drainProgress.CommitReopen() || !drainProgress.IsMutationSafe() )
     {
-        SB_FATAL( "RenderBackendDX12", "FlushGPU drain order rejected a successful command-list reopen." );
+        SB_FATAL( "Dx12FrameOwner", "FlushGPU drain order rejected a successful command-list reopen." );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
 
 
-SkullbonezCore::Core::SbResult RenderBackendDX12::DrainForResourceRelease()
+SkullbonezCore::Core::SbResult Dx12FrameOwner::DrainForResourceRelease()
 {
-    if ( !m_frameOwner.HasFailure() )
+    if ( !HasFailure() )
     {
         return FlushGPU();
     }
 
-    if ( m_frameOwner.DeviceLost() )
+    if ( DeviceLost() )
     {
         // Lifetime: DXGI device removal terminates this device/queue lifetime;
         // the submitted commands can no longer execute against resources from
         // it. Do not issue a fence Signal after removal. Abandon the completion
         // proof only for terminal COM release, never for runtime reuse.
-        m_frameOwner.AbandonSubmittedWork();
+        AbandonSubmittedWork();
         return SkullbonezCore::Core::SbResult::Success();
     }
 
     // Lifetime: a failed, never-submitted recording epoch cannot reference any
     // resource from the GPU. Release is already safe and teardown must not turn
     // that expected Lane R path into a second submission or a destructor fatal.
-    if ( !m_frameOwner.HasSubmittedWork() )
+    if ( !HasSubmittedWork() )
     {
         return SkullbonezCore::Core::SbResult::Success();
     }
@@ -1352,11 +1195,11 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::DrainForResourceRelease()
     // Hazard: if earlier work reached the queue before a later recording error,
     // terminal teardown may signal/wait for that submitted work. It must not
     // submit, reopen, or clear the sticky command-path failure.
-    return m_frameOwner.WaitForGpu();
+    return WaitForGpu();
 }
 
 
-SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height )
+SkullbonezCore::Core::SbResult Dx12FrameOwner::Resize( int width, int height )
 {
     if ( width <= 0 || height <= 0 )
     {
@@ -1373,14 +1216,14 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
     }
 
     Dx12RecreationTransaction transaction;
-    transaction.Begin( m_renderDevice.RecreationGeneration() );
+    transaction.Begin( m_device.RecreationGeneration() );
 
     // Prepare the independent depth candidate before releasing a single
     // published resource. A creation failure therefore leaves the current
     // framebuffer and dimensions untouched.
     ID3D12Resource* candidateDepth = nullptr;
     const SkullbonezCore::Core::SbResult candidateDepthResult =
-        m_renderDevice.CreateDepthStencilResource( width, height, candidateDepth );
+        m_device.CreateDepthStencilResource( width, height, candidateDepth );
     if ( !candidateDepthResult.ok )
     {
         return transaction.Fail( candidateDepthResult );
@@ -1388,7 +1231,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
     if ( !transaction.CommitCandidateReady() )
     {
         candidateDepth->Release();
-        SB_FATAL( "RenderBackendDX12", "Resize transaction rejected prepared depth candidate." );
+        SB_FATAL( "Dx12FrameOwner", "Resize transaction rejected prepared depth candidate." );
     }
 
     // DXGI requires every application-held back-buffer reference to be released
@@ -1396,29 +1239,29 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
     // if ResizeBuffers rejects the request without removing the device.
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
-        if ( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) )
+        if ( RenderTarget( static_cast<UINT>( i ) ) )
         {
-            m_frameOwner.RenderTarget( static_cast<UINT>( i ) )->Release();
+            RenderTarget( static_cast<UINT>( i ) )->Release();
         }
-        m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) = nullptr;
+        RenderTarget( static_cast<UINT>( i ) ) = nullptr;
     }
     if ( !transaction.CommitOldReferencesReleased() )
     {
         candidateDepth->Release();
-        SB_FATAL( "RenderBackendDX12", "Resize transaction rejected released back-buffer references." );
+        SB_FATAL( "Dx12FrameOwner", "Resize transaction rejected released back-buffer references." );
     }
 
-    const UINT resizeFlags = m_renderDevice.AllowTearing() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
-    const HRESULT resizeResult = SwapChain()->ResizeBuffers( Dx12FrameOwner::FRAME_COUNT,
-                                                             static_cast<UINT>( width ),
-                                                             static_cast<UINT>( height ),
-                                                             DXGI_FORMAT_R8G8B8A8_UNORM,
-                                                             resizeFlags );
+    const UINT resizeFlags = m_device.AllowTearing() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
+    const HRESULT resizeResult = m_device.SwapChain()->ResizeBuffers( Dx12FrameOwner::FRAME_COUNT,
+                                                                      static_cast<UINT>( width ),
+                                                                      static_cast<UINT>( height ),
+                                                                      DXGI_FORMAT_R8G8B8A8_UNORM,
+                                                                      resizeFlags );
     if ( IsDx12DeviceLostResult( resizeResult ) )
     {
         candidateDepth->Release();
-        m_renderDevice.ReportDeviceLost( "ResizeBuffers", resizeResult );
-        return transaction.Fail( m_frameOwner.RetainDeviceLoss( "ResizeBuffers", resizeResult ) );
+        m_device.ReportDeviceLost( "ResizeBuffers", resizeResult );
+        return transaction.Fail( RetainDeviceLoss( "ResizeBuffers", resizeResult ) );
     }
     const SkullbonezCore::Core::SbResult resizeFailure =
         Dx12BackendOperationResult( resizeResult, "SwapChain ResizeBuffers failed" );
@@ -1432,7 +1275,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
         bool restoredAll = true;
         for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
         {
-            if ( FAILED( SwapChain()->GetBuffer( static_cast<UINT>( i ), IID_PPV_ARGS( &restored[i] ) ) ) ||
+            if ( FAILED( m_device.SwapChain()->GetBuffer( static_cast<UINT>( i ), IID_PPV_ARGS( &restored[i] ) ) ) ||
                  !restored[i] )
             {
                 restoredAll = false;
@@ -1443,12 +1286,12 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
         {
             for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
             {
-                m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) = restored[i];
-                Device()->CreateRenderTargetView( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ),
+                RenderTarget( static_cast<UINT>( i ) ) = restored[i];
+                Device()->CreateRenderTargetView( RenderTarget( static_cast<UINT>( i ) ),
                                                   nullptr,
-                                                  m_descriptorHeaps.BackBufferRtv( static_cast<UINT>( i ) ) );
+                                                  m_descriptors.BackBufferRtv( static_cast<UINT>( i ) ) );
             }
-            m_pipelineOwner.SetCurrentColorTarget( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ) );
+            m_pipeline.SetCurrentColorTarget( m_descriptors.BackBufferRtv( FrameIndex() ) );
             return transaction.Fail( resizeFailure );
         }
         for ( ID3D12Resource* resource : restored )
@@ -1458,21 +1301,21 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
                 resource->Release();
             }
         }
-        return m_frameOwner.RetainFailure( transaction.Fail( SkullbonezCore::Core::SbResult::Failure(
+        return RetainFailure( transaction.Fail( SkullbonezCore::Core::SbResult::Failure(
             "Rendering/DX12",
             "ResizeBuffers failed and the previous back buffers could not be restored" ) ) );
     }
     if ( !transaction.CommitSwapChainResized() )
     {
         candidateDepth->Release();
-        SB_FATAL( "RenderBackendDX12", "Resize transaction rejected successful ResizeBuffers." );
+        SB_FATAL( "Dx12FrameOwner", "Resize transaction rejected successful ResizeBuffers." );
     }
     ID3D12Resource* candidateBackBuffers[Dx12FrameOwner::FRAME_COUNT] = {};
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
-        const SkullbonezCore::Core::SbResult backBufferResult =
-            Dx12BackendOperationResult( SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &candidateBackBuffers[i] ) ),
-                                        "SwapChain GetBuffer after resize failed" );
+        const SkullbonezCore::Core::SbResult backBufferResult = Dx12BackendOperationResult(
+            m_device.SwapChain()->GetBuffer( (UINT)i, IID_PPV_ARGS( &candidateBackBuffers[i] ) ),
+            "SwapChain GetBuffer after resize failed" );
         if ( !backBufferResult.ok )
         {
             for ( ID3D12Resource* resource : candidateBackBuffers )
@@ -1483,7 +1326,7 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
                 }
             }
             candidateDepth->Release();
-            return m_frameOwner.RetainFailure( transaction.Fail( backBufferResult ) );
+            return RetainFailure( transaction.Fail( backBufferResult ) );
         }
     }
     if ( !transaction.CommitBackBuffersReady() )
@@ -1493,41 +1336,40 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
             resource->Release();
         }
         candidateDepth->Release();
-        SB_FATAL( "RenderBackendDX12", "Resize transaction rejected complete back-buffer candidates." );
+        SB_FATAL( "Dx12FrameOwner", "Resize transaction rejected complete back-buffer candidates." );
     }
 
     // Publication boundary: no member points at a replacement until every
     // back buffer and the depth candidate exists.
-    m_frameOwner.RefreshFrameIndex();
+    RefreshFrameIndex();
     // ResizeBuffers puts all back buffers into PRESENT state, so the next
     // executable backbuffer graph pass compiles from that concrete state.
-    m_frameOwner.SetBackBufferAccess( RenderGraphResourceAccess::Present );
+    SetBackBufferAccess( RenderGraphResourceAccess::Present );
     for ( int i = 0; i < Dx12FrameOwner::FRAME_COUNT; ++i )
     {
-        m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) = candidateBackBuffers[i];
-        NameDx12ObjectIndexed( m_frameOwner.RenderTarget( static_cast<UINT>( i ) ),
+        RenderTarget( static_cast<UINT>( i ) ) = candidateBackBuffers[i];
+        NameDx12ObjectIndexed( RenderTarget( static_cast<UINT>( i ) ),
                                L"Skullbonez DX12 Swapchain Backbuffer",
                                static_cast<UINT>( i ) );
-        m_descriptorHeaps.RepublishBackBufferRtv( Device(),
-                                                  static_cast<UINT>( i ),
-                                                  m_frameOwner.RenderTarget( static_cast<UINT>( i ) ) );
+        m_descriptors.RepublishBackBufferRtv( Device(),
+                                              static_cast<UINT>( i ),
+                                              RenderTarget( static_cast<UINT>( i ) ) );
     }
-    ID3D12Resource* oldDepth = m_renderDevice.ReplaceDepthStencil( candidateDepth );
-    m_descriptorHeaps.PublishMainDsv( Device(), m_renderDevice.DepthStencil() );
+    ID3D12Resource* oldDepth = m_device.ReplaceDepthStencil( candidateDepth );
+    m_descriptors.PublishMainDsv( Device(), m_device.DepthStencil() );
     if ( oldDepth )
     {
         oldDepth->Release();
     }
 
-    m_pipelineOwner.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
-                                 { 0, 0, (LONG)width, (LONG)height } );
-    m_pipelineOwner.SetCurrentTargets( m_descriptorHeaps.BackBufferRtv( m_frameOwner.FrameIndex() ),
-                                       m_descriptorHeaps.MainDsv() );
-    const uint64_t recreationGeneration = m_renderDevice.PublishResizedExtent( width, height );
+    m_pipeline.SetViewport( { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f },
+                            { 0, 0, (LONG)width, (LONG)height } );
+    m_pipeline.SetCurrentTargets( m_descriptors.BackBufferRtv( FrameIndex() ), m_descriptors.MainDsv() );
+    const uint64_t recreationGeneration = m_device.PublishResizedExtent( width, height );
     if ( !transaction.CommitPublished( recreationGeneration ) ||
          transaction.PublishedGeneration() != recreationGeneration )
     {
-        SB_FATAL( "RenderBackendDX12", "Resize transaction failed its publication proof." );
+        SB_FATAL( "Dx12FrameOwner", "Resize transaction failed its publication proof." );
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
@@ -1536,34 +1378,33 @@ SkullbonezCore::Core::SbResult RenderBackendDX12::Resize( int width, int height 
 // --- Viewport & Clear ---
 
 
-void RenderBackendDX12::SetViewport( int x, int y, int w, int h )
+void Dx12FrameOwner::SetViewport( int x, int y, int w, int h )
 {
-    m_pipelineOwner.SetViewport( { (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f },
-                                 { (LONG)x, (LONG)y, (LONG)( x + w ), (LONG)( y + h ) } );
+    m_pipeline.SetViewport( { (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f },
+                            { (LONG)x, (LONG)y, (LONG)( x + w ), (LONG)( y + h ) } );
 }
 
 
-void RenderBackendDX12::Clear( const ClearTargetDesc& target )
+void Dx12FrameOwner::Clear( const ClearTargetDesc& target )
 {
-    if ( !m_frameOwner.EnsureOpen().ok )
+    if ( !EnsureOpen().ok )
     {
         return;
     }
 
-    if ( !m_pipelineOwner.RenderingToFramebuffer() &&
-         m_frameOwner.BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
+    if ( !m_pipeline.RenderingToFramebuffer() && BackBufferAccess() != RenderGraphResourceAccess::RenderTarget )
     {
         // Invariant: BackbufferClear is an executable graph pass. Clear only
         // records the operation after that pass has acquired RenderTarget.
-        SB_FATAL( "RenderBackendDX12",
-                  "Backbuffer clear reached the backend without graph acquisition. tracked=%s",
-                  ToString( m_frameOwner.BackBufferAccess() ) );
+        SB_FATAL( "Dx12FrameOwner",
+                  "Backbuffer clear reached the frame owner without graph acquisition. tracked=%s",
+                  ToString( BackBufferAccess() ) );
     }
     // Bind the render target and depth buffer to the Output Merger (OM) stage — this tells the
     // GPU where to write pixel colors and depth values for subsequent draw calls.
     // Docs:
     // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-omsetrendertargets
-    m_pipelineOwner.BindCurrentOutputs( CommandList() );
+    m_pipeline.BindCurrentOutputs( CommandList() );
 
     // Viewport defines where rendering appears, and the scissor rect clips pixels
     // (pixels outside the scissor are clipped/discarded). Both must be set every time in DX12.
@@ -1575,7 +1416,7 @@ void RenderBackendDX12::Clear( const ClearTargetDesc& target )
         // Clear the render target to a solid color (wipes the entire back buffer).
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-clearrendertargetview
-        m_pipelineOwner.ClearCurrentColor( CommandList(), target.colorValue );
+        m_pipeline.ClearCurrentColor( CommandList(), target.colorValue );
     }
     if ( target.depth )
     {
@@ -1583,7 +1424,7 @@ void RenderBackendDX12::Clear( const ClearTargetDesc& target )
         // the depth test. This is done at the start of each frame or when switching render targets.
         // Docs:
         // https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-cleardepthstencilview
-        m_pipelineOwner.ClearCurrentDepth( CommandList(), target.depthValue );
+        m_pipeline.ClearCurrentDepth( CommandList(), target.depthValue );
     }
 }
 
@@ -1640,18 +1481,6 @@ void RenderBackendDX12::Clear( const ClearTargetDesc& target )
 
 
 // --- Queries ---
-
-
-int RenderBackendDX12::GetWidth() const
-{
-    return m_renderDevice.Width();
-}
-
-
-int RenderBackendDX12::GetHeight() const
-{
-    return m_renderDevice.Height();
-}
 
 
 // --- DXR Raytracing ---

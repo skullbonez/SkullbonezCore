@@ -58,7 +58,7 @@ Related:
 #include "InputFrame.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "Editor/EditorTools.h"
-#include "Replay/ReplayOverlayLayout.h"
+#include "Replay/ReplayOverlaySurface.h"
 #include "DemoDirectorPlayback.h"
 #include "RuntimeFileWriter.h"
 #include "RuntimePickService.h"
@@ -70,7 +70,7 @@ Related:
 #include "../Physics/PhysicsTimestep.h"
 #include "../Core/Config.h"
 #include "../Core/ByteView.h"
-#include "../Rendering/IRenderCaptureBackend.h"
+#include "../Rendering/DX12/Dx12BackbufferCapture.h"
 #include "../UI/UI.h"
 
 #pragma warning( push, 0 )
@@ -2672,12 +2672,12 @@ SkullbonezCore::Runtime::InteractionAutomationResult( const InteractionAutomatio
 
 InteractionAutomationFrameResult
 SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutomationController& state,
-                                                               RuntimeFrameHostView& host,
+                                                               Window& windowOwner,
                                                                RuntimeFrameInteractionView& interactionOwners,
                                                                RuntimeFrameSceneView& sceneOwners,
                                                                const ReplayAutomationView& replayView )
 {
-    Window* window = &host.window;
+    Window* window = &windowOwner;
     const SkullbonezCore::Core::EngineConfig& config = sceneOwners.config;
     SceneController& scene = sceneOwners.sceneController;
     RunTimerState& timers = sceneOwners.timers;
@@ -3091,13 +3091,12 @@ SkullbonezCore::Runtime::TickInteractionAutomationBeforeInput( InteractionAutoma
 InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomationAfterRender(
     InteractionAutomationController& state,
     RuntimeFrameInteractionView& interactionOwners,
-    RuntimeFrameSceneView& sceneOwners,
+    SceneController& scene,
     const ReplayAutomationView& replayView,
     const InteractionAutomationDevelopmentUiView& developmentUiView,
     CaptureController& capture,
-    Rendering::IRenderCaptureBackend& captureBackend )
+    Rendering::Dx12BackbufferCapture& backbufferCapture )
 {
-    SceneController& scene = sceneOwners.sceneController;
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     InputRouter& inputRouter = interactionOwners.inputRouter;
@@ -3124,7 +3123,7 @@ InteractionAutomationFrameResult SkullbonezCore::Runtime::TickInteractionAutomat
             if ( RuntimeFileWriter::EnsureParentDirectory( action.path ) )
             {
                 const SkullbonezCore::Core::SbResult captureResult =
-                    capture.SaveScreenshot( captureBackend, action.path );
+                    capture.SaveScreenshot( backbufferCapture, action.path );
                 if ( captureResult.ok )
                 {
                     state.reportWriter.AddScreenshot( action.path );

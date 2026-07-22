@@ -39,7 +39,6 @@
 #include "../SkullbonezSource/Physics/PhysicsBodyStore.h"
 #include "../SkullbonezSource/Physics/Stages/PhysicsTerrainStage.h"
 #include "../SkullbonezSource/World/Terrain.h"
-#include "TestRenderResourceDoubles.h"
 
 #include <array>
 #include <cstdio>
@@ -83,9 +82,7 @@ TEST_CASE( "Terrain: flat slope reports analytic height, plane, and bounds" )
 {
     SkullbonezCore::Core::EngineConfig config;
     config.worldForces.fluidHeight = 25.0f;
-    AssetSystem assets;
-    SkullbonezTests::NullRenderResourceFactory resources;
-    Terrain terrain( 10.0f, 0.25f, -0.1f, config, assets, resources );
+    Terrain terrain( 10.0f, 0.25f, -0.1f, config );
 
     CHECK( terrain.IsInBounds( 0.0f, 0.0f ) );
     CHECK( terrain.IsInBounds( Terrain::FLAT_SLOPE_EXTENT - 0.01f, Terrain::FLAT_SLOPE_EXTENT - 0.01f ) );
@@ -119,18 +116,14 @@ TEST_CASE( "Terrain: collapsed height-map posts publish world-up render normals"
 
     EngineConfig config;
     config.terrainGeometry.scale = 0.0f;
-    AssetSystem assets;
-    SkullbonezTests::NullRenderResourceFactory resources;
     std::unique_ptr<Terrain> terrain;
 
-    const auto result =
-        Terrain::TryCreateFromHeightMap( kHeightMapPath, kMapSize, 1, 1, config, assets, resources, terrain );
+    const auto result = Terrain::TryCreatePhysicsFromHeightMap( kHeightMapPath, kMapSize, 1, 1, config, terrain );
     std::remove( kHeightMapPath );
 
     REQUIRE( result.ok );
     REQUIRE( terrain != nullptr );
-    REQUIRE( resources.LastMeshStride() == 8 );
-    const auto& vertices = resources.LastMeshVertices();
+    const std::vector<float> vertices = terrain->BuildRenderVertexData();
     REQUIRE_FALSE( vertices.empty() );
     for ( size_t vertex = 0; vertex < vertices.size(); vertex += 8u )
     {
@@ -145,9 +138,7 @@ TEST_CASE( "Physics terrain stage: candidate rows preserve model order and eligi
 {
     EngineConfig config;
     SkullbonezCore::Physics::PhysicsRuntimeSettings physicsSettings;
-    AssetSystem assets;
-    SkullbonezTests::NullRenderResourceFactory resources;
-    Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
+    Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     PhysicsBodyStore& bodies = TerrainBodyStore();
     ColliderStore& colliders = TerrainColliderStore();
     for ( int bodyIndex = 0; bodyIndex < 3; ++bodyIndex )

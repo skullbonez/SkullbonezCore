@@ -333,6 +333,9 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>

@@ -46,7 +46,7 @@ class SceneController;
 }
 namespace Rendering
 {
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 }
 namespace UI
 {
@@ -68,7 +68,7 @@ struct DiagnosticsKeyboardShortcutContext
     int& cameraTrackBallIndex;
     // Value-only entity count keeps diagnostics outside scene lifecycle authority.
     int sceneEntityCount = 0;
-    const Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    const Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
     bool sceneMode = false;
     double simulationSeconds = 0.0;
 };
@@ -174,9 +174,8 @@ class DiagnosticsRuntime
     void SetPhysicsCollisionTimeLogOverride( const char* path );
     void
     SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& physics, const char* path, bool fixedStepForcedByDiagnostics );
-    void LogSceneFinished( SceneController& scene,
-                           const Rendering::IRenderDiagnostics* renderDiagnostics,
-                           const char* reason );
+    void
+    LogSceneFinished( SceneController& scene, const Rendering::Dx12Diagnostics* renderDiagnostics, const char* reason );
     void BeginPhysicsDiagnosticsRun( Physics::PhysicsEngine& physics,
                                      const RunSceneState& scene,
                                      const SkullbonezCore::Core::EngineConfig& config,

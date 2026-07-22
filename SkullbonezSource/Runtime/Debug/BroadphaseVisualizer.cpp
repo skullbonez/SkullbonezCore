@@ -46,7 +46,8 @@ Related:
 
 
 #include "BroadphaseVisualizer.h"
-#include "../../Rendering/IRenderCommandContext.h"
+#include "../../Rendering/RenderCommandTypes.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
 
 #include <algorithm>
 #include <cstring>
@@ -368,9 +369,7 @@ void BroadphaseVisualizer::Update( float dt,
 }
 
 
-void BroadphaseVisualizer::Render( const Matrix4& viewProj,
-                                   IRenderCommandContext& renderCommands,
-                                   bool supportsDebugLines )
+void BroadphaseVisualizer::Render( const Matrix4& viewProj, Dx12GeometryOwner& renderCommands, bool supportsDebugLines )
 {
     if ( !m_enabled || m_cellCount == 0 || !supportsDebugLines )
     {

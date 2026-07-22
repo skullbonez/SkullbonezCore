@@ -34,7 +34,8 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\SkullbonezSource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;WIN32;_WINDOWS;NOMINMAX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- Scene parsing exercises AssetSystem source records without linking native DX12 owners. -->
+      <PreprocessorDefinitions>_DEBUG;WIN32;_WINDOWS;NOMINMAX;_HAS_STD_BYTE=0;SKULLBONEZ_RENDER_FREE_TESTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>

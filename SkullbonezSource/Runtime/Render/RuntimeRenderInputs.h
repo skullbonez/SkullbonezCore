@@ -75,10 +75,13 @@ class Terrain;
 
 namespace Rendering
 {
-class IRenderCommandContext;
-class IRenderDiagnostics;
-class IRenderRayTracing;
-class IRenderResourceFactory;
+class Dx12GeometryOwner;
+class Dx12Diagnostics;
+class Dx12FrameOwner;
+class Dx12GraphTransientPool;
+class Dx12RaytracingOwner;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
 class RenderInstanceStore;
 class WorldRenderExtensionRegistration;
 struct RenderInstancePresentationRecord;
@@ -168,21 +171,6 @@ struct RuntimeRenderServices
     // snapshot instead of asking Run to reopen scene/config state.
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic;
     bool cinematicEnabled = false;
-    // Lifetime: this command facet is borrowed from the process-bound backend
-    // for exactly this render call; pass code must not store it.
-    Rendering::IRenderCommandContext& renderCommands;
-    // Lifetime: this factory facet is valid only while the current backend is
-    // alive. RuntimeRenderer narrows it into RenderResourceContext for
-    // create/rebuild phases; draw code should use renderCommands instead.
-    Rendering::IRenderResourceFactory& renderResources;
-    // Lifetime: this diagnostics facet is sampled for frame-time feature
-    // decisions and draw tracing; passes must not cache capability flags across
-    // backend teardown.
-    Rendering::IRenderDiagnostics& renderDiagnostics;
-    // Optional DXR facet. Null means the active backend did not publish the
-    // raytracing capability, even if ordinary raster rendering is ready.
-    Rendering::IRenderRayTracing* renderRayTracing = nullptr;
-    bool renderReady = false;
 };
 
 struct RuntimeRenderInputs

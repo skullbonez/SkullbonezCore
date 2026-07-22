@@ -6,8 +6,9 @@ Purpose:
 Summary:
   Live raster shaders register with one fixed-capacity owner. A developer reload
   bakes one complete offline-DXC generation, stages every raster and compute
-  replacement, and publishes them only after the composition root drains the
-  GPU. Per-frame draw and pipeline-selection policy remain outside this owner.
+  replacement, drains the concrete frame epoch, and publishes the generation
+  transactionally. Per-frame draw and pipeline-selection policy remain outside
+  this owner.
 
 Glossary:
   Live shader registry: Bounded table of ShaderDX12 objects eligible for manual
@@ -20,14 +21,14 @@ Glossary:
 Invariants:
   - Registration never grows dynamically; capacity exhaustion is Lane F.
   - A bake or candidate-validation failure leaves every live shader and PSO unchanged.
-  - The caller proves GPU completion before ReloadBakedGeneration releases old PSOs.
+  - ReloadShadersFromSource proves GPU completion before releasing old PSOs.
   - This owner stores concrete shader-domain owners, never the aggregate backend
     or per-frame command authority.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12ShaderDevelopment.cpp
   - SkullbonezSource/Rendering/DX12/ShaderDX12.cpp
-  - SkullbonezSource/Rendering/IRenderShaderDevelopment.h
+  - SkullbonezSource/Runtime/InputFrameExecution.cpp
 */
 #pragma once
 
@@ -41,16 +42,25 @@ struct ID3D12Device;
 namespace SkullbonezCore::Rendering
 {
 class Dx12GeometryOwner;
+class Dx12Diagnostics;
+class Dx12FrameOwner;
 class Dx12PipelineOwner;
+class Dx12RenderDevice;
 class Dx12TextureOwner;
 class ShaderDX12;
 
 class Dx12ShaderDevelopment
 {
   public:
-    Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline, Dx12TextureOwner& textures, Dx12GeometryOwner& geometry );
+    Dx12ShaderDevelopment( Dx12PipelineOwner& pipeline,
+                           Dx12TextureOwner& textures,
+                           Dx12GeometryOwner& geometry,
+                           Dx12RenderDevice& device,
+                           Dx12FrameOwner& frame,
+                           Dx12Diagnostics& diagnostics );
 
     bool Enabled() const;
+    SkullbonezCore::Core::SbResult ReloadShadersFromSource();
     void RegisterShader( ShaderDX12* shader );
     void UnregisterShader( ShaderDX12* shader );
 
@@ -66,6 +76,9 @@ class Dx12ShaderDevelopment
     Dx12PipelineOwner& m_pipeline;
     Dx12TextureOwner& m_textures;
     Dx12GeometryOwner& m_geometry;
+    Dx12RenderDevice& m_device;
+    Dx12FrameOwner& m_frame;
+    Dx12Diagnostics& m_diagnostics;
     // Lifetime: rows borrow ShaderDX12 objects. Geometry-owned rows unregister
     // before reset; the final reset also makes late external shader teardown inert.
     std::array<ShaderDX12*, LIVE_SHADER_CAPACITY> m_liveShaders = {};

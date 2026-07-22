@@ -46,8 +46,9 @@ Related:
 #include "Rendering/DX12/RenderBackendDX12.PipelineState.h"
 #include "Rendering/DX12/RenderGraphTransientDX12.h"
 #include "Rendering/DX12/RenderDeviceDX12.h"
+#include "Rendering/DX12/Dx12FrameOwner.h"
 #include "Rendering/DX12/Dx12TextureRegistry.h"
-#include "Rendering/IRenderDeviceLifecycle.h"
+#include "Rendering/DX12/RenderBackendDX12.h"
 #include "Rendering/ProfilerOverlayPresenter.h"
 #include "Rendering/RenderGpuTimingOwner.h"
 #include "Rendering/RenderGraph.h"
@@ -69,17 +70,23 @@ using SkullbonezCore::Core::SbResult;
 using SkullbonezCore::Core::Allocation::RuntimeAllocationPhase;
 
 static_assert(
-    std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
+    std::is_same<decltype( std::declval<Dx12FrameOwner&>().FlushGPU() ), SkullbonezCore::Core::SbResult>::value,
     "FlushGPU must return a recoverable result to every resource-mutation caller." );
-static_assert( std::is_same<decltype( std::declval<IRenderDeviceLifecycle&>().DrainForResourceRelease() ),
+static_assert( std::is_same<decltype( std::declval<Dx12FrameOwner&>().DrainForResourceRelease() ),
                             SkullbonezCore::Core::SbResult>::value,
                "Terminal resource release must use its own checked drain boundary." );
 static_assert( std::is_trivially_copyable<Dx12SubmittedWorkState>::value,
                "Submitted-work tracking must remain an allocation-free value record." );
-static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, IRenderDiagnostics*>,
+static_assert( std::is_constructible_v<RenderGpuTimingOwner, SkullbonezCore::Core::Profiler*, Dx12Diagnostics*>,
                "Runtime rendering must own one explicit concrete GPU timing boundary." );
 static_assert( !std::is_polymorphic_v<RenderGpuTimingOwner>,
                "GPU timing stays a concrete owner, not a new renderer callback interface." );
+static_assert( !std::is_polymorphic_v<RenderBackendDX12>,
+               "The DX12 composition root must not regrow a polymorphic renderer facade." );
+static_assert( !std::is_polymorphic_v<Dx12FrameOwner> && !std::is_polymorphic_v<Dx12GraphTransientPool> &&
+                   !std::is_polymorphic_v<Dx12ResourceBuilder> && !std::is_polymorphic_v<Dx12TextureOwner> &&
+                   !std::is_polymorphic_v<Dx12GeometryOwner> && !std::is_polymorphic_v<Dx12Diagnostics>,
+               "Concrete DX12 owners must remain non-polymorphic capability boundaries." );
 static_assert( std::is_empty_v<ProfilerOverlayPresenter>,
                "Profiler overlay presentation must not retain Core frame or command borrows." );
 static_assert( std::is_same_v<decltype( SkullbonezCore::Core::Profiler::ProfilerFrameView::markers ),

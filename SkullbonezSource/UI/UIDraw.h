@@ -31,8 +31,9 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderCommandContext;
-}
+class Dx12GeometryOwner;
+class Dx12TextureOwner;
+} // namespace Rendering
 
 namespace Text
 {
@@ -65,7 +66,8 @@ class UIDrawContext
     UIDrawContext( int screenW,
                    int screenH,
                    UIDrawList* drawList = nullptr,
-                   Rendering::IRenderCommandContext* renderCommands = nullptr,
+                   Rendering::Dx12TextureOwner* renderTextures = nullptr,
+                   Rendering::Dx12GeometryOwner* renderCommands = nullptr,
                    Text::TextBatch* textBatch = nullptr );
 
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
@@ -97,9 +99,10 @@ class UIDrawContext
     float m_sx = 1.0f;
     float m_sy = 1.0f;
     UIDrawList* m_drawList = nullptr;
+    Rendering::Dx12TextureOwner* m_renderTextures = nullptr;
     // Lifetime: immediate contexts borrow commands for this draw replay only.
     // Recording contexts keep this null because they enqueue CPU draw commands.
-    Rendering::IRenderCommandContext* m_renderCommands = nullptr;
+    Rendering::Dx12GeometryOwner* m_renderCommands = nullptr;
     // Lifetime: both recording and immediate contexts borrow the owning
     // RuntimeRenderer batch so pixel/frustum conversion stays owner-specific.
     Text::TextBatch* m_textBatch = nullptr;

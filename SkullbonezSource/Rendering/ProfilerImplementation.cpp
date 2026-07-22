@@ -25,14 +25,14 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Profiler.h
-  - SkullbonezSource/Rendering/IRenderDiagnostics.h
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Rendering/Text.h
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
 #include "../Core/Profiler.h"
 #include "../Core/FatalError.h"
-#include "IRenderDiagnostics.h"
+#include "DX12/Dx12Diagnostics.h"
 #include "ProfilerOverlayPresenter.h"
 #include "RenderGpuTimingOwner.h"
 #include "../Core/TracyClientOwner.h"
@@ -654,7 +654,7 @@ Profiler::ProfilerFrameView Profiler::FrameView() const
 }
 
 
-RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, IRenderDiagnostics* diagnostics )
+RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagnostics* diagnostics )
     : m_profiler( profiler ), m_diagnostics( diagnostics ), m_markerEpoch( profiler ? profiler->MarkerEpoch() : 0 )
 {
 }
@@ -1302,7 +1302,7 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 
 void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView& frame,
                                               Text::TextBatch& textBatch,
-                                              SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                              SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
                                               float xLeft,
                                               float yAnchor,
                                               float lineHeight,
@@ -1565,7 +1565,7 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
                                                  Text::TextBatch& textBatch,
-                                                 SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+                                                 SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
                                                  float xLeft,
                                                  float yBottom,
                                                  float panelWidth,
@@ -2021,7 +2021,7 @@ void Profiler::WritePerfCSVRow( FILE*, int, int ) const
 }
 
 
-RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, IRenderDiagnostics* diagnostics )
+RenderGpuTimingOwner::RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagnostics* diagnostics )
     : m_profiler( profiler ), m_diagnostics( diagnostics )
 {
 }
@@ -2049,7 +2049,7 @@ void RenderGpuTimingOwner::End( const char*, uint32_t )
 
 void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFrameView&,
                                               Text::TextBatch&,
-                                              Rendering::IRenderCommandContext&,
+                                              Rendering::Dx12GeometryOwner&,
                                               float,
                                               float,
                                               float,
@@ -2062,7 +2062,7 @@ void ProfilerOverlayPresenter::RenderOverlay( const Core::Profiler::ProfilerFram
 
 void ProfilerOverlayPresenter::RenderBarOverlay( const Core::Profiler::ProfilerFrameView&,
                                                  Text::TextBatch&,
-                                                 Rendering::IRenderCommandContext&,
+                                                 Rendering::Dx12GeometryOwner&,
                                                  float,
                                                  float,
                                                  float,

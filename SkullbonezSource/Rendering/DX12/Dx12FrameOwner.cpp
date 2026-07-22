@@ -54,6 +54,54 @@ Dx12FrameOwner::Dx12FrameOwner( Dx12RenderDevice& device,
 }
 
 
+SkullbonezCore::Core::SbResult Dx12FrameOwner::FinishAndReopen( Dx12Diagnostics& diagnostics )
+{
+    if ( HasFailure() )
+    {
+        return CurrentResult();
+    }
+
+    if ( !m_device.CommandList() || !m_device.GraphicsQueue() || !m_device.FrameFence().IsReady() ||
+         !m_device.CommandAllocator( AllocatorIndex() ) )
+    {
+        const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
+        if ( !waitResult.ok )
+        {
+            return waitResult;
+        }
+        diagnostics.ConsumeGpuTimerReadback( DiagnosticsFrame(), true );
+        return SkullbonezCore::Core::SbResult::Success();
+    }
+
+    if ( IsOpen() )
+    {
+        AssertProfilerClosed( "Finish" );
+        const SkullbonezCore::Core::SbResult closeResult =
+            CommitClose( m_device.CommandList()->Close(), "Finish command list Close" );
+        if ( !closeResult.ok )
+        {
+            return closeResult;
+        }
+        const SkullbonezCore::Core::SbResult submitResult = SubmitClosed();
+        if ( !submitResult.ok )
+        {
+            return submitResult;
+        }
+    }
+
+    const SkullbonezCore::Core::SbResult waitResult = CommitWait( WaitForGpu() );
+    if ( !waitResult.ok )
+    {
+        return waitResult;
+    }
+    diagnostics.ConsumeGpuTimerReadback( DiagnosticsFrame(), true );
+
+    // Hazard: pipeline synchronization can run between physics and rendering.
+    // Reopen here so the next graph pass still has a legal recording epoch.
+    return EnsureOpen();
+}
+
+
 void Dx12FrameOwner::ResetForDevice()
 {
     m_recording.ResetForDevice();

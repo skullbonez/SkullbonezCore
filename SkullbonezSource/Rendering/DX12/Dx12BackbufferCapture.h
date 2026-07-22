@@ -20,12 +20,14 @@ Invariants:
   - Pixel memory is mapped only after a successful covering-fence wait.
   - Quarantine is fixed capacity and never grows during runtime.
   - Quarantined resources release only through ReleaseAfterTerminalDrain.
-  - The owner never stores a backend or frame-owner pointer.
+  - The owner borrows one restricted capture-frame capability and the device
+    extent owner for the complete renderer lifetime; it cannot reach uploads,
+    descriptors, pipelines, or unrelated frame policy.
 
 Related:
   - SkullbonezSource/Rendering/DX12/Dx12BackbufferCapture.cpp
   - SkullbonezSource/Rendering/DX12/Dx12FrameOwner.h
-  - SkullbonezSource/Rendering/IRenderCaptureBackend.h
+  - SkullbonezSource/Runtime/CaptureSystem.h
 */
 #pragma once
 
@@ -42,22 +44,25 @@ namespace SkullbonezCore
 namespace Rendering
 {
 class Dx12CaptureFrame;
+class Dx12RenderDevice;
 
 class Dx12BackbufferCapture
 {
   public:
-    SkullbonezCore::Core::SbResult Capture( Dx12CaptureFrame& frame,
-                                            int width,
-                                            int height,
-                                            std::vector<uint8_t>& outPixels,
-                                            int& outWidth,
-                                            int& outHeight );
+    Dx12BackbufferCapture( Dx12CaptureFrame& frame, const Dx12RenderDevice& device );
+    SkullbonezCore::Core::SbResult CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight );
+    bool SupportsBackbufferCapture() const
+    {
+        return true;
+    }
     void ReleaseAfterTerminalDrain();
 
   private:
     static constexpr size_t MAX_QUARANTINED_READBACKS = 2;
     void Quarantine( ID3D12Resource* resource, const char* failedOperation );
 
+    Dx12CaptureFrame& m_frame;
+    const Dx12RenderDevice& m_device;
     std::array<ID3D12Resource*, MAX_QUARANTINED_READBACKS> m_quarantined = {};
     size_t m_quarantinedCount = 0;
 };

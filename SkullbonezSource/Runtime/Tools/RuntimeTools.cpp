@@ -58,7 +58,7 @@ Related:
 #include "../InputRouter.h"
 #include "../RuntimeInteractionCommands.h"
 #include "../RuntimeInteractionController.h"
-#include "../Replay/ReplayRecorder.h"
+#include "../Replay/ReplayToolPackets.h"
 #include "../Scene/SceneRuntime.h"
 #include "../../World/Terrain.h"
 #include "../../World/WorldEnvironment.h"
@@ -201,6 +201,24 @@ void RuntimeTools::ClearEditorInteractionForTransition( bool clearSelection,
         command.claimSelectionOwner = false;
         ApplySelectionCommand( command, world );
     }
+}
+
+
+void RuntimeTools::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+                                          SceneWorld& world,
+                                          InputRouter& inputRouter,
+                                          RuntimeInteractionController& interaction )
+{
+    if ( !m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        return;
+    }
+    // Invariant: clear typed gesture/capture state before the interaction owner
+    // publishes its new-scene workspace policy.
+    CancelMousePickup( inputRouter, interaction );
+    ClearEditorInteractionForTransition( false, world, interaction );
+    ClearEditorHistory();
+    ClearRayCastTestLines();
 }
 
 

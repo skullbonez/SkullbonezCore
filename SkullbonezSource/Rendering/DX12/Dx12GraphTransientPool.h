@@ -62,6 +62,19 @@ class Dx12GraphTransientPool
     void EndRenderTarget( const RenderGraphTextureBinding& binding, const char* passName );
     void ReleaseAfterTerminalDrain( const char* reason );
 
+    // Concept: the graph executor owns both transient and external-resource
+    // transition publication. Runtime passes borrow this concrete owner rather
+    // than a union command facade spanning unrelated draw categories.
+    RenderGraphTransientMaterializationStats
+    MaterializeGraphTransientResources( const RenderGraph& graph, const RenderGraphCompileResult& compiled );
+    RenderGraphTextureBinding ResolveGraphTextureBinding( RenderGraphResourceHandle resource ) const;
+    RenderGraphNativeResourceToken ResolveGraphResourceToken( uint32_t textureHandle ) const;
+    RenderGraphBackbufferBinding ResolveGraphBackbufferBinding() const;
+    size_t
+    ExecuteGraphTransitions( const RenderGraph& graph, const RenderGraphCompileResult& compiled, uint32_t passIndex );
+    void BeginGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName );
+    void EndGraphTextureRenderTarget( const RenderGraphTextureBinding& binding, const char* passName );
+
     size_t Size() const
     {
         return m_resources.size();

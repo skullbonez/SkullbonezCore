@@ -306,10 +306,16 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayCauseFocusSubmission.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp">
@@ -474,6 +480,15 @@
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublication.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionTopologyPublication.cpp">
+      <Filter>Source Files\Runtime\Replay</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionDrawing.cpp">
       <Filter>Source Files\Runtime\Replay</Filter>
     </ClCompile>
@@ -631,12 +646,6 @@
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Pipeline.cpp">
-      <Filter>Source Files\Rendering\DX12</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Profiler.cpp">
-      <Filter>Source Files\Rendering\DX12</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Readback.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp">
@@ -1087,6 +1096,9 @@
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLifecycle.h">
+      <Filter>Header Files\Runtime\Scene</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h">
       <Filter>Header Files\Runtime\Scene</Filter>
     </ClInclude>
@@ -1129,6 +1141,18 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublication.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublicationOperations.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactSource.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
@@ -1147,10 +1171,25 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCoordination.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringPackets.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCaptureLimits.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCapturePackets.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayIdentity.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPackets.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionView.h">
@@ -1159,10 +1198,28 @@
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationPackets.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayPackets.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlaySurface.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationSubmission.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayScrubber.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayToolPackets.h">
+      <Filter>Header Files\Runtime\Replay</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTimelinePackets.h">
       <Filter>Header Files\Runtime\Replay</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h">
@@ -1240,25 +1297,13 @@
     <ClInclude Include="SkullbonezSource\Core\Profiler.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IShader.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IMesh.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderCaptureBackend.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h">
@@ -1267,14 +1312,11 @@
     <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h">
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h">
-      <Filter>Header Files\Rendering</Filter>
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h">
       <Filter>Header Files\Rendering</Filter>

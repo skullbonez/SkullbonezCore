@@ -47,7 +47,6 @@ Related:
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <fstream>
 #include <limits>
 #include <string>
 #include <vector>
@@ -60,6 +59,9 @@ Related:
 #include "../../Physics/PhysicsSolverSnapshot.h"
 #include "../Editor/LauncherLaser.h"
 #include "ReplayEventCommand.h"
+#include "ReplayToolPackets.h"
+#include "ReplayCaptureLimits.h"
+#include "ReplayCapturePackets.h"
 
 namespace SkullbonezCore
 {
@@ -78,9 +80,8 @@ class PhysicsBodyStore;
 
 namespace Runtime
 {
+class ReplayArtifactSource;
 class SceneEntityStore;
-inline constexpr int REPLAY_PAST_BUFFER_SECONDS = 60;
-inline constexpr float REPLAY_FUTURE_BUFFER_SECONDS = 20.0f;
 
 struct ReplayBranchInfo
 {
@@ -375,33 +376,6 @@ struct ReplaySolverDeltaFrame
     ReplaySolverWorldDeltaFrame world;
 };
 
-enum class ReplayLauncherFireMode : uint8_t
-{
-    Laser,
-    Projectile
-};
-
-struct ReplayRayCastLineSample
-{
-    Math::Vector::Vector3 start = Math::Vector::ZERO_VECTOR;
-    Math::Vector::Vector3 end = Math::Vector::ZERO_VECTOR;
-    float ageSeconds = 0.0f;
-    bool active = false;
-    bool hit = false;
-};
-
-struct ReplayLauncherVisualSample
-{
-    std::vector<ReplayRayCastLineSample> rayLines;
-    std::vector<LauncherLaserShotSnapshot> laserShots;
-    int nextRayLine = 0;
-    int nextLaserShot = 0;
-    ReplayLauncherFireMode fireMode = ReplayLauncherFireMode::Laser;
-    bool visualizeRays = false;
-    float impulseStrength = 0.0f;
-    float projectileSpeed = 0.0f;
-};
-
 // Concept: solver samples own authoritative restore state and may project a
 // presentation sample, but presentation-only feature payloads do not belong in
 // this larger deterministic checkpoint value.
@@ -502,29 +476,6 @@ struct ReplayRecorderConfig
     std::string hashLogPath;
 };
 
-struct ReplayRecorderStats
-{
-    bool enabled = false;
-    uint64_t totalFramesCaptured = 0;
-    uint64_t totalFramesEvicted = 0;
-    ReplayFrameIndex nextFrameIndex = 0;
-    std::size_t sampleCapacity = 0;
-    std::size_t sampleCount = 0;
-    std::size_t checkpointCapacity = 0;
-    std::size_t checkpointCount = 0;
-    uint64_t latestStateHash = 0;
-};
-
-struct ReplayEventRecorderStats
-{
-    bool enabled = false;
-    uint64_t totalEventsCaptured = 0;
-    uint64_t totalEventsEvicted = 0;
-    uint32_t nextSequence = 0;
-    std::size_t eventCapacity = 0;
-    std::size_t eventCount = 0;
-};
-
 // Presentation recorder: stores visual scrub samples in a bounded ring buffer.
 // Callers always read samples chronologically even though storage wraps.
 class ReplayRecorder
@@ -536,17 +487,19 @@ class ReplayRecorder
     // Records the presentation track from an already captured solver sample.
     // Use this when both tracks are enabled so frame capture does one model walk.
     void CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample );
-    void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
-    void CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const;
     const ReplayPresentationSample* LatestSample() const;
     const ReplayPresentationSample* SampleAtNormalized( float normalized ) const;
 
   private:
+    // Why: cold ArtifactIO must reconstruct compact deltas without making ring
+    // internals public. Its commands accept this owner as const and publish only
+    // copied chronological values.
+    friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddVisualBodyMetadata( const ReplayBodyPresentationSample& body, ReplayFrameIndex frameIndex );
     void StoreVisualFramePayload( std::size_t slotIndex,
@@ -557,8 +510,6 @@ class ReplayRecorder
     bool ResolveSampleAtOffset( std::size_t offset, ReplayPresentationSample& outSample ) const;
     void PromoteVisualFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplayPresentationSample& sample, std::size_t bodyCount );
-    void WriteHashLogHeader( const char* sceneLabel );
-    void WriteHashLogRow( const ReplayPresentationSample& sample, std::size_t bodyCount );
     std::size_t SampleCapacityFromConfig() const;
     std::size_t CheckpointCapacityFromConfig() const;
 
@@ -577,7 +528,6 @@ class ReplayRecorder
     std::vector<uint16_t> m_contactCountScratch;
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
-    std::ofstream m_hashLog;
     // Lifetime: one UI turn may compare several scrub positions plus latest.
     // A small rotating pool preserves those simultaneous borrows without
     // caching one full body vector per retained frame.
@@ -606,13 +556,11 @@ class ReplaySolverRecorder
     bool Configure( const ReplayRecorderConfig& config );
     void ResetTimeline( const char* sceneLabel );
     void CaptureFrame( const ReplayCaptureInput& input );
-    void FlushHashLog();
     bool IsEnabled() const;
     ReplayRecorderStats GetStats() const;
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
-    void CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const;
     // Visits resolved samples without allocating a copied artifact vector. The
     // templated callable keeps replay iteration typed and prevents a stored
     // void-pointer callback bridge from becoming runtime authority.
@@ -702,6 +650,8 @@ class ReplaySolverRecorder
     const ReplaySolverFrameSample* SampleAtNormalized( float normalized ) const;
 
   private:
+    // See ReplayRecorder: this is the same const-only cold materialization seam.
+    friend class ReplayArtifactSource;
     std::size_t AcquireSampleSlotIndex();
     std::size_t FindOrAddSolverBodyMetadata( const ReplaySolverBodySample& body, ReplayFrameIndex frameIndex );
     void StoreSolverFramePayload( std::size_t slotIndex,
@@ -713,8 +663,6 @@ class ReplaySolverRecorder
     bool ResolveSolverSampleAtOffset( std::size_t offset, ReplaySolverFrameSample& outSample ) const;
     void PromoteSolverFrameToKeyframe( std::size_t offset );
     void StoreCheckpointSummary( const ReplaySolverFrameSample& sample, std::size_t bodyCount );
-    void WriteHashLogHeader( const char* sceneLabel );
-    void WriteHashLogRow( const ReplaySolverFrameSample& sample, std::size_t bodyCount );
     std::size_t SampleCapacityFromConfig() const;
     std::size_t CheckpointCapacityFromConfig() const;
 
@@ -733,7 +681,6 @@ class ReplaySolverRecorder
     std::vector<uint16_t> m_contactCountScratch;
     std::vector<float> m_maxPenetrationScratch;
     std::vector<float> m_normalImpulseSumScratch;
-    std::ofstream m_hashLog;
     ReplaySolverWorldSnapshot m_solverCaptureWorldSnapshot;
     ReplaySolverWorldSnapshot m_solverWorldCarrySnapshot;
     bool m_solverWorldCarryActive = false;
@@ -769,9 +716,10 @@ class ReplayEventRecorder
     // Adds this track's fixed-capacity storage to the shared replay memory categories.
     void CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemoryReplayCategoryBytes& categories ) const;
     uint64_t CollectMemoryBytes() const;
-    void CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const;
 
   private:
+    // See ReplayRecorder: event-ring order remains private to cold ArtifactIO.
+    friend class ReplayArtifactSource;
     ReplayEventSample& AcquireEventSlot();
     std::size_t EventCapacityFromConfig() const;
 

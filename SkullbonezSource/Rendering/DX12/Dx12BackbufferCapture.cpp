@@ -29,19 +29,25 @@ Related:
 #include "Dx12BackbufferCapture.h"
 
 #include "Dx12FrameOwner.h"
+#include "RenderDeviceDX12.h"
 #include "../../Core/FatalError.h"
 
 #include <utility>
 
 using namespace SkullbonezCore::Rendering;
 
-SkullbonezCore::Core::SbResult Dx12BackbufferCapture::Capture( Dx12CaptureFrame& frame,
-                                                               int width,
-                                                               int height,
-                                                               std::vector<uint8_t>& outPixels,
-                                                               int& outWidth,
-                                                               int& outHeight )
+Dx12BackbufferCapture::Dx12BackbufferCapture( Dx12CaptureFrame& frame, const Dx12RenderDevice& device )
+    : m_frame( frame ), m_device( device )
 {
+}
+
+
+SkullbonezCore::Core::SbResult
+Dx12BackbufferCapture::CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight )
+{
+    Dx12CaptureFrame& frame = m_frame;
+    const int width = m_device.Width();
+    const int height = m_device.Height();
     outPixels.clear();
     const SkullbonezCore::Core::SbResult openResult = frame.EnsureOpen();
     if ( !openResult.ok )
@@ -131,7 +137,7 @@ SkullbonezCore::Core::SbResult Dx12BackbufferCapture::Capture( Dx12CaptureFrame&
     }
 
     // Cold utility allocation: screenshot bytes leave the renderer through the
-    // capture interface and are not steady-frame storage.
+    // concrete capture owner and are not steady-frame storage.
     const int rowStride = ( width * 3 + 3 ) & ~3;
     std::vector<uint8_t> result( static_cast<size_t>( rowStride ) * static_cast<size_t>( height ) );
     const uint8_t* sourcePixels = mappedData;

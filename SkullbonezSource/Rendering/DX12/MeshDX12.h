@@ -33,7 +33,7 @@ Related:
 #pragma once
 
 
-#include "../IMesh.h"
+#include "../RenderCommandTypes.h"
 #include <d3d12.h>
 #include <cstdint>
 
@@ -69,7 +69,7 @@ enum class VertexFormat12
     DX12 static mesh implementation. Holds a committed vertex buffer resource on
     the default heap and exposes the vertex buffer view used by draw calls.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class MeshDX12 : public IMesh
+class MeshDX12
 {
 
   private:
@@ -84,7 +84,7 @@ class MeshDX12 : public IMesh
 
   public:
     MeshDX12( Dx12RenderDevice& device, Dx12DrawGate& drawGate, Dx12Diagnostics& diagnostics );
-    ~MeshDX12() override;
+    ~MeshDX12();
 
     bool Create( ID3D12Device* device,
                  ID3D12GraphicsCommandList* cmdList,
@@ -96,17 +96,17 @@ class MeshDX12 : public IMesh
                  uint8_t* uploadPtr,
                  ID3D12Resource* uploadBuffer );
 
-    bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const override;
-    void Draw( const PassRasterStateBucket& bucket ) const override;
-    int GetVertexCount() const override
+    bool PrecompileRasterState( const PassRasterStateBucket& bucket ) const;
+    void Draw( const PassRasterStateBucket& bucket ) const;
+    int GetVertexCount() const
     {
         return m_vertexCount;
     }
-    int GetStride() const override
+    int GetStride() const
     {
         return m_stride;
     }
-    uint64_t GetVertexBufferGPUVA() const override
+    uint64_t GetVertexBufferGPUVA() const
     {
         return m_vertexBuffer ? m_vertexBuffer->GetGPUVirtualAddress() : 0;
     }

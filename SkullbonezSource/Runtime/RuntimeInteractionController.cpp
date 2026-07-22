@@ -403,6 +403,21 @@ RuntimeInteractionTransition RuntimeInteractionController::ResetForScene( Intera
 }
 
 
+void RuntimeInteractionController::ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+                                                          bool enterInspectAfterActivation )
+{
+    if ( m_sceneResetObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+    {
+        ResetForScene( InteractionExitReason::LoadScene );
+    }
+    if ( enterInspectAfterActivation &&
+         m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) )
+    {
+        EnterInspect();
+    }
+}
+
+
 RuntimeInteractionFramePolicy
 RuntimeInteractionController::BuildFramePolicy( const RuntimeInteractionFrameInput& input ) const
 {

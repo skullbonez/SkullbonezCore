@@ -33,8 +33,8 @@ Related:
 
 
 #include "../Core/Common.h"
-#include "IShader.h"
-#include "IMesh.h"
+#include "DX12/ShaderDX12.h"
+#include "DX12/MeshDX12.h"
 #include "../Maths/Matrix4.h"
 #include "RenderMaterial.h"
 #include "Shadow.h"
@@ -55,9 +55,11 @@ class AssetSystem;
 }
 namespace Rendering
 {
-class IRenderCommandContext;
-class IRenderDiagnostics;
-class IRenderResourceFactory;
+class Dx12GeometryOwner;
+class Dx12Diagnostics;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
+class Dx12GeometryOwner;
 } // namespace Rendering
 namespace Math
 {
@@ -73,11 +75,12 @@ class PrimitiveBatchRenderer;
 struct PrimitiveRenderContext
 {
     // Lifetime: commands and diagnostics are borrowed only for the receiving
-    // call. PrimitiveBatchRenderer may remember the resource factory until its
-    // owner destroys the renderer for backend teardown/rebuild.
-    Rendering::IRenderResourceFactory& renderResources;
-    Rendering::IRenderCommandContext& renderCommands;
-    Rendering::IRenderDiagnostics& renderDiagnostics;
+    // call. PrimitiveBatchRenderer may remember the three concrete resource
+    // owners until its owner destroys the renderer for backend teardown/rebuild.
+    Rendering::Dx12ResourceBuilder& renderResources;
+    Rendering::Dx12TextureOwner& renderTextures;
+    Rendering::Dx12GeometryOwner& renderGeometry;
+    Rendering::Dx12Diagnostics& renderDiagnostics;
     const Assets::AssetSystem& assets;
     const SkullbonezCore::Core::EngineConfig& config;
     PrimitiveBatchRenderer& renderer;
@@ -100,9 +103,9 @@ struct PrimitiveBatchRendererState
     static constexpr int HULL_MAX_TRIANGLE_VERTICES = 96 * ( 16 - 2 ) * 3;
     static constexpr int HULL_DYNAMIC_FLOATS_PER_VERTEX = 3 + 3 + 2 + INSTANCE_FLOATS;
 
-    std::unique_ptr<Rendering::IShader> sphereShader;               // Shared lit_textured_instanced shader.
-    std::unique_ptr<Rendering::IShader> shadowDepthShader;          // Shared instanced directional shadow depth shader.
-    uint32_t sphereInstMesh = 0;                                    // Instanced mesh handle owned by the active render resource factory.
+    std::unique_ptr<Rendering::ShaderDX12> sphereShader;            // Shared lit_textured_instanced shader.
+    std::unique_ptr<Rendering::ShaderDX12> shadowDepthShader;       // Shared instanced directional shadow depth shader.
+    uint32_t sphereInstMesh = 0;                                    // Instanced mesh handle owned by the active geometry owner.
     int sphereVertexCount = 0;                                      // Per-sphere vertex count.
     std::vector<float> sphereInstanceData;                          // Queued sphere transforms/materials between batch begin/end.
     uint32_t lowPolySphereInstMesh = 0;                             // Faceted sphere mesh for low-poly cinematic styles.
@@ -122,7 +125,9 @@ struct PrimitiveBatchRendererState
     bool sphereBatchReady = false;
     bool boxBatchReady = false;
     bool pineBatchReady = false;
-    Rendering::IRenderResourceFactory* renderResources = nullptr;   // Backend factory borrowed while helper handles are live.
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;      // Backend factory borrowed while helper handles are live.
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;
     uint32_t materialTableTexture = 0;                              // Material defaults bound at shader slot t4.
     uint32_t convexHullDynamicVB = 0;                               // Dynamic vertex buffer used by immediate convex hull draws.
     std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> convexHullVertexData = {};
@@ -163,7 +168,9 @@ class PrimitiveBatchRenderer
     void BuildPineMesh( const PrimitiveRenderContext& context );    // Generate unit low-poly pine tier mesh
 
   public:
-    explicit PrimitiveBatchRenderer( Rendering::IRenderResourceFactory* renderResources = nullptr );
+    explicit PrimitiveBatchRenderer( Rendering::Dx12ResourceBuilder* renderResources = nullptr,
+                                     Rendering::Dx12TextureOwner* renderTextures = nullptr,
+                                     Rendering::Dx12GeometryOwner* renderGeometry = nullptr );
     PrimitiveBatchRenderer( const PrimitiveBatchRenderer& ) = delete;
     PrimitiveBatchRenderer& operator=( const PrimitiveBatchRenderer& ) = delete;
     ~PrimitiveBatchRenderer();
@@ -253,8 +260,9 @@ class PrimitiveBatchRenderer
         const PrimitiveRenderContext& context );                    // Prewarm primitive shadow meshes and the shared depth shader.
 
   private:
-    void BindRenderResourceFactory( Rendering::IRenderResourceFactory&
-                                        renderResources );          // Remember the backend factory that owns raw helper handles.
+    void BindRenderResourceOwners( Rendering::Dx12ResourceBuilder& renderResources,
+                                   Rendering::Dx12TextureOwner& renderTextures,
+                                   Rendering::Dx12GeometryOwner& renderGeometry );
     void ReleaseOwnedRenderResources();                             // Destroy renderer-owned backend handles before factory teardown.
     void DrawSphereBatchBegin( const PrimitiveRenderContext& context,
                                const Math::Transformation::Matrix4& view,

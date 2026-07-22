@@ -4,12 +4,12 @@ Purpose:
   Implements screenshot request ownership, capture execution, and automation pass-throughs.
 
 Summary:
-  Run supplies frame context and narrow render capabilities. CaptureController
+  Run supplies frame context and the concrete capture owner. CaptureController
   owns mutable screenshot automation plus the fixed input-triggered request ring,
   then delegates pixel writing to CaptureSystem.
 
 Glossary:
-  Capture sink: Value hook that performs the actual screenshot write.
+  Capture result: Value outcome folded into the fixed accepted-request batch.
   Auto-cycle: Screenshot automation that steps through tracked balls/scenes.
   Screenshot request: Runtime state describing when and where to capture pixels.
   Request ring: Fixed FIFO storage drained at the input-frame capture checkpoint.
@@ -72,8 +72,9 @@ bool CaptureController::RequiresDeterministicPresentation( const RuntimeCaptureS
 }
 
 
+#if defined( SKULLBONEZ_CAPTURE_EXECUTION )
 RuntimeCaptureResult CaptureController::TickScreenshots( const RuntimeCaptureSceneContext& context,
-                                                         Rendering::IRenderCaptureBackend& backend )
+                                                         Rendering::Dx12BackbufferCapture& backend )
 {
     return CaptureSystem::TickScreenshots( m_screenshot, context, *this, backend );
 }
@@ -86,7 +87,7 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
                                                        float& autoCycleAccum,
                                                        int& autoCycleShotsTaken,
                                                        int& trackBallIndex,
-                                                       Rendering::IRenderCaptureBackend& backend )
+                                                       Rendering::Dx12BackbufferCapture& backend )
 {
     return CaptureSystem::TickAutoCycle( isSceneMode,
                                          isInteractiveRun,
@@ -98,6 +99,7 @@ RuntimeCaptureResult CaptureController::TickAutoCycle( bool isSceneMode,
                                          *this,
                                          backend );
 }
+#endif
 
 
 SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* path )
@@ -138,7 +140,25 @@ SkullbonezCore::Core::SbResult CaptureController::QueueScreenshot( const char* p
 }
 
 
-CaptureRequestBatchResult CaptureController::DrainScreenshotRequests( Rendering::IRenderCaptureBackend& backend )
+void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch,
+                                     const CaptureRequest& request,
+                                     const SkullbonezCore::Core::SbResult& requestResult )
+{
+    if ( requestResult.ok )
+    {
+        batch.saved[batch.savedCount++] = request;
+        return;
+    }
+    if ( batch.status.ok )
+    {
+        batch.status = requestResult;
+    }
+    ++batch.failedCount;
+}
+
+
+#if defined( SKULLBONEZ_CAPTURE_EXECUTION )
+CaptureRequestBatchResult CaptureController::DrainScreenshotRequests( Rendering::Dx12BackbufferCapture& backend )
 {
     CaptureRequestBatchResult result;
     while ( m_requestCount > 0 )
@@ -149,22 +169,12 @@ CaptureRequestBatchResult CaptureController::DrainScreenshotRequests( Rendering:
         --m_requestCount;
 
         const SkullbonezCore::Core::SbResult saveResult = SaveScreenshot( backend, request.path );
-        if ( saveResult.ok )
-        {
-            result.saved[result.savedCount++] = request;
-        }
-        else
-        {
-            if ( result.status.ok )
-            {
-                result.status = saveResult;
-            }
-            ++result.failedCount;
-        }
+        AccumulateCaptureRequestResult( result, request, saveResult );
     }
     m_requestHead = 0;
     return result;
 }
+#endif
 
 
 std::size_t CaptureController::PendingScreenshotCount() const
@@ -173,7 +183,8 @@ std::size_t CaptureController::PendingScreenshotCount() const
 }
 
 
-SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::IRenderCaptureBackend& backend,
+#if defined( SKULLBONEZ_CAPTURE_EXECUTION )
+SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::Dx12BackbufferCapture& backend,
                                                                   const char* path )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Capture );
@@ -188,10 +199,11 @@ SkullbonezCore::Core::SbResult CaptureController::SaveScreenshot( Rendering::IRe
 }
 
 
-SkullbonezCore::Core::SbResult CaptureController::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend,
+SkullbonezCore::Core::SbResult CaptureController::SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
                                                                      const char* path )
 {
     return CaptureSystem::SaveBackbufferBmp( backend, path );
 }
+#endif
 } // namespace Runtime
 } // namespace SkullbonezCore

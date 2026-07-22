@@ -22,7 +22,7 @@ Invariants:
 
 Related:
   - SkullbonezSource/Core/Profiler.h
-  - SkullbonezSource/Rendering/IRenderDiagnostics.h
+  - SkullbonezSource/Rendering/DX12/Dx12Diagnostics.h
   - SkullbonezSource/Runtime/Render/RuntimeRenderer.h
 */
 #pragma once
@@ -35,12 +35,12 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 
 class RenderGpuTimingOwner
 {
   public:
-    RenderGpuTimingOwner( Core::Profiler* profiler, IRenderDiagnostics* diagnostics );
+    RenderGpuTimingOwner( Core::Profiler* profiler, Dx12Diagnostics* diagnostics );
 
     // Frame boundary: synchronize marker epochs, read completed timestamps,
     // and publish the preceding renderer counters before they are reset.
@@ -53,15 +53,15 @@ class RenderGpuTimingOwner
   private:
     struct OpenScope
     {
-        const char* fullPath = nullptr;          // Borrowed marker literal; valid for the process lifetime.
+        const char* fullPath = nullptr;       // Borrowed marker literal; valid for the process lifetime.
         uint32_t hash = 0;
-        int markerIndex = -1;                    // Core row mirrored by the backend query slot.
+        int markerIndex = -1;                 // Core row mirrored by the backend query slot.
         bool timerOpen = false;
         bool platformEventOpen = false;
     };
 
-    Core::Profiler* m_profiler = nullptr;        // Startup owner outlives RuntimeRenderer.
-    IRenderDiagnostics* m_diagnostics = nullptr; // Backend facet outlives RuntimeRenderer.
+    Core::Profiler* m_profiler = nullptr;     // Startup owner outlives RuntimeRenderer.
+    Dx12Diagnostics* m_diagnostics = nullptr; // Concrete diagnostics owner outlives RuntimeRenderer.
     OpenScope m_openScopes[Core::Profiler::MAX_DEPTH] = {};
     Core::Profiler::GpuTimingSample m_completedSamples[Core::Profiler::MAX_MARKERS] = {};
     int m_openDepth = 0;

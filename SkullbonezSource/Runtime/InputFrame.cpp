@@ -35,8 +35,6 @@ Related:
 #include "Editor/EditorTools.h"
 #include "InputController.Bindings.h"
 #include "InputController.h"
-#include "Replay/ReplayOverlayLayout.h"
-#include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
 #include "DemoDirectorPlayback.h"
 #include "RunDebugState.h"
@@ -481,9 +479,10 @@ void RecordSceneRuntimeUIActions( const SceneRuntimeUICommandResult& commands, R
 // Concept: UI sampling and replay workspace arbitration publish the post-UI
 // frame before mapped keyboard commands run. The returned commands are fixed
 // value records; no callback retains access to the application shell.
-RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
+RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
                                           RuntimeFrameInteractionView& interactionOwners,
-                                          RuntimeFrameSceneView& sceneOwners,
+                                          RunTimerState& timers,
+                                          SceneController& sceneController,
                                           ReplayRuntime& replayRuntime,
                                           const ReplayPathPickInput& replayPointerRay,
                                           const RuntimeInputFrameFacts& facts )
@@ -495,9 +494,6 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( RuntimeFrameHostView& host,
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
-    RunTimerState& timers = sceneOwners.timers;
-    SceneController& sceneController = sceneOwners.sceneController;
-    Window& window = host.window;
     RuntimeUIFrameResult result;
     result.suppressWorldActionThisFrame = facts.suppressWorldActionThisFrame || facts.externalUiCapture.mouse;
     result.frameActive = true;
@@ -763,7 +759,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         inputRouter.SetWorldInteractionOwner( placementMode.worldOwner,
                                               InteractionExitReason::EnterEdit,
                                               interactionOwners,
-                                              sceneOwners,
+                                              sceneController,
                                               replayRuntime,
                                               facts.replayRestoreCameraMode );
         if ( inputRouter.ReleasePointerToUi( EvaluateRuntimePointerPresentation( inputRouter,
@@ -785,7 +781,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const RuntimeInteractionTransition editorTransition = interaction.EnterEdit();
             inputRouter.ApplyInteractionTransition( editorTransition,
                                                     interactionOwners,
-                                                    sceneOwners,
+                                                    sceneController,
                                                     replayRuntime,
                                                     facts.replayRestoreCameraMode );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
@@ -820,7 +816,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
             const RuntimeInteractionTransition restoreTransition = interaction.EnterCameraMode( restoreMode );
             inputRouter.ApplyInteractionTransition( restoreTransition,
                                                     interactionOwners,
-                                                    sceneOwners,
+                                                    sceneController,
                                                     replayRuntime,
                                                     facts.replayRestoreCameraMode );
             const bool wasFlyMode = RunCameraModeUsesFlyControls( camera.mode,
@@ -848,7 +844,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         updateInputMode( RuntimeInputAction::ToggleEditor, source );
     };
 
-    if ( ApplyRenderVsyncUICommand( RenderDeviceUICommandContext{ renderer, renderBackendView.deviceLifecycle },
+    if ( ApplyRenderVsyncUICommand( RenderDeviceUICommandContext{ renderer, renderBackendView.renderDevice },
                                     uiCommands.renderer ) )
     {
         recordUIAction( RuntimeInputAction::ToggleVsync );
@@ -859,7 +855,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
         inputRouter.ApplyCameraMode( cameraModeCommand.mode,
                                      RuntimeInputActionSource::UI,
                                      interactionOwners,
-                                     sceneOwners,
+                                     sceneController,
                                      replayRuntime,
                                      runtimeInput );
     }
@@ -1012,7 +1008,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
                                              config,
                                              launchOptions,
                                              renderDefaults,
-                                             renderBackendView.deviceLifecycle != nullptr,
+                                             renderBackendView.renderDevice != nullptr,
                                              timers.simulationTimer.GetTimeSinceLastStart() },
         uiCommands.sceneOptions,
         uiCommands.renderTuning,
@@ -1070,7 +1066,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
     const SceneGeneratedControlPresentation sceneGeneratedPresentation{ ui.SceneNavigation().overrides, camera };
     const SceneGeneratedControlResetParticipants sceneGeneratedReset{ simulation,
                                                                       runtimeTools,
-                                                                      renderBackendView.deviceLifecycle };
+                                                                      renderBackendView.renderFrame };
     const auto executeSceneGeneratedControlAction = [&]( const SceneRuntimeGeneratedControlAction& action )
     {
         if ( action.resetReplayTimeline )
@@ -1202,7 +1198,7 @@ RuntimeUIFrameResult ApplyRuntimeUIFrameCommands( RuntimeUIFrameResult result,
 
 RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
                                                   RuntimeFrameInteractionView& interactionOwners,
-                                                  RuntimeFrameSceneView& sceneOwners,
+                                                  SceneController& sceneController,
                                                   ReplayRuntime& replayRuntime,
                                                   RunCameraMode replayCurrentCameraMode )
 {
@@ -1212,7 +1208,6 @@ RuntimeUIFrameResult FinishRuntimeUIFramePointer( RuntimeUIFrameResult result,
     RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
     RuntimeInteractionController& interaction = interactionOwners.interaction;
     AttachedCameraController& attachedCamera = interactionOwners.attachedCamera;
-    SceneController& sceneController = sceneOwners.sceneController;
     SkullbonezCore::UI::InGameUI& ui = interactionOwners.operatorUi;
     // Invariant: pointer ownership is finalized only after UI mutations and
     // stress actions succeed; failure leaves later world routing untouched.

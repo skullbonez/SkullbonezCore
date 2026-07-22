@@ -31,8 +31,8 @@ Related:
 
 #include "../../Core/Common.h"
 #include "../../Core/SceneCapacity.h"
-#include "../../Rendering/IFramebuffer.h"
-#include "../../Rendering/IShader.h"
+#include "../../Rendering/DX12/FramebufferDX12.h"
+#include "../../Rendering/DX12/ShaderDX12.h"
 #include "../../Rendering/Shadow.h"
 
 #include <cstdint>
@@ -53,7 +53,7 @@ struct ReflectionPassResources
     // Lifetime: this render target is backend/device-owned. Resize and backend
     // teardown must reset it before the renderer releases the underlying GPU
     // resource memory.
-    std::unique_ptr<Rendering::IFramebuffer> target;
+    std::unique_ptr<Rendering::FramebufferDX12> target;
 };
 
 struct SkyPassResources
@@ -61,28 +61,28 @@ struct SkyPassResources
     // The cube-map skybox is owned by the shared skybox subsystem. This pass
     // owns only the procedural cinematic atmosphere shader used when cinematic
     // mode asks the sky pass to draw a generated background.
-    std::unique_ptr<Rendering::IShader> atmosphereShader;
+    std::unique_ptr<Rendering::ShaderDX12> atmosphereShader;
 };
 
 struct CinematicScenePassResources
 {
     // Full-resolution floating-point scene color/depth. World geometry renders
     // here first so volumetric light and tonemap can sample the completed scene.
-    std::unique_ptr<Rendering::IFramebuffer> hdrTarget;
+    std::unique_ptr<Rendering::FramebufferDX12> hdrTarget;
 };
 
 struct VolumetricLightPassResources
 {
     // The shader writes the graph-managed half-resolution target materialized
     // by the active post chain; this owner retains only device-epoch shader state.
-    std::unique_ptr<Rendering::IShader> shader;
+    std::unique_ptr<Rendering::ShaderDX12> shader;
 };
 
 struct TonemapPassResources
 {
     // Final full-screen resolve from HDR scene color to the window backbuffer.
     // This is also where fog, bloom, grade, and optional volumetric light meet.
-    std::unique_ptr<Rendering::IShader> shader;
+    std::unique_ptr<Rendering::ShaderDX12> shader;
 };
 
 struct FullscreenPassResources
@@ -105,8 +105,8 @@ struct ShadowPassResources
 
     // Terrain target: broad map centered on terrain bounds. Object target:
     // tighter map centered near the camera so nearby body shadows keep detail.
-    std::unique_ptr<Rendering::IFramebuffer> terrainTarget;
-    std::unique_ptr<Rendering::IFramebuffer> objectTarget;
+    std::unique_ptr<Rendering::FramebufferDX12> terrainTarget;
+    std::unique_ptr<Rendering::FramebufferDX12> objectTarget;
 
     // Lifetime: these payloads borrow texture handles from the targets above.
     // Reset both payloads whenever either target is destroyed, and rebuild them

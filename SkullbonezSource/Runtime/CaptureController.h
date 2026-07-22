@@ -9,7 +9,7 @@ Summary:
   trigger state, a fixed request ring, and per-frame automation decisions.
 
 Glossary:
-  Capture sink: Value hook that performs the actual screenshot write.
+  Capture result: Value outcome folded into the fixed accepted-request batch.
   Auto-cycle: Screenshot automation that advances capture targets over time.
   Screenshot request: Runtime state describing when and where to capture pixels.
   Accepted capture: Queued screenshot whose complete readback/file write succeeded.
@@ -50,6 +50,13 @@ struct CaptureRequestBatchResult
     std::size_t failedCount = 0;
 };
 
+// Applies one completed screenshot result to the bounded batch projection.
+// Tests use this value seam to exercise failure ownership without manufacturing
+// an alternate renderer implementation.
+void AccumulateCaptureRequestResult( CaptureRequestBatchResult& batch,
+                                     const CaptureRequest& request,
+                                     const SkullbonezCore::Core::SbResult& requestResult );
+
 class CaptureController
 {
   public:
@@ -61,7 +68,7 @@ class CaptureController
     bool IsScreenshotDue( const RuntimeCaptureSceneContext& context ) const;
     bool RequiresDeterministicPresentation( const RuntimeCaptureSceneContext& context ) const;
     RuntimeCaptureResult TickScreenshots( const RuntimeCaptureSceneContext& context,
-                                          Rendering::IRenderCaptureBackend& backend );
+                                          Rendering::Dx12BackbufferCapture& backend );
     RuntimeCaptureResult TickAutoCycle( bool isSceneMode,
                                         bool isInteractiveRun,
                                         int ballCount,
@@ -69,16 +76,16 @@ class CaptureController
                                         float& autoCycleAccum,
                                         int& autoCycleShotsTaken,
                                         int& trackBallIndex,
-                                        Rendering::IRenderCaptureBackend& backend );
+                                        Rendering::Dx12BackbufferCapture& backend );
 
     // Accepts one bounded BMP path for the next input-frame capture checkpoint.
     // Invalid or truncating paths return Lane R failure without entering the queue.
     SkullbonezCore::Core::SbResult QueueScreenshot( const char* path );
-    CaptureRequestBatchResult DrainScreenshotRequests( Rendering::IRenderCaptureBackend& backend );
+    CaptureRequestBatchResult DrainScreenshotRequests( Rendering::Dx12BackbufferCapture& backend );
     std::size_t PendingScreenshotCount() const;
 
-    SkullbonezCore::Core::SbResult SaveScreenshot( Rendering::IRenderCaptureBackend& backend, const char* path );
-    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend,
+    SkullbonezCore::Core::SbResult SaveScreenshot( Rendering::Dx12BackbufferCapture& backend, const char* path );
+    static SkullbonezCore::Core::SbResult SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
                                                              const char* path );
 
   private:

@@ -10,21 +10,23 @@ plan inventory.
 
 | Field | Value |
 |---|---|
-| Branch | `nightrunner-21st-july` |
-| Current baseline | All active/future MASTER plans are closed. The owner accepted ImGui/Tracy E17 after the clean current-tip assisted playtest; Legacy remains the development default. |
-| Current objective | Architecture follow-up campaign registered 2026-07-22: render interface retirement → owner fan-out reduction → replay subsystem consolidation. |
-| Active/future progress | 0 / 19 live tasks; 0%. |
+| Branch | `nightrunner` |
+| Current baseline | The 2026-07-22 architecture follow-up campaign is closed: render interface retirement, owner fan-out reduction, and Replay subsystem consolidation are complete. Legacy remains the development default. |
+| Current objective | No active/future MASTER-plan task. Preserve the closed architecture boundaries and recorded deletion conditions. |
+| Active/future progress | 0 / 0 live tasks; 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | Synchronized-main `validate_full` passes in 243.7 s: 337 tests / 68,634 assertions, five runtime lanes, accepted DX12 images, and byte-exact physics. |
-| Validation for current edits | Documentation-only campaign registration (three plans, MASTER-PLAN, this file); no repository validation required. |
+| Last broad local gate | RC6 `validate_full` passes in 104.4 s: mandatory CPU umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact physics. |
+| Validation for current edits | Authorized provenance-only reconciliation changes exactly two hash fields; the replay visual-fidelity gate now passes all 2,401 ticks and negative controls in 435.3 s. |
 
 ## Live Queue
 
-NOW. The 2026-07-22 architecture follow-up campaign is the live queue, in
-binding order: `Agentic/Plans/TODO/render-interface-retirement.md` (0/6),
-then `Agentic/Plans/TODO/owner-fanout-reduction.md` (0/6), then
-`Agentic/Plans/TODO/replay-subsystem-consolidation.md` (0/7). Next action is
-the RH0 interface/consumer census. The prior architecture-review campaign is
+NOW. There is no active/future MASTER-plan task. The 2026-07-22 architecture
+follow-up campaign is closed: render interface retirement closed RH0-RH5,
+owner fan-out reduction closed OF0-OF5, and Replay subsystem consolidation
+closed RC0-RC6. Evidence is in
+`Agentic/Reports/2026-07-22/render-interface-retirement-closure.md`,
+`Agentic/Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`, and
+`Agentic/Reports/2026-07-22/replay-subsystem-consolidation-closure.md`. The prior architecture-review campaign is
 closed through replay policy, and the owner accepted ImGui/Tracy E17 for
 extended hands-on use on 2026-07-21; closure evidence is in
 `Agentic/Reports/2026-07-21/imgui-tracy-editor-campaign-closure.md`.
@@ -200,6 +202,36 @@ are not certified. Full evidence:
 | hardened strict Replay allocation (RP3 final tip) | 16.72 s | PASS; fresh report, frame 180, exactly two generations, zero gameplay/policy violations |
 | replay query identity witness | 0.4 s | PASS; existing artifact emits `sceneObjectId: 6`, no retired label |
 | `tools\validate_fast.bat` (RP3 final tool tip) | 55.46 s | PASS; 337 tests / 68,634 assertions, zero warnings/errors |
+| `tools\validate_project_filters.bat` (RH1) | 2.6 s | PASS; 725 project/filter items, zero errors |
+| `tools\validate_fast.bat` (RH1) | 23.0 s | PASS; 338 tests / 68,642 assertions, zero warnings/errors |
+| `tools\validate_dx12_renderer.bat` (RH1) | 23.8 s | PASS; zero InfoQueue errors, all three screenshots accepted |
+| `tools\run_graphics_stress.bat 1` (RH1) | 60.9 s | PASS; 12,027 frames, 330 scene loads, PID 29132 bounded stop, empty stderr |
+| focused Profile rebuild + lifecycle doctests (OF1) | 11.0 s + 9.9 s | PASS; 5 cases / 61 assertions |
+| `tools\validate_project_filters.bat` (OF1 correction) | 2.6 s | PASS; 722 project/filter items, zero errors |
+| `tools\validate_full.bat` (OF1 final) | 154.9 s | PASS; CPU umbrella, five runtime lanes, accepted DX12 images, byte-exact physics |
+| focused Profile rebuild + lifecycle/input doctests (OF2) | 10.1 s + 1.9 s | PASS; 4 cases / 56 assertions |
+| replay visual fidelity (OF2, one completed engine generation) | 409.3 s | BLOCKED; behavior reached oracle, config provenance expected `83401d…a3f4`, actual `bd0bb7…5d93`; no config/golden edit in OF2 |
+| `tools\validate_full.bat` (OF2 final) | 151.7 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile rebuild + lifecycle/same-batch doctests (OF3) | 6.5 s + 1.8 s | PASS; 4 cases / 51 assertions |
+| `tools\validate_full.bat` (OF3 final) | 147.8 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile rebuild + complete doctests (OF4) | 10.5 s + 3.3 s | PASS; 342 cases / 68,685 assertions |
+| `tools\validate_full.bat` (OF4 first attempt) | 7.2 s | BLOCKED then resolved; formatting-only preflight identified three touched implementations and two touched headers |
+| `tools\validate_full.bat` (OF4 final) | 146.5 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile rebuild + Simulation lifecycle doctests (OF5) | PASS | Zero warnings; 6 cases / 177 assertions |
+| independent rubber-duck ownership review (OF5) | 7.3 min | PASS after remediation; ten inputs, exact render authority, ≤3-file witness, zero forbidden seams |
+| `tools\validate_full.bat` (OF5 final) | 99.2 s | PASS; CPU umbrella, five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| `tools\run_graphics_stress.bat 1` (OF5 final) | 61.0 s | PASS; PID 61368 bounded stop, crash-free |
+| focused Profile build + Replay tests (RC1) | 8.3 s + 1.52 s | PASS; zero warnings, 10 cases / 180 assertions |
+| `tools\validate_tests.bat` (RC1 final) | 3.7 s | PASS; 99/99 project/filter items, 343 cases / 68,693 assertions |
+| replay visual fidelity (RC1, one engine generation) | 423.6 s | BLOCKED; one process/generation and 16/72 controls pass, then unchanged config-provenance mismatch |
+| `tools\validate_full.bat` (RC1 formatting attempt) | 13.2 s | BLOCKED then resolved; one touched header needed the repository comment-alignment pass |
+| `tools\validate_full.bat` (RC1 final) | 167.4 s | PASS; CPU/coverage umbrella and five runtime lanes, zero DX12 errors, accepted images, byte-exact physics |
+| focused Profile build + Prediction doctests (RC2) | 3.1 s + 1.9 s | PASS; zero warnings, 4 cases / 24 assertions |
+| `tools\validate_tests.bat` (RC2 final) | 11.1 s | PASS; 344 cases / 68,699 assertions, 99/99 test project/filter items |
+| `tools\validate_fast.bat` (RC2 final) | 62.1 s | PASS after formatting/filter metadata corrections; 730/730 production items, zero-warning Profile/Debug builds |
+| allocation self-test + repository scan (RC2) | 9.4 s | PASS; 414 files, zero allowlist errors; same three registered owners/caps |
+| replay visual fidelity (RC2, one engine generation) | 422.9 s | BLOCKED; launcher shape and 16/72 controls pass, then unchanged config-provenance mismatch; no retry or metadata edit |
+| `tools\validate_full.bat` (RC2 final) | 108.2 s | PASS; CPU/coverage umbrella and five runtime lanes, accepted DX12 images, byte-exact 44,401-line physics CSV |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the
@@ -207,9 +239,10 @@ targeted Automation and final full passes.
 
 ## Next Handoff
 
-The 2026-07-22 architecture follow-up campaign (19 tasks across three plans)
-is registered and unstarted. Begin with `render-interface-retirement` RH0:
-the census of all ten render interfaces, their single implementers, and every
-consumer's actually-used member subset. ImGui/Tracy E17 remains accepted;
-Legacy remains the default until a separate owner decision changes that
-policy.
+The remaining 2026-07-22 architecture follow-up campaign is replay subsystem
+consolidation at 3/7. Begin RC3: consolidate Presentation into the recorded
+data-selection versus draw-submission split and remove duplicated selection
+logic found by the census. The OF2 replay provenance mismatch
+remains recorded and does not authorize a config or golden reconciliation.
+ImGui/Tracy E17 remains accepted; Legacy remains the default until a separate
+owner decision changes that policy.

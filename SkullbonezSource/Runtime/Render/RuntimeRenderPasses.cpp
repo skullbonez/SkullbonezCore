@@ -48,7 +48,6 @@ Related:
 #include "../Debug/PhysicsDebugVisualizer.h"
 #include "../Debug/BroadphaseVisualizer.h"
 #include "../Replay/ReplayVisualPacket.h"
-#include "../Replay/ReplayPrediction.h"
 #include "../Tools/RuntimeTools.h"
 #include "../Scene/SceneTerrain.h"
 #include "../OperatorCommandApplier.h"
@@ -56,10 +55,10 @@ Related:
 #include "../../Core/PlatformProfiler.h"
 #include "../../Core/Profiler.h"
 #include "../../Core/Log.h"
-#include "../../Rendering/IRenderDiagnostics.h"
-#include "../../Rendering/IRenderDeviceLifecycle.h"
-#include "../../Rendering/IRenderRayTracing.h"
-#include "../../Rendering/IRenderResourceFactory.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
+#include "../../Rendering/DX12/RenderDeviceDX12.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
+#include "../../Rendering/DX12/Dx12ResourceBuilder.h"
 #include "../../Rendering/RenderInstanceRenderer.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
 #include "../../Rendering/RenderGpuTimingOwner.h"
@@ -120,21 +119,21 @@ constexpr SkullbonezCore::Rendering::PassRasterStateBucket DEBUG_LINE_RASTER =
                                                           SkullbonezCore::Rendering::BlendFactor::Zero,
                                                           SkullbonezCore::Rendering::CullMode::None );
 
-void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+void ClearRenderTextureSlotsExcept( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
                                     unsigned int keptSlots )
 {
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
         if ( ( keptSlots & ( 1u << slot ) ) == 0u )
         {
-            renderCommands.BindTexture( 0, slot );
+            renderTextures.BindTexture( 0, slot );
         }
     }
 }
 
-void ClearAllRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands )
+void ClearAllRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures )
 {
-    ClearRenderTextureSlotsExcept( renderCommands, 0u );
+    ClearRenderTextureSlotsExcept( renderTextures, 0u );
 }
 
 int CopyDxrRenderInstanceMatrices( const SkullbonezCore::Rendering::RenderInstanceStore& renderStore,
@@ -188,7 +187,7 @@ PhysicsDebugFrameView BuildPhysicsDebugFrameView( const RenderFrameContext& fram
                                   frame.modelCount };
 }
 
-void BindRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+void BindRenderTextureSlots( SkullbonezCore::Rendering::Dx12TextureOwner& renderTextures,
                              uint32_t slot0,
                              uint32_t slot1,
                              uint32_t slot2,
@@ -203,19 +202,42 @@ void BindRenderTextureSlots( SkullbonezCore::Rendering::IRenderCommandContext& r
     const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3, slot4, slot5 };
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
-        renderCommands.BindTexture( handles[slot], slot );
+        renderTextures.BindTexture( handles[slot], slot );
     }
 }
 
-SkullbonezCore::Rendering::IRenderCommandContext& RenderCommands( const RenderFrameContext& frame )
+SkullbonezCore::Rendering::Dx12GeometryOwner& RenderCommands( const RenderFrameContext& frame )
 {
-    assert( frame.renderCommands && "RenderFrameContext requires a render command context" );
-    return *frame.renderCommands;
+    assert( frame.renderGeometry && "RenderFrameContext requires a geometry submission owner" );
+    return *frame.renderGeometry;
 }
 
-SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderResourceContext& resources )
+SkullbonezCore::Rendering::Dx12TextureOwner& RenderTextureOwner( const RenderFrameContext& frame )
+{
+    assert( frame.renderTextures && "RenderFrameContext requires a texture binding owner" );
+    return *frame.renderTextures;
+}
+
+SkullbonezCore::Rendering::Dx12FrameOwner& RenderFrameOwner( const RenderFrameContext& frame )
+{
+    assert( frame.renderFrame && "RenderFrameContext requires a frame command owner" );
+    return *frame.renderFrame;
+}
+
+SkullbonezCore::Rendering::Dx12GraphTransientPool& RenderGraphOwner( const RenderFrameContext& frame )
+{
+    assert( frame.renderGraph && "RenderFrameContext requires a graph execution owner" );
+    return *frame.renderGraph;
+}
+
+SkullbonezCore::Rendering::Dx12ResourceBuilder& RenderResources( const RenderResourceContext& resources )
 {
     return resources.renderResources;
+}
+
+SkullbonezCore::Rendering::Dx12GeometryOwner& RenderGeometry( const RenderResourceContext& resources )
+{
+    return resources.renderGeometry;
 }
 
 SkullbonezCore::Assets::AssetSystem& RenderAssets( const RenderFrameContext& frame )
@@ -266,10 +288,16 @@ bool ResolveRenderTextureHandle( Textures::TextureCollection& textures,
     return true;
 }
 
-SkullbonezCore::Rendering::IRenderResourceFactory& RenderResources( const RenderFrameContext& frame )
+SkullbonezCore::Rendering::Dx12ResourceBuilder& RenderResources( const RenderFrameContext& frame )
 {
-    assert( frame.renderResources && "RenderFrameContext requires a render resource factory" );
+    assert( frame.renderResources && "RenderFrameContext requires a resource builder" );
     return *frame.renderResources;
+}
+
+SkullbonezCore::Rendering::Dx12GeometryOwner& RenderGeometry( const RenderFrameContext& frame )
+{
+    assert( frame.renderGeometry && "RenderFrameContext requires a geometry owner" );
+    return *frame.renderGeometry;
 }
 
 PrimitiveRenderContext PrimitiveRenderContextForFrame( const RenderFrameContext& frame,
@@ -278,7 +306,8 @@ PrimitiveRenderContext PrimitiveRenderContextForFrame( const RenderFrameContext&
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
     assert( frame.primitiveBatches && "RenderFrameContext requires a primitive batch renderer" );
     return PrimitiveRenderContext{ RenderResources( frame ),
-                                   RenderCommands( frame ),
+                                   *frame.renderTextures,
+                                   *frame.renderGeometry,
                                    *frame.renderDiagnostics,
                                    RenderAssets( frame ),
                                    config,
@@ -291,7 +320,7 @@ PrimitiveBatchRenderer& PrimitiveBatchRendererForFrame( const RenderFrameContext
     return *frame.primitiveBatches;
 }
 
-SkullbonezCore::Rendering::IRenderDiagnostics& RenderDiagnostics( const RenderFrameContext& frame )
+SkullbonezCore::Rendering::Dx12Diagnostics& RenderDiagnostics( const RenderFrameContext& frame )
 {
     assert( frame.renderDiagnostics && "RenderFrameContext requires a render diagnostics context" );
     return *frame.renderDiagnostics;
@@ -342,7 +371,7 @@ constexpr float FULLSCREEN_QUAD_VERTS[] = {
     -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
 };
 
-void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& renderCommands,
+void DrawFullscreenQuad( SkullbonezCore::Rendering::Dx12GeometryOwner& renderCommands,
                          uint32_t quadVB,
                          const SkullbonezCore::Rendering::PassRasterStateBucket& rasterState )
 {
@@ -351,7 +380,7 @@ void DrawFullscreenQuad( SkullbonezCore::Rendering::IRenderCommandContext& rende
     renderCommands.UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, rasterState );
 }
 
-void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
+void BindSkyPassParams( SkullbonezCore::Rendering::ShaderDX12& shader,
                         const Matrix4& view,
                         const Matrix4& projection,
                         const SkullbonezCore::Core::CinematicRenderConfig& cinematic )
@@ -374,7 +403,7 @@ void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
 }
 
-void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
+void BindVolumetricPassParams( SkullbonezCore::Rendering::ShaderDX12& shader,
                                const Vector3& eye,
                                const Matrix4& viewProjection,
                                const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
@@ -398,7 +427,7 @@ void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader,
                     cinematic.fogDensity );
 }
 
-void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
+void BindTonemapPassParams( SkullbonezCore::Rendering::ShaderDX12& shader,
                             const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
                             float frustumNear,
                             float frustumFar,
@@ -442,9 +471,9 @@ void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader,
 
 void RenderResourceLifecycleLog::Write( const char* phase, const char* step ) const
 {
-    const bool backendReady = m_deviceLifecycle != nullptr;
-    const int backendWidth = m_deviceLifecycle ? m_deviceLifecycle->GetWidth() : 0;
-    const int backendHeight = m_deviceLifecycle ? m_deviceLifecycle->GetHeight() : 0;
+    const bool backendReady = m_renderDevice != nullptr && m_renderDevice->IsReady();
+    const int backendWidth = m_renderDevice ? m_renderDevice->Width() : 0;
+    const int backendHeight = m_renderDevice ? m_renderDevice->Height() : 0;
     SkullbonezCore::Core::Log().WriteEventf(
         "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d "
         "scene_index=%d load=%d",
@@ -470,16 +499,16 @@ void FullscreenQuadPass::EnsureGpuResources( const RenderResourceContext& resour
         // Full-screen shaders draw one rectangle; each vertex stores screen xy
         // plus uv, and every pass gives that same geometry its own shader meaning.
         const int attribs[] = { 2, 2 };
-        m_resources.quadVB = RenderResources( resources ).CreateDynamicVB( attribs, 2, 6 );
+        m_resources.quadVB = RenderGeometry( resources ).CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
 
-void FullscreenQuadPass::ReleaseGpuResources( Rendering::IRenderResourceFactory* renderResources )
+void FullscreenQuadPass::ReleaseGpuResources( Rendering::Dx12GeometryOwner* renderGeometry )
 {
-    if ( renderResources && m_resources.quadVB != 0 )
+    if ( renderGeometry && m_resources.quadVB != 0 )
     {
-        renderResources->DestroyDynamicVB( m_resources.quadVB );
+        renderGeometry->DestroyDynamicVB( m_resources.quadVB );
     }
     m_resources.quadVB = 0;
 }
@@ -586,7 +615,7 @@ void ReflectionPass::ReleaseGpuResources()
 {
     LogResourceLifecycleStep( "reflection_reset", "reflection_target" );
     // Lifetime: ResetResources gives the backend a chance to release device
-    // objects before the unique_ptr destructor drops the renderer-neutral shell.
+    // objects before the unique_ptr destructor drops the concrete target owner.
     if ( m_resources.target )
     {
         m_resources.target->ResetResources();
@@ -610,14 +639,14 @@ void ShadowPass::EnsureGpuResources( const RenderResourceContext& resources,
     }
     PROFILE_SCOPED( m_profiler, "Frame/Shadows/ShadowMap/EnsureResources" );
 
-    // Concept: the shadow map is a renderer-neutral depth framebuffer. It is
+    // Concept: the shadow map is a concrete DX12 depth framebuffer. It is
     // intentionally owned outside the cinematic HDR target because the same
     // light-space depth texture is useful in normal backbuffer rendering,
     // cinematic rendering, and screenshot/perf scenes. The cinematic config
     // still supplies map size and bias/softness values, but the feature itself
     // is no longer gated by the cinematic post-processing path.
     const int mapSize = std::clamp( cinematic.shadow.mapSize, 256, 8192 );
-    auto ensureTarget = [&]( std::unique_ptr<Rendering::IFramebuffer>& target )
+    auto ensureTarget = [&]( std::unique_ptr<Rendering::FramebufferDX12>& target )
     {
         const bool needsTarget = !target || target->GetWidth() != mapSize || target->GetHeight() != mapSize;
         if ( needsTarget )
@@ -825,11 +854,12 @@ ShadowPass::BuildObjectFrameData( const SkullbonezCore::Core::CinematicRenderCon
 }
 
 
-void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
+void ShadowPass::RenderShadowMap( Rendering::FramebufferDX12& target,
                                   const PrimitiveRenderContext& primitiveContext,
                                   const Rendering::ShadowFrameData& shadowFrame,
                                   const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
-                                  Rendering::IRenderCommandContext& renderCommands,
+                                  Rendering::Dx12FrameOwner& renderFrame,
+                                  Rendering::Dx12TextureOwner& renderTextures,
                                   bool renderTerrain,
                                   bool renderObjects,
                                   const Rendering::RenderInstanceStore& renderInstances,
@@ -855,15 +885,15 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     // color target on some backends, but receivers sample only the depth texture
     // handle stored in ShadowFrameData.
     target.Bind();
-    renderCommands.SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
-    renderCommands.Clear( {} );
+    renderFrame.SetViewport( 0, 0, target.GetWidth(), target.GetHeight() );
+    renderFrame.Clear( {} );
 
     // The bucket applies opaque depth writes, back-face culling, and the
     // rasterizer bias to each caster PSO without mutating later passes.
     // Pass contract: shadow depth shaders write depth only and sample no
     // textures. Clear inherited slots so descriptor state from the visible
     // scene cannot leak into this off-screen pass.
-    ClearAllRenderTextureSlots( renderCommands );
+    ClearAllRenderTextureSlots( renderTextures );
 
     if ( renderTerrain && cinematic.shadow.terrainCasts && !m_activeTerrainHidden && m_terrain.Get() )
     {
@@ -920,7 +950,7 @@ void ShadowPass::RenderShadowMap( Rendering::IFramebuffer& target,
     }
 
     target.Unbind();
-    renderCommands.SetViewport( 0, 0, m_activeWindowWidth, m_activeWindowHeight );
+    renderFrame.SetViewport( 0, 0, m_activeWindowWidth, m_activeWindowHeight );
 }
 
 
@@ -973,7 +1003,8 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                  m_resources.terrainFrame,
                                  *inputs.cinematic,
-                                 RenderCommands( inputs.frame ),
+                                 RenderFrameOwner( inputs.frame ),
+                                 RenderTextureOwner( inputs.frame ),
                                  true,
                                  true,
                                  *inputs.frame.renderInstances,
@@ -997,7 +1028,8 @@ ShadowPassOutput ShadowPass::Render( const ShadowPassInputs& inputs )
                                  PrimitiveRenderContextForFrame( inputs.frame, m_config ),
                                  m_resources.objectFrame,
                                  *inputs.cinematic,
-                                 RenderCommands( inputs.frame ),
+                                 RenderFrameOwner( inputs.frame ),
+                                 RenderTextureOwner( inputs.frame ),
                                  false,
                                  true,
                                  *inputs.frame.renderInstances,
@@ -1031,14 +1063,14 @@ void SkyPass::RenderCinematicSky( const RenderFrameContext& frame, const Math::T
 
     // The sky is painted as a full-screen background. It should not test against
     // terrain depth and it should not blend with whatever was previously there.
-    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
+    Rendering::Dx12GeometryOwner& renderGeometry = RenderCommands( frame );
     // Pass contract: this generated sky samples no textures. Clear inherited
     // SRV slots before the fullscreen draw so stale pass inputs cannot be
     // recopied by the backend while the sky shader is active.
-    ClearAllRenderTextureSlots( renderCommands );
+    ClearAllRenderTextureSlots( RenderTextureOwner( frame ) );
     m_skyResources.atmosphereShader->Use();
     BindSkyPassParams( *m_skyResources.atmosphereShader, view, frame.projection, cinematic );
-    DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
+    DrawFullscreenQuad( renderGeometry, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
 }
 
 
@@ -1058,7 +1090,7 @@ void SkyPass::Render( const RenderFrameContext& frame, const Math::Transformatio
                       Matrix4::Scale( m_config.skybox.scale );
     // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
     // water, post, or shadows must not leak into these six mesh draws.
-    ClearRenderTextureSlotsExcept( RenderCommands( frame ), RENDER_TEXTURE_SLOT_0 );
+    ClearRenderTextureSlotsExcept( RenderTextureOwner( frame ), RENDER_TEXTURE_SLOT_0 );
     assert( m_skyBox && "SkyPass requires the world-view sky owner after initialise" );
     ReportRenderTextureResult( "Frame/Render/Skybox", m_skyBox->Render( skyView, frame.projection ) );
 }
@@ -1070,9 +1102,9 @@ void SceneTargetPass::Begin( const RenderFrameContext& frame, SkyPass& skyPass )
     // target instead of directly into the window. The post pass later moves it
     // to the backbuffer with the cinematic effects applied.
     m_resources.hdrTarget->Bind();
-    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
-    renderCommands.SetViewport( 0, 0, m_resources.hdrTarget->GetWidth(), m_resources.hdrTarget->GetHeight() );
-    renderCommands.Clear( {} );
+    Rendering::Dx12FrameOwner& renderFrame = RenderFrameOwner( frame );
+    renderFrame.SetViewport( 0, 0, m_resources.hdrTarget->GetWidth(), m_resources.hdrTarget->GetHeight() );
+    renderFrame.Clear( {} );
 
     PROFILE_GPU_BEGIN( frame.renderGpuTiming, "Frame/Render/CinematicSky" );
     {
@@ -1097,7 +1129,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
     PROFILE_GPU_SCOPED( inputs.frame.renderGpuTiming, "Frame/Render/Reflection" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Reflection" );
     const auto renderCapabilities = RenderDiagnostics( inputs.frame ).GetCapabilities();
-    Rendering::IRenderRayTracing* rayTracing = inputs.frame.renderRayTracing;
+    Rendering::Dx12RaytracingOwner* rayTracing = inputs.frame.renderRayTracing;
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection && rayTracing &&
                                   inputs.waterRayTracingReflection && !inputs.waterNoReflection &&
                                   !inputs.collisionStateColorsVisible && !inputs.transparentBodyPass;
@@ -1187,10 +1219,11 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
 
         // Invariant: the planar path binds only its own reflection target and
         // restores the viewport to the window size before water renders.
-        Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
+        Rendering::Dx12TextureOwner& renderTextures = RenderTextureOwner( inputs.frame );
+        Rendering::Dx12FrameOwner& renderFrame = RenderFrameOwner( inputs.frame );
         m_resources.target->Bind();
-        renderCommands.SetViewport( 0, 0, m_resources.target->GetWidth(), m_resources.target->GetHeight() );
-        renderCommands.Clear( {} );
+        renderFrame.SetViewport( 0, 0, m_resources.target->GetWidth(), m_resources.target->GetHeight() );
+        renderFrame.Clear( {} );
 
         // Skybox reflected (XZ follows eye; Y anchored at runtime config).
         // Cinematic mode can reflect the generated sunset sky into the water
@@ -1213,14 +1246,14 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         {
             // Pass contract: collision-state solids are vertex-colored and do
             // not sample textures.
-            ClearAllRenderTextureSlots( renderCommands );
+            ClearAllRenderTextureSlots( renderTextures );
             if ( HasCollisionVisualizerFrameView( inputs.frame ) )
             {
                 const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.frame );
                 m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
                 m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
                                               RenderResources( inputs.frame ),
-                                              renderCommands,
+                                              RenderGeometry( inputs.frame ),
                                               RenderDiagnostics( inputs.frame ),
                                               frameView,
                                               inputs.frame.reflectionView,
@@ -1234,7 +1267,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
             // Pass contract: reflected lit models read material color from slot
             // 0 and optional shadow depth from slot 3.
             ClearRenderTextureSlotsExcept(
-                renderCommands,
+                renderTextures,
                 RENDER_TEXTURE_SLOT_0 |
                     ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
             if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, "Frame/Render/Reflection/Balls" ) &&
@@ -1261,7 +1294,7 @@ ReflectionPassOutput ReflectionPass::Render( const ReflectionPassInputs& inputs,
         PROFILE_GPU_END( inputs.frame.renderGpuTiming, "Frame/Render/Reflection/Balls" );
 
         m_resources.target->Unbind();
-        renderCommands.SetViewport( 0, 0, inputs.frame.windowWidth, inputs.frame.windowHeight );
+        renderFrame.SetViewport( 0, 0, inputs.frame.windowWidth, inputs.frame.windowHeight );
         output.reflectionTextureHandle = m_resources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }
@@ -1279,20 +1312,20 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
     SkullbonezCore::Rendering::RenderGpuTimingScope profileScope( inputs.frame.renderGpuTiming, passName, passHash );
 #endif
     Rendering::DrawCallTraceScope drawTraceScope( RenderDiagnostics( inputs.frame ), passName, passHash );
-    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
+    Rendering::Dx12TextureOwner& renderTextures = RenderTextureOwner( inputs.frame );
 
     if ( inputs.collisionStateColorsVisible )
     {
         // Pass contract: collision-state solids are vertex-colored and do not
         // sample textures.
-        ClearAllRenderTextureSlots( renderCommands );
+        ClearAllRenderTextureSlots( renderTextures );
         if ( HasCollisionVisualizerFrameView( inputs.frame ) )
         {
             const CollisionVisualizerFrameView frameView = BuildCollisionVisualizerFrameView( inputs.frame );
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( RenderAssets( inputs.frame ),
                                           RenderResources( inputs.frame ),
-                                          renderCommands,
+                                          RenderGeometry( inputs.frame ),
                                           RenderDiagnostics( inputs.frame ),
                                           frameView,
                                           inputs.frame.baseView,
@@ -1306,7 +1339,7 @@ void ObjectPass::Render( const ObjectPassInputs& inputs )
         // Pass contract: lit model shaders read the material texture in slot 0
         // and optionally the shadow depth texture in slot 3.
         ClearRenderTextureSlotsExcept(
-            renderCommands,
+            renderTextures,
             RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
         if ( SelectRenderTexture( inputs.frame, TEXTURE_BOUNDING_SPHERE, passName ) && inputs.frame.renderInstances &&
              inputs.frame.colliders )
@@ -1353,16 +1386,16 @@ void TerrainPass::Render( const TerrainPassInputs& inputs )
     // Pass contract: terrain reads ground albedo from t0, the broad shadow map
     // from t3, and the tight object-shadow map from t5. The material table stays
     // at t4 for instanced object draws and is never repurposed here.
-    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
+    Rendering::Dx12TextureOwner& renderTextures = RenderTextureOwner( inputs.frame );
     ClearRenderTextureSlotsExcept(
-        renderCommands,
+        renderTextures,
         RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) |
             ( inputs.detailShadow && inputs.detailShadow->valid ? RENDER_TEXTURE_SLOT_5 : 0u ) );
     if ( SelectRenderTexture( inputs.frame, TEXTURE_GROUND, "Frame/Render/Terrain" ) )
     {
         m_terrain.Get()->Render( inputs.frame.baseView,
                                  inputs.frame.projection,
-                                 renderCommands,
+                                 renderTextures,
                                  inputs.frame.lightPosition,
                                  inputs.clipPlane,
                                  TERRAIN_RASTER,
@@ -1415,8 +1448,8 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     PROFILE_GPU_BEGIN( inputs.frame.renderGpuTiming, "Frame/Render/Water" );
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( inputs.frame ), "Frame/Render/Water" );
     // Pass contract: water samples only the reflection texture in slot 1.
-    Rendering::IRenderCommandContext& renderCommands = RenderCommands( inputs.frame );
-    ClearRenderTextureSlotsExcept( renderCommands, RENDER_TEXTURE_SLOT_1 );
+    Rendering::Dx12TextureOwner& renderTextures = RenderTextureOwner( inputs.frame );
+    ClearRenderTextureSlotsExcept( renderTextures, RENDER_TEXTURE_SLOT_1 );
     float waterTime = inputs.freezeTime ? inputs.frozenTime : inputs.liveWaterTime;
     m_debugInfo.rendered = true;
     m_debugInfo.waterTime = waterTime;
@@ -1429,7 +1462,7 @@ void WaterPass::Render( const WaterPassInputs& inputs )
     m_world.RenderFluid( inputs.frame.baseView,
                          inputs.frame.projection,
                          inputs.frame.eye,
-                         renderCommands,
+                         renderTextures,
                          reflectionInput,
                          WATER_RASTER,
                          waterTime,
@@ -1517,6 +1550,7 @@ bool DebugOverlayPass::Render( const DebugOverlayPassInputs& inputs )
                                         inputs.frame.up,
                                         m_assets,
                                         RenderResources( inputs.frame ),
+                                        RenderGeometry( inputs.frame ),
                                         RenderCommands( inputs.frame ) );
 
     if ( snapshot.physicsDebugFlags != PHYSICS_DEBUG_NONE )
@@ -1633,7 +1667,10 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         PROFILE_GPU_BEGIN( frame.renderGpuTiming, "Frame/Render/VolumetricLight" );
     }
     DRAW_CALL_TRACE_SCOPE( RenderDiagnostics( frame ), "Frame/Render/VolumetricLight" );
-    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
+    Rendering::Dx12GeometryOwner& renderGeometry = RenderCommands( frame );
+    Rendering::Dx12TextureOwner& renderTextures = RenderTextureOwner( frame );
+    Rendering::Dx12FrameOwner& renderFrame = RenderFrameOwner( frame );
+    Rendering::Dx12GraphTransientPool& renderGraph = RenderGraphOwner( frame );
     const bool useGraphOutput = graphOutput && graphOutput->IsValid() && graphOutput->renderTarget;
     if ( !useGraphOutput )
     {
@@ -1643,8 +1680,8 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         }
         return false;
     }
-    renderCommands.BeginGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
-    renderCommands.SetViewport( 0, 0, graphOutput->width, graphOutput->height );
+    renderGraph.BeginGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
+    renderFrame.SetViewport( 0, 0, graphOutput->width, graphOutput->height );
 
     // This is another screen-space effect, so depth testing and blending are
     // disabled while the full-screen quad is generated.
@@ -1664,20 +1701,20 @@ bool VolumetricPass::Render( const RenderFrameContext& frame, const Rendering::R
         // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
         // depth. The shader uses depth to tell sky pixels from solid geometry so
         // rays pass through sky and fade when they cross hills/balls.
-        BindRenderTextureSlots( renderCommands,
+        BindRenderTextureSlots( renderTextures,
                                 m_sceneResources.hdrTarget->GetColorTextureHandle(),
                                 m_sceneResources.hdrTarget->GetDepthTextureHandle(),
                                 0,
                                 0 );
-        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
+        DrawFullscreenQuad( renderGeometry, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/VolumetricLight/Draw" );
         }
     }
 
-    renderCommands.EndGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
-    renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
+    renderGraph.EndGraphTextureRenderTarget( *graphOutput, "VolumetricLightPass" );
+    renderFrame.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
     if ( detailMarkers )
     {
         PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/VolumetricLight" );
@@ -1729,8 +1766,9 @@ void TonemapPass::Render( const RenderFrameContext& frame,
     {
         m_sceneResources.hdrTarget->Unbind();
     }
-    Rendering::IRenderCommandContext& renderCommands = RenderCommands( frame );
-    renderCommands.SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
+    Rendering::Dx12GeometryOwner& renderGeometry = RenderCommands( frame );
+    Rendering::Dx12TextureOwner& renderTextures = RenderTextureOwner( frame );
+    RenderFrameOwner( frame ).SetViewport( 0, 0, frame.windowWidth, frame.windowHeight );
 
     // Concept: "resolve" means "turn our off-screen cinematic render target
     // into the final image on the window." This is where the HDR scene becomes
@@ -1758,12 +1796,12 @@ void TonemapPass::Render( const RenderFrameContext& frame,
         // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth
         // buffer for fog, and slot 2 is the sole completed shaft texture or a
         // harmless fallback when the volumetric pass is disabled.
-        BindRenderTextureSlots( renderCommands,
+        BindRenderTextureSlots( renderTextures,
                                 m_sceneResources.hdrTarget->GetColorTextureHandle(),
                                 m_sceneResources.hdrTarget->GetDepthTextureHandle(),
                                 volumetricTexture,
                                 0 );
-        DrawFullscreenQuad( renderCommands, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
+        DrawFullscreenQuad( renderGeometry, m_fullscreenResources.quadVB, FULLSCREEN_OPAQUE_RASTER );
         if ( detailMarkers )
         {
             PROFILE_GPU_END( frame.renderGpuTiming, "Frame/Render/Tonemap/Draw" );

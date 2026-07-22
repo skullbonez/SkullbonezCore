@@ -28,7 +28,6 @@
 #include "../SkullbonezSource/Assets/AssetSystem.h"
 #include "../SkullbonezSource/Core/Config.h"
 #include "../SkullbonezSource/Runtime/CameraCollection.h"
-#include "TestRenderResourceDoubles.h"
 
 using SkullbonezCore::Assets::AssetSystem;
 using SkullbonezCore::Core::EngineConfig;
@@ -81,9 +80,7 @@ TEST_CASE( "CameraCollection: SetPrimaryUp repairs zero input to world up" )
 TEST_CASE( "CameraCollection: opposed tween up vectors cancel to world up" )
 {
     EngineConfig config;
-    AssetSystem assets;
-    SkullbonezTests::NullRenderResourceFactory resources;
-    Terrain terrain( 0.0f, 0.0f, 0.0f, config, assets, resources );
+    Terrain terrain( 0.0f, 0.0f, 0.0f, config );
     CameraCollection cameras;
     const Vector3 position( 10.0f, 10.0f, 10.0f );
     const Vector3 view( 10.0f, 10.0f, 9.0f );

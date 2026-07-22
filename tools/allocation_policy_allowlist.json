@@ -142,15 +142,15 @@
       "removal_or_wrapper_plan": "Replace with a dedicated replay prediction arena/object factory if runtime allocation policy gains typed owner allocators; do not construct the private engine at startup."
     },
     {
-      "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.h",
       "patterns": [
-        "prediction.build.workerTask.emplace("
+        "m_task.emplace("
       ],
       "owner": "ReplayPrediction fixed worker-task slot",
       "phase": "replay",
       "reason": "std::optional::emplace reconstructs the single embedded AmortizedTask in place; it is not a growing STL container and performs no heap allocation.",
       "cap": "Exactly one sizeof(ReplayPredictionAmortizedTask) slot embedded in RunReplayPredictionBuildState; the strict two-generation guard reports zero gameplay and reserve-policy violations.",
-      "removal_or_wrapper_plan": "Delete this exact regex exception when the checker distinguishes optional/variant emplacement from container growth."
+      "removal_or_wrapper_plan": "Delete this exact regex exception when the checker distinguishes optional/variant emplacement from container growth. RC2 moved the same fixed slot behind ReplayPredictionWorkerSchedule without changing its cap."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayRecorder.cpp",
@@ -1151,7 +1151,6 @@
     {
       "path": "SkullbonezSource/Runtime/Replay/ReplayPrediction.cpp",
       "patterns": [
-        ".push_back(",
         ".reserve(",
         ".resize("
       ],
@@ -1160,6 +1159,41 @@
       "reason": "Replay is the only approved runtime growth exception; prediction also reserves its bounded Gameplay snapshot rows during owner construction so per-build copies do not grow outside a registered replay reserve scope.",
       "cap": "Replay hard caps and artifact sizes remain enforced by the replay reserve owners and validation gates.",
       "removal_or_wrapper_plan": "Move replay buffers behind fixed replay arenas or typed replay owner wrappers, then delete this row for the converted file."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionPublication.cpp",
+      "patterns": [
+        ".push_back(",
+        ".reserve(",
+        ".resize("
+      ],
+      "owner": "ReplayPrediction private working set",
+      "phase": "replay",
+      "reason": "RC2 moved the existing trajectory and baseline publication growth calls behind the same replay_prediction_working_set owner; no registration, phase gate, cap, or counter changed.",
+      "cap": "The existing replay_prediction_working_set registration remains capped at 256 MiB with its existing high-water and growth counters.",
+      "removal_or_wrapper_plan": "Move publication buffers behind a fixed replay prediction arena, then delete this mechanically relocated row."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionScheduling.cpp",
+      "patterns": [
+        ".resize("
+      ],
+      "owner": "ReplayPrediction private working set",
+      "phase": "replay",
+      "reason": "Prefix promotion retains the existing allocation-free shrink of the committed frame bank; RC2 moved that ownership transfer beside cancellation without changing capacity.",
+      "cap": "The frame bank remains inside replay_prediction_working_set's existing 256 MiB cap and resize only shrinks its logical size.",
+      "removal_or_wrapper_plan": "Delete this row when the checker distinguishes shrinking resize calls from capacity growth."
+    },
+    {
+      "path": "SkullbonezSource/Runtime/Replay/ReplayPredictionTopologyPublication.cpp",
+      "patterns": [
+        ".push_back("
+      ],
+      "owner": "ReplayPrediction private working set",
+      "phase": "replay",
+      "reason": "RC2 moved the existing bounded future-node append into the topology publication slice under the unchanged replay_prediction_working_set owner.",
+      "cap": "Future nodes remain bounded by REPLAY_VISUAL_FUTURE_NODE_CAPACITY inside the existing 256 MiB prediction cap.",
+      "removal_or_wrapper_plan": "Replace topology vectors with fixed-capacity rows, then delete this mechanically relocated row."
     },
     {
       "path": "SkullbonezSource/Runtime/Replay/TrajectoryStore.cpp",

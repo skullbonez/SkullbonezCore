@@ -41,7 +41,7 @@ class AssetSystem;
 }
 namespace Rendering
 {
-class IRenderDiagnostics;
+class Dx12Diagnostics;
 }
 namespace Threading
 {
@@ -78,7 +78,8 @@ struct RuntimeRenderBackendView;
 SkullbonezCore::Core::SbResult RunUIStressActions( RuntimeFrameHostView& host,
                                                    RuntimeFrameInteractionView& interactionOwners,
                                                    RuntimeFrameSceneView& sceneOwners,
-                                                   RuntimeFramePresentationView& presentationOwners,
+                                                   RuntimeRenderBackendView& renderBackendView,
+                                                   RuntimeRenderer& renderer,
                                                    ReplayRuntime& replayRuntime,
                                                    RunCameraMode replayRestoreCameraMode );
 

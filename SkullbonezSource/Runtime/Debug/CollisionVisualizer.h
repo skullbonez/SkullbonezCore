@@ -15,8 +15,10 @@ Glossary:
   Narrowphase: Precise collision pass that computes contact points, normals,
   and penetration.
   Manifold: Set of contact points and normals describing one colliding pair.
-  Render resource factory: Renderer capability borrowed only while creating
-    or destroying debug-only shader resources.
+  Resource builder: Cold renderer owner borrowed only while compiling the
+    collision shader.
+  Geometry owner: Renderer owner borrowed while creating or destroying debug
+    vertex and instance buffers.
   Render command context: Renderer capability borrowed only while drawing a
     collision-visualizer frame.
   Render diagnostics: Renderer capability borrowed to name child draw-trace
@@ -41,7 +43,7 @@ Related:
 #include <memory>
 #include <span>
 #include <vector>
-#include "../../Rendering/IShader.h"
+#include "../../Rendering/DX12/ShaderDX12.h"
 #include "../../Maths/Matrix4.h"
 
 
@@ -53,9 +55,10 @@ class AssetSystem;
 } // namespace Assets
 namespace Rendering
 {
-class IRenderCommandContext;
-class IRenderDiagnostics;
-class IRenderResourceFactory;
+class Dx12GeometryOwner;
+class Dx12Diagnostics;
+class Dx12ResourceBuilder;
+class Dx12GeometryOwner;
 class RenderInstanceStore;
 struct PassRasterStateBucket;
 } // namespace Rendering
@@ -119,7 +122,7 @@ class CollisionVisualizer
     float m_alphaOverride = -1.0f;
     float m_clipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f };
 
-    std::unique_ptr<Rendering::IShader> m_shader;
+    std::unique_ptr<Rendering::ShaderDX12> m_shader;
     uint32_t m_sphereInstMesh = 0;
     uint32_t m_boxInstMesh = 0;
     uint32_t m_hullDynamicVB = 0;
@@ -133,18 +136,20 @@ class CollisionVisualizer
     std::array<float, HULL_MAX_TRIANGLE_VERTICES * HULL_DYNAMIC_FLOATS_PER_VERTEX> m_hullDebugVertexData =
         {};                                    // CPU staging buffer for one convex-hull draw.
 
-    void BuildSphereMesh( Rendering::IRenderResourceFactory& renderResources );
-    void BuildBoxMesh( Rendering::IRenderResourceFactory& renderResources );
-    void EnsureResources( Assets::AssetSystem& assets, Rendering::IRenderResourceFactory& renderResources );
+    void BuildSphereMesh( Rendering::Dx12GeometryOwner& renderGeometry );
+    void BuildBoxMesh( Rendering::Dx12GeometryOwner& renderGeometry );
+    void EnsureResources( Assets::AssetSystem& assets,
+                          Rendering::Dx12ResourceBuilder& renderResources,
+                          Rendering::Dx12GeometryOwner& renderGeometry );
     void AppendInstance( std::vector<float>& out, const Math::Transformation::Matrix4& model, const Color& color );
     Color ComputeModelColor( int modelIndex, const CollisionVisualizerFrameView& view ) const;
     void BuildSleepGroupSizes( const CollisionVisualizerFrameView& view );
-    void DrawInstances( Rendering::IRenderCommandContext& renderCommands,
+    void DrawInstances( Rendering::Dx12GeometryOwner& renderCommands,
                         uint32_t mesh,
                         int vertexCount,
                         const std::vector<float>& instanceData,
                         const Rendering::PassRasterStateBucket& rasterState );
-    void DrawHullInstance( Rendering::IRenderCommandContext& renderCommands,
+    void DrawHullInstance( Rendering::Dx12GeometryOwner& renderCommands,
                            const Math::CollisionDetection::ConvexHullShape& hull,
                            const Math::Transformation::Matrix4& model,
                            const Color& color,
@@ -168,12 +173,12 @@ class CollisionVisualizer
     }
     void SetClipPlane( float x, float y, float z, float w );
     void SetAlphaOverride( float alpha );
-    void ResetResources( Rendering::IRenderResourceFactory* renderResources );
+    void ResetResources( Rendering::Dx12GeometryOwner* renderGeometry );
     void Update( float dt, const CollisionVisualizerFrameView& view );
     void Render( Assets::AssetSystem& assets,
-                 Rendering::IRenderResourceFactory& renderResources,
-                 Rendering::IRenderCommandContext& renderCommands,
-                 Rendering::IRenderDiagnostics& renderDiagnostics,
+                 Rendering::Dx12ResourceBuilder& renderResources,
+                 Rendering::Dx12GeometryOwner& renderGeometry,
+                 Rendering::Dx12Diagnostics& renderDiagnostics,
                  const CollisionVisualizerFrameView& view,
                  const Math::Transformation::Matrix4& cameraView,
                  const Math::Transformation::Matrix4& proj,

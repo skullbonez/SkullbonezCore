@@ -4,20 +4,18 @@ Purpose:
   Captures frame output to screenshots for scenes, validation, and look-dev.
 
 Summary:
-  Runtime code decides when a screenshot should happen, then hands a narrow
-  capture backend to this file. CaptureSystem validates the readback contract,
+  Runtime code decides when a screenshot should happen, then borrows the
+  concrete DX12 capture owner. CaptureSystem validates the readback contract,
   writes BMP bytes, and returns automation decisions without owning renderer
   resources.
 
 Glossary:
-  Capture backend: Narrow renderer capability that can report capture support
-  and read pixels from the active back buffer.
+  Capture owner: DX12 component that reads pixels from the active back buffer.
   Back buffer: Swap-chain image that will be presented to the window.
   BMP (Bitmap): Simple image file format used by validation backbuffer captures.
 
 Invariants:
-  - Capture only succeeds through a backend that explicitly supports
-    back-buffer readback and returns positive dimensions.
+  - Capture succeeds only when the concrete owner reports valid dimensions.
   - SaveBackbufferBmp receives only the capture/readback surface, not the full
     render device.
   - Capture automation reports the completion action separately from the side
@@ -31,7 +29,9 @@ Related:
 #include "../Core/ByteView.h"
 #include "CaptureController.h"
 
-#include "../Rendering/IRenderCaptureBackend.h"
+#if defined( SKULLBONEZ_CAPTURE_EXECUTION )
+#include "../Rendering/DX12/Dx12BackbufferCapture.h"
+#endif
 
 #include <cstdint>
 #include <cstdio>
@@ -43,6 +43,7 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
+#if defined( SKULLBONEZ_CAPTURE_EXECUTION )
 namespace
 {
 struct FileCloser
@@ -103,7 +104,7 @@ void BuildScreenshotAndExitPath( const char* scenePath, char* outPath, size_t ou
 }
 } // namespace
 
-SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRenderCaptureBackend& backend,
+SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::Dx12BackbufferCapture& backend,
                                                                  const char* path )
 {
     // Lane R: capture support, readback dimensions, and file output can fail
@@ -200,6 +201,7 @@ SkullbonezCore::Core::SbResult CaptureSystem::SaveBackbufferBmp( Rendering::IRen
     }
     return SkullbonezCore::Core::SbResult::Success();
 }
+#endif
 
 bool CaptureSystem::IsScreenshotDue( const RunScreenshotState& screenshot, const RuntimeCaptureSceneContext& context )
 {
@@ -245,10 +247,11 @@ bool CaptureSystem::RequiresDeterministicPresentation( const RunScreenshotState&
 }
 
 
+#if defined( SKULLBONEZ_CAPTURE_EXECUTION )
 RuntimeCaptureResult CaptureSystem::TickScreenshots( RunScreenshotState& screenshot,
                                                      const RuntimeCaptureSceneContext& context,
                                                      CaptureController& capture,
-                                                     Rendering::IRenderCaptureBackend& backend )
+                                                     Rendering::Dx12BackbufferCapture& backend )
 {
     if ( context.isSceneMode && screenshot.isScreenshotAndExit && context.currentFrame == 0 )
     {
@@ -327,7 +330,7 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
                                                    int& autoCycleShotsTaken,
                                                    int& trackBallIndex,
                                                    CaptureController& capture,
-                                                   Rendering::IRenderCaptureBackend& backend )
+                                                   Rendering::Dx12BackbufferCapture& backend )
 {
     if ( !isSceneMode || autoCycleInterval <= 0.0f || autoCycleAccum < autoCycleInterval )
     {
@@ -357,5 +360,6 @@ RuntimeCaptureResult CaptureSystem::TickAutoCycle( bool isSceneMode,
     trackBallIndex = ( trackBallIndex + 1 ) % ballCount;
     return {};
 }
+#endif
 } // namespace Runtime
 } // namespace SkullbonezCore

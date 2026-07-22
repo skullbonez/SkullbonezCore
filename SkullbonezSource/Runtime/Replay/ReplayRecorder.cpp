@@ -6,12 +6,12 @@ Purpose:
 Summary:
   These recorders observe committed simulation state. They must not mutate
   bodies, physics caches, renderer resources, or UI state; capture enabled
-  should only add bounded CPU memory use and optional hash-log writes.
+  adds only bounded CPU memory use. ArtifactIO owns materialization and files.
 
 Glossary:
   Presentation sample: Render-facing pose/state captured from a frame.
   Solver sample: Physics-facing state retained for rollback and diagnostics.
-  Hash log: Deterministic per-sample digest stream used to compare replay output.
+  State hash: Deterministic per-sample digest later serialized by ArtifactIO.
   Retention window: Maximum in-memory duration retained by the ring buffers.
   Replay reserve owner: Runtime allocation-policy owner that permits replay-only
     vector growth when captured samples outgrow their current payload capacity.
@@ -26,6 +26,8 @@ Invariants:
 
 Related:
   - SkullbonezSource/Runtime/Replay/ReplayRecorder.h
+  - SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h
+  - SkullbonezSource/Runtime/Replay/ReplayArtifactHashLog.cpp
   - SkullbonezSource/Physics/PhysicsSolverSnapshot.h
 */
 #include "ReplayRecorder.h"
@@ -1837,7 +1839,8 @@ uint64_t SkullbonezCore::Runtime::ReplayRecorderOperations::ComputePresentationS
 
 bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
 {
-    // Concept: the recorder is a bounded ring buffer plus optional hash log.
+    // Concept: the recorder is a bounded live-capture ring. ArtifactIO owns
+    // chronological materialization and every file stream.
     //
     // Configuration resets all retained samples because changing retention or
     // checkpoint cadence changes the meaning of every normalized scrub offset.
@@ -1846,8 +1849,6 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
     m_config.checkpointIntervalFrames = (std::max)( 1, m_config.checkpointIntervalFrames );
     m_config.runtimeBodyCapacity = ReplayRuntimeBodyCapacity( m_config );
     m_config.enabled = m_config.enabled || !m_config.hashLogPath.empty();
-
-    m_hashLog.close();
     m_samples.clear();
     m_visualFrames.clear();
     m_visualBodyMetadata.clear();
@@ -1912,16 +1913,6 @@ bool ReplayRecorder::Configure( const ReplayRecorderConfig& config )
                                   m_normalImpulseSumScratch,
                                   m_config.runtimeBodyCapacity );
 
-    if ( !m_config.hashLogPath.empty() )
-    {
-        m_hashLog.open( m_config.hashLogPath, std::ios::out | std::ios::trunc );
-        if ( !m_hashLog.is_open() )
-        {
-            fprintf( stderr, "[replay] Failed to open hash log: %s\n", m_config.hashLogPath.c_str() );
-            m_config.hashLogPath.clear();
-        }
-    }
-
     return true;
 }
 
@@ -1963,7 +1954,7 @@ void ReplayRecorder::ResetTimeline( const char* sceneLabel )
         frame.bodyMetadataIndices.clear();
         frame.changedBodies.clear();
     }
-    WriteHashLogHeader( sceneLabel );
+    (void)sceneLabel;
 }
 
 void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
@@ -2103,7 +2094,6 @@ void ReplayRecorder::CaptureFrame( const ReplayCaptureInput& input )
     {
         StoreCheckpointSummary( sample, m_captureBodyScratch.size() );
     }
-    WriteHashLogRow( sample, m_captureBodyScratch.size() );
 }
 
 void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample& solverSample )
@@ -2186,15 +2176,6 @@ void ReplayRecorder::CaptureFrameFromSolverSample( const ReplaySolverFrameSample
     {
         StoreCheckpointSummary( sample, m_captureBodyScratch.size() );
     }
-    WriteHashLogRow( sample, m_captureBodyScratch.size() );
-}
-
-void ReplayRecorder::FlushHashLog()
-{
-    if ( m_hashLog.is_open() )
-    {
-        m_hashLog.flush();
-    }
 }
 
 bool ReplayRecorder::IsEnabled() const
@@ -2274,25 +2255,6 @@ void ReplayRecorder::CollectMemoryCategoryBytes( SkullbonezCore::Core::MainMemor
             categories,
             SkullbonezCore::Core::MainMemoryReplayByteCategory::PresentationBodies,
             PresentationSampleMemoryBytes( resolved ) );
-    }
-}
-
-void ReplayRecorder::CopySamplesChronological( std::vector<ReplayPresentationSample>& outSamples ) const
-{
-    outSamples.clear();
-    outSamples.reserve( m_sampleCount );
-    if ( m_sampleCount == 0 || m_samples.empty() )
-    {
-        return;
-    }
-
-    for ( std::size_t i = 0; i < m_sampleCount; ++i )
-    {
-        ReplayPresentationSample sample;
-        if ( ResolveSampleAtOffset( i, sample ) )
-        {
-            outSamples.push_back( std::move( sample ) );
-        }
     }
 }
 
@@ -2595,45 +2557,6 @@ void ReplayRecorder::StoreCheckpointSummary( const ReplayPresentationSample& sam
     checkpoint.pipelineRecordCount = sample.pipelineRecordCount;
 }
 
-void ReplayRecorder::WriteHashLogHeader( const char* sceneLabel )
-{
-    if ( !m_hashLog.is_open() )
-    {
-        return;
-    }
-
-    m_hashLog << "# replay_scene scene=\"" << ( sceneLabel && sceneLabel[0] != '\0' ? sceneLabel : "generated" )
-              << "\" retention_seconds=" << m_config.retentionSeconds << " retention_frames=" << m_samples.size()
-              << " checkpoint_interval_frames=" << m_config.checkpointIntervalFrames << "\n";
-    m_hashLog << "frame,scene_frame,simulation_seconds,body_count,contact_count,pipeline_record_count,checkpoint,state_"
-                 "hash\n";
-}
-
-void ReplayRecorder::WriteHashLogRow( const ReplayPresentationSample& sample, std::size_t bodyCount )
-{
-    if ( !m_hashLog.is_open() )
-    {
-        return;
-    }
-
-    // Invariant: hash-log columns are external validation surface. Keep order,
-    // precision, and hex formatting stable unless replay tooling is updated in
-    // the same change.
-    char line[256] = {};
-    sprintf_s( line,
-               sizeof( line ),
-               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX\n",
-               static_cast<unsigned long long>( sample.frameIndex ),
-               sample.sceneFrame,
-               sample.simulationSeconds,
-               static_cast<unsigned long long>( bodyCount ),
-               static_cast<unsigned>( sample.contactCount ),
-               static_cast<unsigned>( sample.pipelineRecordCount ),
-               sample.checkpointBoundary ? 1u : 0u,
-               static_cast<unsigned long long>( sample.stateHash ) );
-    m_hashLog << line;
-}
-
 std::size_t ReplayRecorder::SampleCapacityFromConfig() const
 {
     const int seconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
@@ -2655,7 +2578,6 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
     m_config.runtimeBodyCapacity = ReplayRuntimeBodyCapacity( m_config );
     m_config.enabled = m_config.enabled || !m_config.hashLogPath.empty();
 
-    m_hashLog.close();
     m_samples.clear();
     m_solverFrames.clear();
     m_solverBodyMetadata.clear();
@@ -2719,16 +2641,6 @@ bool ReplaySolverRecorder::Configure( const ReplayRecorderConfig& config )
         ReserveReplaySolverFrameSample( sample );
     }
 
-    if ( !m_config.hashLogPath.empty() )
-    {
-        m_hashLog.open( m_config.hashLogPath, std::ios::out | std::ios::trunc );
-        if ( !m_hashLog.is_open() )
-        {
-            fprintf( stderr, "[replay] Failed to open solver hash log: %s\n", m_config.hashLogPath.c_str() );
-            m_config.hashLogPath.clear();
-        }
-    }
-
     return true;
 }
 
@@ -2770,7 +2682,7 @@ void ReplaySolverRecorder::ResetTimeline( const char* sceneLabel )
         frame.changedBodies.clear();
         ClearSolverWorldDeltaFrame( frame.world );
     }
-    WriteHashLogHeader( sceneLabel );
+    (void)sceneLabel;
 }
 
 void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
@@ -2963,15 +2875,6 @@ void ReplaySolverRecorder::CaptureFrame( const ReplayCaptureInput& input )
     {
         StoreCheckpointSummary( sample, m_solverCaptureBodies.size() );
     }
-    WriteHashLogRow( sample, m_solverCaptureBodies.size() );
-}
-
-void ReplaySolverRecorder::FlushHashLog()
-{
-    if ( m_hashLog.is_open() )
-    {
-        m_hashLog.flush();
-    }
 }
 
 bool ReplaySolverRecorder::IsEnabled() const
@@ -3074,25 +2977,6 @@ void ReplaySolverRecorder::CollectMemoryCategoryBytes(
         LauncherVisualMemoryBytes( m_resolvedSolverSample.launcherVisual ) +
             LauncherVisualMemoryBytes( m_latestResolvedSolverSample.launcherVisual ) +
             LauncherVisualMemoryBytes( m_promotedSolverSample.launcherVisual ) );
-}
-
-void ReplaySolverRecorder::CopySamplesChronological( std::vector<ReplaySolverFrameSample>& outSamples ) const
-{
-    outSamples.clear();
-    outSamples.reserve( m_sampleCount );
-    if ( m_sampleCount == 0 || m_samples.empty() )
-    {
-        return;
-    }
-
-    for ( std::size_t i = 0; i < m_sampleCount; ++i )
-    {
-        ReplaySolverFrameSample sample;
-        if ( ResolveSolverSampleAtOffset( i, sample ) )
-        {
-            outSamples.push_back( std::move( sample ) );
-        }
-    }
 }
 
 const ReplaySolverFrameSample* ReplaySolverRecorder::LatestSample() const
@@ -3429,43 +3313,6 @@ void ReplaySolverRecorder::StoreCheckpointSummary( const ReplaySolverFrameSample
     checkpoint.pipelineRecordCount = sample.pipelineRecordCount;
 }
 
-void ReplaySolverRecorder::WriteHashLogHeader( const char* sceneLabel )
-{
-    if ( !m_hashLog.is_open() )
-    {
-        return;
-    }
-
-    m_hashLog << "# solver_replay_scene scene=\"" << ( sceneLabel && sceneLabel[0] != '\0' ? sceneLabel : "generated" )
-              << "\" retention_seconds=" << m_config.retentionSeconds << " retention_frames=" << m_samples.size()
-              << " checkpoint_interval_frames=" << m_config.checkpointIntervalFrames << "\n";
-    m_hashLog << "frame,scene_frame,simulation_seconds,body_count,contact_count,pipeline_record_count,checkpoint,"
-                 "presentation_hash,solver_hash\n";
-}
-
-void ReplaySolverRecorder::WriteHashLogRow( const ReplaySolverFrameSample& sample, std::size_t bodyCount )
-{
-    if ( !m_hashLog.is_open() )
-    {
-        return;
-    }
-
-    char line[288] = {};
-    sprintf_s( line,
-               sizeof( line ),
-               "%llu,%d,%.6f,%llu,%u,%u,%u,0x%016llX,0x%016llX\n",
-               static_cast<unsigned long long>( sample.frameIndex ),
-               sample.sceneFrame,
-               sample.simulationSeconds,
-               static_cast<unsigned long long>( bodyCount ),
-               static_cast<unsigned>( sample.contactCount ),
-               static_cast<unsigned>( sample.pipelineRecordCount ),
-               sample.checkpointBoundary ? 1u : 0u,
-               static_cast<unsigned long long>( sample.presentationHash ),
-               static_cast<unsigned long long>( sample.solverHash ) );
-    m_hashLog << line;
-}
-
 std::size_t ReplaySolverRecorder::SampleCapacityFromConfig() const
 {
     const int seconds = std::clamp( m_config.retentionSeconds, REPLAY_MIN_SECONDS, REPLAY_MAX_SECONDS );
@@ -3577,22 +3424,6 @@ void ReplayEventRecorder::CollectMemoryCategoryBytes(
     SkullbonezCore::Core::MainMemoryAddReplayCategoryBytes( categories,
                                                             SkullbonezCore::Core::MainMemoryReplayByteCategory::Events,
                                                             VectorCapacityBytes( m_events ) );
-}
-
-void ReplayEventRecorder::CopyEventsChronological( std::vector<ReplayEventSample>& outEvents ) const
-{
-    outEvents.clear();
-    outEvents.reserve( m_eventCount );
-    if ( m_eventCount == 0 || m_events.empty() )
-    {
-        return;
-    }
-
-    for ( std::size_t i = 0; i < m_eventCount; ++i )
-    {
-        const std::size_t index = ( m_eventHead + i ) % m_events.size();
-        outEvents.push_back( m_events[index] );
-    }
 }
 
 ReplayEventSample& ReplayEventRecorder::AcquireEventSlot()

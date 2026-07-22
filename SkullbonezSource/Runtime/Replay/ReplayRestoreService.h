@@ -32,6 +32,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "ReplayRestoreTransactions.h"
 #include "../CameraCollection.h"
 #include "../RunDebugState.h"
 #include "../Render/RuntimeRenderer.h"
@@ -54,18 +55,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-struct ReplaySolverSampleRestoreContext
-{
-    // Lifetime: Run builds this from live owners for one restore call. Every
-    // referenced subsystem outlives the call, and ReplayRestoreService copies
-    // only sampled values into those owners.
-    SceneWorld& world;
-    RunSceneState& scene;
-    RuntimeRenderer& renderer;
-    RunDebugState& debug;
-    RuntimeTools& runtimeTools;
-};
-
 class ReplayRestoreService
 {
   public:

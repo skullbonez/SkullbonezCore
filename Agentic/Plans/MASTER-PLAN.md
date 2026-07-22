@@ -312,12 +312,36 @@ reduction (6 tasks), and replay subsystem consolidation (7 tasks). Execution
 order is 1→3 as listed; the ordering rationale and per-plan gates live in the
 campaign section below.
 
+The active/future denominator returned 19 → 13 when
+`render-interface-retirement` closed RH0-RH5 and left the ledger under rule 4.
+All ten render interfaces and five test implementations are gone; concrete DX12
+owners remain non-polymorphic, transient consumer authority is narrower than
+the RH0 baseline, and the final CPU/full/three-repeat renderer/stress evidence
+is recorded in
+`../Reports/2026-07-22/render-interface-retirement-closure.md`.
+
 | Plan | Done | Tasks | Plan complete |
 |---|---:|---:|---:|
-| `render-interface-retirement` | 0 | 6 | 0% |
-| `owner-fanout-reduction` | 0 | 6 | 0% |
-| `replay-subsystem-consolidation` | 0 | 7 | 0% |
-| **Active/future total** | **0** | **19** | **0%** |
+| **Active/future total** | **0** | **0** | **0%** |
+
+The active/future denominator returned 13 → 7 when
+`owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
+Scene-load inputs are 18→10, consumer outputs are 20→11, view-parameter slots
+are 68→36, a reactive owner integrates in at most three files, and the final
+independent ownership review and broad/DX12-stress gates are clear. Evidence is
+recorded in
+`../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md`.
+
+The active/future denominator returned 7 → 0 when
+`replay-subsystem-consolidation` closed RC0-RC6 and left the ledger under rule
+4. Replay is assigned across six named domains, production include edges fell
+48 → 33 with explicit survivors, the unchanged three-owner reserve inventory
+passes the strict two-generation gate, and the final independent review and
+broad gate are clear. The visual-fidelity config-provenance mismatch was later
+resolved through an authorized two-field provenance reconciliation, and the
+full 2,401-tick oracle passed without behavioral golden changes. Evidence is in
+`../Reports/2026-07-22/replay-subsystem-consolidation-closure.md` and
+`../Reports/2026-07-22/replay-visual-fidelity-provenance-reconciliation.md`.
 
 The active/future denominator returned 22 → 18 when
 `replay-policy-debt-closure` closed RP0-RP3 and left the ledger under rule 4.
@@ -389,10 +413,9 @@ smoke all pass. Closure evidence is in
 `../Reports/2026-07-20/physics-body-count-scale-closure.md`.
 
 The architecture-review campaign registered 2026-07-20 is complete. The live
-queue is now the 2026-07-22 architecture follow-up campaign, in order:
-`render-interface-retirement` first (mechanical, cheapest gates, shrinks
-headers for everything after it), then `owner-fanout-reduction` (reshapes the
-scene-lifecycle and frame-view borrow graphs), then
+queue is now the remainder of the 2026-07-22 architecture follow-up campaign,
+in order: `owner-fanout-reduction` (reshapes the scene-lifecycle and frame-view
+borrow graphs), then
 `replay-subsystem-consolidation` (heaviest per-task gate; its
 presentation-reset seam lands once on the final lifecycle-ledger shape). Plans
 live under `TODO/`; see the campaign section below.
@@ -1229,9 +1252,13 @@ or hot-path inheritance artifacts. Execution order is binding.
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [render-interface-retirement](TODO/render-interface-retirement.md) | Registered | 0/6 | Start with RH0 census |
-| [owner-fanout-reduction](TODO/owner-fanout-reduction.md) | Registered | 0/6 | Starts after render-interface-retirement closes |
-| [replay-subsystem-consolidation](TODO/replay-subsystem-consolidation.md) | Registered | 0/7 | Starts after owner-fanout-reduction closes |
+| [owner-fanout-reduction](../Reports/2026-07-22/owner-fanout-reduction-of5-closure-census.md) | Complete | 6/6 | Ten-input scene-load boundary, ≤3-file reactive-owner path, clear independent review, and final broad/stress gates complete |
+| [replay-subsystem-consolidation](../Reports/2026-07-22/replay-subsystem-consolidation-closure.md) | Complete | 7/7 | Six domains, 48 → 33 production include edges, accepted cohesion exceptions, strict allocation proof, clear review, final broad gate, and reconciled 2,401-tick replay oracle complete |
+
+Render interface retirement closed RH0-RH5 with zero interface classes,
+narrower transient authority, clear independent review, and complete final
+gates. Closure evidence:
+[`render-interface-retirement-closure`](../Reports/2026-07-22/render-interface-retirement-closure.md).
 
 ## Features
 

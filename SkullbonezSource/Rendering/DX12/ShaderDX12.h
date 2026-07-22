@@ -31,7 +31,10 @@ Related:
 #pragma once
 
 
-#include "../IShader.h"
+#include "../../Core/ByteView.h"
+#include "../../Core/Common.h"
+#include "../../Maths/Matrix4.h"
+#include "../../Maths/Vector3.h"
 #include <d3d12.h>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
@@ -72,7 +75,7 @@ struct ShaderDX12ReloadPayload
     creation. Manual dev reload adopts another verified baked pair without
     changing the live object or its constant values until validation succeeds.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class ShaderDX12 : public IShader
+class ShaderDX12
 {
     friend class Dx12PipelineOwner;
 
@@ -132,7 +135,7 @@ class ShaderDX12 : public IShader
                 Dx12ShaderDevelopment& shaderDevelopment,
                 Dx12UploadReservations& uploadReservations,
                 bool registerForDevelopment = true );
-    ~ShaderDX12() override;
+    ~ShaderDX12();
 
     bool Compile( const char* hlslPath );
     bool CanAdoptReload( const ShaderDX12& candidate ) const;
@@ -140,14 +143,14 @@ class ShaderDX12 : public IShader
     void AdoptReload( ShaderDX12ReloadPayload& payload );
     const char* SourcePath() const;
 
-    void Use() const override;
-    void SetInt( const char* name, int value ) const override;
-    void SetFloat( const char* name, float value ) const override;
-    void SetVec3( const char* name, float x, float y, float z ) const override;
-    void SetVec3( const char* name, const Math::Vector::Vector3& v ) const override;
-    void SetVec4( const char* name, float x, float y, float z, float w ) const override;
-    void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const override;
-    bool SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const override;
+    void Use() const;
+    void SetInt( const char* name, int value ) const;
+    void SetFloat( const char* name, float value ) const;
+    void SetVec3( const char* name, float x, float y, float z ) const;
+    void SetVec3( const char* name, const Math::Vector::Vector3& v ) const;
+    void SetVec4( const char* name, float x, float y, float z, float w ) const;
+    void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const;
+    bool SetConstantBufferBytes( SkullbonezCore::Core::ByteView bytes, const char* debugName ) const;
 
     // Flush the dirty constant-buffer bytes into the current frame upload arena and
     // return the GPU virtual address used by the root CBV binding.

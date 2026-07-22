@@ -533,6 +533,18 @@ void InputRouter::RequestCursorVisible( bool visible )
 }
 
 
+bool InputRouter::ObserveSceneLifecycle( const SceneLifecyclePacket& packet, bool hideCursorAfterActivation )
+{
+    if ( m_sceneActivationObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneActivated ) &&
+         hideCursorAfterActivation )
+    {
+        RequestCursorVisible( false );
+        return true;
+    }
+    return false;
+}
+
+
 void InputRouter::CancelPointerPresentation()
 {
     m_nativeCaptureRequested = false;

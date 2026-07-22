@@ -26,7 +26,7 @@ Related:
 #pragma once
 
 #include "../Maths/Matrix4.h"
-#include "IRenderDiagnostics.h"
+#include "DX12/Dx12Diagnostics.h"
 #include "Shadow.h"
 #include "../Maths/Vector3.h"
 

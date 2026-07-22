@@ -22,12 +22,12 @@ Related:
 #pragma once
 
 #include "ReplayIdentity.h"
+#include "ReplayPredictionPublication.h"
 #include "ReplayPredictionView.h"
 #include "ReplayPredictionScheduling.h"
 #include "ReplayRecorder.h"
 #include "ReplayVisualPacket.h"
 #include "TrajectoryStore.h"
-#include "../../Core/AmortizedTask.h"
 #include "../../Core/MainMemoryStats.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsWorldForces.h"
@@ -37,7 +37,6 @@ Related:
 #include <atomic>
 #include <chrono>
 #include <memory>
-#include <optional>
 #include <span>
 #include <vector>
 
@@ -64,20 +63,6 @@ class SceneEntityStore;
 class ReplayPrediction;
 class ReplaySolverRecorder;
 struct RunReplayPathVisualizerState;
-// Concept: this named value operation keeps prediction slices typed through the
-// WorkerPool boundary. Its borrowed owners remain valid until cancellation
-// waits for the task's in-flight flag to clear.
-struct ReplayPredictionWorkerOperation
-{
-    ReplayPrediction* prediction = nullptr;
-    const SkullbonezCore::Core::EngineConfig* config = nullptr;
-    Threading::WorkerPool* workerPool = nullptr;
-    int modelCount = 0;
-
-    void operator()( int beginTickIndex, int endTickIndex ) const;
-};
-
-using ReplayPredictionAmortizedTask = Threading::AmortizedTask<ReplayPredictionWorkerOperation>;
 
 struct RunReplayPredictionBodyBackup
 {
@@ -194,30 +179,21 @@ struct RunReplayPredictionBuildState
     int probeTickBudget = 8;
     std::chrono::steady_clock::time_point jobStart = {};
     // Runtime allocation policy: prediction buildFrames can be pre-sized for a
-    // whole horizon while only buildFrameCount rows are populated. Render reads
+    // whole horizon while publication exposes only completed rows. Render reads
     // frames, not the pre-sized build vector, until completion swaps them.
-    // Invariant: buildFrameCount is the single published prefix cursor. Worker
-    // stepping publishes it with release ordering only after the
-    // corresponding frame rows and trajectory slots are complete. Readers use
-    // PublishedBuildFrameCount() as the acquire edge before inspecting rows.
     // Invariant: during a same-target refresh, the building prefix may replace
     // committed frames only after it reaches the reveal cursor captured at job
     // start. This prevents auto-refresh from replaying the causal unfold from
     // frame zero.
     std::vector<RunReplayPredictionFrame> buildFrames;
-    std::atomic<std::size_t> buildFrameCount{ 0 };
     std::size_t buildPresentationFrameCount = 2u;
-    // Concept: the amortized task owns prediction physics/capture slices while
-    // the frame loop only submits ticks and consumes the published prefix.
-    // Hazard: cancellation must wait for an in-flight slice before clearing
-    // buildFrames, trajectory records, or the private prediction engine.
-    // Lifetime: optional owns one in-place worker task for an active build. Its
-    // reset waits for worker idleness first and releases no heap allocation.
-    std::optional<ReplayPredictionAmortizedTask> workerTask;
-    std::atomic<bool> workerFailed{ false };
+    ReplayPredictionWorkerSchedule schedule;
+    ReplayPredictionPublication publication;
 };
 
-struct RunReplayPredictionSimulationState
+// Concept: this owner contains the private engine and every mutable value used
+// by one isolated future. No live Physics store is reachable through it.
+struct ReplayPredictionIsolatedSimulation
 {
     float horizonSeconds = REPLAY_FUTURE_BUFFER_SECONDS;
     Physics::ModelRowHint targetModelRow;
@@ -267,13 +243,16 @@ struct RunReplayPredictionState
     bool HasPublishedBuildFramePrefix( std::size_t minFrameCount = 2u ) const noexcept;
     bool BuildPrefixShouldBePresented() const noexcept;
     bool BuildFramesAreComplete() const noexcept;
+    bool FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId,
+                                 bool usingBuildFrames,
+                                 std::size_t frameCount ) const noexcept;
     void ResetBuildFramePublication() noexcept;
     void PublishBuildFrameSlot( std::size_t frameSlot ) noexcept;
 
     bool enabled = false;
     bool ragdollVisualsEnabled = false;
     RunReplayPredictionBuildState build;
-    RunReplayPredictionSimulationState simulation;
+    ReplayPredictionIsolatedSimulation simulation;
     RunReplayPredictionFutureNodeCache futureNodeCache;
     // Concept: trajectory records are the publication layer between
     // prediction/solver builders and overlay drawing. Main root/child ribbons
@@ -384,6 +363,8 @@ class ReplayPrediction
         view.futureNodesCacheValid = m_state.futureNodeCache.futureNodesCacheValid;
         view.trajectoryBuildValid = m_state.trajectoryBuild.valid;
         view.trajectoryBuildUsingBuildFrames = m_state.trajectoryBuild.usingBuildFrames;
+        view.futureTreeReady =
+            m_state.FutureTreeReadyForDraw( view.targetId, view.usingBuildFrames, view.frames.size() );
         view.ragdollVisualsEnabled = m_state.ragdollVisualsEnabled;
         view.baselineValid = m_state.baseline.valid;
         view.baselineComparisonActive = m_state.baseline.comparisonActive;
@@ -510,8 +491,7 @@ class ReplayPrediction
 
 inline std::size_t RunReplayPredictionState::PublishedBuildFrameCount() const noexcept
 {
-    const std::size_t publishedCount = build.buildFrameCount.load( std::memory_order_acquire );
-    return publishedCount < build.buildFrames.size() ? publishedCount : build.buildFrames.size();
+    return build.publication.PublishedCount( build.buildFrames.size() );
 }
 
 inline bool RunReplayPredictionState::HasPublishedBuildFramePrefix( std::size_t minFrameCount ) const noexcept
@@ -533,20 +513,31 @@ inline bool RunReplayPredictionState::BuildFramesAreComplete() const noexcept
     return BuildPrefixShouldBePresented() && PublishedBuildFrameCount() >= build.buildFrames.size();
 }
 
+inline bool RunReplayPredictionState::FutureTreeReadyForDraw( Physics::PhysicsSceneObjectId rootId,
+                                                              bool usingBuildFrames,
+                                                              std::size_t frameCount ) const noexcept
+{
+    // Invariant: consumers may submit child paths only when the bounded node
+    // cache and trajectory publication describe the same root, source bank,
+    // topology generation, and complete frame prefix.
+    const std::size_t nodeCount = (std::min)( futureNodeCache.futureNodes.size(),
+                                              static_cast<std::size_t>( REPLAY_VISUAL_FUTURE_NODE_CAPACITY ) );
+    return nodeCount > 0 && futureNodeCache.futureNodesCacheValid && futureNodeCache.futureNodesTopologyVersion != 0 &&
+           trajectoryBuild.valid && trajectoryBuild.rootId.value == rootId.value &&
+           trajectoryBuild.usingBuildFrames == usingBuildFrames &&
+           trajectoryBuild.topologyVersion == futureNodeCache.futureNodesTopologyVersion &&
+           trajectoryBuild.builtNodeCount == nodeCount && trajectoryBuild.childFrameCount >= frameCount;
+}
+
 inline void RunReplayPredictionState::ResetBuildFramePublication() noexcept
 {
-    build.buildFrameCount.store( 0, std::memory_order_release );
+    build.publication.Reset();
     build.buildPresentationFrameCount = 2u;
-    build.workerFailed.store( false, std::memory_order_release );
 }
 
 inline void RunReplayPredictionState::PublishBuildFrameSlot( std::size_t frameSlot ) noexcept
 {
-    const std::size_t publishedCount = frameSlot < build.buildFrames.size() ? frameSlot + 1u : build.buildFrames.size();
-    if ( publishedCount > build.buildFrameCount.load( std::memory_order_relaxed ) )
-    {
-        build.buildFrameCount.store( publishedCount, std::memory_order_release );
-    }
+    build.publication.PublishSlot( frameSlot, build.buildFrames.size() );
 }
 
 } // namespace Runtime

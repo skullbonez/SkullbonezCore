@@ -106,7 +106,7 @@
       <FloatingPointModel>Precise</FloatingPointModel>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>false</ExceptionHandling>
       <MinimalRebUIld>false</MinimalRebUIld>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -133,7 +133,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -160,7 +160,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -186,7 +186,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_AUTOMATION_DIAGNOSTICS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_AUTOMATION_DIAGNOSTICS;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -212,7 +212,7 @@
     <ClCompile>
       <FloatingPointModel>Precise</FloatingPointModel>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_HAS_EXCEPTIONS=0;JSON_NOEXCEPTION;NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;SKULLBONEZ_CAPTURE_EXECUTION;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>false</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -343,8 +343,10 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayCauseFocusSubmission.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.cpp" />
@@ -419,6 +421,9 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderPasses.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublication.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.cpp" />
+    <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionTopologyPublication.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayPredictionDrawing.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringVelocity.cpp" />
     <ClCompile Include="SkullbonezSource\Runtime\Render\RuntimeRenderHost.cpp" />
@@ -497,8 +502,6 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DXR.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.DynamicGeometry.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Pipeline.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Profiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Readback.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Resources.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderBackendDX12.Textures.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\DX12\RenderDeviceDX12.cpp" />
@@ -618,6 +621,7 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneControllerState.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRequestQueue.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneEntityStore.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneLifecycle.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeCreate.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneGeneratedSetup.h" />
@@ -630,20 +634,35 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Runtime\Scene\SceneRuntimeUiOptions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayLayout.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayRenderer.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactHashLog.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayArtifactSource.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionReserve.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionScheduling.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublication.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPublicationOperations.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRetainedMemory.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayEventCommand.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRecorder.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreService.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoring.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCoordination.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayAuthoringPackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCaptureLimits.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayCapturePackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayIdentity.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPrediction.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPathPackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionPackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionView.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentation.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationPackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlayPackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayOverlaySurface.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPresentationSubmission.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayScrubber.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTimeline.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayToolPackets.h" />
+    <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayTimelinePackets.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRuntime.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayRestoreTransactions.h" />
     <ClInclude Include="SkullbonezSource\Runtime\Replay\ReplayPredictionArchive.h" />
@@ -701,19 +720,14 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClInclude Include="SkullbonezSource\Scene\AuthoredSceneParserSchema.h" />
     <ClInclude Include="SkullbonezSource\Core\PlatformProfiler.h" />
     <ClInclude Include="SkullbonezSource\Core\Profiler.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IShader.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IMesh.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IFramebuffer.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderCaptureBackend.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderCommandContext.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderDeviceLifecycle.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderDiagnostics.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderResourceTypes.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderCommandTypes.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderDiagnosticsTypes.h" />
     <ClInclude Include="SkullbonezSource\Rendering\ProfilerOverlayPresenter.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGpuTimingOwner.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderRayTracing.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderShaderDevelopment.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\RenderRaytracingTypes.h" />
     <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12CachedPsoStore.h" />
-    <ClInclude Include="SkullbonezSource\Rendering\IRenderResourceFactory.h" />
+    <ClInclude Include="SkullbonezSource\Rendering\DX12\Dx12ResourceBuilder.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderInstanceStore.h" />
     <ClInclude Include="SkullbonezSource\Rendering\RenderGraph.h" />
     <ClInclude Include="SkullbonezSource\Rendering\WorldRenderExtension.h" />

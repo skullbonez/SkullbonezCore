@@ -40,7 +40,7 @@ Related:
 #include "../Scene/SceneRuntime.h"
 #include "../Scene/SceneController.h"
 #include "../../Physics/PhysicsDebugData.h"
-#include "../../Rendering/IRenderDiagnostics.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
 #include "../../Scene/AuthoredScene.h"
 #include "../../UI/UICommands.h"
 #include "../../UI/UI.h"
@@ -1103,7 +1103,7 @@ void DiagnosticsRuntime::SetPhysicsDiagnosticsPath( Physics::PhysicsEngine& phys
 
 
 void DiagnosticsRuntime::LogSceneFinished( SceneController& scene,
-                                           const Rendering::IRenderDiagnostics* renderDiagnostics,
+                                           const Rendering::Dx12Diagnostics* renderDiagnostics,
                                            const char* reason )
 {
     const std::string* currentPath = scene.CurrentPath();

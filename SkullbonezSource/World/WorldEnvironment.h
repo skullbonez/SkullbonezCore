@@ -52,8 +52,8 @@ Related:
 #include "../Maths/Vector3.h"
 #include "../Maths/Matrix4.h"
 #include "../Physics/PhysicsWorldForces.h"
-#include "../Rendering/IMesh.h"
-#include "../Rendering/IShader.h"
+#include "../Rendering/DX12/MeshDX12.h"
+#include "../Rendering/DX12/ShaderDX12.h"
 #include "FluidSurfaceAdjustment.h"
 
 
@@ -66,8 +66,8 @@ class AssetSystem;
 
 namespace Rendering
 {
-class IRenderCommandContext;
-class IRenderResourceFactory;
+class Dx12TextureOwner;
+class Dx12ResourceBuilder;
 } // namespace Rendering
 
 namespace Environment
@@ -156,7 +156,7 @@ class WorldEnvironment
     void RenderFluid( const Math::Transformation::Matrix4& view,
                       const Math::Transformation::Matrix4& proj,
                       const Math::Vector::Vector3& cameraWorld,
-                      Rendering::IRenderCommandContext& commands,
+                      Rendering::Dx12TextureOwner& textures,
                       const WaterReflectionInput& reflection,
                       const Rendering::PassRasterStateBucket& rasterState,
                       float time,
@@ -169,11 +169,11 @@ class WorldEnvironment
     void BindRenderContexts(
         const SkullbonezCore::Core::EngineConfig& config,
         Assets::AssetSystem& assets,
-        Rendering::IRenderResourceFactory& resources );                              // Borrow rebuild-only services for water resources.
+        Rendering::Dx12ResourceBuilder& resources );                                 // Borrow rebuild-only services for water resources.
     void
     EnsureRenderResources( const SkullbonezCore::Core::EngineConfig& config,
                            Assets::AssetSystem& assets,
-                           Rendering::IRenderResourceFactory& resources );           // Lazily rebuilds missing backend resources.
+                           Rendering::Dx12ResourceBuilder& resources );              // Lazily rebuilds missing backend resources.
     void ResetRenderResources();                                                     // Rebuilds GPU resources after renderer reset/switch
     void ReleaseRenderResources();                                                   // Releases GPU resources without rebuilding.
     float GetFluidSurfaceHeight() const;                                             // World-space Y plane where water begins.
@@ -220,15 +220,15 @@ class WorldEnvironment
     float m_terrainXMax = 0.0f;
     float m_terrainZMin = 0.0f;
     float m_terrainZMax = 0.0f;
-    std::unique_ptr<Rendering::IMesh> m_calmMesh;                                    // Inner water: flat, reflective
-    std::unique_ptr<Rendering::IShader> m_calmShader;
-    std::unique_ptr<Rendering::IMesh> m_oceanMesh;                                   // Outer water: waves + perturbation
-    std::unique_ptr<Rendering::IShader> m_oceanShader;
+    std::unique_ptr<Rendering::MeshDX12> m_calmMesh;                                 // Inner water: flat, reflective
+    std::unique_ptr<Rendering::ShaderDX12> m_calmShader;
+    std::unique_ptr<Rendering::MeshDX12> m_oceanMesh;                                // Outer water: waves + perturbation
+    std::unique_ptr<Rendering::ShaderDX12> m_oceanShader;
     BoundWaterRenderStyleSettings m_waterStyle;                                      // Owned water shader style subset; defaults support standalone worlds.
     WaterMeshBuildSettings m_waterMeshBuild;                                         // Owned water mesh rebuild subset.
     FluidForceSettings m_fluidForces;                                                // Owned fluid-force subset used by deterministic physics.
     Assets::AssetSystem* m_assets = nullptr;                                         // Borrowed asset registry for water shaders.
-    Rendering::IRenderResourceFactory* m_resources = nullptr;                        // Borrowed active backend resource factory for water meshes.
+    Rendering::Dx12ResourceBuilder* m_resources = nullptr;                           // Borrowed cold builder for water meshes.
 
     void BuildFluidMesh();                                                           // Builds calm and ocean meshes from current terrain bounds.
     void ApplyWaterAndFluidSettings( const SkullbonezCore::Core::EngineConfig&
@@ -237,13 +237,15 @@ class WorldEnvironment
                                           const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
     WaterStyleParams BuildOceanWaterStyle( bool cinematic,
                                            const SkullbonezCore::Core::CinematicRenderConfig& cinematicConfig ) const;
-    void BindCommonWaterStyle( Rendering::IShader& shader,
+    void BindCommonWaterStyle( Rendering::ShaderDX12& shader,
                                const WaterStyleParams& style,
                                const Math::Vector::Vector3& cameraWorld,
                                const WaterReflectionInput& reflection ) const;
-    void BindCalmWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style ) const;
-    void
-    BindOceanWaterStyle( Rendering::IShader& shader, const WaterStyleParams& style, float time, bool flatWater ) const;
+    void BindCalmWaterStyle( Rendering::ShaderDX12& shader, const WaterStyleParams& style ) const;
+    void BindOceanWaterStyle( Rendering::ShaderDX12& shader,
+                              const WaterStyleParams& style,
+                              float time,
+                              bool flatWater ) const;
 };
 } // namespace Environment
 } // namespace SkullbonezCore

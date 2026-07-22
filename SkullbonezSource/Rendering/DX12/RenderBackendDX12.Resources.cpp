@@ -1,14 +1,12 @@
 /*
 File: SkullbonezSource/Rendering/DX12/RenderBackendDX12.Resources.cpp
 Purpose:
-  Creates, transitions, and names DX12 resources and delegates the opt-in
-  offline-DXC hot-reload transaction.
+  Creates, transitions, and names DX12 resources.
 
 Summary:
   RenderBackendDX12.Resources.cpp creates, transitions, and names DX12
-  resources used by the renderer. The shader-development interface remains a
-  composition-root sequence here: ask its concrete owner to bake, drain the
-  frame owner, then let that owner stage and publish the verified generation.
+  resources used by the renderer. The concrete shader-development owner now
+  contains its cold bake, drain, stage, and publication transaction.
 
 Glossary:
   Upload arena: Frame-scoped CPU-visible staging memory used to seed default
@@ -69,20 +67,18 @@ static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIn
     SkullbonezCore::Core::Log().FlushAll();
 }
 
-// --- RenderBackendDX12 Resources methods ---
+// --- Dx12ResourceBuilder methods ---
 
 
-std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
+std::unique_ptr<ShaderDX12> Dx12ResourceBuilder::CreateShader( const char* baseName )
 {
     std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
-    if ( !Device() )
+    if ( !m_device.Device() )
     {
         return nullptr;
     }
-    auto shader = std::make_unique<ShaderDX12>( m_renderDevice,
-                                                m_pipelineOwner,
-                                                m_shaderDevelopment,
-                                                m_frameOwner.UploadReservations() );
+    auto shader =
+        std::make_unique<ShaderDX12>( m_device, m_pipeline, m_shaderDevelopment, m_frame.UploadReservations() );
     if ( !shader->Compile( hlslPath.c_str() ) )
     {
         // Lane R: shader files and compiler output are external inputs. Return
@@ -96,36 +92,10 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
 }
 
 
-bool RenderBackendDX12::ShaderHotReloadEnabled() const
+std::unique_ptr<MeshDX12>
+Dx12ResourceBuilder::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
 {
-    return m_shaderDevelopment.Enabled();
-}
-
-
-SkullbonezCore::Core::SbResult RenderBackendDX12::ReloadShadersFromSource()
-{
-    const SkullbonezCore::Core::SbResult bakeResult = m_shaderDevelopment.BakeSourceGeneration();
-    if ( !bakeResult.ok )
-    {
-        return bakeResult;
-    }
-
-    // Lifetime: all current PSOs may still be referenced by submitted command
-    // lists. Drain before the transactional owner releases either main-cache or
-    // grid-line PSOs and publishes replacement bytecode.
-    const SkullbonezCore::Core::SbResult drainResult = Finish();
-    if ( !drainResult.ok )
-    {
-        return drainResult;
-    }
-    return m_shaderDevelopment.ReloadBakedGeneration( Device() );
-}
-
-
-std::unique_ptr<IMesh>
-RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
-{
-    if ( !Device() )
+    if ( !m_device.Device() )
     {
         return nullptr;
     }
@@ -147,29 +117,29 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
         floatsPerVert = 3;
     }
 
-    if ( !m_frameOwner.EnsureOpen().ok )
+    if ( !m_frame.EnsureOpen().ok )
     {
         return nullptr;
     }
     UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr =
-        m_frameOwner.UploadReservations().ReserveUpload( dataSize, 4, RenderUploadCategory::DynamicVertex );
+        m_frame.UploadReservations().ReserveUpload( dataSize, 4, RenderUploadCategory::DynamicVertex );
     if ( uploadAddr == 0 )
     {
         return nullptr;
     }
-    uint8_t* uploadPtr = m_frameOwner.UploadReservations().UploadPointer( uploadAddr );
+    uint8_t* uploadPtr = m_frame.UploadReservations().UploadPointer( uploadAddr );
 
-    auto mesh = std::make_unique<MeshDX12>( m_renderDevice, m_frameOwner.DrawGate(), m_diagnostics );
-    if ( !mesh->Create( Device(),
-                        CommandList(),
+    auto mesh = std::make_unique<MeshDX12>( m_device, m_frame.DrawGate(), m_diagnostics );
+    if ( !mesh->Create( m_device.Device(),
+                        m_device.CommandList(),
                         data,
                         vertexCount,
                         floatsPerVert,
                         format,
                         uploadAddr,
                         uploadPtr,
-                        m_frameOwner.Uploads().Resource( m_frameOwner.AllocatorIndex() ) ) )
+                        m_frame.Uploads().Resource( m_frame.AllocatorIndex() ) ) )
     {
         return nullptr;
     }
@@ -177,19 +147,19 @@ RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNorma
 }
 
 
-std::unique_ptr<IFramebuffer>
-RenderBackendDX12::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
+std::unique_ptr<FramebufferDX12>
+Dx12ResourceBuilder::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
 {
-    if ( !Device() )
+    if ( !m_device.Device() )
     {
         return nullptr;
     }
-    auto fbo = std::make_unique<FramebufferDX12>( m_renderDevice,
-                                                  m_pipelineOwner,
-                                                  m_textureOwner,
-                                                  m_descriptorHeaps,
-                                                  m_frameOwner.DrawGate(),
-                                                  m_frameOwner.ResourceRelease(),
+    auto fbo = std::make_unique<FramebufferDX12>( m_device,
+                                                  m_pipeline,
+                                                  m_textures,
+                                                  m_descriptors,
+                                                  m_frame.DrawGate(),
+                                                  m_frame.ResourceRelease(),
                                                   colorFormat );
     if ( !fbo->Create( width, height ) )
     {

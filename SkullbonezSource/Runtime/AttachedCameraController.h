@@ -16,12 +16,16 @@ Glossary:
     from physics stores.
   Pose command: Solved camera eye/view/up plus whether entry tweening should
     start for this solve.
+  Lifecycle generation: Identity of one accepted scene-load attempt, used to
+    reset attach state once even when the load later fails.
 
 Invariants:
   - Target recovery uses physics-store handles and scene object ids; a dense row is
     retained only as a typed, revalidated cache.
   - The controller does not store borrowed collection or camera pointers.
   - Pose commands are finite and never point eye and view at the same point.
+  - Scene clearing invalidates the attached target at most once per lifecycle
+    generation.
 
 Related:
   - SkullbonezSource/Runtime/RunInput.cpp
@@ -35,6 +39,7 @@ Related:
 #include "../Maths/Vector3.h"
 #include "../Physics/PhysicsHandles.h"
 #include "RuntimeCameraMode.h"
+#include "Scene/SceneLifecycle.h"
 
 #include <cstdint>
 
@@ -195,12 +200,21 @@ class AttachedCameraController
                                  float presentationAlpha,
                                  AttachedCameraPoseCommand& outCommand );
 
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet )
+    {
+        if ( m_sceneLifecycleObserver.ShouldApply( packet, SceneRuntimeLifecycleEvent::AfterSceneCleared ) )
+        {
+            Reset( m_state );
+        }
+    }
+
   private:
     static bool SelectTarget( const Runtime::SceneWorld& collection,
                               AttachedCameraState& state,
                               int modelIndex,
                               AttachedCameraTargetSelection& outSelection );
     AttachedCameraState m_state;
+    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

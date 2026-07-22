@@ -1,7 +1,7 @@
 /*
 File: SkullbonezSource/Runtime/Render/RuntimeRenderHost.h
 Purpose:
-  Defines stable and frame-scoped owner views plus active-backend capabilities
+  Defines stable and frame-scoped owner views plus concrete DX12 cold owners
   consumed by RuntimeRenderer.
 
 Summary:
@@ -11,11 +11,11 @@ Summary:
 
 Glossary:
   Owner view: Named set of lifetime-stable borrows for one render domain.
-  Render backend view: Borrowed active renderer capabilities published by the
-    composition root; null pointers mean the backend is not available.
+  Render backend view: Borrowed concrete renderer owners published by the
+    composition root; null pointers mean startup did not bind that owner.
   Submission view: One-frame values sampled only after tool/replay owners have
     completed their bounded draw records.
-  Shader development facet: Optional backend capability for the explicit,
+  Shader development owner: Concrete DX12 owner for the explicit,
     offline-DXC manual reload transaction.
 
 Invariants:
@@ -35,7 +35,7 @@ Related:
 #include "../../Maths/Matrix4.h"
 #include "../../Maths/Vector3.h"
 #include "../../Rendering/Shadow.h"
-#include "../Replay/ReplayPresentation.h"
+#include "../Replay/ReplayPresentationPackets.h"
 #include "../Tools/RuntimeTools.h"
 
 #include <array>
@@ -72,16 +72,19 @@ class PhysicsDebugVisualizer;
 } // namespace Physics
 namespace Rendering
 {
-class IRenderCaptureBackend;
-class IRenderCommandContext;
+class Dx12BackbufferCapture;
+class Dx12GeometryOwner;
+class Dx12FrameOwner;
+class Dx12GraphTransientPool;
+class Dx12RenderDevice;
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 class Dx12ImGuiRendererOwner;
 #endif
-class IRenderDeviceLifecycle;
-class IRenderDiagnostics;
-class IRenderResourceFactory;
-class IRenderRayTracing;
-class IRenderShaderDevelopment;
+class Dx12Diagnostics;
+class Dx12ResourceBuilder;
+class Dx12TextureOwner;
+class Dx12RaytracingOwner;
+class Dx12ShaderDevelopment;
 } // namespace Rendering
 namespace Textures
 {
@@ -147,19 +150,25 @@ struct RenderToolOverlayView
 
 struct RuntimeRenderBackendView
 {
-    Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;       // Startup/present/resize/drain capability.
-    Rendering::IRenderCommandContext* renderCommands = nullptr;         // Per-frame draw-state and submission capability.
-    Rendering::IRenderResourceFactory* renderResources = nullptr;       // Resource creation/rebuild capability.
-    Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;         // Capability, draw-trace, timer, and memory snapshots.
-    Rendering::IRenderCaptureBackend* captureBackend = nullptr;         // Screenshot/readback capability.
-    Rendering::IRenderRayTracing* rayTracingBackend = nullptr;          // Optional DXR facet borrowed from the active renderer.
-    Rendering::IRenderShaderDevelopment* shaderDevelopment = nullptr;   // Optional manual offline-DXC reload capability.
+    Rendering::Dx12RenderDevice* renderDevice = nullptr;                // Extent, VSync, and native device-state owner.
+    Rendering::Dx12FrameOwner* renderFrame = nullptr;                   // Frame/output, present, drain, and resize owner.
+    Rendering::Dx12GraphTransientPool* renderGraph = nullptr;           // Render-graph materialization and transition owner.
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;          // Resource creation/rebuild capability.
+    Rendering::Dx12TextureOwner* renderTextures = nullptr;              // Texture registry and cold texture IO owner.
+    Rendering::Dx12GeometryOwner* renderGeometry = nullptr;             // Bounded dynamic/instanced geometry owner.
+    Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;            // Capability, draw-trace, timer, and memory snapshots.
+    Rendering::Dx12BackbufferCapture* backbufferCapture = nullptr;      // Concrete screenshot/readback owner.
+    Rendering::Dx12RaytracingOwner* raytracing = nullptr;               // Optional concrete reflection owner.
+    Rendering::Dx12ShaderDevelopment* shaderDevelopment = nullptr;      // Explicit offline-DXC reload owner.
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     Rendering::Dx12ImGuiRendererOwner* developmentUiRenderer = nullptr; // Narrow development-only DX12 UI recorder.
 #endif
 
-    // Returns the startup-required capture facet or terminates through Lane F.
-    Rendering::IRenderCaptureBackend& RequireCaptureBackend() const;
+    // Returns the startup-required capture owner or terminates through Lane F.
+    Rendering::Dx12BackbufferCapture& RequireBackbufferCapture() const;
+    // Samples stable renderer vocabulary at the composition boundary so cold
+    // scene transactions never receive the complete backend capability view.
+    const char* RendererName() const;
 };
 
 } // namespace Runtime

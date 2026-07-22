@@ -27,7 +27,7 @@ Related:
 #pragma once
 
 #include "ReplayIdentity.h"
-#include "ReplayPredictionScheduling.h"
+#include "ReplayPredictionPackets.h"
 #include "ReplayVisualPacket.h"
 #include "../../Maths/Quaternion.h"
 #include "../../Physics/PhysicsDebugData.h"
@@ -103,6 +103,7 @@ struct ReplayPredictionPresentationView
     bool futureNodesCacheValid = false;
     bool trajectoryBuildValid = false;
     bool trajectoryBuildUsingBuildFrames = false;
+    bool futureTreeReady = false;
     bool ragdollVisualsEnabled = false;
     bool baselineValid = false;
     bool baselineComparisonActive = false;

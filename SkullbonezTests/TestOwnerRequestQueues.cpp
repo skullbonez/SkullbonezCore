@@ -19,6 +19,8 @@ Glossary:
     splits without requiring a vendor context in this test executable.
   Preference record: Fixed benign editor state that round-trips independently
     of authored scenes and resets stale layout/panel identity during migration.
+  Lifecycle generation: Monotonic identity for one post-preflight scene-load
+    attempt, including attempts that fail before activation.
 
 Invariants:
   - Tests stop at the fixed capacity because the next runtime submission is a
@@ -32,6 +34,8 @@ Invariants:
     reports empty, stale, truncated, and capacity-limited states separately.
   - Preference migration may retain bounded filters but restores the current
     panel mask and topology fingerprint.
+  - Clear and activation observers advance independently and consume each
+    lifecycle generation at most once.
 
 Related:
   - SkullbonezSource/Runtime/CaptureController.h
@@ -44,6 +48,7 @@ Related:
 
 #include "../SkullbonezSource/Runtime/CaptureController.h"
 #include "../SkullbonezSource/Runtime/RenderDefaultsStore.h"
+#include "../SkullbonezSource/Runtime/RunTimerState.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorLayoutPolicy.h"
 #include "../SkullbonezSource/Runtime/DevelopmentTools/ImGuiEditorCausalityProjection.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
@@ -52,7 +57,6 @@ Related:
 #include "../SkullbonezSource/Runtime/Scene/SceneControllerState.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntime.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneRuntimeCoordinator.h"
-#include "../SkullbonezSource/Rendering/IRenderCaptureBackend.h"
 #include "../SkullbonezSource/Physics/PhysicsDebugData.h"
 #include "../SkullbonezSource/UI/UICommands.h"
 
@@ -67,42 +71,7 @@ Related:
 
 using namespace SkullbonezCore::Runtime;
 
-namespace
-{
-class UnsupportedCaptureBackend final : public SkullbonezCore::Rendering::IRenderCaptureBackend
-{
-  public:
-    bool SupportsBackbufferCapture() const override
-    {
-        return false;
-    }
-
-    SkullbonezCore::Core::SbResult CaptureBackbuffer( std::vector<uint8_t>&, int&, int& ) override
-    {
-        return SkullbonezCore::Core::SbResult::Failure( "Test/UnsupportedCaptureBackend", "unexpected readback" );
-    }
-};
-
-class FailingCaptureBackend final : public SkullbonezCore::Rendering::IRenderCaptureBackend
-{
-  public:
-    bool SupportsBackbufferCapture() const override
-    {
-        return true;
-    }
-
-    SkullbonezCore::Core::SbResult
-    CaptureBackbuffer( std::vector<uint8_t>& outPixels, int& outWidth, int& outHeight ) override
-    {
-        outPixels.assign( 4, 0xff );
-        outWidth = 1;
-        outHeight = 1;
-        return SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" );
-    }
-};
-} // namespace
-
-TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
+TEST_CASE( "Scene lifecycle accepts only ordered phases within one generation" )
 {
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::None,
                                                  SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
@@ -115,10 +84,10 @@ TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
     CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterScenePopulate,
                                                  SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
 
-    // A recoverable failure may restart the transaction, but it cannot skip a
-    // commit phase and publish plausible lifecycle evidence out of order.
-    CHECK( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeScenePopulate,
-                                                 SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+    // A retry must open a new generation and reset the previous event to None;
+    // it cannot restart or skip inside an existing generation.
+    CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeScenePopulate,
+                                                       SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
                                                        SceneRuntimeLifecycleEvent::BeforeScenePopulate ) );
     CHECK_FALSE( SceneRuntimeLifecycleTransitionValid( SceneRuntimeLifecycleEvent::AfterSceneCleared,
@@ -127,18 +96,118 @@ TEST_CASE( "Scene lifecycle accepts ordered phases and explicit restart" )
                                                        SceneRuntimeLifecycleEvent::None ) );
 
     const SceneLifecycleConsumerMask beforeUnload = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-                                                    SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDevice );
-    const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Simulation ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Tools ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Interaction ) |
-                                                  SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay );
+                                                    SceneLifecycleConsumerBit( SceneLifecycleConsumer::RenderDrain );
+    const SceneLifecycleConsumerMask afterClear = SceneLifecycleConsumerBit( SceneLifecycleConsumer::Diagnostics );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) == beforeUnload );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) == afterClear );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeScenePopulate ) == 0 );
     CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterScenePopulate ) == 0 );
-    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneActivated ) ==
-           SceneLifecycleConsumerBit( SceneLifecycleConsumer::Replay ) );
+    CHECK( SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneActivated ) == 0 );
+}
+
+TEST_CASE( "Scene lifecycle generations publish failures and repeated scene loads exactly once" )
+{
+    SceneRuntime scene( std::vector<std::string>{ "alpha.scene.json" } );
+    SceneLifecycleGenerationObserver clearObserver;
+    SceneLifecycleGenerationObserver activationObserver;
+
+    // A failure before BeginLoad crossed no mutation boundary and publishes no
+    // generation for reactive owners to consume.
+    CHECK( scene.LifecyclePacket().generation == 0 );
+    CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+
+    const SceneLifecycleBeginPolicy policy{ true, false, true, true, true };
+    scene.BeginLoadAttempt( 0, policy );
+    scene.BeginLoad( 0 );
+    CHECK( scene.LifecyclePacket().generation == 1 );
+    CHECK( scene.LifecyclePacket().event == SceneRuntimeLifecycleEvent::None );
+    CHECK( scene.LifecyclePacket().sceneIndex == 0 );
+    CHECK( scene.LifecyclePacket().policy.preserveUiState );
+    CHECK( scene.LifecyclePacket().policy.suppressExitOnComplete );
+    CHECK( scene.LifecyclePacket().policy.enterInteractiveRun );
+    CHECK( scene.LifecyclePacket().policy.manualReset );
+
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
+                                SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+    CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared,
+                                SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeScenePopulate, 0 );
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterScenePopulate, 0 );
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneActivated, 0 );
+    CHECK_FALSE( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK( activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+
+    // Same index and unchanged entity count are still a distinct load attempt.
+    scene.BeginLoadAttempt( 0, {} );
+    scene.BeginLoad( 0 );
+    CHECK( scene.LifecyclePacket().generation == 2 );
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::BeforeSceneUnload,
+                                SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::BeforeSceneUnload ) );
+    scene.RecordLifecycleEvent( SceneRuntimeLifecycleEvent::AfterSceneCleared,
+                                SceneLifecycleRequiredConsumers( SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK( clearObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneCleared ) );
+    CHECK_FALSE(
+        activationObserver.ShouldApply( scene.LifecyclePacket(), SceneRuntimeLifecycleEvent::AfterSceneActivated ) );
+    CHECK( clearObserver.LastAppliedGeneration() == 2 );
+}
+
+TEST_CASE( "Run timers consume reset and activation once per lifecycle generation" )
+{
+    RunTimerSceneLifecyclePolicy timerPolicy;
+
+    SceneLifecyclePacket packet;
+    packet.generation = 1;
+    packet.event = SceneRuntimeLifecycleEvent::BeforeSceneUnload;
+    RunTimerSceneLifecycleActions actions = timerPolicy.Observe( packet );
+    CHECK_FALSE( actions.resetMeasurements );
+    CHECK_FALSE( actions.restartClocks );
+
+    packet.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
+    actions = timerPolicy.Observe( packet );
+    CHECK( actions.resetMeasurements );
+    CHECK_FALSE( actions.restartClocks );
+    CHECK( timerPolicy.LastResetGeneration() == 1 );
+    CHECK( timerPolicy.LastActivationGeneration() == 0 );
+
+    actions = timerPolicy.Observe( packet );
+    CHECK_FALSE( actions.resetMeasurements );
+    CHECK_FALSE( actions.restartClocks );
+
+    packet.event = SceneRuntimeLifecycleEvent::AfterSceneActivated;
+    actions = timerPolicy.Observe( packet );
+    CHECK_FALSE( actions.resetMeasurements );
+    CHECK( actions.restartClocks );
+    CHECK( timerPolicy.LastActivationGeneration() == 1 );
+    packet.generation = 2;
+    actions = timerPolicy.Observe( packet );
+    CHECK( actions.resetMeasurements );
+    CHECK( actions.restartClocks );
+    CHECK( timerPolicy.LastResetGeneration() == 2 );
+    CHECK( timerPolicy.LastActivationGeneration() == 2 );
+}
+
+TEST_CASE( "Scene batch followers prefer presentation values emitted by a completed clear" )
+{
+    RunDebugState submitted;
+    submitted.physicsDebugAlpha = 0.25f;
+    SceneLoadConsumerOutputs outputs;
+    outputs.presentation.physicsDebugAlpha = 0.75f;
+    SceneLifecyclePacket lifecycle;
+
+    CHECK( ScenePresentationForFollowingRequest( submitted, outputs, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.25f ) );
+    lifecycle.generation = 1;
+    lifecycle.event = SceneRuntimeLifecycleEvent::AfterSceneCleared;
+    CHECK( ScenePresentationForFollowingRequest( submitted, outputs, lifecycle ).physicsDebugAlpha ==
+           doctest::Approx( 0.75f ) );
 }
 
 TEST_CASE( "Scene navigation returns value-only accepted load decisions" )
@@ -306,26 +375,29 @@ TEST_CASE( "CaptureController owns a fixed request budget" )
     CHECK( capture.PendingScreenshotCount() == CAPTURE_REQUEST_QUEUE_CAPACITY );
 }
 
-TEST_CASE( "CaptureController returns only successful requests as accepted events" )
+TEST_CASE( "Capture request batches return only successful requests as accepted events" )
 {
-    CaptureController capture;
-    UnsupportedCaptureBackend backend;
-    REQUIRE( capture.QueueScreenshot( "Screenshots\\unsupported.bmp" ).ok );
-
-    const CaptureRequestBatchResult result = capture.DrainScreenshotRequests( backend );
+    CaptureRequest request;
+    strcpy_s( request.path, "Screenshots\\unsupported.bmp" );
+    CaptureRequestBatchResult result;
+    AccumulateCaptureRequestResult(
+        result,
+        request,
+        SkullbonezCore::Core::SbResult::Failure( "Runtime/CaptureSystem", "capture unsupported" ) );
     CHECK_FALSE( result.status.ok );
     CHECK( result.savedCount == 0 );
     CHECK( result.failedCount == 1 );
-    CHECK( capture.PendingScreenshotCount() == 0 );
 }
 
-TEST_CASE( "CaptureController preserves backend readback failure ownership" )
+TEST_CASE( "Capture request batches preserve concrete readback failure ownership" )
 {
-    CaptureController capture;
-    FailingCaptureBackend backend;
-    REQUIRE( capture.QueueScreenshot( "Screenshots\\readback_failure.bmp" ).ok );
-
-    const CaptureRequestBatchResult result = capture.DrainScreenshotRequests( backend );
+    CaptureRequest request;
+    strcpy_s( request.path, "Screenshots\\readback_failure.bmp" );
+    CaptureRequestBatchResult result;
+    AccumulateCaptureRequestResult(
+        result,
+        request,
+        SkullbonezCore::Core::SbResult::Failure( "Test/Readback", "fence wait failed" ) );
     CHECK_FALSE( result.status.ok );
     CHECK_EQ( std::strcmp( result.status.error.owner, "Test/Readback" ), 0 );
     CHECK_EQ( std::strcmp( result.status.error.message, "fence wait failed" ), 0 );

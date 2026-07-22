@@ -27,8 +27,9 @@ Related:
 #include "TornadoGameplay.h"
 
 #include "../Core/FatalError.h"
-#include "../Rendering/IRenderCommandContext.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/RenderCommandTypes.h"
+#include "../Rendering/DX12/RenderBackendDX12.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../Rendering/RenderGpuTimingOwner.h"
 #include "../Rendering/RenderRasterBindingContract.h"
 
@@ -134,11 +135,11 @@ void EmitFxQuad( std::vector<float>& vertices,
     EmitFxVertex( vertices, d, r, g, blue, alpha, 0.0f, 1.0f, fxKind, terrainD );
 }
 
-void ClearAllRenderTextureSlots( Rendering::IRenderCommandContext& renderCommands )
+void ClearAllRenderTextureSlots( Rendering::Dx12TextureOwner& renderTextures )
 {
     for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
     {
-        renderCommands.BindTexture( 0, slot );
+        renderTextures.BindTexture( 0, slot );
     }
 }
 } // namespace
@@ -507,8 +508,8 @@ bool TornadoVisualPass::Render( const Rendering::WorldRenderExtensionFrameView& 
 
     PROFILE_GPU_BEGIN( &frame.renderGpuTiming, "Frame/Render/TornadoVisual" );
     DRAW_CALL_TRACE_SCOPE( frame.renderDiagnostics, "Frame/Render/TornadoVisual" );
-    ClearAllRenderTextureSlots( frame.renderCommands );
-    frame.renderCommands.DrawTransientColoredTriangles( m_vertices,
+    ClearAllRenderTextureSlots( frame.renderTextures );
+    frame.renderGeometry.DrawTransientColoredTriangles( m_vertices,
                                                         frame.viewProjection,
                                                         Rendering::TransientTriangleStyle::Color,
                                                         VISUAL_RASTER );

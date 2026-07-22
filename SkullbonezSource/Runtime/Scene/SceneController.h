@@ -18,6 +18,8 @@ Glossary:
     terrain, environment settings, and render presentation.
   Proceed policy: Value packet that freezes the sampled step edge and
     cross-scene pause decision for one frame.
+  Lifecycle generation: Monotonic identity for one post-preflight scene-load
+    attempt, independent of scene index or successful activation.
 
 Invariants:
   - SceneController owns queue/index bookkeeping and composes exactly one
@@ -41,9 +43,12 @@ Related:
 #include "SceneRuntimeCoordinator.h"
 #include "SceneRuntimeUiOptions.h"
 #include "SceneWorld.h"
+#include "../RunCameraState.h"
+#include "../RunDebugState.h"
 #include "../../Core/SbResult.h"
 #include "../../Maths/Vector3.h"
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -73,6 +78,12 @@ namespace Threading
 {
 class WorkerPool;
 }
+namespace Rendering
+{
+class Dx12FrameOwner;
+class Dx12RenderDevice;
+class Dx12ResourceBuilder;
+} // namespace Rendering
 namespace UI
 {
 class InGameUI;
@@ -80,6 +91,7 @@ struct SceneNavigationModel;
 } // namespace UI
 namespace Runtime
 {
+class AttachedCameraController;
 class DiagnosticsRuntime;
 class InputRouter;
 class ReplayRuntime;
@@ -97,7 +109,6 @@ struct RunDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
-struct RuntimeRenderBackendView;
 struct SceneFrameAdvanceResult
 {
     SceneLoadRequest loadRequest;
@@ -133,12 +144,11 @@ struct SceneDefaultsSaveView
     const RunSceneUIOverrideState& uiOverrides;
 };
 
-// Concept: scene loading borrows four phase-oriented values instead of
-// accepting the process shell's complete owner graph as one flat call. The
-// structs carry 18 concrete owners (6 policy, 3 host, 5 interaction, and 4
-// presentation); navigation crosses as a detached value snapshot. Window, UI,
-// and validation effects return through SceneLoadConsumerOutputs and no
-// participant or output is retained by SceneController.
+// Concept: scene loading borrows phase-oriented transaction inputs instead of
+// accepting the process shell's complete owner graph. OF2 removes every
+// interaction and Replay owner from Load: camera, navigation, time, and debug
+// presentation cross as detached values. Reactive owners consume the lifecycle
+// packet after the transaction and no participant or output is retained.
 struct SceneLoadPolicyInputs
 {
     SkullbonezCore::Core::EngineConfig& config;
@@ -147,46 +157,56 @@ struct SceneLoadPolicyInputs
     const RunStartupState& startup;
     Assets::AssetSystem& assets;
     Threading::WorkerPool& workerPool;
-};
-
-struct SceneLoadHostParticipants
-{
-    RunTimerState& timers;
+    // Diagnostics consumes authored automation/physics settings while the
+    // parsed scene is live, so it is the one justified non-target survivor.
     DiagnosticsRuntime& diagnosticsRuntime;
-    SimulationSystem& simulation;
+    const char* rendererName = "unknown";
+    double sceneTimeSeconds = 0.0;
 };
 
 struct SceneLoadInteractionParticipants
 {
-    InputRouter& inputRouter;
-    RuntimeInteractionController& interaction;
-    RunCameraState& camera;
-    AttachedCameraState& attachedCamera;
-    RuntimeTools& runtimeTools;
+    RunCameraState camera;
     SceneLoadNavigationState navigation;
 };
 
 struct SceneLoadPresentationParticipants
 {
-    ReplayRuntime& replayRuntime;
-    RuntimeOverlayDiagnostics& overlays;
-    const RuntimeRenderBackendView& renderBackendView;
+    RunDebugState debug;
+    // Hazard: scene mutation may start only after the DX12 frame is drained;
+    // terrain construction then uses the cold resource builder. No other
+    // backend capability belongs inside the load transaction.
+    Rendering::Dx12FrameOwner* renderFrame = nullptr;
+    Rendering::Dx12ResourceBuilder* renderResources = nullptr;
     RuntimeRenderer& renderer;
+};
+
+struct SceneLoadCompletedWorldChange
+{
+    float previousGravity = 0.0f;
+    float previousFluidHeight = 0.0f;
+    float previousFluidDensity = 0.0f;
+    float gravity = 0.0f;
+    float fluidHeight = 0.0f;
+    float fluidDensity = 0.0f;
 };
 
 struct SceneLoadConsumerOutputs
 {
-    // Value effects are accumulated synchronously and consumed immediately by
-    // the four owners intentionally excluded from the load participant graph.
+    // Concept: only payloads that cannot be reconstructed by an observing
+    // owner remain here. Lifecycle identity, capacity, owner reset policy, and
+    // apply-once state come directly from SceneController or the target owner.
     SceneUiActivation uiActivation;
     SceneAutomationGateConfiguration automationGates;
     SceneLoadNavigationState navigation;
+    RunDebugState presentation;
+    RunCameraState camera;
+    std::array<SceneLoadCompletedWorldChange, 2> completedWorldChanges = {};
+    std::size_t completedWorldChangeCount = 0;
+    SceneRequestBatch completedRequests;
     char windowTitle[256] = {};
-    bool hasWindowTitle = false;
-    bool applyAutomationGates = false;
     bool applyNavigation = false;
     bool refreshSceneBrowser = false;
-    bool resumeGraphicsStress = false;
 
     void ResetForLoad();
 };
@@ -201,6 +221,18 @@ inline const SceneLoadNavigationState& SceneNavigationForFollowingRequest( const
     return outputs.applyNavigation ? outputs.navigation : submitted;
 }
 
+// A later cold action in the same fixed batch must observe authored/debug
+// policy produced by the completed load, even though the overlay owner applies
+// that detached value only after ExecutePending returns.
+inline const RunDebugState& ScenePresentationForFollowingRequest( const RunDebugState& submitted,
+                                                                  const SceneLoadConsumerOutputs& outputs,
+                                                                  const SceneLifecyclePacket& lifecycle )
+{
+    return SceneLifecycleReached( lifecycle.event, SceneRuntimeLifecycleEvent::AfterSceneCleared )
+               ? outputs.presentation
+               : submitted;
+}
+
 // Applies one completed transaction's value effects at the excluded consumer
 // boundaries. Call exactly once after Load/ExecutePending, including failures
 // that progressed past scene clearing and therefore emitted reset effects.
@@ -208,7 +240,18 @@ void ApplySceneLoadConsumerOutputs( SceneLoadConsumerOutputs& outputs,
                                     Window& window,
                                     UI::InGameUI& operatorUi,
                                     RuntimeValidationHarness& validationHarness,
-                                    const RunLaunchOptions& launchOptions );
+                                    const RunLaunchOptions& launchOptions,
+                                    Rendering::Dx12RenderDevice* renderDevice,
+                                    bool rendererVsyncEnabled,
+                                    RunTimerState& timers,
+                                    RuntimeOverlayDiagnostics& overlays,
+                                    SceneController& sceneController,
+                                    InputRouter& inputRouter,
+                                    RuntimeInteractionController& interaction,
+                                    RunCameraState& camera,
+                                    AttachedCameraController& attachedCamera,
+                                    RuntimeTools& runtimeTools,
+                                    ReplayRuntime& replayRuntime );
 
 class SceneController
 {
@@ -244,8 +287,10 @@ class SceneController
     int NextIndex() const;
     const std::vector<std::string>& Queue() const;
 
+    void BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy );
     void BeginLoad( int index );
     void RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, SceneLifecycleConsumerMask consumers );
+    const SceneLifecyclePacket& LifecyclePacket() const;
     void MarkManualReset();
     int FindNormalizedPath( const std::string& normalizedPath ) const;
     int FindGeneratedDemo() const;
@@ -260,14 +305,12 @@ class SceneController
     // the scene boundary.
     SkullbonezCore::Core::SbResult Load( const SceneLoadRequest& request,
                                          const SceneLoadPolicyInputs& policy,
-                                         const SceneLoadHostParticipants& host,
                                          const SceneLoadInteractionParticipants& interaction,
                                          const SceneLoadPresentationParticipants& presentation,
                                          SceneLoadConsumerOutputs& consumerOutputs );
     // Executes the fixed pending batch inside the scene owner. Replay records
     // only requests whose load/create/save operation completes successfully.
     bool ExecutePending( const SceneLoadPolicyInputs& policy,
-                         const SceneLoadHostParticipants& host,
                          const SceneLoadInteractionParticipants& interaction,
                          const SceneLoadPresentationParticipants& presentation,
                          SceneLoadConsumerOutputs& consumerOutputs );

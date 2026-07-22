@@ -32,6 +32,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/RuntimeInteractionController.h"
 #include "../SkullbonezSource/Runtime/Scene/SceneController.h"
 
@@ -446,7 +447,7 @@ TEST_CASE( "Replay event recorder: chronological cursor survives bounded ring wr
     SkullbonezCore::Core::MainMemoryReplayCategoryBytes categories;
     recorder.CollectMemoryCategoryBytes( categories );
     std::vector<ReplayEventSample> events;
-    recorder.CopyEventsChronological( events );
+    ReplayArtifactSource::MaterializeEvents( recorder, events );
     REQUIRE( events.size() == 64u );
     CHECK( events.front().frameIndex == 2u );
     CHECK( events.front().sequence == 2u );
@@ -461,7 +462,7 @@ TEST_CASE( "Replay event recorder: chronological cursor survives bounded ring wr
     recorder.ResetTimeline( "new-scene" );
     CHECK( recorder.GetStats().eventCount == 0u );
     CHECK( recorder.GetStats().nextSequence == 0u );
-    recorder.CopyEventsChronological( events );
+    ReplayArtifactSource::MaterializeEvents( recorder, events );
     CHECK( events.empty() );
 }
 

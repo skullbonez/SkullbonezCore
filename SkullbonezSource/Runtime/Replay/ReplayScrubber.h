@@ -23,6 +23,7 @@ Related:
 #pragma once
 
 #include "ReplayRecorder.h"
+#include "ReplayTimelinePackets.h"
 #include "../RuntimeInteractionController.h"
 
 #include <algorithm>
@@ -35,55 +36,6 @@ namespace SkullbonezCore
 {
 namespace Runtime
 {
-inline constexpr float REPLAY_SCRUBBER_LIVE_THRESHOLD = 0.995f;
-inline constexpr float REPLAY_SCRUBBER_PRESENT_EPSILON = 0.0035f;
-
-namespace ReplayScrubberOperations
-{
-inline bool ReplayTimelineHasFuture( float presentT ) noexcept
-{
-    return presentT < REPLAY_SCRUBBER_LIVE_THRESHOLD;
-}
-
-inline bool ReplayAtPresentTrackPosition( float position, float presentT ) noexcept
-{
-    if ( !ReplayTimelineHasFuture( presentT ) )
-    {
-        return position >= REPLAY_SCRUBBER_LIVE_THRESHOLD;
-    }
-    return std::fabs( position - presentT ) <= REPLAY_SCRUBBER_PRESENT_EPSILON;
-}
-
-inline bool ReplayTrackPositionIsFuture( float position, float presentT ) noexcept
-{
-    return ReplayTimelineHasFuture( presentT ) && position > presentT + REPLAY_SCRUBBER_PRESENT_EPSILON;
-}
-
-inline float ReplaySolverNormalizedFromTrack( float position, float presentT ) noexcept
-{
-    if ( !ReplayTimelineHasFuture( presentT ) )
-    {
-        return std::clamp( position, 0.0f, 1.0f );
-    }
-    return std::clamp( position / (std::max)( presentT, 0.0001f ), 0.0f, 1.0f );
-}
-
-inline float ReplayPredictionNormalizedFromTrack( float position, float presentT ) noexcept
-{
-    if ( !ReplayTimelineHasFuture( presentT ) )
-    {
-        return 0.0f;
-    }
-    return std::clamp( ( position - presentT ) / ( 1.0f - presentT ), 0.0f, 1.0f );
-}
-} // namespace ReplayScrubberOperations
-
-enum class RunReplayTrack
-{
-    Presentation,
-    Solver
-};
-
 // Semantic scrubber actions are owner vocabulary, not screen-layout policy.
 // The layout publishes action ids; ReplayScrubber resolves one action from the
 // current pointer/frame values before the composition root applies cross-owner
@@ -122,27 +74,6 @@ struct RunReplayScrubberState
     double visibleUntil = 0.0;
     double fadeUpdatedAt = 0.0;                            // Last scrubber opacity update in runtime seconds.
     float visibleAlpha = 0.0f;                             // 0 = hidden, 1 = fully faded in.
-    double saveMessageUntil = 0.0;
-    char saveMessage[96] = {};
-};
-
-// Value-only publication for input, render, and validation consumers. Mutating
-// this copy cannot move the retained replay cursor or alter restore/fade state.
-struct ReplayScrubberView
-{
-    bool visible = false;
-    bool historicalSamplePaused = false;
-    bool liveAdvanceHeld = false;
-    bool restoreConsumedThisFrame = false;
-    RunReplayTrack activeTrack = RunReplayTrack::Solver;
-    RunReplayTrack saveMessageTrack = RunReplayTrack::Solver;
-    float position = 1.0f;
-    float presentationPosition = 1.0f;
-    float solverPosition = 1.0f;
-    int mouseX = 0;
-    int mouseY = 0;
-    double visibleUntil = 0.0;
-    float visibleAlpha = 0.0f;
     double saveMessageUntil = 0.0;
     char saveMessage[96] = {};
 };

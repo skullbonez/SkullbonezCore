@@ -95,7 +95,8 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
         return;
     }
     const ReplayScrubberView& scrubber = context.scrubber;
-    Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
+    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
+    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
     // Why: the cause tree is an inspection tool, not a child of the scrubber.
     // Draw it even when the scrubber itself is hidden by UI/editor policy.
     RenderReplayCauseTreeOverlay( textBatch, context );
@@ -196,7 +197,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
         sprintf_s( timeLabel, sizeof( timeLabel ), "-%.1fs", secondsBack );
     }
 
-    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
+    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
     const UI::UIRect panel = control( ReplayScrubberControl::Panel ).drawRect;
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
@@ -530,7 +531,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
     if ( loadedPresentation )
     {
         Text2d::FlushQuads( textBatch, renderCommands );
-        Text2d::FlushText( textBatch, renderCommands );
+        Text2d::FlushText( textBatch, renderTextures, renderCommands );
         return;
     }
 
@@ -821,7 +822,7 @@ void RenderReplayScrubberOverlay( Text::TextBatch& textBatch, const ReplayOverla
     }
 
     Text2d::FlushQuads( textBatch, renderCommands );
-    Text2d::FlushText( textBatch, renderCommands );
+    Text2d::FlushText( textBatch, renderTextures, renderCommands );
 }
 
 void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverlayRenderContext& context )
@@ -831,7 +832,8 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
     {
         return;
     }
-    Rendering::IRenderCommandContext& renderCommands = context.renderCommands;
+    Rendering::Dx12TextureOwner& renderTextures = context.renderTextures;
+    Rendering::Dx12GeometryOwner& renderCommands = context.renderCommands;
     const int screenW = context.screenW;
     const int screenH = context.screenH;
     if ( screenW <= 0 || screenH <= 0 || context.causeTree.rows.empty() )
@@ -860,7 +862,7 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
     const UI::UIRect content = controlRect( ReplayCauseWindowControl::Content );
     const UI::UIRect resize = controlRect( ReplayCauseWindowControl::Resize );
 
-    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderCommands, &textBatch );
+    const UI::UIDrawContext draw( screenW, screenH, nullptr, &renderTextures, &renderCommands, &textBatch );
     const UI::Style::UIPalette& palette = UI::Style::Palette();
     const UI::Style::UIRadii& radii = UI::Style::Radii();
     UI::Style::UIColor panelFill = palette.windowSubtle;
@@ -1157,6 +1159,6 @@ void RenderReplayCauseTreeOverlay( Text::TextBatch& textBatch, const ReplayOverl
                0.68f );
 
     Text2d::FlushQuads( textBatch, renderCommands );
-    Text2d::FlushText( textBatch, renderCommands );
+    Text2d::FlushText( textBatch, renderTextures, renderCommands );
 }
 } // namespace SkullbonezCore::Runtime::ReplayOverlay

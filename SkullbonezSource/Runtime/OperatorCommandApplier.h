@@ -58,7 +58,7 @@ class WorkerPool;
 }
 namespace Rendering
 {
-class IRenderDeviceLifecycle;
+class Dx12RenderDevice;
 }
 namespace Runtime
 {
@@ -202,9 +202,9 @@ struct RunCameraModeUICommandResult
 struct RenderDeviceUICommandContext
 {
     // Lifetime: borrowed only while one renderer command packet is applied. The
-    // lifecycle pointer may be null while backend resources are not active.
+    // device pointer may be null while backend resources are not active.
     RuntimeRenderer& renderer;
-    Rendering::IRenderDeviceLifecycle* deviceLifecycle = nullptr;
+    Rendering::Dx12RenderDevice* renderDevice = nullptr;
 };
 
 struct SceneFixedStepUICommandContext

@@ -14,8 +14,8 @@ Glossary:
     operator intent.
   Scene view: Scene mutation owners and the shell policy that controls them.
   Presentation view: Render and validation owners used to submit a frame.
-  UI text facts: Scalar snapshots and synchronous borrows selected after
-    simulation for the late UI pass.
+  UI text facts: Value snapshots selected after simulation for the late UI
+    pass. Stable label pointers name static owner vocabulary.
 
 Invariants:
   - Every capability member is a reference; no view owns subsystem state.
@@ -53,7 +53,6 @@ class WorkerPool;
 namespace UI
 {
 class InGameUI;
-struct OperatorEditorFrameView;
 } // namespace UI
 namespace Runtime
 {
@@ -75,7 +74,8 @@ struct RunDebugState;
 struct RunLaunchOptions;
 struct RunStartupState;
 struct RunTimerState;
-struct RuntimeInteractionGesture;
+enum class RuntimeGizmoDragKind;
+enum class RuntimeInteractionGestureKind;
 struct RuntimeRenderBackendView;
 
 // Lifetime: process services are borrowed synchronously for platform and
@@ -183,43 +183,21 @@ struct RuntimeFramePresentationView
     RuntimeFramePresentationView& operator=( const RuntimeFramePresentationView& ) = delete;
 };
 
-// Scalar snapshots plus explicitly borrowed label/gesture data selected for one
-// late UI pass. The pointer/reference fields are consumed synchronously and are
-// never described as owned values.
+// Value snapshots selected for one late UI pass. Label pointers name stable
+// owner vocabulary; mutable output storage is a separate Render parameter and
+// is deliberately not hidden inside this facts record.
 struct RuntimeUiTextFrameFacts
 {
     uint32_t cameraModeEnabledMask = 0u;
     const char* cameraModeLabel = nullptr;
     const char* launcherFireModeLabel = nullptr;
     bool isLauncherCameraMode = false;
-    const RuntimeInteractionGesture& interactionGesture;
+    RuntimeInteractionGestureKind interactionGestureKind{};
+    RuntimeGizmoDragKind interactionGizmoKind{};
     float presentationAlpha = 0.0f;
     bool presentationPinned = false;
     double secondsPerFrame = 0.0;
     bool legacyDevelopmentUiActive = true;
-    // Output value populated from concrete owners before either presentation
-    // surface consumes it. The caller owns the storage for this frame.
-    UI::OperatorEditorFrameView& operatorEditorView;
-
-    RuntimeUiTextFrameFacts( uint32_t cameraModeEnabledMaskValue,
-                             const char* cameraModeLabelValue,
-                             const char* launcherFireModeLabelValue,
-                             bool isLauncherCameraModeValue,
-                             const RuntimeInteractionGesture& interactionGestureValue,
-                             float presentationAlphaValue,
-                             bool presentationPinnedValue,
-                             double secondsPerFrameValue,
-                             bool legacyDevelopmentUiActiveValue,
-                             UI::OperatorEditorFrameView& operatorEditorViewValue )
-        : cameraModeEnabledMask( cameraModeEnabledMaskValue ), cameraModeLabel( cameraModeLabelValue ),
-          launcherFireModeLabel( launcherFireModeLabelValue ), isLauncherCameraMode( isLauncherCameraModeValue ),
-          interactionGesture( interactionGestureValue ), presentationAlpha( presentationAlphaValue ),
-          presentationPinned( presentationPinnedValue ), secondsPerFrame( secondsPerFrameValue ),
-          legacyDevelopmentUiActive( legacyDevelopmentUiActiveValue ), operatorEditorView( operatorEditorViewValue )
-    {
-    }
-    RuntimeUiTextFrameFacts( const RuntimeUiTextFrameFacts& ) = delete;
-    RuntimeUiTextFrameFacts& operator=( const RuntimeUiTextFrameFacts& ) = delete;
 };
 } // namespace Runtime
 } // namespace SkullbonezCore

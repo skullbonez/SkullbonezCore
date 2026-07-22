@@ -45,8 +45,8 @@ namespace Runtime
 }
 namespace Rendering
 {
-class IShader;
-class IRenderResourceFactory;
+class ShaderDX12;
+class Dx12ResourceBuilder;
 } // namespace Rendering
 
 namespace Assets
@@ -167,8 +167,8 @@ class AssetSystem
                                                         ShaderProgramContract contract = {} );
     const ShaderSourceAsset* FindShaderSourceAsset( const char* logicalNameOrBaseName ) const;
     const std::vector<ShaderSourceAsset>& GetShaderSourceAssets() const;
-    std::unique_ptr<Rendering::IShader> CreateShader( Rendering::IRenderResourceFactory& renderResources,
-                                                      const char* logicalNameOrBaseName ) const;
+    std::unique_ptr<Rendering::ShaderDX12> CreateShader( Rendering::Dx12ResourceBuilder& renderResources,
+                                                         const char* logicalNameOrBaseName ) const;
 
     const AssetLibrarySourceAsset& RegisterAssetLibrarySourceAsset( const char* logicalName, const char* relativePath );
     const AssetLibrarySourceAsset* FindAssetLibrarySourceAsset( const char* logicalName ) const;

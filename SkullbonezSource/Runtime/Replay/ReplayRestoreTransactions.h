@@ -24,7 +24,6 @@ Related:
 #pragma once
 
 #include "ReplayCoordination.h"
-#include "ReplayRestoreService.h"
 
 namespace SkullbonezCore
 {
@@ -39,13 +38,27 @@ class WorkerPool;
 namespace Runtime
 {
 class DiagnosticsRuntime;
+class RuntimeRenderer;
 class SceneController;
+class SceneWorld;
 class SimulationSystem;
 class RuntimeTools;
 enum class GeneratedObjectTypeOverride;
 struct RunDebugState;
 struct RunSceneState;
 struct RunSceneUIOverrideState;
+struct ReplaySolverSampleRestoreContext
+{
+    // Lifetime: the composition root builds this from live owners for one
+    // restore call. ReplayRuntime applies sampled values synchronously and does
+    // not retain any reference.
+    SceneWorld& world;
+    RunSceneState& scene;
+    RuntimeRenderer& renderer;
+    RunDebugState& debug;
+    RuntimeTools& runtimeTools;
+};
+
 // Lifetime: startup replay loading borrows only interaction/camera owners.
 // Solver, scene-rebuild, and diagnostic owners are intentionally excluded so
 // a normal artifact load cannot gain the debug probe's authority.

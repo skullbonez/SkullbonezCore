@@ -5,9 +5,8 @@
 //   contracts.
 //
 // Summary:
-//   ReplayRecorder is a bounded chronological view over circular storage. The
-//   internal head moves when retention fills, but public reads still return
-//   samples from oldest retained frame to newest retained frame.
+//   ReplayRecorder is bounded circular capture storage. ArtifactIO reconstructs
+//   retained samples from oldest frame to newest without exposing ring state.
 //
 // Glossary:
 //   Retention frame: One captured replay sample kept inside the bounded window.
@@ -15,7 +14,7 @@
 //   Event cursor: Monotonic replay event-stream position copied into samples.
 //
 // Invariants:
-//   - Chronological copy hides internal ring wrap from callers.
+//   - Artifact materialization hides internal ring wrap from callers.
 //   - LatestSample() returns the newest retained frame after wrap.
 //   - ResetTimeline() clears samples and cursors without reallocating capacity.
 //   - Configure() does not pre-reserve body payloads for every future sample.
@@ -29,6 +28,7 @@
 #include "../ThirdPtySource/doctest/doctest.h"
 
 #include "../SkullbonezSource/Runtime/Replay/ReplayRecorder.h"
+#include "../SkullbonezSource/Runtime/Replay/ReplayArtifactSource.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayCoordination.h"
 #include "../SkullbonezSource/Runtime/Replay/ReplayRetainedMemory.h"
 
@@ -41,6 +41,7 @@ using SkullbonezCore::Runtime::REPLAY_GROWTH_OWNER_POLICIES;
 using SkullbonezCore::Runtime::REPLAY_PREDICTION_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::REPLAY_RECORDER_SAMPLE_RESERVE_HARD_BYTES;
 using SkullbonezCore::Runtime::REPLAY_RETAINED_OWNERSHIP_RULES;
+using SkullbonezCore::Runtime::ReplayArtifactSource;
 using SkullbonezCore::Runtime::ReplayBodyShapeKind;
 using SkullbonezCore::Runtime::ReplayFrameIndex;
 using SkullbonezCore::Runtime::ReplayGrowthExhaustionRule;
@@ -128,7 +129,7 @@ ReplaySolverFrameSample MakeStableSolverSample( ReplayFrameIndex frameIndex, int
 } // namespace
 
 
-TEST_CASE( "ReplayRecorder: chronological copy hides presentation ring wrap" )
+TEST_CASE( "Replay ArtifactIO: materialization hides presentation ring wrap" )
 {
     ReplayRecorder recorder;
     REQUIRE( recorder.Configure( SmallRecorderConfig() ) );
@@ -153,7 +154,7 @@ TEST_CASE( "ReplayRecorder: chronological copy hides presentation ring wrap" )
     CHECK( stats.latestStateHash == 0xCAFE0000ull + capturedFrames - 1u );
 
     std::vector<ReplayPresentationSample> samples;
-    recorder.CopySamplesChronological( samples );
+    ReplayArtifactSource::MaterializePresentation( recorder, samples );
     REQUIRE( samples.size() == capacity );
     CHECK( samples.front().frameIndex == 2u );
     CHECK( samples.front().eventCursor == 1002u );

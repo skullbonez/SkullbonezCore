@@ -61,14 +61,12 @@ Related:
 #include "../Core/WorkerPool.h"
 #include "InputFrame.h"
 #include "Replay/ReplayRestoreTransactions.h"
-#include "Replay/ReplayOverlayRenderer.h"
-#include "Replay/ReplayRestoreService.h"
+#include "Replay/ReplayOverlayPackets.h"
 #include "DemoDirectorPlayback.h"
 #include "Scene/SceneRuntimeLoad.h"
 
 #include "CaptureSystem.h"
 #include "Editor/EditorTools.h"
-#include "Replay/ReplayV2Artifact.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
 #include "../Core/TracyClientOwner.h"
@@ -87,8 +85,7 @@ Related:
 #include "../Physics/PhysicsDiagnosticsSink.h"
 #include "../Physics/PhysicsTimestep.h"
 #include "../Rendering/RenderInstanceStore.h"
-#include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderDeviceLifecycle.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../UI/UI.h"
 #include "../UI/UITabEditor.h"
 
@@ -139,20 +136,21 @@ float ResolvePresentationAlpha( const SkullbonezCore::Core::EngineConfig& config
 namespace
 {
 
-void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
-                            RuntimeFrameSceneView& sceneOwners,
+// Lifetime: this fixed post-step operation receives only its replay-capture
+// inputs. It cannot reach unrelated frame owners through the root view slices.
+void CaptureReplayPostStep( RuntimeTools& runtimeTools,
+                            SkullbonezCore::Runtime::SceneController& sceneController,
+                            RunTimerState& timers,
+                            const RuntimeOverlayDiagnostics& overlays,
                             ReplayRuntime& replayRuntime,
                             SkullbonezCore::Core::Profiler* profiler )
 {
-    RuntimeTools& runtimeTools = interactionOwners.runtimeTools;
-    SkullbonezCore::Runtime::SceneController& models = sceneOwners.sceneController;
-    const RunSceneState& scene = models.State();
-    RunTimerState& timers = sceneOwners.timers;
-    const RunDebugState debug = sceneOwners.overlays.PresentationSnapshot();
-    SkullbonezCore::Environment::CameraCollection& cameras = models.Scene().Cameras();
-    SkullbonezCore::Environment::WorldEnvironment& world = models.Scene().Environment();
-    PhysicsEngine& physics = models.Scene().Physics();
-    const SceneEntityStore& entities = models.Scene().Entities();
+    const RunSceneState& scene = sceneController.State();
+    const RunDebugState debug = overlays.PresentationSnapshot();
+    SkullbonezCore::Environment::CameraCollection& cameras = sceneController.Scene().Cameras();
+    SkullbonezCore::Environment::WorldEnvironment& world = sceneController.Scene().Environment();
+    PhysicsEngine& physics = sceneController.Scene().Physics();
+    const SceneEntityStore& entities = sceneController.Scene().Entities();
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::Replay );
     PROFILE_SCOPED( profiler, "Frame/Physics/Step/ReplayCapture" );
     ReplayCaptureInput input;
@@ -167,10 +165,10 @@ void CaptureReplayPostStep( RuntimeFrameInteractionView& interactionOwners,
     input.cameras = &cameras;
     input.world = &world;
     input.physics = &physics;
-    input.tornadoGameplay = &models.Scene().Tornado();
+    input.tornadoGameplay = &sceneController.Scene().Tornado();
     input.entities = &entities;
-    input.bodyStore = &models.Scene().BodyStore();
-    input.colliderStore = &models.Scene().Colliders();
+    input.bodyStore = &sceneController.Scene().BodyStore();
+    input.colliderStore = &sceneController.Scene().Colliders();
     replayRuntime.CaptureFrame( input, runtimeTools );
 }
 
@@ -232,20 +230,22 @@ SkullbonezCore::Core::SbResult Run::Execute()
             // Lifetime: borrow the startup-owned renderer once for this frame
             // turn. Narrow facets keep reset, GPU-drain, UI accounting, and
             // present from each reaching through the process-global service.
-            if ( !m_renderBackendView.deviceLifecycle || !m_renderBackendView.renderDiagnostics ||
-                 !m_renderBackendView.renderResources || !m_renderBackendView.renderCommands )
+            if ( !m_renderBackendView.renderDevice || !m_renderBackendView.renderDiagnostics ||
+                 !m_renderBackendView.renderResources || !m_renderBackendView.renderFrame ||
+                 !m_renderBackendView.renderGraph || !m_renderBackendView.renderTextures ||
+                 !m_renderBackendView.renderGeometry )
             {
                 SB_FATAL( "RunFrame", "Run::Execute requires a render backend." );
             }
-            SkullbonezCore::Rendering::IRenderDiagnostics& frameRenderDiagnostics =
-                *m_renderBackendView.renderDiagnostics;
-            SkullbonezCore::Rendering::IRenderDeviceLifecycle& renderLifecycle = *m_renderBackendView.deviceLifecycle;
-            SkullbonezCore::Rendering::IRenderResourceFactory& frameRenderResources =
-                *m_renderBackendView.renderResources;
-            SkullbonezCore::Rendering::IRenderCommandContext& frameRenderCommands = *m_renderBackendView.renderCommands;
+            SkullbonezCore::Rendering::Dx12Diagnostics& frameRenderDiagnostics = *m_renderBackendView.renderDiagnostics;
+            SkullbonezCore::Rendering::Dx12ResourceBuilder& frameRenderResources = *m_renderBackendView.renderResources;
+            SkullbonezCore::Rendering::Dx12FrameOwner& frameRenderOwner = *m_renderBackendView.renderFrame;
+            SkullbonezCore::Rendering::Dx12TextureOwner& frameRenderTextures = *m_renderBackendView.renderTextures;
+            SkullbonezCore::Rendering::Dx12GeometryOwner& frameRenderGeometry = *m_renderBackendView.renderGeometry;
             const SkullbonezCore::UI::UIRenderContext uiRender = { &m_assets,
                                                                    &frameRenderResources,
-                                                                   &frameRenderCommands,
+                                                                   &frameRenderTextures,
+                                                                   &frameRenderGeometry,
                                                                    &frameRenderDiagnostics };
             // Lifetime: the frame views are stack-only borrow maps for this
             // turn. They are never assigned to Run or passed to retained work.
@@ -283,7 +283,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
             const ReplayInputView automationReplayInput = automationReplayView.input;
             const InteractionAutomationFrameResult automationBeforeInput =
                 TickInteractionAutomationBeforeInput( m_interactionAutomation,
-                                                      frameHost,
+                                                      m_window,
                                                       frameInteraction,
                                                       frameScene,
                                                       automationReplayView );
@@ -304,7 +304,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 m_inputRouter.ApplyCameraMode( automationBeforeInput.cameraMode,
                                                RuntimeInputActionSource::Runtime,
                                                frameInteraction,
-                                               frameScene,
+                                               m_sceneController,
                                                m_replayRuntime,
                                                m_inputRouter.RuntimeContext() );
             }
@@ -318,7 +318,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                     automationBeforeInput.worldInteractionOwner,
                     automationBeforeInput.worldInteractionReason,
                     frameInteraction,
-                    frameScene,
+                    m_sceneController,
                     m_replayRuntime,
                     NormalizeRuntimeCameraMode(
                         automationReplayInput.restoreCameraMode,
@@ -438,11 +438,8 @@ SkullbonezCore::Core::SbResult Run::Execute()
             {
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Physics );
-                simulationPresentationAlpha = TickPhysics( secondsPerFrame,
-                                                           frameInteraction,
-                                                           frameScene,
-                                                           capturePresentationPinned,
-                                                           sceneProceedPolicy );
+                simulationPresentationAlpha =
+                    TickPhysics( secondsPerFrame, capturePresentationPinned, sceneProceedPolicy );
             }
 
             {
@@ -488,7 +485,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 {
                     CoreAllocation::RuntimeAllocationScope allocationScope(
                         CoreAllocation::RuntimeAllocationPhase::Render );
-                    finishResult = renderLifecycle.Finish();
+                    finishResult = frameRenderOwner.FinishAndReopen( frameRenderDiagnostics );
                 }
                 PROFILE_END( m_profiler, "Frame/PipelineSync" );
                 if ( !finishResult.ok )
@@ -508,14 +505,14 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Render );
                 DRAW_CALL_TRACE_SCOPE( frameRenderDiagnostics, "Frame/Render" );
-                if ( !m_renderBackendView.renderCommands )
+                if ( !m_renderBackendView.renderGraph )
                 {
                     SB_FATAL( "RunFrame", "A rendered frame requires the startup-bound render command context." );
                 }
                 // Invariant: graph ownership begins before Render can choose
                 // the text-only early return. Every world/UI/capture path below
                 // therefore closes the same current-frame graph exactly once.
-                m_renderer.BeginFrameGraph( *m_renderBackendView.renderCommands );
+                m_renderer.BeginFrameGraph( *m_renderBackendView.renderGraph );
                 Render( renderModels, presentationAlpha );
             }
             PROFILE_END( m_profiler, "Frame/Render" );
@@ -548,12 +545,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
                                                        : RunCameraModeLabel( m_camera.mode ),
                 m_runtimeTools.LauncherFireModeLabel(),
                 RunCameraModeUsesLauncher( m_camera.mode ),
-                m_interaction.Gesture(),
+                m_interaction.Gesture().kind,
+                m_interaction.Gesture().gizmoKind,
                 presentationAlpha,
                 capturePresentationPinned,
                 secondsPerFrame,
-                legacyDevelopmentUiActive,
-                operatorEditorView };
+                legacyDevelopmentUiActive };
             // Lifetime: replay publishes one immutable cause/scrubber view for
             // both the legacy late pass and the development editor. E14 reads
             // its rows directly instead of building a second causality tree.
@@ -567,9 +564,10 @@ SkullbonezCore::Core::SbResult Run::Execute()
             OperatorEditorFrameComposer::Render( frameHost,
                                                  frameInteraction,
                                                  frameScene,
-                                                 framePresentation,
+                                                 m_renderer,
                                                  m_replayRuntime,
                                                  uiTextFacts,
+                                                 operatorEditorView,
                                                  replayOverlay,
                                                  frameRenderDiagnostics,
                                                  uiRender,
@@ -639,7 +637,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 CoreAllocation::RuntimeAllocationScope allocationScope(
                     CoreAllocation::RuntimeAllocationPhase::Capture );
                 m_validationHarness->SavePendingLiveStyleCapture( m_diagnosticsRuntime.Capture(),
-                                                                  m_renderBackendView.RequireCaptureBackend() );
+                                                                  m_renderBackendView.RequireBackbufferCapture() );
             }
             PROFILE_END( m_profiler, "Frame/PostDraw/LiveStyleCapture" );
 
@@ -664,11 +662,11 @@ SkullbonezCore::Core::SbResult Run::Execute()
             const InteractionAutomationFrameResult automationAfterRender =
                 TickInteractionAutomationAfterRender( m_interactionAutomation,
                                                       frameInteraction,
-                                                      frameScene,
+                                                      m_sceneController,
                                                       m_replayRuntime.BuildAutomationView(),
                                                       automationDevelopmentUiView,
                                                       m_diagnosticsRuntime.Capture(),
-                                                      m_renderBackendView.RequireCaptureBackend() );
+                                                      m_renderBackendView.RequireBackbufferCapture() );
             if ( !automationAfterRender.status.ok )
             {
                 m_applicationExit.RequestOwnedFailure( automationAfterRender.status );
@@ -706,7 +704,7 @@ SkullbonezCore::Core::SbResult Run::Execute()
                 // declaration-only Present edge before the swap-chain owner
                 // consumes that edge and submits the frame.
                 m_renderer.FinalizeFrameGraph();
-                presentResult = renderLifecycle.Present();
+                presentResult = frameRenderOwner.Present( frameRenderDiagnostics );
             }
             PROFILE_END( m_profiler, "Frame/VsyncWait" );
             if ( !presentResult.ok )
@@ -749,11 +747,12 @@ SkullbonezCore::Core::SbResult Run::Execute()
 
 
 float Run::TickPhysics( double secondsPerFrame,
-                        RuntimeFrameInteractionView& interactionOwners,
-                        RuntimeFrameSceneView& sceneOwners,
                         bool capturePresentationPinned,
                         const SceneFrameProceedPolicy& proceedPolicy )
 {
+    // Why: simulation pacing is a reactive frame concern. Sampling the ledger
+    // here keeps SimulationSystem out of every cold scene-load call surface.
+    m_simulation.ObserveSceneLifecycle( m_sceneController.LifecyclePacket() );
     const ReplayInputView replayInput = m_replayRuntime.BuildInputView();
     if ( replayInput.scrubPaused )
     {
@@ -834,7 +833,7 @@ float Run::TickPhysics( double secondsPerFrame,
 
             if ( manipulatorPhysics || replayCapture )
             {
-                AfterPhysicsStep( interactionOwners, sceneOwners );
+                AfterPhysicsStep();
             }
         }
         PROFILE_END( m_profiler, "Frame/Physics" );
@@ -877,13 +876,18 @@ float Run::TickPhysics( double secondsPerFrame,
 }
 
 
-void Run::AfterPhysicsStep( RuntimeFrameInteractionView& interactionOwners, RuntimeFrameSceneView& sceneOwners )
+void Run::AfterPhysicsStep()
 {
     m_runtimeTools.RestoreMousePickupAngularVelocity( m_sceneController.Scene(), m_inputRouter, m_interaction );
     const bool replayCaptured = m_replayRuntime.BuildInputView().captureEnabled;
     if ( replayCaptured )
     {
-        CaptureReplayPostStep( interactionOwners, sceneOwners, m_replayRuntime, m_profiler );
+        CaptureReplayPostStep( m_runtimeTools,
+                               m_sceneController,
+                               m_timers,
+                               *m_overlayDiagnostics,
+                               m_replayRuntime,
+                               m_profiler );
     }
 #ifdef _DEBUG
     if ( replayCaptured )
@@ -963,7 +967,7 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                     m_sceneController.State().currentFrame,
                                     m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0,
                                     scenePath ? scenePath->c_str() : nullptr },
-        m_renderBackendView.RequireCaptureBackend() );
+        m_renderBackendView.RequireBackbufferCapture() );
 
     if ( result.restartFrame )
     {
@@ -1033,18 +1037,16 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                                          m_renderDefaults.CinematicBaseline(),
                                                          m_startup,
                                                          m_assets,
-                                                         m_workerPool },
-                                  SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+                                                         m_workerPool,
+                                                         m_diagnosticsRuntime,
+                                                         m_renderBackendView.RendererName(),
+                                                         m_timers.simulationTimer.GetTotalTime() },
                                   SceneLoadInteractionParticipants{
-                                      m_inputRouter,
-                                      m_interaction,
                                       m_camera,
-                                      m_attachedCamera.State(),
-                                      m_runtimeTools,
                                       CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-                                  SceneLoadPresentationParticipants{ m_replayRuntime,
-                                                                     *m_overlayDiagnostics,
-                                                                     m_renderBackendView,
+                                  SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
+                                                                     m_renderBackendView.renderFrame,
+                                                                     m_renderBackendView.renderResources,
                                                                      m_renderer },
                                   sceneLoadOutputs )
                            .ok;
@@ -1052,7 +1054,18 @@ bool Run::TickScreenshots( const SceneFrameProceedPolicy& proceedPolicy )
                                            m_window,
                                            *m_operatorUi,
                                            *m_validationHarness,
-                                           m_launchOptions );
+                                           m_launchOptions,
+                                           m_renderBackendView.renderDevice,
+                                           m_renderer.VsyncEnabled(),
+                                           m_timers,
+                                           *m_overlayDiagnostics,
+                                           m_sceneController,
+                                           m_inputRouter,
+                                           m_interaction,
+                                           m_camera,
+                                           m_attachedCamera,
+                                           m_runtimeTools,
+                                           m_replayRuntime );
         }
         if ( !advanced )
         {
@@ -1093,7 +1106,7 @@ void Run::TickAutoCycle( const SceneFrameProceedPolicy& proceedPolicy )
                                                       m_camera.autoCycleAccum,
                                                       m_camera.autoCycleShotsTaken,
                                                       m_camera.trackBallRow.value,
-                                                      m_renderBackendView.RequireCaptureBackend() );
+                                                      m_renderBackendView.RequireBackbufferCapture() );
 
     if ( !result.captureResult.ok )
     {
@@ -1170,18 +1183,16 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                                           m_renderDefaults.CinematicBaseline(),
                                                           m_startup,
                                                           m_assets,
-                                                          m_workerPool },
-                                   SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+                                                          m_workerPool,
+                                                          m_diagnosticsRuntime,
+                                                          m_renderBackendView.RendererName(),
+                                                          m_timers.simulationTimer.GetTotalTime() },
                                    SceneLoadInteractionParticipants{
-                                       m_inputRouter,
-                                       m_interaction,
                                        m_camera,
-                                       m_attachedCamera.State(),
-                                       m_runtimeTools,
                                        CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-                                   SceneLoadPresentationParticipants{ m_replayRuntime,
-                                                                      *m_overlayDiagnostics,
-                                                                      m_renderBackendView,
+                                   SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
+                                                                      m_renderBackendView.renderFrame,
+                                                                      m_renderBackendView.renderResources,
                                                                       m_renderer },
                                    sceneLoadOutputs )
                             .ok;
@@ -1189,7 +1200,18 @@ bool Run::TickSceneAdvance( const SceneFrameProceedPolicy& proceedPolicy )
                                        m_window,
                                        *m_operatorUi,
                                        *m_validationHarness,
-                                       m_launchOptions );
+                                       m_launchOptions,
+                                       m_renderBackendView.renderDevice,
+                                       m_renderer.VsyncEnabled(),
+                                       m_timers,
+                                       *m_overlayDiagnostics,
+                                       m_sceneController,
+                                       m_inputRouter,
+                                       m_interaction,
+                                       m_camera,
+                                       m_attachedCamera,
+                                       m_runtimeTools,
+                                       m_replayRuntime );
     }
     if ( loadSucceeded && result.restartSimulationTimerAfterLoad )
     {

@@ -96,8 +96,9 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
         m_overlayDiagnostics->BuildFramePolicy( m_timers.simulationTimer.GetTimeSinceLastStart(),
                                                 m_timers.simulationTimer.GetTotalTime() );
 
-    const bool renderReady = m_renderBackendView.renderCommands && m_renderBackendView.renderResources &&
-                             m_renderBackendView.renderDiagnostics;
+    const bool renderReady = m_renderBackendView.renderFrame && m_renderBackendView.renderGraph &&
+                             m_renderBackendView.renderResources && m_renderBackendView.renderTextures &&
+                             m_renderBackendView.renderGeometry && m_renderBackendView.renderDiagnostics;
     if ( !renderReady )
     {
         m_replayRuntime.CancelRenderFrame( m_runtimeTools );
@@ -164,8 +165,7 @@ void Run::Render( const RuntimeRenderModelFrameView& renderModels, float present
     // construction. Steady rendering receives no allocation-phase exemption.
     worldExtension = m_sceneController.Scene().Tornado().PrepareVisualFrame( visualTime );
     const bool replaySubmissionRendered =
-        m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ m_renderBackendView,
-                                                                         renderModels,
+        m_renderer.RenderFrameEntry( RuntimeRenderer::FrameEntryContext{ renderModels,
                                                                          *m_operatorUi,
                                                                          framePolicy,
                                                                          replayOverlay,

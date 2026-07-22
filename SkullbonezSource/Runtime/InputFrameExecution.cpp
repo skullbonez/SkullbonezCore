@@ -49,8 +49,6 @@ Related:
 #include "Editor/EditorTools.h"
 #include "InputController.Bindings.h"
 #include "InputController.h"
-#include "Replay/ReplayOverlayLayout.h"
-#include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
 #include "DemoDirectorPlayback.h"
 #include "RenderDefaultsStore.h"
@@ -73,8 +71,9 @@ Related:
 #include "../Physics/PhysicsBodyStore.h"
 #include "SimulationSystem.h"
 #include "../UI/UI.h"
-#include "../Rendering/IRenderDiagnostics.h"
-#include "../Rendering/IRenderShaderDevelopment.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
+#include "../Rendering/DX12/Dx12BackbufferCapture.h"
+#include "../Rendering/DX12/Dx12ShaderDevelopment.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../UI/UILayout.h"
 
@@ -169,7 +168,8 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             host,
             interactionOwners,
             sceneOwners,
-            presentationOwners,
+            m_renderBackendView,
+            m_renderer,
             m_replayRuntime,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ) );
         presentationEdit.Refresh();
@@ -182,13 +182,13 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         {
             return false;
         }
-        Rendering::IRenderCaptureBackend* captureBackend = m_renderBackendView.captureBackend;
-        if ( !captureBackend )
+        Rendering::Dx12BackbufferCapture* backbufferCapture = m_renderBackendView.backbufferCapture;
+        if ( !backbufferCapture )
         {
-            // Lane F: startup binds this facet before input can submit capture work.
-            SB_FATAL( "Runtime/CaptureController", "Queued screenshot requires an active capture backend" );
+            // Lane F: startup binds this owner before input can submit capture work.
+            SB_FATAL( "Runtime/CaptureController", "Queued screenshot requires an active DX12 capture owner" );
         }
-        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( *captureBackend );
+        const CaptureRequestBatchResult batch = capture.DrainScreenshotRequests( *backbufferCapture );
         if ( !batch.status.ok )
         {
             std::fprintf( stderr, "%s: %s\n", batch.status.error.owner, batch.status.error.message );
@@ -331,7 +331,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         m_inputRouter.RequestCursorVisible( true );
         m_inputRouter.DeferPointerPresentationCommit();
     }
-    if ( m_inputRouter.HandleUnfocusedFrame( interactionOwners, sceneOwners, m_replayRuntime, m_runtimeInput ) )
+    if ( m_inputRouter.HandleUnfocusedFrame( interactionOwners, m_sceneController, m_replayRuntime, m_runtimeInput ) )
     {
         const SkullbonezCore::Core::SbResult stressResult = RunUIStressActions();
         if ( !stressResult.ok )
@@ -369,7 +369,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             placementMode.worldOwner,
             InteractionExitReason::EnterEdit,
             interactionOwners,
-            sceneOwners,
+            m_sceneController,
             m_replayRuntime,
             NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ) );
         if ( m_inputRouter.ReleasePointerToUi(
@@ -432,18 +432,16 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                               m_renderDefaults.CinematicBaseline(),
                                               m_startup,
                                               m_assets,
-                                              m_workerPool },
-                       SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
+                                              m_workerPool,
+                                              m_diagnosticsRuntime,
+                                              m_renderBackendView.RendererName(),
+                                              m_timers.simulationTimer.GetTotalTime() },
                        SceneLoadInteractionParticipants{
-                           m_inputRouter,
-                           m_interaction,
                            m_camera,
-                           m_attachedCamera.State(),
-                           m_runtimeTools,
                            CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) },
-                       SceneLoadPresentationParticipants{ m_replayRuntime,
-                                                          sceneOwners.overlays,
-                                                          m_renderBackendView,
+                       SceneLoadPresentationParticipants{ m_debug,
+                                                          m_renderBackendView.renderFrame,
+                                                          m_renderBackendView.renderResources,
                                                           m_renderer },
                        sceneLoadOutputs )
                 .ok;
@@ -451,7 +449,18 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                        m_window,
                                        interactionOwners.operatorUi,
                                        m_validationHarness,
-                                       m_launchOptions );
+                                       m_launchOptions,
+                                       m_renderBackendView.renderDevice,
+                                       m_renderer.VsyncEnabled(),
+                                       m_timers,
+                                       sceneOwners.overlays,
+                                       m_sceneController,
+                                       m_inputRouter,
+                                       m_interaction,
+                                       m_camera,
+                                       m_attachedCamera,
+                                       m_runtimeTools,
+                                       m_replayRuntime );
         presentationEdit.Refresh();
         return loaded;
     };
@@ -512,7 +521,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
             }
             break;
         case RuntimeInputAction::CycleCameraMode:
-            m_inputRouter.CycleCameraMode( interactionOwners, sceneOwners, m_replayRuntime, m_runtimeInput );
+            m_inputRouter.CycleCameraMode( interactionOwners, m_sceneController, m_replayRuntime, m_runtimeInput );
             break;
         case RuntimeInputAction::ToggleFlyCamera:
         {
@@ -521,7 +530,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 m_camera.mode == RunCameraMode::Inspect ? passiveMode : RunCameraMode::Inspect,
                 event.source,
                 interactionOwners,
-                sceneOwners,
+                m_sceneController,
                 m_replayRuntime,
                 m_runtimeInput );
             break;
@@ -532,7 +541,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 m_inputRouter.ApplyCameraMode( m_camera.modeBeforeLauncher,
                                                event.source,
                                                interactionOwners,
-                                               sceneOwners,
+                                               m_sceneController,
                                                m_replayRuntime,
                                                m_runtimeInput );
             }
@@ -543,7 +552,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 m_inputRouter.ApplyCameraMode( RunCameraMode::Launcher,
                                                event.source,
                                                interactionOwners,
-                                               sceneOwners,
+                                               m_sceneController,
                                                m_replayRuntime,
                                                m_runtimeInput );
             }
@@ -872,7 +881,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                 velocityEditResult.worldOwner,
                 InteractionExitReason::EnterReplay,
                 interactionOwners,
-                sceneOwners,
+                m_sceneController,
                 m_replayRuntime,
                 NormalizeCameraModeForCurrentScene( m_replayRuntime.BuildInputView().restoreCameraMode ) );
         }
@@ -891,8 +900,13 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
         externalUiCapture,
         externalEditorCommands,
         legacyDevelopmentUiActive };
-    RuntimeUIFrameResult uiFrameResult =
-        BeginRuntimeUIFrame( host, interactionOwners, sceneOwners, m_replayRuntime, replayPointerRay, uiSamplingFacts );
+    RuntimeUIFrameResult uiFrameResult = BeginRuntimeUIFrame( m_window,
+                                                              interactionOwners,
+                                                              m_timers,
+                                                              m_sceneController,
+                                                              m_replayRuntime,
+                                                              replayPointerRay,
+                                                              uiSamplingFacts );
     if ( uiFrameResult.frameActive )
     {
         if ( uiFrameResult.enterInteractiveScene )
@@ -905,9 +919,10 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                                          { uiFrameResult.commands.ui.userInteracted,
                                                                            m_timers.simulationTimer.GetTotalTime(),
                                                                            legacyDevelopmentUiActive },
-                                                                         host,
+                                                                         m_diagnosticsRuntime,
                                                                          interactionOwners,
-                                                                         sceneOwners,
+                                                                         m_sceneController,
+                                                                         sceneOwners.overlays,
                                                                          m_replayRuntime.BuildInputView() );
         presentationEdit.Refresh();
         if ( quitRequested )
@@ -940,7 +955,7 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     }
     uiFrameResult = FinishRuntimeUIFramePointer( uiFrameResult,
                                                  interactionOwners,
-                                                 sceneOwners,
+                                                 m_sceneController,
                                                  m_replayRuntime,
                                                  NormalizeCameraModeForCurrentScene( m_camera.mode ) );
     if ( uiFrameResult.enterInteractiveScene )
@@ -1048,9 +1063,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     pointerInput.cameraView = m_sceneController.Scene().Cameras().GetCameraView();
     const RuntimePointerRouteResult pointerResult =
         m_inputRouter.RouteRuntimePointer( pointerInput,
-                                           host,
+                                           m_assets,
                                            interactionOwners,
-                                           sceneOwners,
+                                           m_sceneController,
                                            m_replayRuntime,
                                            NormalizeCameraModeForCurrentScene( replayInput.restoreCameraMode ) );
     if ( pointerResult.enteredInteractiveScene )
@@ -1081,9 +1096,9 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
     else
     {
         m_inputRouter.DispatchCaptureActions( m_inputActions,
-                                              host,
+                                              m_diagnosticsRuntime,
                                               interactionOwners,
-                                              sceneOwners,
+                                              m_sceneController,
                                               m_replayRuntime.BuildInputView() );
         const RuntimeInteractionFramePolicy inputPolicy = m_interaction.BuildFramePolicy( inputSnapshot.frameInput );
         const bool mouseOwnsCursor = EvaluateRuntimePointerPresentation( m_inputRouter,
@@ -1125,22 +1140,19 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                                  m_renderDefaults.CinematicBaseline(),
                                                  m_startup,
                                                  m_assets,
-                                                 m_workerPool };
-    const SceneLoadHostParticipants sceneLoadHost{ m_timers, m_diagnosticsRuntime, m_simulation };
+                                                 m_workerPool,
+                                                 m_diagnosticsRuntime,
+                                                 m_renderBackendView.RendererName(),
+                                                 m_timers.simulationTimer.GetTotalTime() };
     const SceneLoadInteractionParticipants sceneLoadInteraction{
-        m_inputRouter,
-        m_interaction,
         m_camera,
-        m_attachedCamera.State(),
-        m_runtimeTools,
         CaptureSceneLoadNavigationState( interactionOwners.operatorUi.SceneNavigation() ) };
-    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_replayRuntime,
-                                                                   sceneOwners.overlays,
-                                                                   m_renderBackendView,
+    const SceneLoadPresentationParticipants sceneLoadPresentation{ m_debug,
+                                                                   m_renderBackendView.renderFrame,
+                                                                   m_renderBackendView.renderResources,
                                                                    m_renderer };
     SceneLoadConsumerOutputs sceneLoadOutputs;
     const bool processedScene = m_sceneController.ExecutePending( sceneLoadPolicy,
-                                                                  sceneLoadHost,
                                                                   sceneLoadInteraction,
                                                                   sceneLoadPresentation,
                                                                   sceneLoadOutputs );
@@ -1148,7 +1160,18 @@ SkullbonezCore::Runtime::ProcessInputFrame( RuntimeFrameHostView& host,
                                    m_window,
                                    interactionOwners.operatorUi,
                                    m_validationHarness,
-                                   m_launchOptions );
+                                   m_launchOptions,
+                                   m_renderBackendView.renderDevice,
+                                   m_renderer.VsyncEnabled(),
+                                   m_timers,
+                                   sceneOwners.overlays,
+                                   m_sceneController,
+                                   m_inputRouter,
+                                   m_interaction,
+                                   m_camera,
+                                   m_attachedCamera,
+                                   m_runtimeTools,
+                                   m_replayRuntime );
     presentationEdit.Refresh();
     if ( processedCapture || processedDefaults || processedScene )
     {

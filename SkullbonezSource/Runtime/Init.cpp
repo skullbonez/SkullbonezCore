@@ -145,15 +145,19 @@ SkullbonezCore::Core::SbResult InitRenderBackend( Window* window,
     }
 
     // Lifetime: the process bootstrap owns the backend unique_ptr. Runtime
-    // render code keeps borrowed capability facets in RuntimeRenderBackendView
-    // and must let them die before shutdown resets the owner.
-    renderBackendView.deviceLifecycle = renderBackend;
-    renderBackendView.renderCommands = renderBackend;
-    renderBackendView.renderResources = renderBackend;
-    renderBackendView.renderDiagnostics = renderBackend;
-    renderBackendView.captureBackend = renderBackend;
-    renderBackendView.rayTracingBackend = renderBackend;
-    renderBackendView.shaderDevelopment = renderBackend;
+    // render code keeps concrete device/frame/graph/resource owners in
+    // RuntimeRenderBackendView and must release every borrow before shutdown
+    // resets the backend.
+    renderBackendView.renderDevice = &renderBackend->RenderDevice();
+    renderBackendView.renderFrame = &renderBackend->Frame();
+    renderBackendView.renderGraph = &renderBackend->GraphTransients();
+    renderBackendView.renderResources = &renderBackend->ResourceBuilder();
+    renderBackendView.renderTextures = &renderBackend->Textures();
+    renderBackendView.renderGeometry = &renderBackend->Geometry();
+    renderBackendView.renderDiagnostics = &renderBackend->Diagnostics();
+    renderBackendView.backbufferCapture = &renderBackend->BackbufferCapture();
+    renderBackendView.raytracing = &renderBackend->Raytracing();
+    renderBackendView.shaderDevelopment = &renderBackend->ShaderDevelopment();
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
     renderBackendView.developmentUiRenderer = &renderBackend->DevelopmentUiRenderer();
 #endif
@@ -273,7 +277,7 @@ void CleanupWindow( Window* window, HINSTANCE hInstance, std::unique_ptr<RenderB
         SkullbonezCore::Hardware::Input::UnbindCallbackBridge( windowHandle );
     }
     SkullbonezCore::Hardware::Input::UnbindWindow( *window );
-    window->SetResizeRenderLifecycle( nullptr );
+    window->SetResizeRenderFrameOwner( nullptr );
     renderBackend.reset();
 
     window->ReleaseDeviceContext();
@@ -416,7 +420,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
         CoUninitialize();
         return 1;
     }
-    window->SetResizeRenderLifecycle( renderBackendView.deviceLifecycle );
+    window->SetResizeRenderFrameOwner( renderBackendView.renderFrame );
     const SkullbonezCore::Core::SbResult initialResizeResult = window->HandleScreenResize();
     if ( !initialResizeResult.ok )
     {

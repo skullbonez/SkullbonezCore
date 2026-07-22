@@ -33,10 +33,7 @@ Related:
 #include "InputFrame.h"
 #include "Window.h"
 #include "../Core/WindowConstants.h"
-#include "Replay/ReplayOverlayLayout.h"
-#include "Replay/ReplayRestoreService.h"
 #include "Replay/ReplayRestoreTransactions.h"
-#include "Replay/ReplayV2Artifact.h"
 #include "RuntimeFileWriter.h"
 #include "../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../Core/Allocation/RuntimeReserveAllocator.h"
@@ -46,7 +43,7 @@ Related:
 #include "../Core/FatalError.h"
 #include "../Core/Log.h"
 #include "../Physics/PhysicsTimestep.h"
-#include "../Rendering/IRenderDiagnostics.h"
+#include "../Rendering/DX12/Dx12Diagnostics.h"
 #include "../UI/UI.h"
 #include "../World/Terrain.h"
 
@@ -67,7 +64,6 @@ using SkullbonezCore::GameObjects::SceneSnapshotWriter;
 using SkullbonezCore::Geometry::Terrain;
 using SkullbonezCore::Geometry::XZBounds;
 using SkullbonezCore::UI::InGameUITab;
-using namespace SkullbonezCore::Runtime::ReplayOverlay;
 namespace CoreAllocation = SkullbonezCore::Core::Allocation;
 
 namespace
@@ -262,7 +258,14 @@ Run::Run( Window& window,
       m_operatorUi( CreateOperatorUiForStartup( profiler ) ),
       m_overlayDiagnostics( RuntimeOverlayDiagnostics::CreateForStartup( profiler ) ),
       m_validationHarness( RuntimeValidationHarness::CreateForStartup() ), m_renderBackendView( renderBackendView ),
-      m_renderer( m_renderBackendView,
+      m_renderer( m_renderBackendView.renderDevice,
+                  m_renderBackendView.renderFrame,
+                  m_renderBackendView.renderGraph,
+                  m_renderBackendView.renderResources,
+                  m_renderBackendView.renderTextures,
+                  m_renderBackendView.renderGeometry,
+                  m_renderBackendView.renderDiagnostics,
+                  m_renderBackendView.raytracing,
                   RenderWorldView{ m_assets,
                                    m_sceneController.Scene().Cameras(),
                                    m_sceneController.Scene().Terrain(),
@@ -353,8 +356,10 @@ Run::~Run()
     // its first release so no owner can destroy resources after a failed wait.
     const SkullbonezCore::Core::SbResult releaseResult = m_renderer.ReleaseBackendOwnedRuntimeResources(
         RuntimeRenderer::BackendResourceReleaseContext{ "shutdown_release",
-                                                        m_renderBackendView.deviceLifecycle,
+                                                        m_renderBackendView.renderFrame,
                                                         m_renderBackendView.renderResources,
+                                                        m_renderBackendView.renderTextures,
+                                                        m_renderBackendView.renderGeometry,
                                                         *m_operatorUi,
                                                         m_runtimeTools } );
     if ( !releaseResult.ok )
@@ -485,11 +490,15 @@ void Run::Initialise()
     }
 
     assert( m_renderBackendView.renderResources && "Run requires render resources before Initialise()" );
-    assert( m_renderBackendView.renderCommands && "Run requires render commands before Initialise()" );
+    assert( m_renderBackendView.renderTextures && "Run requires render textures before Initialise()" );
+    assert( m_renderBackendView.renderGeometry && "Run requires render geometry before Initialise()" );
+    assert( m_renderBackendView.renderFrame && m_renderBackendView.renderGraph &&
+            "Run requires frame and graph owners before Initialise()" );
     assert( m_renderBackendView.renderDiagnostics && "Run requires render diagnostics before Initialise()" );
     auto& renderResources = *m_renderBackendView.renderResources;
-    auto& renderCommands = *m_renderBackendView.renderCommands;
-    const SkullbonezCore::Rendering::IRenderDiagnostics& renderDiagnostics = *m_renderBackendView.renderDiagnostics;
+    auto& renderTextures = *m_renderBackendView.renderTextures;
+    auto& renderGeometry = *m_renderBackendView.renderGeometry;
+    const SkullbonezCore::Rendering::Dx12Diagnostics& renderDiagnostics = *m_renderBackendView.renderDiagnostics;
 
     const char* rendererName = renderDiagnostics.GetRendererName();
     char titleText[256];
@@ -500,7 +509,8 @@ void Run::Initialise()
     // Build renderer-owned resources from source asset records.
     const SkullbonezCore::Core::SbResult rebuildResourcesResult =
         m_renderer.InitialiseProcessResources( renderResources,
-                                               renderCommands,
+                                               renderTextures,
+                                               renderGeometry,
                                                m_config,
                                                m_launchOptions.dumpTextureAssets );
     if ( !rebuildResourcesResult.ok )
@@ -537,8 +547,12 @@ void Run::Initialise()
 
     // Why: SDF atlas generation is a startup asset/tooling boundary. Report it
     // as Lane R before scene loading instead of throwing through Run startup.
-    const SkullbonezCore::Core::SbResult uiTextResourceResult =
-        m_renderer.EnsureUiTextResources( renderResources, m_assets, cfg.window.screenX, cfg.window.screenY );
+    const SkullbonezCore::Core::SbResult uiTextResourceResult = m_renderer.EnsureUiTextResources( renderResources,
+                                                                                                  renderTextures,
+                                                                                                  renderGeometry,
+                                                                                                  m_assets,
+                                                                                                  cfg.window.screenX,
+                                                                                                  cfg.window.screenY );
     if ( !uiTextResourceResult.ok )
     {
         m_lastSceneLoadResult = uiTextResourceResult;
@@ -553,17 +567,33 @@ void Run::Initialise()
                                m_renderDefaults.CinematicBaseline(),
                                m_startup,
                                m_assets,
-                               m_workerPool },
-        SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
-        SceneLoadInteractionParticipants{ m_inputRouter,
-                                          m_interaction,
-                                          m_camera,
-                                          m_attachedCamera.State(),
-                                          m_runtimeTools,
+                               m_workerPool,
+                               m_diagnosticsRuntime,
+                               m_renderBackendView.RendererName(),
+                               m_timers.simulationTimer.GetTotalTime() },
+        SceneLoadInteractionParticipants{ m_camera,
                                           CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-        SceneLoadPresentationParticipants{ m_replayRuntime, *m_overlayDiagnostics, m_renderBackendView, m_renderer },
+        SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
+                                           m_renderBackendView.renderFrame,
+                                           m_renderBackendView.renderResources,
+                                           m_renderer },
         sceneLoadOutputs );
-    ApplySceneLoadConsumerOutputs( sceneLoadOutputs, m_window, *m_operatorUi, *m_validationHarness, m_launchOptions );
+    ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
+                                   m_window,
+                                   *m_operatorUi,
+                                   *m_validationHarness,
+                                   m_launchOptions,
+                                   m_renderBackendView.renderDevice,
+                                   m_renderer.VsyncEnabled(),
+                                   m_timers,
+                                   *m_overlayDiagnostics,
+                                   m_sceneController,
+                                   m_inputRouter,
+                                   m_interaction,
+                                   m_camera,
+                                   m_attachedCamera,
+                                   m_runtimeTools,
+                                   m_replayRuntime );
     if ( !m_lastSceneLoadResult.ok )
     {
         return;
@@ -754,24 +784,33 @@ SkullbonezCore::Core::SbResult Run::RunSceneLoadOnly( const char* snapshotOutPat
                                    m_renderDefaults.CinematicBaseline(),
                                    m_startup,
                                    m_assets,
-                                   m_workerPool },
-            SceneLoadHostParticipants{ m_timers, m_diagnosticsRuntime, m_simulation },
-            SceneLoadInteractionParticipants{ m_inputRouter,
-                                              m_interaction,
-                                              m_camera,
-                                              m_attachedCamera.State(),
-                                              m_runtimeTools,
+                                   m_workerPool,
+                                   m_diagnosticsRuntime,
+                                   m_renderBackendView.RendererName(),
+                                   m_timers.simulationTimer.GetTotalTime() },
+            SceneLoadInteractionParticipants{ m_camera,
                                               CaptureSceneLoadNavigationState( m_operatorUi->SceneNavigation() ) },
-            SceneLoadPresentationParticipants{ m_replayRuntime,
-                                               *m_overlayDiagnostics,
-                                               m_renderBackendView,
+            SceneLoadPresentationParticipants{ m_overlayDiagnostics->PresentationSnapshot(),
+                                               m_renderBackendView.renderFrame,
+                                               m_renderBackendView.renderResources,
                                                m_renderer },
             sceneLoadOutputs );
         ApplySceneLoadConsumerOutputs( sceneLoadOutputs,
                                        m_window,
                                        *m_operatorUi,
                                        *m_validationHarness,
-                                       m_launchOptions );
+                                       m_launchOptions,
+                                       m_renderBackendView.renderDevice,
+                                       m_renderer.VsyncEnabled(),
+                                       m_timers,
+                                       *m_overlayDiagnostics,
+                                       m_sceneController,
+                                       m_inputRouter,
+                                       m_interaction,
+                                       m_camera,
+                                       m_attachedCamera,
+                                       m_runtimeTools,
+                                       m_replayRuntime );
         if ( !loadResult.ok )
         {
             return loadResult;

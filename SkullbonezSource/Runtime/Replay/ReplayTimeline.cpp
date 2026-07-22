@@ -46,23 +46,6 @@ template <typename T> uint64_t ReplayTimelineVectorCapacityBytes( const std::vec
     return static_cast<uint64_t>( values.capacity() ) * static_cast<uint64_t>( sizeof( T ) );
 }
 
-std::string SolverReplayHashLogPath( const std::string& presentationPath )
-{
-    // Why: paired log names let diagnostics copy or remove one capture without
-    // searching for a solver artifact in a second directory.
-    if ( presentationPath.empty() )
-    {
-        return {};
-    }
-
-    const std::size_t slash = presentationPath.find_last_of( "/\\" );
-    const std::size_t dot = presentationPath.find_last_of( '.' );
-    if ( dot != std::string::npos && ( slash == std::string::npos || dot > slash ) )
-    {
-        return presentationPath.substr( 0, dot ) + ".solver" + presentationPath.substr( dot );
-    }
-    return presentationPath + ".solver";
-}
 } // namespace
 
 ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled,
@@ -82,25 +65,23 @@ ReplayRecordingConfigResult ReplayTimeline::ConfigureRecording( bool enabled,
     replayConfig.retentionSeconds = m_memoryPolicy.presentationRetentionSeconds;
     replayConfig.checkpointIntervalFrames = 30;
     replayConfig.runtimeBodyCapacity = runtimeBodyCapacity;
-    if ( hashLogPath && hashLogPath[0] != '\0' )
-    {
-        replayConfig.hashLogPath = hashLogPath;
-    }
-
     ReplayRecorderConfig solverReplayConfig = replayConfig;
     solverReplayConfig.retentionSeconds = m_memoryPolicy.solverRetentionSeconds;
     solverReplayConfig.checkpointIntervalFrames = 60;
-    solverReplayConfig.hashLogPath = SolverReplayHashLogPath( replayConfig.hashLogPath );
 
     m_presentation.Configure( replayConfig );
     m_solver.Configure( solverReplayConfig );
     m_events.Configure( replayConfig );
 
+    const ReplayRecorderStats presentationStats = m_presentation.GetStats();
+    const ReplayRecorderStats solverStats = m_solver.GetStats();
+    m_artifactHashLog.Configure( hashLogPath, replayConfig, solverReplayConfig, presentationStats, solverStats );
+
     ReplayRecordingConfigResult result;
     result.presentationConfig = replayConfig;
     result.solverConfig = solverReplayConfig;
-    result.presentationStats = m_presentation.GetStats();
-    result.solverStats = m_solver.GetStats();
+    result.presentationStats = presentationStats;
+    result.solverStats = solverStats;
     result.eventStats = m_events.GetStats();
     return result;
 }
@@ -164,8 +145,7 @@ ReplayMemoryPolicyApplyResult ReplayTimeline::ApplyMemoryPolicyRequest( const Re
 
 void ReplayTimeline::FlushHashLogs()
 {
-    m_presentation.FlushHashLog();
-    m_solver.FlushHashLog();
+    m_artifactHashLog.Flush();
 }
 
 void ReplayTimeline::Reset( const char* sceneLabel )
@@ -173,6 +153,7 @@ void ReplayTimeline::Reset( const char* sceneLabel )
     m_presentation.ResetTimeline( sceneLabel );
     m_solver.ResetTimeline( sceneLabel );
     m_events.ResetTimeline( sceneLabel );
+    m_artifactHashLog.ResetTimeline( sceneLabel );
 }
 
 void ReplayTimeline::ClearLoadedPresentation()
@@ -378,6 +359,12 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput inp
             // Why: the solver sample already contains presentation-facing body
             // fields and its hash, so a paired capture needs only one store walk.
             m_presentation.CaptureFrameFromSolverSample( *solverSample );
+            const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
+            if ( presentationSample )
+            {
+                m_artifactHashLog.AppendPresentation( *presentationSample );
+            }
+            m_artifactHashLog.AppendSolver( *solverSample );
             ReportLatestCaptureMismatch();
             result.solverSample = solverSample;
             return result;
@@ -385,6 +372,11 @@ ReplayTimelineCaptureResult ReplayTimeline::CaptureFrame( ReplayCaptureInput inp
     }
 
     m_presentation.CaptureFrame( input );
+    const ReplayPresentationSample* presentationSample = m_presentation.LatestSample();
+    if ( presentationSample )
+    {
+        m_artifactHashLog.AppendPresentation( *presentationSample );
+    }
     ReportLatestCaptureMismatch();
     return result;
 }

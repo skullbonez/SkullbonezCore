@@ -315,6 +315,12 @@ void SceneWorld::ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& c
 }
 
 
+int SceneWorld::ActiveSceneObjectCapacity() const
+{
+    return m_activeSceneObjectCapacity;
+}
+
+
 ScenePhysicsPostStepOutput SceneWorld::StepPhysics( float fixedDt,
                                                     const Physics::PhysicsWorldForces& worldForces,
                                                     Threading::WorkerPool& workerPool )

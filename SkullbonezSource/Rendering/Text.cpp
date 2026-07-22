@@ -33,8 +33,10 @@ Related:
 #include "../Core/PlatformWin32.h"
 #include "../Core/WindowConstants.h"
 #include "../Assets/AssetSystem.h"
-#include "IRenderCommandContext.h"
-#include "IRenderResourceFactory.h"
+#include "RenderCommandTypes.h"
+#include "DX12/RenderBackendDX12.h"
+#include "DX12/Dx12ResourceBuilder.h"
+#include "DX12/RenderBackendDX12.h"
 
 #include <memory>
 
@@ -213,7 +215,7 @@ static void ComputeEDT2D( float* grid, int w, int h )
 
 // Load a pre-generated SDF atlas only when the file matches the current font
 // contract.
-static bool LoadSdfAtlasFromFile( IRenderResourceFactory& renderResources, const char* path )
+static bool LoadSdfAtlasFromFile( Dx12TextureOwner& renderTextures, const char* path )
 {
     FILE* rawFile = nullptr;
     if ( fopen_s( &rawFile, path, "rb" ) != 0 || !rawFile )
@@ -248,7 +250,7 @@ static bool LoadSdfAtlasFromFile( IRenderResourceFactory& renderResources, const
 
     // SDF rendering requires linear filtering; nearest-neighbour would staircase
     // the distance gradient and make glyph edges look aliased.
-    Text2d::fontTexture = renderResources.CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, true );
+    Text2d::fontTexture = renderTextures.CreateTexture2D( pixels.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, true );
     return true;
 }
 
@@ -503,7 +505,9 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
 
 
 SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
-                                                  IRenderResourceFactory& renderResources,
+                                                  Dx12ResourceBuilder& renderResources,
+                                                  Dx12TextureOwner& renderTextures,
+                                                  Dx12GeometryOwner& renderGeometry,
                                                   const SkullbonezCore::Assets::AssetSystem& assets,
                                                   int screenW,
                                                   int screenH,
@@ -514,7 +518,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
     // If the file is absent or stale the engine generates it on first run so
     // it always works without a manual pre-step.
     const std::string atlasPath = std::string( DATA_ROOT ) + "font_atlas.sdf";
-    if ( !LoadSdfAtlasFromFile( renderResources, atlasPath.c_str() ) )
+    if ( !LoadSdfAtlasFromFile( renderTextures, atlasPath.c_str() ) )
     {
         fprintf( stderr, "[Text2d] SDF atlas missing or stale — generating (one time)...\n" );
         if ( !Text2d::GenerateSdfAtlasToFile( cFontName, atlasPath.c_str() ) )
@@ -523,7 +527,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
                                                             "SDF atlas generation failed: %s",
                                                             atlasPath.c_str() );
         }
-        if ( !LoadSdfAtlasFromFile( renderResources, atlasPath.c_str() ) )
+        if ( !LoadSdfAtlasFromFile( renderTextures, atlasPath.c_str() ) )
         {
             return SkullbonezCore::Core::SbResult::Failure( "Rendering/Text",
                                                             "SDF atlas load-after-generate failed: %s",
@@ -536,17 +540,17 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
     // All Render2dText* calls accumulate into this; FlushText() does one upload+draw per frame.
     int batchAttribs[] = { 2, 2, 3 };
     Text2d::textBatchVB =
-        renderResources.CreateDynamicVB( batchAttribs, 3, TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
+        renderGeometry.CreateDynamicVB( batchAttribs, 3, TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR );
 
     // Create the solid-quad VB: [x, y, u, v] per vertex (Render2dQuad only; 6 verts max).
     int quadAttribs[] = { 2, 2 };
-    Text2d::dynamicVB = renderResources.CreateDynamicVB( quadAttribs, 2, 6 );
+    Text2d::dynamicVB = renderGeometry.CreateDynamicVB( quadAttribs, 2, 6 );
 
     // Create the quad batch VB: [x, y, r, g, b, a] per vertex, sized for QUAD_BATCH_MAX_QUADS.
     // All BatchQuad() calls accumulate here; FlushQuads() does one upload+draw per flush.
     int quadBatchAttribs[] = { 2, 4 };
     Text2d::quadBatchVB =
-        renderResources.CreateDynamicVB( quadBatchAttribs, 2, QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
+        renderGeometry.CreateDynamicVB( quadBatchAttribs, 2, QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
 
     // Compile the text shader and bind the atlas sampler slot once.
     Text2d::pTextShader = assets.CreateShader( renderResources, "shader.text" );
@@ -575,7 +579,7 @@ SkullbonezCore::Core::SbResult Text2d::BuildFont( TextBatch& batch,
             Text2d::pTextShader ? 1 : 0,
             Text2d::pSolidShader ? 1 : 0,
             Text2d::pSolidBatchShader ? 1 : 0 );
-        Text2d::DeleteFont( batch, &renderResources );
+        Text2d::DeleteFont( batch, &renderTextures, &renderGeometry );
         return failure;
     }
 
@@ -635,37 +639,37 @@ float Text2d::MeasureText( float fSize, const char* text )
 }
 
 
-void Text2d::DeleteFont( TextBatch& batch, IRenderResourceFactory* renderResources )
+void Text2d::DeleteFont( TextBatch& batch, Dx12TextureOwner* renderTextures, Dx12GeometryOwner* renderGeometry )
 {
     if ( Text2d::fontTexture )
     {
-        if ( renderResources )
+        if ( renderTextures )
         {
-            renderResources->DeleteTexture( Text2d::fontTexture );
+            renderTextures->DeleteTexture( Text2d::fontTexture );
         }
         Text2d::fontTexture = 0;
     }
     if ( Text2d::textBatchVB )
     {
-        if ( renderResources )
+        if ( renderGeometry )
         {
-            renderResources->DestroyDynamicVB( Text2d::textBatchVB );
+            renderGeometry->DestroyDynamicVB( Text2d::textBatchVB );
         }
         Text2d::textBatchVB = 0;
     }
     if ( Text2d::dynamicVB )
     {
-        if ( renderResources )
+        if ( renderGeometry )
         {
-            renderResources->DestroyDynamicVB( Text2d::dynamicVB );
+            renderGeometry->DestroyDynamicVB( Text2d::dynamicVB );
         }
         Text2d::dynamicVB = 0;
     }
     if ( Text2d::quadBatchVB )
     {
-        if ( renderResources )
+        if ( renderGeometry )
         {
-            renderResources->DestroyDynamicVB( Text2d::quadBatchVB );
+            renderGeometry->DestroyDynamicVB( Text2d::quadBatchVB );
         }
         Text2d::quadBatchVB = 0;
     }
@@ -791,7 +795,7 @@ void Text2d::RenderTextInternal( TextBatch& batch,
 }
 
 
-void Text2d::FlushText( TextBatch& batch, IRenderCommandContext& renderCommands )
+void Text2d::FlushText( TextBatch& batch, Dx12TextureOwner& renderTextures, Dx12GeometryOwner& renderCommands )
 {
     if ( batch.m_textVertexCount == 0 || !Text2d::pTextShader || !Text2d::textBatchVB )
     {
@@ -800,7 +804,7 @@ void Text2d::FlushText( TextBatch& batch, IRenderCommandContext& renderCommands 
 
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", batch.m_projection );
-    renderCommands.BindTexture( Text2d::fontTexture, 0 );
+    renderTextures.BindTexture( Text2d::fontTexture, 0 );
 
     // One GPU upload + one draw call covers the entire frame's text at all colors.
     renderCommands.UploadAndDrawDynamicVB(
@@ -855,7 +859,7 @@ void Text2d::Render2dTextColor( TextBatch& batch,
 
 
 void Text2d::Render2dQuad( TextBatch& batch,
-                           IRenderCommandContext& renderCommands,
+                           Dx12GeometryOwner& renderCommands,
                            float x0,
                            float y0,
                            float x1,
@@ -884,7 +888,7 @@ void Text2d::Render2dQuad( TextBatch& batch,
 
 
 void Text2d::BatchQuad( TextBatch& batch,
-                        IRenderCommandContext& renderCommands,
+                        Dx12GeometryOwner& renderCommands,
                         float x0,
                         float y0,
                         float x1,
@@ -950,7 +954,7 @@ void Text2d::BatchQuad( TextBatch& batch,
 
 
 void Text2d::BatchTriangle( TextBatch& batch,
-                            IRenderCommandContext& renderCommands,
+                            Dx12GeometryOwner& renderCommands,
                             float x0,
                             float y0,
                             float x1,
@@ -991,7 +995,7 @@ void Text2d::BatchTriangle( TextBatch& batch,
 }
 
 
-void Text2d::FlushQuads( TextBatch& batch, IRenderCommandContext& renderCommands )
+void Text2d::FlushQuads( TextBatch& batch, Dx12GeometryOwner& renderCommands )
 {
     // This is the counterpart to FlushText(); together they give exactly two
     // draw calls for an entire overlay frame (quads first, then text on top).

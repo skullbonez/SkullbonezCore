@@ -174,6 +174,12 @@ const std::vector<std::string>& SceneController::Queue() const
 }
 
 
+void SceneController::BeginLoadAttempt( int index, const SceneLifecycleBeginPolicy& lifecyclePolicy )
+{
+    m_runtime.BeginLoadAttempt( index, lifecyclePolicy );
+}
+
+
 void SceneController::BeginLoad( int index )
 {
     m_runtime.BeginLoad( index );
@@ -203,6 +209,12 @@ void SceneController::RecordLifecycleEvent( SceneRuntimeLifecycleEvent event, Sc
                   colliderCount );
     }
     m_runtime.RecordLifecycleEvent( event, consumers );
+}
+
+
+const SceneLifecyclePacket& SceneController::LifecyclePacket() const
+{
+    return m_runtime.LifecyclePacket();
 }
 
 

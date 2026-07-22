@@ -38,7 +38,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "RuntimeRenderer.h"
-#include "../../Rendering/IRenderRayTracing.h"
+#include "../../Rendering/DX12/RenderBackendDX12.h"
 #include "../../Assets/AssetKeys.h"
 #include "RuntimeRenderPasses.h"
 #include "../CameraCollection.h"
@@ -54,7 +54,7 @@ Related:
 #include "../Scene/SceneTerrain.h"
 #include "../../Core/Allocation/RuntimeAllocationTracker.h"
 #include "../../Core/Allocation/RuntimeReserveAllocator.h"
-#include "../Replay/ReplayOverlayRenderer.h"
+#include "../Replay/ReplayOverlayPackets.h"
 #include "../OperatorCommandApplier.h"
 #include "../Scene/SceneController.h"
 #include "../../Assets/TextureCollection.h"
@@ -64,8 +64,9 @@ Related:
 #include "../../Physics/ColliderStore.h"
 #include "../../Physics/PhysicsEngine.h"
 #include "../../Rendering/PrimitiveBatchRenderer.h"
-#include "../../Rendering/IRenderDiagnostics.h"
-#include "../../Rendering/IRenderDeviceLifecycle.h"
+#include "../../Rendering/DX12/Dx12Diagnostics.h"
+#include "../../Rendering/DX12/Dx12FrameOwner.h"
+#include "../../Rendering/DX12/RenderDeviceDX12.h"
 #include "../../Rendering/RenderInstanceStore.h"
 #include "../../Rendering/RenderGraph.h"
 #include "../../Rendering/RenderPipeline.h"
@@ -203,7 +204,7 @@ struct CinematicPostGraphCallbackData
     TonemapPass* tonemapPass = nullptr;
     const RenderFrameContext* frame = nullptr;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
-    SkullbonezCore::Rendering::IFramebuffer* sceneTarget = nullptr;
+    SkullbonezCore::Rendering::FramebufferDX12* sceneTarget = nullptr;
     SkullbonezCore::Rendering::RenderGraphTextureBinding volumetricLight;
     size_t volumetricTransitionCount = 0;
     size_t tonemapTransitionCount = 0;
@@ -301,14 +302,15 @@ struct SceneTargetGraphCallbackData
 
 struct GraphTransitionCallbackData
 {
-    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
 };
 
 struct BackbufferAcquireGraphCallbackData
 {
-    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
+    SkullbonezCore::Rendering::Dx12FrameOwner* renderFrame = nullptr;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
     bool clearFrameTargets = false;
@@ -323,7 +325,8 @@ struct SkyboxGraphCallbackData
 struct UiTextGraphCallbackData
 {
     UiTextPass* uiTextPass = nullptr;
-    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = nullptr;
+    SkullbonezCore::Rendering::Dx12Diagnostics* renderDiagnostics = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     SkullbonezCore::Core::Profiler* profiler = nullptr;
     SkullbonezCore::Text::TextBatch* textBatch = nullptr;
     const SkullbonezCore::UI::UIRenderContext* uiRender = nullptr;
@@ -336,7 +339,7 @@ struct UiTextGraphCallbackData
     const ReplayOverlay::ReplayOverlayRenderContext* replayOverlayContext = nullptr;
     const SkullbonezCore::Core::CinematicRenderConfig* cinematic = nullptr;
     bool cinematicRendering = false;
-    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = nullptr;
+    SkullbonezCore::Rendering::Dx12RaytracingOwner* renderRayTracing = nullptr;
     double secondsPerFrame = 0.0;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
@@ -356,7 +359,7 @@ struct ReplayGhostGraphCallbackData
 struct DevelopmentUiGraphCallbackData
 {
     SkullbonezCore::Runtime::DevelopmentTools::ImGuiEditorOwner* editor = nullptr;
-    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = nullptr;
+    SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph = nullptr;
     const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled = nullptr;
     size_t expectedTransitionCount = 0;
     SkullbonezCore::Core::SbResult status = SkullbonezCore::Core::SbResult::Success();
@@ -367,7 +370,7 @@ size_t CountCompiledTransitionsForPass( const SkullbonezCore::Rendering::RenderG
                                         uint32_t passIndex );
 
 size_t ExecuteRequiredGraphTransitions( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
-                                        SkullbonezCore::Rendering::IRenderCommandContext* renderCommands,
+                                        SkullbonezCore::Rendering::Dx12GraphTransientPool* renderGraph,
                                         const SkullbonezCore::Rendering::RenderGraphCompileResult* compiled,
                                         size_t expectedTransitionCount )
 {
@@ -375,11 +378,11 @@ size_t ExecuteRequiredGraphTransitions( const SkullbonezCore::Rendering::RenderG
     {
         return 0;
     }
-    if ( !renderCommands || !compiled || !context.graph )
+    if ( !renderGraph || !compiled || !context.graph )
     {
         SB_FATAL( "RunRender", "Graph callback missing transition execution data." );
     }
-    const size_t emitted = renderCommands->ExecuteGraphTransitions( *context.graph, *compiled, context.passIndex );
+    const size_t emitted = renderGraph->ExecuteGraphTransitions( *context.graph, *compiled, context.passIndex );
     if ( emitted != expectedTransitionCount )
     {
         SB_FATAL( "RunRender",
@@ -394,16 +397,16 @@ size_t ExecuteRequiredGraphTransitions( const SkullbonezCore::Rendering::RenderG
 void ExecuteGraphTransitionCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                      GraphTransitionCallbackData& data )
 {
-    (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
 }
 
 void ExecuteBackbufferAcquireGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                             BackbufferAcquireGraphCallbackData& data )
 {
-    (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
     if ( data.clearFrameTargets )
     {
-        data.renderCommands->Clear( {} );
+        data.renderFrame->Clear( {} );
     }
 }
 
@@ -415,7 +418,7 @@ void ExecuteShadowGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
         SB_FATAL( "RunRender", "ShadowMapPass graph callback missing execution data." );
     }
     (void)ExecuteRequiredGraphTransitions( context,
-                                           data.frame->renderCommands,
+                                           data.frame->renderGraph,
                                            data.compiled,
                                            data.expectedTransitionCount );
     data.output =
@@ -430,7 +433,7 @@ void ExecuteReflectionGraphCallback( const SkullbonezCore::Rendering::RenderGrap
         SB_FATAL( "RunRender", "ReflectionPass graph callback missing execution data." );
     }
     (void)ExecuteRequiredGraphTransitions( context,
-                                           data.frame->renderCommands,
+                                           data.frame->renderGraph,
                                            data.compiled,
                                            data.expectedTransitionCount );
     data.output = data.reflectionPass->Render( { *data.frame,
@@ -538,10 +541,11 @@ void RenderReplayPredictionGhosts( const ReplayVisualPacket& visualPacket,
                       textureResult.error.message );
         return;
     }
-    assert( frame.renderResources && frame.renderCommands && frame.renderDiagnostics && frame.assets &&
-            frame.primitiveBatches );
+    assert( frame.renderResources && frame.renderTextures && frame.renderGeometry && frame.renderDiagnostics &&
+            frame.assets && frame.primitiveBatches );
     const PrimitiveRenderContext primitiveContext{ *frame.renderResources,
-                                                   *frame.renderCommands,
+                                                   *frame.renderTextures,
+                                                   *frame.renderGeometry,
                                                    *frame.renderDiagnostics,
                                                    *frame.assets,
                                                    config,
@@ -614,7 +618,7 @@ void ExecuteDevelopmentUiGraphCallback( const SkullbonezCore::Rendering::RenderG
     {
         SB_FATAL( "RunRender", "ImGuiEditorPass graph callback missing its presentation owner." );
     }
-    (void)ExecuteRequiredGraphTransitions( context, data.renderCommands, data.compiled, data.expectedTransitionCount );
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
     data.status = data.editor->RenderPreparedDrawData();
 }
 #endif
@@ -627,7 +631,7 @@ void ExecuteSceneTargetGraphCallback( const SkullbonezCore::Rendering::RenderGra
         SB_FATAL( "RunRender", "CinematicSceneBegin graph callback missing execution data." );
     }
     (void)ExecuteRequiredGraphTransitions( context,
-                                           data.frame->renderCommands,
+                                           data.frame->renderGraph,
                                            data.compiled,
                                            data.expectedTransitionCount );
     data.sceneTargetPass->Begin( *data.frame, *data.skyPass );
@@ -646,16 +650,13 @@ void ExecuteSkyboxGraphCallback( const SkullbonezCore::Rendering::RenderGraphPas
 void ExecuteUiTextGraphCallback( const SkullbonezCore::Rendering::RenderGraphPassContext& context,
                                  UiTextGraphCallbackData& data )
 {
-    if ( !data.uiTextPass || !data.renderDiagnostics || !data.textBatch || !data.uiRender || !data.state ||
-         !data.timers || !data.ui || !data.models || !data.diagnosticsRuntime || !data.replayHud ||
+    if ( !data.uiTextPass || !data.renderDiagnostics || !data.renderGraph || !data.textBatch || !data.uiRender ||
+         !data.state || !data.timers || !data.ui || !data.models || !data.diagnosticsRuntime || !data.replayHud ||
          !data.replayOverlayContext || !data.cinematic || !data.uiRender->IsReady() )
     {
         SB_FATAL( "RunRender", "UiTextPass graph callback missing execution data." );
     }
-    (void)ExecuteRequiredGraphTransitions( context,
-                                           data.uiRender->commands,
-                                           data.compiled,
-                                           data.expectedTransitionCount );
+    (void)ExecuteRequiredGraphTransitions( context, data.renderGraph, data.compiled, data.expectedTransitionCount );
     data.uiTextPass->Render( { *data.state,
                                *data.timers,
                                *data.ui,
@@ -682,7 +683,7 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
     }
     const SkullbonezCore::Rendering::RenderGraphTextureBinding* graphOutput =
         data.volumetricLight.IsValid() ? &data.volumetricLight : nullptr;
-    if ( !data.sceneTarget || !data.frame->renderCommands )
+    if ( !data.sceneTarget || !data.frame->renderGraph )
     {
         SB_FATAL( "RunRender", "VolumetricLightPass missing the cinematic target binding." );
     }
@@ -690,7 +691,7 @@ void ExecuteVolumetricGraphCallback( const SkullbonezCore::Rendering::RenderGrap
     data.sceneTargetUnbound = true;
     const size_t expectedTransitions = graphOutput ? 3u : 2u;
     data.volumetricTransitionCount =
-        data.frame->renderCommands->ExecuteGraphTransitions( *context.graph, *data.compiled, context.passIndex );
+        data.frame->renderGraph->ExecuteGraphTransitions( *context.graph, *data.compiled, context.passIndex );
     if ( data.volumetricTransitionCount != expectedTransitions )
     {
         // Hazard: sampling the cinematic scene or binding the transient without
@@ -734,7 +735,7 @@ void ExecuteTonemapGraphCallback( const SkullbonezCore::Rendering::RenderGraphPa
     if ( expectedTransitions > 0 )
     {
         data.tonemapTransitionCount =
-            data.frame->renderCommands->ExecuteGraphTransitions( *context.graph, *data.compiled, context.passIndex );
+            data.frame->renderGraph->ExecuteGraphTransitions( *context.graph, *data.compiled, context.passIndex );
         if ( data.tonemapTransitionCount != expectedTransitions )
         {
             // Hazard: tonemap must not sample until the compiler-selected
@@ -799,10 +800,9 @@ void WriteCinematicPostGraphEvidence(
 
 SkullbonezCore::Rendering::RenderGraphResourceHandle
 AddBackbufferResource( SkullbonezCore::Rendering::RenderGraph& graph,
-                       SkullbonezCore::Rendering::IRenderCommandContext& renderCommands )
+                       SkullbonezCore::Rendering::Dx12GraphTransientPool& renderGraph )
 {
-    const SkullbonezCore::Rendering::RenderGraphBackbufferBinding binding =
-        renderCommands.ResolveGraphBackbufferBinding();
+    const SkullbonezCore::Rendering::RenderGraphBackbufferBinding binding = renderGraph.ResolveGraphBackbufferBinding();
     if ( !binding.IsValid() )
     {
         SB_FATAL( "RunRender", "Executable backbuffer graph pass has no current backend binding." );
@@ -888,23 +888,23 @@ struct GraphFramebufferResources
 
 GraphFramebufferResources AddGraphFramebuffer( SkullbonezCore::Rendering::RenderGraph& graph,
                                                const RenderFrameContext& frame,
-                                               const Rendering::IFramebuffer* target,
+                                               const Rendering::FramebufferDX12* target,
                                                const char* colorName,
                                                const char* depthName )
 {
     GraphFramebufferResources resources;
-    if ( !target || !frame.renderCommands )
+    if ( !target || !frame.renderGraph )
     {
         return resources;
     }
     resources.color =
         graph.AddExternalResource( colorName,
                                    Rendering::RenderGraphResourceAccess::PixelShaderResource,
-                                   frame.renderCommands->ResolveGraphResourceToken( target->GetColorTextureHandle() ) );
+                                   frame.renderGraph->ResolveGraphResourceToken( target->GetColorTextureHandle() ) );
     resources.depth =
         graph.AddExternalResource( depthName,
                                    Rendering::RenderGraphResourceAccess::PixelShaderResource,
-                                   frame.renderCommands->ResolveGraphResourceToken( target->GetDepthTextureHandle() ) );
+                                   frame.renderGraph->ResolveGraphResourceToken( target->GetDepthTextureHandle() ) );
     resources.transitionCount = 2;
     return resources;
 }
@@ -934,7 +934,7 @@ void AddFramebufferReads( Rendering::RenderGraph& graph, uint32_t pass, const Gr
 void RuntimeRenderer::ExecuteBackbufferAcquireThroughRenderGraph( const BackbufferAcquireGraphInputs& inputs )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, inputs.renderCommands );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, inputs.renderGraph );
     const uint32_t acquirePass = graph.AddPass( inputs.clearFrameTargets ? "BackbufferClear" : "UiTargetAcquire" );
     graph.AddWrite( acquirePass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
     if ( inputs.clearFrameTargets )
@@ -945,7 +945,8 @@ void RuntimeRenderer::ExecuteBackbufferAcquireThroughRenderGraph( const Backbuff
     }
 
     BackbufferAcquireGraphCallbackData callbackData;
-    callbackData.renderCommands = &inputs.renderCommands;
+    callbackData.renderGraph = &inputs.renderGraph;
+    callbackData.renderFrame = &inputs.renderFrame;
     callbackData.clearFrameTargets = inputs.clearFrameTargets;
     graph.SetPassCallback<ExecuteBackbufferAcquireGraphCallback>(
         acquirePass,
@@ -1005,7 +1006,7 @@ ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowG
         publishPass = graph.AddPass( "ShadowMapPublishPass", Rendering::RenderGraphQueueType::Graphics );
         AddFramebufferReads( graph, publishPass, terrainShadow );
         AddFramebufferReads( graph, publishPass, objectShadow );
-        publishData.renderCommands = frame.renderCommands;
+        publishData.renderGraph = frame.renderGraph;
         publishData.expectedTransitionCount = targetTransitionCount;
         graph.SetPassCallback<ExecuteGraphTransitionCallback>( publishPass,
                                                                publishData,
@@ -1026,7 +1027,7 @@ ShadowPassOutput RuntimeRenderer::ExecuteShadowThroughRenderGraph( const ShadowG
 void RuntimeRenderer::ExecuteSkyboxThroughRenderGraph( const RenderFrameContext& frame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *frame.renderCommands );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *frame.renderGraph );
 
     const uint32_t skyboxPass = graph.AddPass( "SkyboxPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( skyboxPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
@@ -1077,7 +1078,7 @@ ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const
         producedReflection =
             graph.AddExternalResource( "DxrReflectionTexture",
                                        Rendering::RenderGraphResourceAccess::PixelShaderResource,
-                                       frame.renderCommands->ResolveGraphResourceToken( reflectionHandle ) );
+                                       frame.renderGraph->ResolveGraphResourceToken( reflectionHandle ) );
         graph.AddWrite( reflectionPass, producedReflection, Rendering::RenderGraphResourceAccess::UnorderedAccess );
         targetTransitionCount = 1;
     }
@@ -1132,7 +1133,7 @@ ReflectionPassOutput RuntimeRenderer::ExecuteReflectionThroughRenderGraph( const
         {
             AddFramebufferReads( graph, publishPass, rasterReflection );
         }
-        publishData.renderCommands = frame.renderCommands;
+        publishData.renderGraph = frame.renderGraph;
         publishData.expectedTransitionCount = targetTransitionCount;
         graph.SetPassCallback<ExecuteGraphTransitionCallback>( publishPass,
                                                                publishData,
@@ -1348,7 +1349,8 @@ bool RuntimeRenderer::ExecuteWorldExtensionThroughRenderGraph( const WorldExtens
                                                               frame.eye,
                                                               frame.viewCenter,
                                                               frame.up,
-                                                              *frame.renderCommands,
+                                                              *frame.renderTextures,
+                                                              *frame.renderGeometry,
                                                               *frame.renderDiagnostics,
                                                               *frame.renderGpuTiming,
                                                               surfaceHeight };
@@ -1454,16 +1456,16 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 {
     const RenderFrameContext& frame = inputs.frame;
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    Rendering::IFramebuffer* sceneTarget = m_passResources.cinematicScene.hdrTarget.get();
+    Rendering::FramebufferDX12* sceneTarget = m_passResources.cinematicScene.hdrTarget.get();
     const Rendering::RenderGraphResourceHandle sceneColor = graph.AddExternalResource(
         "CinematicSceneColor",
         Rendering::RenderGraphResourceAccess::RenderTarget,
-        frame.renderCommands->ResolveGraphResourceToken( sceneTarget->GetColorTextureHandle() ) );
+        frame.renderGraph->ResolveGraphResourceToken( sceneTarget->GetColorTextureHandle() ) );
     const Rendering::RenderGraphResourceHandle sceneDepth = graph.AddExternalResource(
         "CinematicSceneDepth",
         Rendering::RenderGraphResourceAccess::DepthWrite,
-        frame.renderCommands->ResolveGraphResourceToken( sceneTarget->GetDepthTextureHandle() ) );
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *frame.renderCommands );
+        frame.renderGraph->ResolveGraphResourceToken( sceneTarget->GetDepthTextureHandle() ) );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *frame.renderGraph );
     Rendering::RenderGraphResourceHandle volumetricLight;
     const bool volumetricDeclared = m_volumetricPass.CanRender( frame );
     uint32_t expectedCallbacks = 1u;
@@ -1519,12 +1521,12 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
     callbackData.compiled = &compiled;
     Rendering::RenderGraphTransientMaterializationStats transientMaterialization;
-    if ( frame.renderCommands )
+    if ( frame.renderGraph )
     {
-        transientMaterialization = frame.renderCommands->MaterializeGraphTransientResources( graph, compiled );
+        transientMaterialization = frame.renderGraph->MaterializeGraphTransientResources( graph, compiled );
         if ( volumetricDeclared )
         {
-            callbackData.volumetricLight = frame.renderCommands->ResolveGraphTextureBinding( volumetricLight );
+            callbackData.volumetricLight = frame.renderGraph->ResolveGraphTextureBinding( volumetricLight );
             if ( !callbackData.volumetricLight.IsValid() )
             {
                 // Lane R: if graph-managed texture allocation fails, the
@@ -1560,7 +1562,7 @@ RuntimeRenderer::ExecuteCinematicPostThroughRenderGraph( const CinematicPostGrap
 
 
 void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
-    Rendering::IRenderDiagnostics& renderDiagnostics,
+    Rendering::Dx12Diagnostics& renderDiagnostics,
     const UI::UIRenderContext& uiRender,
     const UiTextPassState& state,
     RunTimerState& timers,
@@ -1571,15 +1573,15 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     const ReplayOverlay::ReplayOverlayRenderContext& replayOverlayContext,
     const SkullbonezCore::Core::CinematicRenderConfig& cinematic,
     bool cinematicRendering,
-    Rendering::IRenderRayTracing* renderRayTracing,
+    Rendering::Dx12RaytracingOwner* renderRayTracing,
     double secondsPerFrame )
 {
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    if ( !uiRender.commands )
+    if ( !m_renderGraph )
     {
         SB_FATAL( "RunRender", "UiTextPass graph has no render command context." );
     }
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *uiRender.commands );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *m_renderGraph );
 
     const uint32_t uiTextPass = graph.AddPass( "UiTextPass", Rendering::RenderGraphQueueType::Graphics );
     graph.AddWrite( uiTextPass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
@@ -1589,6 +1591,7 @@ void RuntimeRenderer::ExecuteUiTextThroughRenderGraph(
     UiTextGraphCallbackData callbackData;
     callbackData.uiTextPass = &m_uiTextPass;
     callbackData.renderDiagnostics = &renderDiagnostics;
+    callbackData.renderGraph = m_renderGraph;
     callbackData.profiler = m_profiler;
     callbackData.textBatch = &m_textBatch;
     callbackData.uiRender = &profiledUiRender;
@@ -1643,12 +1646,15 @@ RuntimeRenderer::BuildRenderFrameContext( const RuntimeRenderInputs& renderInput
     frame.sceneKineticEnergy = services.models.sceneKineticEnergy;
     frame.assets = &services.assets;
     frame.textures = &services.textures;
-    frame.renderResources = &services.renderResources;
-    frame.renderCommands = &services.renderCommands;
-    frame.renderDiagnostics = &services.renderDiagnostics;
+    frame.renderResources = m_renderResources;
+    frame.renderTextures = m_renderTextures;
+    frame.renderGeometry = m_renderGeometry;
+    frame.renderFrame = m_renderFrame;
+    frame.renderGraph = m_renderGraph;
+    frame.renderDiagnostics = m_renderDiagnostics;
     frame.renderGpuTiming = &m_renderGpuTiming;
     frame.primitiveBatches = &PrimitiveBatches();
-    frame.renderRayTracing = services.renderRayTracing;
+    frame.renderRayTracing = m_renderRayTracing;
     frame.windowWidth = (std::max)( 1, m_window.ClientWidth() );
     frame.windowHeight = (std::max)( 1, m_window.ClientHeight() );
 
@@ -1691,21 +1697,34 @@ RenderResourceContext RuntimeRenderer::BuildRenderResourceContext( const Runtime
     const RuntimeRenderServices& services = renderInputs.services;
     return RenderResourceContext{ cinematicRender,
                                   services.assets,
-                                  services.renderResources,
+                                  *m_renderResources,
+                                  *m_renderTextures,
+                                  *m_renderGeometry,
                                   (std::max)( 1, m_window.ClientWidth() ),
                                   (std::max)( 1, m_window.ClientHeight() ) };
 }
 
 
-RuntimeRenderer::RuntimeRenderer( RuntimeRenderBackendView backend, const RenderWorldView& world, RunSceneState& scene )
-    : m_lifecycleLog( backend.deviceLifecycle, scene ), m_assets( world.assets ), m_cameras( world.cameras ),
-      m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ), m_world( world.worldEnvironment ),
-      m_primitiveBatches( std::in_place, backend.renderResources ),
+RuntimeRenderer::RuntimeRenderer( Rendering::Dx12RenderDevice* renderDevice,
+                                  Rendering::Dx12FrameOwner* renderFrame,
+                                  Rendering::Dx12GraphTransientPool* renderGraph,
+                                  Rendering::Dx12ResourceBuilder* renderResources,
+                                  Rendering::Dx12TextureOwner* renderTextures,
+                                  Rendering::Dx12GeometryOwner* renderGeometry,
+                                  Rendering::Dx12Diagnostics* renderDiagnostics,
+                                  Rendering::Dx12RaytracingOwner* renderRayTracing,
+                                  const RenderWorldView& world,
+                                  RunSceneState& scene )
+    : m_renderFrame( renderFrame ), m_renderGraph( renderGraph ), m_renderResources( renderResources ),
+      m_renderTextures( renderTextures ), m_renderGeometry( renderGeometry ), m_renderDiagnostics( renderDiagnostics ),
+      m_renderRayTracing( renderRayTracing ), m_lifecycleLog( renderDevice, scene ), m_assets( world.assets ),
+      m_cameras( world.cameras ), m_terrain( world.terrain ), m_window( world.window ), m_config( world.config ),
+      m_world( world.worldEnvironment ),
+      m_primitiveBatches( std::in_place, renderResources, renderTextures, renderGeometry ),
       m_collisionVisualizer( world.overlayResources.m_collisionOverlay ),
       m_broadphaseVisualizer( world.overlayResources.m_broadphaseOverlay ),
       m_physicsDebugVisualizer( world.overlayResources.m_physicsDebugOverlay ), m_profiler( world.profiler ),
-      m_renderGpuTiming( world.profiler, backend.renderDiagnostics ),
-      m_fullscreenQuadPass( m_passResources.fullscreen ),
+      m_renderGpuTiming( world.profiler, renderDiagnostics ), m_fullscreenQuadPass( m_passResources.fullscreen ),
       m_skyPass( m_passResources.sky, m_passResources.fullscreen, m_skyBox, m_config, m_profiler ),
       m_sceneTargetPass( m_passResources.cinematicScene, m_profiler ),
       m_shadowPass( m_passResources.shadows, m_terrain, m_config, m_lifecycleLog, m_profiler ),
@@ -1753,11 +1772,10 @@ void RuntimeRenderer::ResetSceneRuntimePolicyFromConfig()
 }
 
 
-SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const RuntimeRenderBackendView& backend,
-                                                                           int modelCapacity )
+SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( int modelCapacity )
 {
-    Rendering::IRenderRayTracing* rayTracing = backend.rayTracingBackend;
-    Rendering::IRenderDiagnostics* renderDiagnostics = backend.renderDiagnostics;
+    Rendering::Dx12RaytracingOwner* rayTracing = m_renderRayTracing;
+    Rendering::Dx12Diagnostics* renderDiagnostics = m_renderDiagnostics;
     const bool supported =
         renderDiagnostics && renderDiagnostics->GetCapabilities().supportsDxrReflection && rayTracing;
     if ( !supported )
@@ -1768,17 +1786,18 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
     Rendering::PrimitiveMeshGeometryView sphereGeometry = PrimitiveBatches().SphereGeometry();
     if ( sphereGeometry.instancedMeshHandle == 0 )
     {
-        if ( !backend.renderResources || !backend.renderCommands )
+        if ( !m_renderResources || !m_renderTextures || !m_renderGeometry )
         {
             // Lane F: capability publication without the resource facets needed
             // to build the renderer-owned primitive mesh is invalid backend wiring.
             SB_FATAL( "RuntimeRenderer",
-                      "DXR reflection initialization requires resource and command facets. resources=%d commands=%d",
-                      backend.renderResources ? 1 : 0,
-                      backend.renderCommands ? 1 : 0 );
+                      "DXR reflection initialization requires concrete resource owners. resources=%d geometry=%d",
+                      m_renderResources ? 1 : 0,
+                      m_renderGeometry ? 1 : 0 );
         }
-        const PrimitiveRenderContext primitiveContext{ *backend.renderResources,
-                                                       *backend.renderCommands,
+        const PrimitiveRenderContext primitiveContext{ *m_renderResources,
+                                                       *m_renderTextures,
+                                                       *m_renderGeometry,
                                                        *renderDiagnostics,
                                                        m_assets,
                                                        m_config,
@@ -1792,7 +1811,7 @@ SkullbonezCore::Core::SbResult RuntimeRenderer::InitialiseSceneRayTracing( const
         return SkullbonezCore::Core::SbResult::Success();
     }
 
-    Rendering::IMesh* terrainMesh = m_terrain.Get()->GetMesh();
+    Rendering::MeshDX12* terrainMesh = m_terrain.Get()->GetMesh();
     const uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
     const uint32_t sphereHandle = sphereGeometry.instancedMeshHandle;
     const uint64_t sphereVBVA = rayTracing->GetInstancedMeshStaticVBVA( sphereHandle );
@@ -1847,7 +1866,7 @@ RuntimeRenderTargetPreviewSnapshot RuntimeRenderer::BuildRenderTargetPreviewSnap
                                                                                       bool volumetricAvailable ) const
 {
     RuntimeRenderTargetPreviewSnapshot snapshot;
-    const auto append = [&]( const char* label, const Rendering::IFramebuffer* target, bool depth, bool available )
+    const auto append = [&]( const char* label, const Rendering::FramebufferDX12* target, bool depth, bool available )
     {
         assert( snapshot.count < static_cast<int>( snapshot.targets.size() ) );
         RuntimeRenderTargetPreview& preview = snapshot.targets[static_cast<size_t>( snapshot.count++ )];
@@ -1910,7 +1929,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     // Invariant: Run opens graph ownership before choosing a world or text-only
     // path. RenderFrame may only append to that active frame and may never
     // replace the graph after earlier frame work has been recorded.
-    if ( m_frameGraphFinalized || m_frameGraphRenderCommands != &renderInputs.services.renderCommands )
+    if ( m_frameGraphFinalized || m_frameGraphRenderGraph != m_renderGraph )
     {
         SB_FATAL( "RunRender", "World rendering requires the current active frame graph." );
     }
@@ -1918,7 +1937,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     const RuntimeRenderServices& services = renderInputs.services;
     const RuntimeRenderFramePolicy& policy = services.framePolicy;
     const ReplayRenderFrameView& replayFrame = services.replayFrame;
-    m_uiTextRayTracing = services.renderRayTracing;
+    m_uiTextRayTracing = m_renderRayTracing;
     const bool cinematicRender = services.cinematicEnabled;
     const SkullbonezCore::Core::CinematicRenderConfig& renderConfig = services.cinematic;
     const SkullbonezCore::Core::OrdinaryRenderConfig& ordinaryRender = m_config.ordinaryRender;
@@ -1926,7 +1945,9 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     ordinaryShadowConfig.shadow = ordinaryRender.shadow;
     const SkullbonezCore::Core::CinematicRenderConfig& activeShadowStyle =
         cinematicRender ? renderConfig : ordinaryShadowConfig;
-    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && services.renderReady && !policy.textOnly;
+    const bool renderReady = m_renderFrame && m_renderGraph && m_renderResources && m_renderTextures &&
+                             m_renderGeometry && m_renderDiagnostics;
+    const bool shadowMapsEnabled = activeShadowStyle.shadow.enabled && renderReady && !policy.textOnly;
 
     const RenderResourceContext resourceContext = BuildRenderResourceContext( renderInputs, cinematicRender );
     {
@@ -1958,7 +1979,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
         // If the cinematic target could not be created, this same graph-owned
         // frame edge clears the fallback backbuffer instead of reviving a
         // direct backend transition path.
-        ExecuteBackbufferAcquireThroughRenderGraph( { services.renderCommands, true } );
+        ExecuteBackbufferAcquireThroughRenderGraph( { *m_renderGraph, *m_renderFrame, true } );
     }
 
     const SkullbonezCore::Core::CinematicRenderConfig* activeCinematic = frame.cinematic;
@@ -1967,9 +1988,10 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     if ( activeShadowConfig )
     {
         CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-        PrimitiveRenderContext primitiveContext{ services.renderResources,
-                                                 services.renderCommands,
-                                                 services.renderDiagnostics,
+        PrimitiveRenderContext primitiveContext{ *m_renderResources,
+                                                 *m_renderTextures,
+                                                 *m_renderGeometry,
+                                                 *m_renderDiagnostics,
                                                  services.assets,
                                                  m_config,
                                                  PrimitiveBatches() };
@@ -2008,7 +2030,7 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
     {
         PROFILE_GPU_BEGIN( &m_renderGpuTiming, "Frame/Render/Skybox" );
         {
-            DRAW_CALL_TRACE_SCOPE( services.renderDiagnostics, "Frame/Render/Skybox" );
+            DRAW_CALL_TRACE_SCOPE( *m_renderDiagnostics, "Frame/Render/Skybox" );
             ExecuteSkyboxThroughRenderGraph( frame );
         }
         PROFILE_GPU_END( &m_renderGpuTiming, "Frame/Render/Skybox" );
@@ -2152,7 +2174,8 @@ bool RuntimeRenderer::RenderFrame( const RuntimeRenderInputs& renderInputs )
 }
 
 
-void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFactory* renderResources )
+void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::Dx12TextureOwner* renderTextures,
+                                                    Rendering::Dx12GeometryOwner* renderGeometry )
 {
     // Lifetime: release pass-owned GPU resources while the renderer backend is
     // still alive. The order keeps consumers ahead of their producers, so cached
@@ -2165,8 +2188,8 @@ void RuntimeRenderer::ReleaseBackendOwnedResources( Rendering::IRenderResourceFa
     m_waterPass.ReleaseGpuResources();
     m_terrainPass.ReleaseGpuResources();
     m_skyPass.ReleaseGpuResources();
-    m_fullscreenQuadPass.ReleaseGpuResources( renderResources );
-    m_uiTextPass.ReleaseGpuResources( m_textBatch, renderResources );
+    m_fullscreenQuadPass.ReleaseGpuResources( renderGeometry );
+    m_uiTextPass.ReleaseGpuResources( m_textBatch, renderTextures, renderGeometry );
     m_uiTextRayTracing = nullptr;
 }
 
@@ -2209,10 +2232,10 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
     const auto logLifecycleStep = [&]( const char* step ) { m_lifecycleLog.Write( context.phaseName, step ); };
 
-    if ( context.deviceLifecycle )
+    if ( context.renderFrame )
     {
         logLifecycleStep( "flush_before_resource_release" );
-        const SkullbonezCore::Core::SbResult flushResult = context.deviceLifecycle->DrainForResourceRelease();
+        const SkullbonezCore::Core::SbResult flushResult = context.renderFrame->DrainForResourceRelease();
         if ( !flushResult.ok )
         {
             // Lane R: return before the first release. The destructor caller
@@ -2236,13 +2259,13 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             m_primitiveBatches.reset();
             break;
         case BackendResourceStep::CollisionVisualizer:
-            m_collisionVisualizer.ResetResources( context.renderResources );
+            m_collisionVisualizer.ResetResources( context.renderGeometry );
             break;
         case BackendResourceStep::UIResources:
-            context.ui.ResetResources( context.renderResources );
+            context.ui.ResetResources( context.renderGeometry );
             break;
         case BackendResourceStep::RenderPassResources:
-            ReleaseBackendOwnedResources( context.renderResources );
+            ReleaseBackendOwnedResources( context.renderTextures, context.renderGeometry );
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -2268,7 +2291,7 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
             }
             break;
         case BackendResourceStep::LauncherLaser:
-            context.tools.Laser().ResetResources( context.renderResources );
+            context.tools.Laser().ResetResources( context.renderGeometry );
             break;
         }
     }
@@ -2277,13 +2300,14 @@ RuntimeRenderer::ReleaseBackendOwnedRuntimeResources( const BackendResourceRelea
 
 
 SkullbonezCore::Core::SbResult
-RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& renderResources,
-                                             Rendering::IRenderCommandContext& renderCommands,
+RuntimeRenderer::InitialiseProcessResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                             Rendering::Dx12TextureOwner& renderTextures,
+                                             Rendering::Dx12GeometryOwner& renderGeometry,
                                              const SkullbonezCore::Core::EngineConfig& config,
                                              bool dumpTextureAssets )
 {
     m_textures.BindAssetSystem( &m_assets );
-    m_textures.BindRenderContexts( &renderResources, &renderCommands );
+    m_textures.BindRenderContexts( &renderTextures, &renderTextures );
     enum class RebuildStep
     {
         RecreateHelperOwner,
@@ -2310,7 +2334,7 @@ RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& 
         switch ( phase.step )
         {
         case RebuildStep::RecreateHelperOwner:
-            m_primitiveBatches.emplace( &renderResources );
+            m_primitiveBatches.emplace( &renderResources, &renderTextures, &renderGeometry );
             break;
         case RebuildStep::RegisterBuiltInSources:
             m_assets.RegisterBuiltInSourceAssets( config );
@@ -2344,14 +2368,16 @@ RuntimeRenderer::InitialiseProcessResources( Rendering::IRenderResourceFactory& 
 }
 
 
-SkullbonezCore::Core::SbResult
-RuntimeRenderer::EnsureUiTextResources( Rendering::IRenderResourceFactory& renderResources,
-                                        const Assets::AssetSystem& assets,
-                                        int screenW,
-                                        int screenH )
+SkullbonezCore::Core::SbResult RuntimeRenderer::EnsureUiTextResources( Rendering::Dx12ResourceBuilder& renderResources,
+                                                                       Rendering::Dx12TextureOwner& renderTextures,
+                                                                       Rendering::Dx12GeometryOwner& renderGeometry,
+                                                                       const Assets::AssetSystem& assets,
+                                                                       int screenW,
+                                                                       int screenH )
 {
     CoreAllocation::RuntimeAllocationScope allocationScope( CoreAllocation::RuntimeAllocationPhase::BackendInit );
-    return m_uiTextPass.EnsureGpuResources( m_textBatch, renderResources, assets, screenW, screenH );
+    return m_uiTextPass
+        .EnsureGpuResources( m_textBatch, renderResources, renderTextures, renderGeometry, assets, screenW, screenH );
 }
 
 
@@ -2361,15 +2387,15 @@ bool RuntimeRenderer::ShouldRenderUiText( const UiTextPassState& state, const UI
 }
 
 
-void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::IRenderRayTracing* renderRayTracing )
+void RuntimeRenderer::SetUiTextRayTracingCapability( Rendering::Dx12RaytracingOwner* renderRayTracing )
 {
     m_uiTextRayTracing = renderRayTracing;
 }
 
 
-void RuntimeRenderer::BeginFrameGraph( Rendering::IRenderCommandContext& renderCommands )
+void RuntimeRenderer::BeginFrameGraph( Rendering::Dx12GraphTransientPool& renderGraph )
 {
-    if ( m_frameGraphRenderCommands && !m_frameGraphFinalized )
+    if ( m_frameGraphRenderGraph && !m_frameGraphFinalized )
     {
         SB_FATAL( "RunRender", "A new frame cannot replace an unfinished frame graph." );
     }
@@ -2380,35 +2406,39 @@ void RuntimeRenderer::BeginFrameGraph( Rendering::IRenderCommandContext& renderC
     // shared until Present or an explicit capture-only completion.
     m_renderPassGraphScratch.Clear();
     m_frameGraphSnapshot = Rendering::RenderSceneSnapshot();
-    m_frameGraphRenderCommands = &renderCommands;
+    m_frameGraphRenderGraph = &renderGraph;
     m_frameGraphFinalized = false;
 }
 
 
-void RuntimeRenderer::PrepareUiFrameTarget( Rendering::IRenderCommandContext& renderCommands )
+void RuntimeRenderer::PrepareUiFrameTarget()
 {
+    if ( !m_renderGraph || !m_renderFrame )
+    {
+        SB_FATAL( "Runtime/UI", "Operator editor frame has no render command context." );
+    }
     // Text-only and ImGui-only frames do not necessarily execute a world or
     // tonemap pass. This graph callback is their normal backbuffer acquisition;
     // on ordinary frames it validates the already-render-target state.
-    ExecuteBackbufferAcquireThroughRenderGraph( { renderCommands, false } );
+    ExecuteBackbufferAcquireThroughRenderGraph( { *m_renderGraph, *m_renderFrame, false } );
 }
 
 
 #if defined( SKULLBONEZ_DEVELOPMENT_TOOLS )
 SkullbonezCore::Core::SbResult RuntimeRenderer::RenderDevelopmentUi( DevelopmentTools::ImGuiEditorOwner& editor )
 {
-    if ( !m_frameGraphRenderCommands )
+    if ( !m_frameGraphRenderGraph )
     {
         return SkullbonezCore::Core::SbResult::Failure( "RuntimeRenderer", "Development UI has no active frame graph" );
     }
     Rendering::RenderGraph& graph = BeginRenderPassGraph();
-    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *m_frameGraphRenderCommands );
+    const Rendering::RenderGraphResourceHandle backbuffer = AddBackbufferResource( graph, *m_frameGraphRenderGraph );
     const uint32_t pass = graph.AddPass( "ImGuiEditorPass" );
     graph.AddWrite( pass, backbuffer, Rendering::RenderGraphResourceAccess::RenderTarget );
 
     DevelopmentUiGraphCallbackData callbackData;
     callbackData.editor = &editor;
-    callbackData.renderCommands = m_frameGraphRenderCommands;
+    callbackData.renderGraph = m_frameGraphRenderGraph;
     graph.SetPassCallback<ExecuteDevelopmentUiGraphCallback>( pass, callbackData, true, "Frame/UI/ImGuiEditor" );
     const Rendering::RenderGraphCompileResult& compiled = CompileRenderPassGraph( graph );
     callbackData.compiled = &compiled;
@@ -2439,7 +2469,7 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
                                                   bool appendPresent,
                                                   bool releaseGraphStorage )
 {
-    if ( m_frameGraphFinalized || !m_frameGraphRenderCommands )
+    if ( m_frameGraphFinalized || !m_frameGraphRenderGraph )
     {
         SB_FATAL( "RunRender", "Frame graph finalization requires one active, unfinished frame graph." );
     }
@@ -2448,7 +2478,7 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
     if ( appendPresent )
     {
         const Rendering::RenderGraphResourceHandle backbuffer =
-            AddBackbufferResource( graph, *m_frameGraphRenderCommands );
+            AddBackbufferResource( graph, *m_frameGraphRenderGraph );
         // Declaration-only exception: Present is the external swap-chain/fence
         // boundary after command recording. The backend consumes this final edge.
         const uint32_t presentPass = graph.AddPass( "Present" );
@@ -2483,12 +2513,12 @@ void RuntimeRenderer::FinalizeFrameGraphInternal( const char* declarationOnlyPas
     {
         graph.Clear();
         m_frameGraphSnapshot = Rendering::RenderSceneSnapshot();
-        m_frameGraphRenderCommands = nullptr;
+        m_frameGraphRenderGraph = nullptr;
     }
 }
 
 
-void RuntimeRenderer::RenderUiText( Rendering::IRenderDiagnostics& renderDiagnostics,
+void RuntimeRenderer::RenderUiText( Rendering::Dx12Diagnostics& renderDiagnostics,
                                     const UI::UIRenderContext& uiRender,
                                     const UiTextPassState& state,
                                     RunTimerState& timers,
@@ -2562,16 +2592,13 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
         return false;
     }
 
-    SkullbonezCore::Rendering::IRenderCommandContext* renderCommands = context.backend.renderCommands;
-    SkullbonezCore::Rendering::IRenderResourceFactory* renderResources = context.backend.renderResources;
-    SkullbonezCore::Rendering::IRenderDiagnostics* renderDiagnostics = context.backend.renderDiagnostics;
-    const bool renderReady = renderCommands != nullptr && renderResources != nullptr && renderDiagnostics != nullptr;
+    const bool renderReady = m_renderFrame != nullptr && m_renderGraph != nullptr && m_renderResources != nullptr &&
+                             m_renderTextures != nullptr && m_renderGeometry != nullptr &&
+                             m_renderDiagnostics != nullptr;
     if ( !renderReady )
     {
         return false;
     }
-    SkullbonezCore::Rendering::IRenderRayTracing* renderRayTracing = context.backend.rayTracingBackend;
-
     const auto gradeNow = std::chrono::steady_clock::now();
     float gradeDtSeconds = 0.0f;
     if ( m_consequenceGradeLastTick.time_since_epoch().count() != 0 )
@@ -2608,10 +2635,5 @@ bool RuntimeRenderer::RenderFrameEntry( const FrameEntryContext& context )
                                                                 .framePolicy = policy,
                                                                 .skyBox = m_skyBox.get(),
                                                                 .cinematic = frameCinematic,
-                                                                .cinematicEnabled = cinematicRender,
-                                                                .renderCommands = *renderCommands,
-                                                                .renderResources = *renderResources,
-                                                                .renderDiagnostics = *renderDiagnostics,
-                                                                .renderRayTracing = renderRayTracing,
-                                                                .renderReady = renderReady } } );
+                                                                .cinematicEnabled = cinematicRender } } );
 }

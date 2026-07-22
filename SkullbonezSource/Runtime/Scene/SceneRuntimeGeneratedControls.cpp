@@ -29,7 +29,7 @@ Related:
 #include "../Tools/RuntimeTools.h"
 #include "SceneController.h"
 #include "../SimulationSystem.h"
-#include "../../Rendering/IRenderDeviceLifecycle.h"
+#include "../../Rendering/DX12/Dx12FrameOwner.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -53,9 +53,9 @@ SkullbonezCore::Core::SbResult ResetGeneratedRuntimeState( SceneController& scen
 {
     // Hazard: Generated rebuilds destroy model/render state. Flush GPU work
     // first, then clear objects and reset simulation/tool state together.
-    if ( reset.renderLifecycle )
+    if ( reset.renderFrame )
     {
-        const SkullbonezCore::Core::SbResult flushResult = reset.renderLifecycle->FlushGPU();
+        const SkullbonezCore::Core::SbResult flushResult = reset.renderFrame->FlushGPU();
         if ( !flushResult.ok )
         {
             // Lane R: no owner below this point may mutate after an uncertain

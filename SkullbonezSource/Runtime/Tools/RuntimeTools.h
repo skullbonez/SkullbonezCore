@@ -37,6 +37,8 @@ Glossary:
     the oldest slots.
   Launcher tuning command: One-frame Physics-tab packet that edits launcher
     raycast visualization, impulse strength, or projectile speed.
+  Lifecycle generation: Scene-load identity used to invalidate transient tool
+    gestures, history, and ray lines exactly once after clearing.
 
 Invariants:
   - RuntimeTools owns transient tool state only; world, model, terrain, camera,
@@ -48,6 +50,8 @@ Invariants:
     model row used for gestures or UI is resolved locally from that handle.
   - Editor payload never mirrors active placement/gizmo ownership, axis, or
     transform mode outside RuntimeInteractionGesture.
+  - Scene-clear observation cancels typed capture before clearing tool payload;
+    it never retains the borrowed replacement world or interaction owners.
 
 Related:
   - SkullbonezSource/Runtime/Tools/RuntimeTools.cpp
@@ -63,6 +67,7 @@ Related:
 #include "../Editor/LauncherLaser.h"
 #include "../Editor/EditorCommandHistory.h"
 #include "../RuntimeCameraMode.h"
+#include "../Scene/SceneLifecycle.h"
 #include "../RuntimeInteractionController.h"
 #include "../Replay/ReplayVisualPacket.h"
 #include "../Replay/ReplayEventCommand.h"
@@ -114,7 +119,7 @@ class WorldEnvironment;
 
 namespace SkullbonezCore::Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 } // namespace SkullbonezCore::Rendering
 
 namespace SkullbonezCore::UI
@@ -684,7 +689,7 @@ class RunEditorTracer
                                  bool activeAngular );
     void Render( const ReplayVisualPacket& packet,
                  const Math::Transformation::Matrix4& viewProjection,
-                 Rendering::IRenderCommandContext& renderCommands );
+                 Rendering::Dx12GeometryOwner& renderCommands );
 };
 
 class RuntimeTools
@@ -829,6 +834,10 @@ class RuntimeTools
     void ClearEditorInteractionForTransition( bool clearSelection,
                                               SceneWorld& world,
                                               RuntimeInteractionController& interaction );
+    void ObserveSceneLifecycle( const SceneLifecyclePacket& packet,
+                                SceneWorld& world,
+                                InputRouter& inputRouter,
+                                RuntimeInteractionController& interaction );
 
     RunEditorTracer& EditorTracer();
     const RunEditorTracer& EditorTracer() const;
@@ -843,5 +852,6 @@ class RuntimeTools
     RunMousePickupState m_mousePickup;
     RunEditorPlacementState m_editor;
     RunEditorTracer m_editorTracer;
+    SceneLifecycleGenerationObserver m_sceneLifecycleObserver;
 };
 } // namespace SkullbonezCore::Runtime

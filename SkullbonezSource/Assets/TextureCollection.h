@@ -42,8 +42,8 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-class IRenderCommandContext;
-class IRenderResourceFactory;
+class Dx12GeometryOwner;
+class Dx12TextureOwner;
 } // namespace Rendering
 
 namespace Textures
@@ -69,8 +69,8 @@ class TextureCollection
 
     std::array<GpuTextureRecord, SkullbonezCore::Scene::Capacity::TOTAL_TEXTURE_COUNT> m_textures = {};
     Assets::AssetSystem* m_assets = nullptr;
-    Rendering::IRenderResourceFactory* m_renderResources = nullptr;
-    Rendering::IRenderCommandContext* m_renderCommands = nullptr;
+    Rendering::Dx12TextureOwner* m_renderResources = nullptr;
+    Rendering::Dx12TextureOwner* m_renderBindings = nullptr;
 
   public:
     struct TextureHandleResult
@@ -100,8 +100,8 @@ class TextureCollection
     TextureCollection& operator=( const TextureCollection& ) = delete;
 
     void BindAssetSystem( Assets::AssetSystem* assets );
-    void BindRenderContexts( Rendering::IRenderResourceFactory* renderResources,
-                             Rendering::IRenderCommandContext* renderCommands );
+    void BindRenderContexts( Rendering::Dx12TextureOwner* renderResources,
+                             Rendering::Dx12TextureOwner* renderBindings );
     bool HasTexture( uint32_t hash ) const;
     SkullbonezCore::Core::SbResult EnsureTexture( uint32_t hash );
     SkullbonezCore::Core::SbResult SelectTexture( uint32_t hash );

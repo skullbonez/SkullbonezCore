@@ -32,14 +32,14 @@ class TextBatch;
 }
 namespace Rendering
 {
-class IRenderCommandContext;
+class Dx12GeometryOwner;
 
 class ProfilerOverlayPresenter
 {
   public:
     void RenderOverlay( const Core::Profiler::ProfilerFrameView& frame,
                         Text::TextBatch& textBatch,
-                        IRenderCommandContext& renderCommands,
+                        Dx12GeometryOwner& renderCommands,
                         float xLeft,
                         float yAnchor,
                         float lineHeight,
@@ -48,7 +48,7 @@ class ProfilerOverlayPresenter
                         bool rightAnchored = false ) const;
     void RenderBarOverlay( const Core::Profiler::ProfilerFrameView& frame,
                            Text::TextBatch& textBatch,
-                           IRenderCommandContext& renderCommands,
+                           Dx12GeometryOwner& renderCommands,
                            float xLeft,
                            float yBottom,
                            float panelWidth,

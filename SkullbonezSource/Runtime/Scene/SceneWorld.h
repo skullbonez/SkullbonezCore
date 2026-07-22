@@ -89,6 +89,9 @@ class SceneWorld
     SceneWorld();
 
     void ApplyRuntimeConfig( const SkullbonezCore::Core::EngineConfig& config );
+    // Published owner value; Replay composition need not retain a duplicate
+    // config-derived capacity in SceneLoadConsumerOutputs.
+    int ActiveSceneObjectCapacity() const;
     // One preflighted command publishes entity, physics, collider, and render
     // rows together. A mismatched post-commit count is a fatal invariant.
     SceneEntityCreateResult TryCreateSceneEntity( SceneEntityCreateDesc entity,
