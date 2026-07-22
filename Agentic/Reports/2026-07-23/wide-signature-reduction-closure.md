@@ -1,8 +1,8 @@
 # Wide Signature Reduction Closure
 
-Date: 2026-07-23  
-Owner: skullbonez  
-Plan: `wide-signature-reduction` W0-W4  
+Date: 2026-07-23
+Owner: skullbonez
+Plan: `wide-signature-reduction` W0-W4
 Branch: `nightrunner-22nd-JUL-26`
 
 ## Result
