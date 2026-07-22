@@ -524,25 +524,28 @@ void UIWindowInteractionOwner::CloseSceneCombo()
 }
 
 
-InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profiler,
-                                                           const Runtime::DeviceInputFrame& deviceFrame,
-                                                           const Runtime::RuntimeMouseEdges& mouse,
-                                                           int screenW,
-                                                           int screenH,
-                                                           double now,
-                                                           bool editorModeEnabled,
-                                                           bool editorPlacementMode,
-                                                           bool editorPlaceStatic,
-                                                           bool editorTerrainAlign,
-                                                           int editorObjectType,
-                                                           int cameraModeIndex,
-                                                           uint32_t cameraModeEnabledMask,
-                                                           const char* const* sceneOptions,
-                                                           int sceneOptionCount,
-                                                           int selectedSceneOption )
+InGameUIInputResult UIWindowInteractionOwner::UpdateInput( Core::Profiler* profiler, const InGameUIInputFrame& frame )
 {
     PROFILE_SCOPED( profiler, "Frame/UI/Input" );
     InGameUIInputResult result;
+    // Concept: one UI-owned value freezes the caller's frame facts while this
+    // owner mutates only its widgets and gesture state. Local aliases keep the
+    // existing interaction algorithm unchanged and make non-const clamps local.
+    const Runtime::DeviceInputFrame& deviceFrame = frame.deviceFrame;
+    const Runtime::RuntimeMouseEdges& mouse = frame.mouse;
+    int screenW = frame.screenWidth;
+    int screenH = frame.screenHeight;
+    const double now = frame.now;
+    const bool editorModeEnabled = frame.editorModeEnabled;
+    const bool editorPlacementMode = frame.editorPlacementMode;
+    const bool editorPlaceStatic = frame.editorPlaceStatic;
+    const bool editorTerrainAlign = frame.editorTerrainAlign;
+    int editorObjectType = frame.editorObjectType;
+    int cameraModeIndex = frame.cameraModeIndex;
+    uint32_t cameraModeEnabledMask = frame.cameraModeEnabledMask;
+    const char* const* sceneOptions = frame.sceneOptions.data();
+    const int sceneOptionCount = static_cast<int>( frame.sceneOptions.size() );
+    const int selectedSceneOption = frame.selectedSceneOption;
     // Concept: UI input produces command intents and capture state. The run loop
     // owns applying scene, physics, renderer, and editor mutations.
     editorObjectType = std::clamp( editorObjectType, 0, EditorTab::OBJECT_TYPE_COUNT - 1 );

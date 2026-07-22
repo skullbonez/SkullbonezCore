@@ -135,6 +135,19 @@ seconds with 346/346 cases, 68,715/68,715 assertions, zero warnings/errors,
 and an explicit `VALIDATE_FAST: ALL PASSED` / `EXIT=0` log footer. Comment
 inspection is 1/1 touched source-bearing tool checked, 0 deferred.
 
+## W2 Evidence (2026-07-23, active)
+
+UI-input family: Runtime now writes one immutable `InGameUIInputFrame`; the
+InGameUI facade and `UIWindowInteractionOwner` consume it synchronously. The
+record carries no mutable subsystem owner, and its scene-name span cannot
+outlive the frame. The inventory falls 301 → 299 with both ruled UI rows gone.
+Focused Profile build passes in 11.63 seconds. Final mapped
+`tools\validate_full.bat` passes from final source in 124.39 seconds with 346/346 tests, all CPU
+coverage and five engine processes, byte-exact 44,401-line physics output, and
+zero warnings/errors. The first 7.12-second invocation stopped in preflight on
+`InputFrame.cpp` formatting; the touched file was formatted before the clean
+rerun. Comment audit: 5/5 touched source-bearing files checked, 0 deferred.
+
 ## Dependencies And Decisions
 
 - Fifth (last) in the round-2 campaign binding order: the inventory must

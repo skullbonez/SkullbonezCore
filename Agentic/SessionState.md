@@ -16,7 +16,7 @@ plan inventory.
 | Active/future progress | 2 / 5 live tasks; 40%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | RD3 final `validate_full` passes in 136.17 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | W1 corrected scanner/rulings pass in 26.52 s; mapped `validate_fast` passes in 24.32 s with 346/346 cases, 68,715 assertions, zero warnings/errors. |
+| Validation for current edits | W2 UI-input family removes both ruled rows (301→299). Profile build passes in 11.63 s; final-tip mapped full gate passes in 124.39 s with all CPU/five runtime lanes and zero warnings/errors. |
 
 ## Live Queue
 
@@ -290,6 +290,11 @@ are not certified. Full evidence:
 | `tools\validate_fast.bat` (wide-signature W0) | 23.46 s | PASS; 346 cases / 68,715 assertions, zero warnings/errors, captured terminal pass line |
 | wide-signature W1 corrected scan + rulings | 26.52 s | PASS; 301/301 rows ruled, explicit stdout PASS and `EXIT=0` |
 | `tools\validate_fast.bat` (wide-signature W1) | 24.32 s | PASS; 346 cases / 68,715 assertions, zero warnings/errors |
+| Profile build (wide-signature W2 UI input) | 11.63 s | PASS; zero warnings/errors |
+| corrected inventory (wide-signature W2 UI input) | 26.44 s | PASS; 299 rows, both UI targets absent |
+| `tools\validate_full.bat` (wide-signature W2 UI first attempt) | 7.12 s | BLOCKED then resolved; one touched file needed formatting |
+| `tools\validate_full.bat` (wide-signature W2 UI input) | 131.72 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
+| `tools\validate_full.bat` (wide-signature W2 UI final tip) | 124.39 s | PASS; CPU umbrella, five runtime lanes, byte-exact physics |
 
 The first full gate found one Automation-only orphaned `GameObjects`
 using-directive after the SkullScope namespace move. It was removed before the

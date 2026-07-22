@@ -50,6 +50,7 @@ Related:
 #include "../Runtime/Scene/SceneControllerState.h"
 
 #include <cstdint>
+#include <span>
 
 namespace SkullbonezCore
 {
@@ -68,6 +69,27 @@ namespace UI
 {
 
 enum class InGameUITab;
+
+struct InGameUIInputFrame
+{
+    // Lifetime: device/mouse snapshots and scene-name pointers are borrowed only
+    // for the synchronous UpdateInput call. This record contains no mutable
+    // subsystem owner and cannot outlive the runtime frame that writes it.
+    const Runtime::DeviceInputFrame& deviceFrame;
+    const Runtime::RuntimeMouseEdges& mouse;
+    int screenWidth = 1;
+    int screenHeight = 1;
+    double now = 0.0;
+    bool editorModeEnabled = false;
+    bool editorPlacementMode = false;
+    bool editorPlaceStatic = true;
+    bool editorTerrainAlign = false;
+    int editorObjectType = EditorTab::OBJECT_BOX;
+    int cameraModeIndex = 0;
+    uint32_t cameraModeEnabledMask = 0x7Fu;
+    std::span<const char* const> sceneOptions;
+    int selectedSceneOption = -1;
+};
 
 class UIWindowInteractionOwner
 {
@@ -169,22 +191,7 @@ class UIWindowInteractionOwner
     int ContentHeight() const;
     WidgetView Widgets();
 
-    InGameUIInputResult UpdateInput( Core::Profiler* profiler,
-                                     const Runtime::DeviceInputFrame& deviceFrame,
-                                     const Runtime::RuntimeMouseEdges& mouse,
-                                     int screenW,
-                                     int screenH,
-                                     double now,
-                                     bool editorModeEnabled,
-                                     bool editorPlacementMode,
-                                     bool editorPlaceStatic,
-                                     bool editorTerrainAlign,
-                                     int editorObjectType,
-                                     int cameraModeIndex,
-                                     uint32_t cameraModeEnabledMask,
-                                     const char* const* sceneOptions,
-                                     int sceneOptionCount,
-                                     int selectedSceneOption );
+    InGameUIInputResult UpdateInput( Core::Profiler* profiler, const InGameUIInputFrame& frame );
 
   private:
     void CloseSceneCombo();

@@ -352,38 +352,9 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw,
 }
 
 
-InGameUIInputResult InGameUI::UpdateInput( const Runtime::DeviceInputFrame& deviceFrame,
-                                           const Runtime::RuntimeMouseEdges& mouse,
-                                           int screenW,
-                                           int screenH,
-                                           double now,
-                                           bool editorModeEnabled,
-                                           bool editorPlacementMode,
-                                           bool editorPlaceStatic,
-                                           bool editorTerrainAlign,
-                                           int editorObjectType,
-                                           int cameraModeIndex,
-                                           uint32_t cameraModeEnabledMask,
-                                           const char* const* sceneOptions,
-                                           int sceneOptionCount,
-                                           int selectedSceneOption )
+InGameUIInputResult InGameUI::UpdateInput( const InGameUIInputFrame& frame )
 {
-    return m_windowInteraction.UpdateInput( m_profiler,
-                                            deviceFrame,
-                                            mouse,
-                                            screenW,
-                                            screenH,
-                                            now,
-                                            editorModeEnabled,
-                                            editorPlacementMode,
-                                            editorPlaceStatic,
-                                            editorTerrainAlign,
-                                            editorObjectType,
-                                            cameraModeIndex,
-                                            cameraModeEnabledMask,
-                                            sceneOptions,
-                                            sceneOptionCount,
-                                            selectedSceneOption );
+    return m_windowInteraction.UpdateInput( m_profiler, frame );
 }
 void InGameUI::Draw( const InGameUIFrameData& data, const UIRenderContext& render )
 {

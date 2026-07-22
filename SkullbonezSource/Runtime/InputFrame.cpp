@@ -62,6 +62,7 @@ Related:
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 
 using namespace SkullbonezCore::Runtime;
 using namespace SkullbonezCore::Runtime::ReplayTimelineOperations;
@@ -500,7 +501,9 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
 
     const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex( sceneController, ui.SceneNavigation().browser );
     const HWND windowHandle = window.NativeWindowHandle();
-    InGameUIInputResult UIResult = ui.UpdateInput(
+    // Concept: runtime writes one immutable UI-input value after all frame facts
+    // are known. UI consumes it synchronously and retains none of its borrows.
+    const SkullbonezCore::UI::InGameUIInputFrame uiInput{
         inputRouter.DeviceFrame(),
         inputRouter.UiSnapshot().mouse,
         window.ClientWidth(),
@@ -513,9 +516,11 @@ RuntimeUIFrameResult BeginRuntimeUIFrame( Window& window,
         runtimeTools.Editor().objectType,
         static_cast<int>( camera.mode ),
         facts.cameraModeEnabledMask,
-        ui.SceneNavigation().browser.namePtrs.empty() ? nullptr : ui.SceneNavigation().browser.namePtrs.data(),
-        static_cast<int>( ui.SceneNavigation().browser.namePtrs.size() ),
-        selectedSceneBrowserIndex );
+        std::span<const char* const>(
+            ui.SceneNavigation().browser.namePtrs.empty() ? nullptr : ui.SceneNavigation().browser.namePtrs.data(),
+            ui.SceneNavigation().browser.namePtrs.size() ),
+        selectedSceneBrowserIndex };
+    InGameUIInputResult UIResult = ui.UpdateInput( uiInput );
     switch ( UIResult.nativeMouseCapture )
     {
     case InGameUIInputResult::NativeMouseCaptureRequest::Acquire:
