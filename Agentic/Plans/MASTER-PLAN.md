@@ -427,6 +427,18 @@ the shadow selection packet. Main/reflection visibility and object-shadow
   restore producers construct the real emitted diagnostic. Active/future
   progress is 5/6.
 
+The denominator grew 6 → 22 on 2026-07-23 when the owner registered the
+three-plan architecture follow-up round-3 campaign from the same-day
+from-source engine architecture review of `nightrunner-22nd-JUL-26` (review
+conducted without plan files or git history; the plan documents carry the
+dated evidence): source blemish remediation (6 tasks), UI/Runtime separation
+(5 tasks), and Runtime package decomposition (5 tasks). Execution order is
+1→3 as listed and begins only after
+`wide-signature-parameter-bag-remediation` closes; the ordering rationale,
+owner exclusions (Replay frozen, parameter seams excluded, engine/game
+content boundary untouched), and per-plan gates live in the campaign section
+below.
+
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
 Scene-load inputs are 18→10, consumer outputs are 20→11, view-parameter slots
@@ -1403,6 +1415,48 @@ a census records. Execution order is binding: 1 physics unification,
 | [wide-signature-decomposition-round-2](../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md) | Complete | 5/5 | 8 → 0 threshold-16 rows; independent review and all closure gates pass |
 | [wide-signature-decomposition-round-3](../Reports/2026-07-23/wide-signature-decomposition-round-3-closure.md) | Complete | 6/6 | 9 → 0 threshold-13 rows; independent review and all closure gates pass |
 | [wide-signature-parameter-bag-remediation](TODO/wide-signature-parameter-bag-remediation.md) | In progress | 5/6 | Reconcile campaign history, run the hostile no-bag review and final gates, and supersede prior closure claims |
+
+## Architecture Follow-Up Campaign Round 3 (2026-07-23)
+
+Source: the owner-requested from-source architecture review of 2026-07-23 on
+`nightrunner-22nd-JUL-26`, conducted deliberately without consulting plan
+files or git history; the three plan documents carry the dated file:line
+evidence. The review found the class-level god objects closed and named the
+remaining structural debts this campaign owns: the Runtime package as the
+last structural god object (242 files / ~108K lines, 81 loose top-level
+files, no internal layering or edge proofs); a bidirectional UI↔Runtime
+package tangle (a complete 10-row UI→Runtime include census) that the
+repository's dependency-proof regime does not police; and five source
+blemishes — cold `contactMaterialName` bytes in the hot `ColliderRecord`
+row, diagnostics names on the `PhysicsEngine::Step` signature, `Run*` file
+names on ten files with zero `Run::` members, the Core `Profiler`
+implemented inside Rendering, and one oversized development-tools TU.
+
+Owner exclusions ratified at registration: Replay internals are frozen for
+all three plans; wide parameter seams are excluded (they belong to the
+active `wide-signature-parameter-bag-remediation` lane and its accepted
+12-parameter ceiling); the engine/game content boundary
+(`TornadoGameplay` in `SceneWorld`) is untouched. Owner direction ruling for
+plan 2: Runtime may include UI; UI must never include Runtime — UI consumes
+value snapshots and emits typed commands.
+
+Standing rules binding every plan in this campaign: zero behavioral
+baseline, golden, screenshot, replay, or physics CSV refresh — divergence is
+reverted, never normalized; physics CSV stays byte-exact through every
+phase; one independent rubber-duck review per plan at closure; no new
+compatibility spellings, forwarding headers, context bags, callback packs,
+or hot-path inheritance artifacts; census evidence is re-generated at
+execution time because the active parameter-bag lane is touching the same
+files. Execution order is binding: 1 source blemish remediation (its B3
+renames precede any file moves), 2 UI/Runtime separation, 3 Runtime package
+decomposition (its R1 census then sees final names and the relocated
+navigation model).
+
+| Plan | State | Verified phase count | Start condition / next action |
+|---|---|---:|---|
+| [source-blemish-remediation](TODO/source-blemish-remediation.md) | Registered | 0/6 | Starts after wide-signature-parameter-bag-remediation closes; B1 collider cold-row split |
+| [ui-runtime-separation](TODO/ui-runtime-separation.md) | Registered | 0/5 | Starts after source-blemish-remediation B3 renames land; U1 moves the UI-owned navigation model out of Runtime/Scene |
+| [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Registered | 0/5 | Starts after ui-runtime-separation closes; R1 top-level census and ratified package map |
 
 ## Features
 

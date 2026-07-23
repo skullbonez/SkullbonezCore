@@ -2,9 +2,9 @@
 
 Date: 2026-07-23
 Status: TODO — drafted from the 2026-07-23 from-source architecture review of
-`nightrunner-22nd-JUL-26`. Not yet registered in `MASTER-PLAN.md` by owner
-instruction ("just make the plans"); register rows there before the first
-plan-runner commit executes any phase.
+`nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
+plan 3 of the Architecture Follow-Up Campaign Round 3; starts after
+`ui-runtime-separation` closes. 0/5 phases complete.
 Impact area: `SkullbonezSource/Runtime/` package structure, includes, project
 files, intra-Runtime dependency rules
 Owner: runtime

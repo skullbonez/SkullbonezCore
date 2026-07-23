@@ -2,9 +2,9 @@
 
 Date: 2026-07-23
 Status: TODO — drafted from the 2026-07-23 from-source architecture review of
-`nightrunner-22nd-JUL-26`. Not yet registered in `MASTER-PLAN.md` by owner
-instruction ("just make the plans"); register rows there before the first
-plan-runner commit executes any phase.
+`nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
+plan 2 of the Architecture Follow-Up Campaign Round 3; starts after
+`source-blemish-remediation` B3 renames land. 0/5 phases complete.
 Impact area: `SkullbonezSource/UI/` includes, `Runtime/Scene` navigation
 value ownership, input snapshot boundary, physics-debug-visualizer UI tab
 Owner: runtime + UI

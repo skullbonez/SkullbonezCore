@@ -2,9 +2,9 @@
 
 Date: 2026-07-23
 Status: TODO — drafted from the 2026-07-23 from-source architecture review of
-`nightrunner-22nd-JUL-26`. Not yet registered in `MASTER-PLAN.md` by owner
-instruction ("just make the plans"); register rows there before the first
-plan-runner commit executes any phase.
+`nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
+plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
+`wide-signature-parameter-bag-remediation` closes. 0/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
