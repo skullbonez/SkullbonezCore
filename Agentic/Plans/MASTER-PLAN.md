@@ -443,6 +443,20 @@ owner exclusions (Replay frozen, parameter seams excluded, engine/game
 content boundary untouched), and per-plan gates live in the campaign section
 below.
 
+The denominator grew 16 → 23 on 2026-07-23 when the owner registered the
+seven-task `solar-system-trajectory-planner` feature plan
+(`TODO/solar-system-trajectory-planner.md`) from the same-day owner
+conversation requesting a solar-system intercept demo on the prediction
+system. The owner explicitly requested implementation of the full scope —
+scene, intercept readout, analytic future arcs, Lambert/shooting trip
+planner, and porkchop launch-window panel — and this plan is the active
+owner-directed work; the round-3 architecture follow-up campaign retains its
+1→3 internal order and resumes after this plan closes unless the owner
+redirects. The plan document carries the dated evidence, design table,
+solver-architecture decisions, and per-task gates. It touches no Physics,
+Rendering, Scene, World, or Core source and authorizes no baseline, golden,
+or horizon-constant change.
+
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
 Scene-load inputs are 18→10, consumer outputs are 20→11, view-parameter slots

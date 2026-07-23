@@ -12,15 +12,24 @@ plan inventory.
 |---|---|
 | Branch | `nightrunner-22nd-JUL-26` |
 | Current baseline | Wide-signature parameter-bag remediation is complete: campaign-created mechanical packs are absent and the threshold-13 scan is empty. Legacy remains the development default. |
-| Current objective | The next registered architecture campaign begins with `source-blemish-remediation` B1 when the owner starts it. |
-| Active/future progress | 0/16 registered architecture follow-up tasks; 0%. |
+| Current objective | Owner-requested `solar-system-trajectory-planner` (7 tasks, registered 2026-07-23) is the active work, starting at SS0; the round-3 architecture campaign (`source-blemish-remediation` first) resumes after it closes. |
+| Active/future progress | 0/23 registered tasks (7 solar-system feature + 16 architecture follow-up); 0%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
 | Last broad local gate | B5 `validate_full` passes in 115.7 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
 | Validation for current edits | B5 threshold/static proofs, fast, Replay allocation/artifact/scrub-visual-fidelity, broad, and hostile no-bag review all pass. |
 
 ## Live Queue
 
-NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
+NOW. `solar-system-trajectory-planner` is registered at 0/7 (owner request,
+2026-07-23): orbital-mechanics Maths library, `solar_system.scene.json`,
+prediction intercept readout, analytic planet guide arcs, Lambert/shooting
+trip planner with ghost-arc convergence display, and a porkchop
+launch-window panel. Plan and design table:
+`Agentic/Plans/TODO/solar-system-trajectory-planner.md`. No Physics/render
+source changes, no baseline/golden/horizon changes authorized. SS0 (math
+library + doctests) is the first task.
+
+PREVIOUSLY. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely
 bundle arguments for immediate unpacking. B0 reopened the three prior
 wide-signature closure claims and inventories every campaign-introduced or
