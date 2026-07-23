@@ -402,7 +402,17 @@ T1 replaces both Scene-tab rows with one-turn layout/gesture values and
 threshold-13 inventory is down from nine to six. T2 replaces the private
 physics wake constructor's controller-owned row fan-out with a private
 capability while external physics owners remain explicit. The inventory is
-down to five. Active/future progress is 3/6.
+down to five. T3-T5 subsequently closed the threshold-13 inventory and the
+round-3 report records the original closure evidence.
+
+The denominator grew 0 to 6 again on 2026-07-23 when the owner rejected the
+campaign's mechanical parameter objects. The reopened audit found input,
+request, descriptor, and context values that existed mainly to conceal
+arguments and were immediately unpacked or forwarded. The active
+`wide-signature-parameter-bag-remediation` plan removes those shapes through
+real operation decomposition while preserving the accepted 12-parameter
+ceiling. B0 records the complete campaign-introduced census and explicit
+retain/remove rulings; active/future progress is 1/6.
 
 The active/future denominator returned 13 → 7 when
 `owner-fanout-reduction` closed OF0-OF5 and left the ledger under rule 4.
@@ -1379,6 +1389,7 @@ a census records. Execution order is binding: 1 physics unification,
 | [wide-signature-reduction](../Reports/2026-07-23/wide-signature-reduction-closure.md) | Complete | 5/5 | 301 → 285; all survivors ruled; independent review and final broad gate pass |
 | [wide-signature-decomposition-round-2](../Reports/2026-07-23/wide-signature-decomposition-round-2-closure.md) | Complete | 5/5 | 8 → 0 threshold-16 rows; independent review and all closure gates pass |
 | [wide-signature-decomposition-round-3](../Reports/2026-07-23/wide-signature-decomposition-round-3-closure.md) | Complete | 6/6 | 9 → 0 threshold-13 rows; independent review and all closure gates pass |
+| [wide-signature-parameter-bag-remediation](TODO/wide-signature-parameter-bag-remediation.md) | In progress | 1/6 | Implement B1 UI and Gameplay decomposition |
 
 ## Features
 
