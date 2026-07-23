@@ -70,6 +70,19 @@ class PhysicsSleepController;
 class PhysicsNarrowphaseWakeAccess
 {
   private:
+    // Concept: this private capability names only rows owned by the sleep
+    // controller. It cannot acquire body/collider/force ownership and is
+    // consumed immediately while constructing one wake-pass access value.
+    struct SleepRows
+    {
+        std::span<uint8_t> sleepState;
+        std::span<uint8_t> sleepCounter;
+        std::span<int> sleepIslandVisualId;
+        std::span<const uint8_t> underwaterSleepLocked;
+        std::span<int> pendingAwakeIndices;
+        int& pendingAwakeCount;
+    };
+
     // Lifetime: mutable sleep rows and body stores are borrowed only for one
     // synchronous wake pass. Private fields prevent consumers from acquiring
     // raw mutation authority over the sleep owner's rows.
@@ -94,12 +107,7 @@ class PhysicsNarrowphaseWakeAccess
                                   std::span<PhysicsBodyRecord> bodyRecords,
                                   const PhysicsBodyHotFieldsView& hotFields,
                                   std::span<float> timeRemaining,
-                                  std::span<uint8_t> sleepState,
-                                  std::span<uint8_t> sleepCounter,
-                                  std::span<int> sleepIslandVisualId,
-                                  std::span<const uint8_t> underwaterSleepLocked,
-                                  std::span<int> pendingAwakeIndices,
-                                  int& pendingAwakeCount,
+                                  const SleepRows& sleepRows,
                                   int modelCount,
                                   float dt );
     friend class PhysicsSleepController;

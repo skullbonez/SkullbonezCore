@@ -387,19 +387,16 @@ PhysicsNarrowphaseWakeAccess::PhysicsNarrowphaseWakeAccess( PhysicsBodyStore& bo
                                                             std::span<PhysicsBodyRecord> bodyRecords,
                                                             const PhysicsBodyHotFieldsView& hotFields,
                                                             std::span<float> timeRemaining,
-                                                            std::span<uint8_t> sleepState,
-                                                            std::span<uint8_t> sleepCounter,
-                                                            std::span<int> sleepIslandVisualId,
-                                                            std::span<const uint8_t> underwaterSleepLocked,
-                                                            std::span<int> pendingAwakeIndices,
-                                                            int& pendingAwakeCount,
+                                                            const SleepRows& sleepRows,
                                                             int modelCount,
                                                             float dt )
     : m_bodyStore( bodyStore ), m_colliderStore( colliderStore ), m_worldForces( worldForces ),
       m_bodyRecords( bodyRecords ), m_hotFields( hotFields ), m_timeRemaining( timeRemaining ),
-      m_sleepState( sleepState ), m_sleepCounter( sleepCounter ), m_sleepIslandVisualId( sleepIslandVisualId ),
-      m_underwaterSleepLocked( underwaterSleepLocked ), m_pendingAwakeIndices( pendingAwakeIndices ),
-      m_pendingAwakeCount( pendingAwakeCount ), m_modelCount( modelCount ), m_dt( dt )
+      m_sleepState( sleepRows.sleepState ), m_sleepCounter( sleepRows.sleepCounter ),
+      m_sleepIslandVisualId( sleepRows.sleepIslandVisualId ),
+      m_underwaterSleepLocked( sleepRows.underwaterSleepLocked ),
+      m_pendingAwakeIndices( sleepRows.pendingAwakeIndices ), m_pendingAwakeCount( sleepRows.pendingAwakeCount ),
+      m_modelCount( modelCount ), m_dt( dt )
 {
 }
 
@@ -449,18 +446,19 @@ PhysicsSleepController::CreateNarrowphaseWakeAccess( PhysicsBodyStore& bodyStore
                                                      int modelCount,
                                                      float dt )
 {
+    const PhysicsNarrowphaseWakeAccess::SleepRows sleepRows{ m_sleepState,
+                                                             m_sleepCounter,
+                                                             m_sleepIslandVisualId,
+                                                             m_underwaterSleepLocked,
+                                                             m_pendingAwakeIndices,
+                                                             m_pendingAwakeCount };
     return PhysicsNarrowphaseWakeAccess( bodyStore,
                                          colliderStore,
                                          worldForces,
                                          bodyRecords,
                                          bodyStore.MutableHotFields(),
                                          timeRemaining,
-                                         m_sleepState,
-                                         m_sleepCounter,
-                                         m_sleepIslandVisualId,
-                                         m_underwaterSleepLocked,
-                                         m_pendingAwakeIndices,
-                                         m_pendingAwakeCount,
+                                         sleepRows,
                                          modelCount,
                                          dt );
 }

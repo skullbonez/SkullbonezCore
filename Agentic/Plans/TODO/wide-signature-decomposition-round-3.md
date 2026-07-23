@@ -64,7 +64,7 @@ inventory may be refreshed.
 - [x] T1 — UI and Gameplay. Narrow both Scene-tab functions and tornado quad
   emission while preserving hit-test/draw ordering and the allocation-free hot
   path.
-- [ ] T2 — Physics. Narrow the wake-access constructor with a private
+- [x] T2 — Physics. Narrow the wake-access constructor with a private
   sleep-row capability and keep all external physics owners explicit.
 - [ ] T3 — Rendering. Narrow model and shadow submission without hiding
   backend/store/worker ownership or adding hot-path allocation.
@@ -108,8 +108,8 @@ inventory may be refreshed.
 - [x] `SkullbonezSource/UI/UIWindowInteractionOwner.cpp`
 - [x] `SkullbonezSource/UI/UI.cpp`
 - [x] `SkullbonezSource/Gameplay/TornadoVisualPass.cpp`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
-- [ ] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.h`
+- [x] `SkullbonezSource/Physics/Stages/PhysicsSleepController.Wake.cpp`
 - [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.h`
 - [ ] `SkullbonezSource/Rendering/RenderInstanceRenderer.cpp`
 - [ ] `SkullbonezSource/Runtime/Render/RuntimeRenderPasses.h`
@@ -130,3 +130,10 @@ inventory may be refreshed.
 - T1 comment audit: 5/5 checked, 0 deferred.
 - T1 focused Profile build: PASS in 11.6 s, 0 warnings, 0 errors.
 - T1 `tools\validate_fast.bat`: PASS in 32.3 s.
+- T2 threshold-13 inventory: 6 → 5; the wake-access constructor is absent.
+- T2 ownership review: private `SleepRows` exposes only sleep-controller-owned
+  row spans/count; body, collider, and force owners remain explicit.
+- T2 comment audit: 2/2 checked, 0 deferred.
+- T2 focused Profile build: PASS in 18.3 s, 0 warnings, 0 errors.
+- T2 `tools\validate_physics.bat`: PASS in 49.3 s; lifecycle/handle smoke and
+  deterministic physics regression pass byte-exactly.
