@@ -1241,10 +1241,16 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
         }
     }
 
+    const ReplayLoadedPresentationActivationRequest activation{
+        .hasLoadedPresentation = hasLoadedPresentation(),
+        .normalized = std::clamp( normalized, 0.0f, 1.0f ),
+        .now = now,
+        .normalizedCurrentMode = normalizedCurrentMode,
+        .normalizedRestoreMode = transaction.timelineOwners.normalizedRestoreMode,
+        .attachedFollow = transaction.timelineOwners.attachedFollow,
+        .directorGrabbed = transaction.timelineOwners.directorGrabbed };
     const bool armed =
-        ReplayPresentationOperations::ActivateLoadedPresentation( hasLoadedPresentation(),
-                                                                  std::clamp( normalized, 0.0f, 1.0f ),
-                                                                  now,
+        ReplayPresentationOperations::ActivateLoadedPresentation( activation,
                                                                   scrubber,
                                                                   presentation,
                                                                   authoring,
@@ -1253,10 +1259,6 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::VerifyLoadedPresentation( Repl
                                                                   transaction.timelineOwners.terrain,
                                                                   transaction.timelineOwners.camera,
                                                                   mousePickup,
-                                                                  normalizedCurrentMode,
-                                                                  transaction.timelineOwners.normalizedRestoreMode,
-                                                                  transaction.timelineOwners.attachedFollow,
-                                                                  transaction.timelineOwners.directorGrabbed,
                                                                   transaction.timelineOwners.interaction,
                                                                   transaction.timelineOwners.inputRouter );
     if ( !armed )
@@ -1605,9 +1607,15 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::PrepareBranchFileProbe( Replay
     {
         return ReplayProbeFailure( "replay restore branch probe failed to load v2 presentation scrub source" );
     }
-    (void)ReplayPresentationOperations::ActivateLoadedPresentation( true,
-                                                                    0.25f,
-                                                                    now,
+    const ReplayLoadedPresentationActivationRequest activation{
+        .hasLoadedPresentation = true,
+        .normalized = 0.25f,
+        .now = now,
+        .normalizedCurrentMode = normalizedCurrentMode,
+        .normalizedRestoreMode = transaction.timelineOwners.normalizedRestoreMode,
+        .attachedFollow = transaction.timelineOwners.attachedFollow,
+        .directorGrabbed = transaction.timelineOwners.directorGrabbed };
+    (void)ReplayPresentationOperations::ActivateLoadedPresentation( activation,
                                                                     scrubber,
                                                                     presentation,
                                                                     authoring,
@@ -1616,10 +1624,6 @@ SkullbonezCore::Core::SbResult ReplayProbeRunner::PrepareBranchFileProbe( Replay
                                                                     transaction.timelineOwners.terrain,
                                                                     transaction.timelineOwners.camera,
                                                                     mousePickup,
-                                                                    normalizedCurrentMode,
-                                                                    transaction.timelineOwners.normalizedRestoreMode,
-                                                                    transaction.timelineOwners.attachedFollow,
-                                                                    transaction.timelineOwners.directorGrabbed,
                                                                     transaction.timelineOwners.interaction,
                                                                     transaction.timelineOwners.inputRouter );
     scrubber.SetHistoricalSamplePaused( true );

@@ -64,7 +64,7 @@ and dependency direction.
 - [x] D1 — UI and scene composition. Split the Scene-tab handler by action and
   split scene-load runtime reactions from external presentation outputs. Prove
   both original 16-parameter rows are absent.
-- [ ] D2 — Replay input and activation. Reuse `ReplayWorkspaceFrameInput`, add
+- [x] D2 — Replay input and activation. Reuse `ReplayWorkspaceFrameInput`, add
   only bounded read-only cause/velocity source views and scalar activation
   policy, and keep mutable Replay/camera/input owners explicit.
 - [ ] D3 — Replay prediction. Replace the 22/19 forwarding chain with one
@@ -104,3 +104,13 @@ and dependency direction.
 - D1 `tools\validate_full.bat`: PASS in 135.1 s; CPU/coverage umbrella and
   five runtime lanes pass, zero DX12 errors, accepted screenshots, and the
   44,401-line physics CSV is byte-exact.
+- D2 threshold-16 scan: 6 → 2 rows; scrubber, cause-tree, velocity-edit, and
+  loaded-presentation activation targets are absent.
+- D2 touched-file comment audit: 8/8 checked, 0 deferred.
+- D2 focused Profile build: PASS in 11.2 s with zero warnings/errors after two
+  additional internal activation callers were moved to the scalar request.
+- D2 `tools\validate_full.bat`: PASS in 137.7 s after a 7.3 s formatting-only
+  preflight correction; CPU/coverage and five runtime lanes pass.
+- D2 sole `tools\validate_replay_visual_fidelity.bat` invocation: PASS in
+  426.9 s; one process/generation/presentation, 2,401 ticks, 17 cases / 75
+  assertions, durable/causal proof, and all false-pass controls.

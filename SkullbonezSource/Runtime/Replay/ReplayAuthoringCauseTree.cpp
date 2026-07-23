@@ -26,6 +26,7 @@ Related:
   - SkullbonezSource/Runtime/Replay/ReplayOverlayLayout.h
 */
 #include "ReplayAuthoring.h"
+#include "ReplayCoordination.h"
 #include "ReplayPrediction.h"
 #include "ReplayPredictionPublicationOperations.h"
 #include "ReplayPresentation.h"
@@ -854,29 +855,31 @@ void ReplayAuthoring::SetCauseTreeFocus( int rowIndex, Physics::PhysicsSceneObje
 
 bool ReplayAuthoring::TickCauseTreeInput( ReplayPresentation& presentationOwner,
                                           ReplayScrubber& scrubberOwner,
-                                          const RunReplayPredictionState& prediction,
-                                          std::span<const RunReplayPredictionFrame> activePredictionFrames,
-                                          const ReplaySolverFrameSample* currentSolverSample,
-                                          bool uiBlocksMouse,
-                                          int wheelDelta,
+                                          const ReplayCauseTreeInputSources& sources,
+                                          const ReplayWorkspaceFrameInput& input,
                                           InputRouter& inputRouter,
                                           RuntimeInteractionController& interaction,
-                                          const PhysicsBodyStore& bodyStore,
-                                          const ColliderStore& colliderStore,
-                                          std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                           Environment::CameraCollection* cameras,
                                           Geometry::Terrain* terrain,
                                           RunCameraState& camera,
                                           RunMousePickupState& mousePickup,
-                                          RunCameraMode normalizedCurrentMode,
-                                          RunCameraMode normalizedRestoreMode,
-                                          bool attachedFollow,
-                                          bool directorGrabbed,
-                                          bool editorModeEnabled,
-                                          int screenWidth,
-                                          int screenHeight,
                                           bool& outEnterInteractive )
 {
+    const RunReplayPredictionState& prediction = sources.prediction;
+    const auto activePredictionFrames = sources.activePredictionFrames;
+    const ReplaySolverFrameSample* currentSolverSample = sources.currentSolverSample;
+    const PhysicsBodyStore& bodyStore = sources.bodyStore;
+    const ColliderStore& colliderStore = sources.colliderStore;
+    const auto presentation = sources.presentation;
+    const bool uiBlocksMouse = input.uiBlocksMouse;
+    const int wheelDelta = input.wheelDelta;
+    const RunCameraMode normalizedCurrentMode = input.normalizedCurrentMode;
+    const RunCameraMode normalizedRestoreMode = input.normalizedRestoreMode;
+    const bool attachedFollow = input.attachedFollow;
+    const bool directorGrabbed = input.directorGrabbed;
+    const bool editorModeEnabled = input.editorModeEnabled;
+    const int screenWidth = input.screenWidth;
+    const int screenHeight = input.screenHeight;
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
     const auto enterInspectionCamera = [&]()

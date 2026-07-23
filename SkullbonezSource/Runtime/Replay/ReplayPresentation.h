@@ -114,6 +114,19 @@ struct ReplayPathPickResult
     bool exitInspectionCamera = false;
 };
 
+// Scalar policy for one committed artifact activation. Mutable replay, camera,
+// interaction, and input owners remain explicit operands of the operation.
+struct ReplayLoadedPresentationActivationRequest
+{
+    bool hasLoadedPresentation = false;
+    float normalized = 0.0f;
+    double now = 0.0;
+    RunCameraMode normalizedCurrentMode = RunCameraMode::Demo;
+    RunCameraMode normalizedRestoreMode = RunCameraMode::Demo;
+    bool attachedFollow = false;
+    bool directorGrabbed = false;
+};
+
 namespace ReplayPresentationOperations
 {
 // Stateless host-camera transitions shared by scrubber and authoring tools.
@@ -140,9 +153,7 @@ void ExitInspectionCamera( ReplayPresentation& presentation,
 // Applies the replay-owner and host-camera reaction after ReplayTimeline has
 // committed a presentation artifact. Production startup and Debug probes share
 // this operation so validation cannot drift from the operator-visible path.
-bool ActivateLoadedPresentation( bool hasLoadedPresentation,
-                                 float normalized,
-                                 double now,
+bool ActivateLoadedPresentation( const ReplayLoadedPresentationActivationRequest& request,
                                  ReplayScrubber& scrubber,
                                  ReplayPresentation& presentation,
                                  ReplayAuthoring& authoring,
@@ -151,10 +162,6 @@ bool ActivateLoadedPresentation( bool hasLoadedPresentation,
                                  Geometry::Terrain* terrain,
                                  RunCameraState& camera,
                                  RunMousePickupState& mousePickup,
-                                 RunCameraMode normalizedCurrentMode,
-                                 RunCameraMode normalizedRestoreMode,
-                                 bool attachedFollow,
-                                 bool directorGrabbed,
                                  RuntimeInteractionController& interaction,
                                  InputRouter& inputRouter );
 } // namespace ReplayPresentationOperations

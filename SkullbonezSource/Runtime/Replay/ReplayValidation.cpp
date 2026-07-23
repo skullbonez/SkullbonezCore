@@ -1604,17 +1604,21 @@ ReplayStartupResult ReplayRuntime::RunStartupWorkflows( const ReplayStartupLoadI
     }
     if ( startup.loadPath[0] != '\0' )
     {
-        ActivateLoadedPresentationScrubber( loadInput.now,
+        const ReplayLoadedPresentationActivationRequest activation{
+            .hasLoadedPresentation = HasLoadedPresentation(),
+            .normalized = 0.25f,
+            .now = loadInput.now,
+            .normalizedCurrentMode = loadInput.normalizedCurrentMode,
+            .normalizedRestoreMode = loadInput.timelineOwners.normalizedRestoreMode,
+            .attachedFollow = loadInput.timelineOwners.attachedFollow,
+            .directorGrabbed = loadInput.timelineOwners.directorGrabbed };
+        ActivateLoadedPresentationScrubber( activation,
                                             loadInput.timelineOwners.inputRouter,
                                             loadInput.timelineOwners.interaction,
                                             loadInput.cameras,
                                             loadInput.timelineOwners.terrain,
                                             loadInput.timelineOwners.camera,
-                                            loadInput.mousePickup,
-                                            loadInput.normalizedCurrentMode,
-                                            loadInput.timelineOwners.normalizedRestoreMode,
-                                            loadInput.timelineOwners.attachedFollow,
-                                            loadInput.timelineOwners.directorGrabbed );
+                                            loadInput.mousePickup );
     }
 
 #ifdef _DEBUG

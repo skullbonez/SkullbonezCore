@@ -487,29 +487,31 @@ ReplayAuthoring::ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInpu
 
 bool ReplayAuthoring::TickVelocityEditInput( ReplayPresentation& presentationOwner,
                                              ReplayScrubber& scrubberOwner,
-                                             const ReplaySolverFrameSample* currentSolverSample,
-                                             bool uiBlocksMouse,
-                                             const ReplayPathPickInput& pointerRay,
+                                             const ReplayVelocityEditInputSources& sources,
+                                             const ReplayWorkspaceFrameInput& input,
                                              InputRouter& inputRouter,
                                              RuntimeInteractionController& interaction,
                                              PhysicsEngine& velocityPhysics,
-                                             const SceneEntityStore& entities,
-                                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                              Environment::CameraCollection* cameras,
                                              Geometry::Terrain* terrain,
                                              RunCameraState& camera,
                                              RunMousePickupState& mousePickup,
-                                             RunCameraMode normalizedCurrentMode,
-                                             RunCameraMode normalizedRestoreMode,
-                                             bool attachedFollow,
-                                             bool directorGrabbed,
-                                             bool editorModeEnabled,
-                                             bool scenePhysicsEnabled,
-                                             int screenWidth,
-                                             int screenHeight,
-                                             double now,
                                              bool& outEnterInteractive )
 {
+    const ReplaySolverFrameSample* currentSolverSample = sources.currentSolverSample;
+    const SceneEntityStore& entities = sources.entities;
+    const auto presentation = sources.presentation;
+    const bool uiBlocksMouse = input.uiBlocksMouse;
+    const ReplayPathPickInput& pointerRay = input.pointerRay;
+    const RunCameraMode normalizedCurrentMode = input.normalizedCurrentMode;
+    const RunCameraMode normalizedRestoreMode = input.normalizedRestoreMode;
+    const bool attachedFollow = input.attachedFollow;
+    const bool directorGrabbed = input.directorGrabbed;
+    const bool editorModeEnabled = input.editorModeEnabled;
+    const bool scenePhysicsEnabled = input.scenePhysicsEnabled;
+    const int screenWidth = input.screenWidth;
+    const int screenHeight = input.screenHeight;
+    const double now = input.now;
     InputRouter& m_inputRouter = inputRouter;
     RuntimeInteractionController& m_interaction = interaction;
     const auto enterInspectionCamera = [&]()

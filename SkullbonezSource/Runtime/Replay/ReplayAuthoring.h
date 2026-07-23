@@ -63,6 +63,7 @@ class RunEditorTracer;
 class RuntimeInteractionController;
 class SceneEntityStore;
 struct ReplayPathPickInput;
+struct ReplayWorkspaceFrameInput;
 struct ReplayKeyboardVelocityEditInput;
 struct ReplayKeyboardVelocityEditResult;
 struct RunReplayCameraState;
@@ -79,6 +80,28 @@ struct ReplayAuthoringPredictionRequest
     bool refreshPrediction = false;
     bool clearPredictionCache = false;
     bool prepareVelocityMutationBaseline = false;
+};
+
+// Read-only publications needed to resolve one cause-tree input turn. Lifetime:
+// every reference is borrowed from ReplayRuntime::TickWorkspace and cannot
+// escape the synchronous authoring call.
+struct ReplayCauseTreeInputSources
+{
+    const RunReplayPredictionState& prediction;
+    std::span<const RunReplayPredictionFrame> activePredictionFrames;
+    const ReplaySolverFrameSample* currentSolverSample = nullptr;
+    const Physics::PhysicsBodyStore& bodyStore;
+    const Physics::ColliderStore& colliderStore;
+    std::span<const Rendering::RenderInstancePresentationRecord> presentation;
+};
+
+// Read-only publications used to pick a velocity-edit target. Mutable physics
+// remains an explicit operand of TickVelocityEditInput.
+struct ReplayVelocityEditInputSources
+{
+    const ReplaySolverFrameSample* currentSolverSample = nullptr;
+    const SceneEntityStore& entities;
+    std::span<const Rendering::RenderInstancePresentationRecord> presentation;
 };
 
 struct ReplayVelocityEditDragStart
@@ -197,51 +220,26 @@ class ReplayAuthoring
                              int& outCameraFocusedRow );
     bool TickCauseTreeInput( ReplayPresentation& presentationOwner,
                              ReplayScrubber& scrubberOwner,
-                             const RunReplayPredictionState& prediction,
-                             std::span<const RunReplayPredictionFrame> activePredictionFrames,
-                             const ReplaySolverFrameSample* currentSolverSample,
-                             bool uiBlocksMouse,
-                             int wheelDelta,
+                             const ReplayCauseTreeInputSources& sources,
+                             const ReplayWorkspaceFrameInput& input,
                              InputRouter& inputRouter,
                              RuntimeInteractionController& interaction,
-                             const Physics::PhysicsBodyStore& bodyStore,
-                             const Physics::ColliderStore& colliderStore,
-                             std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                              Environment::CameraCollection* cameras,
                              Geometry::Terrain* terrain,
                              RunCameraState& camera,
                              RunMousePickupState& mousePickup,
-                             RunCameraMode normalizedCurrentMode,
-                             RunCameraMode normalizedRestoreMode,
-                             bool attachedFollow,
-                             bool directorGrabbed,
-                             bool editorModeEnabled,
-                             int screenWidth,
-                             int screenHeight,
                              bool& outEnterInteractive );
     bool TickVelocityEditInput( ReplayPresentation& presentationOwner,
                                 ReplayScrubber& scrubberOwner,
-                                const ReplaySolverFrameSample* currentSolverSample,
-                                bool uiBlocksMouse,
-                                const ReplayPathPickInput& pointerRay,
+                                const ReplayVelocityEditInputSources& sources,
+                                const ReplayWorkspaceFrameInput& input,
                                 InputRouter& inputRouter,
                                 RuntimeInteractionController& interaction,
                                 Physics::PhysicsEngine& physics,
-                                const SceneEntityStore& entities,
-                                std::span<const Rendering::RenderInstancePresentationRecord> presentation,
                                 Environment::CameraCollection* cameras,
                                 Geometry::Terrain* terrain,
                                 RunCameraState& camera,
                                 RunMousePickupState& mousePickup,
-                                RunCameraMode normalizedCurrentMode,
-                                RunCameraMode normalizedRestoreMode,
-                                bool attachedFollow,
-                                bool directorGrabbed,
-                                bool editorModeEnabled,
-                                bool scenePhysicsEnabled,
-                                int screenWidth,
-                                int screenHeight,
-                                double now,
                                 bool& outEnterInteractive );
     ReplayKeyboardVelocityEditResult ApplyKeyboardVelocityEdit( const ReplayKeyboardVelocityEditInput& input,
                                                                 ReplayScrubber& scrubberOwner,

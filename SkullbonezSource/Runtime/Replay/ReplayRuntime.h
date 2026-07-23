@@ -404,42 +404,26 @@ class ReplayRuntime
     bool SavePresentationFromScrubber( double now );
     // Applies the visible replay-owner and host-camera reaction after a
     // successful ReplayTimeline load; this operation performs no file I/O.
-    void ActivateLoadedPresentationScrubber( double now,
+    void ActivateLoadedPresentationScrubber( const ReplayLoadedPresentationActivationRequest& request,
                                              InputRouter& inputRouter,
                                              RuntimeInteractionController& interaction,
                                              Environment::CameraCollection* cameras,
                                              Geometry::Terrain* terrain,
                                              RunCameraState& camera,
-                                             RunMousePickupState& mousePickup,
-                                             RunCameraMode normalizedCurrentMode,
-                                             RunCameraMode normalizedRestoreMode,
-                                             bool attachedFollow,
-                                             bool directorGrabbed );
+                                             RunMousePickupState& mousePickup );
     void ClearCameraFocusForRestore();
     ReplayPathPickResult ApplyPathPick( const ReplayPathPickInput& input,
                                         const SceneEntityStore& entities,
                                         const Physics::PhysicsBodyStore& bodyStore,
                                         const Physics::ColliderStore& colliderStore,
                                         std::span<const Rendering::RenderInstancePresentationRecord> presentation );
-    bool TickScrubberInput( HWND hwnd,
-                            bool uiBlocksMouse,
+    bool TickScrubberInput( const ReplayWorkspaceFrameInput& input,
                             InputRouter& inputRouter,
                             RuntimeInteractionController& interaction,
                             Environment::CameraCollection* cameras,
                             Geometry::Terrain* terrain,
                             RunCameraState& camera,
                             RunMousePickupState& mousePickup,
-                            RunCameraMode normalizedCurrentMode,
-                            RunCameraMode normalizedRestoreMode,
-                            bool attachedFollow,
-                            bool directorGrabbed,
-                            bool editorModeEnabled,
-                            bool scenePhysicsEnabled,
-                            bool uiVisible,
-                            bool uiMinimized,
-                            int screenWidth,
-                            int screenHeight,
-                            double now,
                             bool& outEnterInteractive,
                             ReplayLiveRestoreRequest& outRestoreRequest );
 
