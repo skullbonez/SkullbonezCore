@@ -11,24 +11,23 @@ plan inventory.
 | Field | Value |
 |---|---|
 | Branch | `nightrunner-23rd-JUL-26` |
-| Current baseline | Source-blemish B3 is complete: dishonest `Run*` files and the four ruled residue types now carry their real owner names. Legacy remains the development default. |
-| Current objective | Continue `source-blemish-remediation` with B4 Core/Rendering profiler implementation placement. |
-| Active/future progress | 3/16 registered architecture follow-up tasks; 19%. |
+| Current baseline | Source-blemish B4 is complete: Core profiler state/history now lives in Core, while GPU timing and overlay presentation stay in Rendering. Legacy remains the development default. |
+| Current objective | Continue `source-blemish-remediation` with B5's owner-optional `ImGuiEditorOwner.cpp` translation-unit split decision. |
+| Active/future progress | 4/16 registered architecture follow-up tasks; 25%. |
 | UI ruling | Legacy remains the default. ImGui is explicit `--dev-ui imgui`; atomic hot swap is allowed, simultaneous Legacy/ImGui activation is forbidden. |
-| Last broad local gate | B3 `validate_full` passes in 246.07 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
-| Validation for current edits | B3 Debug build, 123/123 source/tool comment audit, project/allocation proofs, full gate, and one-invocation replay visual-fidelity gate pass. |
+| Last broad local gate | B4 `validate_full` passes in 170.04 s: CPU/coverage umbrella, five runtime lanes, accepted DX12 images, zero DX12 errors, and byte-exact 44,401-line physics CSV. |
+| Validation for current edits | B4 Debug build, 4/4 source/tool comment audit, project/dependency proofs, fast/full gates, and the bounded platform-marker probe pass. |
 
 ## Live Queue
 
-NOW. `source-blemish-remediation` is active at 3/6. B3 physically renames 13
-misleading implementation/header paths, including the newly discovered
-`RunInput.cpp`, and gives `EditorTracer`, `CameraControlState`,
-`OverlayDebugState`, and `SceneSessionState` their real owner names. No alias
-or forwarding header remains; the remaining `Run*` files either define `Run`
-or match direct Run-owned launch/startup values. The 123/123 comment audit,
-lexical equivalence proof, project/allocation checks, broad gate, byte-exact
-physics CSV, and one-invocation replay fidelity gate pass. B4 profiler
-placement is next.
+NOW. `source-blemish-remediation` is active at 4/6. B4 splits the former mixed
+profiler unit into `Core/Profiler.cpp` and
+`Rendering/RenderProfilerPresentation.cpp`: all Core marker/history/worker
+definitions are now physically in Core, and Rendering retains only GPU timing,
+counter publication, and overlays. Core has no upward include. The 4/4 comment
+audit, project/dependency checks, Debug build, fast/full gates, byte-exact
+physics CSV, and bounded platform-marker probe pass. B5's owner-optional
+development-tools TU split is next.
 
 NOW. `wide-signature-parameter-bag-remediation` is complete (6/6).
 The owner rejected replacements such as `RenderModelPassInput` that merely

@@ -1458,7 +1458,7 @@ navigation model).
 
 | Plan | State | Verified phase count | Start condition / next action |
 |---|---|---:|---|
-| [source-blemish-remediation](TODO/source-blemish-remediation.md) | In progress | 3/6 | B3 retires all dishonest `Run*` files/types with full/replay gates; B4 moves the Core profiler implementation out of Rendering |
+| [source-blemish-remediation](TODO/source-blemish-remediation.md) | In progress | 4/6 | B4 puts Core profiler history in Core and renderer timing/presentation in Rendering; B5 decides and executes the development-tools TU split |
 | [ui-runtime-separation](TODO/ui-runtime-separation.md) | Registered | 0/5 | Starts after source-blemish-remediation B3 renames land; U1 moves the UI-owned navigation model out of Runtime/Scene |
 | [runtime-package-decomposition](TODO/runtime-package-decomposition.md) | Registered | 0/5 | Starts after ui-runtime-separation closes; R1 top-level census and ratified package map |
 

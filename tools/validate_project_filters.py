@@ -244,8 +244,8 @@ DX12_RENDERING_PREFIXES = (
 
 RENDERING_PREFIXES = (
     "DrawCallTrace",
-    "ProfilerImplementation",
     "ProfilerOverlayPresenter",
+    "RenderProfilerPresentation",
     "RenderInstanceRenderer",
     "Helper",
     "IRenderBackend",

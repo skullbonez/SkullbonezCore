@@ -16,7 +16,8 @@ reconciled, and E17 regenerated and re-inspected this complete union.
 
 ## Core and physics
 
-- [x] `SkullbonezSource/Rendering/ProfilerImplementation.cpp`
+- [x] `SkullbonezSource/Core/Profiler.cpp`
+- [x] `SkullbonezSource/Rendering/RenderProfilerPresentation.cpp`
 - [x] `SkullbonezSource/Core/Profiler.h`
 - [x] `SkullbonezSource/Core/WorkerPool.cpp`
 - [x] `SkullbonezSource/Physics/PhysicsWorld.cpp`

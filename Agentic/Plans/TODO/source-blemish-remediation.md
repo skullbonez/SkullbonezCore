@@ -4,7 +4,7 @@ Date: 2026-07-23
 Status: IN PROGRESS — drafted from the 2026-07-23 from-source architecture review of
 `nightrunner-22nd-JUL-26`. Registered in `MASTER-PLAN.md` on 2026-07-23 as
 plan 1 of the Architecture Follow-Up Campaign Round 3; starts after
-`wide-signature-parameter-bag-remediation` closes. 3/6 phases complete.
+`wide-signature-parameter-bag-remediation` closes. 4/6 phases complete.
 Impact area: Physics store layout, physics step API, Runtime editor file
 naming, profiler unit placement, development-tools TU size
 Owner: physics + runtime
@@ -227,7 +227,7 @@ seams.
   generation, the full 2,401-tick oracle, and every negative control. No
   baseline, golden, schema, config, or runtime behavior changed.
 
-- [ ] **B4 — Put the profiler implementation where it lives.**
+- [x] **B4 — Put the profiler implementation where it lives.**
   Split `Rendering/ProfilerImplementation.cpp`: the Core marker/history/
   hierarchy implementation moves to `Core/Profiler.cpp`; the renderer-side
   GPU-timing bracket, counter publication, and overlay presentation stay in
@@ -239,6 +239,31 @@ seams.
   `Core/Profiler.h`'s implementation is findable in Core; Rendering retains
   only renderer-owned profiler behavior; the platform-profiler-markers run
   passes.
+
+  Completed 2026-07-23. The mixed 2,087-line unit is physically split into
+  `Core/Profiler.cpp` (1,257 lines) and
+  `Rendering/RenderProfilerPresentation.cpp` (873 lines). All 48 Core
+  profiler/worker definitions now live beside `Profiler.h`; the six concrete
+  GPU-timing and overlay definitions remain in Rendering. The method bodies
+  were transferred mechanically: marker paths, hashes, nesting, Tracy zones,
+  warmup/history math, renderer counter publication, and no-op build behavior
+  are unchanged. Production and test projects compile both owning units.
+
+  Direct ownership scans find zero renderer-owned definitions in the Core unit
+  and zero Core-owned definitions in the Rendering unit. The Core dependency
+  proof returns zero rows. Project/filter validation passes with 746/746 items,
+  and the final Debug solution build passes in 3.78 s. The four touched
+  source/substantial-tool files pass the comment audit (4/4, zero deferrals).
+
+  `tools\validate_fast.bat` passes in 76.59 s. Final
+  `tools\validate_full.bat` passes in 170.04 s with zero-warning builds, all
+  CPU/runtime lanes, zero DX12 validation errors, accepted captures, and the
+  byte-exact 44,401-line physics CSV. The exact bare marker flag confirms
+  marker emission is enabled but remains an interactive launch; PID 64428 was
+  stopped by PID at the 120-second evidence bound. The deterministic
+  `Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers --frames 2` probe
+  exits 0 in 1.26 s with marker emission requested and enabled. No baseline,
+  golden, schema, config, allocation policy, or runtime behavior changed.
 
 - [ ] **B5 — Split `ImGuiEditorOwner.cpp` along its policy seams
   (owner-optional).** Development-tools builds only. Use the existing

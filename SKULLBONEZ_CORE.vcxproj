@@ -487,7 +487,8 @@ copy /Y "$(WindowsSdkDir)Redist\D3D\x64\dxil.dll" "$(OutDir)dxil.dll" &gt;nul</C
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Scene\AuthoredSceneParserRuntime.cpp" />
     <ClCompile Include="SkullbonezSource\Core\PlatformProfiler.cpp" />
-    <ClCompile Include="SkullbonezSource\Rendering\ProfilerImplementation.cpp" />
+    <ClCompile Include="SkullbonezSource\Core\Profiler.cpp" />
+    <ClCompile Include="SkullbonezSource\Rendering\RenderProfilerPresentation.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderInstanceStore.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderGraph.cpp" />
     <ClCompile Include="SkullbonezSource\Rendering\RenderPipeline.cpp" />
